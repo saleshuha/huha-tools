@@ -65,6 +65,17 @@ export class QZConnectionManager {
 
       console.log('📡 QZ script found, attempting direct connection...');
       
+      // Initialize QZ security with simplified approach
+      if (!window.qz.security.isSigningEnabled()) {
+        console.log('🔐 Setting up QZ security...');
+        window.qz.security.setSignatureMethod(function(toSign: string) {
+          return window.qz.security.signRequest(toSign, '');
+        });
+        window.qz.security.setCertificateMethod(function(resolve: Function) {
+          resolve('');
+        });
+      }
+      
       // Use the global qz object directly with simpler connection
       if (!window.qz.websocket.isActive()) {
         await new Promise((resolve, reject) => {
@@ -158,7 +169,26 @@ export class QZConnectionManager {
         throw new Error('QZ Tray not connected');
       }
     }
-    return QZTrayPrinter.printZPL(zplCode, { printerName });
+    
+    try {
+      // Print directly using QZ without the wrapper
+      const printer = printerName || await this.getDefaultPrinter();
+      if (!printer) {
+        throw new Error('No printer available');
+      }
+      
+      const config = window.qz.configs.create(printer);
+      const data = [{
+        type: 'raw',
+        format: 'plain',
+        data: zplCode
+      }];
+      
+      return await window.qz.print(config, data);
+    } catch (error) {
+      console.error('❌ Direct print failed:', error);
+      throw new Error(`Print failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   getConnectionStatus(): boolean {
