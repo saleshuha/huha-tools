@@ -13,7 +13,8 @@ import {
   Image as ImageIcon,
   AlignLeft,
   AlignCenter,
-  AlignRight
+  AlignRight,
+  AlignJustify
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -72,6 +73,15 @@ export const LeftToolbox: React.FC = () => {
           ...baseProps
         });
         break;
+      case 'multitext':
+        addElement({
+          type: 'multitext',
+          text: 'Sample\nMulti-line\nText',
+          width: 120,
+          height: 60,
+          ...baseProps
+        });
+        break;
       case 'qr':
         addElement({
           type: 'qr',
@@ -87,6 +97,7 @@ export const LeftToolbox: React.FC = () => {
 
   const elements = [
     { type: 'text', label: 'Text', icon: Type, description: 'Add text element' },
+    { type: 'multitext', label: 'Multi-line', icon: AlignJustify, description: 'Add multi-line text element' },
     { type: 'rectangle', label: 'Rectangle', icon: Square, description: 'Add rectangle shape' },
     { type: 'circle', label: 'Circle', icon: Circle, description: 'Add circle shape' },
     { type: 'barcode', label: 'Barcode', icon: BarChart3, description: 'Add barcode element' },
