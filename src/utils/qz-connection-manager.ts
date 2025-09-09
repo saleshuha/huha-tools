@@ -74,23 +74,6 @@ export class QZConnectionManager {
         throw new Error('QZ Tray script not loaded');
       }
 
-      // Only set up security if not already initialized globally
-      if (!this.securityInitialized) {
-        console.log('⚠️ Security not initialized globally, setting up locally...');
-        
-        window.qz.security.setCertificatePromise(function(resolve: any, reject: any) {
-          resolve(); // Always resolve for unsigned access
-        });
-
-        window.qz.security.setSignaturePromise(function(toSign: any) {
-          return function(resolve: any, reject: any) {
-            resolve(); // Always resolve immediately for unsigned access
-          };
-        });
-        
-        this.securityInitialized = true;
-      }
-
       // Connect to QZ WebSocket - don't disconnect if already active
       if (!window.qz.websocket.isActive()) {
         let retries = 3;
