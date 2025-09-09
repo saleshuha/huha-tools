@@ -14,7 +14,7 @@ import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, Trend
 import { useToast } from '@/hooks/use-toast';
 import { POFileUpload } from '@/components/po/POFileUpload';
 import { POProfitAnalytics } from '@/components/po/POProfitAnalytics';
-import { qzConnectionManager } from '@/utils/qz-connection-manager';
+import QZTrayPrinter from '@/utils/qz-tray-printer';
 import { usePOOrders } from '@/hooks/usePOOrders';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useCountry } from '@/contexts/CountryContext';
@@ -72,46 +72,11 @@ export const POTracker = () => {
   const [selectedForPrint, setSelectedForPrint] = useState<Set<string>>(new Set());
   const [printCopiesByQuantity, setPrintCopiesByQuantity] = useState(true);
   
+  // QZ Tray state
   const [qzConnected, setQzConnected] = useState(false);
   const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
   const [selectedPrinter, setSelectedPrinter] = useState<string>('');
   const [isPrinting, setIsPrinting] = useState(false);
-
-  useEffect(() => {
-    // Set up connection listener
-    const handleConnectionChange = (connected: boolean) => {
-      setQzConnected(connected);
-      if (connected) {
-        loadPrinters();
-      } else {
-        setAvailablePrinters([]);
-      }
-    };
-
-    qzConnectionManager.addConnectionListener(handleConnectionChange);
-
-    return () => {
-      qzConnectionManager.removeConnectionListener(handleConnectionChange);
-    };
-  }, []);
-
-  const loadPrinters = async () => {
-    try {
-      const printers = await qzConnectionManager.getPrinters();
-      setAvailablePrinters(printers);
-      
-      // Set default printer
-      const defaultPrinter = await qzConnectionManager.getDefaultPrinter();
-      if (defaultPrinter) {
-        setSelectedPrinter(defaultPrinter);
-      } else if (printers.length > 0) {
-        setSelectedPrinter(printers[0]);
-      }
-    } catch (error) {
-      console.error('Failed to load printers:', error);
-      setAvailablePrinters([]);
-    }
-  };
   
   const { poOrders, isLoading, fetchPOOrders, processPOFiles, deletePOOrders } = usePOOrders();
   const { profile } = useUserProfile();
@@ -186,13 +151,14 @@ export const POTracker = () => {
 
   const initializeQZ = async () => {
     try {
-      const connected = await qzConnectionManager.connect();
+      const connected = await QZTrayPrinter.connect();
       if (connected) {
-        const printers = await qzConnectionManager.getPrinters();
+        setQzConnected(true);
+        const printers = await QZTrayPrinter.getPrinters();
         setAvailablePrinters(printers);
         
         // Set default printer
-        const defaultPrinter = await qzConnectionManager.getDefaultPrinter();
+        const defaultPrinter = await QZTrayPrinter.getDefaultPrinter();
         if (defaultPrinter) {
           setSelectedPrinter(defaultPrinter);
         } else if (printers.length > 0) {
@@ -206,6 +172,7 @@ export const POTracker = () => {
       }
     } catch (error) {
       console.error('Failed to connect to QZ Tray:', error);
+      setQzConnected(false);
     }
   };
 
@@ -322,20 +289,10 @@ export const POTracker = () => {
       }
 
       // Print all labels
-      if (allZPLCodes.length === 0) {
-        throw new Error("No labels generated");
-      }
-
-      if (!selectedPrinter) {
-        throw new Error("No printer selected");
-      }
-
       if (allZPLCodes.length === 1) {
-        await qzConnectionManager.print(allZPLCodes[0], selectedPrinter);
-      } else if (allZPLCodes.length > 0) {
-        // Concatenate multiple ZPL codes for batch printing
-        const combinedZPL = allZPLCodes.join('\n');
-        await qzConnectionManager.print(combinedZPL, selectedPrinter);
+        await QZTrayPrinter.printZPL(allZPLCodes[0], { printerName: selectedPrinter });
+      } else {
+        await QZTrayPrinter.printMultipleZPL(allZPLCodes, { printerName: selectedPrinter });
       }
 
       toast({

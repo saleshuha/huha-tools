@@ -18,7 +18,6 @@ import { CountrySwitcher } from "@/components/CountrySwitcher";
 import { BackgroundTasksPanel } from "@/components/BackgroundTasksPanel";
 import { ThemeColorWidget } from "@/components/theme/ThemeColorWidget";
 import { Button } from "@/components/ui/button";
-import { QZTrayStatus } from "@/components/QZTrayStatus";
 import { Activity } from "lucide-react";
 import Index from "./pages/Index";
 
@@ -60,7 +59,6 @@ import LabelDesigner from "./pages/LabelDesigner";
 import NoonOrderTrackingPage from "./pages/NoonOrderTracking";
 import NoonOrderProcessingPage from "./pages/NoonOrderProcessing";
 import PreviewSettings from "./pages/PreviewSettings";
-import QZTrayPage from "./pages/QZTrayPage";
 
 import { useState as useReactState } from "react";
 import { useToast } from "@/components/ui/use-toast";
@@ -218,17 +216,16 @@ const App = () => {
                         <div className="flex-1 flex justify-center">
                           <span className="text-xs font-medium text-muted-foreground">اللَّهُمَّ صل عَلَى مُحَمَّدٍ وَعَلَى آلِ مُحَمَّدٍ</span>
                         </div>
-                         <div className="flex items-center gap-2">
-                           <QZTrayStatus />
-                           <Button
-                             variant="outline"
-                             size="sm"
-                             onClick={() => setShowBackgroundTasks(true)}
-                             className="flex items-center gap-2"
-                           >
-                             <Activity className="h-4 w-4" />
-                             Tasks
-                           </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowBackgroundTasks(true)}
+                            className="flex items-center gap-2"
+                          >
+                            <Activity className="h-4 w-4" />
+                            Tasks
+                          </Button>
                           <ThemeColorWidget />
                           <CountrySwitcher />
                         </div>
@@ -271,7 +268,6 @@ const App = () => {
                          <Route path="/noon-order-tracking" element={<NoonOrderTrackingPage />} />
                          <Route path="/amazon-fulfillment" element={<AmazonFulfillmentTracker />} />
                          <Route path="/label-designer" element={<LabelDesigner />} />
-                         <Route path="/qz-tray" element={<QZTrayPage />} />
 
                         {/* Desktop-only Routes - Hide in native app */}
                         {!isNative && (

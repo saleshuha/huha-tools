@@ -11,7 +11,6 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameM
 import { useTasks } from "@/hooks/useTasks";
 import { useCountry } from "@/contexts/CountryContext";
 import { HuhaHeader01 } from "@/components/ui/huha-header-01";
-import { QZTrayStatus } from "@/components/QZTrayStatus";
 
 interface LocalTask {
   id: string;
@@ -149,11 +148,6 @@ const Homepage = () => {
                 </div>)}
             </div>
           </div>}
-
-        {/* QZ Tray Status Panel */}
-        <div className="mx-6 mb-4 flex-shrink-0">
-          <QZTrayStatus />
-        </div>
 
         {/* Enhanced Calendar */}
         <div className="flex-1 p-4 overflow-hidden">

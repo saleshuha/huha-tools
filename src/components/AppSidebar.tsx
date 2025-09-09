@@ -1,4 +1,4 @@
-import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart, Globe, ExternalLink, Eye, Trash2, Settings, Tag, FileSpreadsheet, Truck, Palette, ShoppingBag, Printer } from "lucide-react"
+import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart, Globe, ExternalLink, Eye, Trash2, Settings, Tag, FileSpreadsheet, Truck, Palette, ShoppingBag } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import { Capacitor } from "@capacitor/core"
@@ -288,31 +288,6 @@ export function AppSidebar() {
                     {!isCollapsed && (
                       <span className="font-medium text-sm">
                         Sales & Replenishment
-                      </span>
-                    )}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
-              {/* QZ Tray Setup */}
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild
-                  className={`group relative w-full rounded-md transition-all duration-200 ${
-                    isActive("/qz-tray")
-                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
-                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
-                  }`}
-                >
-                  <NavLink 
-                    to="/qz-tray" 
-                    end
-                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
-                  >
-                    <Printer className="h-4 w-4 flex-shrink-0" />
-                    {!isCollapsed && (
-                      <span className="font-medium text-sm">
-                        QZ Tray Setup
                       </span>
                     )}
                   </NavLink>
