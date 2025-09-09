@@ -120,6 +120,28 @@ export function QZTrayStatus() {
     }
   };
 
+  const testPrint = async (printerName: string) => {
+    try {
+      const testZpl = `^XA
+^CF0,30
+^FO50,50^FDTest Print - ${new Date().toLocaleTimeString()}^FS
+^FO50,100^FDPrinter: ${printerName}^FS
+^XZ`;
+      
+      await qzConnectionManager.print(testZpl, printerName);
+      toast({
+        title: "Test Print Sent",
+        description: `Test label sent to ${printerName}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Test Print Failed", 
+        description: "Could not send test print to printer",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Connection Status */}
@@ -128,103 +150,141 @@ export function QZTrayStatus() {
           {isConnected ? (
             <>
               <CheckCircle className="h-5 w-5 text-success" />
-              <span className="font-medium">Connected</span>
-              <Badge variant="secondary" className="bg-success/10 text-success border-success/20">
-                Active
-              </Badge>
+              <span className="font-medium">QZ Tray Status</span>
             </>
           ) : (
             <>
               <AlertCircle className="h-5 w-5 text-destructive" />
-              <span className="font-medium">Disconnected</span>
-              <Badge variant="outline" className="border-destructive/20 text-destructive">
-                Offline
-              </Badge>
+              <span className="font-medium">QZ Tray Status</span>
             </>
           )}
         </div>
         
-        <div className="flex gap-2">
-          {isConnected && (
-            <Button
-              onClick={() => loadPrinters(true)}
-              disabled={isLoadingPrinters}
-              size="sm"
-              variant="outline"
-              className="gap-2"
-            >
-              {isLoadingPrinters ? (
-                <RefreshCw className="h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4" />
-              )}
-              Refresh
-            </Button>
-          )}
-          
+        <div className="flex gap-2">          
           <Button
             onClick={handleConnect}
-            disabled={isConnecting || isConnected}
+            disabled={isConnecting}
             size="sm"
             className="gap-2"
+            variant={isConnected ? "outline" : "default"}
           >
             {isConnecting ? (
               <RefreshCw className="h-4 w-4 animate-spin" />
             ) : (
               <Zap className="h-4 w-4" />
             )}
-            {isConnecting ? 'Connecting...' : isConnected ? 'Connected' : 'Connect'}
+            {isConnecting ? 'Connecting...' : isConnected ? 'Reconnect' : 'Connect'}
           </Button>
         </div>
       </div>
 
-      {/* Printers List */}
+      {/* Status Badge */}
+      <div className="flex items-center gap-2">
+        {isConnected ? (
+          <Badge variant="secondary" className="bg-success/10 text-success border-success/20">
+            <CheckCircle className="h-3 w-3 mr-1" />
+            Connected & Ready
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="border-destructive/20 text-destructive">
+            <AlertCircle className="h-3 w-3 mr-1" />
+            Disconnected
+          </Badge>
+        )}
+      </div>
+
+      {/* Enhanced Status Display */}
       {isConnected && (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Printer className="h-4 w-4" />
-            <span className="font-medium">Available Printers ({printers.length})</span>
-            {isLoadingPrinters && (
-              <RefreshCw className="h-3 w-3 animate-spin text-muted-foreground" />
-            )}
-          </div>
-          
-          {error ? (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                {error.includes('TRUST_ERROR') ? (
-                  <div className="space-y-2">
-                    <p>QZ Tray blocked unsigned access.</p>
-                    <p className="text-sm">
-                      Click "Allow" in the QZ Tray popup and check "Remember this decision", then press Refresh.
-                    </p>
-                  </div>
+        <div className="space-y-4">
+          {/* QZ Tray Status Section */}
+          <div className="bg-success/10 border border-success/20 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-success" />
+                <span className="font-medium text-success">QZ Tray Active</span>
+                <Badge variant="secondary" className="bg-success/10 text-success border-success/20">
+                  Connected
+                </Badge>
+              </div>
+              <Button
+                onClick={() => loadPrinters(true)}
+                disabled={isLoadingPrinters}
+                size="sm"
+                variant="outline"
+                className="gap-2 border-success/30 text-success hover:bg-success/10"
+              >
+                {isLoadingPrinters ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
                 ) : (
-                  error
+                  <RefreshCw className="h-4 w-4" />
                 )}
-              </AlertDescription>
-            </Alert>
-          ) : printers.length > 0 ? (
-            <div className="space-y-1">
-              {printers.map((printer, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-2 p-2 bg-muted rounded-md"
-                >
-                  <Printer className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{printer}</span>
-                </div>
-              ))}
+                Refresh Status
+              </Button>
             </div>
-          ) : (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                No printers found. Make sure your printers are installed and accessible, then click Refresh.
-              </AlertDescription>
-            </Alert>
-          )}
+            
+            {/* Printer Status */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Printer className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">Printers ({printers.length} found)</span>
+                {isLoadingPrinters && (
+                  <RefreshCw className="h-3 w-3 animate-spin text-muted-foreground" />
+                )}
+              </div>
+              
+              {error ? (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    {error.includes('TRUST_ERROR') ? (
+                      <div className="space-y-2">
+                        <p>QZ Tray blocked unsigned access.</p>
+                        <p className="text-sm">
+                          Click "Allow" in the QZ Tray popup and check "Remember this decision", then press Refresh Status.
+                        </p>
+                      </div>
+                    ) : (
+                      error
+                    )}
+                  </AlertDescription>
+                </Alert>
+              ) : printers.length > 0 ? (
+                <div className="space-y-1">
+                  {printers.map((printer, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between gap-2 p-3 bg-muted/50 rounded-md border"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Printer className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">{printer}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-xs bg-success/10 text-success border-success/20">
+                          Ready
+                        </Badge>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="h-6 px-2 text-xs"
+                          onClick={() => testPrint(printer)}
+                        >
+                          Test Print
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    No printers found. Make sure your printers are installed and accessible, then click Refresh Status.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
