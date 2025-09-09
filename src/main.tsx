@@ -6,7 +6,7 @@ import './index.css'
 declare global {
   interface Window {
     qz: any;
-    qzTrusted?: boolean; // Track trust status
+    qzSecurityInitialized?: boolean; // Track if security is initialized
   }
 }
 
@@ -15,28 +15,30 @@ function initializeQZTray() {
   // Wait for QZ Tray script to load
   const checkQZ = () => {
     if (typeof window.qz !== 'undefined') {
+      // Check if already initialized to prevent duplicate setup
+      if (window.qzSecurityInitialized) {
+        console.log('🔧 QZ Tray security already initialized, skipping...');
+        return;
+      }
+
       console.log('🔧 Setting up global QZ Tray security...');
       
       // Set certificate promise ONCE globally
-      if (!window.qz.security.getCertificatePromise()) {
-        window.qz.security.setCertificatePromise(function(resolve: any, reject: any) {
-          console.log('📜 QZ Certificate requested (auto-approve)');
-          resolve(); // Always resolve for unsigned access
-        });
-      }
+      window.qz.security.setCertificatePromise(function(resolve: any, reject: any) {
+        console.log('📜 QZ Certificate requested (auto-approve)');
+        resolve(); // Always resolve for unsigned access
+      });
 
       // Set signature promise ONCE globally  
-      if (!window.qz.security.getSignaturePromise()) {
-        window.qz.security.setSignaturePromise(function(toSign: any) {
-          return function(resolve: any, reject: any) {
-            // Always resolve immediately without dialog
-            resolve();
-          };
-        });
-      }
+      window.qz.security.setSignaturePromise(function(toSign: any) {
+        return function(resolve: any, reject: any) {
+          // Always resolve immediately without dialog
+          resolve();
+        };
+      });
 
-      // Mark as trusted globally
-      window.qzTrusted = true;
+      // Mark as initialized globally
+      window.qzSecurityInitialized = true;
 
       // Import and notify the connection manager that security is set up globally
       import('./utils/qz-connection-manager.ts').then(({ qzConnectionManager }) => {
