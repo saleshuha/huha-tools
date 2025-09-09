@@ -14,8 +14,6 @@ import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, Trend
 import { useToast } from '@/hooks/use-toast';
 import { POFileUpload } from '@/components/po/POFileUpload';
 import { POProfitAnalytics } from '@/components/po/POProfitAnalytics';
-import { ProductImageManager } from '@/components/ProductImageManager';
-import { useProductImages } from '@/hooks/useProductImages';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { usePOOrders } from '@/hooks/usePOOrders';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -152,7 +150,6 @@ export const POTracker = () => {
   const { selectedCountry } = useCountry();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { getImageByAsin } = useProductImages();
 
   // Delete all PO orders for fresh upload
   const handleDeleteAllPO = async () => {
@@ -740,7 +737,7 @@ export const POTracker = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 h-12 bg-gradient-subtle rounded-xl shadow-elegant p-1 border border-border/20">
+        <TabsList className="grid w-full grid-cols-3 h-12 bg-gradient-subtle rounded-xl shadow-elegant p-1 border border-border/20">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <Package className="h-4 w-4" />
             PO Overview
@@ -748,10 +745,6 @@ export const POTracker = () => {
           <TabsTrigger value="upload" className="flex items-center gap-2">
             <FileUp className="h-4 w-4" />
             Uploads
-          </TabsTrigger>
-          <TabsTrigger value="images" className="flex items-center gap-2">
-            <ImageIcon className="h-4 w-4" />
-            Images
           </TabsTrigger>
           <TabsTrigger value="labels" className="flex items-center gap-2">
             <Printer className="h-4 w-4" />
@@ -1016,35 +1009,11 @@ export const POTracker = () => {
                         {paginatedDetailedOrders.map((order) => (
                           <TableRow key={order.id}>
                             <TableCell>
-                              {order.asin ? (
-                                (() => {
-                                  const productImage = getImageByAsin(order.asin);
-                                   return productImage ? (
-                                     <img
-                                       src={productImage.image_url}
-                                       alt={productImage.image_name || order.asin}
-                                       className="w-10 h-10 object-cover rounded border"
-                                       onError={(e) => {
-                                         const target = e.currentTarget;
-                                         target.style.display = 'none';
-                                         target.parentElement!.innerHTML = '<svg class="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>';
-                                       }}
-                                     />
-                                   ) : (
-                                     <div className="w-10 h-10 bg-muted rounded border flex items-center justify-center">
-                                       <svg className="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                       </svg>
-                                     </div>
-                                   );
-                                })()
-                              ) : (
-                                 <div className="w-10 h-10 bg-muted rounded border flex items-center justify-center">
-                                   <svg className="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                   </svg>
-                                 </div>
-                              )}
+                              <div className="w-10 h-10 bg-muted rounded border flex items-center justify-center">
+                                <svg className="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                              </div>
                             </TableCell>
                             <TableCell className="font-medium">
                               <Button 
@@ -1252,10 +1221,6 @@ export const POTracker = () => {
               }} isLoading={isLoading} />
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="images" className="space-y-6">
-          <ProductImageManager />
         </TabsContent>
 
         <TabsContent value="labels" className="space-y-6">
@@ -1845,39 +1810,13 @@ export const POTracker = () => {
                                    className="h-4 w-4 rounded border-border"
                                  />
                                </TableCell>
-                                <TableCell>
-                                  {order.asin ? (
-                                    (() => {
-                                      const productImage = getImageByAsin(order.asin);
-                                      return (
-                                        <div className="w-10 h-10 rounded border bg-muted flex items-center justify-center overflow-hidden">
-                                          {productImage?.image_url ? (
-                                            <img
-                                              src={productImage.image_url}
-                                              alt={productImage.image_name || order.asin}
-                                              className="w-full h-full object-cover"
-                                              onError={(e) => {
-                                                const target = e.currentTarget;
-                                                target.style.display = 'none';
-                                                target.parentElement!.innerHTML = '<svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>';
-                                              }}
-                                            />
-                                          ) : (
-                                            <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                            </svg>
-                                          )}
-                                        </div>
-                                      );
-                                    })()
-                                  ) : (
-                                    <div className="w-10 h-10 rounded border bg-muted flex items-center justify-center">
-                                      <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                      </svg>
-                                    </div>
-                                  )}
-                                </TableCell>
+                                 <TableCell>
+                                   <div className="w-10 h-10 rounded border bg-muted flex items-center justify-center">
+                                     <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                     </svg>
+                                   </div>
+                                 </TableCell>
                                  <TableCell className="w-32">
                                    <div className="space-y-1">
                                      {order.sku_code && (

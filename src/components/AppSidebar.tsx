@@ -170,7 +170,7 @@ export function AppSidebar() {
   }
 
   const isAmazonSectionActive = () => {
-    return isActive("/order-processing") || isActive("/po-tracker") || isActive("/amazon-fulfillment") || isActive("/amazon-vendor-central")
+    return isActive("/order-processing") || isActive("/po-tracker") || isActive("/amazon-fulfillment") || isActive("/amazon-vendor-central") || isActive("/amazon-image-uploader")
   }
 
   const isNoonSectionActive = () => {
@@ -407,6 +407,27 @@ export function AppSidebar() {
                         </NavLink>
                       </SidebarMenuButton>
                       
+                      {/* Amazon Image Uploader */}
+                      <SidebarMenuButton
+                        asChild
+                        className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
+                          isActive("/amazon-image-uploader")
+                            ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                            : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                        }`}
+                      >
+                        <NavLink 
+                          to="/amazon-image-uploader" 
+                          end
+                          className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
+                        >
+                          <Upload className="h-4 w-4 flex-shrink-0 opacity-75" />
+                          <span className="font-medium text-xs">
+                            Amazon Image Uploader
+                          </span>
+                        </NavLink>
+                      </SidebarMenuButton>
+
                       {/* Amazon Vendor Central - Hide in native app */}
                       {!isNative && (
                         <SidebarMenuButton

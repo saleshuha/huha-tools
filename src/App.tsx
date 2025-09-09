@@ -49,6 +49,7 @@ import NoonOrderAnalysis from "./pages/NoonOrderAnalysis";
 import ProcessedOrders from "./pages/ProcessedOrders";
 import PODetailsPage from "./pages/PODetails";
 import AmazonFulfillmentTracker from "./pages/AmazonFulfillmentTracker";
+import AmazonImageUploader from "./pages/AmazonImageUploader";
 import AddSKUPage from "./pages/AddSKUPage";
 import BulkColumnEditor from "./pages/BulkColumnEditor";
 import SunskySKUImporterPage from "./pages/SunskySKUImporter";
@@ -270,6 +271,7 @@ const App = () => {
                          <Route path="/noon-order-processing" element={<NoonOrderProcessingPage />} />
                          <Route path="/noon-order-tracking" element={<NoonOrderTrackingPage />} />
                          <Route path="/amazon-fulfillment" element={<AmazonFulfillmentTracker />} />
+                         <Route path="/amazon-image-uploader" element={<AmazonImageUploader />} />
                          <Route path="/label-designer" element={<LabelDesigner />} />
                          <Route path="/qz-tray" element={<QZTrayPage />} />
 
