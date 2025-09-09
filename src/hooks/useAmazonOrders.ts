@@ -77,7 +77,11 @@ export const useAmazonOrders = () => {
   };
 
   const calculateMetrics = (ordersData: Order[]) => {
-    console.log('Calculating metrics for orders:', ordersData.length);
+    console.log('🔍 Overdue Debug - Calculating metrics for orders:', ordersData.length);
+    console.log('🔍 Overdue Debug - Using credit days:', creditDays, 'for country:', selectedCountry);
+    
+    const now = new Date();
+    console.log('🔍 Overdue Debug - Current date for overdue calculation:', now.toDateString());
     
     if (!ordersData || ordersData.length === 0) {
       setMetrics({
@@ -138,8 +142,6 @@ export const useAmazonOrders = () => {
     }, {} as { [key: string]: number });
 
     // Current timestamp for date calculations
-    const now = new Date();
-
     // Pending payments = orders with status "Approved" or "Non-submitted"
     const pendingOrders = ordersData.filter(o => {
       const status = (o.status || '').toLowerCase().trim();
@@ -163,8 +165,8 @@ export const useAmazonOrders = () => {
       order_id: o.order_id, 
       invoice_date: o.invoice_date 
     })));
-    
-    // Overdue payments = pending orders past due date (shipment_date + 60 days < today for UAE)
+
+    // Overdue payments = pending orders past due date (shipment_date + credit days < today)
     const overdueOrders = pendingOrders.filter(o => {
       if (!o.shipment_date) return false;
       
@@ -175,8 +177,14 @@ export const useAmazonOrders = () => {
         dueDate.setDate(dueDate.getDate() + creditDays);
         const isOverdue = dueDate < now;
         
+        // Enhanced logging for debugging
+        console.log(`Order ${o.order_id}: Shipment: ${o.shipment_date}, Due: ${dueDate.toDateString()}, Credit Days: ${creditDays}, Is Overdue: ${isOverdue}`);
+        
         if (isOverdue) {
-          console.log(`Overdue order: ${o.order_id}, Shipment: ${o.shipment_date}, Due: ${dueDate.toDateString()} (${creditDays} days)`);
+          console.log(`✓ OVERDUE: ${o.order_id}, Shipment: ${o.shipment_date}, Due: ${dueDate.toDateString()} (${creditDays} days)`);
+        } else {
+          // Log why it's not overdue for debugging  
+          console.log(`❌ Not overdue: ${o.order_id}, Due: ${dueDate.toDateString()}, Now: ${now.toDateString()}`);
         }
         
         return isOverdue;
@@ -186,6 +194,17 @@ export const useAmazonOrders = () => {
       }
     });
     const overduePayments = overdueOrders.length;
+
+    console.log('🔍 Total overdue orders found:', overdueOrders.length);
+    if (overdueOrders.length > 0) {
+      console.log('🔍 Sample overdue orders:', overdueOrders.slice(0, 3).map(o => ({
+        order_id: o.order_id,
+        shipment_date: o.shipment_date,
+        due_date: new Date(new Date(o.shipment_date).getTime() + (creditDays * 24 * 60 * 60 * 1000)).toDateString()
+      })));
+    } else {
+      console.log('🔍 No overdue orders found. Expected 137 based on database query.');
+    }
 
     // Calculate overdue orders value (convert to USD)
     const overdueValue = overdueOrders.reduce((sum, order) => {
