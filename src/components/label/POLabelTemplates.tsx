@@ -65,7 +65,7 @@ export const POLabelTemplates: React.FC = () => {
         fontWeight: 'bold',
         fontFamily: 'Arial',
         color: '#000000',
-        dataColumn: 'PO Number',
+        dataColumn: 'po_number',
       },
       // Model Number
       {
@@ -90,7 +90,7 @@ export const POLabelTemplates: React.FC = () => {
         fontSize: 9,
         fontFamily: 'Arial',
         color: '#000000',
-        dataColumn: 'Model Number',
+        dataColumn: 'model_number',
       },
       // Title
       {
@@ -103,7 +103,7 @@ export const POLabelTemplates: React.FC = () => {
         fontSize: 9,
         fontFamily: 'Arial',
         color: '#000000',
-        dataColumn: 'Title',
+        dataColumn: 'title',
       },
       // Quantity
       {
@@ -141,7 +141,7 @@ export const POLabelTemplates: React.FC = () => {
         fontFamily: 'Arial',
         color: '#000000',
         textAlign: 'center',
-        dataColumn: 'Quantity',
+        dataColumn: 'quantity',
       },
       // Status
       {
@@ -154,7 +154,31 @@ export const POLabelTemplates: React.FC = () => {
         fontSize: 8,
         fontFamily: 'Arial',
         color: '#f59e0b',
-        dataColumn: 'Status',
+        dataColumn: 'status',
+      },
+      // ASIN
+      {
+        type: 'text',
+        x: 5,
+        y: 142,
+        width: 30,
+        height: 10,
+        text: 'ASIN:',
+        fontSize: 7,
+        fontFamily: 'Arial',
+        color: '#6b7280',
+      },
+      {
+        type: 'text',
+        x: 35,
+        y: 142,
+        width: 80,
+        height: 10,
+        text: 'B01234ABCD',
+        fontSize: 7,
+        fontFamily: 'Arial',
+        color: '#374151',
+        dataColumn: 'asin',
       },
       // Ship To
       {
@@ -205,7 +229,7 @@ export const POLabelTemplates: React.FC = () => {
         fontWeight: 'bold',
         fontFamily: 'Arial',
         color: '#000000',
-        dataColumn: 'Title',
+        dataColumn: 'title',
       },
       // Model Number
       {
@@ -218,7 +242,7 @@ export const POLabelTemplates: React.FC = () => {
         fontSize: 8,
         fontFamily: 'Arial',
         color: '#374151',
-        dataColumn: 'Model Number',
+        dataColumn: 'model_number',
       },
       // Barcode
       {
@@ -230,7 +254,7 @@ export const POLabelTemplates: React.FC = () => {
         text: 'BARCODE_DATA',
         barcodeType: 'CODE128',
         showText: true,
-        dataColumn: 'Model Number',
+        dataColumn: 'model_number',
       },
       // PO Info
       {
@@ -243,7 +267,7 @@ export const POLabelTemplates: React.FC = () => {
         fontSize: 8,
         fontFamily: 'Arial',
         color: '#000000',
-        dataColumn: 'PO Number',
+        dataColumn: 'po_number',
       },
       {
         type: 'text',
@@ -255,7 +279,7 @@ export const POLabelTemplates: React.FC = () => {
         fontSize: 8,
         fontFamily: 'Arial',
         color: '#000000',
-        dataColumn: 'Quantity',
+        dataColumn: 'quantity',
         dataTransform: { prefix: 'Qty: ' },
       },
     ];
