@@ -15,6 +15,7 @@ export function QZTrayStatusIndicator() {
 
   useEffect(() => {
     const handleConnectionChange = (connected: boolean) => {
+      console.log('🔗 QZ Tray connection changed:', connected);
       setIsConnected(connected);
       if (connected) {
         loadPrinters();
@@ -26,29 +27,60 @@ export function QZTrayStatusIndicator() {
 
     qzConnectionManager.addConnectionListener(handleConnectionChange);
     
-    // Initial check
-    if (qzConnectionManager.getConnectionStatus()) {
-      setIsConnected(true);
-      loadPrinters();
-    }
+    // Initial check and force load printers
+    const checkInitialConnection = async () => {
+      const connectionStatus = qzConnectionManager.getConnectionStatus();
+      console.log('📊 Initial QZ Tray connection status:', connectionStatus);
+      
+      if (connectionStatus) {
+        setIsConnected(true);
+        await loadPrintersInitial();
+      } else {
+        // Try to connect silently
+        try {
+          const connected = await qzConnectionManager.connect();
+          if (connected) {
+            setIsConnected(true);
+            await loadPrintersInitial();
+          }
+        } catch (error) {
+          console.log('Silent connection attempt failed:', error);
+        }
+      }
+    };
+    
+    checkInitialConnection();
     
     return () => {
       qzConnectionManager.removeConnectionListener(handleConnectionChange);
     };
   }, []);
 
-  const loadPrinters = async () => {
-    if (!isConnected) {
-      setPrinterCount(0);
-      return;
-    }
-    
+  const loadPrintersInitial = async () => {
     try {
+      console.log('🖨️ Loading printers (initial)...');
       const printerList = await qzConnectionManager.getPrinters();
+      console.log('🖨️ Printers loaded:', printerList.length);
       setPrinterCount(printerList.length);
       setError(null);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('❌ Failed to load printers (initial):', error);
+      setError(errorMessage);
+      setPrinterCount(0);
+    }
+  };
+
+  const loadPrinters = async () => {
+    try {
+      console.log('🖨️ Loading printers...');
+      const printerList = await qzConnectionManager.getPrinters();
+      console.log('🖨️ Printers loaded:', printerList.length);
+      setPrinterCount(printerList.length);
+      setError(null);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('❌ Failed to load printers:', error);
       setError(errorMessage);
       setPrinterCount(0);
     }
