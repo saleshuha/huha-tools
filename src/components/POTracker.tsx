@@ -10,11 +10,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { POFileUpload } from '@/components/po/POFileUpload';
 import { POProfitAnalytics } from '@/components/po/POProfitAnalytics';
-import { LabelPrintDialog } from '@/components/inventory/LabelPrintDialog';
+import QZTrayPrinter from '@/utils/qz-tray-printer';
 import { usePOOrders } from '@/hooks/usePOOrders';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useCountry } from '@/contexts/CountryContext';
@@ -71,6 +71,12 @@ export const POTracker = () => {
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [selectedForPrint, setSelectedForPrint] = useState<Set<string>>(new Set());
   const [printCopiesByQuantity, setPrintCopiesByQuantity] = useState(true);
+  
+  // QZ Tray state
+  const [qzConnected, setQzConnected] = useState(false);
+  const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
+  const [selectedPrinter, setSelectedPrinter] = useState<string>('');
+  const [isPrinting, setIsPrinting] = useState(false);
   
   const { poOrders, isLoading, fetchPOOrders, processPOFiles, deletePOOrders } = usePOOrders();
   const { profile } = useUserProfile();
@@ -139,8 +145,27 @@ export const POTracker = () => {
   useEffect(() => {
     if (profile?.id && selectedCountry) {
       fetchPOOrders();
+      connectQZTray();
     }
   }, [profile?.id, selectedCountry, fetchPOOrders]);
+
+  const connectQZTray = async () => {
+    try {
+      const connected = await QZTrayPrinter.connect();
+      if (connected) {
+        setQzConnected(true);
+        const printers = await QZTrayPrinter.getPrinters();
+        setAvailablePrinters(printers);
+        const defaultPrinter = await QZTrayPrinter.getDefaultPrinter();
+        if (defaultPrinter) {
+          setSelectedPrinter(defaultPrinter);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to connect to QZ Tray:', error);
+      setQzConnected(false);
+    }
+  };
 
   // Refetch metrics when PO orders change
   useEffect(() => {
@@ -205,7 +230,81 @@ export const POTracker = () => {
     return filteredPOGroups.slice(startIndex, endIndex);
   }, [filteredPOGroups, startIndex, endIndex]);
 
-  // For detailed view - show individual line items
+  const handleDirectPrint = async () => {
+    if (!qzConnected) {
+      toast({
+        title: "QZ Tray not connected",
+        description: "Please ensure QZ Tray is running and try again",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!selectedPrinter) {
+      toast({
+        title: "No printer selected",
+        description: "Please select a printer first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (selectedForPrint.size === 0) {
+      toast({
+        title: "No items selected",
+        description: "Please select items to print",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsPrinting(true);
+    try {
+      const selectedOrders = poOrders.filter(order => selectedForPrint.has(order.id));
+      
+      // Generate ZPL for each selected item
+      let allZPLCodes: string[] = [];
+      
+      for (const order of selectedOrders) {
+        const copies = printCopiesByQuantity ? order.quantity : 1;
+        
+        for (let i = 0; i < copies; i++) {
+          const zplCode = `^XA
+^FO20,20^A0N,30,30^FD${order.sku_code || order.model_number || order.asin || 'N/A'}^FS
+^FO20,60^A0N,20,20^FD${(order.title || order.model_number || 'Item').substring(0, 25)}^FS
+^FO20,90^A0N,20,20^FDQty: ${order.quantity}^FS
+^FO20,120^A0N,15,15^FDPO: ${order.po_number}^FS
+^XZ`;
+          allZPLCodes.push(zplCode);
+        }
+      }
+
+      // Print all labels
+      if (allZPLCodes.length === 1) {
+        await QZTrayPrinter.printZPL(allZPLCodes[0], { printerName: selectedPrinter });
+      } else {
+        await QZTrayPrinter.printMultipleZPL(allZPLCodes, { printerName: selectedPrinter });
+      }
+
+      toast({
+        title: "Labels printed successfully",
+        description: `Printed ${allZPLCodes.length} labels to ${selectedPrinter}`,
+      });
+
+      // Clear selection after successful print
+      setSelectedForPrint(new Set());
+
+    } catch (error) {
+      console.error('Print error:', error);
+      toast({
+        title: "Print failed",
+        description: error instanceof Error ? error.message : "Failed to print labels",
+        variant: "destructive"
+      });
+    } finally {
+      setIsPrinting(false);
+    }
+  };
   const paginatedDetailedOrders = useMemo(() => {
     return filteredOrders.slice(startIndex, endIndex);
   }, [filteredOrders, startIndex, endIndex]);
@@ -791,14 +890,50 @@ export const POTracker = () => {
                       Clear Selection ({selectedForPrint.size})
                     </Button>
                   </div>
-                  <Button 
-                    onClick={() => setPrintDialogOpen(true)}
-                    disabled={selectedForPrint.size === 0}
-                  >
-                    <Printer className="h-4 w-4 mr-2" />
-                    Print Selected ({selectedForPrint.size})
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {qzConnected && availablePrinters.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <Label className="text-sm">Printer:</Label>
+                        <Select value={selectedPrinter} onValueChange={setSelectedPrinter}>
+                          <SelectTrigger className="w-[200px]">
+                            <SelectValue placeholder="Select printer" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-background border shadow-lg z-50">
+                            {availablePrinters.map((printer) => (
+                              <SelectItem key={printer} value={printer}>
+                                {printer}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    <Button 
+                      onClick={handleDirectPrint}
+                      disabled={selectedForPrint.size === 0 || !qzConnected || !selectedPrinter || isPrinting}
+                    >
+                      {isPrinting ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : qzConnected ? (
+                        <Zap className="h-4 w-4 mr-2" />
+                      ) : (
+                        <Printer className="h-4 w-4 mr-2" />
+                      )}
+                      {qzConnected ? 'Direct Print' : 'Print'} ({selectedForPrint.size})
+                    </Button>
+                  </div>
                 </div>
+
+                {!qzConnected && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-yellow-600" />
+                      <span className="text-sm text-yellow-800">
+                        QZ Tray not connected. Please install and run QZ Tray for direct printing.
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 <div className="rounded-lg border">
                   <Table>
@@ -934,35 +1069,6 @@ export const POTracker = () => {
             </CardContent>
           </Card>
         </TabsContent>
-
-        <LabelPrintDialog
-          open={printDialogOpen}
-          onOpenChange={setPrintDialogOpen}
-          selectedItems={(() => {
-            // Build selectedItems from selectedForPrint
-            const selectedOrders = poOrders.filter(order => selectedForPrint.has(order.id));
-            let items = selectedOrders.map(order => ({
-              id: order.id,
-              asin: order.asin,
-              sku: order.sku_code || order.model_number,
-              title: order.title || order.model_number || order.asin || order.sku_code || 'Item',
-              quantity: printCopiesByQuantity ? order.quantity : 1,
-              type: (order.asin ? 'asin' : 'sku') as 'asin' | 'sku' | 'mixed',
-              order_id: order.po_number,
-              order_quantity: order.quantity
-            }));
-
-            // If printCopiesByQuantity is true, expand by quantity
-            if (printCopiesByQuantity) {
-              items = items.flatMap(item => 
-                Array(item.quantity).fill(null).map(() => ({ ...item, quantity: 1 }))
-              );
-            }
-
-            return items;
-          })()}
-          inventoryType="mixed"
-        />
 
       </Tabs>
     </div>
