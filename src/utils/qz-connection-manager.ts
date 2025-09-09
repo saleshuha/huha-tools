@@ -65,16 +65,11 @@ export class QZConnectionManager {
 
       console.log('📡 QZ script found, attempting direct connection...');
       
-      // Initialize QZ security with simplified approach
-      if (!window.qz.security.isSigningEnabled()) {
-        console.log('🔐 Setting up QZ security...');
-        window.qz.security.setSignatureMethod(function(toSign: string) {
-          return window.qz.security.signRequest(toSign, '');
-        });
-        window.qz.security.setCertificateMethod(function(resolve: Function) {
-          resolve('');
-        });
-      }
+      // Initialize QZ security with simplified approach for version 2.2.5
+      console.log('🔐 Setting up QZ security...');
+      window.qz.security.setCertificatePromise(function(resolve: Function, reject: Function) {
+        resolve();
+      });
       
       // Use the global qz object directly with simpler connection
       if (!window.qz.websocket.isActive()) {
