@@ -1,4 +1,4 @@
-import { qzGlobal } from './qz-global';
+import { toast } from 'sonner';
 
 declare global {
   interface Window {
@@ -60,79 +60,38 @@ export class QZConnectionManager {
 
   private async performConnection(): Promise<boolean> {
     try {
-      console.log('🔄 QZ Connection Manager: Attempting to connect...');
+      console.log('🔄 Connecting to QZ Tray...');
 
       // Check if QZ Tray script is loaded
       if (typeof window.qz === 'undefined') {
-        console.error('❌ QZ Tray script not loaded. Please check index.html');
-        throw new Error('QZ Tray script not available');
+        throw new Error('QZ Tray script not loaded');
       }
 
-      console.log('📡 QZ script found, checking global security initialization...');
-      
-      // Ensure global security is initialized
-      if (!qzGlobal.isSecurityInitialized()) {
-        console.log('🔐 Initializing QZ security globally...');
-        const initialized = await qzGlobal.initializeGlobally();
-        if (!initialized) {
-          throw new Error('Failed to initialize QZ security');
-        }
-      } else {
-        console.log('✅ QZ security already initialized globally');
-      }
+      // Simple security setup - no signing required
+      window.qz.security.setCertificatePromise(function(resolve: any) {
+        resolve();
+      });
+
+      window.qz.security.setSignaturePromise(function(toSign: any) {
+        return Promise.resolve();
+      });
       
       // Connect to QZ WebSocket
       if (!window.qz.websocket.isActive()) {
-        await new Promise((resolve, reject) => {
-          window.qz.websocket.connect().then(() => {
-            console.log('✅ QZ WebSocket connected successfully');
-            resolve(true);
-          }).catch((error: any) => {
-            console.error('❌ QZ WebSocket connection failed:', error);
-            reject(error);
-          });
-        });
+        await window.qz.websocket.connect();
       }
 
-      console.log('✅ QZ Connection Manager: Connected successfully');
+      console.log('✅ QZ Tray connected successfully');
       this.isConnected = true;
       this.notifyListeners(true);
       return true;
       
     } catch (error) {
-      console.error('❌ QZ Connection Manager: Connection failed:', error);
+      console.error('❌ QZ Tray connection failed:', error);
       this.isConnected = false;
       this.notifyListeners(false);
-      
-      // Provide specific error guidance
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.log('🔍 Connection error details:', errorMessage);
-      
       return false;
     }
-  }
-
-  private async loadQZScript(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      // Check if script already exists
-      const existingScript = document.querySelector('script[src*="qz-tray"]');
-      if (existingScript) {
-        resolve();
-        return;
-      }
-
-      const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/qz-tray@2.2.5/qz-tray.js';
-      script.onload = () => {
-        console.log('✅ QZ Tray script loaded dynamically');
-        resolve();
-      };
-      script.onerror = () => {
-        console.error('❌ Failed to load QZ Tray script');
-        reject(new Error('Failed to load QZ Tray script'));
-      };
-      document.head.appendChild(script);
-    });
   }
 
   async getPrinters(): Promise<string[]> {
@@ -141,28 +100,19 @@ export class QZConnectionManager {
     }
     
     try {
-      console.log('🖨️ Fetching printers...');
+      console.log('🖨️ Getting printers...');
       const printers = await window.qz.printers.find();
       console.log('🖨️ Found printers:', printers);
-      
-      if (!printers || printers.length === 0) {
-        console.warn('⚠️ No printers found by QZ Tray');
-        return [];
-      }
-      
-      return printers;
+      return printers || [];
     } catch (error) {
       console.error('❌ Failed to get printers:', error);
-      throw new Error(`Failed to fetch printers: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to get printers: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   async getDefaultPrinter(): Promise<string | null> {
     if (!this.isConnected) {
-      const connected = await this.connect();
-      if (!connected) {
-        return null;
-      }
+      return null;
     }
     
     try {
@@ -175,14 +125,10 @@ export class QZConnectionManager {
 
   async print(zplCode: string, printerName?: string): Promise<void> {
     if (!this.isConnected) {
-      const connected = await this.connect();
-      if (!connected) {
-        throw new Error('QZ Tray not connected');
-      }
+      throw new Error('QZ Tray not connected');
     }
     
     try {
-      // Print directly using QZ without the wrapper
       const printer = printerName || await this.getDefaultPrinter();
       if (!printer) {
         throw new Error('No printer available');
@@ -197,7 +143,7 @@ export class QZConnectionManager {
       
       return await window.qz.print(config, data);
     } catch (error) {
-      console.error('❌ Direct print failed:', error);
+      console.error('❌ Print failed:', error);
       throw new Error(`Print failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -208,48 +154,28 @@ export class QZConnectionManager {
 
   async testConnection(): Promise<{ success: boolean; message: string; details?: any }> {
     try {
-      console.log('🧪 Testing QZ Tray connection...');
-
-      // Test 1: Check if QZ script is loaded
-      if (typeof window.qz === 'undefined') {
-        return {
-          success: false,
-          message: 'QZ Tray script not loaded. Please ensure QZ Tray script is available.',
-          details: { step: 'script_check', error: 'qz object undefined' }
-        };
-      }
-
-      // Test 2: Attempt connection
-      const connected = await this.connect(true); // Force reconnect for test
+      const connected = await this.connect(true);
       if (!connected) {
         return {
           success: false,
-          message: 'Failed to connect to QZ Tray. Please ensure QZ Tray application is running.',
-          details: { step: 'connection_test', error: 'connection_failed' }
+          message: 'Failed to connect to QZ Tray',
+          details: { error: 'connection_failed' }
         };
       }
 
-      // Test 3: Get printers
       const printers = await this.getPrinters();
       
       return {
         success: true,
-        message: `QZ Tray connected successfully! Found ${printers.length} printer(s).`,
-        details: { 
-          step: 'complete', 
-          printers: printers.length,
-          printerList: printers 
-        }
+        message: `QZ Tray connected! Found ${printers.length} printer(s).`,
+        details: { printers: printers.length, printerList: printers }
       };
 
     } catch (error) {
       return {
         success: false,
         message: `Connection test failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        details: { 
-          step: 'error', 
-          error: error instanceof Error ? error.message : error 
-        }
+        details: { error: error instanceof Error ? error.message : error }
       };
     }
   }
