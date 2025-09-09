@@ -170,9 +170,10 @@ export const QZTraySetup: React.FC = () => {
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="status" className="w-full">
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="status">Status Check</TabsTrigger>
             <TabsTrigger value="install">Installation</TabsTrigger>
+            <TabsTrigger value="demo">Demo Keys</TabsTrigger>
             <TabsTrigger value="certificates">Certificates</TabsTrigger>
             <TabsTrigger value="certificate">Generate</TabsTrigger>
             <TabsTrigger value="trust">Trust Setup</TabsTrigger>
@@ -293,6 +294,124 @@ export const QZTraySetup: React.FC = () => {
                     <li>4. Look for the QZ Tray icon in your system tray</li>
                   </ol>
                 </div>
+              </div>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="demo" className="space-y-4">
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Key className="h-5 w-5 text-green-600" />
+                QZ Tray Demo Keys (Recommended for Development)
+              </h3>
+              
+              <Alert className="border-green-200 bg-green-50">
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <AlertDescription>
+                  <strong>Best Solution:</strong> QZ Tray can generate trusted demo certificates that eliminate signing requests completely. 
+                  These work only on your computer but provide silent printing for development.
+                </AlertDescription>
+              </Alert>
+
+              <div className="space-y-4">
+                <div className="p-4 border rounded-lg bg-blue-50 border-blue-200">
+                  <h4 className="font-medium mb-3 text-blue-800 flex items-center gap-2">
+                    <Settings className="h-4 w-4" />
+                    Generate Demo Keys in QZ Tray
+                  </h4>
+                  <div className="space-y-3">
+                    <ol className="text-sm space-y-2 text-blue-700">
+                      <li className="flex items-start gap-2">
+                        <span className="bg-blue-200 text-blue-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">1</span>
+                        <span>Right-click the QZ Tray icon in your system tray</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="bg-blue-200 text-blue-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">2</span>
+                        <span>Select <strong>Advanced → Site Manager</strong></span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="bg-blue-200 text-blue-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">3</span>
+                        <span>Click the <strong>+</strong> sign and select <strong>Create New</strong></span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="bg-blue-200 text-blue-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">4</span>
+                        <span>Click <strong>"Yes"</strong> to create the keys</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="bg-blue-200 text-blue-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">5</span>
+                        <span>Click <strong>"Yes"</strong> to automatically install</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="bg-blue-200 text-blue-800 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">6</span>
+                        <span>Click <strong>"Yes"</strong> to copy keys to override.crt</span>
+                      </li>
+                    </ol>
+                  </div>
+                </div>
+
+                <div className="p-4 border rounded-lg bg-yellow-50 border-yellow-200">
+                  <h4 className="font-medium mb-2 text-yellow-800 flex items-center gap-2">
+                    <FileDown className="h-4 w-4" />
+                    What This Creates
+                  </h4>
+                  <div className="text-sm text-yellow-700 space-y-1">
+                    <p>• A folder named <strong>"QZ Tray Demo Cert"</strong> will appear on your desktop</p>
+                    <p>• Contains <code>digital-certificate.txt</code> and <code>private-key.pem</code></p>
+                    <p>• These keys are automatically trusted by your QZ Tray installation</p>
+                    <p>• Eliminates all signing requests for development</p>
+                  </div>
+                </div>
+
+                <div className="p-4 border rounded-lg">
+                  <h4 className="font-medium mb-2 flex items-center gap-2">
+                    <HelpCircle className="h-4 w-4 text-blue-600" />
+                    Using the Demo Keys (Optional Upload)
+                  </h4>
+                  <div className="text-sm text-muted-foreground space-y-2">
+                    <p>
+                      The demo keys work automatically once generated. If you want to implement server-side signing 
+                      for production, you can upload the generated files:
+                    </p>
+                    <div className="grid gap-2 mt-3">
+                      <div className="flex items-center gap-2">
+                        <input 
+                          type="file" 
+                          accept=".txt,.pem" 
+                          className="text-xs file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              toast.success(`File ${file.name} selected (demo purposes)`);
+                            }
+                          }}
+                        />
+                        <span className="text-xs text-muted-foreground">Upload digital-certificate.txt</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input 
+                          type="file" 
+                          accept=".pem" 
+                          className="text-xs file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              toast.success(`File ${file.name} selected (demo purposes)`);
+                            }
+                          }}
+                        />
+                        <span className="text-xs text-muted-foreground">Upload private-key.pem</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <Alert>
+                  <Lock className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Important:</strong> Demo keys only work on the computer where they were generated. 
+                    For production deployment, you'll need purchased certificates from QZ Tray or implement server-side signing.
+                  </AlertDescription>
+                </Alert>
               </div>
             </div>
           </TabsContent>
