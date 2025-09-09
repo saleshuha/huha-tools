@@ -160,6 +160,15 @@ export const QZTraySetup: React.FC = () => {
       const certName = localStorage.getItem('temp-demo-cert-name');
       const keyName = localStorage.getItem('temp-demo-key-name');
       
+      console.log('🔍 Demo keys upload - checking files:', {
+        hasCertificate: !!certificate,
+        hasPrivateKey: !!privateKey,
+        certName,
+        keyName,
+        certificatePreview: certificate?.slice(0, 100) + '...',
+        privateKeyPreview: privateKey?.slice(0, 100) + '...'
+      });
+      
       if (!certificate || !privateKey) {
         toast.error('Both certificate and private key files are required');
         return;
@@ -189,8 +198,24 @@ export const QZTraySetup: React.FC = () => {
         expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // 1 year from now
       };
 
+      console.log('💾 Storing demo certificate:', {
+        fingerprint,
+        commonName,
+        certificateLength: storedCert.certificate.length,
+        privateKeyLength: storedCert.privateKey.length
+      });
+
       // Store the certificate
       QZCertificateManager.storeCertificate(storedCert);
+      
+      // Verify it was stored
+      const retrievedCert = QZCertificateManager.getStoredCertificate();
+      console.log('✅ Certificate verification after storage:', {
+        stored: !!retrievedCert,
+        fingerprint: retrievedCert?.fingerprint,
+        commonName: retrievedCert?.commonName
+      });
+      
       updateCertificateStatus();
 
       // Clean up temporary storage
@@ -200,6 +225,29 @@ export const QZTraySetup: React.FC = () => {
       localStorage.removeItem('temp-demo-key-name');
 
       toast.success(`Demo certificate installed successfully! Certificate: ${certName}, Key: ${keyName}`);
+      
+      // Try to reconnect QZ Tray with the new certificate
+      console.log('🔄 Attempting to reconnect QZ Tray with new certificate...');
+      try {
+        const qz = (window as any).qz;
+        if (qz && qz.websocket.isActive()) {
+          await qz.websocket.disconnect();
+        }
+        // Give it a moment to disconnect
+        setTimeout(async () => {
+          try {
+            await checkQZStatus();
+            toast.success('QZ Tray reconnected with new certificate!');
+          } catch (error) {
+            console.error('Failed to reconnect QZ Tray:', error);
+            toast.error('Certificate stored but failed to reconnect. Please refresh the page.');
+          }
+        }, 1000);
+      } catch (error) {
+        console.error('Error during QZ Tray reconnection:', error);
+        toast.error('Certificate stored but please refresh the page to use it.');
+      }
+      
     } catch (error) {
       console.error('Error installing demo certificate:', error);
       toast.error('Failed to install demo certificate. Please try again.');

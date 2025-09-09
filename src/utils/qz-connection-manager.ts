@@ -1,5 +1,6 @@
 import { toast } from 'sonner';
 import { QZCertificateManager } from './qz-certificate-manager';
+import forge from 'node-forge';
 
 declare global {
   interface Window {
@@ -104,10 +105,32 @@ export class QZConnectionManager {
 
           window.qz.security.setSignaturePromise(function(toSign: any) {
             return function(resolve: any, reject: any) {
-              console.log('✍️ QZ Signature requested - signing with stored key');
-              // In a real implementation, you'd sign with the private key
-              // For now, we'll auto-approve to avoid prompts
-              resolve();
+              try {
+                console.log('✍️ QZ Signature requested - signing with stored private key');
+                console.log('📝 Data to sign:', toSign.slice(0, 100) + '...');
+                
+                // Parse the private key using node-forge
+                const privateKey = forge.pki.privateKeyFromPem(cert.privateKey);
+                
+                // Create message digest (SHA-512 for QZ Tray 2.1+)
+                const md = forge.md.sha512.create();
+                md.update(toSign, 'utf8');
+                
+                // Sign the hash
+                const signature = privateKey.sign(md);
+                
+                // Convert to base64
+                const signatureB64 = forge.util.encode64(signature);
+                
+                console.log('✅ Message signed successfully');
+                console.log('🔏 Signature (first 50 chars):', signatureB64.slice(0, 50) + '...');
+                
+                resolve(signatureB64);
+              } catch (error) {
+                console.error('❌ Signing failed:', error);
+                console.log('⚠️ Falling back to auto-approve');
+                resolve(); // Fallback to auto-approve if signing fails
+              }
             };
           });
         } else {
