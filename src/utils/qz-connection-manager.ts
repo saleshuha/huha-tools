@@ -67,14 +67,23 @@ export class QZConnectionManager {
         throw new Error('QZ Tray script not loaded');
       }
 
-      // Set up security for unsigned mode - resolve with null for no certificates
-      window.qz.security.setCertificatePromise(function(resolve: any) {
-        resolve(null);
+      // Set up QZ Tray security for unsigned mode
+      // This will trigger the trust dialog on first access
+      window.qz.security.setCertificatePromise(function(resolve: any, reject: any) {
+        // For unsigned mode, resolve with nothing to trigger trust prompt
+        resolve();
       });
 
-      window.qz.security.setSignaturePromise(function(toSign: any, resolve: any) {
-        resolve(null);
+      window.qz.security.setSignaturePromise(function(toSign: any, resolve: any, reject: any) {
+        // For unsigned mode, resolve with nothing to trigger trust prompt
+        resolve();
       });
+
+      // Clear any existing connection state to force fresh handshake
+      if (window.qz.websocket.isActive()) {
+        await window.qz.websocket.disconnect();
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
       
       // Connect to QZ WebSocket with retry logic
       if (!window.qz.websocket.isActive()) {
