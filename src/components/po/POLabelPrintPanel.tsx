@@ -36,7 +36,7 @@ export const POLabelPrintPanel: React.FC<POLabelPrintPanelProps> = ({
   
   // Templates and printing state
   const [templates, setTemplates] = useState<LabelTemplate[]>([]);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('default');
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
   
   // Print settings
@@ -115,8 +115,8 @@ export const POLabelPrintPanel: React.FC<POLabelPrintPanelProps> = ({
       
       setTemplates(data || []);
       
-      // Auto-select first template if available
-      if (data && data.length > 0 && !selectedTemplateId) {
+      // Auto-select first template if available and not already set to default
+      if (data && data.length > 0 && selectedTemplateId === 'default') {
         setSelectedTemplateId(data[0].id);
       }
     } catch (error) {
@@ -459,8 +459,8 @@ export const POLabelPrintPanel: React.FC<POLabelPrintPanelProps> = ({
             <SelectTrigger>
               <SelectValue placeholder={isLoadingTemplates ? "Loading templates..." : "Select template or use default"} />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">Default PO Label</SelectItem>
+            <SelectContent className="bg-background border shadow-lg z-50">
+              <SelectItem value="default">Default PO Label</SelectItem>
               {templates.map(template => (
                 <SelectItem key={template.id} value={template.id}>
                   {template.name}
@@ -490,12 +490,12 @@ export const POLabelPrintPanel: React.FC<POLabelPrintPanelProps> = ({
             <Select
               value={selectedPreset}
               onValueChange={setSelectedPreset}
-              disabled={selectedTemplateId !== ''}
+              disabled={selectedTemplateId !== 'default'}
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+                  <SelectContent className="bg-background border shadow-lg z-50">
                 {Object.entries(LABEL_PRESETS).map(([key, size]) => (
                   <SelectItem key={key} value={key}>
                     {key} ({size.width}×{size.height}mm)
@@ -505,7 +505,7 @@ export const POLabelPrintPanel: React.FC<POLabelPrintPanelProps> = ({
               </SelectContent>
             </Select>
             
-            {selectedPreset === 'custom' && selectedTemplateId === '' && (
+            {selectedPreset === 'custom' && selectedTemplateId === 'default' && (
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className="text-xs text-muted-foreground">Width (mm)</Label>
@@ -548,7 +548,7 @@ export const POLabelPrintPanel: React.FC<POLabelPrintPanelProps> = ({
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-background border shadow-lg z-50">
                     <SelectItem value="203">203 DPI (Standard)</SelectItem>
                     <SelectItem value="300">300 DPI (High Quality)</SelectItem>
                   </SelectContent>
@@ -643,7 +643,7 @@ export const POLabelPrintPanel: React.FC<POLabelPrintPanelProps> = ({
               <SelectTrigger>
                 <SelectValue placeholder="Select printer" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-background border shadow-lg z-50">
                 {availablePrinters.map(printer => (
                   <SelectItem key={printer} value={printer}>
                     {printer}
@@ -696,7 +696,7 @@ export const POLabelPrintPanel: React.FC<POLabelPrintPanelProps> = ({
         <div className="p-3 bg-muted/50 rounded-lg text-xs text-muted-foreground">
           <div className="font-medium mb-1">Print Summary:</div>
           <div>
-            Template: {selectedTemplateId ? templates.find(t => t.id === selectedTemplateId)?.name : 'Default'} • 
+            Template: {selectedTemplateId === 'default' ? 'Default' : templates.find(t => t.id === selectedTemplateId)?.name || 'Default'} • 
             Size: {getCurrentSize().width}×{getCurrentSize().height}mm • 
             DPI: {printSettings.dpi} • 
             Darkness: {printSettings.darkness} • 
