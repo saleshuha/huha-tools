@@ -943,26 +943,32 @@ export const POTracker = () => {
                                   const firstOrderWithAsin = orders.find(order => order.asin);
                                   if (firstOrderWithAsin?.asin) {
                                     const productImage = getImageByAsin(firstOrderWithAsin.asin);
-                                    return productImage ? (
-                                      <img
-                                        src={productImage.image_url}
-                                        alt={productImage.image_name || firstOrderWithAsin.asin}
-                                        className="w-10 h-10 object-cover rounded border"
-                                        onError={(e) => {
-                                          e.currentTarget.src = '/placeholder.svg';
-                                        }}
-                                      />
-                                    ) : (
-                                      <div className="w-10 h-10 bg-muted rounded border flex items-center justify-center">
-                                        <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                                      </div>
-                                    );
+                                     return productImage ? (
+                                       <img
+                                         src={productImage.image_url}
+                                         alt={productImage.image_name || firstOrderWithAsin.asin}
+                                         className="w-10 h-10 object-cover rounded border"
+                                         onError={(e) => {
+                                           const target = e.currentTarget;
+                                           target.style.display = 'none';
+                                           target.parentElement!.innerHTML = '<svg class="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>';
+                                         }}
+                                       />
+                                     ) : (
+                                       <div className="w-10 h-10 bg-muted rounded border flex items-center justify-center">
+                                         <svg className="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                         </svg>
+                                       </div>
+                                     );
                                   }
-                                  return (
-                                    <div className="w-10 h-10 bg-muted rounded border flex items-center justify-center">
-                                      <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                                    </div>
-                                  );
+                                   return (
+                                     <div className="w-10 h-10 bg-muted rounded border flex items-center justify-center">
+                                       <svg className="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                       </svg>
+                                     </div>
+                                   );
                                 })()}
                               </TableCell>
                               <TableCell className="font-medium">
@@ -1045,25 +1051,31 @@ export const POTracker = () => {
                               {order.asin ? (
                                 (() => {
                                   const productImage = getImageByAsin(order.asin);
-                                  return productImage ? (
-                                    <img
-                                      src={productImage.image_url}
-                                      alt={productImage.image_name || order.asin}
-                                      className="w-10 h-10 object-cover rounded border"
-                                      onError={(e) => {
-                                        e.currentTarget.src = '/placeholder.svg';
-                                      }}
-                                    />
-                                  ) : (
-                                    <div className="w-10 h-10 bg-muted rounded border flex items-center justify-center">
-                                      <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                                    </div>
-                                  );
+                                   return productImage ? (
+                                     <img
+                                       src={productImage.image_url}
+                                       alt={productImage.image_name || order.asin}
+                                       className="w-10 h-10 object-cover rounded border"
+                                       onError={(e) => {
+                                         const target = e.currentTarget;
+                                         target.style.display = 'none';
+                                         target.parentElement!.innerHTML = '<svg class="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>';
+                                       }}
+                                     />
+                                   ) : (
+                                     <div className="w-10 h-10 bg-muted rounded border flex items-center justify-center">
+                                       <svg className="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                       </svg>
+                                     </div>
+                                   );
                                 })()
                               ) : (
-                                <div className="w-10 h-10 bg-muted rounded border flex items-center justify-center">
-                                  <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                                </div>
+                                 <div className="w-10 h-10 bg-muted rounded border flex items-center justify-center">
+                                   <svg className="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                   </svg>
+                                 </div>
                               )}
                             </TableCell>
                             <TableCell className="font-medium">
@@ -1865,19 +1877,52 @@ export const POTracker = () => {
                                    className="h-4 w-4 rounded border-border"
                                  />
                                </TableCell>
-                                <TableCell className="w-32">
-                                  <div className="space-y-1">
-                                    {order.sku_code && (
-                                      <div className="text-sm font-medium font-mono break-words">{order.sku_code}</div>
-                                    )}
-                                    {order.model_number && order.model_number !== order.sku_code && (
-                                      <div className="text-xs text-muted-foreground font-mono break-words">{order.model_number}</div>
-                                    )}
-                                    {!order.sku_code && !order.model_number && (
-                                      <span className="text-xs text-muted-foreground">N/A</span>
-                                    )}
-                                  </div>
+                                <TableCell>
+                                  {order.asin ? (
+                                    (() => {
+                                      const productImage = getImageByAsin(order.asin);
+                                      return (
+                                        <div className="w-10 h-10 rounded border bg-muted flex items-center justify-center overflow-hidden">
+                                          {productImage?.image_url ? (
+                                            <img
+                                              src={productImage.image_url}
+                                              alt={productImage.image_name || order.asin}
+                                              className="w-full h-full object-cover"
+                                              onError={(e) => {
+                                                const target = e.currentTarget;
+                                                target.style.display = 'none';
+                                                target.parentElement!.innerHTML = '<svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>';
+                                              }}
+                                            />
+                                          ) : (
+                                            <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            </svg>
+                                          )}
+                                        </div>
+                                      );
+                                    })()
+                                  ) : (
+                                    <div className="w-10 h-10 rounded border bg-muted flex items-center justify-center">
+                                      <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                      </svg>
+                                    </div>
+                                  )}
                                 </TableCell>
+                                 <TableCell className="w-32">
+                                   <div className="space-y-1">
+                                     {order.sku_code && (
+                                       <div className="text-sm font-medium font-mono break-words">{order.sku_code}</div>
+                                     )}
+                                     {order.model_number && order.model_number !== order.sku_code && (
+                                       <div className="text-xs text-muted-foreground font-mono break-words">{order.model_number}</div>
+                                     )}
+                                     {!order.sku_code && !order.model_number && (
+                                       <span className="text-xs text-muted-foreground">N/A</span>
+                                     )}
+                                   </div>
+                                 </TableCell>
                                 <TableCell>
                                   <div className="space-y-1">
                                     <div className="text-sm font-medium break-words whitespace-pre-wrap" title={order.title}>
