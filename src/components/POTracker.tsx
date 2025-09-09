@@ -71,6 +71,7 @@ export const POTracker = () => {
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [selectedForPrint, setSelectedForPrint] = useState<Set<string>>(new Set());
   const [printCopiesByQuantity, setPrintCopiesByQuantity] = useState(true);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('default');
   
   const [qzConnected, setQzConnected] = useState(false);
   const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
@@ -123,6 +124,30 @@ export const POTracker = () => {
   const handleDeleteAllPO = async () => {
     await deletePOOrders();
   };
+
+  // Query to fetch available label templates
+  const { data: labelTemplates, isLoading: isLoadingTemplates } = useQuery({
+    queryKey: ['label-templates'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase
+        .from('label_templates')
+        .select('id, name, description')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching label templates:', error);
+        throw error;
+      }
+
+      return data || [];
+    },
+    enabled: !!profile?.id,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
   // New query to fetch deduplicated PO metrics from database
   const { data: comprehensiveMetrics, isLoading: isLoadingComprehensiveMetrics, refetch: refetchComprehensiveMetrics } = useQuery({
@@ -304,19 +329,52 @@ export const POTracker = () => {
     try {
       const selectedOrders = poOrders.filter(order => selectedForPrint.has(order.id));
       
-      // Generate ZPL for each selected item
+      // Generate ZPL for each selected item using selected template
       let allZPLCodes: string[] = [];
       
       for (const order of selectedOrders) {
         const copies = printCopiesByQuantity ? order.quantity : 1;
         
         for (let i = 0; i < copies; i++) {
-          const zplCode = `^XA
+          let zplCode: string;
+          
+          // Generate ZPL based on selected template
+          switch (selectedTemplate) {
+            case 'compact':
+              zplCode = `^XA
+^FO20,20^A0N,25,25^FD${order.sku_code || order.model_number || order.asin || 'N/A'}^FS
+^FO20,50^A0N,15,15^FD${(order.title || order.model_number || 'Item').substring(0, 30)}^FS
+^FO20,70^A0N,15,15^FDQty: ${order.quantity} | PO: ${order.po_number}^FS
+^XZ`;
+              break;
+              
+            case 'detailed':
+              zplCode = `^XA
+^FO20,20^A0N,30,30^FD${order.sku_code || order.model_number || order.asin || 'N/A'}^FS
+^FO20,60^A0N,20,20^FD${(order.title || order.model_number || 'Item').substring(0, 25)}^FS
+^FO20,90^A0N,20,20^FDQuantity: ${order.quantity}^FS
+^FO20,120^A0N,15,15^FDPO Number: ${order.po_number}^FS
+^FO20,140^A0N,15,15^FDStatus: ${order.status}^FS
+^FO20,160^A0N,15,15^FDDate: ${new Date().toLocaleDateString()}^FS
+^XZ`;
+              break;
+              
+            case 'minimal':
+              zplCode = `^XA
+^FO20,20^A0N,35,35^FD${order.sku_code || order.model_number || order.asin || 'N/A'}^FS
+^FO20,70^A0N,20,20^FDQty: ${order.quantity}^FS
+^XZ`;
+              break;
+              
+            default: // 'default' template
+              zplCode = `^XA
 ^FO20,20^A0N,30,30^FD${order.sku_code || order.model_number || order.asin || 'N/A'}^FS
 ^FO20,60^A0N,20,20^FD${(order.title || order.model_number || 'Item').substring(0, 25)}^FS
 ^FO20,90^A0N,20,20^FDQty: ${order.quantity}^FS
 ^FO20,120^A0N,15,15^FDPO: ${order.po_number}^FS
 ^XZ`;
+          }
+          
           allZPLCodes.push(zplCode);
         }
       }
@@ -944,21 +1002,42 @@ export const POTracker = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     {qzConnected && availablePrinters.length > 0 && (
-                      <div className="flex items-center gap-2">
-                        <Label className="text-sm">Printer:</Label>
-                        <Select value={selectedPrinter} onValueChange={setSelectedPrinter}>
-                          <SelectTrigger className="w-[200px]">
-                            <SelectValue placeholder="Select printer" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-background border shadow-lg z-50">
-                            {availablePrinters.map((printer) => (
-                              <SelectItem key={printer} value={printer}>
-                                {printer}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                      <>
+                        <div className="flex items-center gap-2">
+                          <Label className="text-sm">Template:</Label>
+                          <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+                            <SelectTrigger className="w-[150px]">
+                              <SelectValue placeholder="Select template" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="default">Default</SelectItem>
+                              <SelectItem value="compact">Compact</SelectItem>
+                              <SelectItem value="detailed">Detailed</SelectItem>
+                              <SelectItem value="minimal">Minimal</SelectItem>
+                              {labelTemplates?.map((template) => (
+                                <SelectItem key={template.id} value={template.id}>
+                                  {template.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Label className="text-sm">Printer:</Label>
+                          <Select value={selectedPrinter} onValueChange={setSelectedPrinter}>
+                            <SelectTrigger className="w-[200px]">
+                              <SelectValue placeholder="Select printer" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-background border shadow-lg z-50">
+                              {availablePrinters.map((printer) => (
+                                <SelectItem key={printer} value={printer}>
+                                  {printer}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </>
                     )}
                     <Button 
                       onClick={handleDirectPrint}
