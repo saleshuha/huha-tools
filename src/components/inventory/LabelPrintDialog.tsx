@@ -42,7 +42,9 @@ interface PrintSettings {
   format: 'pdf' | 'zpl';
   copies: number;
   labelsPerPage: number;
-  paperSize: 'address' | 'shipping' | 'product' | 'barcode' | 'small' | 'medium' | 'large';
+  paperSize: 'address' | 'shipping' | 'product' | 'barcode' | 'small' | 'medium' | 'large' | 'custom';
+  customWidth?: number;
+  customHeight?: number;
   dpi: 203 | 300;
 }
 
@@ -55,6 +57,8 @@ export function LabelPrintDialog({ open, onOpenChange, selectedItems, inventoryT
     copies: 1,
     labelsPerPage: 1,
     paperSize: 'address',
+    customWidth: 89,
+    customHeight: 36,
     dpi: 203
   });
   const { toast } = useToast();
@@ -106,14 +110,20 @@ export function LabelPrintDialog({ open, onOpenChange, selectedItems, inventoryT
 
     const dataset = createDataset();
     
-    // Import LABEL_PRESETS to get the actual label dimensions
-    const { LABEL_PRESETS } = await import('@/types/label');
-    const labelSize = LABEL_PRESETS[printSettings.paperSize];
+    // Get label dimensions based on selected size
+    let labelDimensions;
+    if (printSettings.paperSize === 'custom') {
+      labelDimensions = { width: printSettings.customWidth || 89, height: printSettings.customHeight || 36 };
+    } else {
+      // Import LABEL_PRESETS to get the actual label dimensions
+      const { LABEL_PRESETS } = await import('@/types/label');
+      labelDimensions = LABEL_PRESETS[printSettings.paperSize];
+    }
     
     const pdf = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
-      format: [labelSize.width, labelSize.height] // Use actual label dimensions
+      format: [labelDimensions.width, labelDimensions.height] // Use actual label dimensions
     });
 
     let yOffset = 20;
@@ -295,12 +305,40 @@ export function LabelPrintDialog({ open, onOpenChange, selectedItems, inventoryT
                 </div>
               </div>
 
+              {/* Custom Size Inputs */}
+              {printSettings.paperSize === 'custom' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="custom-width">Width (mm)</Label>
+                    <Input
+                      id="custom-width"
+                      type="number"
+                      min="10"
+                      max="300"
+                      value={printSettings.customWidth || 89}
+                      onChange={(e) => setPrintSettings(prev => ({ ...prev, customWidth: parseInt(e.target.value) || 89 }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="custom-height">Height (mm)</Label>
+                    <Input
+                      id="custom-height"
+                      type="number"
+                      min="10"
+                      max="300"
+                      value={printSettings.customHeight || 36}
+                      onChange={(e) => setPrintSettings(prev => ({ ...prev, customHeight: parseInt(e.target.value) || 36 }))}
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Label Size</Label>
                   <Select
                     value={printSettings.paperSize}
-                    onValueChange={(value: 'address' | 'shipping' | 'product' | 'barcode' | 'small' | 'medium' | 'large') => setPrintSettings(prev => ({ ...prev, paperSize: value }))}
+                    onValueChange={(value: 'address' | 'shipping' | 'product' | 'barcode' | 'small' | 'medium' | 'large' | 'custom') => setPrintSettings(prev => ({ ...prev, paperSize: value }))}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -313,6 +351,7 @@ export function LabelPrintDialog({ open, onOpenChange, selectedItems, inventoryT
                       <SelectItem value="small">Small Label (38×25mm)</SelectItem>
                       <SelectItem value="medium">Medium Label (70×42mm)</SelectItem>
                       <SelectItem value="large">Large Label (102×76mm)</SelectItem>
+                      <SelectItem value="custom">Custom Size</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

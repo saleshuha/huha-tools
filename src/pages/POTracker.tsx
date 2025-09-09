@@ -8,8 +8,8 @@ export default function POTrackerPage() {
       <div className="w-full px-4 md:px-6 py-4 animate-fade-in">
         <HuhaHeader01
           icon={<ShoppingCart className="w-5 h-5 text-primary-foreground" />}
-          title="PO - SS Stock Tracker"
-          subtitle="Track purchase orders and manage SKU inventory for Sunsky supplier with advanced analytics and automated matching"
+          title="Amazon Retail"
+          subtitle="Track purchase orders and manage SKU inventory for Amazon supplier with advanced analytics and automated matching"
           badges={[
             {
               label: "Purchase Order Management",
