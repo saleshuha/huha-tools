@@ -17,6 +17,7 @@ import { Order } from '@/types/amazon-fulfillment';
 import { useCurrencyConverter } from '@/hooks/useCurrencyConverter';
 import { useCurrencyDisplay } from '@/components/amazon/CurrencySelector';
 import { useCountry } from '@/contexts/CountryContext';
+import { usePaymentTerms } from '@/hooks/usePaymentTerms';
 import * as XLSX from 'xlsx';
 
 interface OrdersTableProps {
@@ -37,6 +38,7 @@ export const OrdersTable = ({ orders, onUpdateOrder, onDeleteOrder }: OrdersTabl
   const { formatCurrency, convertCurrency } = useCurrencyConverter();
   const { displayCurrency } = useCurrencyDisplay();
   const { selectedCountry } = useCountry();
+  const { creditDays } = usePaymentTerms();
 
   // Sort orders
   const sortedOrders = [...orders].sort((a, b) => {
@@ -549,7 +551,7 @@ export const OrdersTable = ({ orders, onUpdateOrder, onDeleteOrder }: OrdersTabl
                     )}
                     <div className="flex justify-between">
                       <span className="text-sm">Payment Schedule:</span>
-                      <span className="text-sm font-medium">{selectedCountry === 'UAE' ? 60 : 45} days</span>
+                      <span className="text-sm font-medium">{creditDays} days</span>
                     </div>
                   </div>
                 </div>

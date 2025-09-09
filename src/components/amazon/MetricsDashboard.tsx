@@ -7,6 +7,7 @@ import { useCurrencyConverter } from '@/hooks/useCurrencyConverter';
 import { useCurrencyDisplay } from '@/components/amazon/CurrencySelector';
 import { useCountry } from '@/contexts/CountryContext';
 import { useMemo, useState } from 'react';
+import { usePaymentTerms } from '@/hooks/usePaymentTerms';
 
 interface MetricsDashboardProps {
   metrics: DashboardMetrics | null;
@@ -18,6 +19,7 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
   const { formatCurrency, convertCurrency } = useCurrencyConverter();
   const { displayCurrency } = useCurrencyDisplay();
   const { selectedCountry } = useCountry();
+  const { creditDays } = usePaymentTerms();
   const [weekOffset, setWeekOffset] = useState(0); // 0 = current 4 weeks, positive = future, negative = past
   const [upcomingWeeksOffset, setUpcomingWeeksOffset] = useState(0); // Separate offset for upcoming payments
   
@@ -101,7 +103,6 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
     });
 
     const calculateUpcomingValue = (endDate: Date) => {
-      const creditDays = selectedCountry === 'UAE' ? 60 : 45;
       
       const upcomingOrders = pendingOrders.filter(o => {
         if (!o.shipment_date) return false;
@@ -145,7 +146,6 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
     if (!orders) return [];
     
     const now = new Date();
-    const creditDays = selectedCountry === 'UAE' ? 60 : 45;
     
     const pendingOrders = orders.filter(o => {
       const status = (o.status || '').toLowerCase().trim();

@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Order, CreateOrder, DashboardMetrics } from '@/types/amazon-fulfillment';
 import { useCountry } from '@/contexts/CountryContext';
+import { usePaymentTerms } from '@/hooks/usePaymentTerms';
 
 export const useAmazonOrders = () => {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -10,6 +11,7 @@ export const useAmazonOrders = () => {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const { toast } = useToast();
   const { selectedCountry } = useCountry();
+  const { creditDays } = usePaymentTerms();
 
   const fetchOrders = async () => {
     try {
@@ -169,8 +171,7 @@ export const useAmazonOrders = () => {
       try {
         const shipmentDate = new Date(o.shipment_date);
         const dueDate = new Date(shipmentDate);
-        // UAE credit terms: 60 days from shipment date
-        const creditDays = selectedCountry === 'UAE' ? 60 : 45;
+        // Calculate payment due date based on actual payment terms from database
         dueDate.setDate(dueDate.getDate() + creditDays);
         const isOverdue = dueDate < now;
         
@@ -227,11 +228,10 @@ export const useAmazonOrders = () => {
       paid: paidPayments
     };
 
-    // Calculate upcoming payments based on shipment_date + credit days (60 days for UAE)
+    // Calculate upcoming payments based on shipment_date + credit days from database
     const next7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     const next30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     const next90Days = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
-    const creditDays = selectedCountry === 'UAE' ? 60 : 45;
 
     const upcomingPayments = {
       next7Days: pendingOrders.filter(o => {
