@@ -69,15 +69,13 @@ export class QZConnectionManager {
       console.log('🔐 Setting up QZ security...');
       
       // Set up certificate promise (for development, use empty cert)
-      window.qz.security.setCertificatePromise(function(resolve: Function) {
+      window.qz.security.setCertificatePromise(function(resolve: Function, reject: Function) {
         resolve(""); // Empty certificate for development
       });
       
       // Set up signature promise (for development, use empty signature)
-      window.qz.security.setSignaturePromise(function(toSign: string) {
-        return new Promise((resolve) => {
-          resolve(""); // Empty signature for development
-        });
+      window.qz.security.setSignaturePromise(function(toSign: string, resolve: Function, reject: Function) {
+        resolve(""); // Empty signature for development
       });
       
       // Use the global qz object directly with simpler connection
