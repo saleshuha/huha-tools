@@ -67,11 +67,19 @@ export const POTracker = () => {
   const [processingProgress, setProcessingProgress] = useState(0);
   const [processingStatus, setProcessingStatus] = useState('');
   
-  // Print Labels state
-  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  // Print Labels state - Two-step flow
+  const [labelsStep, setLabelsStep] = useState<'list' | 'print'>('list');
+  const [selectedPOForLabels, setSelectedPOForLabels] = useState<string | null>(null);
+  const [labelSearchQuery, setLabelSearchQuery] = useState('');
   const [selectedForPrint, setSelectedForPrint] = useState<Set<string>>(new Set());
-  const [printCopiesByQuantity, setPrintCopiesByQuantity] = useState(true);
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('default');
+  const [printSettings, setPrintSettings] = useState({
+    template: 'default',
+    copies: 1,
+    copiesByQuantity: true,
+    pageSize: 'default',
+    dpi: 203 as 203 | 300,
+    darkness: 10
+  });
   
   const [qzConnected, setQzConnected] = useState(false);
   const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
@@ -125,7 +133,7 @@ export const POTracker = () => {
     await deletePOOrders();
   };
 
-  // Query to fetch available label templates
+  // Query to fetch available label templates with full data
   const { data: labelTemplates, isLoading: isLoadingTemplates } = useQuery({
     queryKey: ['label-templates'],
     queryFn: async () => {
@@ -134,7 +142,7 @@ export const POTracker = () => {
 
       const { data, error } = await supabase
         .from('label_templates')
-        .select('id, name, description')
+        .select('id, name, description, canvas_data, width, height')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -262,6 +270,39 @@ export const POTracker = () => {
     return filtered;
   }, [poOrders, searchQuery, statusFilter]);
 
+  // Filtered PO Groups for labels search
+  const filteredPOGroups = useMemo(() => {
+    const groups: { [key: string]: POOrder[] } = {};
+    
+    // Use labelSearchQuery for the labels tab, searchQuery for others
+    const query = activeTab === 'labels' ? labelSearchQuery : searchQuery;
+    let ordersToFilter = [...poOrders];
+
+    if (query) {
+      const lowerCaseQuery = query.toLowerCase();
+      ordersToFilter = ordersToFilter.filter(order =>
+        order.po_number.toLowerCase().includes(lowerCaseQuery) ||
+        order.asin?.toLowerCase().includes(lowerCaseQuery) ||
+        order.model_number?.toLowerCase().includes(lowerCaseQuery) ||
+        order.title?.toLowerCase().includes(lowerCaseQuery)
+      );
+    }
+
+    ordersToFilter.forEach(order => {
+      if (!groups[order.po_number]) {
+        groups[order.po_number] = [];
+      }
+      groups[order.po_number].push(order);
+    });
+
+    const poGroups: POGroup[] = Object.entries(groups).map(([poNumber, orders]) => ({
+      poNumber,
+      orders
+    }));
+
+    return poGroups;
+  }, [poOrders, labelSearchQuery, searchQuery, activeTab]);
+
   const groupedPOOrders = useMemo(() => {
     const groups: { [key: string]: POOrder[] } = {};
     filteredOrders.forEach(order => {
@@ -279,24 +320,13 @@ export const POTracker = () => {
     return poGroups;
   }, [filteredOrders]);
 
-  const filteredPOGroups = useMemo(() => {
-    return groupedPOOrders.filter(({ poNumber, orders }) => {
-      const lowerCaseQuery = searchQuery.toLowerCase();
-      return poNumber.toLowerCase().includes(lowerCaseQuery) ||
-        orders.some(order =>
-          order.asin?.toLowerCase().includes(lowerCaseQuery) ||
-          order.model_number?.toLowerCase().includes(lowerCaseQuery) ||
-          order.title?.toLowerCase().includes(lowerCaseQuery)
-        );
-    });
-  }, [groupedPOOrders, searchQuery]);
-
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedPOGroups = useMemo(() => {
-    return filteredPOGroups.slice(startIndex, endIndex);
-  }, [filteredPOGroups, startIndex, endIndex]);
+    return groupedPOOrders.slice(startIndex, endIndex);
+  }, [groupedPOOrders, startIndex, endIndex]);
 
+  // Handle print functionality with advanced settings
   const handleDirectPrint = async () => {
     if (!qzConnected) {
       toast({
@@ -333,48 +363,10 @@ export const POTracker = () => {
       let allZPLCodes: string[] = [];
       
       for (const order of selectedOrders) {
-        const copies = printCopiesByQuantity ? order.quantity : 1;
+        const copies = printSettings.copiesByQuantity ? order.quantity : printSettings.copies;
         
         for (let i = 0; i < copies; i++) {
-          let zplCode: string;
-          
-          // Generate ZPL based on selected template
-          switch (selectedTemplate) {
-            case 'compact':
-              zplCode = `^XA
-^FO20,20^A0N,25,25^FD${order.sku_code || order.model_number || order.asin || 'N/A'}^FS
-^FO20,50^A0N,15,15^FD${(order.title || order.model_number || 'Item').substring(0, 30)}^FS
-^FO20,70^A0N,15,15^FDQty: ${order.quantity} | PO: ${order.po_number}^FS
-^XZ`;
-              break;
-              
-            case 'detailed':
-              zplCode = `^XA
-^FO20,20^A0N,30,30^FD${order.sku_code || order.model_number || order.asin || 'N/A'}^FS
-^FO20,60^A0N,20,20^FD${(order.title || order.model_number || 'Item').substring(0, 25)}^FS
-^FO20,90^A0N,20,20^FDQuantity: ${order.quantity}^FS
-^FO20,120^A0N,15,15^FDPO Number: ${order.po_number}^FS
-^FO20,140^A0N,15,15^FDStatus: ${order.status}^FS
-^FO20,160^A0N,15,15^FDDate: ${new Date().toLocaleDateString()}^FS
-^XZ`;
-              break;
-              
-            case 'minimal':
-              zplCode = `^XA
-^FO20,20^A0N,35,35^FD${order.sku_code || order.model_number || order.asin || 'N/A'}^FS
-^FO20,70^A0N,20,20^FDQty: ${order.quantity}^FS
-^XZ`;
-              break;
-              
-            default: // 'default' template
-              zplCode = `^XA
-^FO20,20^A0N,30,30^FD${order.sku_code || order.model_number || order.asin || 'N/A'}^FS
-^FO20,60^A0N,20,20^FD${(order.title || order.model_number || 'Item').substring(0, 25)}^FS
-^FO20,90^A0N,20,20^FDQty: ${order.quantity}^FS
-^FO20,120^A0N,15,15^FDPO: ${order.po_number}^FS
-^XZ`;
-          }
-          
+          let zplCode = generateZPLFromTemplate(order, printSettings);
           allZPLCodes.push(zplCode);
         }
       }
@@ -384,17 +376,11 @@ export const POTracker = () => {
         throw new Error("No labels generated");
       }
 
-      if (!selectedPrinter) {
-        throw new Error("No printer selected");
-      }
+      // Set printer darkness
+      const darknessCommand = `~SD${printSettings.darkness.toString().padStart(2, '0')}`;
+      const finalZPL = darknessCommand + '\n' + allZPLCodes.join('\n');
 
-      if (allZPLCodes.length === 1) {
-        await qzConnectionManager.print(allZPLCodes[0], selectedPrinter);
-      } else if (allZPLCodes.length > 0) {
-        // Concatenate multiple ZPL codes for batch printing
-        const combinedZPL = allZPLCodes.join('\n');
-        await qzConnectionManager.print(combinedZPL, selectedPrinter);
-      }
+      await qzConnectionManager.print(finalZPL, selectedPrinter);
 
       toast({
         title: "Labels printed successfully",
@@ -415,6 +401,130 @@ export const POTracker = () => {
       setIsPrinting(false);
     }
   };
+
+  // Generate ZPL from template
+  const generateZPLFromTemplate = (order: POOrder, settings: typeof printSettings): string => {
+    const { template, dpi, pageSize } = settings;
+    
+    // Get label dimensions based on page size
+    const dimensions = getLabelDimensions(pageSize, dpi);
+    
+    switch (template) {
+      case 'compact':
+        return `^XA
+^PW${dimensions.width}
+^LL${dimensions.height}
+^FO20,20^A0N,25,25^FD${order.sku_code || order.model_number || order.asin || 'N/A'}^FS
+^FO20,50^A0N,15,15^FD${(order.title || order.model_number || 'Item').substring(0, 30)}^FS
+^FO20,70^A0N,15,15^FDQty: ${order.quantity} | PO: ${order.po_number}^FS
+^XZ`;
+        
+      case 'detailed':
+        return `^XA
+^PW${dimensions.width}
+^LL${dimensions.height}
+^FO20,20^A0N,30,30^FD${order.sku_code || order.model_number || order.asin || 'N/A'}^FS
+^FO20,60^A0N,20,20^FD${(order.title || order.model_number || 'Item').substring(0, 25)}^FS
+^FO20,90^A0N,20,20^FDQuantity: ${order.quantity}^FS
+^FO20,120^A0N,15,15^FDPO Number: ${order.po_number}^FS
+^FO20,140^A0N,15,15^FDStatus: ${order.status}^FS
+^FO20,160^A0N,15,15^FDDate: ${new Date().toLocaleDateString()}^FS
+^XZ`;
+        
+      case 'minimal':
+        return `^XA
+^PW${dimensions.width}
+^LL${dimensions.height}
+^FO20,20^A0N,35,35^FD${order.sku_code || order.model_number || order.asin || 'N/A'}^FS
+^FO20,70^A0N,20,20^FDQty: ${order.quantity}^FS
+^XZ`;
+        
+      default: // 'default' or custom template
+        if (template !== 'default' && labelTemplates) {
+          const customTemplate = labelTemplates.find(t => t.id === template);
+          if (customTemplate) {
+            return generateZPLFromCustomTemplate(order, customTemplate, dpi);
+          }
+        }
+        
+        return `^XA
+^PW${dimensions.width}
+^LL${dimensions.height}
+^FO20,20^A0N,30,30^FD${order.sku_code || order.model_number || order.asin || 'N/A'}^FS
+^FO20,60^A0N,20,20^FD${(order.title || order.model_number || 'Item').substring(0, 25)}^FS
+^FO20,90^A0N,20,20^FDQty: ${order.quantity}^FS
+^FO20,120^A0N,15,15^FDPO: ${order.po_number}^FS
+^XZ`;
+    }
+  };
+
+  // Get label dimensions based on page size and DPI
+  const getLabelDimensions = (pageSize: string, dpi: number) => {
+    const presets = {
+      '4x6': { width: 4 * dpi, height: 6 * dpi },
+      '4x3': { width: 4 * dpi, height: 3 * dpi },
+      '2x1': { width: 2 * dpi, height: 1 * dpi },
+      '3x2': { width: 3 * dpi, height: 2 * dpi },
+      'default': { width: 4 * dpi, height: 6 * dpi }
+    };
+    
+    return presets[pageSize as keyof typeof presets] || presets.default;
+  };
+
+  // Generate ZPL from custom template
+  const generateZPLFromCustomTemplate = (order: POOrder, template: any, dpi: number): string => {
+    // This would need to parse the canvas_data and generate ZPL
+    // For now, return a basic template
+    return `^XA
+^PW${template.width}
+^LL${template.height}
+^FO20,20^A0N,30,30^FD${order.sku_code || order.model_number || order.asin || 'N/A'}^FS
+^FO20,60^A0N,20,20^FD${(order.title || order.model_number || 'Item').substring(0, 25)}^FS
+^FO20,90^A0N,20,20^FDQty: ${order.quantity}^FS
+^FO20,120^A0N,15,15^FDPO: ${order.po_number}^FS
+^XZ`;
+  };
+
+  // Download ZPL file
+  const handleDownloadZPL = () => {
+    if (selectedForPrint.size === 0) {
+      toast({
+        title: "No items selected",
+        description: "Please select items to download",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const selectedOrders = poOrders.filter(order => selectedForPrint.has(order.id));
+    let allZPLCodes: string[] = [];
+    
+    for (const order of selectedOrders) {
+      const copies = printSettings.copiesByQuantity ? order.quantity : printSettings.copies;
+      
+      for (let i = 0; i < copies; i++) {
+        let zplCode = generateZPLFromTemplate(order, printSettings);
+        allZPLCodes.push(zplCode);
+      }
+    }
+
+    const finalZPL = allZPLCodes.join('\n');
+    const blob = new Blob([finalZPL], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `po-labels-${new Date().toISOString().split('T')[0]}.zpl`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "ZPL file downloaded",
+      description: `Downloaded ${allZPLCodes.length} labels`,
+    });
+  };
+
   const paginatedDetailedOrders = useMemo(() => {
     return filteredOrders.slice(startIndex, endIndex);
   }, [filteredOrders, startIndex, endIndex]);
@@ -798,12 +908,12 @@ export const POTracker = () => {
                     Previous
                   </Button>
                   <span>
-                    Page {currentPage} of {Math.ceil((viewMode === 'grouped' ? filteredPOGroups.length : filteredOrders.length) / itemsPerPage)}
+                    Page {currentPage} of {Math.ceil((viewMode === 'grouped' ? groupedPOOrders.length : filteredOrders.length) / itemsPerPage)}
                     {' '}(showing {viewMode === 'grouped' ? 'PO groups' : 'line items'})
                   </span>
                   <Button
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil((viewMode === 'grouped' ? filteredPOGroups.length : filteredOrders.length) / itemsPerPage)))}
-                    disabled={currentPage === Math.ceil((viewMode === 'grouped' ? filteredPOGroups.length : filteredOrders.length) / itemsPerPage)}
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil((viewMode === 'grouped' ? groupedPOOrders.length : filteredOrders.length) / itemsPerPage)))}
+                    disabled={currentPage === Math.ceil((viewMode === 'grouped' ? groupedPOOrders.length : filteredOrders.length) / itemsPerPage)}
                     variant="outline"
                     size="sm"
                   >
@@ -914,114 +1024,295 @@ export const POTracker = () => {
         </TabsContent>
 
         <TabsContent value="labels" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Printer className="h-5 w-5" />
-                Print Labels for PO Items
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Input
-                    type="text"
-                    placeholder="Search PO number, ASIN, model..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="max-w-sm"
-                  />
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center space-x-2">
-                      <Label htmlFor="copies-toggle" className="text-sm">Copies per quantity</Label>
-                      <input
-                        id="copies-toggle"
-                        type="checkbox"
-                        checked={printCopiesByQuantity}
-                        onChange={(e) => setPrintCopiesByQuantity(e.target.checked)}
-                        className="h-4 w-4 rounded border-border"
+          {labelsStep === 'list' ? (
+            // Step 1: PO List View
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Printer className="h-5 w-5" />
+                  Print Labels - Select Purchase Order
+                </CardTitle>
+                <p className="text-muted-foreground">
+                  Select a purchase order to print labels for its items. All items will be shown including unmatched ones.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {/* Search Bar */}
+                  <div className="flex items-center gap-4">
+                    <div className="relative flex-1 max-w-sm">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        placeholder="Search PO number, ASIN, model..."
+                        value={labelSearchQuery}
+                        onChange={(e) => setLabelSearchQuery(e.target.value)}
+                        className="pl-9"
                       />
                     </div>
-                    <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as POOrder['status'] | 'all')}>
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Filter by status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Statuses</SelectItem>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="ordered">Ordered</SelectItem>
-                        <SelectItem value="shipped">Shipped</SelectItem>
-                        <SelectItem value="delivered">Delivered</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
-                        <SelectItem value="closed">Closed</SelectItem>
-                        <SelectItem value="partial-fulfilled">Partial Fulfilled</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Badge variant="outline" className="text-xs">
+                      {filteredPOGroups.length} PO{filteredPOGroups.length !== 1 ? 's' : ''}
+                    </Badge>
+                  </div>
+
+                  {/* PO Groups List */}
+                  <div className="space-y-3">
+                    {filteredPOGroups.length === 0 ? (
+                      <Card className="p-8">
+                        <div className="text-center">
+                          <Package className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                          <h3 className="text-lg font-medium mb-2">No Purchase Orders Found</h3>
+                          <p className="text-muted-foreground mb-4">
+                            {labelSearchQuery ? 'No POs match your search criteria.' : 'Upload some PO data to start printing labels.'}
+                          </p>
+                          <Button 
+                            variant="outline" 
+                            onClick={() => setActiveTab('upload')}
+                          >
+                            <FileUp className="h-4 w-4 mr-2" />
+                            Upload PO Data
+                          </Button>
+                        </div>
+                      </Card>
+                    ) : (
+                      filteredPOGroups.map((group) => (
+                        <Card 
+                          key={group.poNumber} 
+                          className="cursor-pointer hover:shadow-md transition-all border-l-4 border-l-primary/30 hover:border-l-primary"
+                          onClick={() => {
+                            setSelectedPOForLabels(group.poNumber);
+                            setLabelsStep('print');
+                          }}
+                        >
+                          <CardContent className="p-6">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-2">
+                                  <h3 className="text-lg font-semibold text-primary">
+                                    {group.poNumber}
+                                  </h3>
+                                  <Badge variant="secondary" className="text-xs">
+                                    {group.orders.length} item{group.orders.length !== 1 ? 's' : ''}
+                                  </Badge>
+                                </div>
+                                
+                                {/* Summary Info */}
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm text-muted-foreground">
+                                  <div>
+                                    <span className="font-medium">Total Quantity:</span> {group.orders.reduce((sum, order) => sum + order.quantity, 0)}
+                                  </div>
+                                  <div>
+                                    <span className="font-medium">Matched:</span> {group.orders.filter(order => order.sunsky_sku).length}/{group.orders.length}
+                                  </div>
+                                  <div>
+                                    <span className="font-medium">Status:</span>{' '}
+                                    <Badge 
+                                      variant={
+                                        group.orders.every(o => o.status === 'delivered') ? 'default' :
+                                        group.orders.some(o => o.status === 'shipped') ? 'secondary' :
+                                        group.orders.some(o => o.status === 'ordered') ? 'outline' :
+                                        'destructive'
+                                      }
+                                      className="text-xs ml-1"
+                                    >
+                                      {group.orders.every(o => o.status === 'delivered') ? 'Delivered' :
+                                       group.orders.some(o => o.status === 'shipped') ? 'Shipped' :
+                                       group.orders.some(o => o.status === 'ordered') ? 'Ordered' :
+                                       'Pending'}
+                                    </Badge>
+                                  </div>
+                                </div>
+
+                                {/* Sample Items */}
+                                <div className="mt-3">
+                                  <div className="text-xs text-muted-foreground mb-1">Sample Items:</div>
+                                  <div className="flex flex-wrap gap-2">
+                                    {group.orders.slice(0, 3).map((order, idx) => (
+                                      <Badge key={idx} variant="outline" className="text-xs">
+                                        {order.model_number || order.asin || order.sku_code || 'N/A'}
+                                      </Badge>
+                                    ))}
+                                    {group.orders.length > 3 && (
+                                      <Badge variant="outline" className="text-xs">
+                                        +{group.orders.length - 3} more
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div className="flex items-center gap-2 ml-4">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedPOForLabels(group.poNumber);
+                                    setLabelsStep('print');
+                                  }}
+                                >
+                                  <Printer className="h-4 w-4 mr-2" />
+                                  Print Labels
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))
+                    )}
                   </div>
                 </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+              </CardContent>
+            </Card>
+          ) : (
+            // Step 2: Label Printing Interface
+            <div className="space-y-6">
+              {/* Header with Back Button */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-4">
                     <Button 
                       variant="outline" 
                       size="sm"
                       onClick={() => {
-                        const currentPageIds = new Set(paginatedDetailedOrders.map(order => order.id));
-                        const allSelected = Array.from(currentPageIds).every(id => selectedForPrint.has(id));
-                        
-                        if (allSelected) {
-                          // Unselect all on current page
-                          setSelectedForPrint(prev => {
-                            const newSet = new Set(prev);
-                            currentPageIds.forEach(id => newSet.delete(id));
-                            return newSet;
-                          });
-                        } else {
-                          // Select all on current page
-                          setSelectedForPrint(prev => {
-                            const newSet = new Set(prev);
-                            currentPageIds.forEach(id => newSet.add(id));
-                            return newSet;
-                          });
-                        }
+                        setLabelsStep('list');
+                        setSelectedPOForLabels(null);
+                        setSelectedForPrint(new Set());
                       }}
                     >
-                      {Array.from(new Set(paginatedDetailedOrders.map(order => order.id))).every(id => selectedForPrint.has(id)) && paginatedDetailedOrders.length > 0
-                        ? 'Unselect Page' 
-                        : 'Select Page'
-                      }
+                      ← Back to PO List
                     </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => setSelectedForPrint(new Set())}
-                      disabled={selectedForPrint.size === 0}
-                    >
-                      Clear Selection ({selectedForPrint.size})
-                    </Button>
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Printer className="h-5 w-5" />
+                        Print Labels - {selectedPOForLabels}
+                      </CardTitle>
+                      <p className="text-muted-foreground text-sm mt-1">
+                        Select items and configure print settings
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {qzConnected && availablePrinters.length > 0 && (
-                      <>
-                        <div className="flex items-center gap-2">
-                          <Label className="text-sm">Template:</Label>
-                          <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-                            <SelectTrigger className="w-[150px]">
-                              <SelectValue placeholder="Select template" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="default">Default</SelectItem>
-                              <SelectItem value="compact">Compact</SelectItem>
-                              <SelectItem value="detailed">Detailed</SelectItem>
-                              <SelectItem value="minimal">Minimal</SelectItem>
-                              {labelTemplates?.map((template) => (
-                                <SelectItem key={template.id} value={template.id}>
-                                  {template.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
+                </CardHeader>
+              </Card>
+
+              {/* Print Settings Panel */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Print Settings</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Template Selection */}
+                    <div className="space-y-2">
+                      <Label>Template</Label>
+                      <Select 
+                        value={printSettings.template} 
+                        onValueChange={(value) => setPrintSettings(prev => ({ ...prev, template: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select template" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background border shadow-lg z-50">
+                          <SelectItem value="default">Default</SelectItem>
+                          <SelectItem value="compact">Compact</SelectItem>
+                          <SelectItem value="detailed">Detailed</SelectItem>
+                          <SelectItem value="minimal">Minimal</SelectItem>
+                          {labelTemplates?.map((template) => (
+                            <SelectItem key={template.id} value={template.id}>
+                              {template.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Page Size */}
+                    <div className="space-y-2">
+                      <Label>Page Size</Label>
+                      <Select 
+                        value={printSettings.pageSize} 
+                        onValueChange={(value) => setPrintSettings(prev => ({ ...prev, pageSize: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background border shadow-lg z-50">
+                          <SelectItem value="default">Default (4x6)</SelectItem>
+                          <SelectItem value="4x6">4" x 6"</SelectItem>
+                          <SelectItem value="4x3">4" x 3"</SelectItem>
+                          <SelectItem value="3x2">3" x 2"</SelectItem>
+                          <SelectItem value="2x1">2" x 1"</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* DPI Selection */}
+                    <div className="space-y-2">
+                      <Label>DPI Quality</Label>
+                      <Select 
+                        value={printSettings.dpi.toString()} 
+                        onValueChange={(value) => setPrintSettings(prev => ({ ...prev, dpi: parseInt(value) as 203 | 300 }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background border shadow-lg z-50">
+                          <SelectItem value="203">203 DPI (Standard)</SelectItem>
+                          <SelectItem value="300">300 DPI (High Quality)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Darkness */}
+                    <div className="space-y-2">
+                      <Label>Darkness (0-30)</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="30"
+                        value={printSettings.darkness}
+                        onChange={(e) => setPrintSettings(prev => ({ 
+                          ...prev, 
+                          darkness: Math.min(30, Math.max(0, parseInt(e.target.value) || 10))
+                        }))}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Copy Settings */}
+                  <div className="flex items-center gap-4 mt-4 pt-4 border-t">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        id="copies-by-qty"
+                        type="checkbox"
+                        checked={printSettings.copiesByQuantity}
+                        onChange={(e) => setPrintSettings(prev => ({ ...prev, copiesByQuantity: e.target.checked }))}
+                        className="h-4 w-4 rounded border-border"
+                      />
+                      <Label htmlFor="copies-by-qty" className="text-sm">Print copies per quantity</Label>
+                    </div>
+                    
+                    {!printSettings.copiesByQuantity && (
+                      <div className="flex items-center gap-2">
+                        <Label className="text-sm">Copies per item:</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          max="10"
+                          value={printSettings.copies}
+                          onChange={(e) => setPrintSettings(prev => ({ 
+                            ...prev, 
+                            copies: Math.max(1, parseInt(e.target.value) || 1)
+                          }))}
+                          className="w-20"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Printer Selection & Actions */}
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                    <div className="flex items-center gap-4">
+                      {qzConnected && availablePrinters.length > 0 && (
                         <div className="flex items-center gap-2">
                           <Label className="text-sm">Printer:</Label>
                           <Select value={selectedPrinter} onValueChange={setSelectedPrinter}>
@@ -1037,179 +1328,203 @@ export const POTracker = () => {
                             </SelectContent>
                           </Select>
                         </div>
-                      </>
-                    )}
-                    <Button 
-                      onClick={handleDirectPrint}
-                      disabled={selectedForPrint.size === 0 || !qzConnected || !selectedPrinter || isPrinting}
-                    >
-                      {isPrinting ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : qzConnected ? (
-                        <Zap className="h-4 w-4 mr-2" />
-                      ) : (
-                        <Printer className="h-4 w-4 mr-2" />
                       )}
-                      {qzConnected ? 'Direct Print' : 'Print'} ({selectedForPrint.size})
-                    </Button>
-                  </div>
-                </div>
 
-                {!qzConnected && (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <AlertCircle className="h-4 w-4 text-yellow-600" />
-                        <span className="text-sm text-yellow-800">
-                          QZ Tray not connected. Please ensure QZ Tray is running and trusted.
-                        </span>
-                      </div>
+                      <Badge variant={qzConnected ? 'default' : 'destructive'} className="text-xs">
+                        {qzConnected ? `QZ Connected (${availablePrinters.length} printers)` : 'QZ Disconnected'}
+                      </Badge>
+                    </div>
+
+                    <div className="flex items-center gap-2">
                       <Button 
                         variant="outline" 
-                        size="sm"
-                        onClick={initializeQZ}
-                        className="ml-2"
+                        onClick={handleDownloadZPL}
+                        disabled={selectedForPrint.size === 0}
                       >
-                        <RefreshCw className="h-4 w-4 mr-1" />
-                        Retry Connection
+                        <Download className="h-4 w-4 mr-2" />
+                        Download ZPL
+                      </Button>
+                      
+                      <Button 
+                        onClick={handleDirectPrint}
+                        disabled={selectedForPrint.size === 0 || !qzConnected || !selectedPrinter || isPrinting}
+                      >
+                        {isPrinting ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Printer className="h-4 w-4 mr-2" />
+                        )}
+                        Print Labels ({selectedForPrint.size})
                       </Button>
                     </div>
                   </div>
-                )}
 
-                <div className="rounded-lg border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12">
-                          <input
-                            type="checkbox"
-                            checked={paginatedDetailedOrders.length > 0 && paginatedDetailedOrders.every(order => selectedForPrint.has(order.id))}
-                            onChange={(e) => {
-                              const currentPageIds = paginatedDetailedOrders.map(order => order.id);
-                              if (e.target.checked) {
-                                setSelectedForPrint(prev => new Set([...prev, ...currentPageIds]));
-                              } else {
-                                setSelectedForPrint(prev => {
-                                  const newSet = new Set(prev);
-                                  currentPageIds.forEach(id => newSet.delete(id));
-                                  return newSet;
-                                });
-                              }
-                            }}
-                            className="h-4 w-4 rounded border-border"
-                          />
-                        </TableHead>
-                        <TableHead>PO Number</TableHead>
-                        <TableHead>SKU/Model</TableHead>
-                        <TableHead>Title</TableHead>
-                        <TableHead>Quantity</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Matched</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {paginatedDetailedOrders.map((order) => (
-                        <TableRow key={order.id}>
-                          <TableCell>
-                            <input
-                              type="checkbox"
-                              checked={selectedForPrint.has(order.id)}
-                              onChange={(e) => {
-                                const newSelected = new Set(selectedForPrint);
-                                if (e.target.checked) {
-                                  newSelected.add(order.id);
-                                } else {
-                                  newSelected.delete(order.id);
-                                }
-                                setSelectedForPrint(newSelected);
-                              }}
-                              className="h-4 w-4 rounded border-border"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="link"
-                              onClick={() => navigate(`/po-details/${order.po_number}`)}
-                              className="p-0 h-auto font-mono text-xs"
-                            >
-                              {order.po_number}
-                            </Button>
-                          </TableCell>
-                          <TableCell>
-                            <span className="font-mono text-sm">
-                              {order.sku_code || order.model_number || 'N/A'}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <span className="text-sm max-w-xs truncate block">
-                              {order.title || order.model_number || order.asin || order.sku_code || 'Untitled Item'}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="secondary">{order.quantity}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={
-                              order.status === 'pending' ? 'secondary' :
-                              order.status === 'ordered' ? 'default' :
-                              order.status === 'shipped' ? 'default' :
-                              order.status === 'delivered' ? 'secondary' :
-                              'outline'
-                            }>
-                              {order.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={order.sunsky_sku ? 'secondary' : 'outline'}>
-                              {order.sunsky_sku ? 'Matched' : 'No Match'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => navigate(`/po-details/${order.po_number}`)}
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
+                  {/* Connection Status */}
+                  {!qzConnected && (
+                    <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-yellow-600" />
+                        <span className="text-sm text-yellow-800">
+                          QZ Tray not connected. Labels will be downloaded instead of printed directly.
+                        </span>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={initializeQZ}
+                          className="ml-auto"
+                        >
+                          <RefreshCw className="h-4 w-4 mr-1" />
+                          Connect
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Items Selection Table */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Select Items to Print</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          const poOrders = filteredOrders.filter(order => order.po_number === selectedPOForLabels);
+                          const currentPageIds = new Set(poOrders.map(order => order.id));
+                          const allSelected = Array.from(currentPageIds).every(id => selectedForPrint.has(id));
+                          
+                          if (allSelected) {
+                            setSelectedForPrint(prev => {
+                              const newSet = new Set(prev);
+                              currentPageIds.forEach(id => newSet.delete(id));
+                              return newSet;
+                            });
+                          } else {
+                            setSelectedForPrint(prev => new Set([...prev, ...currentPageIds]));
+                          }
+                        }}
+                      >
+                        {(() => {
+                          const poOrders = filteredOrders.filter(order => order.po_number === selectedPOForLabels);
+                          const allSelected = poOrders.every(order => selectedForPrint.has(order.id));
+                          return allSelected && poOrders.length > 0 ? 'Unselect All' : 'Select All';
+                        })()}
+                      </Button>
+                      <Badge variant="outline">
+                        {selectedForPrint.size} selected
+                      </Badge>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-lg border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-12">Select</TableHead>
+                          <TableHead>SKU/Model</TableHead>
+                          <TableHead>Title</TableHead>
+                          <TableHead>Qty</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Matched</TableHead>
+                          <TableHead>Actions</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-
-                {/* Pagination */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm text-muted-foreground">
-                      Page {currentPage} of {Math.ceil(filteredOrders.length / itemsPerPage)}
-                    </span>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredOrders
+                          .filter(order => order.po_number === selectedPOForLabels)
+                          .map((order) => (
+                            <TableRow key={order.id}>
+                              <TableCell>
+                                <input
+                                  type="checkbox"
+                                  checked={selectedForPrint.has(order.id)}
+                                  onChange={(e) => {
+                                    const newSelected = new Set(selectedForPrint);
+                                    if (e.target.checked) {
+                                      newSelected.add(order.id);
+                                    } else {
+                                      newSelected.delete(order.id);
+                                    }
+                                    setSelectedForPrint(newSelected);
+                                  }}
+                                  className="h-4 w-4 rounded border-border"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <div className="space-y-1">
+                                  {order.model_number && (
+                                    <div className="text-sm font-medium">{order.model_number}</div>
+                                  )}
+                                  {order.asin && (
+                                    <div className="text-xs text-muted-foreground">{order.asin}</div>
+                                  )}
+                                  {order.sku_code && order.sku_code !== order.model_number && (
+                                    <div className="text-xs text-muted-foreground">{order.sku_code}</div>
+                                  )}
+                                  {!order.model_number && !order.asin && !order.sku_code && (
+                                    <span className="text-xs text-muted-foreground">N/A</span>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="max-w-[200px] truncate text-sm" title={order.title}>
+                                  {order.title || 'No title'}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="secondary" className="font-mono">
+                                  {order.quantity}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge 
+                                  variant={
+                                    order.status === 'delivered' ? 'default' :
+                                    order.status === 'shipped' ? 'secondary' :
+                                    order.status === 'ordered' ? 'outline' :
+                                    'destructive'
+                                  }
+                                  className="text-xs"
+                                >
+                                  {order.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge 
+                                  variant={order.sunsky_sku ? 'default' : 'outline'}
+                                  className="text-xs"
+                                >
+                                  {order.sunsky_sku ? 'Matched' : 'Unmatched'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => {
+                                    const newSelected = new Set(selectedForPrint);
+                                    newSelected.add(order.id);
+                                    setSelectedForPrint(newSelected);
+                                  }}
+                                  disabled={selectedForPrint.has(order.id)}
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        }
+                      </TableBody>
+                    </Table>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                      disabled={currentPage === 1}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(Math.min(Math.ceil(filteredOrders.length / itemsPerPage), currentPage + 1))}
-                      disabled={currentPage >= Math.ceil(filteredOrders.length / itemsPerPage)}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </TabsContent>
 
       </Tabs>
