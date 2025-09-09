@@ -65,10 +65,17 @@ export class QZConnectionManager {
 
       console.log('📡 QZ script found, attempting direct connection...');
       
-      // Initialize QZ security with simplified approach for version 2.2.5
+      // Initialize QZ security with proper global setup
       console.log('🔐 Setting up QZ security...');
+      
+      // Set up certificate promise (for development, use empty cert)
       window.qz.security.setCertificatePromise(function(resolve: Function, reject: Function) {
-        resolve();
+        resolve(); // Empty certificate for development
+      });
+      
+      // Set up signature promise (for development, use empty signature)
+      window.qz.security.setSignaturePromise(function(toSign: string, resolve: Function, reject: Function) {
+        resolve(); // Empty signature for development
       });
       
       // Use the global qz object directly with simpler connection
