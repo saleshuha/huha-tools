@@ -1754,7 +1754,7 @@ export const POTracker = () => {
                         <TableRow>
                           <TableHead className="w-12">Select</TableHead>
                           <TableHead 
-                            className="cursor-pointer hover:bg-muted/50 select-none"
+                            className="cursor-pointer hover:bg-muted/50 select-none w-32"
                             onClick={() => handleSort('sku_code')}
                           >
                             <div className="flex items-center gap-1">
@@ -1821,29 +1821,29 @@ export const POTracker = () => {
                                    className="h-4 w-4 rounded border-border"
                                  />
                                </TableCell>
-                               <TableCell>
-                                 <div className="space-y-1">
-                                   {order.sku_code && (
-                                     <div className="text-sm font-medium font-mono">{order.sku_code}</div>
-                                   )}
-                                   {order.model_number && order.model_number !== order.sku_code && (
-                                     <div className="text-xs text-muted-foreground font-mono">{order.model_number}</div>
-                                   )}
-                                   {!order.sku_code && !order.model_number && (
-                                     <span className="text-xs text-muted-foreground">N/A</span>
-                                   )}
-                                 </div>
-                               </TableCell>
-                               <TableCell>
-                                 <div className="space-y-1">
-                                   <div className="max-w-[250px] truncate text-sm font-medium" title={order.title}>
-                                     {order.title || 'No title'}
-                                   </div>
-                                   {order.asin && (
-                                     <div className="text-xs text-muted-foreground font-mono">{order.asin}</div>
-                                   )}
-                                 </div>
-                               </TableCell>
+                                <TableCell className="w-32">
+                                  <div className="space-y-1">
+                                    {order.sku_code && (
+                                      <div className="text-sm font-medium font-mono break-words">{order.sku_code}</div>
+                                    )}
+                                    {order.model_number && order.model_number !== order.sku_code && (
+                                      <div className="text-xs text-muted-foreground font-mono break-words">{order.model_number}</div>
+                                    )}
+                                    {!order.sku_code && !order.model_number && (
+                                      <span className="text-xs text-muted-foreground">N/A</span>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="space-y-1">
+                                    <div className="text-sm font-medium break-words whitespace-pre-wrap" title={order.title}>
+                                      {order.title || 'No title'}
+                                    </div>
+                                    {order.asin && (
+                                      <div className="text-xs text-muted-foreground font-mono">{order.asin}</div>
+                                    )}
+                                  </div>
+                                </TableCell>
                                <TableCell>
                                  <Badge variant="secondary" className="font-mono">
                                    {order.quantity}
