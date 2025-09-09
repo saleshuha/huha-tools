@@ -151,19 +151,46 @@ export const POTracker = () => {
 
   const connectQZTray = async () => {
     try {
+      console.log('🔄 Attempting to connect to QZ Tray...');
+      
       const connected = await QZTrayPrinter.connect();
+      console.log('🔗 QZ Tray connection result:', connected);
+      
       if (connected) {
         setQzConnected(true);
+        console.log('✅ QZ Tray connected successfully');
+        
         const printers = await QZTrayPrinter.getPrinters();
+        console.log('🖨️ Available printers:', printers);
         setAvailablePrinters(printers);
+        
         const defaultPrinter = await QZTrayPrinter.getDefaultPrinter();
+        console.log('🎯 Default printer:', defaultPrinter);
+        
         if (defaultPrinter) {
           setSelectedPrinter(defaultPrinter);
         }
+        
+        toast({
+          title: "QZ Tray Connected",
+          description: `Found ${printers.length} printer(s)`,
+        });
+      } else {
+        throw new Error('Connection returned false');
       }
     } catch (error) {
-      console.error('Failed to connect to QZ Tray:', error);
+      console.error('❌ Failed to connect to QZ Tray:', error);
       setQzConnected(false);
+      
+      // Provide specific error message
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.log('🔍 QZ Tray connection error details:', errorMsg);
+      
+      toast({
+        title: "QZ Tray Connection Failed",
+        description: `${errorMsg}. Check if QZ Tray is running and trusted.`,
+        variant: "destructive"
+      });
     }
   };
 
@@ -926,11 +953,22 @@ export const POTracker = () => {
 
                 {!qzConnected && (
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4 text-yellow-600" />
-                      <span className="text-sm text-yellow-800">
-                        QZ Tray not connected. Please install and run QZ Tray for direct printing.
-                      </span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-yellow-600" />
+                        <span className="text-sm text-yellow-800">
+                          QZ Tray not connected. Please ensure QZ Tray is running and trusted.
+                        </span>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={connectQZTray}
+                        className="ml-2"
+                      >
+                        <RefreshCw className="h-4 w-4 mr-1" />
+                        Retry Connection
+                      </Button>
                     </div>
                   </div>
                 )}
