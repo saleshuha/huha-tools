@@ -60,6 +60,7 @@ import LabelDesigner from "./pages/LabelDesigner";
 import NoonOrderTrackingPage from "./pages/NoonOrderTracking";
 import NoonOrderProcessingPage from "./pages/NoonOrderProcessing";
 import PreviewSettings from "./pages/PreviewSettings";
+import QZTrayPage from "./pages/QZTrayPage";
 
 import { useState as useReactState } from "react";
 import { useToast } from "@/components/ui/use-toast";
@@ -270,6 +271,7 @@ const App = () => {
                          <Route path="/noon-order-tracking" element={<NoonOrderTrackingPage />} />
                          <Route path="/amazon-fulfillment" element={<AmazonFulfillmentTracker />} />
                          <Route path="/label-designer" element={<LabelDesigner />} />
+                         <Route path="/qz-tray" element={<QZTrayPage />} />
 
                         {/* Desktop-only Routes - Hide in native app */}
                         {!isNative && (
