@@ -10,10 +10,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { POFileUpload } from '@/components/po/POFileUpload';
 import { POProfitAnalytics } from '@/components/po/POProfitAnalytics';
+import { LabelPrintDialog } from '@/components/inventory/LabelPrintDialog';
 import { usePOOrders } from '@/hooks/usePOOrders';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useCountry } from '@/contexts/CountryContext';
@@ -65,6 +66,11 @@ export const POTracker = () => {
   const [viewMode, setViewMode] = useState<'grouped' | 'detailed'>('grouped');
   const [processingProgress, setProcessingProgress] = useState(0);
   const [processingStatus, setProcessingStatus] = useState('');
+  
+  // Print Labels state
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [selectedForPrint, setSelectedForPrint] = useState<Set<string>>(new Set());
+  const [printCopiesByQuantity, setPrintCopiesByQuantity] = useState(true);
   
   const { poOrders, isLoading, fetchPOOrders, processPOFiles, deletePOOrders } = usePOOrders();
   const { profile } = useUserProfile();
@@ -220,7 +226,7 @@ export const POTracker = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <Package className="h-4 w-4" />
             PO Overview
@@ -228,6 +234,10 @@ export const POTracker = () => {
           <TabsTrigger value="upload" className="flex items-center gap-2">
             <FileUp className="h-4 w-4" />
             Uploads
+          </TabsTrigger>
+          <TabsTrigger value="labels" className="flex items-center gap-2">
+            <Printer className="h-4 w-4" />
+            Print Labels
           </TabsTrigger>
         </TabsList>
 
@@ -693,6 +703,266 @@ export const POTracker = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="labels" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Printer className="h-5 w-5" />
+                Print Labels for PO Items
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Input
+                    type="text"
+                    placeholder="Search PO number, ASIN, model..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="max-w-sm"
+                  />
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center space-x-2">
+                      <Label htmlFor="copies-toggle" className="text-sm">Copies per quantity</Label>
+                      <input
+                        id="copies-toggle"
+                        type="checkbox"
+                        checked={printCopiesByQuantity}
+                        onChange={(e) => setPrintCopiesByQuantity(e.target.checked)}
+                        className="h-4 w-4 rounded border-border"
+                      />
+                    </div>
+                    <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as POOrder['status'] | 'all')}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Filter by status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="ordered">Ordered</SelectItem>
+                        <SelectItem value="shipped">Shipped</SelectItem>
+                        <SelectItem value="delivered">Delivered</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                        <SelectItem value="closed">Closed</SelectItem>
+                        <SelectItem value="partial-fulfilled">Partial Fulfilled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        const currentPageIds = new Set(paginatedDetailedOrders.map(order => order.id));
+                        const allSelected = Array.from(currentPageIds).every(id => selectedForPrint.has(id));
+                        
+                        if (allSelected) {
+                          // Unselect all on current page
+                          setSelectedForPrint(prev => {
+                            const newSet = new Set(prev);
+                            currentPageIds.forEach(id => newSet.delete(id));
+                            return newSet;
+                          });
+                        } else {
+                          // Select all on current page
+                          setSelectedForPrint(prev => {
+                            const newSet = new Set(prev);
+                            currentPageIds.forEach(id => newSet.add(id));
+                            return newSet;
+                          });
+                        }
+                      }}
+                    >
+                      {Array.from(new Set(paginatedDetailedOrders.map(order => order.id))).every(id => selectedForPrint.has(id)) && paginatedDetailedOrders.length > 0
+                        ? 'Unselect Page' 
+                        : 'Select Page'
+                      }
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setSelectedForPrint(new Set())}
+                      disabled={selectedForPrint.size === 0}
+                    >
+                      Clear Selection ({selectedForPrint.size})
+                    </Button>
+                  </div>
+                  <Button 
+                    onClick={() => setPrintDialogOpen(true)}
+                    disabled={selectedForPrint.size === 0}
+                  >
+                    <Printer className="h-4 w-4 mr-2" />
+                    Print Selected ({selectedForPrint.size})
+                  </Button>
+                </div>
+
+                <div className="rounded-lg border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12">
+                          <input
+                            type="checkbox"
+                            checked={paginatedDetailedOrders.length > 0 && paginatedDetailedOrders.every(order => selectedForPrint.has(order.id))}
+                            onChange={(e) => {
+                              const currentPageIds = paginatedDetailedOrders.map(order => order.id);
+                              if (e.target.checked) {
+                                setSelectedForPrint(prev => new Set([...prev, ...currentPageIds]));
+                              } else {
+                                setSelectedForPrint(prev => {
+                                  const newSet = new Set(prev);
+                                  currentPageIds.forEach(id => newSet.delete(id));
+                                  return newSet;
+                                });
+                              }
+                            }}
+                            className="h-4 w-4 rounded border-border"
+                          />
+                        </TableHead>
+                        <TableHead>PO Number</TableHead>
+                        <TableHead>SKU/Model</TableHead>
+                        <TableHead>Title</TableHead>
+                        <TableHead>Quantity</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Matched</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedDetailedOrders.map((order) => (
+                        <TableRow key={order.id}>
+                          <TableCell>
+                            <input
+                              type="checkbox"
+                              checked={selectedForPrint.has(order.id)}
+                              onChange={(e) => {
+                                const newSelected = new Set(selectedForPrint);
+                                if (e.target.checked) {
+                                  newSelected.add(order.id);
+                                } else {
+                                  newSelected.delete(order.id);
+                                }
+                                setSelectedForPrint(newSelected);
+                              }}
+                              className="h-4 w-4 rounded border-border"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="link"
+                              onClick={() => navigate(`/po-details/${order.po_number}`)}
+                              className="p-0 h-auto font-mono text-xs"
+                            >
+                              {order.po_number}
+                            </Button>
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-mono text-sm">
+                              {order.sku_code || order.model_number || 'N/A'}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-sm max-w-xs truncate block">
+                              {order.title || order.model_number || order.asin || order.sku_code || 'Untitled Item'}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">{order.quantity}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={
+                              order.status === 'pending' ? 'secondary' :
+                              order.status === 'ordered' ? 'default' :
+                              order.status === 'shipped' ? 'default' :
+                              order.status === 'delivered' ? 'secondary' :
+                              'outline'
+                            }>
+                              {order.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={order.sunsky_sku ? 'secondary' : 'outline'}>
+                              {order.sunsky_sku ? 'Matched' : 'No Match'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => navigate(`/po-details/${order.po_number}`)}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Pagination */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-muted-foreground">
+                      Page {currentPage} of {Math.ceil(filteredOrders.length / itemsPerPage)}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(Math.min(Math.ceil(filteredOrders.length / itemsPerPage), currentPage + 1))}
+                      disabled={currentPage >= Math.ceil(filteredOrders.length / itemsPerPage)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <LabelPrintDialog
+          open={printDialogOpen}
+          onOpenChange={setPrintDialogOpen}
+          selectedItems={(() => {
+            // Build selectedItems from selectedForPrint
+            const selectedOrders = poOrders.filter(order => selectedForPrint.has(order.id));
+            let items = selectedOrders.map(order => ({
+              id: order.id,
+              asin: order.asin,
+              sku: order.sku_code || order.model_number,
+              title: order.title || order.model_number || order.asin || order.sku_code || 'Item',
+              quantity: printCopiesByQuantity ? order.quantity : 1,
+              type: (order.asin ? 'asin' : 'sku') as 'asin' | 'sku' | 'mixed',
+              order_id: order.po_number,
+              order_quantity: order.quantity
+            }));
+
+            // If printCopiesByQuantity is true, expand by quantity
+            if (printCopiesByQuantity) {
+              items = items.flatMap(item => 
+                Array(item.quantity).fill(null).map(() => ({ ...item, quantity: 1 }))
+              );
+            }
+
+            return items;
+          })()}
+          inventoryType="mixed"
+        />
 
       </Tabs>
     </div>
