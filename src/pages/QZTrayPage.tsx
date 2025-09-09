@@ -6,13 +6,18 @@ import { Printer } from "lucide-react";
 export default function QZTrayPage() {
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-3 mb-6">
-        <Printer className="h-8 w-8 text-primary" />
-        <div>
-          <h1 className="text-3xl font-bold">QZ Tray Printer Setup</h1>
-          <p className="text-muted-foreground">
-            Configure and manage your QZ Tray connection for label printing
-          </p>
+      {/* Header Section */}
+      <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg p-6 border border-primary/20">
+        <div className="flex items-center gap-4">
+          <div className="bg-primary/20 p-3 rounded-lg">
+            <Printer className="h-8 w-8 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold mb-2">QZ Tray Printer Setup</h1>
+            <p className="text-muted-foreground text-lg">
+              Configure and manage your QZ Tray connection for label printing
+            </p>
+          </div>
         </div>
       </div>
 
