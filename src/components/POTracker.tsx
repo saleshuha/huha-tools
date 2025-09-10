@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { POFileUpload } from '@/components/po/POFileUpload';
 import { POProfitAnalytics } from '@/components/po/POProfitAnalytics';
@@ -75,6 +75,7 @@ export const POTracker = () => {
   // Sorting state
   const [sortField, setSortField] = useState<keyof POOrder | 'combined_title'>('po_number');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [originalOrderPreserved, setOriginalOrderPreserved] = useState(false);
   
   // Print Labels state - Two-step flow
   const [labelsStep, setLabelsStep] = useState<'list' | 'print'>('list');
@@ -1359,7 +1360,12 @@ export const POTracker = () => {
                               setLabelsStep('print'); // Go directly to print interface
                               setActiveTab('labels'); // Switch to labels tab
                               
-                              console.log('🔍 VIEW ITEMS DEBUG: Switched to print labels interface');
+                              // Preserve original order for printing - disable sorting
+                              setOriginalOrderPreserved(true);
+                              setSortField('po_number'); // Reset to original order
+                              setSortDirection('asc');
+                              
+                              console.log('🔍 VIEW ITEMS DEBUG: Switched to print labels interface with original order preserved');
                             }}
                           >
                             <Package className="h-4 w-4 mr-2" />
@@ -1503,6 +1509,7 @@ export const POTracker = () => {
                          setSelectedPOForLabels(null);
                          setSelectedPOsForLabels(new Set());
                          setSelectedForPrint(new Set());
+                         setOriginalOrderPreserved(false); // Reset order preservation when going back
                        }}
                      >
                        ← Back to PO List
@@ -1809,41 +1816,52 @@ export const POTracker = () => {
               {/* Items Selection Table */}
               <Card>
                 <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle>Select Items to Print</CardTitle>
-                    <div className="flex items-center gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => {
-                          const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
-                          const poOrders = filteredOrders.filter(order => selectedPOsList.includes(order.po_number));
-                          const currentPageIds = new Set(poOrders.map(order => order.id));
-                          const allSelected = Array.from(currentPageIds).every(id => selectedForPrint.has(id));
-                          
-                          if (allSelected) {
-                            setSelectedForPrint(prev => {
-                              const newSet = new Set(prev);
-                              currentPageIds.forEach(id => newSet.delete(id));
-                              return newSet;
-                            });
-                          } else {
-                            setSelectedForPrint(prev => new Set([...prev, ...currentPageIds]));
-                          }
-                        }}
-                      >
-                        {(() => {
-                          const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
-                          const poOrders = filteredOrders.filter(order => selectedPOsList.includes(order.po_number));
-                          const allSelected = poOrders.every(order => selectedForPrint.has(order.id));
-                          return allSelected && poOrders.length > 0 ? 'Unselect All' : 'Select All';
-                        })()}
-                      </Button>
-                      <Badge variant="outline">
-                        {selectedForPrint.size} selected
-                      </Badge>
+                    <div className="flex items-center justify-between">
+                      <CardTitle>Select Items to Print</CardTitle>
+                      <div className="flex items-center gap-2">
+                        {originalOrderPreserved && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setOriginalOrderPreserved(false)}
+                            className="text-xs"
+                          >
+                            <ArrowUpDown className="h-3 w-3 mr-1" />
+                            Enable Sorting
+                          </Button>
+                        )}
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
+                            const poOrders = filteredOrders.filter(order => selectedPOsList.includes(order.po_number));
+                            const currentPageIds = new Set(poOrders.map(order => order.id));
+                            const allSelected = Array.from(currentPageIds).every(id => selectedForPrint.has(id));
+                            
+                            if (allSelected) {
+                              setSelectedForPrint(prev => {
+                                const newSet = new Set(prev);
+                                currentPageIds.forEach(id => newSet.delete(id));
+                                return newSet;
+                              });
+                            } else {
+                              setSelectedForPrint(prev => new Set([...prev, ...currentPageIds]));
+                            }
+                          }}
+                        >
+                          {(() => {
+                            const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
+                            const poOrders = filteredOrders.filter(order => selectedPOsList.includes(order.po_number));
+                            const allSelected = poOrders.every(order => selectedForPrint.has(order.id));
+                            return allSelected && poOrders.length > 0 ? 'Unselect All' : 'Select All';
+                          })()}
+                        </Button>
+                        <Badge variant="outline">
+                          {selectedForPrint.size} selected
+                        </Badge>
+                      </div>
                     </div>
-                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="mb-4">
@@ -1874,25 +1892,28 @@ export const POTracker = () => {
                           <TableHead className="w-12">Select</TableHead>
                           <TableHead className="w-16">Image</TableHead>
                           <TableHead 
-                            className="cursor-pointer hover:bg-muted/50 select-none w-32"
-                            onClick={() => handleSort('sku_code')}
+                            className={`cursor-pointer hover:bg-muted/50 select-none w-32 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}
+                            onClick={() => !originalOrderPreserved && handleSort('sku_code')}
                           >
                             <div className="flex items-center gap-1">
                               SKU/Model
-                              {sortField === 'sku_code' && (
+                              {sortField === 'sku_code' && !originalOrderPreserved && (
                                 <span className="text-xs">
                                   {sortDirection === 'asc' ? '↑' : '↓'}
                                 </span>
                               )}
+                              {originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' && (
+                                <span className="text-xs text-muted-foreground">(Original Order)</span>
+                              )}
                             </div>
                           </TableHead>
                           <TableHead 
-                            className="cursor-pointer hover:bg-muted/50 select-none"
-                            onClick={() => handleSort('combined_title')}
+                            className={`cursor-pointer hover:bg-muted/50 select-none ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}
+                            onClick={() => !originalOrderPreserved && handleSort('combined_title')}
                           >
                             <div className="flex items-center gap-1">
                               Title & ASIN
-                              {sortField === 'combined_title' && (
+                              {sortField === 'combined_title' && !originalOrderPreserved && (
                                 <span className="text-xs">
                                   {sortDirection === 'asc' ? '↑' : '↓'}
                                 </span>
@@ -1900,12 +1921,12 @@ export const POTracker = () => {
                             </div>
                           </TableHead>
                           <TableHead 
-                            className="cursor-pointer hover:bg-muted/50 select-none"
-                            onClick={() => handleSort('quantity')}
+                            className={`cursor-pointer hover:bg-muted/50 select-none ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}
+                            onClick={() => !originalOrderPreserved && handleSort('quantity')}
                           >
                             <div className="flex items-center gap-1">
                               Qty
-                              {sortField === 'quantity' && (
+                              {sortField === 'quantity' && !originalOrderPreserved && (
                                 <span className="text-xs">
                                   {sortDirection === 'asc' ? '↑' : '↓'}
                                 </span>
