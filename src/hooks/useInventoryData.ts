@@ -50,6 +50,9 @@ export function useInventoryData() {
     setLoading(true);
     setError(null);
     try {
+      // Clear existing data first to force refresh
+      setInventory([]);
+      
       // Fetch ASIN inventory
       const { data: asinData, error: asinError } = await supabase
         .from('asin_inventory')
@@ -66,21 +69,42 @@ export function useInventoryData() {
 
       if (skuError) throw skuError;
 
-      // Combine and format the data
+      // Debug logging
+      console.log('ASIN Data:', asinData);
+      console.log('SKU Data:', skuData);
+
+      // Combine and format the data - prioritize actual titles
       const combinedInventory: InventoryItem[] = [
-        ...(asinData || []).map(item => ({
-          ...item,
-          type: 'asin' as const,
-          title: item.title && item.title.trim() ? item.title : `ASIN: ${item.asin}${item.sku ? ` | SKU: ${item.sku}` : ''}`,
-        })),
-        ...(skuData || []).map(item => ({
-          ...item,
-          type: 'sku' as const,
-          sku: item.sku_number,
-          title: item.title && item.title.trim() ? item.title : `SKU: ${item.sku_number}`,
-        })),
+        ...(asinData || []).map(item => {
+          const hasRealTitle = item.title && item.title.trim() && 
+                              !item.title.toLowerCase().includes('asin:') && 
+                              !item.title.toLowerCase().includes('sku:');
+          
+          console.log(`ASIN ${item.asin} - Title: "${item.title}", Has Real Title: ${hasRealTitle}`);
+          
+          return {
+            ...item,
+            type: 'asin' as const,
+            title: hasRealTitle ? item.title : `ASIN: ${item.asin}${item.sku ? ` | SKU: ${item.sku}` : ''}`,
+          };
+        }),
+        ...(skuData || []).map(item => {
+          const hasRealTitle = item.title && item.title.trim() && 
+                              !item.title.toLowerCase().includes('asin:') && 
+                              !item.title.toLowerCase().includes('sku:');
+          
+          console.log(`SKU ${item.sku_number} - Title: "${item.title}", Has Real Title: ${hasRealTitle}`);
+          
+          return {
+            ...item,
+            type: 'sku' as const,
+            sku: item.sku_number,
+            title: hasRealTitle ? item.title : `SKU: ${item.sku_number}`,
+          };
+        }),
       ];
 
+      console.log('Combined Inventory:', combinedInventory);
       setInventory(combinedInventory);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch inventory');
