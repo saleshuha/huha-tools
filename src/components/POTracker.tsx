@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { POFileUpload } from '@/components/po/POFileUpload';
 import { POProfitAnalytics } from '@/components/po/POProfitAnalytics';
@@ -79,6 +79,7 @@ export const POTracker = () => {
   // Print Labels state - Two-step flow
   const [labelsStep, setLabelsStep] = useState<'list' | 'print'>('list');
   const [selectedPOForLabels, setSelectedPOForLabels] = useState<string | null>(null);
+  const [selectedPOsForLabels, setSelectedPOsForLabels] = useState<Set<string>>(new Set()); // Multi-select
   const [labelSearchQuery, setLabelSearchQuery] = useState('');
   const [selectedForPrint, setSelectedForPrint] = useState<Set<string>>(new Set());
   const [labelCurrentPage, setLabelCurrentPage] = useState(1);
@@ -1250,38 +1251,64 @@ export const POTracker = () => {
                 </p>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                   {/* Search Bar */}
-                   <div className="flex items-center gap-4">
-                     <div className="relative flex-1 max-w-sm">
-                       <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                       <Input
-                         placeholder="Search PO number, ASIN, model..."
-                         value={labelSearchQuery}
-                         onChange={(e) => {
-                           console.log('Label search query changed to:', e.target.value);
-                           setLabelSearchQuery(e.target.value);
-                         }}
-                         className="pl-9 pr-9"
-                       />
-                       {labelSearchQuery && (
-                         <Button
-                           variant="ghost" 
-                           size="sm"
-                           className="absolute right-1 top-1/2 h-6 w-6 p-0 -translate-y-1/2"
-                           onClick={() => {
-                             console.log('Clearing label search');
-                             setLabelSearchQuery('');
-                           }}
-                         >
-                           <X className="h-3 w-3" />
-                         </Button>
-                       )}
-                     </div>
-                     <Badge variant="outline" className="text-xs">
-                       {filteredPOGroups.length} PO{filteredPOGroups.length !== 1 ? 's' : ''}
-                     </Badge>
-                   </div>
+                 <div className="space-y-4">
+                    {/* Search Bar and Controls */}
+                    <div className="flex items-center gap-4">
+                      <div className="relative flex-1 max-w-sm">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          placeholder="Search PO number, ASIN, model..."
+                          value={labelSearchQuery}
+                          onChange={(e) => {
+                            console.log('Label search query changed to:', e.target.value);
+                            setLabelSearchQuery(e.target.value);
+                          }}
+                          className="pl-9 pr-9"
+                        />
+                        {labelSearchQuery && (
+                          <Button
+                            variant="ghost" 
+                            size="sm"
+                            className="absolute right-1 top-1/2 h-6 w-6 p-0 -translate-y-1/2"
+                            onClick={() => {
+                              console.log('Clearing label search');
+                              setLabelSearchQuery('');
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                      <Badge variant="outline" className="text-xs">
+                        {filteredPOGroups.length} PO{filteredPOGroups.length !== 1 ? 's' : ''}
+                      </Badge>
+                    </div>
+
+                    {/* Multi-select Controls */}
+                    {selectedPOsForLabels.size > 0 && (
+                      <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary">
+                            {selectedPOsForLabels.size} PO{selectedPOsForLabels.size !== 1 ? 's' : ''} selected
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedPOsForLabels(new Set())}
+                          >
+                            Clear selection
+                          </Button>
+                        </div>
+                        <Button 
+                          onClick={() => {
+                            setLabelsStep('print');
+                          }}
+                        >
+                          <Printer className="h-4 w-4 mr-2" />
+                          Print Labels for Selected POs
+                        </Button>
+                      </div>
+                    )}
 
                   {/* PO Groups List */}
                   <div className="space-y-2">
@@ -1306,48 +1333,68 @@ export const POTracker = () => {
                       filteredPOGroups.map((group) => (
                         <Card 
                           key={group.poNumber} 
-                          className="cursor-pointer hover:shadow-md transition-all border-l-4 border-l-primary/30 hover:border-l-primary"
+                          className={`cursor-pointer hover:shadow-md transition-all border-l-4 ${
+                            selectedPOsForLabels.has(group.poNumber) 
+                              ? 'border-l-primary bg-primary/5' 
+                              : 'border-l-primary/30 hover:border-l-primary'
+                          }`}
                           onClick={() => {
-                            setSelectedPOForLabels(group.poNumber);
-                            setLabelsStep('print');
+                            const newSelected = new Set(selectedPOsForLabels);
+                            if (newSelected.has(group.poNumber)) {
+                              newSelected.delete(group.poNumber);
+                            } else {
+                              newSelected.add(group.poNumber);
+                            }
+                            setSelectedPOsForLabels(newSelected);
                           }}
                         >
                            <CardContent className="p-4">
                              <div className="flex items-center justify-between">
-                               <div className="flex-1">
-                                 <div className="flex items-center gap-3 mb-2">
-                                   <h3 className="text-base font-semibold text-primary">
-                                     {group.poNumber}
-                                   </h3>
-                                   <Badge variant="secondary" className="text-xs">
-                                     {group.orders.length} item{group.orders.length !== 1 ? 's' : ''}
-                                   </Badge>
+                               <div className="flex items-center gap-3">
+                                 {/* Checkbox */}
+                                 <div className="flex items-center">
+                                   {selectedPOsForLabels.has(group.poNumber) ? (
+                                     <CheckSquare className="h-5 w-5 text-primary" />
+                                   ) : (
+                                     <Square className="h-5 w-5 text-muted-foreground" />
+                                   )}
                                  </div>
                                  
-                                  {/* Summary Info */}
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-muted-foreground">
-                                    <div>
-                                      <span className="font-medium">Qty:</span> {group.orders.reduce((sum, order) => sum + order.quantity, 0)}
+                                 <div className="flex-1">
+                                   <div className="flex items-center gap-3 mb-2">
+                                     <h3 className="text-base font-semibold text-primary">
+                                       {group.poNumber}
+                                     </h3>
+                                     <Badge variant="secondary" className="text-xs">
+                                       {group.orders.length} item{group.orders.length !== 1 ? 's' : ''}
+                                     </Badge>
+                                   </div>
+                                   
+                                    {/* Summary Info */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-muted-foreground">
+                                      <div>
+                                        <span className="font-medium">Qty:</span> {group.orders.reduce((sum, order) => sum + order.quantity, 0)}
+                                      </div>
+                                      <div>
+                                        <span className="font-medium">Labels:</span>{' '}
+                                        <span className="text-xs">
+                                          {group.orders.filter(o => o.is_printed).length}/{group.orders.length} Printed
+                                        </span>
+                                        <Badge 
+                                          variant={
+                                            group.orders.every(o => o.is_printed) ? 'default' :
+                                            group.orders.some(o => o.is_printed) ? 'secondary' :
+                                            'outline'
+                                          }
+                                          className="text-xs ml-2"
+                                        >
+                                          {group.orders.every(o => o.is_printed) ? 'Complete' :
+                                           group.orders.some(o => o.is_printed) ? 'Partial' :
+                                           'Pending'}
+                                        </Badge>
+                                      </div>
                                     </div>
-                                    <div>
-                                      <span className="font-medium">Labels:</span>{' '}
-                                      <span className="text-xs">
-                                        {group.orders.filter(o => o.is_printed).length}/{group.orders.length} Printed
-                                      </span>
-                                      <Badge 
-                                        variant={
-                                          group.orders.every(o => o.is_printed) ? 'default' :
-                                          group.orders.some(o => o.is_printed) ? 'secondary' :
-                                          'outline'
-                                        }
-                                        className="text-xs ml-2"
-                                      >
-                                        {group.orders.every(o => o.is_printed) ? 'Complete' :
-                                         group.orders.some(o => o.is_printed) ? 'Partial' :
-                                         'Pending'}
-                                      </Badge>
-                                    </div>
-                                  </div>
+                                 </div>
                                </div>
                               
                               <div className="flex items-center gap-2 ml-4">
@@ -1357,6 +1404,7 @@ export const POTracker = () => {
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setSelectedPOForLabels(group.poNumber);
+                                    setSelectedPOsForLabels(new Set([group.poNumber]));
                                     setLabelsStep('print');
                                   }}
                                 >
@@ -1380,24 +1428,25 @@ export const POTracker = () => {
               <Card>
                 <CardHeader>
                   <div className="flex items-center gap-4">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => {
-                        setLabelsStep('list');
-                        setSelectedPOForLabels(null);
-                        setSelectedForPrint(new Set());
-                      }}
-                    >
-                      ← Back to PO List
-                    </Button>
-                    <div>
-                      <CardTitle className="flex items-center gap-2">
-                        <Printer className="h-5 w-5" />
-                        Print Labels - {selectedPOForLabels}
-                      </CardTitle>
-                      <p className="text-muted-foreground text-sm mt-1">
-                        Select items and configure print settings
+                     <Button 
+                       variant="outline" 
+                       size="sm"
+                       onClick={() => {
+                         setLabelsStep('list');
+                         setSelectedPOForLabels(null);
+                         setSelectedPOsForLabels(new Set());
+                         setSelectedForPrint(new Set());
+                       }}
+                     >
+                       ← Back to PO List
+                     </Button>
+                     <div>
+                       <CardTitle className="flex items-center gap-2">
+                         <Printer className="h-5 w-5" />
+                         Print Labels - {selectedPOsForLabels.size > 1 ? `${selectedPOsForLabels.size} POs` : selectedPOForLabels || Array.from(selectedPOsForLabels)[0]}
+                       </CardTitle>
+                       <p className="text-muted-foreground text-sm mt-1">
+                         Select items and configure print settings
                       </p>
                     </div>
                   </div>
@@ -1700,7 +1749,8 @@ export const POTracker = () => {
                         variant="outline" 
                         size="sm"
                         onClick={() => {
-                          const poOrders = filteredOrders.filter(order => order.po_number === selectedPOForLabels);
+                          const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
+                          const poOrders = filteredOrders.filter(order => selectedPOsList.includes(order.po_number));
                           const currentPageIds = new Set(poOrders.map(order => order.id));
                           const allSelected = Array.from(currentPageIds).every(id => selectedForPrint.has(id));
                           
@@ -1716,7 +1766,8 @@ export const POTracker = () => {
                         }}
                       >
                         {(() => {
-                          const poOrders = filteredOrders.filter(order => order.po_number === selectedPOForLabels);
+                          const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
+                          const poOrders = filteredOrders.filter(order => selectedPOsList.includes(order.po_number));
                           const allSelected = poOrders.every(order => selectedForPrint.has(order.id));
                           return allSelected && poOrders.length > 0 ? 'Unselect All' : 'Select All';
                         })()}
@@ -1800,12 +1851,13 @@ export const POTracker = () => {
                       </TableHeader>
                        <TableBody>
                          {(() => {
-                           const ordersForSelectedPO = filteredOrders.filter(order => order.po_number === selectedPOForLabels);
-                           const startIndex = (labelCurrentPage - 1) * labelItemsPerPage;
-                           const endIndex = startIndex + labelItemsPerPage;
-                           const paginatedOrders = ordersForSelectedPO.slice(startIndex, endIndex);
-                           
-                           return paginatedOrders.map((order) => (
+                            const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
+                            const ordersForSelectedPOs = filteredOrders.filter(order => selectedPOsList.includes(order.po_number));
+                            const startIndex = (labelCurrentPage - 1) * labelItemsPerPage;
+                            const endIndex = startIndex + labelItemsPerPage;
+                            const paginatedOrders = ordersForSelectedPOs.slice(startIndex, endIndex);
+                            
+                            return paginatedOrders.map((order) => (
                              <TableRow key={order.id}>
                                <TableCell>
                                  <input
@@ -1916,17 +1968,18 @@ export const POTracker = () => {
                    </div>
                    
                    {/* Pagination Controls */}
-                   {(() => {
-                     const ordersForSelectedPO = filteredOrders.filter(order => order.po_number === selectedPOForLabels);
-                     const totalPages = Math.ceil(ordersForSelectedPO.length / labelItemsPerPage);
-                     
-                     if (totalPages <= 1) return null;
-                     
-                     return (
-                       <div className="flex items-center justify-between px-2 py-4 border-t">
-                         <div className="flex items-center space-x-2">
-                           <p className="text-sm text-muted-foreground">
-                             Page {labelCurrentPage} of {totalPages} ({ordersForSelectedPO.length} items)
+                    {(() => {
+                      const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
+                      const ordersForSelectedPOs = filteredOrders.filter(order => selectedPOsList.includes(order.po_number));
+                      const totalPages = Math.ceil(ordersForSelectedPOs.length / labelItemsPerPage);
+                      
+                      if (totalPages <= 1) return null;
+                      
+                      return (
+                        <div className="flex items-center justify-between px-2 py-4 border-t">
+                          <div className="flex items-center space-x-2">
+                            <p className="text-sm text-muted-foreground">
+                              Page {labelCurrentPage} of {totalPages} ({ordersForSelectedPOs.length} items)
                            </p>
                          </div>
                          <div className="flex items-center space-x-2">
