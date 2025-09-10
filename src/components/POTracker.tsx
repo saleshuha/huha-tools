@@ -301,8 +301,8 @@ export const POTracker = () => {
       console.log('🔍 FILTERING DEBUG: After search filter:', filtered.length, 'orders');
     }
     
-    // Filter by selected POs when in orders tab and detailed view with selections
-    if (activeTab === 'orders' && viewMode === 'detailed' && selectedPOsForLabels.size > 0) {
+    // Filter by selected POs when in overview tab and detailed view with selections
+    if (activeTab === 'overview' && viewMode === 'detailed' && selectedPOsForLabels.size > 0) {
       const selectedPOsList = Array.from(selectedPOsForLabels);
       console.log('🔍 FILTERING DEBUG: Applying PO filter for:', selectedPOsList);
       
@@ -936,7 +936,7 @@ export const POTracker = () => {
                 </div>
 
                 {/* Selected POs Filter Indicator */}
-                {activeTab === 'orders' && viewMode === 'detailed' && selectedPOsForLabels.size > 0 && (
+                {activeTab === 'overview' && viewMode === 'detailed' && selectedPOsForLabels.size > 0 && (
                   <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
                     <div className="flex items-center gap-2">
                       <Package className="h-4 w-4 text-blue-600" />
@@ -1356,9 +1356,9 @@ export const POTracker = () => {
                               console.log('🔍 VIEW ITEMS DEBUG: Total PO orders available:', poOrders.length);
                               console.log('🔍 VIEW ITEMS DEBUG: Sample PO numbers:', poOrders.slice(0, 5).map(o => o.po_number));
                               
-                              // Switch to detailed view and filter by selected POs
+                              // Switch to overview tab with detailed view and filter by selected POs
                               setViewMode('detailed');
-                              setActiveTab('orders');
+                              setActiveTab('overview'); // Changed from 'orders' to 'overview'
                               
                               // Debug the filtering after state update
                               setTimeout(() => {
