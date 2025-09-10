@@ -6,8 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-import { Plus, Edit2, Trash2, ExternalLink, Image as ImageIcon, Search, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, ExternalLink, Image as ImageIcon, Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useProductImages } from '@/hooks/useProductImages';
 
 interface ProductImageFormData {
@@ -304,35 +303,58 @@ export const ProductImageManager = () => {
                   <div className="text-sm text-muted-foreground">
                     Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredImages.length)} of {filteredImages.length} images
                   </div>
-                  <Pagination>
-                    <PaginationContent>
-                      <PaginationItem>
-                        <PaginationPrevious 
-                          onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-                          className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                        />
-                      </PaginationItem>
-                      
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                        <PaginationItem key={page}>
-                          <PaginationLink
-                            onClick={() => handlePageChange(page)}
-                            isActive={page === currentPage}
-                            className="cursor-pointer"
-                          >
-                            {page}
-                          </PaginationLink>
-                        </PaginationItem>
-                      ))}
-                      
-                      <PaginationItem>
-                        <PaginationNext 
-                          onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
-                          className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                        />
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
+                  
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                      disabled={currentPage === 1}
+                      className="flex items-center gap-1"
+                    >
+                      <ChevronLeft className="h-3 w-3" />
+                      Previous
+                    </Button>
+                    
+                    <div className="flex items-center gap-1 mx-2">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter(page => {
+                          if (totalPages <= 7) return true;
+                          if (page === 1 || page === totalPages) return true;
+                          if (page >= currentPage - 1 && page <= currentPage + 1) return true;
+                          return false;
+                        })
+                        .map((page, index, array) => {
+                          const showEllipsis = index > 0 && page - array[index - 1] > 1;
+                          return (
+                            <React.Fragment key={page}>
+                              {showEllipsis && (
+                                <span className="px-2 text-muted-foreground">...</span>
+                              )}
+                              <Button
+                                variant={page === currentPage ? "default" : "ghost"}
+                                size="sm"
+                                onClick={() => handlePageChange(page)}
+                                className="min-w-[32px] h-8"
+                              >
+                                {page}
+                              </Button>
+                            </React.Fragment>
+                          );
+                        })}
+                    </div>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                      disabled={currentPage === totalPages}
+                      className="flex items-center gap-1"
+                    >
+                      Next
+                      <ChevronRight className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
