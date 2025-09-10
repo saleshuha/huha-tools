@@ -1918,10 +1918,8 @@ export function AsinInventory() {
                    </div>
                  </div>
                 </div>}
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
+          </DialogContent>
+        </Dialog>
     </div>
   );
 }
