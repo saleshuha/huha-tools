@@ -265,7 +265,6 @@ export function AsinInventory() {
     filtered.sort((a, b) => {
       let aValue: any = a[sortBy];
       let bValue: any = b[sortBy];
-      
       if (sortBy === 'dateAdded') {
         aValue = new Date(aValue).getTime();
         bValue = new Date(bValue).getTime();
@@ -279,7 +278,6 @@ export function AsinInventory() {
         aValue = aValue.toLowerCase();
         bValue = bValue.toLowerCase();
       }
-      
       if (sortOrder === 'asc') {
         return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
       } else {
@@ -627,15 +625,11 @@ export function AsinInventory() {
     // Load template data if available
     const savedTemplate = localStorage.getItem('savedLabelTemplate');
     let templateData = null;
-    
     if (savedTemplate) {
       try {
-        const { data: template } = await supabase
-          .from('label_templates')
-          .select('*')
-          .eq('id', savedTemplate)
-          .single();
-        
+        const {
+          data: template
+        } = await supabase.from('label_templates').select('*').eq('id', savedTemplate).single();
         if (template) {
           templateData = template;
         }
@@ -643,7 +637,6 @@ export function AsinInventory() {
         console.log('Could not load template for preview');
       }
     }
-    
     setPreviewItem(item);
     setPreviewTemplate(templateData);
     setIsPreviewDialogOpen(true);
@@ -680,12 +673,9 @@ export function AsinInventory() {
       // If there's a saved template, try to get its settings
       if (savedTemplate) {
         try {
-          const { data: template } = await supabase
-            .from('label_templates')
-            .select('*')
-            .eq('id', savedTemplate)
-            .single();
-          
+          const {
+            data: template
+          } = await supabase.from('label_templates').select('*').eq('id', savedTemplate).single();
           if (template) {
             // Adjust settings based on template dimensions
             const aspectRatio = template.width / template.height;
@@ -704,13 +694,13 @@ export function AsinInventory() {
 
       // Convert AsinInventoryItem to OrderItem format
       const orderItem: OrderItem = {
-        orderId: item.serialNumber, // Use serial number as order ID
+        orderId: item.serialNumber,
+        // Use serial number as order ID
         asin: item.asin,
         sku: item.sku || undefined,
         itemTitle: item.title || `Product ${item.asin}`,
         itemQuantity: item.quantity
       };
-
       console.log('🔍 Printing item data:', {
         orderItem,
         labelSettings,
@@ -719,19 +709,17 @@ export function AsinInventory() {
 
       // Generate professional ZPL using the order label generator
       const zplCode = generateOrderLabelZPL(orderItem, labelSettings);
-      
       console.log('📄 Generated ZPL Code:', zplCode);
       console.log('📊 ZPL Length:', zplCode.length);
 
       // Get saved default printer for more reliable printing
       const savedDefaultPrinter = localStorage.getItem('qz-default-printer');
-      
+
       // Print using QZ Tray with specific printer
       await qzConnectionManager.print(zplCode, savedDefaultPrinter || undefined);
-      
       toast({
-        title: "Label Printed", 
-        description: `Printed professional label for ${item.asin}${savedDefaultPrinter ? ` to ${savedDefaultPrinter}` : ''}`,
+        title: "Label Printed",
+        description: `Printed professional label for ${item.asin}${savedDefaultPrinter ? ` to ${savedDefaultPrinter}` : ''}`
       });
     } catch (error) {
       console.error('Error printing item:', error);
@@ -764,7 +752,6 @@ export function AsinInventory() {
         itemTitle: "Test Product for Label Printing",
         itemQuantity: 1
       };
-
       const testLabelSettings: OrderLabelSettings = {
         labelSize: '4x3',
         dpi: 203,
@@ -776,18 +763,17 @@ export function AsinInventory() {
         includeBarcode: true,
         barcodeContent: 'asin'
       };
-
-      console.log('🧪 Test print data:', { testOrderItem, testLabelSettings });
-
+      console.log('🧪 Test print data:', {
+        testOrderItem,
+        testLabelSettings
+      });
       const zplCode = generateOrderLabelZPL(testOrderItem, testLabelSettings);
       console.log('🧪 Test ZPL Code:', zplCode);
-
       const savedDefaultPrinter = localStorage.getItem('qz-default-printer');
       await qzConnectionManager.print(zplCode, savedDefaultPrinter || undefined);
-      
       toast({
-        title: "Test Label Printed", 
-        description: "Printed test label with sample data",
+        title: "Test Label Printed",
+        description: "Printed test label with sample data"
       });
     } catch (error) {
       console.error('Error printing test label:', error);
@@ -798,7 +784,6 @@ export function AsinInventory() {
       });
     }
   };
-
 
   // Export duplicate ASINs data
   const exportDuplicates = () => {
@@ -906,28 +891,11 @@ export function AsinInventory() {
                 </Select>
                 <div className="relative flex-1">
                   <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5 z-10" />
-                  <Input 
-                    placeholder={
-                      searchMethod === 'all' ? "Search across all fields..." : 
-                      searchMethod === 'asin' ? "Search by ASIN..." : 
-                      searchMethod === 'sku' ? "Search by SKU..." : 
-                      searchMethod === 'serial' ? "Search by Serial Number..." : 
-                      searchMethod === 'title' ? "Search by Title..." : 
-                      "Search by Notes..."
-                    } 
-                    value={searchTerm} 
-                    onChange={e => setSearchTerm(e.target.value)} 
-                    className="pl-12 pr-4 h-14 text-base border-0 bg-transparent focus:ring-0 focus:ring-offset-0 rounded-none placeholder:text-muted-foreground/60" 
-                  />
+                  <Input placeholder={searchMethod === 'all' ? "Search across all fields..." : searchMethod === 'asin' ? "Search by ASIN..." : searchMethod === 'sku' ? "Search by SKU..." : searchMethod === 'serial' ? "Search by Serial Number..." : searchMethod === 'title' ? "Search by Title..." : "Search by Notes..."} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-12 pr-4 h-14 text-base border-0 bg-transparent focus:ring-0 focus:ring-offset-0 rounded-none placeholder:text-muted-foreground/60" />
                 </div>
-                {searchTerm && (
-                  <button
-                    onClick={() => setSearchTerm('')}
-                    className="px-3 text-muted-foreground hover:text-foreground transition-colors"
-                  >
+                {searchTerm && <button onClick={() => setSearchTerm('')} className="px-3 text-muted-foreground hover:text-foreground transition-colors">
                     <X className="w-4 h-4" />
-                  </button>
-                )}
+                  </button>}
               </div>
             </div>
 
@@ -937,15 +905,7 @@ export function AsinInventory() {
               <div className="space-y-4">
                  <div className="flex flex-wrap gap-3">
                    {/* Test Print Button for Debugging */}
-                   <Button 
-                     size="sm" 
-                     variant="outline" 
-                     onClick={handleTestPrint}
-                     className="border-2 border-orange-500 bg-background hover:bg-orange-500 hover:text-white hover:border-orange-500 transition-all"
-                   >
-                     <Printer className="w-4 h-4 mr-2" />
-                     Test Print
-                   </Button>
+                   
 
                    {/* Add New Item */}
                   <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -1091,14 +1051,10 @@ export function AsinInventory() {
                   <SimpleWarehouseManager />
 
                   {/* Label Templates */}
-                  <LabelTemplateManager 
-                    selectedItems={selectedItems}
-                    allItems={inventory}
-                    onPrint={(templateId, items) => {
-                      console.log('Printing with template:', templateId, 'Items:', items);
-                      // Implement actual printing logic here
-                    }} 
-                  />
+                  <LabelTemplateManager selectedItems={selectedItems} allItems={inventory} onPrint={(templateId, items) => {
+                  console.log('Printing with template:', templateId, 'Items:', items);
+                  // Implement actual printing logic here
+                }} />
 
                   {/* Export */}
                   <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all" onClick={exportInventory}>
@@ -1262,93 +1218,68 @@ export function AsinInventory() {
                   }} />
                      </th>
                       <th className="min-w-60 p-3 text-left font-medium border-r">
-                        <button 
-                          className="flex items-center gap-2 hover:text-primary transition-colors"
-                          onClick={() => {
-                            if (sortBy === 'title') {
-                              setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                            } else {
-                              setSortBy('title');
-                              setSortOrder('asc');
-                            }
-                          }}
-                        >
+                        <button className="flex items-center gap-2 hover:text-primary transition-colors" onClick={() => {
+                    if (sortBy === 'title') {
+                      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                    } else {
+                      setSortBy('title');
+                      setSortOrder('asc');
+                    }
+                  }}>
                           Product Info
-                          {sortBy === 'title' && (
-                            sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />
-                          )}
+                          {sortBy === 'title' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
                         </button>
                       </th>
                       <th className="w-28 p-3 text-left font-medium border-r">
-                        <button 
-                          className="flex items-center gap-2 hover:text-primary transition-colors"
-                          onClick={() => {
-                            if (sortBy === 'serialNumber') {
-                              setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                            } else {
-                              setSortBy('serialNumber');
-                              setSortOrder('asc');
-                            }
-                          }}
-                        >
+                        <button className="flex items-center gap-2 hover:text-primary transition-colors" onClick={() => {
+                    if (sortBy === 'serialNumber') {
+                      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                    } else {
+                      setSortBy('serialNumber');
+                      setSortOrder('asc');
+                    }
+                  }}>
                           Serial Number
-                          {sortBy === 'serialNumber' && (
-                            sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />
-                          )}
+                          {sortBy === 'serialNumber' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
                         </button>
                       </th>
                       <th className="w-20 p-3 text-left font-medium border-r">
-                        <button 
-                          className="flex items-center gap-2 hover:text-primary transition-colors"
-                          onClick={() => {
-                            if (sortBy === 'status') {
-                              setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                            } else {
-                              setSortBy('status');
-                              setSortOrder('asc');
-                            }
-                          }}
-                        >
+                        <button className="flex items-center gap-2 hover:text-primary transition-colors" onClick={() => {
+                    if (sortBy === 'status') {
+                      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                    } else {
+                      setSortBy('status');
+                      setSortOrder('asc');
+                    }
+                  }}>
                           Status
-                          {sortBy === 'status' && (
-                            sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />
-                          )}
+                          {sortBy === 'status' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
                         </button>
                       </th>
                      <th className="w-16 p-3 text-left font-medium border-r">
-                       <button 
-                         className="flex items-center gap-2 hover:text-primary transition-colors"
-                         onClick={() => {
-                           if (sortBy === 'quantity') {
-                             setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                           } else {
-                             setSortBy('quantity');
-                             setSortOrder('desc');
-                           }
-                         }}
-                       >
+                       <button className="flex items-center gap-2 hover:text-primary transition-colors" onClick={() => {
+                    if (sortBy === 'quantity') {
+                      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                    } else {
+                      setSortBy('quantity');
+                      setSortOrder('desc');
+                    }
+                  }}>
                          Qty
-                         {sortBy === 'quantity' && (
-                           sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />
-                         )}
+                         {sortBy === 'quantity' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
                        </button>
                      </th>
                      <th className="w-24 p-3 text-left font-medium border-r">
-                       <button 
-                         className="flex items-center gap-2 hover:text-primary transition-colors"
-                         onClick={() => {
-                           if (sortBy === 'dateAdded') {
-                             setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                           } else {
-                             setSortBy('dateAdded');
-                             setSortOrder('desc');
-                           }
-                         }}
-                       >
+                       <button className="flex items-center gap-2 hover:text-primary transition-colors" onClick={() => {
+                    if (sortBy === 'dateAdded') {
+                      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                    } else {
+                      setSortBy('dateAdded');
+                      setSortOrder('desc');
+                    }
+                  }}>
                          Date Added
-                         {sortBy === 'dateAdded' && (
-                           sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />
-                         )}
+                         {sortBy === 'dateAdded' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
                        </button>
                      </th>
                      <th className="w-32 p-3 text-left font-medium">Actions</th>
@@ -1383,8 +1314,8 @@ export function AsinInventory() {
                         </td>
                         <td className="p-3 font-mono text-sm border-r">{item.serialNumber}</td>
                         <td className="p-3 border-r">
-                         <Badge variant={item.status === 'in-stock' ? 'default' : (item.status === 'sold' || item.status === 'ordered') ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'} className="text-xs">
-                           {item.status === 'in-stock' ? 'In Stock' : (item.status === 'sold' || item.status === 'ordered') ? 'Sold' : item.status === 'reserved' ? 'Reserved' : 'Damaged'}
+                         <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' || item.status === 'ordered' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'} className="text-xs">
+                           {item.status === 'in-stock' ? 'In Stock' : item.status === 'sold' || item.status === 'ordered' ? 'Sold' : item.status === 'reserved' ? 'Reserved' : 'Damaged'}
                          </Badge>
                        </td>
                       <td className="p-3 border-r">
@@ -1405,22 +1336,10 @@ export function AsinInventory() {
                           <div className="flex gap-2">
                             <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
                             <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="w-8 h-8 p-0" 
-                              onClick={() => handlePreviewItem(item)}
-                              title="Preview Label"
-                            >
+                            <Button variant="outline" size="sm" className="w-8 h-8 p-0" onClick={() => handlePreviewItem(item)} title="Preview Label">
                               <Eye className="w-4 h-4" />
                             </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="w-8 h-8 p-0" 
-                              onClick={() => handlePrintItem(item)}
-                              title="Print Label"
-                            >
+                            <Button variant="outline" size="sm" className="w-8 h-8 p-0" onClick={() => handlePrintItem(item)} title="Print Label">
                               <Printer className="w-4 h-4" />
                             </Button>
                           </div>
@@ -1445,7 +1364,7 @@ export function AsinInventory() {
                   }
                   setSelectedItems(newSelected);
                 }} />
-                       <Badge variant={item.status === 'in-stock' ? 'default' : (item.status === 'sold' || item.status === 'ordered') ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'}>
+                       <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' || item.status === 'ordered' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'}>
                          {item.status === 'ordered' ? 'SOLD' : item.status.replace('-', ' ').toUpperCase()}
                        </Badge>
                     </div>
@@ -1480,22 +1399,10 @@ export function AsinInventory() {
                    <div className="flex items-center gap-2">
                      <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
                      <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
-                     <Button 
-                       variant="outline" 
-                       size="sm" 
-                       className="w-8 h-8 p-0" 
-                       onClick={() => handlePreviewItem(item)}
-                       title="Preview Label"
-                     >
+                     <Button variant="outline" size="sm" className="w-8 h-8 p-0" onClick={() => handlePreviewItem(item)} title="Preview Label">
                        <Eye className="w-4 h-4" />
                      </Button>
-                     <Button 
-                       variant="outline" 
-                       size="sm" 
-                       className="w-8 h-8 p-0" 
-                       onClick={() => handlePrintItem(item)}
-                       title="Print Label"
-                     >
+                     <Button variant="outline" size="sm" className="w-8 h-8 p-0" onClick={() => handlePrintItem(item)} title="Print Label">
                        <Printer className="w-4 h-4" />
                      </Button>
                    </div>
@@ -1656,15 +1563,12 @@ export function AsinInventory() {
                 Label Preview - {previewItem?.asin}
               </DialogTitle>
             </DialogHeader>
-            {previewItem && (
-              <div className="space-y-6">
+            {previewItem && <div className="space-y-6">
                 {/* Label Dimensions Info */}
                 <div className="bg-muted/30 p-4 rounded-lg">
                   <h3 className="font-semibold mb-2">Label Specifications</h3>
                   <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>Size: {previewTemplate ? 
-                      `${Math.round(previewTemplate.width / 72 * 10) / 10}" × ${Math.round(previewTemplate.height / 72 * 10) / 10}"` : 
-                      '4" × 3"'} (203 DPI)</div>
+                    <div>Size: {previewTemplate ? `${Math.round(previewTemplate.width / 72 * 10) / 10}" × ${Math.round(previewTemplate.height / 72 * 10) / 10}"` : '4" × 3"'} (203 DPI)</div>
                     <div>Format: ZPL (Zebra Printer Language)</div>
                     <div>Template: {previewTemplate ? previewTemplate.name : 'Default Layout'}</div>
                     <div>Elements: {previewTemplate?.elements?.length || 'Standard Fields'}</div>
@@ -1673,90 +1577,74 @@ export function AsinInventory() {
 
                 {/* Visual Label Preview */}
                 <div className="border-2 border-dashed border-gray-300 bg-gray-50 p-8 rounded-lg">
-                  <div className="bg-white border-2 border-gray-400 mx-auto relative shadow-lg" 
-                       style={{ 
-                         width: previewTemplate ? `${Math.max(previewTemplate.width * 0.5, 250)}px` : '350px',
-                         height: previewTemplate ? `${Math.max(previewTemplate.height * 0.5, 150)}px` : '262px',
-                         minWidth: '250px',
-                         minHeight: '150px'
-                       }}>
+                  <div className="bg-white border-2 border-gray-400 mx-auto relative shadow-lg" style={{
+              width: previewTemplate ? `${Math.max(previewTemplate.width * 0.5, 250)}px` : '350px',
+              height: previewTemplate ? `${Math.max(previewTemplate.height * 0.5, 150)}px` : '262px',
+              minWidth: '250px',
+              minHeight: '150px'
+            }}>
                     
-                    {previewTemplate && previewTemplate.elements?.length > 0 ? (
-                      // Template-based preview - only show mapped elements
-                      previewTemplate.elements
-                        .filter((element: any) => element.dataSource && element.dataSource !== 'static')
-                        .map((element: any, index: number) => {
-                          let content = '';
-                          
-                          // Map element data sources to actual item data
-                          switch(element.dataSource) {
-                            case 'asin':
-                              content = `ASIN: ${previewItem.asin}`;
-                              break;
-                            case 'sku':
-                              content = `SKU: ${previewItem.sku || 'N/A'}`;
-                              break;
-                            case 'title':
-                              content = previewItem.title || `Product ${previewItem.asin}`;
-                              break;
-                            case 'quantity':
-                              content = `Qty: ${previewItem.quantity}`;
-                              break;
-                            case 'serial':
-                              content = `Serial: ${previewItem.serialNumber}`;
-                              break;
-                            case 'barcode':
-                              content = previewItem.asin;
-                              break;
-                            default:
-                              return null;
-                          }
-                          
-                          if (!content) return null;
-                          
-                          const scaleFactor = 0.5;
-                          const elementX = (element.x || 0) * scaleFactor;
-                          const elementY = (element.y || 0) * scaleFactor;
-                          const elementWidth = Math.max((element.width || 100) * scaleFactor, 50);
-                          const elementHeight = Math.max((element.height || 20) * scaleFactor, 16);
-                          const fontSize = Math.max((element.fontSize || 12) * scaleFactor, 8);
-                          
-                          return (
-                            <div
-                              key={index}
-                              style={{
-                                position: 'absolute',
-                                left: `${elementX}px`,
-                                top: `${elementY}px`,
-                                width: `${elementWidth}px`,
-                                height: `${elementHeight}px`,
-                                fontSize: `${fontSize}px`,
-                                fontWeight: element.fontWeight || 'normal',
-                                color: element.fill || '#000000',
-                                textAlign: (element.textAlign || 'left') as any,
-                                overflow: 'hidden',
-                                fontFamily: element.fontFamily || 'Arial',
-                                display: 'flex',
-                                alignItems: 'center',
-                                padding: '2px',
-                                backgroundColor: element.type === 'barcode' ? '#000000' : 'transparent'
-                              }}
-                            >
-                              {element.type === 'barcode' || element.dataSource === 'barcode' ? (
-                                <div className="w-full">
+                    {previewTemplate && previewTemplate.elements?.length > 0 ?
+              // Template-based preview - only show mapped elements
+              previewTemplate.elements.filter((element: any) => element.dataSource && element.dataSource !== 'static').map((element: any, index: number) => {
+                let content = '';
+
+                // Map element data sources to actual item data
+                switch (element.dataSource) {
+                  case 'asin':
+                    content = `ASIN: ${previewItem.asin}`;
+                    break;
+                  case 'sku':
+                    content = `SKU: ${previewItem.sku || 'N/A'}`;
+                    break;
+                  case 'title':
+                    content = previewItem.title || `Product ${previewItem.asin}`;
+                    break;
+                  case 'quantity':
+                    content = `Qty: ${previewItem.quantity}`;
+                    break;
+                  case 'serial':
+                    content = `Serial: ${previewItem.serialNumber}`;
+                    break;
+                  case 'barcode':
+                    content = previewItem.asin;
+                    break;
+                  default:
+                    return null;
+                }
+                if (!content) return null;
+                const scaleFactor = 0.5;
+                const elementX = (element.x || 0) * scaleFactor;
+                const elementY = (element.y || 0) * scaleFactor;
+                const elementWidth = Math.max((element.width || 100) * scaleFactor, 50);
+                const elementHeight = Math.max((element.height || 20) * scaleFactor, 16);
+                const fontSize = Math.max((element.fontSize || 12) * scaleFactor, 8);
+                return <div key={index} style={{
+                  position: 'absolute',
+                  left: `${elementX}px`,
+                  top: `${elementY}px`,
+                  width: `${elementWidth}px`,
+                  height: `${elementHeight}px`,
+                  fontSize: `${fontSize}px`,
+                  fontWeight: element.fontWeight || 'normal',
+                  color: element.fill || '#000000',
+                  textAlign: (element.textAlign || 'left') as any,
+                  overflow: 'hidden',
+                  fontFamily: element.fontFamily || 'Arial',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '2px',
+                  backgroundColor: element.type === 'barcode' ? '#000000' : 'transparent'
+                }}>
+                              {element.type === 'barcode' || element.dataSource === 'barcode' ? <div className="w-full">
                                   <div className="bg-black text-white text-center text-xs font-mono leading-tight p-1">
                                     ||||| {content} |||||
                                   </div>
-                                </div>
-                              ) : (
-                                <span className="truncate text-xs">{content}</span>
-                              )}
-                            </div>
-                          );
-                        })
-                    ) : (
-                      // Default preview when no template is selected
-                      <div className="p-4 space-y-2 h-full">
+                                </div> : <span className="truncate text-xs">{content}</span>}
+                            </div>;
+              }) :
+              // Default preview when no template is selected
+              <div className="p-4 space-y-2 h-full">
                         <div className="text-sm font-bold text-blue-600">
                           ASIN: {previewItem.asin}
                         </div>
@@ -1775,8 +1663,7 @@ export function AsinInventory() {
                         <div className="bg-black text-white text-center py-1 text-xs font-mono mt-2">
                           ||||| {previewItem.asin} |||||
                         </div>
-                      </div>
-                    )}
+                      </div>}
                   </div>
                   
                   {/* Scale indicator */}
@@ -1788,26 +1675,22 @@ export function AsinInventory() {
                 {/* Preview Actions */}
                 <div className="flex justify-between items-center">
                   <div className="text-sm text-muted-foreground">
-                    {previewTemplate ? 
-                      `Using "${previewTemplate.name}" template with ${previewTemplate.elements?.length || 0} elements` :
-                      'Using default template layout with standard fields'
-                    }
+                    {previewTemplate ? `Using "${previewTemplate.name}" template with ${previewTemplate.elements?.length || 0} elements` : 'Using default template layout with standard fields'}
                   </div>
                   <div className="flex gap-2">
                     <Button variant="outline" onClick={() => setIsPreviewDialogOpen(false)}>
                       Close
                     </Button>
                     <Button onClick={() => {
-                      setIsPreviewDialogOpen(false);
-                      handlePrintItem(previewItem);
-                    }}>
+                setIsPreviewDialogOpen(false);
+                handlePrintItem(previewItem);
+              }}>
                       <Printer className="w-4 h-4 mr-2" />
                       Print This Label
                     </Button>
                   </div>
                 </div>
-              </div>
-            )}
+              </div>}
           </DialogContent>
         </Dialog>
     </div>;
