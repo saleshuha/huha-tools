@@ -53,7 +53,7 @@ export function useInventoryData() {
       // Fetch ASIN inventory
       const { data: asinData, error: asinError } = await supabase
         .from('asin_inventory')
-        .select('id, asin, sku, quantity, status, serial_number')
+        .select('id, asin, sku, title, quantity, status, serial_number')
         .order('created_at', { ascending: false });
 
       if (asinError) throw asinError;
@@ -61,7 +61,7 @@ export function useInventoryData() {
       // Fetch SKU inventory
       const { data: skuData, error: skuError } = await supabase
         .from('sku_inventory')
-        .select('id, sku_number, quantity, status, bin_serial_number')
+        .select('id, sku_number, title, quantity, status, bin_serial_number')
         .order('created_at', { ascending: false });
 
       if (skuError) throw skuError;
@@ -71,13 +71,13 @@ export function useInventoryData() {
         ...(asinData || []).map(item => ({
           ...item,
           type: 'asin' as const,
-          title: `ASIN: ${item.asin}${item.sku ? ` | SKU: ${item.sku}` : ''}`,
+          title: item.title || `ASIN: ${item.asin}${item.sku ? ` | SKU: ${item.sku}` : ''}`,
         })),
         ...(skuData || []).map(item => ({
           ...item,
           type: 'sku' as const,
           sku: item.sku_number,
-          title: `SKU: ${item.sku_number}`,
+          title: item.title || `SKU: ${item.sku_number}`,
         })),
       ];
 
