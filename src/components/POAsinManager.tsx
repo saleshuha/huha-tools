@@ -10,96 +10,21 @@ import { usePOAsinImages } from '@/hooks/usePOAsinImages';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Download, 
-  Upload, 
   Package, 
   ImageIcon, 
   AlertCircle, 
   CheckCircle2,
-  FileText,
   Loader2
 } from 'lucide-react';
 
 export const POAsinManager: React.FC = () => {
-  const [bulkImageData, setBulkImageData] = useState('');
-  const { toast } = useToast();
-  
   const {
     poAsinItems,
     missingAsinItems,
     coveredAsinItems,
     isLoading,
-    uploadProgress,
-    isProcessing,
-    bulkUploadImages,
     exportMissingAsins
   } = usePOAsinImages();
-
-  const handleBulkImageUpload = async () => {
-    if (!bulkImageData.trim()) {
-      toast({
-        title: "No Data",
-        description: "Please paste your ASIN/URL data first",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const lines = bulkImageData.trim().split('\n');
-    const asinImagePairs: Array<{ asin: string; imageUrl: string }> = [];
-    let invalidLines = 0;
-
-    for (const line of lines) {
-      const trimmedLine = line.trim();
-      if (!trimmedLine) continue;
-
-      let asin = '';
-      let imageUrl = '';
-
-      // Support multiple formats
-      if (trimmedLine.includes(',')) {
-        [asin, imageUrl] = trimmedLine.split(',').map(s => s.trim());
-      } else if (trimmedLine.includes('|')) {
-        [asin, imageUrl] = trimmedLine.split('|').map(s => s.trim());
-      } else if (trimmedLine.includes('\t')) {
-        [asin, imageUrl] = trimmedLine.split('\t').map(s => s.trim());
-      } else if (trimmedLine.includes(' ')) {
-        const parts = trimmedLine.split(' ');
-        asin = parts[0].trim();
-        imageUrl = parts.slice(1).join(' ').trim();
-      } else {
-        invalidLines++;
-        continue;
-      }
-
-      if (!asin || !imageUrl) {
-        invalidLines++;
-        continue;
-      }
-
-      // Validate URL format
-      try {
-        new URL(imageUrl);
-        // Only add if ASIN exists in our PO items and is missing image
-        if (missingAsinItems.some(item => item.asin === asin)) {
-          asinImagePairs.push({ asin, imageUrl });
-        }
-      } catch {
-        invalidLines++;
-      }
-    }
-
-    if (asinImagePairs.length === 0) {
-      toast({
-        title: "No Valid Data",
-        description: `No valid ASIN/URL pairs found for missing PO ASINs${invalidLines > 0 ? ` (${invalidLines} invalid lines)` : ''}`,
-        variant: "destructive"
-      });
-      return;
-    }
-
-    await bulkUploadImages(asinImagePairs);
-    setBulkImageData('');
-  };
 
   if (isLoading) {
     return (
@@ -151,80 +76,17 @@ export const POAsinManager: React.FC = () => {
         </Card>
       </div>
 
-      {/* Bulk Upload Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5" />
-            Bulk Image Upload for PO ASINs
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {uploadProgress.processing && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>Uploading images...</span>
-                <span>{uploadProgress.current} / {uploadProgress.total}</span>
-              </div>
-              <Progress value={(uploadProgress.current / uploadProgress.total) * 100} />
-              {uploadProgress.currentAsin && (
-                <p className="text-xs text-muted-foreground">
-                  Processing: {uploadProgress.currentAsin}
-                </p>
-              )}
-            </div>
-          )}
-
-          <div>
-            <Label htmlFor="bulk-image-data" className="text-sm font-medium">
-              Paste ASIN/URL Data
-            </Label>
-            <Textarea
-              id="bulk-image-data"
-              placeholder="Paste your ASIN and image URL pairs here:
-B07XYZ123,https://example.com/image1.jpg
-B08ABC456|https://example.com/image2.jpg
-B09DEF789 https://example.com/image3.jpg"
-              value={bulkImageData}
-              onChange={(e) => setBulkImageData(e.target.value)}
-              className="h-32 resize-none mt-2"
-              disabled={isProcessing}
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Only ASINs from your PO orders that are missing images will be processed
-            </p>
-          </div>
-
-          <div className="flex gap-2">
-            <Button 
-              onClick={handleBulkImageUpload}
-              disabled={!bulkImageData.trim() || isProcessing}
-              className="flex-1"
-            >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload Images
-                </>
-              )}
-            </Button>
-
-            <Button
-              variant="outline"
-              onClick={exportMissingAsins}
-              disabled={missingAsinItems.length === 0}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Export Missing
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Export Options */}
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          onClick={exportMissingAsins}
+          disabled={missingAsinItems.length === 0}
+        >
+          <Download className="h-4 w-4 mr-2" />
+          Export Missing ASINs
+        </Button>
+      </div>
 
       {/* Missing ASINs Table */}
       {missingAsinItems.length > 0 && (
@@ -241,25 +103,15 @@ B09DEF789 https://example.com/image3.jpg"
                 <TableHeader>
                   <TableRow>
                     <TableHead>ASIN</TableHead>
-                    <TableHead>Title</TableHead>
-                    <TableHead>PO Number</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>Image URL</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {missingAsinItems.map((item) => (
                     <TableRow key={item.asin}>
                       <TableCell className="font-mono text-sm">{item.asin}</TableCell>
-                      <TableCell className="max-w-48 truncate" title={item.title}>
-                        {item.title}
-                      </TableCell>
-                      <TableCell>{item.po_number}</TableCell>
-                      <TableCell>{item.quantity}</TableCell>
-                      <TableCell>
-                        <Badge variant={item.status === 'pending' ? 'secondary' : 'default'}>
-                          {item.status}
-                        </Badge>
+                      <TableCell className="text-muted-foreground text-sm">
+                        No image available
                       </TableCell>
                     </TableRow>
                   ))}
@@ -285,27 +137,20 @@ B09DEF789 https://example.com/image3.jpg"
                 <TableHeader>
                   <TableRow>
                     <TableHead>ASIN</TableHead>
-                    <TableHead>Title</TableHead>
-                    <TableHead>PO Number</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Image</TableHead>
+                    <TableHead>Image Preview</TableHead>
+                    <TableHead>Image URL</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {coveredAsinItems.map((item) => (
                     <TableRow key={item.asin}>
                       <TableCell className="font-mono text-sm">{item.asin}</TableCell>
-                      <TableCell className="max-w-48 truncate" title={item.title}>
-                        {item.title}
-                      </TableCell>
-                      <TableCell>{item.po_number}</TableCell>
-                      <TableCell>{item.quantity}</TableCell>
                       <TableCell>
                         {item.imageUrl ? (
                           <img 
                             src={item.imageUrl} 
                             alt={item.title}
-                            className="w-8 h-8 object-cover rounded"
+                            className="w-10 h-10 object-cover rounded border"
                             onError={(e) => {
                               e.currentTarget.src = '/placeholder.svg';
                             }}
@@ -313,6 +158,9 @@ B09DEF789 https://example.com/image3.jpg"
                         ) : (
                           <ImageIcon className="w-8 h-8 text-muted-foreground" />
                         )}
+                      </TableCell>
+                      <TableCell className="max-w-64 truncate text-sm" title={item.imageUrl}>
+                        {item.imageUrl || 'No URL'}
                       </TableCell>
                     </TableRow>
                   ))}
