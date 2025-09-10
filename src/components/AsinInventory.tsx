@@ -1898,7 +1898,6 @@ export function AsinInventory() {
                      Preview shown at 50% scale {previewTemplate ? `(${previewTemplate.name})` : '(Default)'}
                    </div>
                  </div>
-               }
 
                  {/* Preview Actions */}
                  <div className="flex justify-between items-center">
@@ -1918,9 +1917,9 @@ export function AsinInventory() {
                      </Button>
                    </div>
                  </div>
-               </div>}
-           </DialogContent>
-         </Dialog>
+                </div>}
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </div>
