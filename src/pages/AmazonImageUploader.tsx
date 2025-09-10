@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { HuhaHeader01 } from '@/components/ui/huha-header-01';
 import { ProductImageManager } from '@/components/ProductImageManager';
+import { POAsinManager } from '@/components/POAsinManager';
 import { useProductImages } from '@/hooks/useProductImages';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, Copy, Image as ImageIcon, Plus, FileUp } from 'lucide-react';
@@ -156,10 +157,14 @@ export default function AmazonImageUploader() {
 
         <div className="container mx-auto">
           <Tabs defaultValue="bulk" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 h-12 bg-gradient-subtle rounded-xl shadow-elegant p-1 border border-border/20">
+            <TabsList className="grid w-full grid-cols-3 h-12 bg-gradient-subtle rounded-xl shadow-elegant p-1 border border-border/20">
               <TabsTrigger value="bulk" className="flex items-center gap-2">
                 <Copy className="h-4 w-4" />
                 Bulk Upload
+              </TabsTrigger>
+              <TabsTrigger value="po-asins" className="flex items-center gap-2">
+                <ImageIcon className="h-4 w-4" />
+                PO ASINs
               </TabsTrigger>
               <TabsTrigger value="manager" className="flex items-center gap-2">
                 <ImageIcon className="h-4 w-4" />
@@ -256,6 +261,10 @@ B09DEF789 https://example.com/image3.jpg"
                   </CardContent>
                 </Card>
               </div>
+            </TabsContent>
+
+            <TabsContent value="po-asins" className="mt-6">
+              <POAsinManager />
             </TabsContent>
 
             <TabsContent value="manager" className="mt-6">
