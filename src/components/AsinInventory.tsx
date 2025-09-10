@@ -656,11 +656,14 @@ export function AsinInventory() {
         return;
       }
 
-      // Check for saved template settings
+      // Check for saved template settings and user preferences
       const savedTemplate = localStorage.getItem('savedLabelTemplate');
+      const savedLabelSize = localStorage.getItem('preferredLabelSize') || '4x3';
+      const savedDPI = parseInt(localStorage.getItem('preferredDPI') || '203');
+      
       let labelSettings: OrderLabelSettings = {
-        labelSize: '4x3',
-        dpi: 203,
+        labelSize: savedLabelSize as '4x6' | '4x3' | '3x2' | '2x1',
+        dpi: savedDPI as 203 | 300,
         showOrderId: false,
         showAsin: true,
         showSku: true,
@@ -677,18 +680,31 @@ export function AsinInventory() {
             data: template
           } = await supabase.from('label_templates').select('*').eq('id', savedTemplate).single();
           if (template) {
-            // Adjust settings based on template dimensions
+            // Auto-determine label size based on template dimensions for better fit
             const aspectRatio = template.width / template.height;
-            if (aspectRatio > 1.5) {
-              labelSettings.labelSize = '4x3';
-            } else if (aspectRatio > 1.2) {
-              labelSettings.labelSize = '3x2';
+            console.log('Template aspect ratio:', aspectRatio, 'Template size:', template.width, 'x', template.height);
+            
+            if (aspectRatio >= 1.8) {
+              labelSettings.labelSize = '4x6'; // Wide format
+            } else if (aspectRatio >= 1.3) {
+              labelSettings.labelSize = '4x3'; // Standard format
+            } else if (aspectRatio >= 1.1) {
+              labelSettings.labelSize = '3x2'; // Medium format
             } else {
-              labelSettings.labelSize = '2x1';
+              labelSettings.labelSize = '2x1'; // Square/tall format
             }
+            
+            // Auto-adjust DPI based on template complexity
+            const canvasData = template.canvas_data as any;
+            const elementCount = canvasData?.objects?.length || 0;
+            if (elementCount > 8 || (template.width * template.height) > 400) {
+              labelSettings.dpi = 300; // Higher DPI for complex/large labels
+            }
+            
+            console.log('Auto-selected label size:', labelSettings.labelSize, 'DPI:', labelSettings.dpi);
           }
         } catch (error) {
-          console.log('Could not load saved template settings, using defaults');
+          console.log('Could not load saved template settings, using user preferences or defaults');
         }
       }
 
