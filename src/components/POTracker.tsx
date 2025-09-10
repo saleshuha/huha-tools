@@ -280,6 +280,10 @@ export const POTracker = () => {
   }, [poOrders, isLoading, refetchMetrics, refetchComprehensiveMetrics]);
 
   const filteredOrders = useMemo(() => {
+    console.log('🔍 FILTERING DEBUG: Starting with', poOrders.length, 'orders');
+    console.log('🔍 FILTERING DEBUG: Active tab:', activeTab, 'View mode:', viewMode);
+    console.log('🔍 FILTERING DEBUG: Selected POs:', Array.from(selectedPOsForLabels));
+    
     let filtered = [...poOrders];
     
     // Use appropriate search query based on active tab
@@ -294,16 +298,30 @@ export const POTracker = () => {
         order.model_number?.toLowerCase().includes(lowerCaseQuery) ||
         order.title?.toLowerCase().includes(lowerCaseQuery)
       );
+      console.log('🔍 FILTERING DEBUG: After search filter:', filtered.length, 'orders');
     }
     
     // Filter by selected POs when in orders tab and detailed view with selections
     if (activeTab === 'orders' && viewMode === 'detailed' && selectedPOsForLabels.size > 0) {
       const selectedPOsList = Array.from(selectedPOsForLabels);
-      filtered = filtered.filter(order => selectedPOsList.includes(order.po_number));
+      console.log('🔍 FILTERING DEBUG: Applying PO filter for:', selectedPOsList);
+      
+      const beforePOFilter = filtered.length;
+      filtered = filtered.filter(order => {
+        const matches = selectedPOsList.includes(order.po_number);
+        if (!matches && selectedPOsList.includes('8RGH1C7S') && order.po_number === '8RGH1C7S') {
+          console.log('🔍 FILTERING DEBUG: PO comparison issue - selected:', selectedPOsList[0], 'order:', order.po_number, 'equal:', selectedPOsList[0] === order.po_number);
+        }
+        return matches;
+      });
+      
+      console.log('🔍 FILTERING DEBUG: After PO filter:', filtered.length, 'orders (was', beforePOFilter, ')');
+      console.log('🔍 FILTERING DEBUG: Sample filtered PO numbers:', filtered.slice(0, 5).map(o => o.po_number));
     }
     
     if (statusFilter !== 'all') {
       filtered = filtered.filter(order => order.status === statusFilter);
+      console.log('🔍 FILTERING DEBUG: After status filter:', filtered.length, 'orders');
     }
     
     // Apply sorting
@@ -333,6 +351,7 @@ export const POTracker = () => {
       return 0;
     });
     
+    console.log('🔍 FILTERING DEBUG: Final filtered orders:', filtered.length);
     return filtered;
   }, [poOrders, searchQuery, labelSearchQuery, statusFilter, sortField, sortDirection, activeTab, viewMode, selectedPOsForLabels]);
 
@@ -1333,9 +1352,21 @@ export const POTracker = () => {
                           <Button 
                             variant="outline"
                             onClick={() => {
+                              console.log('🔍 VIEW ITEMS DEBUG: Selected POs:', Array.from(selectedPOsForLabels));
+                              console.log('🔍 VIEW ITEMS DEBUG: Total PO orders available:', poOrders.length);
+                              console.log('🔍 VIEW ITEMS DEBUG: Sample PO numbers:', poOrders.slice(0, 5).map(o => o.po_number));
+                              
                               // Switch to detailed view and filter by selected POs
                               setViewMode('detailed');
                               setActiveTab('orders');
+                              
+                              // Debug the filtering after state update
+                              setTimeout(() => {
+                                const selectedPOsList = Array.from(selectedPOsForLabels);
+                                const matchingOrders = poOrders.filter(order => selectedPOsList.includes(order.po_number));
+                                console.log('🔍 VIEW ITEMS DEBUG: Orders matching selected POs:', matchingOrders.length);
+                                console.log('🔍 VIEW ITEMS DEBUG: Sample matching orders:', matchingOrders.slice(0, 3));
+                              }, 100);
                             }}
                           >
                             <Package className="h-4 w-4 mr-2" />
