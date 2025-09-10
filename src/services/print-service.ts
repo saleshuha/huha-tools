@@ -220,8 +220,11 @@ export class PrintService {
           dataRow, 
           resolved: content 
         });
-        const fontSize = Math.round((element.fontSize || 12) / 3); // ZPL font scaling
-        return `^FO${x},${y}^A0N,${fontSize * 10},${fontSize * 8}^FD${content}^FS\n`;
+        // Fix font size calculation for better visibility
+        const baseFontSize = element.fontSize || 12;
+        const zplFontHeight = Math.max(20, Math.round(baseFontSize * 2));
+        const zplFontWidth = Math.max(15, Math.round(baseFontSize * 1.5));
+        return `^FO${x},${y}^A0N,${zplFontHeight},${zplFontWidth}^FD${content}^FS\n`;
 
       case 'multitext':
         const multiContent = resolveMappedContent(element, dataRow, dataset?.headers || []);
@@ -231,8 +234,11 @@ export class PrintService {
           dataRow, 
           resolved: multiContent 
         });
-        const multiFontSize = Math.round((element.fontSize || 10) / 3);
-        const lineHeight = Math.round((element.lineHeight || 1.2) * multiFontSize * 10);
+        // Fix multitext font size calculation for better visibility
+        const baseMultiFontSize = element.fontSize || 10;
+        const zplMultiFontHeight = Math.max(20, Math.round(baseMultiFontSize * 2));
+        const zplMultiFontWidth = Math.max(15, Math.round(baseMultiFontSize * 1.5));
+        const lineHeight = Math.round((element.lineHeight || 1.2) * zplMultiFontHeight);
         
         // Split content into lines and create multiple text fields
         const words = multiContent.split(' ');
@@ -259,7 +265,7 @@ export class PrintService {
         
         lines.forEach((line, index) => {
           const lineY = y + (index * lineHeight);
-          zplOutput += `^FO${x},${lineY}^A0N,${multiFontSize * 10},${multiFontSize * 8}^FD${line}^FS\n`;
+          zplOutput += `^FO${x},${lineY}^A0N,${zplMultiFontHeight},${zplMultiFontWidth}^FD${line}^FS\n`;
         });
         
         return zplOutput;
