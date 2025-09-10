@@ -1041,7 +1041,8 @@ export function AsinInventory() {
         </div>
       </div>;
   }
-  return <div className="space-y-4 max-w-[95vw] mx-auto p-6">
+  return (
+    <div className="space-y-4 max-w-[95vw] mx-auto p-6">
       {/* Header with Stats */}
       <div className="space-y-6">
         <InventoryMetrics showOnlyAsin={true} />
@@ -1889,14 +1890,15 @@ export function AsinInventory() {
                         <div className="bg-black text-white text-center py-1 text-xs font-mono mt-2">
                           ||||| {previewItem.asin} |||||
                         </div>
-                      </div>}
-                  </div>
-                  
-                  {/* Scale indicator */}
-                  <div className="text-center mt-4 text-xs text-gray-500">
-                    Preview shown at 50% scale {previewTemplate ? `(${previewTemplate.name})` : '(Default)'}
-                  </div>
-                </div>
+                       </div>}
+                   </div>
+                   
+                   {/* Scale indicator */}
+                   <div className="text-center mt-4 text-xs text-gray-500">
+                     Preview shown at 50% scale {previewTemplate ? `(${previewTemplate.name})` : '(Default)'}
+                   </div>
+                 </div>
+               }
 
                  {/* Preview Actions */}
                  <div className="flex justify-between items-center">
@@ -1919,6 +1921,10 @@ export function AsinInventory() {
                </div>}
            </DialogContent>
          </Dialog>
-       </div>
-     );
+        </div>
+      </div>
+    </div>
+  );
 }
+
+export default AsinInventory;
