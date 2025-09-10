@@ -296,6 +296,12 @@ export const POTracker = () => {
       );
     }
     
+    // Filter by selected POs when in orders tab and detailed view with selections
+    if (activeTab === 'orders' && viewMode === 'detailed' && selectedPOsForLabels.size > 0) {
+      const selectedPOsList = Array.from(selectedPOsForLabels);
+      filtered = filtered.filter(order => selectedPOsList.includes(order.po_number));
+    }
+    
     if (statusFilter !== 'all') {
       filtered = filtered.filter(order => order.status === statusFilter);
     }
@@ -328,7 +334,7 @@ export const POTracker = () => {
     });
     
     return filtered;
-  }, [poOrders, searchQuery, labelSearchQuery, statusFilter, sortField, sortDirection, activeTab]);
+  }, [poOrders, searchQuery, labelSearchQuery, statusFilter, sortField, sortDirection, activeTab, viewMode, selectedPOsForLabels]);
 
   // Filtered PO Groups for labels search
   const filteredPOGroups = useMemo(() => {
@@ -910,6 +916,30 @@ export const POTracker = () => {
                   </div>
                 </div>
 
+                {/* Selected POs Filter Indicator */}
+                {activeTab === 'orders' && viewMode === 'detailed' && selectedPOsForLabels.size > 0 && (
+                  <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <div className="flex items-center gap-2">
+                      <Package className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm font-medium">
+                        Showing items from {selectedPOsForLabels.size} selected PO{selectedPOsForLabels.size !== 1 ? 's' : ''}: 
+                        <span className="font-mono ml-1">
+                          {Array.from(selectedPOsForLabels).join(', ')}
+                        </span>
+                      </span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedPOsForLabels(new Set())}
+                      className="text-blue-600 hover:text-blue-700"
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Clear filter
+                    </Button>
+                  </div>
+                )}
+
                 <div className="rounded-lg border">
                   {viewMode === 'grouped' ? (
                     <Table>
@@ -1299,14 +1329,27 @@ export const POTracker = () => {
                             Clear selection
                           </Button>
                         </div>
-                        <Button 
-                          onClick={() => {
-                            setLabelsStep('print');
-                          }}
-                        >
-                          <Printer className="h-4 w-4 mr-2" />
-                          Print Labels for Selected POs
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            variant="outline"
+                            onClick={() => {
+                              // Switch to detailed view and filter by selected POs
+                              setViewMode('detailed');
+                              setActiveTab('orders');
+                            }}
+                          >
+                            <Package className="h-4 w-4 mr-2" />
+                            View Items
+                          </Button>
+                          <Button 
+                            onClick={() => {
+                              setLabelsStep('print');
+                            }}
+                          >
+                            <Printer className="h-4 w-4 mr-2" />
+                            Print Labels
+                          </Button>
+                        </div>
                       </div>
                     )}
 
