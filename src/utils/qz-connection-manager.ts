@@ -52,26 +52,19 @@ export class QZConnectionManager {
   }
 
   async connect(forceReconnect = false): Promise<boolean> {
-    // If already connecting, return the existing promise
+    // If already connecting, return the existing promise (prevent multiple parallel connections)
     if (this.connectionPromise && !forceReconnect) {
+      console.log('🔄 Connection already in progress, waiting for result...');
       return this.connectionPromise;
     }
 
     // If already connected and not forcing reconnect, return true
     if (this.isConnected && !forceReconnect) {
+      console.log('✅ Already connected to QZ Tray');
       return true;
     }
 
-    // Check if global security is set up first
-    if (!window.qzSecurityInitialized) {
-      console.log('⏳ Waiting for global QZ security initialization...');
-      // Wait a bit for global init
-      await new Promise(resolve => setTimeout(resolve, 500));
-      if (!window.qzSecurityInitialized) {
-        console.warn('⚠️ Global QZ security not initialized yet');
-      }
-    }
-
+    console.log('🚀 Initiating QZ Tray connection...');
     this.connectionPromise = this.performConnection();
     const result = await this.connectionPromise;
     this.connectionPromise = null;
@@ -87,70 +80,27 @@ export class QZConnectionManager {
         throw new Error('QZ Tray script not loaded');
       }
 
-      // Ensure security is initialized with persistent certificate
+      // Ensure security is initialized - but don't override if already set up globally
       if (!window.qzSecurityInitialized) {
-        console.log('🔐 Setting up QZ security with persistent certificate...');
+        console.log('🔐 Setting up QZ security (fallback - should already be done globally)...');
         
-        // Get the best available certificate
-        const cert = QZCertificateManager.getBestCertificate();
-        
-        if (cert) {
-          console.log(`🔑 Using ${cert.commonName} certificate (fingerprint: ${cert.fingerprint.slice(0, 20)}...)`);
-          
-          // Set up security with stored certificate
-          window.qz.security.setCertificatePromise(function(resolve: any, reject: any) {
-            console.log('📜 QZ Certificate requested - providing stored certificate');
-            resolve(cert.certificate);
-          });
+        // Use simple auto-approve setup to avoid excessive signing requests
+        window.qz.security.setCertificatePromise(function(resolve: any, reject: any) {
+          console.log('📜 QZ Certificate requested (auto-approve fallback)');
+          resolve(); // Auto-approve to prevent dialogs
+        });
 
-          window.qz.security.setSignaturePromise(function(toSign: any) {
-            return function(resolve: any, reject: any) {
-              try {
-                console.log('✍️ QZ Signature requested - signing with stored private key');
-                console.log('📝 Data to sign:', toSign.slice(0, 100) + '...');
-                
-                // Parse the private key using node-forge
-                const privateKey = forge.pki.privateKeyFromPem(cert.privateKey);
-                
-                // Create message digest (SHA-512 for QZ Tray 2.1+)
-                const md = forge.md.sha512.create();
-                md.update(toSign, 'utf8');
-                
-                // Sign the hash
-                const signature = privateKey.sign(md);
-                
-                // Convert to base64
-                const signatureB64 = forge.util.encode64(signature);
-                
-                console.log('✅ Message signed successfully');
-                console.log('🔏 Signature (first 50 chars):', signatureB64.slice(0, 50) + '...');
-                
-                resolve(signatureB64);
-              } catch (error) {
-                console.error('❌ Signing failed:', error);
-                console.log('⚠️ Falling back to auto-approve');
-                resolve(); // Fallback to auto-approve if signing fails
-              }
-            };
-          });
-        } else {
-          console.warn('⚠️ No certificate available - using auto-approve fallback');
-          
-          // Fallback to auto-approve
-          window.qz.security.setCertificatePromise(function(resolve: any, reject: any) {
-            console.log('📜 QZ Certificate requested (fallback auto-approve)');
-            resolve();
-          });
-
-          window.qz.security.setSignaturePromise(function(toSign: any) {
-            return function(resolve: any, reject: any) {
-              console.log('✍️ QZ Signature requested (fallback auto-approve)');
-              resolve();
-            };
-          });
-        }
+        window.qz.security.setSignaturePromise(function(toSign: any) {
+          return function(resolve: any, reject: any) {
+            console.log('✍️ QZ Signature requested (auto-approve fallback)');
+            resolve(); // Auto-approve to prevent signing dialogs
+          };
+        });
         
         window.qzSecurityInitialized = true;
+        console.log('✅ QZ security initialized with auto-approve (no signing required)');
+      } else {
+        console.log('✅ Using existing global QZ security setup (no additional signing needed)');
       }
 
       // Connect to QZ WebSocket - don't disconnect if already active

@@ -30,22 +30,21 @@ function initializeQZTray() {
       console.log('🔧 Setting up global QZ Tray security...');
       
       try {
-        // Set certificate promise ONCE globally
+        // Set certificate promise ONCE globally - simple auto-approve
         window.qz.security.setCertificatePromise(function(resolve: any, reject: any) {
-          console.log('📜 QZ Certificate requested (auto-approve)');
-          resolve(); // Always resolve for unsigned access
+          console.log('📜 Global QZ Certificate request (auto-approving to prevent dialogs)');
+          resolve(); // Always auto-approve to prevent excessive signing requests
         });
 
-        // Set signature promise ONCE globally  
+        // Set signature promise ONCE globally - simple auto-approve 
         window.qz.security.setSignaturePromise(function(toSign: any) {
           return function(resolve: any, reject: any) {
-            console.log('✍️ QZ Signature requested (auto-approve)');
-            // Always resolve immediately without dialog
-            resolve();
+            console.log('✍️ Global QZ Signature request (auto-approving to prevent dialogs)');
+            resolve(); // Always auto-approve to prevent excessive signing requests
           };
         });
 
-        // Mark as initialized globally
+        // Mark as initialized globally - prevents other code from overriding this setup
         window.qzSecurityInitialized = true;
 
         // Import and notify the connection manager that security is set up globally
@@ -53,7 +52,7 @@ function initializeQZTray() {
           qzConnectionManager.markSecurityInitialized();
         });
 
-        console.log('✅ Global QZ Tray security initialized - no more trust dialogs needed');
+        console.log('✅ Global QZ Tray security initialized with auto-approve - no signing dialogs needed');
       } catch (error) {
         console.error('❌ Failed to initialize QZ Tray security:', error);
       }
