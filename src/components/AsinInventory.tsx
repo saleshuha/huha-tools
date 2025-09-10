@@ -900,134 +900,50 @@ export function AsinInventory() {
   };
   // Export inventory data to CSV
   const exportInventory = useCallback(() => {
-          if (template) {
-            // Auto-determine label size based on template dimensions for better fit
-            const aspectRatio = template.width / template.height;
-            console.log('Template aspect ratio:', aspectRatio, 'Template size:', template.width, 'x', template.height);
-            
-            if (aspectRatio >= 1.8) {
-              labelSettings.labelSize = '4x6'; // Wide format
-            } else if (aspectRatio >= 1.3) {
-              labelSettings.labelSize = '4x3'; // Standard format
-            } else if (aspectRatio >= 1.1) {
-              labelSettings.labelSize = '3x2'; // Medium format
-            } else {
-              labelSettings.labelSize = '2x1'; // Square/tall format
-            }
-            
-            // Auto-adjust DPI based on template complexity
-            const canvasData = template.canvas_data as any;
-            const elementCount = canvasData?.objects?.length || 0;
-            if (elementCount > 8 || (template.width * template.height) > 400) {
-              labelSettings.dpi = 300; // Higher DPI for complex/large labels
-            }
-            
-            console.log('Auto-selected label size:', labelSettings.labelSize, 'DPI:', labelSettings.dpi);
-          }
-        } catch (error) {
-          console.log('Could not load saved template settings, using user preferences or defaults');
-        }
-      }
+    try {
+      const headers = ['ASIN', 'SKU', 'Title', 'Serial Number', 'Quantity', 'Status', 'Bin Location', 'Date Added', 'Date Sold'];
+      const csvData = [
+        headers,
+        ...filteredInventory.map(item => [
+          item.asin,
+          item.sku || '',
+          item.title || '',
+          item.serialNumber,
+          item.quantity.toString(),
+          item.status,
+          item.notes || '',
+          item.dateAdded ? new Date(item.dateAdded).toLocaleDateString() : '',
+          item.dateSold ? new Date(item.dateSold).toLocaleDateString() : ''
+        ])
+      ];
 
-      // Use saved template for printing if available, otherwise fall back to simple format
-      if (savedTemplate) {
-        try {
-          const { data: template } = await supabase.from('label_templates').select('*').eq('id', savedTemplate).single();
-          
-          if (template) {
-            // Use the PrintService with the actual saved template
-            const templateData = {
-              id: template.id,
-              name: template.name,
-              size: { width: template.width, height: template.height },
-              elements: [], // Will be loaded from canvas_data
-              canvas_data: template.canvas_data
-            };
+      const csvContent = csvData.map(row => 
+        row.map(field => `"${field}"`).join(',')
+      ).join('\n');
 
-            // Create inventory dataset for this single item
-            const inventoryDataset = {
-              id: 'inventory',
-              name: 'Inventory Data',
-              description: 'Inventory item data for label printing',
-              headers: ['ASIN', 'SKU', 'Title', 'Quantity', 'Serial Number', 'Status'],
-              data: [[
-                item.asin,
-                item.sku || '',
-                item.title || `Product ${item.asin}`,
-                item.quantity.toString(),
-                item.serialNumber,
-                item.status
-              ]],
-              rowCount: 1,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString()
-            };
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `inventory_export_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
 
-            const printSettings = {
-              format: 'zpl' as const,
-              copies: 1,
-              dpi: labelSettings.dpi,
-              darkness: 10,
-              orientation: 'portrait' as const,
-              paperSize: 'custom' as const,
-              labelsPerPage: 1,
-              margin: 0
-            };
-
-            // Generate ZPL using the template
-            const zplCode = PrintService.generateZPL(templateData as any, inventoryDataset, printSettings);
-            console.log('📄 Template-based ZPL Code:', zplCode);
-            
-            // Print using QZ Tray
-            const savedDefaultPrinter = localStorage.getItem('qz-default-printer');
-            await qzConnectionManager.print(zplCode, savedDefaultPrinter || undefined);
-            
-            toast({
-              title: "Label Printed",
-              description: `Printed label for ${item.asin} using saved template`
-            });
-            return;
-          }
-        } catch (error) {
-          console.error('Error using saved template, falling back to default:', error);
-          toast({
-            title: "Template Error", 
-            description: "Using default format instead",
-            variant: "destructive"
-          });
-        }
-      }
-
-      // Fallback to simple order label format
-      const orderItem: OrderItem = {
-        orderId: item.serialNumber,
-        asin: item.asin,
-        sku: item.sku || undefined,
-        itemTitle: item.title || `Product ${item.asin}`,
-        itemQuantity: item.quantity
-      };
-
-      // Generate simple ZPL using the order label generator
-      const zplCode = generateOrderLabelZPL(orderItem, labelSettings);
-      console.log('📄 Fallback ZPL Code:', zplCode);
-      // Get saved default printer for more reliable printing
-      const savedDefaultPrinter = localStorage.getItem('qz-default-printer');
-
-      // Print using QZ Tray with specific printer
-      await qzConnectionManager.print(zplCode, savedDefaultPrinter || undefined);
       toast({
-        title: "Label Printed",
-        description: `Printed professional label for ${item.asin}${savedDefaultPrinter ? ` to ${savedDefaultPrinter}` : ''}`
+        title: "Export Complete",
+        description: `Exported ${filteredInventory.length} inventory items to CSV`
       });
     } catch (error) {
-      console.error('Error printing item:', error);
+      console.error('Error exporting inventory:', error);
       toast({
-        title: "Print Failed",
-        description: "Could not print label. Please check QZ Tray connection.",
+        title: "Export Failed",
+        description: "Could not export inventory data",
         variant: "destructive"
       });
     }
-  };
+  }, [filteredInventory]);
 
   // Test print function with known good data
   const handleTestPrint = async () => {
@@ -1131,7 +1047,19 @@ export function AsinInventory() {
         <InventoryMetrics showOnlyAsin={true} />
         
         {/* Duplicate ASIN Metrics Card */}
-        {duplicateData.totalDuplicateASINs > 0}
+        {duplicateData.totalDuplicateASINs > 0 && (
+          <Card className="border-2 border-orange-200 bg-orange-50">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-orange-800">
+                <AlertTriangle className="w-5 h-5" />
+                <span className="font-medium">Duplicate ASINs Detected</span>
+              </div>
+              <p className="text-sm text-orange-600 mt-1">
+                Found {duplicateData.totalDuplicateASINs} ASINs with duplicates ({duplicateData.totalDuplicateItems} total items)
+              </p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Prominent Search Bar */}
@@ -1970,27 +1898,27 @@ export function AsinInventory() {
                   </div>
                 </div>
 
-                {/* Preview Actions */}
-                <div className="flex justify-between items-center">
-                  <div className="text-sm text-muted-foreground">
-                    {previewTemplate ? `Using "${previewTemplate.name}" template with ${previewTemplate.elements?.length || 0} elements` : 'Using default template layout with standard fields'}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => setIsPreviewDialogOpen(false)}>
-                      Close
-                    </Button>
-                    <Button onClick={() => {
-                setIsPreviewDialogOpen(false);
-                handlePrintItem(previewItem);
-              }}>
-                      <Printer className="w-4 h-4 mr-2" />
-                      Print This Label
-                    </Button>
-                  </div>
-                </div>
-              </div>}
-          </DialogContent>
-        </Dialog>
-      </div>
-    );
-  }
+                 {/* Preview Actions */}
+                 <div className="flex justify-between items-center">
+                   <div className="text-sm text-muted-foreground">
+                     {previewTemplate ? `Using "${previewTemplate.name}" template with ${previewTemplate.elements?.length || 0} elements` : 'Using default template layout with standard fields'}
+                   </div>
+                   <div className="flex gap-2">
+                     <Button variant="outline" onClick={() => setIsPreviewDialogOpen(false)}>
+                       Close
+                     </Button>
+                     <Button onClick={() => {
+                       setIsPreviewDialogOpen(false);
+                       handlePrintItem(previewItem);
+                     }}>
+                       <Printer className="w-4 h-4 mr-2" />
+                       Print This Label
+                     </Button>
+                   </div>
+                 </div>
+               </div>}
+           </DialogContent>
+         </Dialog>
+       </div>
+     );
+}
