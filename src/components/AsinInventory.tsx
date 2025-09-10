@@ -646,6 +646,134 @@ export function AsinInventory() {
   // Print single item label using QZ Tray
   const handlePrintItem = async (item: AsinInventoryItem) => {
     try {
+      const connected = qzConnectionManager.getConnectionStatus();
+      if (!connected) {
+        toast({
+          title: "QZ Tray Not Connected",
+          description: "Please connect QZ Tray first",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const orderItem: OrderItem = {
+        orderId: item.serialNumber,
+        asin: item.asin,
+        sku: item.sku || undefined,
+        itemTitle: item.title || `Product ${item.asin}`,
+        itemQuantity: item.quantity
+      };
+
+      const labelSettings: OrderLabelSettings = {
+        labelSize: '4x3',
+        dpi: 203,
+        showOrderId: false,
+        showAsin: true,
+        showSku: true,
+        showTitle: true,
+        showQuantity: true,
+        includeBarcode: true,
+        barcodeContent: 'asin'
+      };
+
+      const zplCode = generateOrderLabelZPL(orderItem, labelSettings);
+      const printer = localStorage.getItem('qz-default-printer');
+      await qzConnectionManager.print(zplCode, printer || undefined);
+      
+      toast({
+        title: "Label Printed",
+        description: `Printed label for ${item.asin}`
+      });
+    } catch (error) {
+      console.error('Print error:', error);
+      toast({
+        title: "Print Error", 
+        description: "Failed to print label",
+        variant: "destructive"
+      });
+    }
+  };
+    try {
+      // Check if QZ Tray is connected
+      const connected = qzConnectionManager.getConnectionStatus();
+      if (!connected) {
+        toast({
+          title: "QZ Tray Not Connected",
+          description: "Please connect QZ Tray from the status indicator in the header first",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Get user preferences for label settings
+      const savedLabelSize = localStorage.getItem('preferredLabelSize') || '4x3';
+      const savedDPI = parseInt(localStorage.getItem('preferredDPI') || '203');
+      
+      let labelSettings: OrderLabelSettings = {
+        labelSize: savedLabelSize as '4x6' | '4x3' | '3x2' | '2x1',
+        dpi: savedDPI as 203 | 300,
+        showOrderId: false,
+        showAsin: true,
+        showSku: true,
+        showTitle: true,
+        showQuantity: true,
+        includeBarcode: true,
+        barcodeContent: 'asin'
+      };
+
+      // Check for saved template to get label size
+      const savedTemplate = localStorage.getItem('savedLabelTemplate');
+      if (savedTemplate) {
+        try {
+          const { data: template } = await supabase.from('label_templates').select('*').eq('id', savedTemplate).single();
+          if (template) {
+            const aspectRatio = template.width / template.height;
+            if (aspectRatio >= 1.8) {
+              labelSettings.labelSize = '4x6';
+            } else if (aspectRatio >= 1.3) {
+              labelSettings.labelSize = '4x3';
+            } else if (aspectRatio >= 1.1) {
+              labelSettings.labelSize = '3x2';
+            } else {
+              labelSettings.labelSize = '2x1';
+            }
+          }
+        } catch (error) {
+          console.log('Could not load template settings');
+        }
+      }
+
+      // Create order item for printing
+      const orderItem: OrderItem = {
+        orderId: item.serialNumber,
+        asin: item.asin,
+        sku: item.sku || undefined,
+        itemTitle: item.title || `Product ${item.asin}`,
+        itemQuantity: item.quantity
+      };
+
+      // Generate ZPL code
+      const zplCode = generateOrderLabelZPL(orderItem, labelSettings);
+      console.log('📄 Generated ZPL Code:', zplCode);
+
+      // Print the label
+      const savedDefaultPrinter = localStorage.getItem('qz-default-printer');
+      await qzConnectionManager.print(zplCode, savedDefaultPrinter || undefined);
+
+      toast({
+        title: "Label Printed",
+        description: `Printed label for ${item.asin}`
+      });
+    } catch (error) {
+      console.error('Error printing label:', error);
+      toast({
+        title: "Print Error",
+        description: error instanceof Error ? error.message : "Failed to print label",
+        variant: "destructive"
+      });
+    }
+  };
+    try {
       // Check if QZ Tray is connected, if not show appropriate message
       const connected = qzConnectionManager.getConnectionStatus();
       if (!connected) {
@@ -674,12 +802,104 @@ export function AsinInventory() {
         barcodeContent: 'asin'
       };
 
-      // If there's a saved template, try to get its settings
+      // Just get label size from template if available, but use simple printing
       if (savedTemplate) {
         try {
-          const {
-            data: template
-          } = await supabase.from('label_templates').select('*').eq('id', savedTemplate).single();
+          const { data: template } = await supabase.from('label_templates').select('*').eq('id', savedTemplate).single();
+          if (template) {
+            // Auto-determine label size based on template dimensions for better fit
+            const aspectRatio = template.width / template.height;
+            console.log('Template aspect ratio:', aspectRatio, 'Template size:', template.width, 'x', template.height);
+            
+            if (aspectRatio >= 1.8) {
+              labelSettings.labelSize = '4x6'; // Wide format
+            } else if (aspectRatio >= 1.3) {
+              labelSettings.labelSize = '4x3'; // Standard format
+            } else if (aspectRatio >= 1.1) {
+              labelSettings.labelSize = '3x2'; // Medium format
+            } else {
+              labelSettings.labelSize = '2x1'; // Square/tall format
+            }
+            
+            console.log('Auto-selected label size:', labelSettings.labelSize);
+          }
+        } catch (error) {
+          console.log('Could not load template settings, using user preferences');
+        }
+      }
+
+      // Simple order label generation (no complex template processing)
+      const orderItem: OrderItem = {
+        orderId: item.serialNumber,
+        asin: item.asin,
+        sku: item.sku || undefined,
+        itemTitle: item.title || `Product ${item.asin}`,
+        itemQuantity: item.quantity
+      };
+
+      console.log('🔍 Printing item data:', { orderItem, labelSettings });
+
+      // Generate ZPL using the order label generator
+      const zplCode = generateOrderLabelZPL(orderItem, labelSettings);
+      console.log('📄 Generated ZPL Code:', zplCode);
+
+      // Get saved default printer for printing
+      const savedDefaultPrinter = localStorage.getItem('qz-default-printer');
+
+      // Print using QZ Tray
+      await qzConnectionManager.print(zplCode, savedDefaultPrinter || undefined);
+
+      toast({
+        title: "Label Printed",
+        description: `Printed label for ${item.asin}`
+      });
+    } catch (error) {
+      console.error('Error printing label:', error);
+      toast({
+        title: "Print Error",
+        description: error instanceof Error ? error.message : "Failed to print label",
+        variant: "destructive"
+      });
+  // Test label printing function
+  const handleTestPrint = async () => {
+    try {
+      // Create test order item with known good data
+      const testOrderItem: OrderItem = {
+        orderId: "TEST-001",
+        asin: "B08N5WRWNW", 
+        sku: "TEST-SKU-123",
+        itemTitle: "Test Product for Label Printing",
+        itemQuantity: 1
+      };
+      const testLabelSettings: OrderLabelSettings = {
+        labelSize: '4x3',
+        dpi: 203,
+        showOrderId: true,
+        showAsin: true,
+        showSku: true,
+        showTitle: true,
+        showQuantity: true,
+        includeBarcode: true,
+        barcodeContent: 'asin'
+      };
+      const zplCode = generateOrderLabelZPL(testOrderItem, testLabelSettings);
+      const savedDefaultPrinter = localStorage.getItem('qz-default-printer');
+      await qzConnectionManager.print(zplCode, savedDefaultPrinter || undefined);
+      toast({
+        title: "Test Label Printed", 
+        description: "Printed test label with sample data"
+      });
+    } catch (error) {
+      console.error('Error printing test label:', error);
+      toast({
+        title: "Print Error",
+        description: error instanceof Error ? error.message : "Failed to print test label",
+        variant: "destructive"
+      });
+    }
+  };
+  // Export inventory data to CSV
+  const exportInventory = useCallback(() => {
           if (template) {
             // Auto-determine label size based on template dimensions for better fit
             const aspectRatio = template.width / template.height;
@@ -1771,5 +1991,6 @@ export function AsinInventory() {
               </div>}
           </DialogContent>
         </Dialog>
-    </div>;
-}
+      </div>
+    );
+  }
