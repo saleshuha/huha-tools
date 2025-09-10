@@ -381,7 +381,7 @@ export function AppSidebar() {
                         >
                           <ShoppingCart className="h-4 w-4 flex-shrink-0 opacity-75" />
                           <span className="font-medium text-xs">
-                            Amazon Retail
+                            PO - SS Stock Tracker
                           </span>
                         </NavLink>
                       </SidebarMenuButton>
