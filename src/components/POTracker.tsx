@@ -1353,20 +1353,13 @@ export const POTracker = () => {
                             variant="outline"
                             onClick={() => {
                               console.log('🔍 VIEW ITEMS DEBUG: Selected POs:', Array.from(selectedPOsForLabels));
-                              console.log('🔍 VIEW ITEMS DEBUG: Total PO orders available:', poOrders.length);
-                              console.log('🔍 VIEW ITEMS DEBUG: Sample PO numbers:', poOrders.slice(0, 5).map(o => o.po_number));
                               
-                              // Switch to overview tab with detailed view and filter by selected POs
-                              setViewMode('detailed');
-                              setActiveTab('overview'); // Changed from 'orders' to 'overview'
+                              // Go directly to print labels interface with selected POs
+                              setSelectedPOForLabels(Array.from(selectedPOsForLabels)[0]); // Set first PO for compatibility
+                              setLabelsStep('print'); // Go directly to print interface
+                              setActiveTab('labels'); // Switch to labels tab
                               
-                              // Debug the filtering after state update
-                              setTimeout(() => {
-                                const selectedPOsList = Array.from(selectedPOsForLabels);
-                                const matchingOrders = poOrders.filter(order => selectedPOsList.includes(order.po_number));
-                                console.log('🔍 VIEW ITEMS DEBUG: Orders matching selected POs:', matchingOrders.length);
-                                console.log('🔍 VIEW ITEMS DEBUG: Sample matching orders:', matchingOrders.slice(0, 3));
-                              }, 100);
+                              console.log('🔍 VIEW ITEMS DEBUG: Switched to print labels interface');
                             }}
                           >
                             <Package className="h-4 w-4 mr-2" />
