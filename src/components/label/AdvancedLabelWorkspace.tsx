@@ -655,6 +655,18 @@ export const AdvancedLabelWorkspace: React.FC = () => {
       if (columnIndex !== -1 && dataset.data[0] && dataset.data[0][columnIndex] !== undefined) {
         let value = String(dataset.data[0][columnIndex]);
         
+        // Handle common inventory data transformations
+        if (element.dataColumn === 'Title' && dataset.id === 'inventory') {
+          // For inventory titles, clean up any generated formats
+          if (value.includes('ASIN:') || value.includes('SKU:')) {
+            // Try to find actual title from other columns if this is a generated title
+            const titleIndex = dataset.headers.findIndex(h => h.toLowerCase().includes('title') && h !== element.dataColumn);
+            if (titleIndex !== -1 && dataset.data[0][titleIndex]) {
+              value = String(dataset.data[0][titleIndex]);
+            }
+          }
+        }
+        
         if (element.dataTransform) {
           if (element.dataTransform.prefix) {
             value = element.dataTransform.prefix + value;

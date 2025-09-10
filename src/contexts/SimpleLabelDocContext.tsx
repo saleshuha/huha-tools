@@ -274,7 +274,22 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
   }, [document]);
 
   const loadDataset = useCallback(async (id: string) => {
-    if (id === 'inventory' || id === 'orders') {
+    if (id === 'inventory') {
+      // Auto-load inventory dataset
+      try {
+        // Import the hook dynamically to avoid circular dependencies
+        const { useInventoryData } = await import('@/hooks/useInventoryData');
+        
+        // We need to trigger inventory data loading in components that use this context
+        console.log('Inventory dataset requested - will be loaded by InventoryDataMapper');
+        return;
+      } catch (error) {
+        console.error('Failed to load inventory dataset:', error);
+        return;
+      }
+    }
+    
+    if (id === 'orders') {
       // Handle in-memory datasets - they will be set directly via setDataset
       return;
     }
