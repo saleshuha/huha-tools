@@ -2,7 +2,6 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-
 interface HuhaHeader01Action {
   label: string;
   icon?: React.ReactNode;
@@ -10,14 +9,12 @@ interface HuhaHeader01Action {
   variant?: 'default' | 'outline' | 'secondary';
   className?: string;
 }
-
 interface HuhaHeader01Badge {
   label: string;
   variant?: 'default' | 'secondary' | 'outline';
   icon?: React.ReactNode;
   className?: string;
 }
-
 interface HuhaHeader01Props {
   icon: React.ReactNode;
   title: string;
@@ -26,7 +23,6 @@ interface HuhaHeader01Props {
   badges?: HuhaHeader01Badge[];
   className?: string;
 }
-
 export const HuhaHeader01: React.FC<HuhaHeader01Props> = ({
   icon,
   title,
@@ -35,8 +31,9 @@ export const HuhaHeader01: React.FC<HuhaHeader01Props> = ({
   badges = [],
   className
 }) => {
-  return (
-    <div className={cn("huha-header border-b-2 border-border/50 bg-gradient-to-r from-card/80 to-card/60 backdrop-blur-md shadow-lg mx-6 my-4", className)} style={{ minHeight: 'var(--header-min-h, 80px)' }}>
+  return <div className={cn("huha-header border-b-2 border-border/50 bg-gradient-to-r from-card/80 to-card/60 backdrop-blur-md shadow-lg mx-6 my-4", className)} style={{
+    minHeight: 'var(--header-min-h, 80px)'
+  }}>
       <div className="px-6 py-3">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-6">
@@ -53,37 +50,15 @@ export const HuhaHeader01: React.FC<HuhaHeader01Props> = ({
             </div>
           </div>
           <div className="flex items-center gap-4">
-            {actions.map((action, index) => (
-              <Button
-                key={index}
-                variant={action.variant || 'default'}
-                size="sm"
-                onClick={action.onClick}
-                className={cn(action.className)}
-              >
+            {actions.map((action, index) => <Button key={index} variant={action.variant || 'default'} size="sm" onClick={action.onClick} className={cn(action.className)}>
                 {action.icon}
                 {action.label}
-              </Button>
-            ))}
+              </Button>)}
           </div>
         </div>
         
         {/* Status Bar */}
-        {badges.length > 0 && (
-          <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-muted/30 to-muted/20 rounded-xl border-2 border-border/30">
-            {badges.map((badge, index) => (
-              <Badge
-                key={index}
-                variant={badge.variant || 'default'}
-                className={cn(badge.className)}
-              >
-                {badge.icon}
-                {badge.label}
-              </Badge>
-            ))}
-          </div>
-        )}
+        {badges.length > 0}
       </div>
-    </div>
-  );
+    </div>;
 };
