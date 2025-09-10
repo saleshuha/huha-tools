@@ -1088,38 +1088,71 @@ export const POTracker = () => {
                          </TableRow>
                        </TableHeader>
                       <TableBody>
-                        {paginatedPOGroups.map(({ poNumber, orders }) => {
-                          const firstOrder = orders[0];
-                          
-                          // Get metrics from database function
-                          const dbMetrics = poGroupMetrics?.find(m => m.po_number === poNumber);
-                          const totalLineItems = dbMetrics?.distinct_skus || 0;
-                          const asnQuantity = dbMetrics?.asn_quantity || 0;
-                          
-                          // Calculate matched percentage for display
-                          const activeOrdersInPO = orders.filter((order: any) => 
-                            order.status === 'pending' || order.status === 'ordered' || order.status === 'shipped'
-                          );
-                          const matchedCount = activeOrdersInPO.filter((order: any) => order.sunsky_sku !== null).length;
-                          const matchedPercentage = activeOrdersInPO.length > 0 ? ((matchedCount / activeOrdersInPO.length) * 100).toFixed(0) : '0';
-                          
-                          const statusCounts = orders.reduce((counts: any, order: any) => {
-                            counts[order.status] = (counts[order.status] || 0) + 1;
-                            return counts;
-                          }, {});
+                         {paginatedPOGroups.map(({ poNumber, orders }) => {
+                           const firstOrder = orders[0];
+                           const ordersInPO = orders; // Alias for consistency
+                           
+                           // Get metrics from database function
+                           const dbMetrics = poGroupMetrics?.find(m => m.po_number === poNumber);
+                           const totalLineItems = dbMetrics?.distinct_skus || 0;
+                           const asnQuantity = dbMetrics?.asn_quantity || 0;
+                           
+                           // Calculate matched percentage for display
+                           const activeOrdersInPO = orders.filter((order: any) => 
+                             order.status === 'pending' || order.status === 'ordered' || order.status === 'shipped'
+                           );
+                           const matchedCount = activeOrdersInPO.filter((order: any) => order.sunsky_sku !== null).length;
+                           const matchedPercentage = activeOrdersInPO.length > 0 ? ((matchedCount / activeOrdersInPO.length) * 100).toFixed(0) : '0';
+                           
+                           const statusCounts = orders.reduce((counts: any, order: any) => {
+                             counts[order.status] = (counts[order.status] || 0) + 1;
+                             return counts;
+                           }, {});
 
-                           return (
-                             <TableRow key={poNumber}>
-                               <TableCell className="font-medium">
-                                <Button 
-                                  variant="link" 
-                                  className="p-0 h-auto font-medium text-left justify-start"
-                                  onClick={() => navigate(`/po-details/${poNumber}`)}
-                                >
-                                  {poNumber}
-                                  <ExternalLink className="h-3 w-3 ml-1" />
-                                </Button>
-                              </TableCell>
+                           // Check if PO is closed
+                           const isClosedPO = ordersInPO.every(order => order.status === 'closed');
+                           const hasClosedItems = ordersInPO.some(order => order.status === 'closed');
+
+                            return (
+                              <TableRow 
+                                key={poNumber}
+                                className={isClosedPO ? 'opacity-60 bg-muted/30' : hasClosedItems ? 'opacity-80' : ''}
+                              >
+                                <TableCell>
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedPOsForBulkClose.has(poNumber)}
+                                    onChange={(e) => {
+                                      const newSelected = new Set(selectedPOsForBulkClose);
+                                      if (e.target.checked && !isClosedPO) {
+                                        newSelected.add(poNumber);
+                                      } else {
+                                        newSelected.delete(poNumber);
+                                      }
+                                      setSelectedPOsForBulkClose(newSelected);
+                                    }}
+                                    disabled={isClosedPO}
+                                    className="h-4 w-4 rounded border-border"
+                                  />
+                                </TableCell>
+                                <TableCell className="font-medium">
+                                  <div className="flex items-center gap-2">
+                                    <Button 
+                                      variant="link" 
+                                      className="p-0 h-auto font-medium text-left justify-start"
+                                      onClick={() => navigate(`/po-details/${poNumber}`)}
+                                      disabled={isClosedPO}
+                                    >
+                                      {poNumber}
+                                      <ExternalLink className="h-3 w-3 ml-1" />
+                                    </Button>
+                                    {isClosedPO && (
+                                      <Badge variant="secondary" className="text-xs">
+                                        CLOSED
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-2">
                                   <span className="font-medium">{totalLineItems}</span>
@@ -1151,30 +1184,32 @@ export const POTracker = () => {
                                   ))}
                                 </div>
                               </TableCell>
-                               <TableCell>
-                                 <div className="flex items-center gap-2">
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
                                     <Button 
                                       variant="outline" 
                                       size="sm"
                                       onClick={() => navigate(`/po-details/${poNumber}`)}
+                                      disabled={isClosedPO}
                                     >
                                       View Details
                                     </Button>
-                                     <Button 
-                                       variant="outline" 
-                                       size="sm"
-                                       onClick={() => {
-                                         if (confirm(`Are you sure you want to close PO ${poNumber}? This action cannot be undone.`)) {
-                                           handleClosePO(poNumber);
-                                         }
-                                       }}
-                                       className="text-red-600 hover:text-red-700"
-                                     >
-                                       Close PO
-                                     </Button>
-                                   )}
-                                 </div>
-                               </TableCell>
+                                    {!isClosedPO && (
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm"
+                                        onClick={() => {
+                                          if (confirm(`Are you sure you want to close PO ${poNumber}? This action cannot be undone.`)) {
+                                            handleClosePO(poNumber);
+                                          }
+                                        }}
+                                        className="text-red-600 hover:text-red-700"
+                                      >
+                                        Close PO
+                                      </Button>
+                                    )}
+                                  </div>
+                                </TableCell>
                              </TableRow>
                            );
                          })}
