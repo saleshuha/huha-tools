@@ -98,6 +98,9 @@ export const POTracker = () => {
   });
   
   const [qzConnected, setQzConnected] = useState(false);
+  const [selectedPOsForBulkClose, setSelectedPOsForBulkClose] = useState<Set<string>>(new Set());
+  const [showBulkCloseConfirm, setShowBulkCloseConfirm] = useState(false);
+  const [isClosingPOs, setIsClosingPOs] = useState(false);
   const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
   const [selectedPrinter, setSelectedPrinter] = useState<string>('');
   const [isPrinting, setIsPrinting] = useState(false);
@@ -149,12 +152,70 @@ export const POTracker = () => {
     }
   };
   
+  const navigate = useNavigate();
   const { poOrders, isLoading, fetchPOOrders, processPOFiles, deletePOOrders, updatePrintStatus } = usePOOrders();
   const { profile } = useUserProfile();
   const { selectedCountry } = useCountry();
   const { getImageByAsin } = useProductImages();
   const { toast } = useToast();
-  const navigate = useNavigate();
+  // Function to handle bulk PO closing
+  const handleBulkClosePOs = async (poNumbers: string[]) => {
+    setIsClosingPOs(true);
+    try {
+      const { error } = await supabase
+        .from('po_orders')
+        .update({ status: 'closed', updated_at: new Date().toISOString() })
+        .in('po_number', poNumbers)
+        .eq('user_id', profile?.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `${poNumbers.length} PO${poNumbers.length !== 1 ? 's' : ''} closed successfully.`,
+      });
+
+      fetchPOOrders();
+    } catch (error) {
+      console.error('Error closing POs:', error);
+      toast({
+        title: "Error",
+        description: "Failed to close POs. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsClosingPOs(false);
+      setSelectedPOsForBulkClose(new Set());
+      setShowBulkCloseConfirm(false);
+    }
+  };
+
+  // Function to handle individual PO closing
+  const handleClosePO = async (poNumber: string) => {
+    try {
+      const { error } = await supabase
+        .from('po_orders')
+        .update({ status: 'closed', updated_at: new Date().toISOString() })
+        .eq('po_number', poNumber)
+        .eq('user_id', profile?.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `PO ${poNumber} closed successfully.`,
+      });
+
+      fetchPOOrders();
+    } catch (error) {
+      console.error('Error closing PO:', error);
+      toast({
+        title: "Error",
+        description: `Failed to close PO ${poNumber}. Please try again.`,
+        variant: "destructive",
+      });
+    }
+  };
 
   // Delete all PO orders for fresh upload
   const handleDeleteAllPO = async () => {
@@ -280,6 +341,11 @@ export const POTracker = () => {
     }
   }, [poOrders, isLoading, refetchMetrics, refetchComprehensiveMetrics]);
 
+  // Filter out closed POs from label printing by default
+  const labelEligibleOrders = useMemo(() => {
+    return poOrders.filter(order => order.status !== 'closed');
+  }, [poOrders]);
+
   const filteredOrders = useMemo(() => {
     console.log('🔍 FILTERING DEBUG: Starting with', poOrders.length, 'orders');
     console.log('🔍 FILTERING DEBUG: Active tab:', activeTab, 'View mode:', viewMode);
@@ -354,7 +420,7 @@ export const POTracker = () => {
     
     console.log('🔍 FILTERING DEBUG: Final filtered orders:', filtered.length);
     return filtered;
-  }, [poOrders, searchQuery, labelSearchQuery, statusFilter, sortField, sortDirection, activeTab, viewMode, selectedPOsForLabels]);
+  }, [poOrders, searchQuery, labelSearchQuery, statusFilter, sortField, sortDirection, activeTab, viewMode, selectedPOsForLabels, labelEligibleOrders]);
 
   // Filtered PO Groups for labels search
   const filteredPOGroups = useMemo(() => {
@@ -900,6 +966,35 @@ export const POTracker = () => {
                     className="max-w-sm"
                   />
                   <div className="flex items-center gap-2">
+                    {/* Bulk Close Actions */}
+                    {selectedPOsForBulkClose.size > 0 && (
+                      <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg border">
+                        <Badge variant="outline">
+                          {selectedPOsForBulkClose.size} PO{selectedPOsForBulkClose.size !== 1 ? 's' : ''} selected
+                        </Badge>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowBulkCloseConfirm(true)}
+                          disabled={isClosingPOs}
+                        >
+                          {isClosingPOs ? (
+                            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                          ) : (
+                            <X className="h-3 w-3 mr-1" />
+                          )}
+                          Close Selected
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedPOsForBulkClose(new Set())}
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                    )}
+                    
                     <div className="flex items-center border rounded-lg p-1">
                       <Button
                         variant={viewMode === 'grouped' ? 'default' : 'ghost'}
@@ -965,6 +1060,25 @@ export const POTracker = () => {
                     <Table>
                        <TableHeader>
                          <TableRow>
+                           <TableHead className="w-12">
+                             <input
+                               type="checkbox"
+                               checked={selectedPOsForBulkClose.size > 0 && Array.from(selectedPOsForBulkClose).length === groupedPOOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).length}
+                               onChange={(e) => {
+                                 const currentPagePOs = groupedPOOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map(group => group.poNumber);
+                                 if (e.target.checked) {
+                                   setSelectedPOsForBulkClose(prev => new Set([...prev, ...currentPagePOs.filter(po => !groupedPOOrders.find(g => g.poNumber === po)?.orders.some(o => o.status === 'closed'))]));
+                                 } else {
+                                   setSelectedPOsForBulkClose(prev => {
+                                     const newSet = new Set(prev);
+                                     currentPagePOs.forEach(po => newSet.delete(po));
+                                     return newSet;
+                                   });
+                                 }
+                               }}
+                               className="h-4 w-4 rounded border-border"
+                             />
+                           </TableHead>
                            <TableHead>PO Number</TableHead>
                            <TableHead>PO Items</TableHead>
                            <TableHead>ASN Quantity</TableHead>
@@ -1037,41 +1151,60 @@ export const POTracker = () => {
                                   ))}
                                 </div>
                               </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm"
-                                    onClick={() => navigate(`/po-details/${poNumber}`)}
-                                  >
-                                    View Details
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
+                               <TableCell>
+                                 <div className="flex items-center gap-2">
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={() => navigate(`/po-details/${poNumber}`)}
+                                    >
+                                      View Details
+                                    </Button>
+                                     <Button 
+                                       variant="outline" 
+                                       size="sm"
+                                       onClick={() => {
+                                         if (confirm(`Are you sure you want to close PO ${poNumber}? This action cannot be undone.`)) {
+                                           handleClosePO(poNumber);
+                                         }
+                                       }}
+                                       className="text-red-600 hover:text-red-700"
+                                     >
+                                       Close PO
+                                     </Button>
+                                   )}
+                                 </div>
+                               </TableCell>
+                             </TableRow>
+                           );
+                         })}
+                       </TableBody>
                     </Table>
                   ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Image</TableHead>
-                          <TableHead>PO Number</TableHead>
-                          <TableHead>ASIN</TableHead>
-                          <TableHead>Model/SKU</TableHead>
-                          <TableHead>Title</TableHead>
-                          <TableHead>Quantity</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Matched</TableHead>
-                          <TableHead>Cost</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {paginatedDetailedOrders.map((order) => (
-                          <TableRow key={order.id}>
+                     <Table>
+                       <TableHeader>
+                         <TableRow>
+                           <TableHead>Image</TableHead>
+                           <TableHead>PO Number</TableHead>
+                           <TableHead>ASIN</TableHead>
+                           <TableHead>Model/SKU</TableHead>
+                           <TableHead>Title</TableHead>
+                           <TableHead>Quantity</TableHead>
+                           <TableHead>Status</TableHead>
+                           <TableHead>Matched</TableHead>
+                           <TableHead>Cost</TableHead>
+                           <TableHead>Actions</TableHead>
+                         </TableRow>
+                       </TableHeader>
+                       <TableBody>
+                         {paginatedDetailedOrders.map((order) => {
+                           const isClosedOrder = order.status === 'closed';
+                           
+                           return (
+                             <TableRow 
+                               key={order.id}
+                               className={isClosedOrder ? 'opacity-60 bg-muted/30' : ''}
+                             >
                             <TableCell>
                               <div className="w-10 h-10 bg-muted rounded border flex items-center justify-center">
                                 <svg className="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1080,14 +1213,22 @@ export const POTracker = () => {
                               </div>
                             </TableCell>
                             <TableCell className="font-medium">
-                              <Button 
-                                variant="link" 
-                                className="p-0 h-auto font-medium text-left justify-start"
-                                onClick={() => navigate(`/po-details/${order.po_number}`)}
-                              >
-                                {order.po_number}
-                                <ExternalLink className="h-3 w-3 ml-1" />
-                              </Button>
+                                 <div className="flex items-center gap-2">
+                                   <Button 
+                                     variant="link" 
+                                     className="p-0 h-auto font-medium text-left justify-start"
+                                     onClick={() => navigate(`/po-details/${order.po_number}`)}
+                                     disabled={isClosedOrder}
+                                   >
+                                     {order.po_number}
+                                     <ExternalLink className="h-3 w-3 ml-1" />
+                                   </Button>
+                                   {isClosedOrder && (
+                                     <Badge variant="secondary" className="text-xs">
+                                       CLOSED
+                                     </Badge>
+                                   )}
+                                 </div>
                             </TableCell>
                             <TableCell>
                               <span className="text-sm">{order.asin || '-'}</span>
@@ -1112,19 +1253,20 @@ export const POTracker = () => {
                                 {order.quantity}
                               </Badge>
                             </TableCell>
-                            <TableCell>
-                              <Badge 
-                                variant={
-                                  order.status === 'delivered' ? 'default' :
-                                  order.status === 'shipped' ? 'secondary' :
-                                  order.status === 'ordered' ? 'outline' :
-                                  order.status === 'pending' ? 'destructive' :
-                                  'outline'
-                                }
-                              >
-                                {order.status}
-                              </Badge>
-                            </TableCell>
+                               <TableCell>
+                                 <Badge 
+                                   variant={
+                                     order.status === 'delivered' ? 'default' :
+                                     order.status === 'shipped' ? 'secondary' :
+                                     order.status === 'ordered' ? 'outline' :
+                                     order.status === 'pending' ? 'destructive' :
+                                     order.status === 'closed' ? 'secondary' :
+                                     'outline'
+                                   }
+                                 >
+                                   {order.status}
+                                 </Badge>
+                               </TableCell>
                             <TableCell>
                               <Badge variant={order.sunsky_sku ? 'default' : 'destructive'}>
                                 {order.sunsky_sku ? 'Matched' : 'No Match'}
@@ -1144,20 +1286,22 @@ export const POTracker = () => {
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-1">
-                                <Button 
-                                  variant="outline" 
-                                  size="sm"
-                                  onClick={() => navigate(`/po-details/${order.po_number}`)}
-                                >
-                                  Details
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
+                               <TableCell>
+                                 <div className="flex items-center gap-1">
+                                   <Button 
+                                     variant="outline" 
+                                     size="sm"
+                                     onClick={() => navigate(`/po-details/${order.po_number}`)}
+                                     disabled={isClosedOrder}
+                                   >
+                                     Details
+                                   </Button>
+                                 </div>
+                               </TableCell>
+                             </TableRow>
+                           );
+                         })}
+                       </TableBody>
                     </Table>
                   )}
                 </div>
@@ -1188,6 +1332,51 @@ export const POTracker = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Bulk Close Confirmation Dialog */}
+        <Dialog open={showBulkCloseConfirm} onOpenChange={setShowBulkCloseConfirm}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirm Bulk PO Close</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Are you sure you want to close the following {selectedPOsForBulkClose.size} PO{selectedPOsForBulkClose.size !== 1 ? 's' : ''}? 
+                This action cannot be undone.
+              </p>
+              <div className="max-h-32 overflow-y-auto border rounded p-2">
+                {Array.from(selectedPOsForBulkClose).map(poNumber => (
+                  <div key={poNumber} className="text-sm font-mono">
+                    {poNumber}
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowBulkCloseConfirm(false)}
+                  disabled={isClosingPOs}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => handleBulkClosePOs(Array.from(selectedPOsForBulkClose))}
+                  disabled={isClosingPOs}
+                >
+                  {isClosingPOs ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Closing...
+                    </>
+                  ) : (
+                    `Close ${selectedPOsForBulkClose.size} PO${selectedPOsForBulkClose.size !== 1 ? 's' : ''}`
+                  )}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <TabsContent value="upload" className="space-y-6">
           <Card>
