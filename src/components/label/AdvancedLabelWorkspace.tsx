@@ -895,68 +895,68 @@ export const AdvancedLabelWorkspace: React.FC = () => {
             )}
           </div>
           
-          <div className="flex gap-2 flex-wrap">
-            {/* History Controls */}
-            <div className="flex gap-1 border-r pr-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleUndo}
-                disabled={historyIndex <= 0}
-                title="Undo (Ctrl+Z)"
-              >
-                <Undo2 className="h-4 w-4" />
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleRedo}
-                disabled={historyIndex >= history.length - 1}
-                title="Redo (Ctrl+Shift+Z)"
-              >
-                <Redo2 className="h-4 w-4" />
-              </Button>
-            </div>
+          <div className="flex gap-1 flex-wrap items-center">
+            {/* 1. History Controls */}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleUndo}
+              disabled={historyIndex <= 0}
+              title="Undo (Ctrl+Z)"
+            >
+              <Undo2 className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleRedo}
+              disabled={historyIndex >= history.length - 1}
+              title="Redo (Ctrl+Shift+Z)"
+            >
+              <Redo2 className="h-4 w-4" />
+            </Button>
 
-            {/* Zoom Controls */}
-            <div className="flex gap-1 border-r pr-2">
-              <Button variant="outline" size="sm" onClick={handleZoomOut} title="Zoom Out">
-                <ZoomOut className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleResetZoom} title="Reset Zoom">
-                <RotateCcw className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleZoomIn} title="Zoom In">
-                <ZoomIn className="h-4 w-4" />
-              </Button>
-              <span className="px-2 py-1 text-xs bg-muted rounded flex items-center">
-                {Math.round(zoom * 100)}%
-              </span>
-            </div>
+            <div className="w-px h-6 bg-border mx-1"></div>
 
-            {/* Grid Controls */}
-            <div className="flex gap-1 border-r pr-2">
-              <Button 
-                variant={showGrid ? "default" : "outline"} 
-                size="sm" 
-                onClick={() => setShowGrid(!showGrid)}
-                title="Toggle Grid (Ctrl+G)"
-              >
-                <Grid3X3 className="h-4 w-4" />
-              </Button>
-              <Button 
-                variant={snapToGrid ? "default" : "outline"} 
-                size="sm" 
-                onClick={() => setSnapToGrid(!snapToGrid)}
-                title="Snap to Grid"
-              >
-                <MousePointer2 className="h-4 w-4" />
-              </Button>
-            </div>
+            {/* 2. Zoom Controls */}
+            <Button variant="outline" size="sm" onClick={handleZoomOut} title="Zoom Out">
+              <ZoomOut className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleResetZoom} title="Reset Zoom">
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleZoomIn} title="Zoom In">
+              <ZoomIn className="h-4 w-4" />
+            </Button>
+            <span className="px-2 py-1 text-xs bg-muted rounded flex items-center ml-1">
+              {Math.round(zoom * 100)}%
+            </span>
+
+            <div className="w-px h-6 bg-border mx-1"></div>
+
+            {/* 3. Grid Controls */}
+            <Button 
+              variant={showGrid ? "default" : "outline"} 
+              size="sm" 
+              onClick={() => setShowGrid(!showGrid)}
+              title="Toggle Grid (Ctrl+G)"
+            >
+              <Grid3X3 className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant={snapToGrid ? "default" : "outline"} 
+              size="sm" 
+              onClick={() => setSnapToGrid(!snapToGrid)}
+              title="Snap to Grid"
+            >
+              <MousePointer2 className="h-4 w-4" />
+            </Button>
+
+            <div className="w-px h-6 bg-border mx-1"></div>
             
-            {/* QZ Tray Status and Printer Selection */}
+            {/* 4. QZ Tray Status and Printer Selection */}
             {qzConnected && availablePrinters.length > 0 && (
-              <div className="flex items-center gap-2 border-r pr-2">
+              <>
                 <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 text-xs">
                   QZ Connected
                 </Badge>
@@ -972,31 +972,30 @@ export const AdvancedLabelWorkspace: React.FC = () => {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
+                <div className="w-px h-6 bg-border mx-1"></div>
+              </>
             )}
             
-            {/* Action Buttons - Always Visible */}
-            <div className="flex gap-2 min-w-fit">
-              <Button variant="outline" size="sm" onClick={handleSave} title="Save (Ctrl+S)" className="whitespace-nowrap">
-                <Save className="h-4 w-4 mr-2" />
-                Save
-              </Button>
-              <Button variant="outline" size="sm" onClick={handlePreview} className="whitespace-nowrap">
-                <Eye className="h-4 w-4 mr-2" />
-                Preview
-              </Button>
-              <Button 
-                variant="default" 
-                size="sm" 
-                onClick={handlePrint}
-                disabled={!qzConnected || !selectedPrinter}
-                title={!qzConnected ? "Connect QZ Tray first" : !selectedPrinter ? "Select a printer" : "Print"}
-                className="whitespace-nowrap"
-              >
-                <Printer className="h-4 w-4 mr-2" />
-                Print
-              </Button>
-            </div>
+            {/* 5. Action Buttons */}
+            <Button variant="outline" size="sm" onClick={handleSave} title="Save (Ctrl+S)" className="whitespace-nowrap">
+              <Save className="h-4 w-4 mr-1" />
+              Save
+            </Button>
+            <Button variant="outline" size="sm" onClick={handlePreview} className="whitespace-nowrap">
+              <Eye className="h-4 w-4 mr-1" />
+              Preview
+            </Button>
+            <Button 
+              variant="default" 
+              size="sm" 
+              onClick={handlePrint}
+              disabled={!qzConnected || !selectedPrinter}
+              title={!qzConnected ? "Connect QZ Tray first" : !selectedPrinter ? "Select a printer" : "Print"}
+              className="whitespace-nowrap"
+            >
+              <Printer className="h-4 w-4 mr-1" />
+              Print
+            </Button>
           </div>
         </div>
         
