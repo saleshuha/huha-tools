@@ -71,13 +71,13 @@ export function useInventoryData() {
         ...(asinData || []).map(item => ({
           ...item,
           type: 'asin' as const,
-          title: item.title || `ASIN: ${item.asin}${item.sku ? ` | SKU: ${item.sku}` : ''}`,
+          title: item.title && item.title.trim() ? item.title : `ASIN: ${item.asin}${item.sku ? ` | SKU: ${item.sku}` : ''}`,
         })),
         ...(skuData || []).map(item => ({
           ...item,
           type: 'sku' as const,
           sku: item.sku_number,
-          title: item.title || `SKU: ${item.sku_number}`,
+          title: item.title && item.title.trim() ? item.title : `SKU: ${item.sku_number}`,
         })),
       ];
 
