@@ -895,7 +895,7 @@ export const AdvancedLabelWorkspace: React.FC = () => {
             )}
           </div>
           
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             {/* History Controls */}
             <div className="flex gap-1 border-r pr-2">
               <Button 
@@ -975,24 +975,28 @@ export const AdvancedLabelWorkspace: React.FC = () => {
               </div>
             )}
             
-            {/* Action Buttons */}
-            <Button variant="outline" size="sm" onClick={handleSave} title="Save (Ctrl+S)">
-              <Save className="h-4 w-4 mr-2" />
-              Save
-            </Button>
-            <Button variant="outline" size="sm" onClick={handlePreview}>
-              <Eye className="h-4 w-4 mr-2" />
-              Preview
-            </Button>
-            <Button 
-              variant="default" 
-              size="sm" 
-              onClick={handlePrint}
-              disabled={!qzConnected || !selectedPrinter}
-            >
-              <Printer className="h-4 w-4 mr-2" />
-              Print
-            </Button>
+            {/* Action Buttons - Always Visible */}
+            <div className="flex gap-2 min-w-fit">
+              <Button variant="outline" size="sm" onClick={handleSave} title="Save (Ctrl+S)" className="whitespace-nowrap">
+                <Save className="h-4 w-4 mr-2" />
+                Save
+              </Button>
+              <Button variant="outline" size="sm" onClick={handlePreview} className="whitespace-nowrap">
+                <Eye className="h-4 w-4 mr-2" />
+                Preview
+              </Button>
+              <Button 
+                variant="default" 
+                size="sm" 
+                onClick={handlePrint}
+                disabled={!qzConnected || !selectedPrinter}
+                title={!qzConnected ? "Connect QZ Tray first" : !selectedPrinter ? "Select a printer" : "Print"}
+                className="whitespace-nowrap"
+              >
+                <Printer className="h-4 w-4 mr-2" />
+                Print
+              </Button>
+            </div>
           </div>
         </div>
         
