@@ -32,6 +32,7 @@ import { useWarehouseManager } from '@/hooks/useWarehouseManager';
 import { useBackgroundTasks } from '@/contexts/BackgroundTasksContext';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { generateOrderLabelZPL, type OrderItem, type OrderLabelSettings } from '@/utils/order-label-printer';
+import { PrintService } from '@/services/print-service';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 export function AsinInventory() {
@@ -708,26 +709,87 @@ export function AsinInventory() {
         }
       }
 
-      // Convert AsinInventoryItem to OrderItem format
+      // Use saved template for printing if available, otherwise fall back to simple format
+      if (savedTemplate) {
+        try {
+          const { data: template } = await supabase.from('label_templates').select('*').eq('id', savedTemplate).single();
+          
+          if (template) {
+            // Use the PrintService with the actual saved template
+            const templateData = {
+              id: template.id,
+              name: template.name,
+              size: { width: template.width, height: template.height },
+              elements: [], // Will be loaded from canvas_data
+              canvas_data: template.canvas_data
+            };
+
+            // Create inventory dataset for this single item
+            const inventoryDataset = {
+              id: 'inventory',
+              name: 'Inventory Data',
+              description: 'Inventory item data for label printing',
+              headers: ['ASIN', 'SKU', 'Title', 'Quantity', 'Serial Number', 'Status'],
+              data: [[
+                item.asin,
+                item.sku || '',
+                item.title || `Product ${item.asin}`,
+                item.quantity.toString(),
+                item.serialNumber,
+                item.status
+              ]],
+              rowCount: 1,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            };
+
+            const printSettings = {
+              format: 'zpl' as const,
+              copies: 1,
+              dpi: labelSettings.dpi,
+              darkness: 10,
+              orientation: 'portrait' as const,
+              paperSize: 'custom' as const,
+              labelsPerPage: 1,
+              margin: 0
+            };
+
+            // Generate ZPL using the template
+            const zplCode = PrintService.generateZPL(templateData as any, inventoryDataset, printSettings);
+            console.log('📄 Template-based ZPL Code:', zplCode);
+            
+            // Print using QZ Tray
+            const savedDefaultPrinter = localStorage.getItem('qz-default-printer');
+            await qzConnectionManager.print(zplCode, savedDefaultPrinter || undefined);
+            
+            toast({
+              title: "Label Printed",
+              description: `Printed label for ${item.asin} using saved template`
+            });
+            return;
+          }
+        } catch (error) {
+          console.error('Error using saved template, falling back to default:', error);
+          toast({
+            title: "Template Error", 
+            description: "Using default format instead",
+            variant: "destructive"
+          });
+        }
+      }
+
+      // Fallback to simple order label format
       const orderItem: OrderItem = {
         orderId: item.serialNumber,
-        // Use serial number as order ID
         asin: item.asin,
         sku: item.sku || undefined,
         itemTitle: item.title || `Product ${item.asin}`,
         itemQuantity: item.quantity
       };
-      console.log('🔍 Printing item data:', {
-        orderItem,
-        labelSettings,
-        originalItem: item
-      });
 
-      // Generate professional ZPL using the order label generator
+      // Generate simple ZPL using the order label generator
       const zplCode = generateOrderLabelZPL(orderItem, labelSettings);
-      console.log('📄 Generated ZPL Code:', zplCode);
-      console.log('📊 ZPL Length:', zplCode.length);
-
+      console.log('📄 Fallback ZPL Code:', zplCode);
       // Get saved default printer for more reliable printing
       const savedDefaultPrinter = localStorage.getItem('qz-default-printer');
 
