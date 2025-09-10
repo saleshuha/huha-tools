@@ -294,30 +294,7 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              {/* QZ Tray Setup */}
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild
-                  className={`group relative w-full rounded-md transition-all duration-200 ${
-                    isActive("/qz-tray")
-                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
-                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
-                  }`}
-                >
-                  <NavLink 
-                    to="/qz-tray" 
-                    end
-                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
-                  >
-                    <Printer className="h-4 w-4 flex-shrink-0" />
-                    {!isCollapsed && (
-                      <span className="font-medium text-sm">
-                        QZ Tray Setup
-                      </span>
-                    )}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {/* Removed QZ Tray Setup - moved to between Tools and Data Viewer */}
 
               {/* Amazon Section - only show when not collapsed */}
               {!isCollapsed && (
@@ -697,7 +674,32 @@ export function AppSidebar() {
                     </CollapsibleContent>
                   </Collapsible>
                 </SidebarMenuItem>
-              )}
+                )}
+
+              {/* QZ Tray Setup - positioned between Tools and Data Viewer */}
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  asChild
+                  className={`group relative w-full rounded-md transition-all duration-200 ${
+                    isActive("/qz-tray")
+                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                  }`}
+                >
+                  <NavLink 
+                    to="/qz-tray" 
+                    end
+                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
+                  >
+                    <Printer className="h-4 w-4 flex-shrink-0" />
+                    {!isCollapsed && (
+                      <span className="font-medium text-sm">
+                        QZ Tray Setup
+                      </span>
+                    )}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
 
               {/* Data Viewer standalone item - Hide in native app */}
               {!isNative && (
