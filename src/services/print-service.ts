@@ -208,8 +208,11 @@ export class PrintService {
     dataRow: any[],
     dpi: number
   ): string {
-    const x = this.mmToDots(pxToMM(element.x), dpi);
-    const y = this.mmToDots(pxToMM(element.y), dpi);
+    // Convert coordinates directly to dots, assuming element coordinates are already in correct units
+    // Add small left margin to prevent cutting off
+    const leftMargin = 8; // 8 dots margin to prevent left edge cutting
+    const x = Math.max(leftMargin, Math.round(element.x * dpi / 72)) + leftMargin; // Convert from points to dots with margin
+    const y = Math.round(element.y * dpi / 72);
 
     switch (element.type) {
       case 'text':
@@ -248,8 +251,9 @@ export class PrintService {
         let zplOutput = '';
         
         // Better line wrapping for ZPL - more closely matches canvas behavior
-        const avgCharWidthMM = (element.fontSize || 10) * 0.6 / 3.78; // More accurate character width estimation
-        const maxCharsPerLine = Math.floor(pxToMM(maxWidth) / avgCharWidthMM);
+        const avgCharWidthPoints = (element.fontSize || 10) * 0.6; // Character width in points
+        const maxWidthPoints = element.width; // Width already in points
+        const maxCharsPerLine = Math.floor(maxWidthPoints / avgCharWidthPoints);
         
         words.forEach(word => {
           const testLine = currentLine ? `${currentLine} ${word}` : word;
@@ -271,8 +275,8 @@ export class PrintService {
         return zplOutput;
 
       case 'rectangle':
-        const width = this.mmToDots(pxToMM(element.width), dpi);
-        const height = this.mmToDots(pxToMM(element.height), dpi);
+        const width = Math.round(element.width * dpi / 72); // Convert from points to dots
+        const height = Math.round(element.height * dpi / 72); // Convert from points to dots
         return `^FO${x},${y}^GB${width},${height},${element.strokeWidth || 1}^FS\n`;
 
       case 'barcode':
@@ -283,7 +287,7 @@ export class PrintService {
           dataRow, 
           resolved: barcodeContent 
         });
-        const barcodeHeight = this.mmToDots(pxToMM(element.height), dpi);
+        const barcodeHeight = Math.round(element.height * dpi / 72); // Convert from points to dots
         return `^FO${x},${y}^BY2,3,${barcodeHeight}^BCN,,Y,N^FD${barcodeContent}^FS\n`;
 
       case 'qr':
