@@ -643,10 +643,10 @@ export function AsinInventory() {
     setIsPreviewDialogOpen(true);
   };
 
-  // Print single item label using Amazon PO reliable method
+  // Print single item label using QZ Tray
   const handlePrintItem = async (item: AsinInventoryItem) => {
     try {
-      // Check if QZ Tray is connected
+      // Check if QZ Tray is connected, if not show appropriate message
       const connected = qzConnectionManager.getConnectionStatus();
       if (!connected) {
         toast({
@@ -657,23 +657,223 @@ export function AsinInventory() {
         return;
       }
 
-      // Load saved inventory label settings (configured in Label Templates)
-      const savedSettings = localStorage.getItem('inventoryLabelSettings');
-      const labelSettings: OrderLabelSettings = savedSettings 
-        ? JSON.parse(savedSettings) 
-        : {
-            labelSize: '4x3',
-            dpi: 203,
-            showOrderId: false,
-            showAsin: true,
-            showSku: true,
-            showTitle: true,
-            showQuantity: true,
-            includeBarcode: true,
-            barcodeContent: 'asin'
-          };
+      // Check for saved template settings and user preferences
+      const savedTemplate = localStorage.getItem('savedLabelTemplate');
+      const savedLabelSize = localStorage.getItem('preferredLabelSize') || '4x3';
+      const savedDPI = parseInt(localStorage.getItem('preferredDPI') || '203');
+      
+      let labelSettings: OrderLabelSettings = {
+        labelSize: savedLabelSize as '4x6' | '4x3' | '3x2' | '2x1',
+        dpi: savedDPI as 203 | 300,
+        showOrderId: false,
+        showAsin: true,
+        showSku: true,
+        showTitle: true,
+        showQuantity: true,
+        includeBarcode: true,
+        barcodeContent: 'asin'
+      };
 
-      // Create order item using the reliable Amazon PO structure
+      // If there's a saved template, try to get its settings
+      if (savedTemplate) {
+        try {
+          const {
+            data: template
+          } = await supabase.from('label_templates').select('*').eq('id', savedTemplate).single();
+          if (template) {
+            // Auto-determine label size based on template dimensions for better fit
+            const aspectRatio = template.width / template.height;
+            console.log('Template aspect ratio:', aspectRatio, 'Template size:', template.width, 'x', template.height);
+            
+            if (aspectRatio >= 1.8) {
+              labelSettings.labelSize = '4x6'; // Wide format
+            } else if (aspectRatio >= 1.3) {
+              labelSettings.labelSize = '4x3'; // Standard format
+            } else if (aspectRatio >= 1.1) {
+              labelSettings.labelSize = '3x2'; // Medium format
+            } else {
+              labelSettings.labelSize = '2x1'; // Square/tall format
+            }
+            
+            // Auto-adjust DPI based on template complexity
+            const canvasData = template.canvas_data as any;
+            const elementCount = canvasData?.objects?.length || 0;
+            if (elementCount > 8 || (template.width * template.height) > 400) {
+              labelSettings.dpi = 300; // Higher DPI for complex/large labels
+            }
+            
+            console.log('Auto-selected label size:', labelSettings.labelSize, 'DPI:', labelSettings.dpi);
+          }
+        } catch (error) {
+          console.log('Could not load saved template settings, using user preferences or defaults');
+        }
+      }
+
+      // Use saved template for printing if available, otherwise fall back to simple format
+      if (savedTemplate) {
+        try {
+          const { data: template } = await supabase.from('label_templates').select('*').eq('id', savedTemplate).single();
+          
+          if (template) {
+            // Use the PrintService with the actual saved template
+            const canvasData = template.canvas_data as any;
+            
+            // Extract elements from canvas_data with proper mapping
+            let elements: any[] = [];
+            console.log('Raw canvas_data:', canvasData);
+            
+            // Check both possible structures: elements (new format) or objects (Fabric.js format)
+            const sourceElements = canvasData?.elements || canvasData?.objects || [];
+            
+            if (sourceElements.length > 0) {
+              console.log('Canvas elements found:', sourceElements.length, sourceElements);
+              
+              elements = sourceElements.map((obj: any) => {
+                console.log('Processing canvas element:', obj.type, obj);
+                
+                // Map element types (already correct in new format)
+                let elementType = obj.type;
+                if (obj.type === 'i-text' || obj.type === 'textbox') elementType = 'text';
+                
+                const element = {
+                  id: obj.id || `element_${Math.random().toString(36).substr(2, 9)}`,
+                  type: elementType,
+                  x: Math.round(obj.x || obj.left || 0),
+                  y: Math.round(obj.y || obj.top || 0),
+                  width: Math.round((obj.width * (obj.scaleX || 1)) || obj.width || 100),
+                  height: Math.round((obj.height * (obj.scaleY || 1)) || obj.height || 20),
+                  text: obj.text || obj.content || '',
+                  fontSize: obj.fontSize || 12,
+                  fontFamily: obj.fontFamily || 'Arial',
+                  color: obj.color || obj.fill || '#000000',
+                  dataColumn: obj.dataColumn,
+                  barcodeType: obj.barcodeType,
+                  showText: obj.showText,
+                  fill: obj.fill,
+                  stroke: obj.stroke,
+                  strokeWidth: obj.strokeWidth,
+                  rotation: obj.rotation || obj.angle || 0,
+                  lineHeight: obj.lineHeight
+                };
+                
+                console.log('Mapped element:', element);
+                return element;
+              });
+            } else {
+              console.log('No canvas elements found. Canvas_data:', canvasData);
+            }
+            
+            console.log('Final elements array:', elements);
+            
+            console.log('Final elements array:', elements);
+            
+            // If no elements found, create a basic template structure as fallback
+            if (elements.length === 0) {
+              console.log('No elements found in template, creating fallback layout');
+              elements = [
+                {
+                  id: 'asin_text',
+                  type: 'text',
+                  x: 10,
+                  y: 10,
+                  width: 200,
+                  height: 25,
+                  text: 'ASIN',
+                  fontSize: 12,
+                  dataColumn: 'ASIN'
+                },
+                {
+                  id: 'title_text',
+                  type: 'text',
+                  x: 10,
+                  y: 40,
+                  width: 300,
+                  height: 25,
+                  text: 'Title',
+                  fontSize: 10,
+                  dataColumn: 'Title'
+                },
+                {
+                  id: 'barcode',
+                  type: 'barcode',
+                  x: 10,
+                  y: 70,
+                  width: 200,
+                  height: 50,
+                  dataColumn: 'ASIN',
+                  barcodeType: 'CODE128'
+                }
+              ];
+            }
+            
+            const templateData: any = {
+              id: template.id,
+              name: template.name,
+              size: { 
+                width: template.width, 
+                height: template.height,
+                unit: 'mm' as const
+              },
+              elements: elements,
+              createdAt: template.created_at || new Date().toISOString(),
+              updatedAt: template.updated_at || new Date().toISOString()
+            };
+
+            // Create inventory dataset for this single item
+            const inventoryDataset = {
+              id: 'inventory',
+              name: 'Inventory Data',
+              description: 'Inventory item data for label printing',
+              headers: ['ASIN', 'SKU', 'Title', 'Quantity', 'Serial Number', 'Status'],
+              data: [[
+                item.asin,
+                item.sku || '',
+                item.title || `Product ${item.asin}`,
+                item.quantity.toString(),
+                item.serialNumber,
+                item.status
+              ]],
+              rowCount: 1,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            };
+
+            const printSettings = {
+              format: 'zpl' as const,
+              copies: 1,
+              dpi: labelSettings.dpi,
+              darkness: 10,
+              orientation: 'portrait' as const,
+              paperSize: 'custom' as const,
+              labelsPerPage: 1,
+              margin: 0
+            };
+
+            // Generate ZPL using the template
+            const zplCode = PrintService.generateZPL(templateData as any, inventoryDataset, printSettings);
+            console.log('📄 Template-based ZPL Code:', zplCode);
+            
+            // Print using QZ Tray
+            const savedDefaultPrinter = localStorage.getItem('qz-default-printer');
+            await qzConnectionManager.print(zplCode, savedDefaultPrinter || undefined);
+            
+            toast({
+              title: "Label Printed",
+              description: `Printed label for ${item.asin} using saved template`
+            });
+            return;
+          }
+        } catch (error) {
+          console.error('Error using saved template, falling back to default:', error);
+          toast({
+            title: "Template Error", 
+            description: "Using default format instead",
+            variant: "destructive"
+          });
+        }
+      }
+
+      // Fallback to simple order label format
       const orderItem: OrderItem = {
         orderId: item.serialNumber,
         asin: item.asin,
@@ -682,21 +882,20 @@ export function AsinInventory() {
         itemQuantity: item.quantity
       };
 
-      // Generate ZPL using the same reliable method as Amazon PO labelling
+      // Generate simple ZPL using the order label generator
       const zplCode = generateOrderLabelZPL(orderItem, labelSettings);
-      console.log('📄 ASIN Inventory ZPL Code:', zplCode);
-      
-      // Get saved default printer
+      console.log('📄 Fallback ZPL Code:', zplCode);
+      // Get saved default printer for more reliable printing
       const savedDefaultPrinter = localStorage.getItem('qz-default-printer');
 
-      // Print using QZ Tray
+      // Print using QZ Tray with specific printer
       await qzConnectionManager.print(zplCode, savedDefaultPrinter || undefined);
       toast({
         title: "Label Printed",
-        description: `Printed inventory label for ${item.asin}${savedDefaultPrinter ? ` to ${savedDefaultPrinter}` : ''}`
+        description: `Printed professional label for ${item.asin}${savedDefaultPrinter ? ` to ${savedDefaultPrinter}` : ''}`
       });
     } catch (error) {
-      console.error('Error printing inventory label:', error);
+      console.error('Error printing item:', error);
       toast({
         title: "Print Failed",
         description: "Could not print label. Please check QZ Tray connection.",
@@ -705,7 +904,7 @@ export function AsinInventory() {
     }
   };
 
-  // Test print function using inventory settings
+  // Test print function with known good data
   const handleTestPrint = async () => {
     try {
       const connected = qzConnectionManager.getConnectionStatus();
@@ -718,22 +917,6 @@ export function AsinInventory() {
         return;
       }
 
-      // Load saved inventory label settings
-      const savedSettings = localStorage.getItem('inventoryLabelSettings');
-      const labelSettings: OrderLabelSettings = savedSettings 
-        ? JSON.parse(savedSettings) 
-        : {
-            labelSize: '4x3',
-            dpi: 203,
-            showOrderId: false,
-            showAsin: true,
-            showSku: true,
-            showTitle: true,
-            showQuantity: true,
-            includeBarcode: true,
-            barcodeContent: 'asin'
-          };
-
       // Create test order item with known good data
       const testOrderItem: OrderItem = {
         orderId: "TEST-001",
@@ -742,19 +925,28 @@ export function AsinInventory() {
         itemTitle: "Test Product for Label Printing",
         itemQuantity: 1
       };
-
-      console.log('🧪 Test print data:', { testOrderItem, labelSettings });
-      
-      // Generate ZPL using the reliable Amazon PO method with saved settings
-      const zplCode = generateOrderLabelZPL(testOrderItem, labelSettings);
+      const testLabelSettings: OrderLabelSettings = {
+        labelSize: '4x3',
+        dpi: 203,
+        showOrderId: true,
+        showAsin: true,
+        showSku: true,
+        showTitle: true,
+        showQuantity: true,
+        includeBarcode: true,
+        barcodeContent: 'asin'
+      };
+      console.log('🧪 Test print data:', {
+        testOrderItem,
+        testLabelSettings
+      });
+      const zplCode = generateOrderLabelZPL(testOrderItem, testLabelSettings);
       console.log('🧪 Test ZPL Code:', zplCode);
-      
       const savedDefaultPrinter = localStorage.getItem('qz-default-printer');
       await qzConnectionManager.print(zplCode, savedDefaultPrinter || undefined);
-      
       toast({
         title: "Test Label Printed",
-        description: "Printed test label using current inventory settings"
+        description: "Printed test label with sample data"
       });
     } catch (error) {
       console.error('Error printing test label:', error);

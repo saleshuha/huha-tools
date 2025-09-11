@@ -5,13 +5,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Label } from './ui/label';
 import { Badge } from './ui/badge';
 import { Card, CardContent } from './ui/card';
-import { Switch } from './ui/switch';
-import { Separator } from './ui/separator';
-import { FileText, Tags, Printer, Settings, Save, Eye, Download, Sliders } from 'lucide-react';
+import { FileText, Tags, Printer, Settings, Save, Eye, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { AsinInventoryItem } from '@/hooks/useAsinInventory';
-import { OrderLabelSettings } from '@/utils/order-label-printer';
 
 interface LabelTemplate {
   id: string;
@@ -35,44 +32,13 @@ export function LabelTemplateManager({ selectedItems, allItems, onPrint }: Label
   const [savedTemplate, setSavedTemplate] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
-  const [showInventorySettings, setShowInventorySettings] = useState(false);
-
-  // Inventory label settings
-  const [inventorySettings, setInventorySettings] = useState<OrderLabelSettings>({
-    labelSize: '4x3',
-    dpi: 203,
-    showOrderId: false,
-    showAsin: true,
-    showSku: true,
-    showTitle: true,
-    showQuantity: true,
-    includeBarcode: true,
-    barcodeContent: 'asin'
-  });
 
   useEffect(() => {
     if (open) {
       loadTemplates();
       loadSavedTemplate();
-      loadInventorySettings();
     }
   }, [open]);
-
-  const loadInventorySettings = () => {
-    const savedSettings = localStorage.getItem('inventoryLabelSettings');
-    if (savedSettings) {
-      try {
-        setInventorySettings(JSON.parse(savedSettings));
-      } catch (error) {
-        console.error('Error loading inventory settings:', error);
-      }
-    }
-  };
-
-  const saveInventorySettings = () => {
-    localStorage.setItem('inventoryLabelSettings', JSON.stringify(inventorySettings));
-    toast.success("Inventory label settings saved!");
-  };
 
   const loadTemplates = async () => {
     try {
@@ -160,138 +126,6 @@ export function LabelTemplateManager({ selectedItems, allItems, onPrint }: Label
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Inventory Label Settings */}
-          <Card className="border-purple-200 bg-purple-50">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Sliders className="w-4 h-4 text-purple-600" />
-                  <span className="font-medium text-purple-800">Inventory Label Settings</span>
-                </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setShowInventorySettings(!showInventorySettings)}
-                  className="text-purple-700"
-                >
-                  {showInventorySettings ? 'Hide' : 'Configure'}
-                </Button>
-              </div>
-
-              {showInventorySettings && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Label Size</Label>
-                      <Select 
-                        value={inventorySettings.labelSize} 
-                        onValueChange={(value: any) => setInventorySettings({...inventorySettings, labelSize: value})}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="4x6">4" × 6" (Large)</SelectItem>
-                          <SelectItem value="4x3">4" × 3" (Standard)</SelectItem>
-                          <SelectItem value="3x2">3" × 2" (Medium)</SelectItem>
-                          <SelectItem value="2x1">2" × 1" (Small)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Print Quality (DPI)</Label>
-                      <Select 
-                        value={inventorySettings.dpi.toString()} 
-                        onValueChange={(value) => setInventorySettings({...inventorySettings, dpi: parseInt(value) as 203 | 300})}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="203">203 DPI (Standard)</SelectItem>
-                          <SelectItem value="300">300 DPI (High Quality)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div className="space-y-3">
-                    <Label className="text-sm font-semibold">Label Content</Label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="flex items-center space-x-2">
-                        <Switch
-                          checked={inventorySettings.showAsin}
-                          onCheckedChange={(checked) => setInventorySettings({...inventorySettings, showAsin: checked})}
-                        />
-                        <Label className="text-sm">Show ASIN</Label>
-                      </div>
-
-                      <div className="flex items-center space-x-2">
-                        <Switch
-                          checked={inventorySettings.showSku}
-                          onCheckedChange={(checked) => setInventorySettings({...inventorySettings, showSku: checked})}
-                        />
-                        <Label className="text-sm">Show SKU</Label>
-                      </div>
-
-                      <div className="flex items-center space-x-2">
-                        <Switch
-                          checked={inventorySettings.showTitle}
-                          onCheckedChange={(checked) => setInventorySettings({...inventorySettings, showTitle: checked})}
-                        />
-                        <Label className="text-sm">Show Title</Label>
-                      </div>
-
-                      <div className="flex items-center space-x-2">
-                        <Switch
-                          checked={inventorySettings.showQuantity}
-                          onCheckedChange={(checked) => setInventorySettings({...inventorySettings, showQuantity: checked})}
-                        />
-                        <Label className="text-sm">Show Quantity</Label>
-                      </div>
-
-                      <div className="flex items-center space-x-2">
-                        <Switch
-                          checked={inventorySettings.includeBarcode}
-                          onCheckedChange={(checked) => setInventorySettings({...inventorySettings, includeBarcode: checked})}
-                        />
-                        <Label className="text-sm">Include Barcode</Label>
-                      </div>
-                    </div>
-
-                    {inventorySettings.includeBarcode && (
-                      <div className="space-y-2">
-                        <Label className="text-sm">Barcode Content</Label>
-                        <Select 
-                          value={inventorySettings.barcodeContent} 
-                          onValueChange={(value: any) => setInventorySettings({...inventorySettings, barcodeContent: value})}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="asin">ASIN</SelectItem>
-                            <SelectItem value="sku">SKU</SelectItem>
-                            <SelectItem value="orderId">Serial Number</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                  </div>
-
-                  <Button onClick={saveInventorySettings} className="w-full mt-4">
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Settings
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Separator />
           {/* Saved Template Display */}
           {savedTemplate && savedTemplateData && (
             <Card className="border-green-200 bg-green-50">
