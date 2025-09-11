@@ -2161,12 +2161,20 @@ export const POTracker = () => {
                               )}
                             </div>
                           </TableHead>
-                           <TableHead className="w-32 bg-primary/5 font-semibold">
-                             <div className="flex items-center justify-center gap-2">
-                               <Printer className="h-4 w-4" />
-                               Print Quantity
-                             </div>
+                          <TableHead 
+                            className={`cursor-pointer hover:bg-muted/50 select-none ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}
+                            onClick={() => !originalOrderPreserved && handleSort('quantity')}
+                          >
+                            <div className="flex items-center gap-1">
+                              Qty
+                              {sortField === 'quantity' && !originalOrderPreserved && (
+                                <span className="text-xs">
+                                  {sortDirection === 'asc' ? '↑' : '↓'}
+                                </span>
+                              )}
+                            </div>
                            </TableHead>
+                           <TableHead className="w-24">Print Qty</TableHead>
                            <TableHead>Print Status</TableHead>
                            <TableHead>Actions</TableHead>
                         </TableRow>
@@ -2257,24 +2265,27 @@ export const POTracker = () => {
                                     )}
                                   </div>
                                 </TableCell>
-                                <TableCell className="bg-primary/5 border-l border-r border-primary/20">
-                                  <div className="flex items-center justify-center">
-                                    <Input
-                                      type="number"
-                                      min="1"
-                                      max="99"
-                                      value={itemPrintQuantities[order.id] || 1}
-                                      onChange={(e) => {
-                                        const value = Math.max(1, Math.min(99, parseInt(e.target.value) || 1));
-                                        setItemPrintQuantities(prev => ({
-                                          ...prev,
-                                          [order.id]: value
-                                        }));
-                                      }}
-                                      className="w-20 text-center font-semibold border-primary/30 focus:border-primary"
-                                      disabled={printingItems.has(order.id)}
-                                    />
-                                  </div>
+                                <TableCell>
+                                  <Badge variant="secondary" className="font-mono">
+                                    {order.quantity}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    max="99"
+                                    value={itemPrintQuantities[order.id] || (printSettings.copiesByQuantity ? order.quantity : printSettings.copies)}
+                                    onChange={(e) => {
+                                      const value = Math.max(1, Math.min(99, parseInt(e.target.value) || 1));
+                                      setItemPrintQuantities(prev => ({
+                                        ...prev,
+                                        [order.id]: value
+                                      }));
+                                    }}
+                                    className="w-16 text-center"
+                                    disabled={printingItems.has(order.id)}
+                                  />
                                 </TableCell>
                                 <TableCell>
                                   <Badge 
