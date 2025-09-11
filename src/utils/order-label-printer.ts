@@ -38,9 +38,9 @@ const DEFAULT_SETTINGS: OrderLabelSettings = {
  */
 function generateOrderLabelElements(order: OrderItem, settings: OrderLabelSettings): LabelElement[] {
   const elements: LabelElement[] = [];
-  let yPosition = 10;
-  const lineHeight = 30;
-  const leftMargin = 10;
+  let yPosition = 20;
+  const lineHeight = 40;
+  const leftMargin = 20;
 
   // Order ID
   if (settings.showOrderId && order.orderId) {
@@ -61,7 +61,7 @@ function generateOrderLabelElements(order: OrderItem, settings: OrderLabelSettin
       x: leftMargin,
       y: yPosition,
       content: `ASIN: ${order.asin}`,
-      fontSize: 16
+      fontSize: 14
     });
     yPosition += lineHeight;
   }
@@ -73,15 +73,15 @@ function generateOrderLabelElements(order: OrderItem, settings: OrderLabelSettin
       x: leftMargin,
       y: yPosition,
       content: `SKU: ${order.sku}`,
-      fontSize: 16
+      fontSize: 14
     });
     yPosition += lineHeight;
   }
 
   // Title (truncated if too long)
   if (settings.showTitle && order.itemTitle) {
-    const truncatedTitle = order.itemTitle.length > 35 
-      ? order.itemTitle.substring(0, 35) + '...' 
+    const truncatedTitle = order.itemTitle.length > 30 
+      ? order.itemTitle.substring(0, 30) + '...' 
       : order.itemTitle;
     
     elements.push({
@@ -89,7 +89,7 @@ function generateOrderLabelElements(order: OrderItem, settings: OrderLabelSettin
       x: leftMargin,
       y: yPosition,
       content: truncatedTitle,
-      fontSize: 14
+      fontSize: 12
     });
     yPosition += lineHeight;
   }
@@ -101,7 +101,7 @@ function generateOrderLabelElements(order: OrderItem, settings: OrderLabelSettin
       x: leftMargin,
       y: yPosition,
       content: `Qty: ${order.itemQuantity}`,
-      fontSize: 16
+      fontSize: 14
     });
     yPosition += lineHeight;
   }
@@ -125,9 +125,9 @@ function generateOrderLabelElements(order: OrderItem, settings: OrderLabelSettin
       elements.push({
         type: 'barcode',
         x: leftMargin,
-        y: yPosition + 5,
+        y: yPosition + 10,
         content: barcodeContent,
-        height: 50,
+        height: 60,
         barcodeType: 'CODE128',
         showBarcodeText: true
       });

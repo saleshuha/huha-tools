@@ -31,12 +31,9 @@ function pixelsToDots(pixels: number, dpi: number): number {
 function generateTextZPL(element: LabelElement, settings: ZPLSettings): string {
   const x = pixelsToDots(element.x, settings.dpi);
   const y = pixelsToDots(element.y, settings.dpi);
-  // Fix font size calculation for better visibility
-  const baseFontSize = element.fontSize || 14;
-  const zplFontHeight = Math.max(30, Math.round(baseFontSize * 2.5));
-  const zplFontWidth = Math.max(25, Math.round(baseFontSize * 2));
+  const fontSize = Math.round((element.fontSize || 14) / 2);
   
-  return `^FO${x},${y}^A0N,${zplFontHeight},${zplFontWidth}^FD${element.content}^FS`;
+  return `^FO${x},${y}^A0N,${fontSize},${fontSize}^FD${element.content}^FS`;
 }
 
 /**
@@ -56,8 +53,7 @@ function generateBarcodeZPL(element: LabelElement, settings: ZPLSettings): strin
   
   if (element.showBarcodeText) {
     const textY = y + height + pixelsToDots(5, settings.dpi);
-    // Use larger font for barcode text
-    zpl += `\n^FO${x},${textY}^A0N,30,25^FD${element.content}^FS`;
+    zpl += `\n^FO${x},${textY}^A0N,20,20^FD${element.content}^FS`;
   }
   
   return zpl;

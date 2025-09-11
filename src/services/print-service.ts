@@ -208,11 +208,8 @@ export class PrintService {
     dataRow: any[],
     dpi: number
   ): string {
-    // Convert coordinates directly to dots, assuming element coordinates are already in correct units
-    // Add small left margin to prevent cutting off
-    const leftMargin = 8; // 8 dots margin to prevent left edge cutting
-    const x = Math.max(leftMargin, Math.round(element.x * dpi / 72)) + leftMargin; // Convert from points to dots with margin
-    const y = Math.round(element.y * dpi / 72);
+    const x = this.mmToDots(pxToMM(element.x), dpi);
+    const y = this.mmToDots(pxToMM(element.y), dpi);
 
     switch (element.type) {
       case 'text':
@@ -223,11 +220,8 @@ export class PrintService {
           dataRow, 
           resolved: content 
         });
-        // Fix font size calculation for better visibility
-        const baseFontSize = element.fontSize || 12;
-        const zplFontHeight = Math.max(20, Math.round(baseFontSize * 2));
-        const zplFontWidth = Math.max(15, Math.round(baseFontSize * 1.5));
-        return `^FO${x},${y}^A0N,${zplFontHeight},${zplFontWidth}^FD${content}^FS\n`;
+        const fontSize = Math.round((element.fontSize || 12) / 3); // ZPL font scaling
+        return `^FO${x},${y}^A0N,${fontSize * 10},${fontSize * 8}^FD${content}^FS\n`;
 
       case 'multitext':
         const multiContent = resolveMappedContent(element, dataRow, dataset?.headers || []);
@@ -237,11 +231,8 @@ export class PrintService {
           dataRow, 
           resolved: multiContent 
         });
-        // Fix multitext font size calculation for better visibility
-        const baseMultiFontSize = element.fontSize || 10;
-        const zplMultiFontHeight = Math.max(20, Math.round(baseMultiFontSize * 2));
-        const zplMultiFontWidth = Math.max(15, Math.round(baseMultiFontSize * 1.5));
-        const lineHeight = Math.round((element.lineHeight || 1.2) * zplMultiFontHeight);
+        const multiFontSize = Math.round((element.fontSize || 10) / 3);
+        const lineHeight = Math.round((element.lineHeight || 1.2) * multiFontSize * 10);
         
         // Split content into lines and create multiple text fields
         const words = multiContent.split(' ');
@@ -251,9 +242,8 @@ export class PrintService {
         let zplOutput = '';
         
         // Better line wrapping for ZPL - more closely matches canvas behavior
-        const avgCharWidthPoints = (element.fontSize || 10) * 0.6; // Character width in points
-        const maxWidthPoints = element.width; // Width already in points
-        const maxCharsPerLine = Math.floor(maxWidthPoints / avgCharWidthPoints);
+        const avgCharWidthMM = (element.fontSize || 10) * 0.6 / 3.78; // More accurate character width estimation
+        const maxCharsPerLine = Math.floor(pxToMM(maxWidth) / avgCharWidthMM);
         
         words.forEach(word => {
           const testLine = currentLine ? `${currentLine} ${word}` : word;
@@ -269,14 +259,14 @@ export class PrintService {
         
         lines.forEach((line, index) => {
           const lineY = y + (index * lineHeight);
-          zplOutput += `^FO${x},${lineY}^A0N,${zplMultiFontHeight},${zplMultiFontWidth}^FD${line}^FS\n`;
+          zplOutput += `^FO${x},${lineY}^A0N,${multiFontSize * 10},${multiFontSize * 8}^FD${line}^FS\n`;
         });
         
         return zplOutput;
 
       case 'rectangle':
-        const width = Math.round(element.width * dpi / 72); // Convert from points to dots
-        const height = Math.round(element.height * dpi / 72); // Convert from points to dots
+        const width = this.mmToDots(pxToMM(element.width), dpi);
+        const height = this.mmToDots(pxToMM(element.height), dpi);
         return `^FO${x},${y}^GB${width},${height},${element.strokeWidth || 1}^FS\n`;
 
       case 'barcode':
@@ -287,7 +277,7 @@ export class PrintService {
           dataRow, 
           resolved: barcodeContent 
         });
-        const barcodeHeight = Math.round(element.height * dpi / 72); // Convert from points to dots
+        const barcodeHeight = this.mmToDots(pxToMM(element.height), dpi);
         return `^FO${x},${y}^BY2,3,${barcodeHeight}^BCN,,Y,N^FD${barcodeContent}^FS\n`;
 
       case 'qr':
