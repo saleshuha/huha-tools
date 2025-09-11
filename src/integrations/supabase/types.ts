@@ -2025,6 +2025,7 @@ export type Database = {
           order_date: string | null
           po_key: string | null
           po_number: string
+          printed_quantity: number
           quantity: number
           ship_to_location: string | null
           sku_code: string
@@ -2058,6 +2059,7 @@ export type Database = {
           order_date?: string | null
           po_key?: string | null
           po_number: string
+          printed_quantity?: number
           quantity?: number
           ship_to_location?: string | null
           sku_code: string
@@ -2091,6 +2093,7 @@ export type Database = {
           order_date?: string | null
           po_key?: string | null
           po_number?: string
+          printed_quantity?: number
           quantity?: number
           ship_to_location?: string | null
           sku_code?: string
@@ -4009,6 +4012,7 @@ export type Database = {
           order_date: string | null
           po_key: string | null
           po_number: string
+          printed_quantity: number
           quantity: number
           ship_to_location: string | null
           sku_code: string

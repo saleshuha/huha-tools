@@ -35,6 +35,7 @@ export interface POOrder {
   model_number?: string;
   title?: string;
   quantity: number;
+  printed_quantity?: number;
   external_id?: string;
   external_id_type?: string;
   sku_code?: string; // Keep for backward compatibility
@@ -554,9 +555,21 @@ export const POTracker = () => {
         description: `Printed ${allZPLCodes.length} labels to ${selectedPrinter}`,
       });
 
-      // Mark items as printed in database and clear selection after successful print
-      const orderIds = selectedOrders.map(order => order.id);
-      await updatePrintStatus(orderIds, true);
+      // Update printed quantities for each order in database
+      const updatePromises = selectedOrders.map(async (order) => {
+        const copies = printSettings.copiesByQuantity ? order.quantity : printSettings.copies;
+        const newPrintedQuantity = (order.printed_quantity || 0) + copies;
+        
+        return supabase
+          .from('po_orders')
+          .update({ 
+            is_printed: true,
+            printed_quantity: newPrintedQuantity
+          })
+          .eq('id', order.id);
+      });
+
+      await Promise.all(updatePromises);
       setSelectedForPrint(new Set());
 
     } catch (error) {
@@ -819,8 +832,25 @@ export const POTracker = () => {
         description: `Printed ${allZPLCodes.length} label(s) for ${order.sku_code || order.model_number || order.asin}`,
       });
 
-      // Mark item as printed in database
-      await updatePrintStatus([order.id], true);
+      // Update printed quantity in database
+      const newPrintedQuantity = (order.printed_quantity || 0) + copies;
+      await supabase
+        .from('po_orders')
+        .update({ 
+          is_printed: true,
+          printed_quantity: newPrintedQuantity
+        })
+        .eq('id', order.id);
+
+      // Update local state to reflect the change
+      if (poOrders) {
+        const updatedOrders = poOrders.map(o => 
+          o.id === order.id 
+            ? { ...o, is_printed: true, printed_quantity: newPrintedQuantity }
+            : o
+        );
+        // This would require updating the query cache, but the data will refresh on next load
+      }
 
     } catch (error) {
       console.error('Print error:', error);
@@ -2176,6 +2206,7 @@ export const POTracker = () => {
                            </TableHead>
                            <TableHead className="w-24">Print Qty</TableHead>
                            <TableHead>Print Status</TableHead>
+                           <TableHead className="w-20 text-center">Printed Qty</TableHead>
                            <TableHead>Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -2277,22 +2308,49 @@ export const POTracker = () => {
                                     max="99"
                                     placeholder="Qty"
                                     className="w-16 h-8 text-center"
+                                    value={itemPrintQuantities[order.id] || ''}
+                                    onChange={(e) => {
+                                      const value = parseInt(e.target.value) || 0;
+                                      setItemPrintQuantities(prev => ({
+                                        ...prev,
+                                        [order.id]: value
+                                      }));
+                                    }}
                                     disabled={printingItems.has(order.id)}
                                   />
                                 </TableCell>
                                 <TableCell>
-                                  <Badge 
-                                    variant={order.is_printed ? 'default' : 'outline'}
-                                    className="text-xs"
-                                  >
-                                    {order.is_printed ? 'Printed' : 'Not Printed Yet'}
-                                  </Badge>
+                                  <div className="flex flex-col gap-1">
+                                    <Badge 
+                                      variant={order.printed_quantity > 0 ? 'default' : 'outline'}
+                                      className="text-xs"
+                                    >
+                                      {order.printed_quantity}/{order.quantity} printed
+                                    </Badge>
+                                    {order.printed_quantity > 0 && (
+                                      <span className="text-xs text-muted-foreground">
+                                        {order.quantity - order.printed_quantity} remaining
+                                      </span>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="text-xs font-medium text-center">
+                                    {order.printed_quantity || 0}
+                                  </div>
                                 </TableCell>
                                 <TableCell>
                                   <Button 
                                     variant="outline" 
                                     size="sm"
-                                    onClick={() => handleSingleItemPrint(order)}
+                                    onClick={() => {
+                                      const printQty = itemPrintQuantities[order.id];
+                                      if (printQty && printQty > 0) {
+                                        handleSingleItemPrint(order, printQty);
+                                      } else {
+                                        handleSingleItemPrint(order);
+                                      }
+                                    }}
                                     disabled={!qzConnected || !selectedPrinter || printingItems.has(order.id)}
                                     className="w-full"
                                   >

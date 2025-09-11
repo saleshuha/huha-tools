@@ -11,6 +11,7 @@ export interface POOrder {
   model_number?: string;
   title?: string;
   quantity: number;
+  printed_quantity?: number;
   external_id?: string;
   external_id_type?: string;
   sku_code?: string; // Keep for backward compatibility
