@@ -716,12 +716,44 @@ export function AsinInventory() {
           
           if (template) {
             // Use the PrintService with the actual saved template
-            const templateData = {
+            const canvasData = template.canvas_data as any;
+            
+            // Extract elements from canvas_data
+            let elements: any[] = [];
+            if (canvasData && canvasData.objects) {
+              elements = canvasData.objects.filter((obj: any) => 
+                obj.type && ['text', 'multitext', 'barcode', 'qr', 'rectangle', 'circle'].includes(obj.type)
+              ).map((obj: any) => ({
+                id: obj.id || `element_${Math.random().toString(36).substr(2, 9)}`,
+                type: obj.type,
+                x: obj.left || 0,
+                y: obj.top || 0,
+                width: obj.width || 100,
+                height: obj.height || 20,
+                text: obj.text,
+                fontSize: obj.fontSize,
+                fontFamily: obj.fontFamily,
+                color: obj.fill,
+                dataColumn: obj.dataColumn,
+                barcodeType: obj.barcodeType,
+                showText: obj.showText,
+                fill: obj.fill,
+                stroke: obj.stroke,
+                strokeWidth: obj.strokeWidth
+              }));
+            }
+            
+            const templateData: any = {
               id: template.id,
               name: template.name,
-              size: { width: template.width, height: template.height },
-              elements: [], // Will be loaded from canvas_data
-              canvas_data: template.canvas_data
+              size: { 
+                width: template.width, 
+                height: template.height,
+                unit: 'mm' as const
+              },
+              elements: elements,
+              createdAt: template.created_at || new Date().toISOString(),
+              updatedAt: template.updated_at || new Date().toISOString()
             };
 
             // Create inventory dataset for this single item
