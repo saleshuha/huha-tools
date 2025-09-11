@@ -104,6 +104,9 @@ export const POTracker = () => {
   const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
   const [selectedPrinter, setSelectedPrinter] = useState<string>('');
   const [isPrinting, setIsPrinting] = useState(false);
+  const [printingItems, setPrintingItems] = useState<Set<string>>(new Set());
+  const [itemPrintQuantities, setItemPrintQuantities] = useState<{[key: string]: number}>({});
+  const [preventTableReorder, setPreventTableReorder] = useState(false);
 
   useEffect(() => {
     // Set up connection listener
@@ -391,36 +394,38 @@ export const POTracker = () => {
       console.log('🔍 FILTERING DEBUG: After status filter:', filtered.length, 'orders');
     }
     
-    // Apply sorting
-    filtered.sort((a, b) => {
-      let aValue: string | number | undefined;
-      let bValue: string | number | undefined;
-      
-      if (sortField === 'combined_title') {
-        aValue = `${a.title || ''} ${a.asin || ''}`.toLowerCase();
-        bValue = `${b.title || ''} ${b.asin || ''}`.toLowerCase();
-      } else {
-        aValue = a[sortField];
-        bValue = b[sortField];
-      }
-      
-      // Handle undefined values
-      if (aValue === undefined && bValue === undefined) return 0;
-      if (aValue === undefined) return sortDirection === 'asc' ? 1 : -1;
-      if (bValue === undefined) return sortDirection === 'asc' ? -1 : 1;
-      
-      // Convert to string for comparison if needed
-      const aStr = String(aValue).toLowerCase();
-      const bStr = String(bValue).toLowerCase();
-      
-      if (aStr < bStr) return sortDirection === 'asc' ? -1 : 1;
-      if (aStr > bStr) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
+    // Apply sorting (only if table reordering is not prevented)
+    if (!preventTableReorder) {
+      filtered.sort((a, b) => {
+        let aValue: string | number | undefined;
+        let bValue: string | number | undefined;
+        
+        if (sortField === 'combined_title') {
+          aValue = `${a.title || ''} ${a.asin || ''}`.toLowerCase();
+          bValue = `${b.title || ''} ${b.asin || ''}`.toLowerCase();
+        } else {
+          aValue = a[sortField];
+          bValue = b[sortField];
+        }
+        
+        // Handle undefined values
+        if (aValue === undefined && bValue === undefined) return 0;
+        if (aValue === undefined) return sortDirection === 'asc' ? 1 : -1;
+        if (bValue === undefined) return sortDirection === 'asc' ? -1 : 1;
+        
+        // Convert to string for comparison if needed
+        const aStr = String(aValue).toLowerCase();
+        const bStr = String(bValue).toLowerCase();
+        
+        if (aStr < bStr) return sortDirection === 'asc' ? -1 : 1;
+        if (aStr > bStr) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
     
     console.log('🔍 FILTERING DEBUG: Final filtered orders:', filtered.length);
     return filtered;
-  }, [poOrders, searchQuery, labelSearchQuery, statusFilter, sortField, sortDirection, activeTab, viewMode, selectedPOsForLabels, labelEligibleOrders]);
+  }, [poOrders, searchQuery, labelSearchQuery, statusFilter, sortField, sortDirection, activeTab, viewMode, selectedPOsForLabels, labelEligibleOrders, preventTableReorder]);
 
   // Filtered PO Groups for labels search
   const filteredPOGroups = useMemo(() => {
@@ -770,8 +775,8 @@ export const POTracker = () => {
     });
   };
 
-  // Print single item
-  const handleSingleItemPrint = async (order: POOrder) => {
+  // Print single item with specified quantity
+  const handleSingleItemPrint = async (order: POOrder, customQuantity?: number) => {
     if (!qzConnected) {
       toast({
         title: "QZ Tray not connected",
@@ -791,7 +796,11 @@ export const POTracker = () => {
     }
 
     try {
-      const copies = printSettings.copiesByQuantity ? order.quantity : printSettings.copies;
+      // Prevent table reordering during print
+      setPreventTableReorder(true);
+      setPrintingItems(prev => new Set([...prev, order.id]));
+
+      const copies = customQuantity || itemPrintQuantities[order.id] || (printSettings.copiesByQuantity ? order.quantity : printSettings.copies);
       let allZPLCodes: string[] = [];
       
       for (let i = 0; i < copies; i++) {
@@ -820,6 +829,14 @@ export const POTracker = () => {
         description: error instanceof Error ? error.message : "Failed to print label",
         variant: "destructive"
       });
+    } finally {
+      setPrintingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(order.id);
+        return newSet;
+      });
+      // Re-enable table reordering after a short delay
+      setTimeout(() => setPreventTableReorder(false), 500);
     }
   };
 
@@ -2156,9 +2173,10 @@ export const POTracker = () => {
                                 </span>
                               )}
                             </div>
-                          </TableHead>
-                          <TableHead>Print Status</TableHead>
-                          <TableHead>Actions</TableHead>
+                           </TableHead>
+                           <TableHead className="w-24">Print Qty</TableHead>
+                           <TableHead>Print Status</TableHead>
+                           <TableHead>Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                        <TableBody>
@@ -2247,11 +2265,28 @@ export const POTracker = () => {
                                     )}
                                   </div>
                                 </TableCell>
-                               <TableCell>
-                                 <Badge variant="secondary" className="font-mono">
-                                   {order.quantity}
-                                 </Badge>
-                               </TableCell>
+                                <TableCell>
+                                  <Badge variant="secondary" className="font-mono">
+                                    {order.quantity}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    max="99"
+                                    value={itemPrintQuantities[order.id] || (printSettings.copiesByQuantity ? order.quantity : printSettings.copies)}
+                                    onChange={(e) => {
+                                      const value = Math.max(1, Math.min(99, parseInt(e.target.value) || 1));
+                                      setItemPrintQuantities(prev => ({
+                                        ...prev,
+                                        [order.id]: value
+                                      }));
+                                    }}
+                                    className="w-16 text-center"
+                                    disabled={printingItems.has(order.id)}
+                                  />
+                                </TableCell>
                                 <TableCell>
                                   <Badge 
                                     variant={order.is_printed ? 'default' : 'outline'}
@@ -2260,18 +2295,22 @@ export const POTracker = () => {
                                     {order.is_printed ? 'Printed' : 'Not Printed Yet'}
                                   </Badge>
                                 </TableCell>
-                               <TableCell>
-                                 <Button 
-                                   variant="outline" 
-                                   size="sm"
-                                   onClick={() => handleSingleItemPrint(order)}
-                                   disabled={!qzConnected || !selectedPrinter}
-                                   className="w-full"
-                                 >
-                                   <Printer className="h-3 w-3 mr-1" />
-                                   Print
-                                 </Button>
-                               </TableCell>
+                                <TableCell>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => handleSingleItemPrint(order)}
+                                    disabled={!qzConnected || !selectedPrinter || printingItems.has(order.id)}
+                                    className="w-full"
+                                  >
+                                    {printingItems.has(order.id) ? (
+                                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                    ) : (
+                                      <Printer className="h-3 w-3 mr-1" />
+                                    )}
+                                    {printingItems.has(order.id) ? 'Printing...' : 'Print'}
+                                  </Button>
+                                </TableCell>
                              </TableRow>
                            ));
                          })()}
