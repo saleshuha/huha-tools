@@ -720,9 +720,13 @@ export function AsinInventory() {
             
             // Extract elements from canvas_data with proper mapping
             let elements: any[] = [];
+            console.log('Raw canvas_data:', canvasData);
+            
             if (canvasData && canvasData.objects) {
+              console.log('Canvas objects found:', canvasData.objects.length, canvasData.objects);
+              
               elements = canvasData.objects.map((obj: any) => {
-                console.log('Processing canvas object:', obj);
+                console.log('Processing canvas object:', obj.type, obj);
                 
                 // Map Fabric.js object types to label element types
                 let elementType = obj.type;
@@ -751,10 +755,55 @@ export function AsinInventory() {
                 
                 console.log('Mapped element:', element);
                 return element;
-              }).filter(el => el.type && ['text', 'multitext', 'barcode', 'qr', 'rectangle', 'circle'].includes(el.type));
+              });
+              
+              console.log('Elements before filtering:', elements);
+              // Don't filter out elements - let them all through for now
+              // elements = elements.filter(el => el.type && ['text', 'multitext', 'barcode', 'qr', 'rectangle', 'circle'].includes(el.type));
+            } else {
+              console.log('No canvas_data or objects found. Canvas_data:', canvasData);
             }
             
             console.log('Final elements array:', elements);
+            
+            // If no elements found, create a basic template structure as fallback
+            if (elements.length === 0) {
+              console.log('No elements found in template, creating fallback layout');
+              elements = [
+                {
+                  id: 'asin_text',
+                  type: 'text',
+                  x: 10,
+                  y: 10,
+                  width: 200,
+                  height: 25,
+                  text: 'ASIN',
+                  fontSize: 12,
+                  dataColumn: 'ASIN'
+                },
+                {
+                  id: 'title_text',
+                  type: 'text',
+                  x: 10,
+                  y: 40,
+                  width: 300,
+                  height: 25,
+                  text: 'Title',
+                  fontSize: 10,
+                  dataColumn: 'Title'
+                },
+                {
+                  id: 'barcode',
+                  type: 'barcode',
+                  x: 10,
+                  y: 70,
+                  width: 200,
+                  height: 50,
+                  dataColumn: 'ASIN',
+                  barcodeType: 'CODE128'
+                }
+              ];
+            }
             
             const templateData: any = {
               id: template.id,
