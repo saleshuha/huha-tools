@@ -2275,15 +2275,8 @@ export const POTracker = () => {
                                     type="number"
                                     min="1"
                                     max="99"
-                                    value={itemPrintQuantities[order.id] || (printSettings.copiesByQuantity ? order.quantity : printSettings.copies)}
-                                    onChange={(e) => {
-                                      const value = Math.max(1, Math.min(99, parseInt(e.target.value) || 1));
-                                      setItemPrintQuantities(prev => ({
-                                        ...prev,
-                                        [order.id]: value
-                                      }));
-                                    }}
-                                    className="w-16 text-center"
+                                    placeholder="Qty"
+                                    className="w-16 h-8 text-center"
                                     disabled={printingItems.has(order.id)}
                                   />
                                 </TableCell>
