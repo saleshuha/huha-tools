@@ -2134,21 +2134,21 @@ export const POTracker = () => {
                       </div>
                     </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="mb-4">
-                    <div className="relative">
+                <CardContent className="p-0">
+                  <div className="p-6 pb-0">
+                    <div className="relative mb-6">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                       <Input
                         placeholder="Search by SKU, title, ASIN..."
                         value={labelSearchQuery}
                         onChange={(e) => setLabelSearchQuery(e.target.value)}
-                        className="pl-10 pr-10"
+                        className="pl-10 pr-10 h-10 border-2 border-border/50 focus:border-primary/50 transition-colors"
                       />
                       {labelSearchQuery && (
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                          className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-destructive hover:text-destructive-foreground"
                           onClick={() => setLabelSearchQuery('')}
                         >
                           <X className="h-3 w-3" />
@@ -2156,20 +2156,21 @@ export const POTracker = () => {
                       )}
                     </div>
                   </div>
-                  <div className="rounded-lg border">
+                  
+                  <div className="border-t bg-gradient-to-r from-background to-muted/20">
                     <Table>
                       <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-12">Select</TableHead>
-                          <TableHead className="w-16">Image</TableHead>
+                        <TableRow className="bg-muted/30 hover:bg-muted/40">
+                          <TableHead className="w-12 font-semibold">Select</TableHead>
+                          <TableHead className="w-16 font-semibold">Image</TableHead>
                           <TableHead 
-                            className={`cursor-pointer hover:bg-muted/50 select-none w-32 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}
+                            className={`cursor-pointer hover:bg-muted/50 select-none w-32 font-semibold transition-colors ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}
                             onClick={() => !originalOrderPreserved && handleSort('sku_code')}
                           >
                             <div className="flex items-center gap-1">
                               SKU/Model
                               {sortField === 'sku_code' && !originalOrderPreserved && (
-                                <span className="text-xs">
+                                <span className="text-xs text-primary font-bold">
                                   {sortDirection === 'asc' ? '↑' : '↓'}
                                 </span>
                               )}
@@ -2179,35 +2180,39 @@ export const POTracker = () => {
                             </div>
                           </TableHead>
                           <TableHead 
-                            className={`cursor-pointer hover:bg-muted/50 select-none ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}
+                            className={`cursor-pointer hover:bg-muted/50 select-none font-semibold transition-colors ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}
                             onClick={() => !originalOrderPreserved && handleSort('combined_title')}
                           >
                             <div className="flex items-center gap-1">
                               Title & ASIN
                               {sortField === 'combined_title' && !originalOrderPreserved && (
-                                <span className="text-xs">
+                                <span className="text-xs text-primary font-bold">
                                   {sortDirection === 'asc' ? '↑' : '↓'}
                                 </span>
                               )}
                             </div>
                           </TableHead>
                           <TableHead 
-                            className={`cursor-pointer hover:bg-muted/50 select-none ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}
+                            className={`cursor-pointer hover:bg-muted/50 select-none font-semibold transition-colors ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}
                             onClick={() => !originalOrderPreserved && handleSort('quantity')}
                           >
                             <div className="flex items-center gap-1">
                               Qty
                               {sortField === 'quantity' && !originalOrderPreserved && (
-                                <span className="text-xs">
+                                <span className="text-xs text-primary font-bold">
                                   {sortDirection === 'asc' ? '↑' : '↓'}
                                 </span>
                               )}
                             </div>
                            </TableHead>
-                           <TableHead className="w-24">Print Qty</TableHead>
-                           <TableHead>Print Status</TableHead>
-                           <TableHead className="w-20 text-center">Printed Qty</TableHead>
-                           <TableHead>Actions</TableHead>
+                           <TableHead className="w-24 font-semibold text-center border-l-2 border-r-2 border-primary/20 bg-primary/5">
+                             <div className="flex items-center justify-center gap-1">
+                               <span className="text-primary">Print Qty</span>
+                             </div>
+                           </TableHead>
+                           <TableHead className="font-semibold">Print Status</TableHead>
+                           <TableHead className="w-20 text-center font-semibold">Printed</TableHead>
+                           <TableHead className="font-semibold text-center">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                        <TableBody>
@@ -2218,23 +2223,23 @@ export const POTracker = () => {
                             const endIndex = startIndex + labelItemsPerPage;
                             const paginatedOrders = ordersForSelectedPOs.slice(startIndex, endIndex);
                             
-                            return paginatedOrders.map((order) => (
-                             <TableRow key={order.id}>
-                               <TableCell>
-                                 <input
-                                   type="checkbox"
-                                   checked={selectedForPrint.has(order.id)}
-                                   onChange={(e) => {
-                                     const newSelected = new Set(selectedForPrint);
-                                     if (e.target.checked) {
-                                       newSelected.add(order.id);
-                                     } else {
-                                       newSelected.delete(order.id);
-                                     }
-                                     setSelectedForPrint(newSelected);
-                                   }}
-                                   className="h-4 w-4 rounded border-border"
-                                 />
+                             return paginatedOrders.map((order) => (
+                              <TableRow key={order.id} className="hover:bg-muted/30 transition-colors border-b border-border/50">
+                                <TableCell className="py-4">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedForPrint.has(order.id)}
+                                    onChange={(e) => {
+                                      const newSelected = new Set(selectedForPrint);
+                                      if (e.target.checked) {
+                                        newSelected.add(order.id);
+                                      } else {
+                                        newSelected.delete(order.id);
+                                      }
+                                      setSelectedForPrint(newSelected);
+                                    }}
+                                    className="h-4 w-4 rounded border-2 border-border text-primary focus:ring-2 focus:ring-primary/20"
+                                  />
                                </TableCell>
                                    <TableCell>
                                      {(() => {
@@ -2297,49 +2302,51 @@ export const POTracker = () => {
                                   </div>
                                 </TableCell>
                                 <TableCell>
-                                  <Badge variant="secondary" className="font-mono">
-                                    {order.quantity}
-                                  </Badge>
+                                <Badge variant="secondary" className="font-mono font-semibold text-sm px-3 py-1 shadow-sm">
+                                  {order.quantity}
+                                </Badge>
                                 </TableCell>
-                                <TableCell>
-                                  <Input
-                                    type="number"
-                                    min="1"
-                                    max="99"
-                                    placeholder="Qty"
-                                    className="w-16 h-8 text-center"
-                                    value={itemPrintQuantities[order.id] || ''}
-                                    onChange={(e) => {
-                                      const value = parseInt(e.target.value) || 0;
-                                      setItemPrintQuantities(prev => ({
-                                        ...prev,
-                                        [order.id]: value
-                                      }));
-                                    }}
-                                    disabled={printingItems.has(order.id)}
-                                  />
+                                <TableCell className="py-4 border-l-2 border-r-2 border-primary/20 bg-primary/5">
+                                  <div className="flex justify-center">
+                                    <Input
+                                      type="number"
+                                      min="1"
+                                      max="99"
+                                      placeholder="Qty"
+                                      className="w-16 h-10 text-center border-2 border-primary/30 focus:border-primary bg-background font-semibold text-primary shadow-sm"
+                                      value={itemPrintQuantities[order.id] || ''}
+                                      onChange={(e) => {
+                                        const value = parseInt(e.target.value) || 0;
+                                        setItemPrintQuantities(prev => ({
+                                          ...prev,
+                                          [order.id]: value
+                                        }));
+                                      }}
+                                      disabled={printingItems.has(order.id)}
+                                    />
+                                  </div>
                                 </TableCell>
-                                <TableCell>
-                                  <div className="flex flex-col gap-1">
+                                <TableCell className="py-4">
+                                  <div className="flex flex-col gap-2">
                                     <Badge 
                                       variant={order.printed_quantity > 0 ? 'default' : 'outline'}
-                                      className="text-xs"
+                                      className="text-xs font-semibold px-3 py-1 shadow-sm"
                                     >
-                                      {order.printed_quantity}/{order.quantity} printed
+                                      {order.printed_quantity || 0}/{order.quantity} printed
                                     </Badge>
                                     {order.printed_quantity > 0 && (
-                                      <span className="text-xs text-muted-foreground">
-                                        {order.quantity - order.printed_quantity} remaining
+                                      <span className="text-xs text-muted-foreground bg-muted/20 px-2 py-1 rounded text-center font-medium">
+                                        {order.quantity - (order.printed_quantity || 0)} remaining
                                       </span>
                                     )}
                                   </div>
                                 </TableCell>
-                                <TableCell>
-                                  <div className="text-xs font-medium text-center">
+                                <TableCell className="py-4">
+                                  <div className="text-sm font-bold text-center bg-secondary/30 px-3 py-2 rounded-lg min-w-[40px] border border-secondary/50">
                                     {order.printed_quantity || 0}
                                   </div>
                                 </TableCell>
-                                <TableCell>
+                                <TableCell className="py-4">
                                   <Button 
                                     variant="outline" 
                                     size="sm"
@@ -2352,12 +2359,12 @@ export const POTracker = () => {
                                       }
                                     }}
                                     disabled={!qzConnected || !selectedPrinter || printingItems.has(order.id)}
-                                    className="w-full"
+                                    className="w-full h-10 font-semibold transition-all hover:shadow-md hover:scale-105 border-2"
                                   >
                                     {printingItems.has(order.id) ? (
-                                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                                     ) : (
-                                      <Printer className="h-3 w-3 mr-1" />
+                                      <Printer className="h-4 w-4 mr-2" />
                                     )}
                                     {printingItems.has(order.id) ? 'Printing...' : 'Print'}
                                   </Button>
