@@ -722,47 +722,48 @@ export function AsinInventory() {
             let elements: any[] = [];
             console.log('Raw canvas_data:', canvasData);
             
-            if (canvasData && canvasData.objects) {
-              console.log('Canvas objects found:', canvasData.objects.length, canvasData.objects);
+            // Check both possible structures: elements (new format) or objects (Fabric.js format)
+            const sourceElements = canvasData?.elements || canvasData?.objects || [];
+            
+            if (sourceElements.length > 0) {
+              console.log('Canvas elements found:', sourceElements.length, sourceElements);
               
-              elements = canvasData.objects.map((obj: any) => {
-                console.log('Processing canvas object:', obj.type, obj);
+              elements = sourceElements.map((obj: any) => {
+                console.log('Processing canvas element:', obj.type, obj);
                 
-                // Map Fabric.js object types to label element types
+                // Map element types (already correct in new format)
                 let elementType = obj.type;
                 if (obj.type === 'i-text' || obj.type === 'textbox') elementType = 'text';
-                if (obj.type === 'text') elementType = 'text';
                 
                 const element = {
                   id: obj.id || `element_${Math.random().toString(36).substr(2, 9)}`,
                   type: elementType,
-                  x: Math.round(obj.left || 0),
-                  y: Math.round(obj.top || 0),
-                  width: Math.round(obj.width * (obj.scaleX || 1) || 100),
-                  height: Math.round(obj.height * (obj.scaleY || 1) || 20),
+                  x: Math.round(obj.x || obj.left || 0),
+                  y: Math.round(obj.y || obj.top || 0),
+                  width: Math.round((obj.width * (obj.scaleX || 1)) || obj.width || 100),
+                  height: Math.round((obj.height * (obj.scaleY || 1)) || obj.height || 20),
                   text: obj.text || obj.content || '',
                   fontSize: obj.fontSize || 12,
                   fontFamily: obj.fontFamily || 'Arial',
-                  color: obj.fill || '#000000',
+                  color: obj.color || obj.fill || '#000000',
                   dataColumn: obj.dataColumn,
                   barcodeType: obj.barcodeType,
                   showText: obj.showText,
                   fill: obj.fill,
                   stroke: obj.stroke,
                   strokeWidth: obj.strokeWidth,
-                  rotation: obj.angle || 0
+                  rotation: obj.rotation || obj.angle || 0,
+                  lineHeight: obj.lineHeight
                 };
                 
                 console.log('Mapped element:', element);
                 return element;
               });
-              
-              console.log('Elements before filtering:', elements);
-              // Don't filter out elements - let them all through for now
-              // elements = elements.filter(el => el.type && ['text', 'multitext', 'barcode', 'qr', 'rectangle', 'circle'].includes(el.type));
             } else {
-              console.log('No canvas_data or objects found. Canvas_data:', canvasData);
+              console.log('No canvas elements found. Canvas_data:', canvasData);
             }
+            
+            console.log('Final elements array:', elements);
             
             console.log('Final elements array:', elements);
             
