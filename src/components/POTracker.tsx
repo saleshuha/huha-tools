@@ -2142,7 +2142,7 @@ export const POTracker = () => {
                         placeholder="Search by SKU, title, ASIN..."
                         value={labelSearchQuery}
                         onChange={(e) => setLabelSearchQuery(e.target.value)}
-                        className="pl-10 pr-10"
+                        className="pl-10 pr-10 border-2 border-transparent hover:border-border focus:border-primary transition-colors"
                       />
                       {labelSearchQuery && (
                         <Button
