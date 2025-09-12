@@ -361,8 +361,18 @@ export const POTracker = () => {
     console.log('🔍 FILTERING DEBUG: Starting with', poOrders.length, 'orders');
     console.log('🔍 FILTERING DEBUG: Active tab:', activeTab, 'View mode:', viewMode);
     console.log('🔍 FILTERING DEBUG: Selected POs:', Array.from(selectedPOsForLabels));
+    console.log('🔍 FILTERING DEBUG: Selected country:', selectedCountry);
     
     let filtered = [...poOrders];
+    
+    // Apply country filtering first
+    if (selectedCountry) {
+      const beforeCountryFilter = filtered.length;
+      filtered = filtered.filter(order => 
+        !order.country || order.country === selectedCountry
+      );
+      console.log('🔍 FILTERING DEBUG: After country filter:', filtered.length, 'orders (was', beforeCountryFilter, 'for country', selectedCountry, ')');
+    }
     
     // Use appropriate search query based on active tab
     const currentSearchQuery = activeTab === 'labels' ? labelSearchQuery : searchQuery;
@@ -433,7 +443,7 @@ export const POTracker = () => {
     
     console.log('🔍 FILTERING DEBUG: Final filtered orders:', filtered.length);
     return filtered;
-  }, [poOrders, searchQuery, labelSearchQuery, statusFilter, sortField, sortDirection, activeTab, viewMode, selectedPOsForLabels, labelEligibleOrders, preventTableReorder]);
+  }, [poOrders, searchQuery, labelSearchQuery, statusFilter, sortField, sortDirection, activeTab, viewMode, selectedPOsForLabels, labelEligibleOrders, preventTableReorder, selectedCountry]);
 
   // Filtered PO Groups for labels search
   const filteredPOGroups = useMemo(() => {
@@ -441,7 +451,15 @@ export const POTracker = () => {
     
     // Use labelSearchQuery for the labels tab, searchQuery for others
     const query = activeTab === 'labels' ? labelSearchQuery : searchQuery;
-    let ordersToFilter = [...poOrders];
+    // Use labelEligibleOrders (excludes closed POs) for labels tab, all orders for others
+    let ordersToFilter = activeTab === 'labels' ? [...labelEligibleOrders] : [...poOrders];
+    
+    // Apply country filtering
+    if (selectedCountry) {
+      ordersToFilter = ordersToFilter.filter(order => 
+        !order.country || order.country === selectedCountry
+      );
+    }
 
     if (query) {
       const lowerCaseQuery = query.toLowerCase();
@@ -466,7 +484,7 @@ export const POTracker = () => {
     }));
 
     return poGroups;
-  }, [poOrders, labelSearchQuery, searchQuery, activeTab]);
+  }, [poOrders, labelEligibleOrders, labelSearchQuery, searchQuery, activeTab, selectedCountry]);
 
   const groupedPOOrders = useMemo(() => {
     const groups: { [key: string]: POOrder[] } = {};
@@ -1640,54 +1658,62 @@ export const POTracker = () => {
                       </Badge>
                     </div>
 
-                    {/* Multi-select Controls */}
-                    {selectedPOsForLabels.size > 0 && (
-                      <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary">
-                            {selectedPOsForLabels.size} PO{selectedPOsForLabels.size !== 1 ? 's' : ''} selected
-                          </Badge>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSelectedPOsForLabels(new Set())}
-                          >
-                            Clear selection
-                          </Button>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button 
-                            variant="outline"
-                            onClick={() => {
-                              console.log('🔍 VIEW ITEMS DEBUG: Selected POs:', Array.from(selectedPOsForLabels));
-                              
-                              // Go directly to print labels interface with selected POs
-                              setSelectedPOForLabels(Array.from(selectedPOsForLabels)[0]); // Set first PO for compatibility
-                              setLabelsStep('print'); // Go directly to print interface
-                              setActiveTab('labels'); // Switch to labels tab
-                              
-                              // Preserve original order for printing - disable sorting
-                              setOriginalOrderPreserved(true);
-                              setSortField('po_number'); // Reset to original order
-                              setSortDirection('asc');
-                              
-                              console.log('🔍 VIEW ITEMS DEBUG: Switched to print labels interface with original order preserved');
-                            }}
-                          >
-                            <Package className="h-4 w-4 mr-2" />
-                            View Items
-                          </Button>
-                          <Button 
-                            onClick={() => {
-                              setLabelsStep('print');
-                            }}
-                          >
-                            <Printer className="h-4 w-4 mr-2" />
-                            Print Labels
-                          </Button>
-                        </div>
-                      </div>
-                    )}
+                     {/* Multi-select Controls */}
+                     {selectedPOsForLabels.size > 0 && (
+                       <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border">
+                         <div className="flex items-center gap-2">
+                           <Badge variant="secondary">
+                             {selectedPOsForLabels.size} PO{selectedPOsForLabels.size !== 1 ? 's' : ''} selected
+                           </Badge>
+                           <Button
+                             variant="ghost"
+                             size="sm"
+                             onClick={() => setSelectedPOsForLabels(new Set())}
+                           >
+                             Clear selection
+                           </Button>
+                         </div>
+                         <div className="flex items-center gap-2">
+                           <Button 
+                             variant="outline"
+                             disabled={Array.from(selectedPOsForLabels).every(poNumber => {
+                               const poGroup = filteredPOGroups.find(g => g.poNumber === poNumber);
+                               return poGroup?.orders.every(order => order.status === 'closed') || false;
+                             })}
+                             onClick={() => {
+                               console.log('🔍 VIEW ITEMS DEBUG: Selected POs:', Array.from(selectedPOsForLabels));
+                               
+                               // Go directly to print labels interface with selected POs
+                               setSelectedPOForLabels(Array.from(selectedPOsForLabels)[0]); // Set first PO for compatibility
+                               setLabelsStep('print'); // Go directly to print interface
+                               setActiveTab('labels'); // Switch to labels tab
+                               
+                               // Preserve original order for printing - disable sorting
+                               setOriginalOrderPreserved(true);
+                               setSortField('po_number'); // Reset to original order
+                               setSortDirection('asc');
+                               
+                               console.log('🔍 VIEW ITEMS DEBUG: Switched to print labels interface with original order preserved');
+                             }}
+                           >
+                             <Package className="h-4 w-4 mr-2" />
+                             View Items
+                           </Button>
+                           <Button 
+                             disabled={Array.from(selectedPOsForLabels).every(poNumber => {
+                               const poGroup = filteredPOGroups.find(g => g.poNumber === poNumber);
+                               return poGroup?.orders.every(order => order.status === 'closed') || false;
+                             })}
+                             onClick={() => {
+                               setLabelsStep('print');
+                             }}
+                           >
+                             <Printer className="h-4 w-4 mr-2" />
+                             Print Labels
+                           </Button>
+                         </div>
+                       </div>
+                     )}
 
                   {/* PO Groups List */}
                   <div className="space-y-2">
@@ -1710,23 +1736,33 @@ export const POTracker = () => {
                       </Card>
                     ) : (
                       filteredPOGroups.map((group) => (
-                        <Card 
-                          key={group.poNumber} 
-                          className={`cursor-pointer hover:shadow-md transition-all border-l-4 ${
-                            selectedPOsForLabels.has(group.poNumber) 
-                              ? 'border-l-primary bg-primary/5' 
-                              : 'border-l-primary/30 hover:border-l-primary'
-                          }`}
-                          onClick={() => {
-                            const newSelected = new Set(selectedPOsForLabels);
-                            if (newSelected.has(group.poNumber)) {
-                              newSelected.delete(group.poNumber);
-                            } else {
-                              newSelected.add(group.poNumber);
-                            }
-                            setSelectedPOsForLabels(newSelected);
-                          }}
-                        >
+                         <Card 
+                           key={group.poNumber} 
+                           className={`cursor-pointer hover:shadow-md transition-all border-l-4 ${
+                             selectedPOsForLabels.has(group.poNumber) 
+                               ? 'border-l-primary bg-primary/5' 
+                               : 'border-l-primary/30 hover:border-l-primary'
+                           } ${
+                             // Check if PO has any closed orders - if all orders are closed, make it less prominent
+                             group.orders.every(order => order.status === 'closed')
+                               ? 'opacity-50 pointer-events-none cursor-not-allowed'
+                               : group.orders.some(order => order.status === 'closed')
+                               ? 'opacity-75'
+                               : ''
+                           }`}
+                           onClick={() => {
+                             // Prevent interaction if all orders are closed
+                             if (group.orders.every(order => order.status === 'closed')) return;
+                             
+                             const newSelected = new Set(selectedPOsForLabels);
+                             if (newSelected.has(group.poNumber)) {
+                               newSelected.delete(group.poNumber);
+                             } else {
+                               newSelected.add(group.poNumber);
+                             }
+                             setSelectedPOsForLabels(newSelected);
+                           }}
+                         >
                            <CardContent className="p-4">
                              <div className="flex items-center justify-between">
                                <div className="flex items-center gap-3">
@@ -1740,14 +1776,22 @@ export const POTracker = () => {
                                  </div>
                                  
                                  <div className="flex-1">
-                                   <div className="flex items-center gap-3 mb-2">
-                                     <h3 className="text-base font-semibold text-primary">
-                                       {group.poNumber}
-                                     </h3>
-                                     <Badge variant="secondary" className="text-xs">
-                                       {group.orders.length} item{group.orders.length !== 1 ? 's' : ''}
-                                     </Badge>
-                                   </div>
+                                  <div className="flex items-center gap-3 mb-2">
+                                    <span className="text-xs opacity-60">
+                                      {selectedCountry === 'UAE' ? '🇦🇪' : '🇸🇦'}
+                                    </span>
+                                    <h3 className="text-base font-semibold text-primary">
+                                      {group.poNumber}
+                                    </h3>
+                                    <Badge variant="secondary" className="text-xs">
+                                      {group.orders.length} item{group.orders.length !== 1 ? 's' : ''}
+                                    </Badge>
+                                    {group.orders.every(order => order.status === 'closed') && (
+                                      <Badge variant="destructive" className="text-xs">
+                                        CLOSED
+                                      </Badge>
+                                    )}
+                                  </div>
                                    
                                     {/* Summary Info */}
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-muted-foreground">
@@ -1777,19 +1821,21 @@ export const POTracker = () => {
                                </div>
                               
                               <div className="flex items-center gap-2 ml-4">
-                                <Button 
-                                  variant="outline" 
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedPOForLabels(group.poNumber);
-                                    setSelectedPOsForLabels(new Set([group.poNumber]));
-                                    setLabelsStep('print');
-                                  }}
-                                >
-                                  <Printer className="h-4 w-4 mr-2" />
-                                  Print Labels
-                                </Button>
+                                 <Button 
+                                   variant="outline" 
+                                   size="sm"
+                                   disabled={group.orders.every(order => order.status === 'closed')}
+                                   onClick={(e) => {
+                                     e.stopPropagation();
+                                     if (group.orders.every(order => order.status === 'closed')) return;
+                                     setSelectedPOForLabels(group.poNumber);
+                                     setSelectedPOsForLabels(new Set([group.poNumber]));
+                                     setLabelsStep('print');
+                                   }}
+                                 >
+                                   <Printer className="h-4 w-4 mr-2" />
+                                   {group.orders.every(order => order.status === 'closed') ? 'Closed' : 'Print Labels'}
+                                 </Button>
                               </div>
                             </div>
                           </CardContent>
