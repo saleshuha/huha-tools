@@ -309,6 +309,13 @@ export const POTracker = () => {
     if (profile?.id && selectedCountry) {
       fetchPOOrders();
       initializeQZ();
+      
+      // Country-specific settings
+      if (selectedCountry === 'UAE') {
+        setItemsPerPage(50); // UAE typically has larger volumes
+      } else if (selectedCountry === 'KSA') {
+        setItemsPerPage(25); // KSA typically has smaller batches
+      }
     }
   }, [profile?.id, selectedCountry, fetchPOOrders]);
 
@@ -1157,47 +1164,60 @@ export const POTracker = () => {
                            }, {});
 
                            // Check if PO is closed
-                           const isClosedPO = ordersInPO.every(order => order.status === 'closed');
-                           const hasClosedItems = ordersInPO.some(order => order.status === 'closed');
+                            const isClosedPO = ordersInPO.every(order => order.status === 'closed');
+                            const hasClosedItems = ordersInPO.some(order => order.status === 'closed');
+                            
+                            // Country-specific PO handling
+                            const countryPrefix = selectedCountry === 'UAE' ? '🇦🇪' : '🇸🇦';
+                            const currencySymbol = selectedCountry === 'UAE' ? 'AED' : 'SAR';
 
-                            return (
-                              <TableRow 
-                                key={poNumber}
-                                className={isClosedPO ? 'opacity-60 bg-muted/30' : hasClosedItems ? 'opacity-80' : ''}
-                              >
-                                <TableCell>
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedPOsForBulkClose.has(poNumber)}
-                                    onChange={(e) => {
-                                      const newSelected = new Set(selectedPOsForBulkClose);
-                                      if (e.target.checked && !isClosedPO) {
-                                        newSelected.add(poNumber);
-                                      } else {
-                                        newSelected.delete(poNumber);
-                                      }
-                                      setSelectedPOsForBulkClose(newSelected);
-                                    }}
-                                    disabled={isClosedPO}
-                                    className="h-4 w-4 rounded border-border"
-                                  />
-                                </TableCell>
-                                <TableCell className="font-medium">
-                                  <div className="flex items-center gap-2">
-                                    <Button 
-                                      variant="link" 
-                                      className="p-0 h-auto font-medium text-left justify-start"
-                                      onClick={() => navigate(`/po-details/${poNumber}`)}
-                                      disabled={isClosedPO}
-                                    >
-                                      {poNumber}
-                                      <ExternalLink className="h-3 w-3 ml-1" />
-                                    </Button>
-                                    {isClosedPO && (
-                                      <Badge variant="secondary" className="text-xs">
-                                        CLOSED
-                                      </Badge>
-                                    )}
+                             return (
+                               <TableRow 
+                                 key={poNumber}
+                                 className={`
+                                   ${isClosedPO 
+                                     ? 'opacity-50 bg-muted/40 pointer-events-none cursor-not-allowed' 
+                                     : hasClosedItems 
+                                     ? 'opacity-75 bg-muted/20' 
+                                     : 'hover:bg-muted/10 transition-colors'
+                                   }
+                                 `}
+                               >
+                                 <TableCell>
+                                   <input
+                                     type="checkbox"
+                                     checked={selectedPOsForBulkClose.has(poNumber)}
+                                     onChange={(e) => {
+                                       if (isClosedPO) return;
+                                       const newSelected = new Set(selectedPOsForBulkClose);
+                                       if (e.target.checked) {
+                                         newSelected.add(poNumber);
+                                       } else {
+                                         newSelected.delete(poNumber);
+                                       }
+                                       setSelectedPOsForBulkClose(newSelected);
+                                     }}
+                                     disabled={isClosedPO}
+                                     className={`h-4 w-4 rounded border-border ${isClosedPO ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                                   />
+                                 </TableCell>
+                                 <TableCell className="font-medium">
+                                   <div className="flex items-center gap-2">
+                                     <span className="text-xs opacity-60">{countryPrefix}</span>
+                                     <Button 
+                                       variant="link" 
+                                       className={`p-0 h-auto font-medium text-left justify-start ${isClosedPO ? 'cursor-not-allowed' : ''}`}
+                                       onClick={isClosedPO ? undefined : () => navigate(`/po-details/${poNumber}`)}
+                                       disabled={isClosedPO}
+                                     >
+                                       {poNumber}
+                                       {!isClosedPO && <ExternalLink className="h-3 w-3 ml-1" />}
+                                     </Button>
+                                     {isClosedPO && (
+                                       <Badge variant="destructive" className="text-xs">
+                                         CLOSED
+                                       </Badge>
+                                     )}
                                   </div>
                                 </TableCell>
                               <TableCell>
@@ -1279,39 +1299,47 @@ export const POTracker = () => {
                          </TableRow>
                        </TableHeader>
                        <TableBody>
-                         {paginatedDetailedOrders.map((order) => {
-                           const isClosedOrder = order.status === 'closed';
-                           
-                           return (
-                             <TableRow 
-                               key={order.id}
-                               className={isClosedOrder ? 'opacity-60 bg-muted/30' : ''}
-                             >
-                            <TableCell>
-                              <div className="w-10 h-10 bg-muted rounded border flex items-center justify-center">
-                                <svg className="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                              </div>
-                            </TableCell>
-                            <TableCell className="font-medium">
-                                 <div className="flex items-center gap-2">
-                                   <Button 
-                                     variant="link" 
-                                     className="p-0 h-auto font-medium text-left justify-start"
-                                     onClick={() => navigate(`/po-details/${order.po_number}`)}
-                                     disabled={isClosedOrder}
-                                   >
-                                     {order.po_number}
-                                     <ExternalLink className="h-3 w-3 ml-1" />
-                                   </Button>
-                                   {isClosedOrder && (
-                                     <Badge variant="secondary" className="text-xs">
-                                       CLOSED
-                                     </Badge>
-                                   )}
-                                 </div>
-                            </TableCell>
+                          {paginatedDetailedOrders.map((order) => {
+                            const isClosedOrder = order.status === 'closed';
+                            const countryPrefix = selectedCountry === 'UAE' ? '🇦🇪' : '🇸🇦';
+                            const currencySymbol = selectedCountry === 'UAE' ? 'AED' : 'SAR';
+                            
+                            return (
+                              <TableRow 
+                                key={order.id}
+                                className={`
+                                  ${isClosedOrder 
+                                    ? 'opacity-50 bg-muted/40 pointer-events-none cursor-not-allowed' 
+                                    : 'hover:bg-muted/10 transition-colors'
+                                  }
+                                `}
+                              >
+                             <TableCell>
+                               <div className={`w-10 h-10 bg-muted rounded border flex items-center justify-center ${isClosedOrder ? 'opacity-50' : ''}`}>
+                                 <svg className="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                 </svg>
+                               </div>
+                             </TableCell>
+                             <TableCell className="font-medium">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs opacity-60">{countryPrefix}</span>
+                                    <Button 
+                                      variant="link" 
+                                      className={`p-0 h-auto font-medium text-left justify-start ${isClosedOrder ? 'cursor-not-allowed' : ''}`}
+                                      onClick={isClosedOrder ? undefined : () => navigate(`/po-details/${order.po_number}`)}
+                                      disabled={isClosedOrder}
+                                    >
+                                      {order.po_number}
+                                      {!isClosedOrder && <ExternalLink className="h-3 w-3 ml-1" />}
+                                    </Button>
+                                    {isClosedOrder && (
+                                      <Badge variant="destructive" className="text-xs">
+                                        CLOSED
+                                      </Badge>
+                                    )}
+                                  </div>
+                             </TableCell>
                             <TableCell>
                               <span className="text-sm">{order.asin || '-'}</span>
                             </TableCell>
@@ -1538,11 +1566,18 @@ export const POTracker = () => {
                 }));
 
                 setProcessingProgress(90);
-                setProcessingStatus('Importing to database and matching SKUs...');
+                setProcessingStatus(`Importing to ${selectedCountry} database and matching SKUs...`);
 
                 processPOFiles(mappedData, []).then(() => {
                   setProcessingProgress(100);
-                  setProcessingStatus('Import completed successfully!');
+                  setProcessingStatus(`Import completed successfully for ${selectedCountry}!`);
+                  
+                  // Country-specific post-processing
+                  toast({
+                    title: `${selectedCountry} PO Import Complete`,
+                    description: `Successfully imported ${mappedData.length} items for ${selectedCountry} operations`,
+                  });
+                  
                   setTimeout(() => {
                     setProcessingProgress(0);
                     setProcessingStatus('');
