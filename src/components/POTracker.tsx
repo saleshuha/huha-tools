@@ -588,17 +588,24 @@ export const POTracker = () => {
         
         console.log(`🖨️ Updating order ${order.id}: printed_quantity ${order.printed_quantity || 0} + ${copies} = ${newPrintedQuantity}`);
         
-        return supabase
+        const { error } = await supabase
           .from('po_orders')
           .update({ 
             is_printed: true,
             printed_quantity: newPrintedQuantity
           })
           .eq('id', order.id);
+          
+        if (error) {
+          console.error(`❌ Failed to update order ${order.id}:`, error);
+          throw error;
+        }
+        
+        return { success: true, orderId: order.id, newPrintedQuantity };
       });
 
-      await Promise.all(updatePromises);
-      console.log('🖨️ Database updates completed, refreshing data...');
+      const results = await Promise.all(updatePromises);
+      console.log('🖨️ Database updates completed:', results);
       
       // Force refresh to get updated data and maintain current view state
       await fetchPOOrders();
@@ -871,13 +878,18 @@ export const POTracker = () => {
       
       console.log(`🖨️ Single print: Updating order ${order.id}: printed_quantity ${order.printed_quantity || 0} + ${copies} = ${newPrintedQuantity}`);
       
-      await supabase
+      const { error } = await supabase
         .from('po_orders')
         .update({ 
           is_printed: true,
           printed_quantity: newPrintedQuantity
         })
         .eq('id', order.id);
+        
+      if (error) {
+        console.error(`❌ Failed to update single order ${order.id}:`, error);
+        throw error;
+      }
 
       console.log('🖨️ Single print: Database update completed, refreshing data...');
       // Force refresh to get updated data
@@ -2432,9 +2444,14 @@ export const POTracker = () => {
                                       } else {
                                         handleSingleItemPrint(order);
                                       }
-                                    }}
-                                    disabled={!qzConnected || !selectedPrinter || printingItems.has(order.id)}
-                                    className="w-full"
+                                     }}
+                                     disabled={
+                                       !qzConnected || 
+                                       !selectedPrinter || 
+                                       printingItems.has(order.id) ||
+                                       (!itemPrintQuantities[order.id] || itemPrintQuantities[order.id] <= 0)
+                                     }
+                                     className="w-full"
                                   >
                                     {printingItems.has(order.id) ? (
                                       <Loader2 className="h-3 w-3 mr-1 animate-spin" />
