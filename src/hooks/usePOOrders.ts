@@ -71,14 +71,14 @@ export const usePOOrders = () => {
          
          const { data: pageData, error } = await supabase
            .from('po_orders')
-           .select(`
-             id, user_id, po_number, sku_code, quantity, status,
-             order_date, expected_delivery, notes, file_name, country,
-             currency, unit_cost, total_cost, sku_user_id, 
-             supplier_order_number, tracking_number, tracking_url,
-             created_at, updated_at, ship_to_location, asin,
-             model_number, title, external_id, external_id_type, is_printed
-           `)
+            .select(`
+              id, user_id, po_number, sku_code, quantity, status,
+              order_date, expected_delivery, notes, file_name, country,
+              currency, unit_cost, total_cost, sku_user_id, 
+              supplier_order_number, tracking_number, tracking_url,
+              created_at, updated_at, ship_to_location, asin,
+              model_number, title, external_id, external_id_type, is_printed, printed_quantity
+            `)
            .eq('user_id', user.id)
            .range(startRange, endRange)
            .order('created_at', { ascending: false });
