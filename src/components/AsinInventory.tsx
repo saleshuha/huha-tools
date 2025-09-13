@@ -31,6 +31,7 @@ import { SimpleWarehouseManager } from './SimpleWarehouseManager';
 import { useWarehouseManager } from '@/hooks/useWarehouseManager';
 import { useBackgroundTasks } from '@/contexts/BackgroundTasksContext';
 import { useCountry } from '@/contexts/CountryContext';
+import { useProductImages } from '@/hooks/useProductImages';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { PrintService } from '@/services/print-service';
 import { LabelDoc, LabelDataset, LabelElement, PrintSettings } from '@/types/label';
@@ -58,6 +59,7 @@ export function AsinInventory() {
   const {
     runTitleFetch
   } = useBackgroundTasks();
+  const { getImageByAsin, isLoading: imagesLoading } = useProductImages();
   const [searchTerm, setSearchTerm] = useState('');
   const [searchMethod, setSearchMethod] = useState<'all' | 'asin' | 'sku' | 'serial' | 'title' | 'notes'>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -95,7 +97,47 @@ export function AsinInventory() {
   const [quickFilter, setQuickFilter] = useState<'all' | 'low-stock' | 'out-of-stock' | 'recent'>('all');
   const [dateFilterFrom, setDateFilterFrom] = useState<Date>();
   const [dateFilterTo, setDateFilterTo] = useState<Date>();
+  
+  // Image preview states
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
 
+  // Image preview handlers
+  const handleImagePreview = (imageUrl: string) => {
+    setPreviewImage(imageUrl);
+    setIsPreviewDialogOpen(true);
+  };
+
+  // Component for displaying product images
+  const ProductImage = ({ asin }: { asin: string }) => {
+    const productImage = getImageByAsin(asin);
+    
+    if (!productImage) {
+      return (
+        <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-border">
+          <Eye className="w-4 h-4 text-muted-foreground" />
+        </div>
+      );
+    }
+
+    return (
+      <div 
+        className="w-12 h-12 rounded-lg overflow-hidden border-2 border-border cursor-pointer hover:border-primary transition-colors"
+        onClick={() => handleImagePreview(productImage.image_url)}
+      >
+        <img 
+          src={productImage.image_url} 
+          alt={`Product image for ${asin}`}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+            e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-full bg-muted flex items-center justify-center"><Eye class="w-4 h-4 text-muted-foreground" /></div>';
+          }}
+        />
+      </div>
+    );
+  };
+  
   // Use warehouse management from hook
   const {
     selectedWarehouse
@@ -1413,20 +1455,23 @@ export function AsinInventory() {
                     setSelectedItems(newSelected);
                   }} />
                        </td>
-                        <td className="p-3 border-r">
-                          <div className="space-y-1">
-                            <div className="font-medium text-sm max-w-xs break-words">
-                              {item.title || 'No title'}
-                            </div>
-                            <div className="font-mono text-xs text-muted-foreground">
-                              ASIN: {item.asin}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">SKU:</span>
-                              <SkuEditor currentSku={item.sku} onUpdate={newSku => updateSku(item.id, newSku)} />
-                            </div>
-                          </div>
-                        </td>
+                         <td className="p-3 border-r">
+                           <div className="flex items-center gap-3">
+                             <ProductImage asin={item.asin} />
+                             <div className="space-y-1">
+                               <div className="font-medium text-sm max-w-xs break-words">
+                                 {item.title || 'No title'}
+                               </div>
+                               <div className="font-mono text-xs text-muted-foreground">
+                                 ASIN: {item.asin}
+                               </div>
+                               <div className="flex items-center gap-2">
+                                 <span className="text-xs text-muted-foreground">SKU:</span>
+                                 <SkuEditor currentSku={item.sku} onUpdate={newSku => updateSku(item.id, newSku)} />
+                               </div>
+                             </div>
+                           </div>
+                         </td>
                         <td className="p-3 font-mono text-sm border-r">{item.serialNumber}</td>
                         <td className="p-3 border-r">
                          <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' || item.status === 'ordered' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'} className="text-xs">
@@ -1483,10 +1528,10 @@ export function AsinInventory() {
         </Card> : <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {paginatedInventory.map(item => <Card key={item.id} className="hover:shadow-lg transition-all duration-300 border-0 shadow-md">
               <CardContent className="p-6">
-                <div className="space-y-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <Checkbox checked={selectedItems.has(item.id)} onCheckedChange={checked => {
+                 <div className="space-y-4">
+                   <div className="flex items-start justify-between">
+                     <div className="flex items-center gap-2">
+                       <Checkbox checked={selectedItems.has(item.id)} onCheckedChange={checked => {
                   const newSelected = new Set(selectedItems);
                   if (checked) {
                     newSelected.add(item.id);
@@ -1495,11 +1540,12 @@ export function AsinInventory() {
                   }
                   setSelectedItems(newSelected);
                 }} />
-                       <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' || item.status === 'ordered' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'}>
-                         {item.status === 'ordered' ? 'SOLD' : item.status.replace('-', ' ').toUpperCase()}
-                       </Badge>
-                    </div>
-                  </div>
+                        <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' || item.status === 'ordered' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'}>
+                          {item.status === 'ordered' ? 'SOLD' : item.status.replace('-', ' ').toUpperCase()}
+                        </Badge>
+                     </div>
+                     <ProductImage asin={item.asin} />
+                   </div>
                   <div className="space-y-2">
                     <div>
                       <Label className="text-xs text-muted-foreground">ASIN</Label>
@@ -1613,6 +1659,28 @@ export function AsinInventory() {
               </SelectContent>
             </Select>
           </div>}
+        
+        {/* Image Preview Dialog */}
+        <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Product Image Preview</DialogTitle>
+            </DialogHeader>
+            <div className="flex items-center justify-center p-4">
+              {previewImage && (
+                <img 
+                  src={previewImage} 
+                  alt="Product preview"
+                  className="max-w-full max-h-[70vh] object-contain rounded-lg"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.parentElement!.innerHTML = '<div class="text-center text-muted-foreground">Failed to load image</div>';
+                  }}
+                />
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
         
         {/* Duplicate ASIN Details Dialog */}
         <Dialog open={isDuplicateDialogOpen} onOpenChange={setIsDuplicateDialogOpen}>
