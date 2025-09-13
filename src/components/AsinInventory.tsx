@@ -134,9 +134,7 @@ export function AsinInventory() {
     selectedWarehouse
   } = useWarehouseManager();
   const { toast } = useToast();
-  const { printSettings, setPrintSettings } = useLabelPrintSettings();
-
-  // Form states
+  const { printSettings, setPrintSettings, getPrintSettings } = useLabelPrintSettings();
   const [newItem, setNewItem] = useState<{
     asin: string;
     serialNumber: string;
@@ -807,7 +805,7 @@ export function AsinInventory() {
       });
 
       // Generate ZPL using PrintService
-      const zplCode = PrintService.generateZPL(labelDoc, dataset, printSettings);
+      const zplCode = PrintService.generateZPL(labelDoc, dataset, getPrintSettings());
 
       // Print using QZ Tray
       await qzConnectionManager.print(zplCode, selectedPrinter);
@@ -886,7 +884,7 @@ export function AsinInventory() {
       const dataset = createDatasetFromItems(selectedItems);
 
       // Generate ZPL using PrintService
-      const zplCode = PrintService.generateZPL(labelDoc, dataset, printSettings);
+      const zplCode = PrintService.generateZPL(labelDoc, dataset, getPrintSettings());
 
       // Print using QZ Tray
       await qzConnectionManager.print(zplCode, selectedPrinter);

@@ -58,7 +58,7 @@ export function LabelPrintDialog({ open, onOpenChange, selectedItems, inventoryT
   const [qzConnected, setQzConnected] = useState(false);
   const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
   const [selectedPrinter, setSelectedPrinter] = useState<string>('');
-  const { printSettings, setPrintSettings } = useLabelPrintSettings();
+  const { printSettings, setPrintSettings, getPrintSettings } = useLabelPrintSettings();
   const { toast } = useToast();
 
   useEffect(() => {

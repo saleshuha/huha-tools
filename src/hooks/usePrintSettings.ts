@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { PrintSettings } from '@/types/label';
 
 interface LabelPrintSettings {
   format: 'pdf' | 'zpl';
@@ -9,6 +10,8 @@ interface LabelPrintSettings {
   customHeight?: number;
   dpi: 203 | 300;
   darkness: number;
+  orientation: 'portrait' | 'landscape';
+  margin: number;
 }
 
 const DEFAULT_SETTINGS: LabelPrintSettings = {
@@ -19,8 +22,24 @@ const DEFAULT_SETTINGS: LabelPrintSettings = {
   customWidth: 89,
   customHeight: 36,
   dpi: 203,
-  darkness: 10
+  darkness: 10,
+  orientation: 'portrait',
+  margin: 0
 };
+
+// Convert LabelPrintSettings to PrintSettings for compatibility
+function convertToPrintSettings(labelSettings: LabelPrintSettings): PrintSettings {
+  return {
+    format: labelSettings.format,
+    paperSize: 'custom', // Always use custom for label printing
+    orientation: labelSettings.orientation,
+    dpi: labelSettings.dpi,
+    copies: labelSettings.copies,
+    labelsPerPage: labelSettings.labelsPerPage,
+    margin: labelSettings.margin,
+    darkness: labelSettings.darkness
+  };
+}
 
 export function useLabelPrintSettings() {
   const [printSettings, setPrintSettingsState] = useState<LabelPrintSettings>(DEFAULT_SETTINGS);
@@ -58,9 +77,15 @@ export function useLabelPrintSettings() {
     setPrintSettings(DEFAULT_SETTINGS);
   };
 
+  // Convert to PrintSettings for use with PrintService
+  const getPrintSettings = (): PrintSettings => {
+    return convertToPrintSettings(printSettings);
+  };
+
   return {
     printSettings,
     setPrintSettings,
-    resetToDefaults
+    resetToDefaults,
+    getPrintSettings
   };
 }
