@@ -795,6 +795,27 @@ export function AsinInventory() {
       // Create dataset with single item
       const dataset = createDatasetFromItems([item]);
 
+      // Validate template elements have data mappings
+      const unmappedElements = labelDoc.elements.filter(el => 
+        (el.type === 'text' || el.type === 'multitext' || el.type === 'barcode' || el.type === 'qr') && 
+        (!el.dataColumn || !dataset.headers.includes(el.dataColumn))
+      );
+
+      if (unmappedElements.length > 0) {
+        console.warn('Template elements without data mapping:', unmappedElements);
+        toast({
+          title: "Template Configuration Issue",
+          description: `${unmappedElements.length} element(s) in template not mapped to data. Showing sample text. Available columns: ${dataset.headers.join(', ')}`,
+          variant: "destructive"
+        });
+      }
+
+      console.log('Printing with data:', {
+        headers: dataset.headers,
+        dataRow: dataset.data[0],
+        elements: labelDoc.elements.map(el => ({ type: el.type, dataColumn: el.dataColumn, text: el.text }))
+      });
+
       // Generate ZPL using PrintService
       const zplCode = PrintService.generateZPL(labelDoc, dataset, printSettings);
 
