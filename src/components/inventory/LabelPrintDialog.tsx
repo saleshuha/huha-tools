@@ -10,6 +10,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Loader2, Printer, FileText, Settings, Tag, Zap } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useLabelPrintSettings } from '@/hooks/usePrintSettings';
+import { Slider } from '@/components/ui/slider';
 import jsPDF from 'jspdf';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
 
@@ -56,15 +58,7 @@ export function LabelPrintDialog({ open, onOpenChange, selectedItems, inventoryT
   const [qzConnected, setQzConnected] = useState(false);
   const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
   const [selectedPrinter, setSelectedPrinter] = useState<string>('');
-  const [printSettings, setPrintSettings] = useState<PrintSettings>({
-    format: 'pdf',
-    copies: 1,
-    labelsPerPage: 1,
-    paperSize: 'address',
-    customWidth: 89,
-    customHeight: 36,
-    dpi: 203
-  });
+  const { printSettings, setPrintSettings } = useLabelPrintSettings();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -463,7 +457,7 @@ export function LabelPrintDialog({ open, onOpenChange, selectedItems, inventoryT
                   <Label>Quality (DPI)</Label>
                   <Select
                     value={printSettings.dpi.toString()}
-                    onValueChange={(value) => setPrintSettings(prev => ({ ...prev, dpi: parseInt(value) as 203 | 300 }))}
+                    onValueChange={(value) => setPrintSettings({ dpi: parseInt(value) as 203 | 300 })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -473,6 +467,28 @@ export function LabelPrintDialog({ open, onOpenChange, selectedItems, inventoryT
                       <SelectItem value="300">300 DPI (High Quality)</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Print Darkness (0-30)</Label>
+                  <div className="space-y-2">
+                    <Slider
+                      value={[printSettings.darkness]}
+                      onValueChange={(value) => setPrintSettings({ darkness: value[0] })}
+                      max={30}
+                      min={0}
+                      step={1}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>Light (0)</span>
+                      <span className="text-sm font-medium">{printSettings.darkness}</span>
+                      <span>Dark (30)</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Adjust printer darkness for optimal print quality. Default: 10
+                  </p>
                 </div>
               </div>
             </CardContent>

@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Progress } from './ui/progress';
 import { Calendar } from './ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { useLabelPrintSettings } from '@/hooks/usePrintSettings';
 import { useToast } from '@/hooks/use-toast';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from './ui/pagination';
 import { Package, Plus, Search, Edit, Download, Upload, Check, X, RefreshCw, AlertTriangle, Printer, Hash, Mail, BarChart3, Filter, Grid3X3, List, SortAsc, SortDesc, Calendar as CalendarIcon, TrendingUp, TrendingDown, Eye, Archive, Zap, Clock, ShoppingCart, Trash2, Settings, FileText, Copy, Star, Edit3, Activity, Database } from 'lucide-react';
@@ -73,16 +74,6 @@ export function AsinInventory() {
   const [qzConnected, setQzConnected] = useState(false);
   const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
   const [selectedPrinter, setSelectedPrinter] = useState<string>('');
-  const [printSettings, setPrintSettings] = useState<PrintSettings>({
-    format: 'zpl',
-    paperSize: 'custom',
-    orientation: 'portrait',
-    dpi: 203,
-    copies: 1,
-    labelsPerPage: 1,
-    margin: 0,
-    darkness: 10,
-  });
   const [selectedForPrint, setSelectedForPrint] = useState<Set<string>>(new Set());
   const [availableTemplates, setAvailableTemplates] = useState<any[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
@@ -142,9 +133,8 @@ export function AsinInventory() {
   const {
     selectedWarehouse
   } = useWarehouseManager();
-  const {
-    toast
-  } = useToast();
+  const { toast } = useToast();
+  const { printSettings, setPrintSettings } = useLabelPrintSettings();
 
   // Form states
   const [newItem, setNewItem] = useState<{
