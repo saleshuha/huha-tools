@@ -31,7 +31,8 @@ import { SimpleWarehouseManager } from './SimpleWarehouseManager';
 import { useWarehouseManager } from '@/hooks/useWarehouseManager';
 import { useBackgroundTasks } from '@/contexts/BackgroundTasksContext';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
-import { generateOrderLabelZPL, type OrderItem, type OrderLabelSettings } from '@/utils/order-label-printer';
+import { PrintService } from '@/services/print-service';
+import { LabelDoc, LabelDataset, LabelElement, PrintSettings } from '@/types/label';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 export function AsinInventory() {
@@ -65,9 +66,23 @@ export function AsinInventory() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-  const [previewItem, setPreviewItem] = useState<AsinInventoryItem | null>(null);
-  const [previewTemplate, setPreviewTemplate] = useState<any>(null);
-  const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
+  // Modern printing state
+  const [qzConnected, setQzConnected] = useState(false);
+  const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
+  const [selectedPrinter, setSelectedPrinter] = useState<string>('');
+  const [printSettings, setPrintSettings] = useState<PrintSettings>({
+    format: 'zpl',
+    paperSize: 'custom',
+    orientation: 'portrait',
+    dpi: 203,
+    copies: 1,
+    labelsPerPage: 1,
+    margin: 0,
+    darkness: 10,
+  });
+  const [selectedForPrint, setSelectedForPrint] = useState<Set<string>>(new Set());
+  const [availableTemplates, setAvailableTemplates] = useState<any[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [isBulkStatusDialogOpen, setIsBulkStatusDialogOpen] = useState(false);
   const [isBulkQuantityDialogOpen, setIsBulkQuantityDialogOpen] = useState(false);
   const [isDuplicateDialogOpen, setIsDuplicateDialogOpen] = useState(false);
@@ -620,166 +635,220 @@ export function AsinInventory() {
     }
   }, [duplicateData, refetch, toast, setIsDuplicateDialogOpen]);
 
-  // Preview label function
-  const handlePreviewItem = async (item: AsinInventoryItem) => {
-    // Load template data if available
-    const savedTemplate = localStorage.getItem('savedLabelTemplate');
-    let templateData = null;
-    if (savedTemplate) {
-      try {
-        const {
-          data: template
-        } = await supabase.from('label_templates').select('*').eq('id', savedTemplate).single();
-        if (template) {
-          templateData = template;
+  // Initialize QZ Tray and templates
+  useEffect(() => {
+    initializeQZ();
+    loadTemplates();
+  }, []);
+
+  const initializeQZ = async () => {
+    try {
+      const connected = await qzConnectionManager.connect();
+      if (connected) {
+        setQzConnected(true);
+        const printers = await qzConnectionManager.getPrinters();
+        setAvailablePrinters(printers);
+        
+        // Set default printer
+        const savedDefaultPrinter = localStorage.getItem('qz-default-printer');
+        const defaultPrinter = savedDefaultPrinter || (await qzConnectionManager.getDefaultPrinter());
+        if (defaultPrinter) {
+          setSelectedPrinter(defaultPrinter);
+        } else if (printers.length > 0) {
+          setSelectedPrinter(printers[0]);
         }
-      } catch (error) {
-        console.log('Could not load template for preview');
       }
+    } catch (error) {
+      console.error('Failed to connect to QZ Tray:', error);
     }
-    setPreviewItem(item);
-    setPreviewTemplate(templateData);
-    setIsPreviewDialogOpen(true);
   };
 
-  // Print single item label using QZ Tray
-  const handlePrintItem = async (item: AsinInventoryItem) => {
+  const loadTemplates = async () => {
     try {
-      // Check if QZ Tray is connected, if not show appropriate message
-      const connected = qzConnectionManager.getConnectionStatus();
-      if (!connected) {
-        toast({
-          title: "QZ Tray Not Connected",
-          description: "Please connect QZ Tray from the status indicator in the header first",
-          variant: "destructive"
-        });
-        return;
-      }
+      const { data: templates, error } = await supabase
+        .from('label_templates')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      // Check for saved template settings
+      if (error) throw error;
+      setAvailableTemplates(templates || []);
+
+      // Load saved template
       const savedTemplate = localStorage.getItem('savedLabelTemplate');
-      let labelSettings: OrderLabelSettings = {
-        labelSize: '4x3',
-        dpi: 203,
-        showOrderId: false,
-        showAsin: true,
-        showSku: true,
-        showTitle: true,
-        showQuantity: true,
-        includeBarcode: true,
-        barcodeContent: 'asin'
-      };
-
-      // If there's a saved template, try to get its settings
-      if (savedTemplate) {
-        try {
-          const {
-            data: template
-          } = await supabase.from('label_templates').select('*').eq('id', savedTemplate).single();
-          if (template) {
-            // Adjust settings based on template dimensions
-            const aspectRatio = template.width / template.height;
-            if (aspectRatio > 1.5) {
-              labelSettings.labelSize = '4x3';
-            } else if (aspectRatio > 1.2) {
-              labelSettings.labelSize = '3x2';
-            } else {
-              labelSettings.labelSize = '2x1';
-            }
-          }
-        } catch (error) {
-          console.log('Could not load saved template settings, using defaults');
-        }
+      if (savedTemplate && templates?.some(t => t.id === savedTemplate)) {
+        setSelectedTemplate(savedTemplate);
       }
+    } catch (error) {
+      console.error('Error loading templates:', error);
+    }
+  };
 
-      // Convert AsinInventoryItem to OrderItem format
-      const orderItem: OrderItem = {
-        orderId: item.serialNumber,
-        // Use serial number as order ID
-        asin: item.asin,
-        sku: item.sku || undefined,
-        itemTitle: item.title || `Product ${item.asin}`,
-        itemQuantity: item.quantity
-      };
-      console.log('🔍 Printing item data:', {
-        orderItem,
-        labelSettings,
-        originalItem: item
+  // Create dataset from inventory items
+  const createDatasetFromItems = (items: AsinInventoryItem[]): LabelDataset => {
+    return {
+      id: 'inventory-data',
+      name: 'Inventory Data',
+      description: 'ASIN Inventory Items',
+      headers: ['asin', 'sku', 'title', 'serial_number', 'quantity', 'status', 'date_added'],
+      data: items.map(item => [
+        item.asin,
+        item.sku || 'No SKU',
+        item.title || `Product ${item.asin}`,
+        item.serialNumber,
+        item.quantity.toString(),
+        item.status,
+        item.dateAdded
+      ]),
+      rowCount: items.length,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+  };
+
+  // Print single item
+  const handlePrintItem = async (item: AsinInventoryItem) => {
+    if (!qzConnected) {
+      toast({
+        title: "QZ Tray Not Connected",
+        description: "Please connect QZ Tray from the status indicator in the header first",
+        variant: "destructive"
       });
+      return;
+    }
 
-      // Generate professional ZPL using the order label generator
-      const zplCode = generateOrderLabelZPL(orderItem, labelSettings);
-      console.log('📄 Generated ZPL Code:', zplCode);
-      console.log('📊 ZPL Length:', zplCode.length);
+    if (!selectedTemplate) {
+      toast({
+        title: "No Template Selected",
+        description: "Please select a label template first",
+        variant: "destructive"
+      });
+      return;
+    }
 
-      // Get saved default printer for more reliable printing
-      const savedDefaultPrinter = localStorage.getItem('qz-default-printer');
+    try {
+      // Get template data
+      const { data: template, error } = await supabase
+        .from('label_templates')
+        .select('*')
+        .eq('id', selectedTemplate)
+        .single();
 
-      // Print using QZ Tray with specific printer
-      await qzConnectionManager.print(zplCode, savedDefaultPrinter || undefined);
+      if (error) throw error;
+
+      // Create LabelDoc from template
+      const labelDoc: LabelDoc = {
+        id: template.id,
+        name: template.name,
+        size: {
+          width: template.width || 100,
+          height: template.height || 60,
+          unit: 'mm'
+        },
+        elements: (template.canvas_data as any)?.elements || [],
+        createdAt: template.created_at,
+        updatedAt: template.updated_at
+      };
+
+      // Create dataset with single item
+      const dataset = createDatasetFromItems([item]);
+
+      // Generate ZPL using PrintService
+      const zplCode = PrintService.generateZPL(labelDoc, dataset, printSettings);
+
+      // Print using QZ Tray
+      await qzConnectionManager.print(zplCode, selectedPrinter);
+
       toast({
         title: "Label Printed",
-        description: `Printed professional label for ${item.asin}${savedDefaultPrinter ? ` to ${savedDefaultPrinter}` : ''}`
+        description: `Printed label for ${item.asin}`,
       });
     } catch (error) {
       console.error('Error printing item:', error);
       toast({
         title: "Print Failed",
-        description: "Could not print label. Please check QZ Tray connection.",
+        description: "Could not print label. Please check template and QZ Tray connection.",
         variant: "destructive"
       });
     }
   };
 
-  // Test print function with known good data
-  const handleTestPrint = async () => {
-    try {
-      const connected = qzConnectionManager.getConnectionStatus();
-      if (!connected) {
-        toast({
-          title: "QZ Tray Not Connected",
-          description: "Please connect QZ Tray from the status indicator in the header first",
-          variant: "destructive"
-        });
-        return;
-      }
+  // Print selected items
+  const handleBulkPrint = async () => {
+    if (!qzConnected) {
+      toast({
+        title: "QZ Tray Not Connected",
+        description: "Please connect QZ Tray from the status indicator in the header first",
+        variant: "destructive"
+      });
+      return;
+    }
 
-      // Create test order item with known good data
-      const testOrderItem: OrderItem = {
-        orderId: "TEST-001",
-        asin: "B08N5WRWNW",
-        sku: "TEST-SKU-123",
-        itemTitle: "Test Product for Label Printing",
-        itemQuantity: 1
-      };
-      const testLabelSettings: OrderLabelSettings = {
-        labelSize: '4x3',
-        dpi: 203,
-        showOrderId: true,
-        showAsin: true,
-        showSku: true,
-        showTitle: true,
-        showQuantity: true,
-        includeBarcode: true,
-        barcodeContent: 'asin'
-      };
-      console.log('🧪 Test print data:', {
-        testOrderItem,
-        testLabelSettings
-      });
-      const zplCode = generateOrderLabelZPL(testOrderItem, testLabelSettings);
-      console.log('🧪 Test ZPL Code:', zplCode);
-      const savedDefaultPrinter = localStorage.getItem('qz-default-printer');
-      await qzConnectionManager.print(zplCode, savedDefaultPrinter || undefined);
+    if (!selectedTemplate) {
       toast({
-        title: "Test Label Printed",
-        description: "Printed test label with sample data"
+        title: "No Template Selected",
+        description: "Please select a label template first",
+        variant: "destructive"
       });
+      return;
+    }
+
+    if (selectedForPrint.size === 0) {
+      toast({
+        title: "No Items Selected",
+        description: "Please select items to print",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      // Get selected items
+      const selectedItems = inventory.filter(item => selectedForPrint.has(item.id));
+
+      // Get template data
+      const { data: template, error } = await supabase
+        .from('label_templates')
+        .select('*')
+        .eq('id', selectedTemplate)
+        .single();
+
+      if (error) throw error;
+
+      // Create LabelDoc from template
+      const labelDoc: LabelDoc = {
+        id: template.id,
+        name: template.name,
+        size: {
+          width: template.width || 100,
+          height: template.height || 60,
+          unit: 'mm'
+        },
+        elements: (template.canvas_data as any)?.elements || [],
+        createdAt: template.created_at,
+        updatedAt: template.updated_at
+      };
+
+      // Create dataset with selected items
+      const dataset = createDatasetFromItems(selectedItems);
+
+      // Generate ZPL using PrintService
+      const zplCode = PrintService.generateZPL(labelDoc, dataset, printSettings);
+
+      // Print using QZ Tray
+      await qzConnectionManager.print(zplCode, selectedPrinter);
+
+      toast({
+        title: "Labels Printed",
+        description: `Printed ${selectedItems.length} labels`,
+      });
+
+      // Clear selection
+      setSelectedForPrint(new Set());
     } catch (error) {
-      console.error('Error printing test label:', error);
+      console.error('Error bulk printing:', error);
       toast({
-        title: "Test Print Failed",
-        description: "Could not print test label. Please check QZ Tray connection.",
+        title: "Print Failed",
+        description: "Could not print labels. Please check template and QZ Tray connection.",
         variant: "destructive"
       });
     }
@@ -1050,6 +1119,32 @@ export function AsinInventory() {
                   {/* Warehouse Settings */}
                   <SimpleWarehouseManager />
 
+                  {/* Print Settings */}
+                  <div className="flex items-center gap-2">
+                    <Select value={selectedTemplate || ''} onValueChange={setSelectedTemplate}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Select template" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableTemplates.map((template) => (
+                          <SelectItem key={template.id} value={template.id}>
+                            {template.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={handleBulkPrint}
+                      disabled={!qzConnected || !selectedTemplate || selectedForPrint.size === 0}
+                      className="border-2 border-primary bg-background hover:bg-blue-500 hover:text-white hover:border-blue-500 transition-all"
+                    >
+                      <Printer className="h-4 w-4 mr-2" />
+                      Print Selected ({selectedForPrint.size})
+                    </Button>
+                  </div>
 
                   {/* Export */}
                   <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all" onClick={exportInventory}>
@@ -1329,12 +1424,28 @@ export function AsinInventory() {
                       </td>
                         <td className="p-3">
                           <div className="flex gap-2">
+                            <Checkbox
+                              checked={selectedForPrint.has(item.id)}
+                              onCheckedChange={(checked) => {
+                                const newSelection = new Set(selectedForPrint);
+                                if (checked) {
+                                  newSelection.add(item.id);
+                                } else {
+                                  newSelection.delete(item.id);
+                                }
+                                setSelectedForPrint(newSelection);
+                              }}
+                            />
                             <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
                             <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
-                            <Button variant="outline" size="sm" className="w-8 h-8 p-0" onClick={() => handlePreviewItem(item)} title="Preview Label">
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                            <Button variant="outline" size="sm" className="w-8 h-8 p-0" onClick={() => handlePrintItem(item)} title="Print Label">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="w-8 h-8 p-0" 
+                              onClick={() => handlePrintItem(item)} 
+                              title="Print Label"
+                              disabled={!qzConnected || !selectedTemplate}
+                            >
                               <Printer className="w-4 h-4" />
                             </Button>
                           </div>
@@ -1392,12 +1503,28 @@ export function AsinInventory() {
                     </div>
                   </div>
                    <div className="flex items-center gap-2">
+                     <Checkbox
+                       checked={selectedForPrint.has(item.id)}
+                       onCheckedChange={(checked) => {
+                         const newSelection = new Set(selectedForPrint);
+                         if (checked) {
+                           newSelection.add(item.id);
+                         } else {
+                           newSelection.delete(item.id);
+                         }
+                         setSelectedForPrint(newSelection);
+                       }}
+                     />
                      <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
                      <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
-                     <Button variant="outline" size="sm" className="w-8 h-8 p-0" onClick={() => handlePreviewItem(item)} title="Preview Label">
-                       <Eye className="w-4 h-4" />
-                     </Button>
-                     <Button variant="outline" size="sm" className="w-8 h-8 p-0" onClick={() => handlePrintItem(item)} title="Print Label">
+                     <Button 
+                       variant="outline" 
+                       size="sm" 
+                       className="w-8 h-8 p-0" 
+                       onClick={() => handlePrintItem(item)} 
+                       title="Print Label"
+                       disabled={!qzConnected || !selectedTemplate}
+                     >
                        <Printer className="w-4 h-4" />
                      </Button>
                    </div>
@@ -1548,145 +1675,5 @@ export function AsinInventory() {
             </DialogFooter>
             </DialogContent>
           </Dialog>
-
-        {/* Label Preview Dialog */}
-        <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
-          <DialogContent className="max-w-4xl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Eye className="w-5 h-5" />
-                Label Preview - {previewItem?.asin}
-              </DialogTitle>
-            </DialogHeader>
-            {previewItem && <div className="space-y-6">
-                {/* Label Dimensions Info */}
-                <div className="bg-muted/30 p-4 rounded-lg">
-                  <h3 className="font-semibold mb-2">Label Specifications</h3>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>Size: {previewTemplate ? `${Math.round(previewTemplate.width / 72 * 10) / 10}" × ${Math.round(previewTemplate.height / 72 * 10) / 10}"` : '4" × 3"'} (203 DPI)</div>
-                    <div>Format: ZPL (Zebra Printer Language)</div>
-                    <div>Template: {previewTemplate ? previewTemplate.name : 'Default Layout'}</div>
-                    <div>Elements: {previewTemplate?.elements?.length || 'Standard Fields'}</div>
-                  </div>
-                </div>
-
-                {/* Visual Label Preview */}
-                <div className="border-2 border-dashed border-gray-300 bg-gray-50 p-8 rounded-lg">
-                  <div className="bg-white border-2 border-gray-400 mx-auto relative shadow-lg" style={{
-              width: previewTemplate ? `${Math.max(previewTemplate.width * 0.5, 250)}px` : '350px',
-              height: previewTemplate ? `${Math.max(previewTemplate.height * 0.5, 150)}px` : '262px',
-              minWidth: '250px',
-              minHeight: '150px'
-            }}>
-                    
-                    {previewTemplate && previewTemplate.elements?.length > 0 ?
-              // Template-based preview - only show mapped elements
-              previewTemplate.elements.filter((element: any) => element.dataSource && element.dataSource !== 'static').map((element: any, index: number) => {
-                let content = '';
-
-                // Map element data sources to actual item data
-                switch (element.dataSource) {
-                  case 'asin':
-                    content = `ASIN: ${previewItem.asin}`;
-                    break;
-                  case 'sku':
-                    content = `SKU: ${previewItem.sku || 'N/A'}`;
-                    break;
-                  case 'title':
-                    content = previewItem.title || `Product ${previewItem.asin}`;
-                    break;
-                  case 'quantity':
-                    content = `Qty: ${previewItem.quantity}`;
-                    break;
-                  case 'serial':
-                    content = `Serial: ${previewItem.serialNumber}`;
-                    break;
-                  case 'barcode':
-                    content = previewItem.asin;
-                    break;
-                  default:
-                    return null;
-                }
-                if (!content) return null;
-                const scaleFactor = 0.5;
-                const elementX = (element.x || 0) * scaleFactor;
-                const elementY = (element.y || 0) * scaleFactor;
-                const elementWidth = Math.max((element.width || 100) * scaleFactor, 50);
-                const elementHeight = Math.max((element.height || 20) * scaleFactor, 16);
-                const fontSize = Math.max((element.fontSize || 12) * scaleFactor, 8);
-                return <div key={index} style={{
-                  position: 'absolute',
-                  left: `${elementX}px`,
-                  top: `${elementY}px`,
-                  width: `${elementWidth}px`,
-                  height: `${elementHeight}px`,
-                  fontSize: `${fontSize}px`,
-                  fontWeight: element.fontWeight || 'normal',
-                  color: element.fill || '#000000',
-                  textAlign: (element.textAlign || 'left') as any,
-                  overflow: 'hidden',
-                  fontFamily: element.fontFamily || 'Arial',
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '2px',
-                  backgroundColor: element.type === 'barcode' ? '#000000' : 'transparent'
-                }}>
-                              {element.type === 'barcode' || element.dataSource === 'barcode' ? <div className="w-full">
-                                  <div className="bg-black text-white text-center text-xs font-mono leading-tight p-1">
-                                    ||||| {content} |||||
-                                  </div>
-                                </div> : <span className="truncate text-xs">{content}</span>}
-                            </div>;
-              }) :
-              // Default preview when no template is selected
-              <div className="p-4 space-y-2 h-full">
-                        <div className="text-sm font-bold text-blue-600">
-                          ASIN: {previewItem.asin}
-                        </div>
-                        <div className="text-sm">
-                          SKU: {previewItem.sku || 'Not Set'}
-                        </div>
-                        <div className="text-xs text-gray-700 leading-tight">
-                          {previewItem.title?.substring(0, 30) || `Product ${previewItem.asin}`}
-                        </div>
-                        <div className="text-sm font-semibold">
-                          Qty: {previewItem.quantity}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          Serial: {previewItem.serialNumber}
-                        </div>
-                        <div className="bg-black text-white text-center py-1 text-xs font-mono mt-2">
-                          ||||| {previewItem.asin} |||||
-                        </div>
-                      </div>}
-                  </div>
-                  
-                  {/* Scale indicator */}
-                  <div className="text-center mt-4 text-xs text-gray-500">
-                    Preview shown at 50% scale {previewTemplate ? `(${previewTemplate.name})` : '(Default)'}
-                  </div>
-                </div>
-
-                {/* Preview Actions */}
-                <div className="flex justify-between items-center">
-                  <div className="text-sm text-muted-foreground">
-                    {previewTemplate ? `Using "${previewTemplate.name}" template with ${previewTemplate.elements?.length || 0} elements` : 'Using default template layout with standard fields'}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => setIsPreviewDialogOpen(false)}>
-                      Close
-                    </Button>
-                    <Button onClick={() => {
-                setIsPreviewDialogOpen(false);
-                handlePrintItem(previewItem);
-              }}>
-                      <Printer className="w-4 h-4 mr-2" />
-                      Print This Label
-                    </Button>
-                  </div>
-                </div>
-              </div>}
-          </DialogContent>
-        </Dialog>
     </div>;
 }
