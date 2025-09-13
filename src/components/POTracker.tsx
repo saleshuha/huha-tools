@@ -581,9 +581,12 @@ export const POTracker = () => {
       });
 
       // Update printed quantities for each order in database
+      console.log('🖨️ Updating print status for', selectedOrders.length, 'orders');
       const updatePromises = selectedOrders.map(async (order) => {
         const copies = printSettings.copiesByQuantity ? order.quantity : printSettings.copies;
         const newPrintedQuantity = (order.printed_quantity || 0) + copies;
+        
+        console.log(`🖨️ Updating order ${order.id}: printed_quantity ${order.printed_quantity || 0} + ${copies} = ${newPrintedQuantity}`);
         
         return supabase
           .from('po_orders')
@@ -595,21 +598,11 @@ export const POTracker = () => {
       });
 
       await Promise.all(updatePromises);
+      console.log('🖨️ Database updates completed, refreshing data...');
       
-      // Update local state immediately to reflect changes without re-fetching
-      if (poOrders) {
-        const updatedOrders = poOrders.map(o => {
-          const selectedOrder = selectedOrders.find(so => so.id === o.id);
-          if (selectedOrder) {
-            const copies = printSettings.copiesByQuantity ? selectedOrder.quantity : printSettings.copies;
-            const newPrintedQuantity = (o.printed_quantity || 0) + copies;
-            return { ...o, is_printed: true, printed_quantity: newPrintedQuantity };
-          }
-          return o;
-        });
-        // Force a re-fetch to ensure UI stays in sync
-        await fetchPOOrders();
-      }
+      // Force refresh to get updated data and maintain current view state
+      await fetchPOOrders();
+      console.log('🖨️ Data refresh completed');
       
       setSelectedForPrint(new Set());
 
@@ -875,6 +868,9 @@ export const POTracker = () => {
 
       // Update printed quantity in database
       const newPrintedQuantity = (order.printed_quantity || 0) + copies;
+      
+      console.log(`🖨️ Single print: Updating order ${order.id}: printed_quantity ${order.printed_quantity || 0} + ${copies} = ${newPrintedQuantity}`);
+      
       await supabase
         .from('po_orders')
         .update({ 
@@ -883,11 +879,10 @@ export const POTracker = () => {
         })
         .eq('id', order.id);
 
-      // Update local state immediately and refresh data
-      if (poOrders) {
-        // Force a re-fetch to ensure UI stays in sync
-        await fetchPOOrders();
-      }
+      console.log('🖨️ Single print: Database update completed, refreshing data...');
+      // Force refresh to get updated data
+      await fetchPOOrders();
+      console.log('🖨️ Single print: Data refresh completed');
 
     } catch (error) {
       console.error('Print error:', error);
@@ -2299,7 +2294,6 @@ export const POTracker = () => {
                            </TableHead>
                            <TableHead className="w-24">Print Qty</TableHead>
                            <TableHead>Print Status</TableHead>
-                           <TableHead className="w-20 text-center">Printed Qty</TableHead>
                            <TableHead>Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -2412,26 +2406,21 @@ export const POTracker = () => {
                                     disabled={printingItems.has(order.id)}
                                   />
                                 </TableCell>
-                                <TableCell>
-                                  <div className="flex flex-col gap-1">
-                                    <Badge 
-                                      variant={order.printed_quantity > 0 ? 'default' : 'outline'}
-                                      className="text-xs"
-                                    >
-                                      {order.printed_quantity}/{order.quantity} printed
-                                    </Badge>
-                                    {order.printed_quantity > 0 && (
-                                      <span className="text-xs text-muted-foreground">
-                                        {order.quantity - order.printed_quantity} remaining
-                                      </span>
-                                    )}
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <div className="text-xs font-medium text-center">
-                                    {order.printed_quantity || 0}
-                                  </div>
-                                </TableCell>
+                                 <TableCell>
+                                   <div className="flex flex-col gap-1">
+                                     <Badge 
+                                       variant={order.printed_quantity > 0 ? 'default' : 'outline'}
+                                       className="text-xs"
+                                     >
+                                       {order.printed_quantity || 0}/{order.quantity} printed
+                                     </Badge>
+                                     {order.printed_quantity > 0 && (
+                                       <span className="text-xs text-muted-foreground">
+                                         {order.quantity - (order.printed_quantity || 0)} remaining
+                                       </span>
+                                     )}
+                                   </div>
+                                 </TableCell>
                                 <TableCell>
                                   <Button 
                                     variant="outline" 
