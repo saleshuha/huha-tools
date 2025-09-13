@@ -73,9 +73,18 @@ export class PrintService {
         zpl += `~SD${settings.darkness.toString().padStart(2, '0')}\n`;
       }
       
-      // Set label size
-      zpl += `^LL${this.mmToDots(document.size.height, settings.dpi)}\n`;
-      zpl += `^PW${this.mmToDots(document.size.width, settings.dpi)}\n`;
+      // Set label size with proper margins
+      const labelWidth = this.mmToDots(document.size.width, settings.dpi);
+      const labelHeight = this.mmToDots(document.size.height, settings.dpi);
+      console.log('Label dimensions:', { 
+        labelWidthMM: document.size.width, 
+        labelHeightMM: document.size.height,
+        labelWidthDots: labelWidth,
+        labelHeightDots: labelHeight,
+        dpi: settings.dpi
+      });
+      zpl += `^LL${labelHeight}\n`;
+      zpl += `^PW${labelWidth}\n`;
 
       // Render each element
       for (const element of document.elements) {
@@ -210,6 +219,17 @@ export class PrintService {
   ): string {
     const x = this.mmToDots(pxToMM(element.x), dpi);
     const y = this.mmToDots(pxToMM(element.y), dpi);
+
+    console.log('Element positioning:', { 
+      type: element.type,
+      elementX: element.x, 
+      elementY: element.y,
+      elementWidth: element.width,
+      elementHeight: element.height,
+      zplX: x, 
+      zplY: y,
+      dpi 
+    });
 
     switch (element.type) {
       case 'text':

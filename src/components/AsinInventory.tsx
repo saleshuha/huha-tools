@@ -795,10 +795,10 @@ export function AsinInventory() {
       // Create dataset with single item
       const dataset = createDatasetFromItems([item]);
 
-      // Validate template elements have data mappings
+      // Validate template elements have data mappings (case-insensitive)
       const unmappedElements = labelDoc.elements.filter(el => 
         (el.type === 'text' || el.type === 'multitext' || el.type === 'barcode' || el.type === 'qr') && 
-        (!el.dataColumn || !dataset.headers.includes(el.dataColumn))
+        (!el.dataColumn || !dataset.headers.some(h => h.toLowerCase() === el.dataColumn?.toLowerCase()))
       );
 
       if (unmappedElements.length > 0) {
