@@ -30,6 +30,7 @@ import { SimpleWarehouseManager } from './SimpleWarehouseManager';
 
 import { useWarehouseManager } from '@/hooks/useWarehouseManager';
 import { useBackgroundTasks } from '@/contexts/BackgroundTasksContext';
+import { useCountry } from '@/contexts/CountryContext';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { PrintService } from '@/services/print-service';
 import { LabelDoc, LabelDataset, LabelElement, PrintSettings } from '@/types/label';
@@ -902,7 +903,31 @@ export function AsinInventory() {
         <InventoryMetrics showOnlyAsin={true} />
         
         {/* Duplicate ASIN Metrics Card */}
-        {duplicateData.totalDuplicateASINs > 0}
+        {duplicateData.totalDuplicateASINs > 0 && (
+          <Card className="border-2 border-orange-200 bg-orange-50">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-orange-600" />
+                  <span className="font-medium text-orange-800">Duplicate ASINs Detected</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="text-sm text-orange-700">
+                    {duplicateData.totalDuplicateASINs} ASINs with {duplicateData.totalDuplicateItems} total items
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsDuplicateDialogOpen(true)}
+                    className="border-orange-300 text-orange-700 hover:bg-orange-100"
+                  >
+                    View Details
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Prominent Search Bar */}
