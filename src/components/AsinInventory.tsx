@@ -12,7 +12,7 @@ import { Calendar } from './ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { useToast } from '@/hooks/use-toast';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from './ui/pagination';
-import { Package, Plus, Search, Edit, Download, Upload, Check, X, RefreshCw, AlertTriangle, Printer, Hash, Mail, BarChart3, Filter, Grid3X3, List, SortAsc, SortDesc, Calendar as CalendarIcon, TrendingUp, TrendingDown, Eye, Archive, Zap, Clock, ShoppingCart, Trash2, Settings, FileText, Copy, Star, Edit3, Activity, Database, ExternalLink } from 'lucide-react';
+import { Package, Plus, Search, Edit, Download, Upload, Check, X, RefreshCw, AlertTriangle, Printer, Hash, Mail, BarChart3, Filter, Grid3X3, List, SortAsc, SortDesc, Calendar as CalendarIcon, TrendingUp, TrendingDown, Eye, Archive, Zap, Clock, ShoppingCart, Trash2, Settings, FileText, Copy, Star, Edit3, Activity, Database } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
 import { Textarea } from './ui/textarea';
 import { useAsinInventory, AsinInventoryItem } from '@/hooks/useAsinInventory';
@@ -34,7 +34,6 @@ import { useCountry } from '@/contexts/CountryContext';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { PrintService } from '@/services/print-service';
 import { LabelDoc, LabelDataset, LabelElement, PrintSettings } from '@/types/label';
-import { useProductImages } from '@/hooks/useProductImages';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 export function AsinInventory() {
@@ -85,12 +84,6 @@ export function AsinInventory() {
   const [selectedForPrint, setSelectedForPrint] = useState<Set<string>>(new Set());
   const [availableTemplates, setAvailableTemplates] = useState<any[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
-  
-  // Image preview states
-  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
-  const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
-  const [loadingImages, setLoadingImages] = useState<Set<string>>(new Set());
-  
   const [isBulkStatusDialogOpen, setIsBulkStatusDialogOpen] = useState(false);
   const [isBulkQuantityDialogOpen, setIsBulkQuantityDialogOpen] = useState(false);
   const [isDuplicateDialogOpen, setIsDuplicateDialogOpen] = useState(false);
@@ -110,7 +103,6 @@ export function AsinInventory() {
   const {
     toast
   } = useToast();
-  const { productImages, getImageByAsin } = useProductImages();
 
   // Form states
   const [newItem, setNewItem] = useState<{
@@ -863,96 +855,6 @@ export function AsinInventory() {
     }
   };
 
-  // Fetch product image for ASIN
-  const fetchProductImage = async (asin: string) => {
-    if (loadingImages.has(asin)) return null;
-    
-    setLoadingImages(prev => new Set(prev).add(asin));
-    try {
-      const productImage = getImageByAsin(asin);
-      setLoadingImages(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(asin);
-        return newSet;
-      });
-      return productImage?.image_url || null;
-    } catch (error) {
-      console.error(`Error fetching image for ASIN ${asin}:`, error);
-      setLoadingImages(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(asin);
-        return newSet;
-      });
-      return null;
-    }
-  };
-
-  // Handle image preview
-  const handleImagePreview = (imageUrl: string) => {
-    setPreviewImageUrl(imageUrl);
-    setIsImagePreviewOpen(true);
-  };
-
-  // Product Image Component
-  const ProductImage: React.FC<{ asin: string; title?: string; className?: string }> = ({ asin, title, className = "w-16 h-16" }) => {
-    const [imageUrl, setImageUrl] = useState<string | null>(null);
-    const [imageError, setImageError] = useState(false);
-    const [imageLoading, setImageLoading] = useState(true);
-
-    useEffect(() => {
-      const loadImage = async () => {
-        setImageLoading(true);
-        setImageError(false);
-        
-        try {
-          // Get image from the hook
-          const productImage = getImageByAsin(asin);
-          if (productImage?.image_url) {
-            setImageUrl(productImage.image_url);
-          } else {
-            setImageError(true);
-          }
-        } catch (error) {
-          setImageError(true);
-        } finally {
-          setImageLoading(false);
-        }
-      };
-
-      loadImage();
-    }, [asin]);
-
-    if (imageLoading) {
-      return (
-        <div className={`${className} bg-muted animate-pulse rounded border flex items-center justify-center`}>
-          <Package className="w-6 h-6 text-muted-foreground" />
-        </div>
-      );
-    }
-
-    if (imageError || !imageUrl) {
-      return (
-        <div className={`${className} bg-muted rounded border flex items-center justify-center`}>
-          <Package className="w-6 h-6 text-muted-foreground" />
-        </div>
-      );
-    }
-
-    return (
-      <div className={`${className} relative group cursor-pointer`} onClick={() => handleImagePreview(imageUrl)}>
-        <img
-          src={imageUrl}
-          alt={title || `Product ${asin}`}
-          className="w-full h-full object-cover rounded border hover:border-primary transition-colors"
-          onError={() => setImageError(true)}
-        />
-        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded flex items-center justify-center">
-          <Eye className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-        </div>
-      </div>
-    );
-  };
-
   // Export duplicate ASINs data
   const exportDuplicates = () => {
     if (duplicateData.duplicates.size === 0) {
@@ -1582,32 +1484,17 @@ export function AsinInventory() {
           {paginatedInventory.map(item => <Card key={item.id} className="hover:shadow-lg transition-all duration-300 border-0 shadow-md">
               <CardContent className="p-6">
                 <div className="space-y-4">
-                  {/* Header with Image, ASIN and Status */}
                   <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-3">
-                      <ProductImage asin={item.asin} title={item.title} className="w-16 h-16" />
-                      <div className="space-y-1">
-                        <div className="font-mono text-sm font-semibold text-blue-600">
-                          {item.asin}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          Serial: {item.serialNumber}
-                        </div>
-                      </div>
-                    </div>
                     <div className="flex items-center gap-2">
-                      <Checkbox 
-                        checked={selectedForPrint.has(item.id)} 
-                        onCheckedChange={checked => {
-                          const newSelected = new Set(selectedForPrint);
-                          if (checked) {
-                            newSelected.add(item.id);
-                          } else {
-                            newSelected.delete(item.id);
-                          }
-                          setSelectedForPrint(newSelected);
-                        }} 
-                      />
+                      <Checkbox checked={selectedItems.has(item.id)} onCheckedChange={checked => {
+                  const newSelected = new Set(selectedItems);
+                  if (checked) {
+                    newSelected.add(item.id);
+                  } else {
+                    newSelected.delete(item.id);
+                  }
+                  setSelectedItems(newSelected);
+                }} />
                        <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' || item.status === 'ordered' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'}>
                          {item.status === 'ordered' ? 'SOLD' : item.status.replace('-', ' ').toUpperCase()}
                        </Badge>
@@ -1639,21 +1526,33 @@ export function AsinInventory() {
                       <Label className="text-xs text-muted-foreground">Date Added</Label>
                       <p className="text-sm">{new Date(item.dateAdded).toLocaleDateString()}</p>
                     </div>
+                  </div>
+                   <div className="flex items-center gap-2">
+                     <Checkbox
+                       checked={selectedForPrint.has(item.id)}
+                       onCheckedChange={(checked) => {
+                         const newSelection = new Set(selectedForPrint);
+                         if (checked) {
+                           newSelection.add(item.id);
+                         } else {
+                           newSelection.delete(item.id);
+                         }
+                         setSelectedForPrint(newSelection);
+                       }}
+                     />
+                     <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
+                     <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
+                     <Button 
+                       variant="outline" 
+                       size="sm" 
+                       className="w-8 h-8 p-0" 
+                       onClick={() => handlePrintItem(item)} 
+                       title="Print Label"
+                       disabled={!qzConnected || !selectedTemplate}
+                     >
+                       <Printer className="w-4 h-4" />
+                     </Button>
                    </div>
-                    <div className="flex items-center gap-2">
-                      <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
-                      <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="w-8 h-8 p-0" 
-                        onClick={() => handlePrintItem(item)} 
-                        title="Print Label"
-                        disabled={!qzConnected || !selectedTemplate}
-                      >
-                        <Printer className="w-4 h-4" />
-                      </Button>
-                    </div>
                 </div>
               </CardContent>
             </Card>)}
@@ -1801,41 +1700,5 @@ export function AsinInventory() {
             </DialogFooter>
             </DialogContent>
           </Dialog>
-
-        {/* Image Preview Dialog */}
-        <Dialog open={isImagePreviewOpen} onOpenChange={setIsImagePreviewOpen}>
-          <DialogContent className="max-w-4xl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Eye className="w-5 h-5" />
-                Product Image Preview
-              </DialogTitle>
-            </DialogHeader>
-            {previewImageUrl && (
-              <div className="flex flex-col items-center space-y-4">
-                <div className="max-w-full max-h-[70vh] overflow-hidden rounded-lg border">
-                  <img
-                    src={previewImageUrl}
-                    alt="Product preview"
-                    className="w-full h-full object-contain"
-                    style={{ maxHeight: '70vh' }}
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => window.open(previewImageUrl, '_blank')}
-                  >
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    Open in New Tab
-                  </Button>
-                  <Button variant="outline" onClick={() => setIsImagePreviewOpen(false)}>
-                    Close
-                  </Button>
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
     </div>;
 }
