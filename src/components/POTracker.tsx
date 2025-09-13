@@ -595,6 +595,22 @@ export const POTracker = () => {
       });
 
       await Promise.all(updatePromises);
+      
+      // Update local state immediately to reflect changes without re-fetching
+      if (poOrders) {
+        const updatedOrders = poOrders.map(o => {
+          const selectedOrder = selectedOrders.find(so => so.id === o.id);
+          if (selectedOrder) {
+            const copies = printSettings.copiesByQuantity ? selectedOrder.quantity : printSettings.copies;
+            const newPrintedQuantity = (o.printed_quantity || 0) + copies;
+            return { ...o, is_printed: true, printed_quantity: newPrintedQuantity };
+          }
+          return o;
+        });
+        // Force a re-fetch to ensure UI stays in sync
+        await fetchPOOrders();
+      }
+      
       setSelectedForPrint(new Set());
 
     } catch (error) {
@@ -867,14 +883,10 @@ export const POTracker = () => {
         })
         .eq('id', order.id);
 
-      // Update local state to reflect the change
+      // Update local state immediately and refresh data
       if (poOrders) {
-        const updatedOrders = poOrders.map(o => 
-          o.id === order.id 
-            ? { ...o, is_printed: true, printed_quantity: newPrintedQuantity }
-            : o
-        );
-        // This would require updating the query cache, but the data will refresh on next load
+        // Force a re-fetch to ensure UI stays in sync
+        await fetchPOOrders();
       }
 
     } catch (error) {
