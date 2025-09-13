@@ -88,7 +88,7 @@ export class PrintService {
 
       // Render each element
       for (const element of document.elements) {
-        zpl += this.renderElementToZPL(element, dataset, dataRow, settings.dpi);
+        zpl += this.renderElementToZPL(element, dataset, dataRow, settings.dpi, document.size);
       }
 
       zpl += '^XZ\n'; // End of label
@@ -215,19 +215,34 @@ export class PrintService {
     element: LabelElement,
     dataset: LabelDataset | null,
     dataRow: any[],
-    dpi: number
+    dpi: number,
+    labelSizeMM?: { width: number; height: number }
   ): string {
-    const x = this.mmToDots(pxToMM(element.x), dpi);
-    const y = this.mmToDots(pxToMM(element.y), dpi);
+    // Convert element position from pixels to dots, with bounds checking
+    let x = this.mmToDots(pxToMM(element.x), dpi);
+    let y = this.mmToDots(pxToMM(element.y), dpi);
+    
+    // Ensure elements don't exceed label boundaries
+    if (labelSizeMM) {
+      const maxX = this.mmToDots(labelSizeMM.width, dpi);
+      const maxY = this.mmToDots(labelSizeMM.height, dpi);
+      const elementWidthDots = this.mmToDots(pxToMM(element.width), dpi);
+      const elementHeightDots = this.mmToDots(pxToMM(element.height), dpi);
+      
+      // Constrain position to label bounds
+      x = Math.max(0, Math.min(x, maxX - elementWidthDots));
+      y = Math.max(0, Math.min(y, maxY - elementHeightDots));
+    }
 
     console.log('Element positioning:', { 
       type: element.type,
-      elementX: element.x, 
-      elementY: element.y,
+      originalX: element.x, 
+      originalY: element.y,
       elementWidth: element.width,
       elementHeight: element.height,
-      zplX: x, 
-      zplY: y,
+      constrainedX: x, 
+      constrainedY: y,
+      labelSizeMM,
       dpi 
     });
 
@@ -261,9 +276,11 @@ export class PrintService {
         let lines: string[] = [];
         let zplOutput = '';
         
-        // Better line wrapping for ZPL - more closely matches canvas behavior
-        const avgCharWidthMM = (element.fontSize || 10) * 0.6 / 3.78; // More accurate character width estimation
-        const maxCharsPerLine = Math.floor(pxToMM(maxWidth) / avgCharWidthMM);
+        // Better line wrapping for ZPL - constrain to actual label width
+        const elementWidthMM = pxToMM(element.width);
+        const maxWidthMM = labelSizeMM ? Math.min(elementWidthMM, labelSizeMM.width - pxToMM(element.x)) : elementWidthMM;
+        const avgCharWidthMM = (element.fontSize || 10) * 0.6 / 3.78;
+        const maxCharsPerLine = Math.floor(maxWidthMM / avgCharWidthMM);
         
         words.forEach(word => {
           const testLine = currentLine ? `${currentLine} ${word}` : word;
@@ -298,6 +315,10 @@ export class PrintService {
           resolved: barcodeContent 
         });
         const barcodeHeight = this.mmToDots(pxToMM(element.height), dpi);
+        // Constrain barcode width to fit within label
+        const maxBarcodeWidth = labelSizeMM ? 
+          this.mmToDots(labelSizeMM.width - pxToMM(element.x) - 5, dpi) : // 5mm margin
+          this.mmToDots(pxToMM(element.width), dpi);
         return `^FO${x},${y}^BY2,3,${barcodeHeight}^BCN,,Y,N^FD${barcodeContent}^FS\n`;
 
       case 'qr':
