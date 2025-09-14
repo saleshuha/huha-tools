@@ -1285,10 +1285,17 @@ export function AsinInventory() {
                          </td>
                         <td className="p-3 font-mono text-sm border-r">{item.serialNumber}</td>
                         <td className="p-3 border-r">
-                         <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' || item.status === 'ordered' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'} className="text-xs">
-                           {item.status === 'in-stock' ? 'In Stock' : item.status === 'sold' || item.status === 'ordered' ? 'Sold' : item.status === 'reserved' ? 'Reserved' : 'Damaged'}
-                         </Badge>
-                       </td>
+                          <div className="space-y-1">
+                            <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' || item.status === 'ordered' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'} className="text-xs">
+                              {item.status === 'in-stock' ? 'In Stock' : item.status === 'sold' || item.status === 'ordered' ? 'Sold' : item.status === 'reserved' ? 'Reserved' : 'Damaged'}
+                            </Badge>
+                            <div className="text-xs">
+                              <span className={item.eligible_for_restock ? 'text-green-600' : 'text-red-600'}>
+                                {item.eligible_for_restock ? 'Eligible' : 'Not Eligible'}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
                       <td className="p-3 border-r">
                         <div className="flex items-center gap-1">
                           <span className={`font-semibold text-sm ${item.quantity === 0 ? 'text-red-500' : item.quantity <= 5 ? 'text-yellow-500' : 'text-green-500'}`}>
@@ -1297,35 +1304,30 @@ export function AsinInventory() {
                           {item.quantity <= 5 && <AlertTriangle className="w-3 h-3 text-yellow-500" />}
                         </div>
                       </td>
-                       <td className="p-3 border-r">
-                         <div className="space-y-2">
-                           <div className="flex items-center gap-3">
-                             <Switch
-                               id={`restock-${item.id}`}
-                               checked={item.eligible_for_restock || false}
-                               onCheckedChange={(checked) => handleRestockEligibilityChange(item.id, checked)}
-                             />
-                             <div className="flex flex-col">
-                               <Label htmlFor={`restock-${item.id}`} className="text-sm font-medium">
-                                 Restock
-                               </Label>
-                               <Badge variant={item.eligible_for_restock ? 'default' : 'secondary'} className="text-xs w-fit">
-                                 {item.eligible_for_restock ? 'Eligible' : 'Not Eligible'}
-                               </Badge>
-                             </div>
-                           </div>
-                           {item.eligible_for_restock && (
-                             <div className="text-xs text-muted-foreground space-y-1 ml-12">
-                               {item.lastRestockDate && (
-                                 <div>Last: {new Date(item.lastRestockDate).toLocaleDateString()}</div>
-                               )}
-                               {item.restockQuantity && (
-                                 <div>Qty: {item.restockQuantity}</div>
-                               )}
-                             </div>
-                           )}
-                         </div>
-                       </td>
+                        <td className="p-3 border-r">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-3">
+                              <Switch
+                                id={`restock-${item.id}`}
+                                checked={item.eligible_for_restock || false}
+                                onCheckedChange={(checked) => handleRestockEligibilityChange(item.id, checked)}
+                              />
+                              <Label htmlFor={`restock-${item.id}`} className="text-sm font-medium">
+                                Restock
+                              </Label>
+                            </div>
+                            {item.eligible_for_restock && (
+                              <div className="text-xs text-muted-foreground space-y-1 ml-10">
+                                {item.lastRestockDate && (
+                                  <div>Last: {new Date(item.lastRestockDate).toLocaleDateString()}</div>
+                                )}
+                                {item.restockQuantity && (
+                                  <div>Qty: {item.restockQuantity}</div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </td>
                          <td className="p-3">
                            <div className="flex gap-2">
                              <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
