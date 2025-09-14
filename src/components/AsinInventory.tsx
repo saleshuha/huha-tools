@@ -793,9 +793,8 @@ export function AsinInventory() {
       if (unmappedElements.length > 0) {
         console.warn('Template elements without data mapping:', unmappedElements);
         toast({
-          title: "Template Configuration Issue",
-          description: `${unmappedElements.length} element(s) in template not mapped to data. Showing sample text. Available columns: ${dataset.headers.join(', ')}`,
-          variant: "destructive"
+          title: "Template Info",
+          description: `${unmappedElements.length} element(s) will show sample text. To fix: Edit template and map elements to: ${dataset.headers.join(', ')}`,
         });
       }
 
