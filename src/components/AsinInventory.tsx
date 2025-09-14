@@ -1166,7 +1166,7 @@ export function AsinInventory() {
 
       {/* Inventory Display */}
       {filteredInventory.length === 0 ? <Card className="border-dashed border-2 border-muted">
-          <CardContent className="flex flex-col items-center justify-center py-16">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <Package className="w-16 h-16 text-muted-foreground mb-4" />
             <h3 className="text-xl font-semibold text-muted-foreground mb-2">No inventory items found</h3>
             <p className="text-muted-foreground text-center mb-6">
