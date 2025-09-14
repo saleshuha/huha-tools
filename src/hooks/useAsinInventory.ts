@@ -18,6 +18,7 @@ export interface AsinInventoryItem {
   restockDate?: string;
   restockQuantity?: number;
   lastRestockDate?: string;
+  eligible_for_restock?: boolean;
 }
 
 export function useAsinInventory() {
@@ -55,6 +56,7 @@ export function useAsinInventory() {
         restockDate: item.restock_date || undefined,
         restockQuantity: item.restock_quantity || undefined,
         lastRestockDate: item.last_restock_date || undefined,
+        eligible_for_restock: item.eligible_for_restock || false,
       }));
 
       setInventory(formattedData);
@@ -605,6 +607,36 @@ export function useAsinInventory() {
     }
   };
 
+  // Update restock eligibility
+  const updateRestockEligibility = async (itemId: string, eligible: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('asin_inventory')
+        .update({ eligible_for_restock: eligible })
+        .eq('id', itemId);
+
+      if (error) throw error;
+
+      // Update local state
+      setInventory(prev => prev.map(item => 
+        item.id === itemId 
+          ? { ...item, eligible_for_restock: eligible }
+          : item
+      ));
+
+      toast({
+        title: "Updated",
+        description: `Item ${eligible ? 'marked as' : 'removed from'} restock eligible`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   return {
     inventory,
     loading,
@@ -620,6 +652,7 @@ export function useAsinInventory() {
     bulkUpdateSkus,
     bulkUpdateTitles,
     fetchTitlesFromSunsky,
+    updateRestockEligibility,
     refetch: loadInventory,
   };
 }

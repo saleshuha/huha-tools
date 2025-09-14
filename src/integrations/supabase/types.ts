@@ -21,6 +21,7 @@ export type Database = {
           created_at: string
           date_added: string
           date_sold: string | null
+          eligible_for_restock: boolean | null
           id: string
           last_restock_date: string | null
           notes: string | null
@@ -40,6 +41,7 @@ export type Database = {
           created_at?: string
           date_added?: string
           date_sold?: string | null
+          eligible_for_restock?: boolean | null
           id?: string
           last_restock_date?: string | null
           notes?: string | null
@@ -59,6 +61,7 @@ export type Database = {
           created_at?: string
           date_added?: string
           date_sold?: string | null
+          eligible_for_restock?: boolean | null
           id?: string
           last_restock_date?: string | null
           notes?: string | null

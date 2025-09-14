@@ -53,6 +53,7 @@ export function AsinInventory() {
     bulkUpdateSkus,
     bulkUpdateTitles,
     fetchTitlesFromSunsky,
+    updateRestockEligibility,
     refetch
   } = useAsinInventory();
   const {
@@ -939,6 +940,12 @@ export function AsinInventory() {
       description: `Exported ${duplicateData.totalDuplicateItems} duplicate items across ${duplicateData.totalDuplicateASINs} ASINs`
     });
   };
+  
+  // Handle restock eligibility change
+  const handleRestockEligibilityChange = async (itemId: string, eligible: boolean) => {
+    await updateRestockEligibility(itemId, eligible);
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-4">
@@ -1528,6 +1535,16 @@ export function AsinInventory() {
                             >
                               <Printer className="w-4 h-4" />
                             </Button>
+                            <div className="flex items-center space-x-1">
+                              <Checkbox
+                                id={`restock-${item.id}`}
+                                checked={item.eligible_for_restock || false}
+                                onCheckedChange={(checked) => handleRestockEligibilityChange(item.id, checked as boolean)}
+                              />
+                              <label htmlFor={`restock-${item.id}`} className="text-xs text-muted-foreground">
+                                Restock
+                              </label>
+                            </div>
                           </div>
                         </td>
                     </tr>)}
