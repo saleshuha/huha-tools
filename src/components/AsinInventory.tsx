@@ -1243,18 +1243,11 @@ export function AsinInventory() {
                          {sortBy === 'quantity' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
                        </button>
                      </th>
-                     <th className="w-24 p-3 text-left font-medium border-r">
-                       <button className="flex items-center gap-2 hover:text-primary transition-colors" onClick={() => {
-                    if (sortBy === 'dateAdded') {
-                      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                    } else {
-                      setSortBy('dateAdded');
-                      setSortOrder('desc');
-                    }
-                  }}>
-                         Date Added
-                         {sortBy === 'dateAdded' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
-                       </button>
+                     <th className="w-32 p-3 text-left font-medium border-r">
+                       <div className="flex items-center gap-2">
+                         <Activity className="w-4 h-4" />
+                         Restock Eligibility
+                       </div>
                      </th>
                      <th className="w-32 p-3 text-left font-medium">Actions</th>
                   </tr>
@@ -1303,38 +1296,46 @@ export function AsinInventory() {
                           {item.quantity <= 5 && <AlertTriangle className="w-3 h-3 text-yellow-500" />}
                         </div>
                       </td>
-                      <td className="p-3 text-xs text-muted-foreground border-r">
-                        {new Date(item.dateAdded).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric'
-                  })}
-                      </td>
-                        <td className="p-3">
-                          <div className="flex gap-2">
-                            <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
-                            <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="w-8 h-8 p-0" 
-                              onClick={() => handlePrintItem(item)} 
-                              title="Print Label"
-                              disabled={!qzConnected || !selectedTemplate}
-                            >
-                              <Printer className="w-4 h-4" />
-                            </Button>
-                            <div className="flex items-center space-x-1">
-                              <Checkbox
-                                id={`restock-${item.id}`}
-                                checked={item.eligible_for_restock || false}
-                                onCheckedChange={(checked) => handleRestockEligibilityChange(item.id, checked as boolean)}
-                              />
-                              <label htmlFor={`restock-${item.id}`} className="text-xs text-muted-foreground">
-                                Restock
-                              </label>
-                            </div>
-                          </div>
-                        </td>
+                       <td className="p-3 border-r">
+                         <div className="space-y-2">
+                           <div className="flex items-center gap-2">
+                             <Checkbox
+                               id={`restock-${item.id}`}
+                               checked={item.eligible_for_restock || false}
+                               onCheckedChange={(checked) => handleRestockEligibilityChange(item.id, checked as boolean)}
+                             />
+                             <Label htmlFor={`restock-${item.id}`} className="text-sm font-medium">
+                               {item.eligible_for_restock ? 'Eligible' : 'Not Eligible'}
+                             </Label>
+                           </div>
+                           {item.eligible_for_restock && (
+                             <div className="text-xs text-muted-foreground space-y-1">
+                               {item.lastRestockDate && (
+                                 <div>Last: {new Date(item.lastRestockDate).toLocaleDateString()}</div>
+                               )}
+                               {item.restockQuantity && (
+                                 <div>Qty: {item.restockQuantity}</div>
+                               )}
+                             </div>
+                           )}
+                         </div>
+                       </td>
+                         <td className="p-3">
+                           <div className="flex gap-2">
+                             <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
+                             <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
+                             <Button 
+                               variant="outline" 
+                               size="sm" 
+                               className="w-8 h-8 p-0" 
+                               onClick={() => handlePrintItem(item)} 
+                               title="Print Label"
+                               disabled={!qzConnected || !selectedTemplate}
+                             >
+                               <Printer className="w-4 h-4" />
+                             </Button>
+                           </div>
+                         </td>
                     </tr>)}
                 </tbody>
               </table>
@@ -1383,10 +1384,30 @@ export function AsinInventory() {
                         {item.quantity <= 5 && <AlertTriangle className="w-4 h-4 text-yellow-500" />}
                       </div>
                     </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Date Added</Label>
-                      <p className="text-sm">{new Date(item.dateAdded).toLocaleDateString()}</p>
-                    </div>
+                     <div>
+                       <Label className="text-xs text-muted-foreground">Restock Eligibility</Label>
+                       <div className="space-y-1">
+                         <div className="flex items-center gap-2">
+                           <Checkbox
+                             checked={item.eligible_for_restock || false}
+                             onCheckedChange={(checked) => handleRestockEligibilityChange(item.id, checked as boolean)}
+                           />
+                           <span className="text-sm font-medium">
+                             {item.eligible_for_restock ? 'Eligible' : 'Not Eligible'}
+                           </span>
+                         </div>
+                         {item.eligible_for_restock && (
+                           <div className="text-xs text-muted-foreground space-y-1">
+                             {item.lastRestockDate && (
+                               <div>Last: {new Date(item.lastRestockDate).toLocaleDateString()}</div>
+                             )}
+                             {item.restockQuantity && (
+                               <div>Qty: {item.restockQuantity}</div>
+                             )}
+                           </div>
+                         )}
+                       </div>
+                     </div>
                   </div>
                    <div className="flex items-center gap-2">
                       <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
