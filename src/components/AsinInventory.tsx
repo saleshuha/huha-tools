@@ -1166,7 +1166,7 @@ export function AsinInventory() {
 
       {/* Inventory Display */}
       {filteredInventory.length === 0 ? <Card className="border-dashed border-2 border-muted">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+          <CardContent className="flex flex-col items-center justify-center py-16">
             <Package className="w-16 h-16 text-muted-foreground mb-4" />
             <h3 className="text-xl font-semibold text-muted-foreground mb-2">No inventory items found</h3>
             <p className="text-muted-foreground text-center mb-6">
@@ -1254,25 +1254,23 @@ export function AsinInventory() {
                   </tr>
                 </thead>
                 <tbody>
-                   {paginatedInventory.map(item => <tr key={item.id} className="border-b hover:bg-muted/25 transition-colors">
-                       <td className="p-3 border-r align-top">
-                         <div className="flex items-center justify-center">
-                           <Checkbox checked={selectedItems.has(item.id)} onCheckedChange={checked => {
-                     const newSelected = new Set(selectedItems);
-                     if (checked) {
-                       newSelected.add(item.id);
-                     } else {
-                       newSelected.delete(item.id);
-                     }
-                     setSelectedItems(newSelected);
-                   }} />
-                         </div>
+                  {paginatedInventory.map(item => <tr key={item.id} className="border-b hover:bg-muted/25 transition-colors">
+                       <td className="p-3 border-r">
+                         <Checkbox checked={selectedItems.has(item.id)} onCheckedChange={checked => {
+                    const newSelected = new Set(selectedItems);
+                    if (checked) {
+                      newSelected.add(item.id);
+                    } else {
+                      newSelected.delete(item.id);
+                    }
+                    setSelectedItems(newSelected);
+                  }} />
                        </td>
-                         <td className="p-3 border-r align-top">
-                           <div className="flex items-start gap-3">
+                         <td className="p-3 border-r">
+                           <div className="flex items-center gap-3">
                              <ProductImage asin={item.asin} />
-                             <div className="space-y-1 flex-1">
-                               <div className="font-medium text-sm max-w-xs break-words leading-tight">
+                             <div className="space-y-1">
+                               <div className="font-medium text-sm max-w-xs break-words">
                                  {item.title || 'No title'}
                                </div>
                                <div className="font-mono text-xs text-muted-foreground">
@@ -1285,68 +1283,66 @@ export function AsinInventory() {
                              </div>
                            </div>
                          </td>
-                        <td className="p-3 font-mono text-sm border-r align-top">
-                          <div className="break-all">{item.serialNumber}</div>
-                        </td>
-                        <td className="p-3 border-r align-top">
-                          <div className="flex justify-start">
-                            <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' || item.status === 'ordered' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'} className="text-xs">
-                              {item.status === 'in-stock' ? 'In Stock' : item.status === 'sold' || item.status === 'ordered' ? 'Sold' : item.status === 'reserved' ? 'Reserved' : 'Damaged'}
-                            </Badge>
-                          </div>
-                        </td>
-                      <td className="p-3 border-r align-top">
-                        <div className="flex items-center justify-center gap-1">
+                        <td className="p-3 font-mono text-sm border-r">{item.serialNumber}</td>
+                        <td className="p-3 border-r">
+                         <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' || item.status === 'ordered' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'} className="text-xs">
+                           {item.status === 'in-stock' ? 'In Stock' : item.status === 'sold' || item.status === 'ordered' ? 'Sold' : item.status === 'reserved' ? 'Reserved' : 'Damaged'}
+                         </Badge>
+                       </td>
+                      <td className="p-3 border-r">
+                        <div className="flex items-center gap-1">
                           <span className={`font-semibold text-sm ${item.quantity === 0 ? 'text-red-500' : item.quantity <= 5 ? 'text-yellow-500' : 'text-green-500'}`}>
                             {item.quantity}
                           </span>
                           {item.quantity <= 5 && <AlertTriangle className="w-3 h-3 text-yellow-500" />}
                         </div>
                       </td>
-                      <td className="p-3 border-r align-top">
-                        <div className="flex flex-col gap-2">
-                          <div className="flex items-center gap-2">
-                            <Switch
-                              id={`restock-${item.id}`}
-                              checked={item.eligible_for_restock || false}
-                              onCheckedChange={(checked) => handleRestockEligibilityChange(item.id, checked)}
-                            />
-                            <Label htmlFor={`restock-${item.id}`} className="text-sm font-medium">
-                              Restock
-                            </Label>
-                          </div>
-                          <Badge variant={item.eligible_for_restock ? 'default' : 'secondary'} className="text-xs w-fit">
-                            {item.eligible_for_restock ? 'Eligible' : 'Not Eligible'}
-                          </Badge>
-                          {item.eligible_for_restock && (
-                            <div className="text-xs text-muted-foreground space-y-1">
-                              {item.lastRestockDate && (
-                                <div>Last: {new Date(item.lastRestockDate).toLocaleDateString()}</div>
-                              )}
-                              {item.restockQuantity && (
-                                <div>Qty: {item.restockQuantity}</div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                        <td className="p-3 align-top">
-                          <div className="flex gap-2 justify-start">
-                            <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
-                            <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="w-8 h-8 p-0" 
-                              onClick={() => handlePrintItem(item)} 
-                              title="Print Label"
-                              disabled={!qzConnected || !selectedTemplate}
-                            >
-                              <Printer className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </td>
-                   </tr>)}
+                       <td className="p-3 border-r">
+                         <div className="space-y-2">
+                           <div className="flex items-center gap-3">
+                             <Switch
+                               id={`restock-${item.id}`}
+                               checked={item.eligible_for_restock || false}
+                               onCheckedChange={(checked) => handleRestockEligibilityChange(item.id, checked)}
+                             />
+                             <div className="flex flex-col">
+                               <Label htmlFor={`restock-${item.id}`} className="text-sm font-medium">
+                                 Restock
+                               </Label>
+                               <Badge variant={item.eligible_for_restock ? 'default' : 'secondary'} className="text-xs w-fit">
+                                 {item.eligible_for_restock ? 'Eligible' : 'Not Eligible'}
+                               </Badge>
+                             </div>
+                           </div>
+                           {item.eligible_for_restock && (
+                             <div className="text-xs text-muted-foreground space-y-1 ml-12">
+                               {item.lastRestockDate && (
+                                 <div>Last: {new Date(item.lastRestockDate).toLocaleDateString()}</div>
+                               )}
+                               {item.restockQuantity && (
+                                 <div>Qty: {item.restockQuantity}</div>
+                               )}
+                             </div>
+                           )}
+                         </div>
+                       </td>
+                         <td className="p-3">
+                           <div className="flex gap-2">
+                             <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
+                             <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
+                             <Button 
+                               variant="outline" 
+                               size="sm" 
+                               className="w-8 h-8 p-0" 
+                               onClick={() => handlePrintItem(item)} 
+                               title="Print Label"
+                               disabled={!qzConnected || !selectedTemplate}
+                             >
+                               <Printer className="w-4 h-4" />
+                             </Button>
+                           </div>
+                         </td>
+                    </tr>)}
                 </tbody>
               </table>
             </div>
