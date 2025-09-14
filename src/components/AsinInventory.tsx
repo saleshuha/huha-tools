@@ -1317,9 +1317,9 @@ export function AsinInventory() {
                               {item.status === 'in-stock' ? 'In Stock' : item.status === 'sold' || item.status === 'ordered' ? 'Sold' : item.status === 'reserved' ? 'Reserved' : 'Damaged'}
                             </Badge>
                             <div className="text-xs">
-                              <span className={item.eligible_for_restock ? 'text-green-600' : 'text-red-600'}>
-                                {item.eligible_for_restock ? 'Eligible' : 'Not Eligible'}
-                              </span>
+                               <span className={item.eligible_for_restock ? 'text-green-600' : 'text-red-600'}>
+                                 {item.eligible_for_restock ? 'Restock Eligible' : 'Restock Not Eligible'}
+                               </span>
                             </div>
                           </div>
                         </td>
