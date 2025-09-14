@@ -103,6 +103,7 @@ export function useInventoryAnalytics() {
             .from('asin_inventory')
             .select('restock_quantity, quantity')
             .eq('country', country)
+            .eq('eligible_for_restock', true)
             .or('last_restock_date.not.is.null,quantity.gt.0');
 
           let skuRestockQuery = supabase
@@ -135,7 +136,7 @@ export function useInventoryAnalytics() {
           
           // For non-country specific, get all inventory quantities
           const [{ data: allAsin }, { data: allSku }] = await Promise.all([
-            supabase.from('asin_inventory').select('quantity, restock_quantity').neq('status', 'sold'),
+            supabase.from('asin_inventory').select('quantity, restock_quantity').neq('status', 'sold').eq('eligible_for_restock', true),
             supabase.from('sku_inventory').select('quantity, restock_quantity').neq('status', 'sold')
           ]);
 

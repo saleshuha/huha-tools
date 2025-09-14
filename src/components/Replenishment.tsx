@@ -867,6 +867,7 @@ export function Replenishment() {
         let asinSalesQuery = supabase.from('asin_inventory').select('*').eq('status', 'sold').eq('country', selectedCountry) // Filter by selected country
         .gte('date_sold', startDate.toISOString());
         let asinRestockQuery = supabase.from('asin_inventory').select('restock_quantity').eq('country', selectedCountry) // Filter by selected country
+        .eq('eligible_for_restock', true)
         .not('last_restock_date', 'is', null).gte('last_restock_date', startDate.toISOString());
         let skuSalesQuery = supabase.from('sku_inventory').select('*').eq('status', 'sold').eq('country', selectedCountry) // Filter by selected country
         .gte('date_sold', startDate.toISOString());
