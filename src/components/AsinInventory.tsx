@@ -721,14 +721,15 @@ export function AsinInventory() {
       id: 'inventory-data',
       name: 'Inventory Data',
       description: 'ASIN Inventory Items',
-      headers: ['ASIN', 'SKU', 'Title', 'Serial', 'Quantity', 'Status'],
+      headers: ['asin', 'sku', 'title', 'serial_number', 'quantity', 'status', 'date_added'],
       data: items.map(item => [
         item.asin,
         item.sku || 'No SKU',
         item.title || `Product ${item.asin}`,
-        item.serialNumber || '',
+        item.serialNumber,
         item.quantity.toString(),
-        item.status
+        item.status,
+        item.dateAdded
       ]),
       rowCount: items.length,
       createdAt: new Date().toISOString(),
