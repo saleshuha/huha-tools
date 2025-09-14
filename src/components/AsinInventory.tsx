@@ -88,6 +88,8 @@ export function AsinInventory() {
   const [bulkQuantityReason, setBulkQuantityReason] = useState('');
   const [isBulkRestockEligibilityDialogOpen, setIsBulkRestockEligibilityDialogOpen] = useState(false);
   const [bulkRestockEligibilityValue, setBulkRestockEligibilityValue] = useState(true);
+  const [isProcessingRestockEligibility, setIsProcessingRestockEligibility] = useState(false);
+  const [restockEligibilityProgress, setRestockEligibilityProgress] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const [quickFilter, setQuickFilter] = useState<'all' | 'low-stock' | 'out-of-stock' | 'recent'>('all');
@@ -782,12 +784,25 @@ export function AsinInventory() {
     }
 
     try {
+      setIsProcessingRestockEligibility(true);
+      setRestockEligibilityProgress(0);
+      
       const selectedItemsList = Array.from(selectedItems).map(id => 
         inventory.find(item => item.id === id)
       ).filter(Boolean) as AsinInventoryItem[];
 
-      for (const item of selectedItemsList) {
+      const totalItems = selectedItemsList.length;
+
+      for (let i = 0; i < selectedItemsList.length; i++) {
+        const item = selectedItemsList[i];
         await updateRestockEligibility(item.id, bulkRestockEligibilityValue);
+        
+        // Update progress
+        const progress = Math.round(((i + 1) / totalItems) * 100);
+        setRestockEligibilityProgress(progress);
+        
+        // Small delay to show progress visually
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
 
       toast({
@@ -803,6 +818,9 @@ export function AsinInventory() {
         description: error.message,
         variant: "destructive",
       });
+    } finally {
+      setIsProcessingRestockEligibility(false);
+      setRestockEligibilityProgress(0);
     }
   };
 
@@ -1590,13 +1608,31 @@ export function AsinInventory() {
                   : ' Items will be excluded from replenishment tracking and analytics.'
                 }
               </p>
+              
+              {/* Progress Bar */}
+              {isProcessingRestockEligibility && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span>Processing items...</span>
+                    <span>{restockEligibilityProgress}%</span>
+                  </div>
+                  <Progress value={restockEligibilityProgress} className="w-full" />
+                </div>
+              )}
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsBulkRestockEligibilityDialogOpen(false)}>
+              <Button 
+                variant="outline" 
+                onClick={() => setIsBulkRestockEligibilityDialogOpen(false)}
+                disabled={isProcessingRestockEligibility}
+              >
                 Cancel
               </Button>
-              <Button onClick={handleBulkRestockEligibilityUpdate}>
-                Update {selectedItems.size} Items
+              <Button 
+                onClick={handleBulkRestockEligibilityUpdate}
+                disabled={isProcessingRestockEligibility}
+              >
+                {isProcessingRestockEligibility ? 'Processing...' : `Update ${selectedItems.size} Items`}
               </Button>
             </DialogFooter>
           </DialogContent>
