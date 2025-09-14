@@ -847,7 +847,7 @@ export function AsinInventory() {
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="w-full mt-4 border-2 border-dashed border-muted-foreground/30 hover:border-primary hover:bg-primary/5 transition-all"
+                  className="w-full mt-4 bg-gradient-to-r from-background to-muted/50 border border-border/60 hover:border-primary/60 hover:bg-gradient-to-r hover:from-primary/10 hover:to-primary/5 hover:shadow-md transition-all duration-300 rounded-lg"
                 >
                   {isFeaturesOpen ? (
                     <>
