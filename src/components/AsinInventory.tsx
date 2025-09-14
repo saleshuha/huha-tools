@@ -81,7 +81,6 @@ export function AsinInventory() {
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [isBulkStatusDialogOpen, setIsBulkStatusDialogOpen] = useState(false);
   const [isBulkQuantityDialogOpen, setIsBulkQuantityDialogOpen] = useState(false);
-  const [isDuplicateDialogOpen, setIsDuplicateDialogOpen] = useState(false);
   const [bulkStatusValue, setBulkStatusValue] = useState<AsinInventoryItem['status']>('in-stock');
   const [bulkQuantityValue, setBulkQuantityValue] = useState(1);
   const [bulkQuantityReason, setBulkQuantityReason] = useState('');
@@ -168,31 +167,6 @@ export function AsinInventory() {
   });
   const [bulkText, setBulkText] = useState('');
 
-  // Calculate duplicate ASINs from original inventory data
-  const duplicateData = useMemo(() => {
-    const asinCounts = new Map<string, AsinInventoryItem[]>();
-
-    // Group original inventory by ASIN
-    inventory.forEach(item => {
-      if (!asinCounts.has(item.asin)) {
-        asinCounts.set(item.asin, []);
-      }
-      asinCounts.get(item.asin)!.push(item);
-    });
-
-    // Filter to only duplicates (more than 1 item per ASIN)
-    const duplicates = new Map<string, AsinInventoryItem[]>();
-    asinCounts.forEach((items, asin) => {
-      if (items.length > 1) {
-        duplicates.set(asin, items);
-      }
-    });
-    return {
-      duplicates,
-      totalDuplicateASINs: duplicates.size,
-      totalDuplicateItems: Array.from(duplicates.values()).reduce((sum, items) => sum + items.length, 0)
-    };
-  }, [inventory]);
   const filteredInventory = useMemo(() => {
     let filtered = inventory;
 
@@ -259,41 +233,7 @@ export function AsinInventory() {
       });
     }
 
-    // Merge duplicate ASINs FIRST - combine quantities and serial numbers
-    const asinGroups = new Map();
-    filtered.forEach(item => {
-      const key = item.asin;
-      if (asinGroups.has(key)) {
-        const existing = asinGroups.get(key);
-        existing.quantity += item.quantity;
-        existing.serialNumber = existing.serialNumber + ', ' + item.serialNumber;
-        // Store all individual items for quantity operations
-        existing.individualItems = existing.individualItems || [existing];
-        existing.individualItems.push(item);
-        // Keep the most recent status (prioritize in-stock over sold)
-        if (item.status === 'in-stock' && existing.status !== 'in-stock') {
-          existing.status = item.status;
-        }
-        // Use the earliest date added
-        if (new Date(item.dateAdded) < new Date(existing.dateAdded)) {
-          existing.dateAdded = item.dateAdded;
-        }
-        // Combine notes if they exist
-        if (item.notes && !existing.notes?.includes(item.notes)) {
-          existing.notes = existing.notes ? existing.notes + '; ' + item.notes : item.notes;
-        }
-      } else {
-        asinGroups.set(key, {
-          ...item,
-          individualItems: [item]
-        });
-      }
-    });
-
-    // Convert back to array
-    filtered = Array.from(asinGroups.values());
-
-    // Apply quick filter on merged data
+    // Apply quick filter
     if (quickFilter === 'low-stock') {
       filtered = filtered.filter(item => item.quantity > 0 && item.quantity <= 5);
     } else if (quickFilter === 'out-of-stock') {
@@ -359,19 +299,6 @@ export function AsinInventory() {
       return;
     }
 
-    // Check for duplicate ASIN in current inventory
-    const duplicateAsin = inventory.find(item => item.asin.toLowerCase() === newItem.asin.toLowerCase().trim());
-    if (duplicateAsin) {
-      toast({
-        title: "Duplicate ASIN",
-        description: `ASIN "${newItem.asin}" already exists in inventory. Each ASIN must be unique.`,
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Serial number duplicates are now allowed
-
     // Check for duplicate SKU in current inventory (if SKU is provided)
     if (newItem.sku && newItem.sku.trim()) {
       const duplicateSku = inventory.find(item => item.sku && item.sku.toLowerCase() === newItem.sku.toLowerCase().trim());
@@ -435,27 +362,9 @@ export function AsinInventory() {
 
     // Validate for duplicates
     const validationErrors = [];
-    const seenAsins = new Set();
-    const seenSerials = new Set();
     const seenSkus = new Set();
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-
-      // Check for duplicate ASIN against existing inventory
-      const duplicateAsin = inventory.find(existing => existing.asin.toLowerCase() === item.asin.toLowerCase());
-      if (duplicateAsin) {
-        validationErrors.push(`Row ${i + 1}: ASIN "${item.asin}" already exists in inventory`);
-        continue;
-      }
-
-      // Check for duplicate ASIN within bulk data
-      if (seenAsins.has(item.asin.toLowerCase())) {
-        validationErrors.push(`Row ${i + 1}: ASIN "${item.asin}" appears multiple times in bulk data`);
-        continue;
-      }
-      seenAsins.add(item.asin.toLowerCase());
-
-      // Serial number duplicates are now allowed
 
       // Check for duplicate SKU (if provided)
       if (item.sku && item.sku.trim()) {
@@ -608,78 +517,6 @@ export function AsinInventory() {
   };
 
   // Merge duplicate ASINs function
-  const mergeDuplicates = useCallback(async () => {
-    console.log('mergeDuplicates function called');
-    console.log('duplicateData:', duplicateData);
-    if (duplicateData.duplicates.size === 0) {
-      toast({
-        title: "No Duplicates Found",
-        description: "There are no duplicate ASINs to merge",
-        variant: "destructive"
-      });
-      return;
-    }
-    try {
-      let mergedCount = 0;
-      let deletedCount = 0;
-      for (const [asin, items] of duplicateData.duplicates.entries()) {
-        if (items.length <= 1) continue;
-
-        // Sort by date added to keep the earliest one
-        const sortedItems = [...items].sort((a, b) => new Date(a.dateAdded).getTime() - new Date(b.dateAdded).getTime());
-        const primaryItem = sortedItems[0];
-        const itemsToDelete = sortedItems.slice(1);
-
-        // Calculate merged data
-        const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
-        const combinedSerialNumbers = items.map(item => item.serialNumber).join(', ');
-        const combinedNotes = items.map(item => item.notes).filter(note => note && note.trim()).join('; ') || null;
-
-        // Update the primary item with merged data
-        const {
-          error: updateError
-        } = await supabase.from('asin_inventory').update({
-          quantity: totalQuantity,
-          serialNumber: combinedSerialNumbers,
-          notes: combinedNotes,
-          status: items.some(item => item.status === 'in-stock') ? 'in-stock' : primaryItem.status
-        }).eq('id', primaryItem.id);
-        if (updateError) {
-          console.error('Error updating primary item:', updateError);
-          continue;
-        }
-
-        // Delete the duplicate items
-        const {
-          error: deleteError
-        } = await supabase.from('asin_inventory').delete().in('id', itemsToDelete.map(item => item.id));
-        if (deleteError) {
-          console.error('Error deleting duplicate items:', deleteError);
-          continue;
-        }
-        mergedCount++;
-        deletedCount += itemsToDelete.length;
-      }
-
-      // Refresh the inventory data
-      refetch();
-      toast({
-        title: "Duplicates Merged Successfully",
-        description: `Merged ${mergedCount} duplicate ASINs and removed ${deletedCount} duplicate entries`
-      });
-
-      // Close the dialog
-      setIsDuplicateDialogOpen(false);
-    } catch (error) {
-      console.error('Error merging duplicates:', error);
-      toast({
-        title: "Merge Failed",
-        description: "Could not merge duplicate ASINs",
-        variant: "destructive"
-      });
-    }
-  }, [duplicateData, refetch, toast, setIsDuplicateDialogOpen]);
-
   // Initialize QZ Tray and templates
   useEffect(() => {
     initializeQZ();
@@ -918,40 +755,6 @@ export function AsinInventory() {
     }
   };
 
-  // Export duplicate ASINs data
-  const exportDuplicates = () => {
-    if (duplicateData.duplicates.size === 0) {
-      toast({
-        title: "No Duplicates Found",
-        description: "There are no duplicate ASINs to export",
-        variant: "destructive"
-      });
-      return;
-    }
-    const csvData = [];
-    csvData.push(['ASIN', 'Serial Number', 'SKU', 'Status', 'Quantity', 'Date Added', 'Notes', 'Duplicate Count']);
-    duplicateData.duplicates.forEach((items, asin) => {
-      items.forEach(item => {
-        csvData.push([item.asin, item.serialNumber, item.sku || '', item.status, item.quantity.toString(), new Date(item.dateAdded).toLocaleDateString(), item.notes || '', items.length.toString()]);
-      });
-    });
-    const csvContent = csvData.map(row => row.map(field => `"${field}"`).join(',')).join('\n');
-    const blob = new Blob([csvContent], {
-      type: 'text/csv;charset=utf-8;'
-    });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `duplicate-asins-${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast({
-      title: "Export Complete",
-      description: `Exported ${duplicateData.totalDuplicateItems} duplicate items across ${duplicateData.totalDuplicateASINs} ASINs`
-    });
-  };
   
   // Handle restock eligibility change
   const handleRestockEligibilityChange = async (itemId: string, eligible: boolean) => {
@@ -971,32 +774,6 @@ export function AsinInventory() {
       <div className="space-y-6">
         <InventoryMetrics showOnlyAsin={true} />
         
-        {/* Duplicate ASIN Metrics Card */}
-        {duplicateData.totalDuplicateASINs > 0 && (
-          <Card className="border-2 border-orange-200 bg-orange-50">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-orange-600" />
-                  <span className="font-medium text-orange-800">Duplicate ASINs Detected</span>
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-sm text-orange-700">
-                    {duplicateData.totalDuplicateASINs} ASINs with {duplicateData.totalDuplicateItems} total items
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setIsDuplicateDialogOpen(true)}
-                    className="border-orange-300 text-orange-700 hover:bg-orange-100"
-                  >
-                    View Details
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
 
       {/* Prominent Search Bar */}
@@ -1698,92 +1475,5 @@ export function AsinInventory() {
             </div>
           </DialogContent>
         </Dialog>
-        
-        {/* Duplicate ASIN Details Dialog */}
-        <Dialog open={isDuplicateDialogOpen} onOpenChange={setIsDuplicateDialogOpen}>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-orange-600" />
-                Duplicate ASINs Details ({duplicateData.totalDuplicateASINs} ASINs)
-              </DialogTitle>
-              <div className="flex items-center gap-4 mt-2">
-                <Badge variant="outline" className="text-orange-600">
-                  {duplicateData.totalDuplicateItems} Total Items
-                </Badge>
-                <Button variant="outline" size="sm" onClick={exportDuplicates} className="flex items-center gap-2">
-                  <Download className="w-4 h-4" />
-                  Export CSV
-                </Button>
-                <Button variant="default" size="sm" onClick={mergeDuplicates} className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700">
-                  <RefreshCw className="w-4 h-4" />
-                  Merge Duplicates
-                </Button>
-              </div>
-            </DialogHeader>
-            
-            <div className="space-y-4">
-              {Array.from(duplicateData.duplicates.entries()).map(([asin, items]) => <Card key={asin} className="border-l-4 border-l-orange-400">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Badge className="bg-orange-100 text-orange-800 font-mono">
-                          {asin}
-                        </Badge>
-                        <span className="text-sm text-muted-foreground">
-                          {items.length} duplicates
-                        </span>
-                      </div>
-                      <div className="text-sm font-medium">
-                        Total Qty: {items.reduce((sum, item) => sum + item.quantity, 0)}
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="space-y-2">
-                      {items.map((item, index) => <div key={item.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                          <div className="flex items-center gap-4">
-                            <Badge variant="outline" className="font-mono">
-                              #{index + 1}
-                            </Badge>
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">Serial:</span>
-                                <code className="bg-background px-2 py-1 rounded text-sm">
-                                  {item.serialNumber}
-                                </code>
-                              </div>
-                              {item.sku && <div className="flex items-center gap-2">
-                                  <span className="text-sm text-muted-foreground">SKU:</span>
-                                  <code className="bg-background px-2 py-1 rounded text-xs">
-                                    {item.sku}
-                                  </code>
-                                </div>}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <Badge variant={item.status === 'in-stock' ? 'default' : 'secondary'}>
-                              {item.status}
-                            </Badge>
-                            <div className="text-right">
-                              <div className="font-medium">Qty: {item.quantity}</div>
-                              <div className="text-xs text-muted-foreground">
-                                {new Date(item.dateAdded).toLocaleDateString()}
-                              </div>
-                            </div>
-                          </div>
-                        </div>)}
-                    </div>
-                  </CardContent>
-                </Card>)}
-            </div>
-            
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDuplicateDialogOpen(false)}>
-                Close
-              </Button>
-            </DialogFooter>
-            </DialogContent>
-          </Dialog>
     </div>;
 }
