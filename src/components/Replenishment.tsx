@@ -38,10 +38,8 @@ interface RestockItem {
 interface SalesData {
   period: string;
   asin_sold: number;
-  sku_sold: number;
   total_sold: number;
   asin_restocked: number;
-  sku_restocked: number;
   total_restocked: number;
   sell_rate: number;
 }
@@ -844,32 +842,23 @@ export function Replenishment() {
 
         // Query ASIN inventory for sales data
         let asinSalesQuery = supabase.from('asin_inventory').select('*').eq('status', 'sold').eq('country', selectedCountry) // Filter by selected country
+        .eq('eligible_for_restock', true)
         .gte('date_sold', startDate.toISOString());
         let asinRestockQuery = supabase.from('asin_inventory').select('restock_quantity').eq('country', selectedCountry) // Filter by selected country
         .eq('eligible_for_restock', true)
         .not('last_restock_date', 'is', null).gte('last_restock_date', startDate.toISOString());
-        let skuSalesQuery = supabase.from('sku_inventory').select('*').eq('status', 'sold').eq('country', selectedCountry) // Filter by selected country
-        .gte('date_sold', startDate.toISOString());
-        let skuRestockQuery = supabase.from('sku_inventory').select('restock_quantity').eq('country', selectedCountry) // Filter by selected country
-        .not('last_restock_date', 'is', null).gte('last_restock_date', startDate.toISOString());
-        const [asinSalesData, asinRestockData, skuSalesData, skuRestockData] = await Promise.all([asinSalesQuery, asinRestockQuery, skuSalesQuery, skuRestockQuery]);
+        const [asinSalesData, asinRestockData] = await Promise.all([asinSalesQuery, asinRestockQuery]);
         if (asinSalesData.error) throw asinSalesData.error;
         if (asinRestockData.error) throw asinRestockData.error;
-        if (skuSalesData.error) throw skuSalesData.error;
-        if (skuRestockData.error) throw skuRestockData.error;
         const asinSoldCount = asinSalesData.data?.length || 0;
-        const skuSoldCount = skuSalesData.data?.length || 0;
-        const totalSold = asinSoldCount + skuSoldCount;
+        const totalSold = asinSoldCount;
         const asinRestockedQty = asinRestockData.data?.reduce((sum, item) => sum + (item.restock_quantity || 0), 0) || 0;
-        const skuRestockedQty = skuRestockData.data?.reduce((sum, item) => sum + (item.restock_quantity || 0), 0) || 0;
-        const totalRestocked = asinRestockedQty + skuRestockedQty;
+        const totalRestocked = asinRestockedQty;
         salesAnalytics.push({
           period: `${days}d`,
           asin_sold: asinSoldCount,
-          sku_sold: skuSoldCount,
           total_sold: totalSold,
           asin_restocked: asinRestockedQty,
-          sku_restocked: skuRestockedQty,
           total_restocked: totalRestocked,
           sell_rate: totalSold / days
         });
@@ -949,15 +938,9 @@ export function Replenishment() {
       const updatePromises = Array.from(selectedItems).map(async itemId => {
         const item = restockItems.find(i => i.id === itemId);
         if (!item) return;
-        if (item.table_name === 'asin_inventory') {
-          return supabase.from('asin_inventory').update({
-            status: 'ordered'
-          }).eq('id', itemId);
-        } else if (item.table_name === 'sku_inventory') {
-          return supabase.from('sku_inventory').update({
-            status: 'ordered'
-          }).eq('id', itemId);
-        }
+        return supabase.from('asin_inventory').update({
+          status: 'ordered'
+        }).eq('id', itemId);
       });
       const results = await Promise.all(updatePromises);
       const errors = results.filter(result => result?.error);
@@ -1235,15 +1218,9 @@ export function Replenishment() {
         const item = restockItems.find(i => i.id === itemId);
         if (!item) return;
         
-        if (item.table_name === 'asin_inventory') {
-          return supabase.from('asin_inventory').update({
-            status: 'ordered'
-          }).eq('id', itemId);
-        } else if (item.table_name === 'sku_inventory') {
-          return supabase.from('sku_inventory').update({
-            status: 'ordered'
-          }).eq('id', itemId);
-        }
+        return supabase.from('asin_inventory').update({
+          status: 'ordered'
+        }).eq('id', itemId);
       });
 
       await Promise.all(updatePromises);
@@ -1378,7 +1355,7 @@ export function Replenishment() {
 
   // Export data functions
   const exportSalesData = () => {
-    const csvContent = [['Period', 'ASIN Sold', 'SKU Sold', 'Total Sold', 'ASIN Restocked', 'SKU Restocked', 'Total Restocked', 'Daily Sell Rate'], ...salesData.map(item => [item.period, item.asin_sold, item.sku_sold, item.total_sold, item.asin_restocked, item.sku_restocked, item.total_restocked, item.sell_rate.toFixed(2)])].map(row => row.join(',')).join('\n');
+    const csvContent = [['Period', 'ASIN Sold', 'Total Sold', 'ASIN Restocked', 'Total Restocked', 'Daily Sell Rate'], ...salesData.map(item => [item.period, item.asin_sold, item.total_sold, item.asin_restocked, item.total_restocked, item.sell_rate.toFixed(2)])].map(row => row.join(',')).join('\n');
     downloadCSV(csvContent, `sales-data-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`);
   };
   
