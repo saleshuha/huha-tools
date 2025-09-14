@@ -321,8 +321,9 @@ export function Replenishment() {
       
       const [asinAll, skuAll] = await Promise.all([
         supabase.from('asin_inventory')
-          .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added, notes')
-          .eq('country', selectedCountry),
+          .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added, notes, eligible_for_restock')
+          .eq('country', selectedCountry)
+          .eq('eligible_for_restock', true),
         supabase.from('sku_inventory')
           .select('id, sku_number, bin_serial_number, quantity, status, last_restock_date, date_sold, date_added')
           .eq('country', selectedCountry)
