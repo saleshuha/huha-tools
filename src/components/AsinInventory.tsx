@@ -75,7 +75,7 @@ export function AsinInventory() {
   const [qzConnected, setQzConnected] = useState(false);
   const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
   const [selectedPrinter, setSelectedPrinter] = useState<string>('');
-  const [selectedForPrint, setSelectedForPrint] = useState<Set<string>>(new Set());
+  
   const [availableTemplates, setAvailableTemplates] = useState<any[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [isBulkStatusDialogOpen, setIsBulkStatusDialogOpen] = useState(false);
@@ -843,7 +843,7 @@ export function AsinInventory() {
       return;
     }
 
-    if (selectedForPrint.size === 0) {
+    if (selectedItems.size === 0) {
       toast({
         title: "No Items Selected",
         description: "Please select items to print",
@@ -854,7 +854,7 @@ export function AsinInventory() {
 
     try {
       // Get selected items
-      const selectedItems = inventory.filter(item => selectedForPrint.has(item.id));
+      const selectedInventoryItems = inventory.filter(item => selectedItems.has(item.id));
 
       // Get template data
       const { data: template, error } = await supabase
@@ -880,7 +880,7 @@ export function AsinInventory() {
       };
 
       // Create dataset with selected items
-      const dataset = createDatasetFromItems(selectedItems);
+      const dataset = createDatasetFromItems(selectedInventoryItems);
 
       // Generate ZPL using PrintService
       const zplCode = PrintService.generateZPL(labelDoc, dataset, getPrintSettings());
@@ -890,11 +890,11 @@ export function AsinInventory() {
 
       toast({
         title: "Labels Printed",
-        description: `Printed ${selectedItems.length} labels`,
+        description: `Printed ${selectedInventoryItems.length} labels`,
       });
 
       // Clear selection
-      setSelectedForPrint(new Set());
+      setSelectedItems(new Set());
     } catch (error) {
       console.error('Error bulk printing:', error);
       toast({
@@ -1227,11 +1227,11 @@ export function AsinInventory() {
                       size="sm" 
                       variant="outline" 
                       onClick={handleBulkPrint}
-                      disabled={!qzConnected || !selectedTemplate || selectedForPrint.size === 0}
+                      disabled={!qzConnected || !selectedTemplate || selectedItems.size === 0}
                       className="border-2 border-primary bg-background hover:bg-blue-500 hover:text-white hover:border-blue-500 transition-all"
                     >
                       <Printer className="h-4 w-4 mr-2" />
-                      Print Selected ({selectedForPrint.size})
+                      Print Selected ({selectedItems.size})
                     </Button>
                   </div>
 
@@ -1516,30 +1516,8 @@ export function AsinInventory() {
                       </td>
                         <td className="p-3">
                           <div className="flex gap-2">
-                            <Checkbox
-                              checked={selectedForPrint.has(item.id)}
-                              onCheckedChange={(checked) => {
-                                const newSelection = new Set(selectedForPrint);
-                                if (checked) {
-                                  newSelection.add(item.id);
-                                } else {
-                                  newSelection.delete(item.id);
-                                }
-                                setSelectedForPrint(newSelection);
-                              }}
-                            />
                             <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
                             <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="w-8 h-8 p-0" 
-                              onClick={() => handlePrintItem(item)} 
-                              title="Print Label"
-                              disabled={!qzConnected || !selectedTemplate}
-                            >
-                              <Printer className="w-4 h-4" />
-                            </Button>
                           </div>
                         </td>
                     </tr>)}
@@ -1596,31 +1574,9 @@ export function AsinInventory() {
                     </div>
                   </div>
                    <div className="flex items-center gap-2">
-                     <Checkbox
-                       checked={selectedForPrint.has(item.id)}
-                       onCheckedChange={(checked) => {
-                         const newSelection = new Set(selectedForPrint);
-                         if (checked) {
-                           newSelection.add(item.id);
-                         } else {
-                           newSelection.delete(item.id);
-                         }
-                         setSelectedForPrint(newSelection);
-                       }}
-                     />
-                     <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
-                     <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
-                     <Button 
-                       variant="outline" 
-                       size="sm" 
-                       className="w-8 h-8 p-0" 
-                       onClick={() => handlePrintItem(item)} 
-                       title="Print Label"
-                       disabled={!qzConnected || !selectedTemplate}
-                     >
-                       <Printer className="w-4 h-4" />
-                     </Button>
-                   </div>
+                      <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
+                      <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
+                    </div>
                 </div>
               </CardContent>
             </Card>)}
