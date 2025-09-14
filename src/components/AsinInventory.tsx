@@ -11,6 +11,7 @@ import { Progress } from './ui/progress';
 import { Calendar } from './ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Slider } from './ui/slider';
+import { Switch } from './ui/switch';
 import { useLabelPrintSettings } from '@/hooks/usePrintSettings';
 import { useToast } from '@/hooks/use-toast';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from './ui/pagination';
@@ -1298,18 +1299,23 @@ export function AsinInventory() {
                       </td>
                        <td className="p-3 border-r">
                          <div className="space-y-2">
-                           <div className="flex items-center gap-2">
-                             <Checkbox
+                           <div className="flex items-center gap-3">
+                             <Switch
                                id={`restock-${item.id}`}
                                checked={item.eligible_for_restock || false}
-                               onCheckedChange={(checked) => handleRestockEligibilityChange(item.id, checked as boolean)}
+                               onCheckedChange={(checked) => handleRestockEligibilityChange(item.id, checked)}
                              />
-                             <Label htmlFor={`restock-${item.id}`} className="text-sm font-medium">
-                               {item.eligible_for_restock ? 'Eligible' : 'Not Eligible'}
-                             </Label>
+                             <div className="flex flex-col">
+                               <Label htmlFor={`restock-${item.id}`} className="text-sm font-medium">
+                                 Restock
+                               </Label>
+                               <Badge variant={item.eligible_for_restock ? 'default' : 'secondary'} className="text-xs w-fit">
+                                 {item.eligible_for_restock ? 'Eligible' : 'Not Eligible'}
+                               </Badge>
+                             </div>
                            </div>
                            {item.eligible_for_restock && (
-                             <div className="text-xs text-muted-foreground space-y-1">
+                             <div className="text-xs text-muted-foreground space-y-1 ml-12">
                                {item.lastRestockDate && (
                                  <div>Last: {new Date(item.lastRestockDate).toLocaleDateString()}</div>
                                )}
