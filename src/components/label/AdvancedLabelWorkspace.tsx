@@ -709,6 +709,7 @@ export const AdvancedLabelWorkspace: React.FC = () => {
   const renderElement = useCallback((element: LabelElement) => {
     const isSelected = selectedElement?.id === element.id || selectedElements.has(element.id);
     
+    const elementIndex = document.elements.findIndex(el => el.id === element.id);
     const baseStyle: React.CSSProperties = {
       position: 'absolute',
       left: element.x,
@@ -720,6 +721,7 @@ export const AdvancedLabelWorkspace: React.FC = () => {
       transform: element.rotation ? `rotate(${element.rotation}deg)` : undefined,
       boxShadow: isSelected ? '0 0 0 1px rgba(var(--primary), 0.3)' : 'none',
       boxSizing: 'border-box',
+      zIndex: elementIndex,
     };
 
     const elementContent = (() => {
@@ -740,6 +742,10 @@ export const AdvancedLabelWorkspace: React.FC = () => {
                 width: '100%',
                 height: '100%',
                 boxSizing: 'border-box',
+                overflow: 'hidden',
+                wordWrap: 'break-word',
+                whiteSpace: 'nowrap',
+                textOverflow: 'ellipsis',
               }}
             >
               {getDisplayText(element, 'Sample Text')}
