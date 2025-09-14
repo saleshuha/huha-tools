@@ -547,6 +547,12 @@ export function AsinInventory() {
     }
   };
 
+  // Handler to save template selection automatically
+  const handleTemplateSelection = (templateId: string) => {
+    setSelectedTemplate(templateId);
+    localStorage.setItem('savedLabelTemplate', templateId);
+  };
+
   const loadTemplates = async () => {
     try {
       const { data: templates, error } = await supabase
@@ -1017,7 +1023,7 @@ export function AsinInventory() {
 
                   {/* Print Settings */}
                   <div className="flex items-center gap-4 flex-wrap">
-                    <Select value={selectedTemplate || ''} onValueChange={setSelectedTemplate}>
+                    <Select value={selectedTemplate || ''} onValueChange={handleTemplateSelection}>
                       <SelectTrigger className="w-48">
                         <SelectValue placeholder="Select template" />
                       </SelectTrigger>
