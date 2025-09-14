@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Progress } from './ui/progress';
 import { Calendar } from './ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { Slider } from './ui/slider';
 import { useLabelPrintSettings } from '@/hooks/usePrintSettings';
 import { useToast } from '@/hooks/use-toast';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from './ui/pagination';
@@ -1196,7 +1197,7 @@ export function AsinInventory() {
                   <SimpleWarehouseManager />
 
                   {/* Print Settings */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-4 flex-wrap">
                     <Select value={selectedTemplate || ''} onValueChange={setSelectedTemplate}>
                       <SelectTrigger className="w-48">
                         <SelectValue placeholder="Select template" />
@@ -1209,6 +1210,20 @@ export function AsinInventory() {
                         ))}
                       </SelectContent>
                     </Select>
+                    
+                    {/* Darkness Control */}
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm font-medium text-muted-foreground">Darkness:</label>
+                      <Slider
+                        value={[printSettings.darkness]}
+                        onValueChange={(value) => setPrintSettings({...printSettings, darkness: value[0]})}
+                        max={30}
+                        min={0}
+                        step={1}
+                        className="w-20"
+                      />
+                      <span className="text-sm text-muted-foreground w-6">{printSettings.darkness}</span>
+                    </div>
                     
                     <Button 
                       size="sm" 
