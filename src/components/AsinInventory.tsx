@@ -1338,6 +1338,7 @@ export function AsinInventory() {
                                 id={`restock-${item.id}`}
                                 checked={item.eligible_for_restock || false}
                                 onCheckedChange={(checked) => handleRestockEligibilityChange(item.id, checked)}
+                                className="border-2 border-border data-[state=checked]:border-primary"
                               />
                               <Label htmlFor={`restock-${item.id}`} className="text-sm font-medium">
                                 Restock
