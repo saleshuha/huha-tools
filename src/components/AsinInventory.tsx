@@ -86,6 +86,8 @@ export function AsinInventory() {
   const [bulkStatusValue, setBulkStatusValue] = useState<AsinInventoryItem['status']>('in-stock');
   const [bulkQuantityValue, setBulkQuantityValue] = useState(1);
   const [bulkQuantityReason, setBulkQuantityReason] = useState('');
+  const [isBulkRestockEligibilityDialogOpen, setIsBulkRestockEligibilityDialogOpen] = useState(false);
+  const [bulkRestockEligibilityValue, setBulkRestockEligibilityValue] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const [quickFilter, setQuickFilter] = useState<'all' | 'low-stock' | 'out-of-stock' | 'recent'>('all');
@@ -769,6 +771,41 @@ export function AsinInventory() {
     await updateRestockEligibility(itemId, eligible);
   };
 
+  const handleBulkRestockEligibilityUpdate = async () => {
+    if (selectedItems.size === 0) {
+      toast({
+        title: "No Items Selected",
+        description: "Please select items to update",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const selectedItemsList = Array.from(selectedItems).map(id => 
+        inventory.find(item => item.id === id)
+      ).filter(Boolean) as AsinInventoryItem[];
+
+      for (const item of selectedItemsList) {
+        await updateRestockEligibility(item.id, bulkRestockEligibilityValue);
+      }
+
+      toast({
+        title: "Bulk Update Complete",
+        description: `Updated restock eligibility for ${selectedItems.size} items`,
+      });
+
+      setSelectedItems(new Set());
+      setIsBulkRestockEligibilityDialogOpen(false);
+    } catch (error: any) {
+      toast({
+        title: "Update Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-4">
@@ -1060,6 +1097,19 @@ export function AsinInventory() {
                       <Printer className="h-4 w-4 mr-2" />
                       Print Selected ({selectedItems.size})
                     </Button>
+
+                    {/* Bulk Restock Eligibility */}
+                    {selectedItems.size > 0 && (
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        onClick={() => setIsBulkRestockEligibilityDialogOpen(true)}
+                        className="border-2 border-accent bg-background hover:bg-accent hover:text-accent-foreground transition-all"
+                      >
+                        <Archive className="h-4 w-4 mr-2" />
+                        Bulk Restock ({selectedItems.size})
+                      </Button>
+                    )}
                   </div>
 
                   {/* Export */}
@@ -1516,6 +1566,42 @@ export function AsinInventory() {
             </Select>
           </div>}
         
+        {/* Bulk Restock Eligibility Dialog */}
+        <Dialog open={isBulkRestockEligibilityDialogOpen} onOpenChange={setIsBulkRestockEligibilityDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Bulk Update Restock Eligibility</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="bulk-restock-eligibility"
+                  checked={bulkRestockEligibilityValue}
+                  onCheckedChange={setBulkRestockEligibilityValue}
+                />
+                <Label htmlFor="bulk-restock-eligibility">
+                  {bulkRestockEligibilityValue ? 'Enable' : 'Disable'} restock eligibility
+                </Label>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                This will {bulkRestockEligibilityValue ? 'enable' : 'disable'} restock eligibility for {selectedItems.size} selected items.
+                {bulkRestockEligibilityValue 
+                  ? ' Items will appear in replenishment tracking and analytics.' 
+                  : ' Items will be excluded from replenishment tracking and analytics.'
+                }
+              </p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsBulkRestockEligibilityDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleBulkRestockEligibilityUpdate}>
+                Update {selectedItems.size} Items
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {/* Image Preview Dialog */}
         <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
           <DialogContent className="max-w-4xl">
