@@ -276,8 +276,9 @@ export class PrintService {
           dataRow, 
           resolved: content 
         });
-        // Improved font scaling for ZPL - use actual element height for better sizing
-        const fontSize = Math.max(8, Math.round(this.mmToDots(elementHeightMM * 0.8, dpi)));
+        // Fix font sizing for ZPL - use element's font size or reasonable default based on element height
+        const baseFontSize = element.fontSize || 12; // Use element's font size as base
+        const fontSize = Math.max(10, Math.min(50, Math.round(baseFontSize * elementHeightMM / 5))); // Scale reasonably
         return `^FO${x},${y}^A0N,${fontSize},${Math.round(fontSize * 0.8)}^FD${content}^FS\n`;
 
       case 'multitext':
@@ -288,11 +289,14 @@ export class PrintService {
           dataRow, 
           resolved: multiContent 
         });
-        const multiFontSize = Math.max(6, Math.round(this.mmToDots(elementHeightMM * 0.6, dpi)));
+        // Fix multitext font sizing for ZPL
+        const multiBaseFontSize = element.fontSize || 10;
+        const multiFontSize = Math.max(8, Math.min(40, Math.round(multiBaseFontSize * elementHeightMM / 6)));
         const lineHeight = Math.round(multiFontSize * 1.2);
         
-        // Better line wrapping for ZPL - use actual element dimensions
-        const maxCharsPerLine = Math.floor(elementWidthMM / (multiFontSize * 0.6 / dpi * 25.4));
+        // Better line wrapping for ZPL - use character width estimation
+        const estimatedCharWidth = multiFontSize * 0.6; // Estimate character width in dots
+        const maxCharsPerLine = Math.floor(elementWidthDots / estimatedCharWidth);
         let zplOutput = '';
         
         // Split content into lines that fit within the element width
