@@ -279,7 +279,16 @@ export class PrintService {
         // Scale font size properly for ZPL - screen font sizes need to be larger for ZPL output
         const baseFontSize = element.fontSize || 12;
         const fontSize = Math.max(20, Math.min(100, Math.round(baseFontSize * 3))); // Scale up 3x for ZPL
-        return `^FO${x},${y}^A0N,${fontSize},${Math.round(fontSize * 0.8)}^FD${content}^FS\n`;
+        const fontWidth = Math.round(fontSize * 0.6); // Calculate font width for text fitting
+        
+        // Truncate text if it exceeds element width
+        let displayContent = content;
+        const maxCharsForSingleLine = Math.max(1, Math.floor(elementWidthDots / fontWidth));
+        if (content.length > maxCharsForSingleLine) {
+          displayContent = content.substring(0, maxCharsForSingleLine - 3) + '...';
+        }
+        
+        return `^FO${x},${y}^A0N,${fontSize},${Math.round(fontSize * 0.8)}^FD${displayContent}^FS\n`;
 
       case 'multitext':
         const multiContent = resolveMappedContent(element, dataRow, dataset?.headers || []);
@@ -292,11 +301,11 @@ export class PrintService {
         // Scale multitext font size properly for ZPL
         const multiBaseFontSize = element.fontSize || 10;
         const multiFontSize = Math.max(18, Math.min(80, Math.round(multiBaseFontSize * 3))); // Scale up 3x for ZPL
-        const lineHeight = Math.round(multiFontSize * 1.2);
+        const lineHeight = Math.round(multiFontSize * 0.9); // Reduce line spacing
         
         // Better line wrapping for ZPL - use character width estimation
-        const estimatedCharWidth = multiFontSize * 0.6; // Estimate character width in dots
-        const maxCharsPerLine = Math.floor(elementWidthDots / estimatedCharWidth);
+        const estimatedCharWidth = multiFontSize * 0.5; // More accurate character width estimation
+        const maxCharsPerLine = Math.max(1, Math.floor(elementWidthDots / estimatedCharWidth));
         let zplOutput = '';
         
         // Split content into lines that fit within the element width
