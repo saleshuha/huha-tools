@@ -107,27 +107,39 @@ export function AsinInventory() {
     
     if (!productImage) {
       return (
-        <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-border">
-          <Eye className="w-4 h-4 text-muted-foreground" />
+        <div className="w-20 h-20 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-border">
+          <Eye className="w-6 h-6 text-muted-foreground" />
         </div>
       );
     }
 
     return (
-      <div 
-        className="w-12 h-12 rounded-lg overflow-hidden border-2 border-border cursor-pointer hover:border-primary transition-colors"
-        onClick={() => handleImagePreview(productImage.image_url)}
-      >
-        <img 
-          src={productImage.image_url} 
-          alt={`Product image for ${asin}`}
-          className="w-full h-full object-cover"
-          onError={(e) => {
-            e.currentTarget.style.display = 'none';
-            e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-full bg-muted flex items-center justify-center"><Eye class="w-4 h-4 text-muted-foreground" /></div>';
-          }}
-        />
-      </div>
+      <Popover>
+        <PopoverTrigger asChild>
+          <div 
+            className="w-20 h-20 rounded-lg overflow-hidden border-2 border-border cursor-pointer hover:border-primary transition-colors"
+          >
+            <img 
+              src={productImage.image_url} 
+              alt={`Product image for ${asin}`}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-full bg-muted flex items-center justify-center"><Eye class="w-6 h-6 text-muted-foreground" /></div>';
+              }}
+            />
+          </div>
+        </PopoverTrigger>
+        <PopoverContent side="left" className="w-80 p-2">
+          <div className="w-full h-64 rounded-lg overflow-hidden">
+            <img 
+              src={productImage.image_url} 
+              alt={`Product preview for ${asin}`}
+              className="w-full h-full object-contain bg-white"
+            />
+          </div>
+        </PopoverContent>
+      </Popover>
     );
   };
   
@@ -1403,7 +1415,7 @@ export function AsinInventory() {
                     }
                   }} />
                      </th>
-                      <th className="min-w-60 p-3 text-left font-medium border-r">
+                      <th className="min-w-80 p-3 text-left font-medium border-r">
                         <button className="flex items-center gap-2 hover:text-primary transition-colors" onClick={() => {
                     if (sortBy === 'title') {
                       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
