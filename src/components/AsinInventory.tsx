@@ -1518,6 +1518,16 @@ export function AsinInventory() {
                           <div className="flex gap-2">
                             <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
                             <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="w-8 h-8 p-0" 
+                              onClick={() => handlePrintItem(item)} 
+                              title="Print Label"
+                              disabled={!qzConnected || !selectedTemplate}
+                            >
+                              <Printer className="w-4 h-4" />
+                            </Button>
                           </div>
                         </td>
                     </tr>)}
