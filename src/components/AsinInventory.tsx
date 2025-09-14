@@ -781,7 +781,7 @@ export function AsinInventory() {
       {/* Prominent Search Bar */}
       <Card className="border-2 border-input border-l-4 border-l-primary shadow-xl bg-gradient-to-r from-card/80 to-card/60 backdrop-blur-md">
         <CardContent className="p-6">
-          <div className="space-y-6">
+          <div className="space-y-4">
             {/* Modern Search Bar */}
             <div className="relative">
               <div className="flex items-stretch gap-0 bg-background rounded-xl border-2 border-green-500 shadow-lg overflow-hidden hover:shadow-xl hover:border-green-600 transition-all duration-300">
