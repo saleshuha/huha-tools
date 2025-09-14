@@ -107,7 +107,7 @@ export function AsinInventory() {
     
     if (!productImage) {
       return (
-        <div className="w-20 h-20 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-border">
+        <div className="w-20 h-20 min-w-[5rem] min-h-[5rem] bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-border flex-shrink-0">
           <Eye className="w-6 h-6 text-muted-foreground" />
         </div>
       );
@@ -117,7 +117,7 @@ export function AsinInventory() {
       <Popover>
         <PopoverTrigger asChild>
           <div 
-            className="w-20 h-20 rounded-lg overflow-hidden border-2 border-border cursor-pointer hover:border-primary transition-colors"
+            className="w-20 h-20 min-w-[5rem] min-h-[5rem] rounded-lg overflow-hidden border-2 border-border cursor-pointer hover:border-primary transition-colors flex-shrink-0"
           >
             <img 
               src={productImage.image_url} 
@@ -131,11 +131,11 @@ export function AsinInventory() {
           </div>
         </PopoverTrigger>
         <PopoverContent side="left" className="w-80 p-2">
-          <div className="w-full h-64 rounded-lg overflow-hidden">
+          <div className="w-full h-64 rounded-lg overflow-hidden bg-white">
             <img 
               src={productImage.image_url} 
               alt={`Product preview for ${asin}`}
-              className="w-full h-full object-contain bg-white"
+              className="w-full h-full object-contain"
             />
           </div>
         </PopoverContent>
