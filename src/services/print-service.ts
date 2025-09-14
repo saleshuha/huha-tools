@@ -276,9 +276,9 @@ export class PrintService {
           dataRow, 
           resolved: content 
         });
-        // Fix font sizing for ZPL - use element's font size or reasonable default based on element height
-        const baseFontSize = element.fontSize || 12; // Use element's font size as base
-        const fontSize = Math.max(10, Math.min(50, Math.round(baseFontSize * elementHeightMM / 5))); // Scale reasonably
+        // Use the element's font size directly with minimal scaling for ZPL
+        const baseFontSize = element.fontSize || 12;
+        const fontSize = Math.max(8, Math.min(72, baseFontSize)); // Use font size as-is, just constrain to reasonable bounds
         return `^FO${x},${y}^A0N,${fontSize},${Math.round(fontSize * 0.8)}^FD${content}^FS\n`;
 
       case 'multitext':
@@ -289,9 +289,9 @@ export class PrintService {
           dataRow, 
           resolved: multiContent 
         });
-        // Fix multitext font sizing for ZPL
+        // Use the element's font size directly for multitext
         const multiBaseFontSize = element.fontSize || 10;
-        const multiFontSize = Math.max(8, Math.min(40, Math.round(multiBaseFontSize * elementHeightMM / 6)));
+        const multiFontSize = Math.max(6, Math.min(48, multiBaseFontSize)); // Use font size as-is, just constrain bounds
         const lineHeight = Math.round(multiFontSize * 1.2);
         
         // Better line wrapping for ZPL - use character width estimation
