@@ -63,11 +63,12 @@ export function useInventoryAnalytics() {
         const startDate = new Date(now);
         startDate.setDate(startDate.getDate() - days);
 
-        // Query ASIN inventory for sold items
+        // Query ASIN inventory for sold items (eligible for restock only)
         let asinQuery = supabase
           .from('asin_inventory')
           .select('id')
           .eq('status', 'sold')
+          .eq('eligible_for_restock', true)
           .gte('date_sold', startDate.toISOString());
 
         if (country) {
@@ -75,19 +76,6 @@ export function useInventoryAnalytics() {
         }
 
         const { data: asinSold } = await asinQuery;
-
-        // Query SKU inventory for sold items
-        let skuQuery = supabase
-          .from('sku_inventory')
-          .select('id')
-          .eq('status', 'sold')
-          .gte('date_sold', startDate.toISOString());
-
-        if (country) {
-          skuQuery = skuQuery.eq('country', country);
-        }
-
-        const { data: skuSold } = await skuQuery;
 
         // Query stock changes for restocked items (positive changes)
         let stockChangesQuery = supabase
@@ -106,15 +94,8 @@ export function useInventoryAnalytics() {
             .eq('eligible_for_restock', true)
             .or('last_restock_date.not.is.null,quantity.gt.0');
 
-          let skuRestockQuery = supabase
-            .from('sku_inventory')
-            .select('restock_quantity, quantity')
-            .eq('country', country)
-            .or('last_restock_date.not.is.null,quantity.gt.0');
-
-          const [{ data: asinRestocked }, { data: skuRestocked }, { data: stockChanges }] = await Promise.all([
+          const [{ data: asinRestocked }, { data: stockChanges }] = await Promise.all([
             asinRestockQuery,
-            skuRestockQuery,
             stockChangesQuery
           ]);
 
@@ -124,60 +105,47 @@ export function useInventoryAnalytics() {
             return sum + (item.restock_quantity || item.quantity || 0);
           }, 0) || 0;
 
-          const skuRestockTotal = skuRestocked?.reduce((sum, item) => {
-            return sum + (item.restock_quantity || item.quantity || 0);
-          }, 0) || 0;
-
           const stockChangesTotal = stockChanges?.reduce((sum, change) => sum + change.change_amount, 0) || 0;
 
-          var totalRestocked = asinRestockTotal + skuRestockTotal + stockChangesTotal;
+          var totalRestocked = asinRestockTotal + stockChangesTotal;
         } else {
           const { data: stockChanges } = await stockChangesQuery;
           
-          // For non-country specific, get all inventory quantities
-          const [{ data: allAsin }, { data: allSku }] = await Promise.all([
-            supabase.from('asin_inventory').select('quantity, restock_quantity').neq('status', 'sold').eq('eligible_for_restock', true),
-            supabase.from('sku_inventory').select('quantity, restock_quantity').neq('status', 'sold')
+          // For non-country specific, get all ASIN inventory quantities only
+          const [{ data: allAsin }] = await Promise.all([
+            supabase.from('asin_inventory').select('quantity, restock_quantity').neq('status', 'sold').eq('eligible_for_restock', true)
           ]);
 
           const asinTotal = allAsin?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
-          const skuTotal = allSku?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
           const stockChangesTotal = stockChanges?.reduce((sum, change) => sum + change.change_amount, 0) || 0;
 
-          var totalRestocked = asinTotal + skuTotal + stockChangesTotal;
+          var totalRestocked = asinTotal + stockChangesTotal;
         }
 
-        // Calculate totals
-        const totalSold = (asinSold?.length || 0) + (skuSold?.length || 0);
+        // Calculate totals (only ASIN inventory now)
+        const totalSold = asinSold?.length || 0;
 
         salesTracking[`${days}d`] = totalSold;
         restockTracking[`${days}d`] = totalRestocked;
       }
 
-      // Calculate forecasting metrics
+      // Calculate forecasting metrics for ASIN inventory only
       let totalItemsQuery = supabase
         .from('asin_inventory')
         .select('id, quantity')
-        .eq('status', 'in-stock');
-
-      let totalSkuQuery = supabase
-        .from('sku_inventory')
-        .select('id, quantity')
-        .eq('status', 'in-stock');
+        .eq('status', 'in-stock')
+        .eq('eligible_for_restock', true);
 
       if (country) {
         totalItemsQuery = totalItemsQuery.eq('country', country);
-        totalSkuQuery = totalSkuQuery.eq('country', country);
       }
 
-      const [{ data: asinItems }, { data: skuItems }] = await Promise.all([
-        totalItemsQuery,
-        totalSkuQuery
+      const [{ data: asinItems }] = await Promise.all([
+        totalItemsQuery
       ]);
 
-      const totalActiveItems = (asinItems?.length || 0) + (skuItems?.length || 0);
-      const criticalStockItems = (asinItems?.filter(item => item.quantity <= 1).length || 0) + 
-                                (skuItems?.filter(item => item.quantity <= 1).length || 0);
+      const totalActiveItems = asinItems?.length || 0;
+      const criticalStockItems = asinItems?.filter(item => item.quantity <= 1).length || 0;
 
       setInventoryMetrics({
         salesTracking,
