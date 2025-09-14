@@ -12,10 +12,11 @@ import { Calendar } from './ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Slider } from './ui/slider';
 import { Switch } from './ui/switch';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { useLabelPrintSettings } from '@/hooks/usePrintSettings';
 import { useToast } from '@/hooks/use-toast';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from './ui/pagination';
-import { Package, Plus, Search, Edit, Download, Upload, Check, X, RefreshCw, AlertTriangle, Printer, Hash, Mail, BarChart3, Filter, Grid3X3, List, SortAsc, SortDesc, Calendar as CalendarIcon, TrendingUp, TrendingDown, Eye, Archive, Zap, Clock, ShoppingCart, Trash2, Settings, FileText, Copy, Star, Edit3, Activity, Database } from 'lucide-react';
+import { Package, Plus, Search, Edit, Download, Upload, Check, X, RefreshCw, AlertTriangle, Printer, Hash, Mail, BarChart3, Filter, Grid3X3, List, SortAsc, SortDesc, Calendar as CalendarIcon, TrendingUp, TrendingDown, Eye, Archive, Zap, Clock, ShoppingCart, Trash2, Settings, FileText, Copy, Star, Edit3, Activity, Database, ChevronDown, ChevronUp } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
 import { Textarea } from './ui/textarea';
 import { useAsinInventory, AsinInventoryItem } from '@/hooks/useAsinInventory';
@@ -94,6 +95,7 @@ export function AsinInventory() {
   // Image preview states
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
+  const [isFeaturesOpen, setIsFeaturesOpen] = useState(false);
 
   // Image preview handlers
   const handleImagePreview = (imageUrl: string) => {
@@ -839,8 +841,31 @@ export function AsinInventory() {
               </div>
             </div>
 
-            {/* Action Buttons Row - Organized by Usage */}
-            <div className="space-y-6">
+            {/* Features Toggle */}
+            <Collapsible open={isFeaturesOpen} onOpenChange={setIsFeaturesOpen}>
+              <CollapsibleTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full mt-4 border-2 border-dashed border-muted-foreground/30 hover:border-primary hover:bg-primary/5 transition-all"
+                >
+                  {isFeaturesOpen ? (
+                    <>
+                      <ChevronUp className="w-4 h-4 mr-2" />
+                      Hide Features
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-4 h-4 mr-2" />
+                      Show Features
+                    </>
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+
+              <CollapsibleContent className="mt-6">
+                {/* Action Buttons Row - Organized by Usage */}
+                <div className="space-y-6">
               {/* Primary Actions Section */}
               <div className="space-y-4">
                  <div className="flex flex-wrap gap-3">
@@ -1050,7 +1075,9 @@ export function AsinInventory() {
                   </Button>
                 </div>
               </div>
-            </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
 
             {/* Quick Filters Row */}
             
