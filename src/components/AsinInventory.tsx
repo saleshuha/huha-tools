@@ -1298,24 +1298,22 @@ export function AsinInventory() {
                         </div>
                       </td>
                        <td className="p-3 border-r">
-                         <div className="space-y-2">
-                           <div className="flex items-center gap-3">
+                         <div className="flex flex-col gap-2">
+                           <div className="flex items-center gap-2">
                              <Switch
                                id={`restock-${item.id}`}
                                checked={item.eligible_for_restock || false}
                                onCheckedChange={(checked) => handleRestockEligibilityChange(item.id, checked)}
                              />
-                             <div className="flex flex-col">
-                               <Label htmlFor={`restock-${item.id}`} className="text-sm font-medium">
-                                 Restock
-                               </Label>
-                               <Badge variant={item.eligible_for_restock ? 'default' : 'secondary'} className="text-xs w-fit">
-                                 {item.eligible_for_restock ? 'Eligible' : 'Not Eligible'}
-                               </Badge>
-                             </div>
+                             <Label htmlFor={`restock-${item.id}`} className="text-sm font-medium">
+                               Restock
+                             </Label>
                            </div>
+                           <Badge variant={item.eligible_for_restock ? 'default' : 'secondary'} className="text-xs w-fit">
+                             {item.eligible_for_restock ? 'Eligible' : 'Not Eligible'}
+                           </Badge>
                            {item.eligible_for_restock && (
-                             <div className="text-xs text-muted-foreground space-y-1 ml-12">
+                             <div className="text-xs text-muted-foreground space-y-1">
                                {item.lastRestockDate && (
                                  <div>Last: {new Date(item.lastRestockDate).toLocaleDateString()}</div>
                                )}
