@@ -760,7 +760,8 @@ export function Replenishment() {
           .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added')
           .eq('country', selectedCountry)
           .eq('status', 'ordered')
-          .eq('quantity', 0), 
+          .eq('quantity', 0)
+          .eq('eligible_for_restock', true),
         supabase.from('sku_inventory')
           .select('id, sku_number, bin_serial_number, quantity, status, last_restock_date, date_sold, date_added')
           .eq('country', selectedCountry)
@@ -1523,7 +1524,11 @@ export function Replenishment() {
       startDate.setDate(startDate.getDate() - daysNum);
 
       // Get ASIN data
-      const asinQuery = supabase.from('asin_inventory').select('*').eq('user_id', (await supabase.auth.getUser()).data.user?.id).eq('country', selectedCountry);
+      const asinQuery = supabase.from('asin_inventory')
+        .select('*')
+        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .eq('country', selectedCountry)
+        .eq('eligible_for_restock', true);
 
       // Get SKU data
       const skuQuery = supabase.from('sku_inventory').select('*').eq('user_id', (await supabase.auth.getUser()).data.user?.id).eq('country', selectedCountry);
@@ -1719,7 +1724,17 @@ export function Replenishment() {
   const openActiveItemsDialog = async () => {
     try {
       // Get all active items from both tables
-      const [asinData, skuData] = await Promise.all([supabase.from('asin_inventory').select('*').eq('country', selectedCountry).eq('status', 'in-stock'), supabase.from('sku_inventory').select('*').eq('country', selectedCountry).eq('status', 'in-stock')]);
+      const [asinData, skuData] = await Promise.all([
+        supabase.from('asin_inventory')
+          .select('*')
+          .eq('country', selectedCountry)
+          .eq('status', 'in-stock')
+          .eq('eligible_for_restock', true), 
+        supabase.from('sku_inventory')
+          .select('*')
+          .eq('country', selectedCountry)
+          .eq('status', 'in-stock')
+      ]);
       if (asinData.error) throw asinData.error;
       if (skuData.error) throw skuData.error;
       const activeItemsData = [...(asinData.data || []).map(item => ({
