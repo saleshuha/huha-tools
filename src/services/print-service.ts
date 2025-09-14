@@ -218,21 +218,38 @@ export class PrintService {
     dpi: number,
     labelSizeMM?: { width: number; height: number }
   ): string {
-    // Convert element position from pixels to dots, with bounds checking
-    let x = this.mmToDots(pxToMM(element.x), dpi);
-    let y = this.mmToDots(pxToMM(element.y), dpi);
+    // Direct coordinate conversion - elements are already positioned correctly on canvas
+    // Canvas uses pixel coordinates that directly correspond to the label's millimeter dimensions
+    // Convert from canvas pixels to ZPL dots using proper scaling
+    
+    if (!labelSizeMM) {
+      console.warn('Label size not provided for ZPL conversion');
+      return '';
+    }
+
+    // Calculate the scale factor between canvas pixels and actual millimeters
+    const canvasWidthPx = mmToPx(labelSizeMM.width);  // Canvas width in pixels
+    const canvasHeightPx = mmToPx(labelSizeMM.height); // Canvas height in pixels
+    
+    // Convert element position from canvas pixels to millimeters proportionally
+    const elementXMM = (element.x / canvasWidthPx) * labelSizeMM.width;
+    const elementYMM = (element.y / canvasHeightPx) * labelSizeMM.height;
+    const elementWidthMM = (element.width / canvasWidthPx) * labelSizeMM.width;
+    const elementHeightMM = (element.height / canvasHeightPx) * labelSizeMM.height;
+    
+    // Convert to ZPL dots
+    let x = Math.round(this.mmToDots(elementXMM, dpi));
+    let y = Math.round(this.mmToDots(elementYMM, dpi));
     
     // Ensure elements don't exceed label boundaries
-    if (labelSizeMM) {
-      const maxX = this.mmToDots(labelSizeMM.width, dpi);
-      const maxY = this.mmToDots(labelSizeMM.height, dpi);
-      const elementWidthDots = this.mmToDots(pxToMM(element.width), dpi);
-      const elementHeightDots = this.mmToDots(pxToMM(element.height), dpi);
-      
-      // Constrain position to label bounds
-      x = Math.max(0, Math.min(x, maxX - elementWidthDots));
-      y = Math.max(0, Math.min(y, maxY - elementHeightDots));
-    }
+    const maxX = this.mmToDots(labelSizeMM.width, dpi);
+    const maxY = this.mmToDots(labelSizeMM.height, dpi);
+    const elementWidthDots = Math.round(this.mmToDots(elementWidthMM, dpi));
+    const elementHeightDots = Math.round(this.mmToDots(elementHeightMM, dpi));
+    
+    // Constrain position to label bounds
+    x = Math.max(0, Math.min(x, maxX - elementWidthDots));
+    y = Math.max(0, Math.min(y, maxY - elementHeightDots));
 
     console.log('Element positioning:', { 
       type: element.type,
@@ -240,6 +257,10 @@ export class PrintService {
       originalY: element.y,
       elementWidth: element.width,
       elementHeight: element.height,
+      elementXMM,
+      elementYMM,
+      elementWidthMM,
+      elementHeightMM,
       constrainedX: x, 
       constrainedY: y,
       labelSizeMM,
@@ -255,8 +276,10 @@ export class PrintService {
           dataRow, 
           resolved: content 
         });
-        const fontSize = Math.round((element.fontSize || 12) / 3); // ZPL font scaling
-        return `^FO${x},${y}^A0N,${fontSize * 10},${fontSize * 8}^FD${content}^FS\n`;
+        // Fix font sizing for ZPL - use element's font size or reasonable default based on element height
+        const baseFontSize = element.fontSize || 12; // Use element's font size as base
+        const fontSize = Math.max(10, Math.min(50, Math.round(baseFontSize * elementHeightMM / 5))); // Scale reasonably
+        return `^FO${x},${y}^A0N,${fontSize},${Math.round(fontSize * 0.8)}^FD${content}^FS\n`;
 
       case 'multitext':
         const multiContent = resolveMappedContent(element, dataRow, dataset?.headers || []);
@@ -266,21 +289,20 @@ export class PrintService {
           dataRow, 
           resolved: multiContent 
         });
-        const multiFontSize = Math.round((element.fontSize || 10) / 3);
-        const lineHeight = Math.round((element.lineHeight || 1.2) * multiFontSize * 10);
+        // Fix multitext font sizing for ZPL
+        const multiBaseFontSize = element.fontSize || 10;
+        const multiFontSize = Math.max(8, Math.min(40, Math.round(multiBaseFontSize * elementHeightMM / 6)));
+        const lineHeight = Math.round(multiFontSize * 1.2);
         
-        // Split content into lines and create multiple text fields
-        const words = multiContent.split(' ');
-        const maxWidth = element.width;
-        let currentLine = '';
-        let lines: string[] = [];
+        // Better line wrapping for ZPL - use character width estimation
+        const estimatedCharWidth = multiFontSize * 0.6; // Estimate character width in dots
+        const maxCharsPerLine = Math.floor(elementWidthDots / estimatedCharWidth);
         let zplOutput = '';
         
-        // Better line wrapping for ZPL - constrain to actual label width
-        const elementWidthMM = pxToMM(element.width);
-        const maxWidthMM = labelSizeMM ? Math.min(elementWidthMM, labelSizeMM.width - pxToMM(element.x)) : elementWidthMM;
-        const avgCharWidthMM = (element.fontSize || 10) * 0.6 / 3.78;
-        const maxCharsPerLine = Math.floor(maxWidthMM / avgCharWidthMM);
+        // Split content into lines that fit within the element width
+        const words = multiContent.split(' ');
+        let currentLine = '';
+        let lines: string[] = [];
         
         words.forEach(word => {
           const testLine = currentLine ? `${currentLine} ${word}` : word;
@@ -296,15 +318,13 @@ export class PrintService {
         
         lines.forEach((line, index) => {
           const lineY = y + (index * lineHeight);
-          zplOutput += `^FO${x},${lineY}^A0N,${multiFontSize * 10},${multiFontSize * 8}^FD${line}^FS\n`;
+          zplOutput += `^FO${x},${lineY}^A0N,${multiFontSize},${Math.round(multiFontSize * 0.8)}^FD${line}^FS\n`;
         });
         
         return zplOutput;
 
       case 'rectangle':
-        const width = this.mmToDots(pxToMM(element.width), dpi);
-        const height = this.mmToDots(pxToMM(element.height), dpi);
-        return `^FO${x},${y}^GB${width},${height},${element.strokeWidth || 1}^FS\n`;
+        return `^FO${x},${y}^GB${elementWidthDots},${elementHeightDots},${element.strokeWidth || 1}^FS\n`;
 
       case 'barcode':
         const barcodeContent = resolveMappedContent(element, dataRow, dataset?.headers || []);
@@ -314,16 +334,14 @@ export class PrintService {
           dataRow, 
           resolved: barcodeContent 
         });
-        const barcodeHeight = this.mmToDots(pxToMM(element.height), dpi);
-        // Constrain barcode width to fit within label
-        const maxBarcodeWidth = labelSizeMM ? 
-          this.mmToDots(labelSizeMM.width - pxToMM(element.x) - 5, dpi) : // 5mm margin
-          this.mmToDots(pxToMM(element.width), dpi);
-        return `^FO${x},${y}^BY2,3,${barcodeHeight}^BCN,,Y,N^FD${barcodeContent}^FS\n`;
+        // Use actual element dimensions for barcode
+        return `^FO${x},${y}^BY2,3,${elementHeightDots}^BCN,,Y,N^FD${barcodeContent}^FS\n`;
 
       case 'qr':
         const qrContent = resolveMappedContent(element, dataRow, dataset?.headers || []);
-        return `^FO${x},${y}^BQN,2,4^FDQA,${qrContent}^FS\n`;
+        // Scale QR code based on element size
+        const qrScale = Math.max(2, Math.min(10, Math.round(elementWidthMM / 10)));
+        return `^FO${x},${y}^BQN,2,${qrScale}^FDQA,${qrContent}^FS\n`;
 
       default:
         return '';
