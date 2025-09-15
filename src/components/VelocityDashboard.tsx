@@ -34,23 +34,25 @@ export function VelocityDashboard() {
     }
   };
 
-  // Combine velocity items with enhanced analytics data
+  // Combine velocity items with enhanced analytics data - ASIN only
   const allInventoryItems = useMemo(() => {
-    const velocityWithType = velocityItems.map(item => ({
-      ...item,
-      type: item.table_name.includes('asin') ? 'ASIN' : 'SKU',
-      enhanced_data: asinAnalytics.find(a => a.id === item.item_id) || skuAnalytics.find(s => s.id === item.item_id)
-    }));
+    const velocityWithType = velocityItems
+      .filter(item => item.table_name.includes('asin')) // Only ASIN items
+      .map(item => ({
+        ...item,
+        type: 'ASIN',
+        enhanced_data: asinAnalytics.find(a => a.id === item.item_id)
+      }));
     return velocityWithType;
-  }, [velocityItems, asinAnalytics, skuAnalytics]);
+  }, [velocityItems, asinAnalytics]);
 
   // Filter and sort items
   const filteredAndSortedItems = useMemo(() => {
     let filtered = allInventoryItems.filter(item => {
       const matchesSearch = item.identifier.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = selectedCategory === 'all' || item.velocity_category === selectedCategory;
-      const matchesType = selectedType === 'all' || item.type === selectedType;
-      return matchesSearch && matchesCategory && matchesType;
+      // No type filtering needed since we only have ASIN items
+      return matchesSearch && matchesCategory;
     });
 
     // Sort items
@@ -85,7 +87,7 @@ export function VelocityDashboard() {
     });
 
     return filtered;
-  }, [allInventoryItems, searchTerm, selectedCategory, selectedType, sortBy, sortOrder]);
+  }, [allInventoryItems, searchTerm, selectedCategory, sortBy, sortOrder]);
 
   // Paginated items
   const paginatedItems = useMemo(() => {
@@ -99,7 +101,6 @@ export function VelocityDashboard() {
   const resetFilters = () => {
     setSearchTerm('');
     setSelectedCategory('all');
-    setSelectedType('all');
     setSortBy('urgency');
     setSortOrder('desc');
     setCurrentPage(1);
@@ -108,7 +109,7 @@ export function VelocityDashboard() {
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedCategory, selectedType, sortBy, sortOrder]);
+  }, [searchTerm, selectedCategory, sortBy, sortOrder]);
 
   const renderLifecycleTimeline = (events: StockLifecycleEvent[]) => {
     return (
@@ -416,16 +417,6 @@ export function VelocityDashboard() {
               </SelectContent>
             </Select>
 
-            <Select value={selectedType} onValueChange={setSelectedType}>
-              <SelectTrigger className="w-32">
-                <SelectValue placeholder="Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="ASIN">ASIN</SelectItem>
-                <SelectItem value="SKU">SKU</SelectItem>
-              </SelectContent>
-            </Select>
 
             <Select value={sortBy} onValueChange={setSortBy}>
               <SelectTrigger className="w-32">
@@ -490,7 +481,7 @@ export function VelocityDashboard() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
-            Comprehensive Inventory Analytics
+            ASIN Inventory Analytics
           </CardTitle>
         </CardHeader>
         <CardContent>
