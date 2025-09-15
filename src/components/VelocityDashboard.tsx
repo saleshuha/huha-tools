@@ -48,8 +48,8 @@ export function VelocityDashboard() {
   const handleOrderItem = async (itemId: string, quantity: number, sku?: string) => {
     if (!sku) {
       toast({
-        title: "Error",
-        description: "SKU not found for this item",
+        title: "Cannot Place Order",
+        description: "This item has no SKU assigned. Please add a SKU to enable Sunsky ordering.",
         variant: "destructive"
       });
       return;
@@ -87,6 +87,7 @@ export function VelocityDashboard() {
   const handleBulkOrder = () => {
     const itemsToOrder = filteredAndSortedItems
       .filter(item => item.recommended_reorder_quantity > 0)
+      .filter(item => !item.identifier.includes('- No SKU')) // Exclude items without SKUs
       .map(item => {
         // Extract SKU from identifier if available
         const skuMatch = item.identifier.match(/SKU: ([^)]+)/);
@@ -97,7 +98,7 @@ export function VelocityDashboard() {
     if (itemsToOrder.length === 0) {
       toast({
         title: "No Items to Order",
-        description: "No items with recommendations found",
+        description: "No items with recommendations and valid SKUs found",
         variant: "default"
       });
       return;
@@ -834,14 +835,26 @@ function UnifiedInventoryTable({ items, getUrgencyColor, onProductClick, onOrder
                       className="bg-green-600 hover:bg-green-700"
                       onClick={(e) => {
                         e.stopPropagation();
+                        // Extract SKU from identifier - handle both old and new formats
                         const skuMatch = item.identifier.match(/SKU: ([^)]+)/);
                         const sku = skuMatch ? skuMatch[1] : null;
+                        
+                        // Check if item has "No SKU" in identifier
+                        const hasNoSku = item.identifier.includes('- No SKU');
+                        
+                        if (!sku || hasNoSku) {
+                          // Show toast for missing SKU
+                          return;
+                        }
+                        
                         onOrderItem?.(item.item_id, item.recommended_reorder_quantity, sku);
                       }}
-                      disabled={orderingItems?.[item.item_id] || false}
+                      disabled={orderingItems?.[item.item_id] || item.identifier.includes('- No SKU')}
                     >
                       {orderingItems?.[item.item_id] ? (
                         <>Processing...</>
+                      ) : item.identifier.includes('- No SKU') ? (
+                        <>No SKU Available</>
                       ) : (
                         <>
                           <ShoppingCart className="w-3 h-3 mr-1" />
