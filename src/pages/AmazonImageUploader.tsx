@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { HuhaHeader01 } from '@/components/ui/huha-header-01';
 import { ProductImageManager } from '@/components/ProductImageManager';
@@ -15,6 +16,12 @@ import { Upload, Copy, Image as ImageIcon, Plus, FileUp, Package } from 'lucide-
 export default function AmazonImageUploader() {
   const [bulkData, setBulkData] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [progress, setProgress] = useState({
+    total: 0,
+    processed: 0,
+    errors: 0,
+    currentItem: ''
+  });
   const { addProductImage } = useProductImages();
   const { toast } = useToast();
 
@@ -29,14 +36,32 @@ export default function AmazonImageUploader() {
     }
 
     setIsProcessing(true);
+    const lines = bulkData.trim().split('\n').filter(line => line.trim());
+    
+    // Initialize progress
+    setProgress({
+      total: lines.length,
+      processed: 0,
+      errors: 0,
+      currentItem: ''
+    });
+
     try {
-      const lines = bulkData.trim().split('\n');
       let processed = 0;
       let errors = 0;
 
-      for (const line of lines) {
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
         const trimmedLine = line.trim();
-        if (!trimmedLine) continue;
+        if (!trimmedLine) {
+          errors++;
+          setProgress(prev => ({ 
+            ...prev, 
+            processed: processed + errors,
+            errors
+          }));
+          continue;
+        }
 
         // Support multiple formats:
         // Format 1: ASIN,URL
@@ -58,11 +83,23 @@ export default function AmazonImageUploader() {
           imageUrl = parts.slice(1).join(' ').trim();
         } else {
           errors++;
+          setProgress(prev => ({ 
+            ...prev, 
+            processed: processed + errors,
+            errors,
+            currentItem: `Invalid format: ${trimmedLine.substring(0, 20)}...`
+          }));
           continue;
         }
 
         if (!asin || !imageUrl) {
           errors++;
+          setProgress(prev => ({ 
+            ...prev, 
+            processed: processed + errors,
+            errors,
+            currentItem: `Missing data: ${trimmedLine.substring(0, 20)}...`
+          }));
           continue;
         }
 
@@ -71,8 +108,20 @@ export default function AmazonImageUploader() {
           new URL(imageUrl);
         } catch {
           errors++;
+          setProgress(prev => ({ 
+            ...prev, 
+            processed: processed + errors,
+            errors,
+            currentItem: `Invalid URL: ${asin}`
+          }));
           continue;
         }
+
+        // Update progress with current item
+        setProgress(prev => ({ 
+          ...prev, 
+          currentItem: `Processing: ${asin}`
+        }));
 
         try {
           await addProductImage.mutateAsync({
@@ -81,8 +130,24 @@ export default function AmazonImageUploader() {
             imageName: `Image for ${asin}`
           });
           processed++;
+          
+          // Update progress after successful processing
+          setProgress(prev => ({ 
+            ...prev, 
+            processed: processed + errors,
+            currentItem: `Saved: ${asin}`
+          }));
+
+          // Small delay to make progress visible
+          await new Promise(resolve => setTimeout(resolve, 100));
         } catch (error) {
           errors++;
+          setProgress(prev => ({ 
+            ...prev, 
+            processed: processed + errors,
+            errors,
+            currentItem: `Failed: ${asin}`
+          }));
         }
       }
 
@@ -103,6 +168,10 @@ export default function AmazonImageUploader() {
       });
     } finally {
       setIsProcessing(false);
+      // Reset progress after a delay
+      setTimeout(() => {
+        setProgress({ total: 0, processed: 0, errors: 0, currentItem: '' });
+      }, 2000);
     }
   };
 
@@ -247,6 +316,45 @@ B09DEF789 https://example.com/image3.jpg"
                           </>
                         )}
                       </Button>
+                      
+                      {/* Progress Bar */}
+                      {isProcessing && progress.total > 0 && (
+                        <div className="space-y-3 p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="font-medium text-blue-800 dark:text-blue-200">
+                              Processing Images
+                            </span>
+                            <span className="text-blue-600 dark:text-blue-300">
+                              {progress.processed} / {progress.total} 
+                              {progress.errors > 0 && (
+                                <span className="text-red-600 dark:text-red-400 ml-2">
+                                  ({progress.errors} errors)
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                          
+                          <Progress 
+                            value={(progress.processed / progress.total) * 100} 
+                            className="h-3 bg-blue-100 dark:bg-blue-900"
+                          />
+                          
+                          {progress.currentItem && (
+                            <div className="text-xs text-blue-700 dark:text-blue-300 truncate">
+                              {progress.currentItem}
+                            </div>
+                          )}
+                          
+                          <div className="flex items-center justify-between text-xs text-blue-600 dark:text-blue-400">
+                            <span>
+                              Success: {progress.processed - progress.errors}
+                            </span>
+                            <span>
+                              {Math.round((progress.processed / progress.total) * 100)}% Complete
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="bg-muted/50 p-4 rounded-lg">
