@@ -30,13 +30,14 @@ interface InventoryStats {
   activeItems: number;
   inStockItems: number;
   outOfStockItems: number;
-  recentlyAdded: number;
   asinTotalUnits: number;
   asinSoldUnits: number;
   skuTotalUnits: number;
   skuSoldUnits: number;
   missingSku: number;
   missingTitles: number;
+  restockEligible: number;
+  nonRestockEligible: number;
 }
 interface InventoryMetricsProps {
   showOnlyAsin?: boolean;
@@ -56,16 +57,17 @@ export function InventoryMetrics({
     activeItems: 0,
     inStockItems: 0,
     outOfStockItems: 0,
-    recentlyAdded: 0,
     asinTotalUnits: 0,
     asinSoldUnits: 0,
     skuTotalUnits: 0,
     skuSoldUnits: 0,
     missingSku: 0,
-    missingTitles: 0
+    missingTitles: 0,
+    restockEligible: 0,
+    nonRestockEligible: 0
   });
   const [loading, setLoading] = useState(true);
-  const [selectedMetric, setSelectedMetric] = useState<'active' | 'instock' | 'outofstock' | 'sold' | 'recently-added' | 'missing-sku' | 'missing-titles' | null>(null);
+  const [selectedMetric, setSelectedMetric] = useState<'active' | 'instock' | 'outofstock' | 'sold' | 'missing-sku' | 'missing-titles' | 'restock-eligible' | 'non-restock-eligible' | null>(null);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [exportLoading, setExportLoading] = useState(false);
@@ -86,12 +88,9 @@ export function InventoryMetrics({
         const outOfStockItems = asinItems.filter(item => item.quantity === 0).length;
         const asinTotalUnits = asinItems.reduce((sum, item) => sum + item.quantity, 0);
 
-        // Calculate recently added items (last 7 days)
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        const recentlyAdded = asinItems.filter(item => 
-          new Date(item.date_added) >= sevenDaysAgo
-        ).length;
+        // Calculate restock eligibility
+        const restockEligible = asinItems.filter(item => item.eligible_for_restock === true).length;
+        const nonRestockEligible = asinItems.filter(item => item.eligible_for_restock === false || item.eligible_for_restock === null).length;
 
         // Filter sold units based on date filters
         let soldItems = asinItems.filter(item => item.status === 'sold');
@@ -120,13 +119,14 @@ export function InventoryMetrics({
           activeItems,
           inStockItems,
           outOfStockItems,
-          recentlyAdded,
           asinTotalUnits,
           asinSoldUnits,
           skuTotalUnits: 0,
           skuSoldUnits: 0,
           missingSku,
-          missingTitles
+          missingTitles,
+          restockEligible,
+          nonRestockEligible
         });
       } else if (showOnlySku) {
         // Load only SKU data
@@ -139,12 +139,9 @@ export function InventoryMetrics({
         const outOfStockItems = skuItems.filter(item => item.quantity === 0).length;
         const skuTotalUnits = skuItems.reduce((sum, item) => sum + item.quantity, 0);
 
-        // Calculate recently added items (last 7 days)
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        const recentlyAdded = skuItems.filter(item => 
-          new Date(item.date_added) >= sevenDaysAgo
-        ).length;
+        // SKU items don't have restock eligibility
+        const restockEligible = 0;
+        const nonRestockEligible = 0;
 
         // Filter sold units based on date filters
         let soldItems = skuItems.filter(item => item.status === 'sold');
@@ -166,13 +163,14 @@ export function InventoryMetrics({
           activeItems,
           inStockItems,
           outOfStockItems,
-          recentlyAdded,
           asinTotalUnits: 0,
           asinSoldUnits: 0,
           skuTotalUnits,
           skuSoldUnits,
           missingSku: 0,
-          missingTitles: 0
+          missingTitles: 0,
+          restockEligible,
+          nonRestockEligible
         });
       } else {
         // Load both ASIN and SKU data
@@ -200,16 +198,9 @@ export function InventoryMetrics({
         const skuTotalUnits = skuItems.reduce((sum, item) => sum + item.quantity, 0);
         const skuSoldUnits = skuItems.filter(item => item.status === 'sold').reduce((sum, item) => sum + item.quantity, 0);
         
-        // Calculate recently added items (last 7 days)
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        const recentlyAddedAsin = asinItems.filter(item => 
-          new Date(item.date_added) >= sevenDaysAgo
-        ).length;
-        const recentlyAddedSku = skuItems.filter(item => 
-          new Date(item.date_added) >= sevenDaysAgo
-        ).length;
-        const recentlyAdded = recentlyAddedAsin + recentlyAddedSku;
+        // Calculate restock eligibility (only ASIN items have this field)
+        const restockEligible = asinItems.filter(item => item.eligible_for_restock === true).length;
+        const nonRestockEligible = asinItems.filter(item => item.eligible_for_restock === false || item.eligible_for_restock === null).length;
         
         // Calculate items with missing SKU (only for ASIN)
         const missingSku = asinItems.filter(item => !item.sku || item.sku.trim() === '').length;
@@ -221,13 +212,14 @@ export function InventoryMetrics({
           activeItems,
           inStockItems,
           outOfStockItems,
-          recentlyAdded,
           asinTotalUnits,
           asinSoldUnits,
           skuTotalUnits,
           skuSoldUnits,
           missingSku,
-          missingTitles
+          missingTitles,
+          restockEligible,
+          nonRestockEligible
         });
       }
     } catch (error: any) {
@@ -269,7 +261,7 @@ export function InventoryMetrics({
     }
   };
 
-  const loadDetailedItems = async (metric: 'active' | 'instock' | 'outofstock' | 'recently-added') => {
+  const loadDetailedItems = async (metric: 'active' | 'instock' | 'outofstock' | 'restock-eligible' | 'non-restock-eligible') => {
     try {
       if (showOnlyAsin) {
         // Load only ASIN data
@@ -287,10 +279,10 @@ export function InventoryMetrics({
           allItems = allItems.filter(item => item.quantity > 0);
         } else if (metric === 'outofstock') {
           allItems = allItems.filter(item => item.quantity === 0);
-        } else if (metric === 'recently-added') {
-          const sevenDaysAgo = new Date();
-          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-          allItems = allItems.filter(item => new Date(item.date_added) >= sevenDaysAgo);
+        } else if (metric === 'restock-eligible') {
+          allItems = allItems.filter(item => item.eligible_for_restock === true);
+        } else if (metric === 'non-restock-eligible') {
+          allItems = allItems.filter(item => item.eligible_for_restock === false || item.eligible_for_restock === null);
         }
         setInventoryItems(allItems);
       } else if (showOnlySku) {
@@ -309,10 +301,10 @@ export function InventoryMetrics({
           allItems = allItems.filter(item => item.quantity > 0);
         } else if (metric === 'outofstock') {
           allItems = allItems.filter(item => item.quantity === 0);
-        } else if (metric === 'recently-added') {
-          const sevenDaysAgo = new Date();
-          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-          allItems = allItems.filter(item => new Date(item.date_added) >= sevenDaysAgo);
+        } else if (metric === 'restock-eligible') {
+          allItems = allItems.filter(item => false); // SKU items don't have restock eligibility
+        } else if (metric === 'non-restock-eligible') {
+          allItems = allItems.filter(item => false); // SKU items don't have restock eligibility
         }
         setInventoryItems(allItems);
       } else {
@@ -333,10 +325,10 @@ export function InventoryMetrics({
           allItems = allItems.filter(item => item.quantity > 0);
         } else if (metric === 'outofstock') {
           allItems = allItems.filter(item => item.quantity === 0);
-        } else if (metric === 'recently-added') {
-          const sevenDaysAgo = new Date();
-          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-          allItems = allItems.filter(item => new Date(item.date_added) >= sevenDaysAgo);
+        } else if (metric === 'restock-eligible') {
+          allItems = allItems.filter(item => item.type === 'asin' && item.eligible_for_restock === true);
+        } else if (metric === 'non-restock-eligible') {
+          allItems = allItems.filter(item => item.type === 'asin' && (item.eligible_for_restock === false || item.eligible_for_restock === null));
         }
         setInventoryItems(allItems);
       }
@@ -430,7 +422,7 @@ export function InventoryMetrics({
       });
     }
   };
-  const handleMetricClick = async (metric: 'active' | 'instock' | 'outofstock' | 'recently-added') => {
+  const handleMetricClick = async (metric: 'active' | 'instock' | 'outofstock' | 'restock-eligible' | 'non-restock-eligible') => {
     setSelectedMetric(metric);
     await loadDetailedItems(metric);
   };
@@ -472,6 +464,16 @@ export function InventoryMetrics({
   const handleMissingSkuClick = async () => {
     setSelectedMetric('missing-sku');
     await loadMissingSkuItems();
+  };
+
+  const handleRestockEligibleClick = async () => {
+    setSelectedMetric('restock-eligible');
+    await loadDetailedItems('restock-eligible');
+  };
+
+  const handleNonRestockEligibleClick = async () => {
+    setSelectedMetric('non-restock-eligible');
+    await loadDetailedItems('non-restock-eligible');
   };
   const exportToExcel = async () => {
     try {
@@ -519,7 +521,7 @@ export function InventoryMetrics({
       {/* Date Filter for Sold Units - Show only in ASIN mode */}
       {showOnlyAsin}
 
-      <div className="grid gap-1 grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 mb-3">
+      <div className="grid gap-1 grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 mb-3">
         {/* Active Items */}
         <Card 
           className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-20 flex flex-col border-l-4 border-l-primary"
@@ -579,22 +581,22 @@ export function InventoryMetrics({
           </CardContent>
         </Card>
 
-        {/* Recently Added Items */}
+        {/* Restock Eligible */}
         <Card 
           className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-20 flex flex-col border-l-4 border-l-blue-500"
-          onClick={() => handleMetricClick('recently-added')}
+          onClick={() => handleRestockEligibleClick()}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
             <div className="flex flex-col justify-center min-w-0 flex-1">
-              <CardTitle className="text-xs font-medium text-muted-foreground truncate">Recently Added</CardTitle>
-              <div className="text-lg font-bold text-blue-600 mt-1">{stats.recentlyAdded}</div>
+              <CardTitle className="text-xs font-medium text-muted-foreground truncate">Restock Eligible</CardTitle>
+              <div className="text-lg font-bold text-blue-600 mt-1">{stats.restockEligible}</div>
             </div>
             <div className="w-6 h-6 bg-blue-500/10 rounded-full flex items-center justify-center flex-shrink-0">
-              <Plus className="h-3 w-3 text-blue-600" />
+              <TrendingUp className="h-3 w-3 text-blue-600" />
             </div>
           </CardHeader>
           <CardContent className="pt-0 pb-1 flex-shrink-0">
-            <p className="text-xs text-muted-foreground truncate">Last 7 days</p>
+            <p className="text-xs text-muted-foreground truncate">Ready to restock</p>
           </CardContent>
         </Card>
 
@@ -661,6 +663,27 @@ export function InventoryMetrics({
           </Card>
         )}
 
+        {/* Non-Restock Eligible - Only show when viewing ASIN or combined view */}
+        {(!showOnlySku) && (
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-20 flex flex-col border-l-4 border-l-gray-500"
+            onClick={() => handleNonRestockEligibleClick()}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
+              <div className="flex flex-col justify-center min-w-0 flex-1">
+                <CardTitle className="text-xs font-medium text-muted-foreground truncate">Non-Restock</CardTitle>
+                <div className="text-lg font-bold text-gray-600 mt-1">{stats.nonRestockEligible}</div>
+              </div>
+              <div className="w-6 h-6 bg-gray-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+                <TrendingDown className="h-3 w-3 text-gray-600" />
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0 pb-1 flex-shrink-0">
+              <p className="text-xs text-muted-foreground truncate">Not for restock</p>
+            </CardContent>
+          </Card>
+        )}
+
       </div>
 
       {/* Details Modal */}
@@ -672,9 +695,10 @@ export function InventoryMetrics({
               {selectedMetric === 'active' && 'All Active Items'}
               {selectedMetric === 'instock' && 'In Stock Items'}
               {selectedMetric === 'outofstock' && 'Out of Stock Items'}
-              {selectedMetric === 'recently-added' && 'Recently Added Items'}
               {selectedMetric === 'missing-sku' && 'Items with Missing SKU'}
               {selectedMetric === 'missing-titles' && 'Items with Missing Titles'}
+              {selectedMetric === 'restock-eligible' && 'Restock Eligible Items'}
+              {selectedMetric === 'non-restock-eligible' && 'Non-Restock Eligible Items'}
               <Badge variant="outline" className="ml-2">
                 {filteredItems.length} items
               </Badge>
