@@ -25,6 +25,7 @@ import { TrendingUp, TrendingDown, AlertTriangle, Package, Download, RefreshCw, 
 import { Checkbox } from './ui/checkbox';
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, AreaChart, Area, BarChart as RechartsBarChart, Bar, PieChart as RechartsPieChart, Cell, Pie, Legend } from 'recharts';
 import { SunskyOrderDialog } from './SunskyOrderDialog';
+import { EnhancedStockHistoryDialog } from './EnhancedStockHistoryDialog';
 interface RestockItem {
   id: string;
   identifier: string;
@@ -1728,10 +1729,13 @@ export function Replenishment() {
           <h2 className="text-2xl font-bold text-foreground">Sales & Replenishment Dashboard</h2>
           <p className="text-muted-foreground">Real-time analytics for {selectedCountry}</p>
         </div>
-        <Button onClick={loadAllData} variant="outline" size="sm" className="gap-2">
-          <RefreshCw className="w-4 h-4" />
-          Refresh Data
-        </Button>
+        <div>
+          <Button onClick={loadAllData} variant="outline" size="sm" className="gap-2 mr-2">
+            <RefreshCw className="w-4 h-4" />
+            Refresh Data
+          </Button>
+          <EnhancedStockHistoryDialog triggerVariant="full" />
+        </div>
       </div>
 
       {/* Advanced Metrics Grid */}
