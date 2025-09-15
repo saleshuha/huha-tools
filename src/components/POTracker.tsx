@@ -1732,7 +1732,7 @@ export const POTracker = () => {
                 setProcessingProgress(90);
                 setProcessingStatus(`Importing to ${selectedCountry} database and matching SKUs...`);
 
-                processPOFiles(mappedData, []).then(() => {
+                processPOFiles(mappedData, [], selectedCountry).then(() => {
                   setProcessingProgress(100);
                   setProcessingStatus(`Import completed successfully for ${selectedCountry}!`);
                   

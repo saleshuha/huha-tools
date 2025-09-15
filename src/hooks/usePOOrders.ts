@@ -152,7 +152,7 @@ export const usePOOrders = () => {
   }, [toast]);
 
   // Process PO files with identity-based duplicate detection
-  const processPOFiles = useCallback(async (mappedData: any[], sunskySKUs: any[]) => {
+  const processPOFiles = useCallback(async (mappedData: any[], sunskySKUs: any[], selectedCountry: string = 'UAE') => {
     setIsLoading(true);
     setLoadingProgress(0);
     setLoadingStatus('Processing PO files...');
@@ -285,7 +285,8 @@ export const usePOOrders = () => {
           existingGroup.quantity += qty;
           console.log(`📎 Row ${rowNum}: Added to existing group, new total qty: ${existingGroup.quantity}`);
         } else {
-          // Create new group
+          // Create new group with selected country and currency
+          const currency = selectedCountry === 'KSA' ? 'SAR' : 'AED';
           const newGroup = {
             po_number: po,
             ship_to_location: location || 'Not specified',
@@ -299,6 +300,8 @@ export const usePOOrders = () => {
             status: 'pending',
             file_name: item.file_name || 'uploaded-file.csv',
             unit_cost: item.unit_cost ? Number(item.unit_cost) : null,
+            country: selectedCountry,
+            currency: currency,
             sku_user_id: user.id,
             user_id: user.id
           };
