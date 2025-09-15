@@ -2,8 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
-import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Pagination, 
@@ -16,7 +14,7 @@ import {
 } from '@/components/ui/pagination';
 import { useInventoryAsinImages } from '@/hooks/useInventoryAsinImages';
 import { usePOAsinImages } from '@/hooks/usePOAsinImages';
-import { Download, Upload, Image as ImageIcon, Package, AlertCircle, Loader2 } from 'lucide-react';
+import { Download, Image as ImageIcon, Package, AlertCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface UnifiedAsinItem {
@@ -35,10 +33,7 @@ export function UnifiedAsinManager() {
     missingAsinItems: inventoryMissing,
     coveredAsinItems: inventoryCovered,
     isLoading: inventoryLoading,
-    bulkUploadImages,
-    exportMissingAsins: exportInventoryMissing,
-    uploadProgress,
-    isProcessing
+    exportMissingAsins: exportInventoryMissing
   } = useInventoryAsinImages();
 
   const {
@@ -49,7 +44,6 @@ export function UnifiedAsinManager() {
     exportMissingAsins: exportPOMissing
   } = usePOAsinImages();
 
-  const [bulkImageData, setBulkImageData] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [activeView, setActiveView] = useState<'missing' | 'covered'>('missing');
   const itemsPerPage = 10;
@@ -192,61 +186,6 @@ export function UnifiedAsinManager() {
     );
   };
 
-  const handleBulkImageUpload = async () => {
-    if (!bulkImageData.trim()) {
-      toast({
-        title: "No Data",
-        description: "Please paste your ASIN-URL pairs first",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const lines = bulkImageData.trim().split('\n');
-    const asinImagePairs: Array<{ asin: string; imageUrl: string }> = [];
-
-    for (const line of lines) {
-      const trimmedLine = line.trim();
-      if (!trimmedLine) continue;
-
-      let asin = '';
-      let imageUrl = '';
-
-      if (trimmedLine.includes(',')) {
-        [asin, imageUrl] = trimmedLine.split(',').map(s => s.trim());
-      } else if (trimmedLine.includes('|')) {
-        [asin, imageUrl] = trimmedLine.split('|').map(s => s.trim());
-      } else if (trimmedLine.includes('\t')) {
-        [asin, imageUrl] = trimmedLine.split('\t').map(s => s.trim());
-      } else if (trimmedLine.includes(' ')) {
-        const parts = trimmedLine.split(' ');
-        asin = parts[0].trim();
-        imageUrl = parts.slice(1).join(' ').trim();
-      }
-
-      if (asin && imageUrl) {
-        try {
-          new URL(imageUrl);
-          asinImagePairs.push({ asin, imageUrl });
-        } catch {
-          // Invalid URL, skip
-        }
-      }
-    }
-
-    if (asinImagePairs.length === 0) {
-      toast({
-        title: "Invalid Data",
-        description: "No valid ASIN-URL pairs found",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    await bulkUploadImages(asinImagePairs);
-    setBulkImageData('');
-  };
-
   const handleExportMissing = () => {
     const inventoryMissingAsins = new Set(inventoryMissing.map(item => item.asin));
     const poMissingAsins = new Set(poMissing.map(item => item.asin));
@@ -331,16 +270,16 @@ export function UnifiedAsinManager() {
         </Card>
       </div>
 
-      {/* Bulk Upload Section */}
+      {/* Export Section */}
       {allMissingItems.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Upload className="h-5 w-5" />
-              Bulk Image Upload for Missing ASINs
+              <Download className="h-5 w-5" />
+              Export Missing ASINs
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent>
             <div className="flex gap-2">
               <Button 
                 variant="outline" 
@@ -348,39 +287,9 @@ export function UnifiedAsinManager() {
                 className="flex items-center gap-2"
               >
                 <Download className="h-4 w-4" />
-                Export Missing ASINs
+                Export Missing ASINs ({allMissingItems.length})
               </Button>
             </div>
-
-            <Textarea
-              placeholder="Paste your ASIN-URL pairs here:
-B07XYZ123,https://example.com/image1.jpg
-B08ABC456|https://example.com/image2.jpg
-B09DEF789 https://example.com/image3.jpg"
-              value={bulkImageData}
-              onChange={(e) => setBulkImageData(e.target.value)}
-              className="h-32"
-            />
-
-            {isProcessing && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span>
-                    Processing {uploadProgress.currentAsin ? `ASIN: ${uploadProgress.currentAsin}` : 'images...'}
-                  </span>
-                  <span>{Math.round((uploadProgress.processed / uploadProgress.total) * 100)}%</span>
-                </div>
-                <Progress value={(uploadProgress.processed / uploadProgress.total) * 100} />
-              </div>
-            )}
-
-            <Button 
-              onClick={handleBulkImageUpload}
-              disabled={!bulkImageData.trim() || isProcessing}
-              className="w-full"
-            >
-              {isProcessing ? 'Processing...' : 'Upload Images'}
-            </Button>
           </CardContent>
         </Card>
       )}
