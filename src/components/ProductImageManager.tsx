@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Edit2, Trash2, ExternalLink, Image as ImageIcon, Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useProductImages } from '@/hooks/useProductImages';
 
@@ -29,7 +30,8 @@ export const ProductImageManager = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedImage, setSelectedImage] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [showAll, setShowAll] = useState(false);
   const [formData, setFormData] = useState<ProductImageFormData>({
     asin: '',
     imageUrl: '',
@@ -42,9 +44,12 @@ export const ProductImageManager = () => {
   );
 
   const paginatedImages = useMemo(() => {
+    if (showAll) {
+      return filteredImages;
+    }
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filteredImages.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredImages, currentPage, itemsPerPage]);
+  }, [filteredImages, currentPage, itemsPerPage, showAll]);
 
   const totalPages = Math.ceil(filteredImages.length / itemsPerPage);
 
@@ -120,12 +125,15 @@ export const ProductImageManager = () => {
           </CardTitle>
           <p className="text-muted-foreground">
             Upload and manage product images with ASIN mapping for display in your purchase orders.
+            <span className="block text-sm mt-1 font-medium">
+              Total Images: {productImages.length} | No Supabase limits - all images are fetched and displayed
+            </span>
           </p>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <div className="relative flex-1 max-w-sm">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 flex-1">
+              <div className="relative w-full sm:w-80">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search by ASIN or name..."
@@ -144,77 +152,119 @@ export const ProductImageManager = () => {
                   </Button>
                 )}
               </div>
-              <Badge variant="outline" className="text-xs">
-                {filteredImages.length} image{filteredImages.length !== 1 ? 's' : ''}
-              </Badge>
+              
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-xs">
+                  {showAll ? `All ${filteredImages.length}` : `${paginatedImages.length} of ${filteredImages.length}`} image{filteredImages.length !== 1 ? 's' : ''}
+                </Badge>
+                
+                <Select value={itemsPerPage.toString()} onValueChange={(value) => {
+                  setItemsPerPage(Number(value));
+                  setCurrentPage(1);
+                  setShowAll(false);
+                }}>
+                  <SelectTrigger className="w-24">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="flex items-center gap-2">
-                  <Plus className="h-4 w-4" />
-                  Add Image
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add Product Image</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="asin">ASIN *</Label>
-                    <Input
-                      id="asin"
-                      placeholder="e.g., B08N5WRWNW"
-                      value={formData.asin}
-                      onChange={(e) => setFormData(prev => ({ ...prev, asin: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="imageUrl">Image URL *</Label>
-                    <Input
-                      id="imageUrl"
-                      placeholder="https://example.com/image.jpg"
-                      value={formData.imageUrl}
-                      onChange={(e) => setFormData(prev => ({ ...prev, imageUrl: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="imageName">Image Name (Optional)</Label>
-                    <Input
-                      id="imageName"
-                      placeholder="Product name or description"
-                      value={formData.imageName}
-                      onChange={(e) => setFormData(prev => ({ ...prev, imageName: e.target.value }))}
-                    />
-                  </div>
-                  {formData.imageUrl && (
-                    <div className="border rounded-lg p-4">
-                      <Label className="text-sm font-medium mb-2 block">Preview:</Label>
-                      <img
-                        src={formData.imageUrl}
-                        alt="Preview"
-                        className="w-20 h-20 object-cover rounded border"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                        }}
+            <div className="flex items-center gap-2">
+              <Button
+                variant={showAll ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setShowAll(true);
+                  setCurrentPage(1);
+                }}
+              >
+                Show All
+              </Button>
+              <Button
+                variant={!showAll ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setShowAll(false);
+                  setCurrentPage(1);
+                }}
+              >
+                Paginate
+              </Button>
+              
+              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="flex items-center gap-2">
+                    <Plus className="h-4 w-4" />
+                    Add Image
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add Product Image</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="asin">ASIN *</Label>
+                      <Input
+                        id="asin"
+                        placeholder="e.g., B08N5WRWNW"
+                        value={formData.asin}
+                        onChange={(e) => setFormData(prev => ({ ...prev, asin: e.target.value }))}
                       />
                     </div>
-                  )}
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => { resetForm(); setIsAddDialogOpen(false); }}>
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={handleAddImage}
-                      disabled={!formData.asin.trim() || !formData.imageUrl.trim() || addProductImage.isPending}
-                    >
-                      {addProductImage.isPending ? 'Adding...' : 'Add Image'}
-                    </Button>
+                    <div>
+                      <Label htmlFor="imageUrl">Image URL *</Label>
+                      <Input
+                        id="imageUrl"
+                        placeholder="https://example.com/image.jpg"
+                        value={formData.imageUrl}
+                        onChange={(e) => setFormData(prev => ({ ...prev, imageUrl: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="imageName">Image Name (Optional)</Label>
+                      <Input
+                        id="imageName"
+                        placeholder="Product name or description"
+                        value={formData.imageName}
+                        onChange={(e) => setFormData(prev => ({ ...prev, imageName: e.target.value }))}
+                      />
+                    </div>
+                    {formData.imageUrl && (
+                      <div className="border rounded-lg p-4">
+                        <Label className="text-sm font-medium mb-2 block">Preview:</Label>
+                        <img
+                          src={formData.imageUrl}
+                          alt="Preview"
+                          className="w-20 h-20 object-cover rounded border"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    )}
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => { resetForm(); setIsAddDialogOpen(false); }}>
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleAddImage}
+                        disabled={!formData.asin.trim() || !formData.imageUrl.trim() || addProductImage.isPending}
+                      >
+                        {addProductImage.isPending ? 'Adding...' : 'Add Image'}
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </DialogContent>
-            </Dialog>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
 
           {isLoading ? (
@@ -298,7 +348,7 @@ export const ProductImageManager = () => {
                 </TableBody>
               </Table>
               
-              {totalPages > 1 && (
+              {!showAll && totalPages > 1 && (
                 <div className="flex items-center justify-between px-4 py-3 border-t">
                   <div className="text-sm text-muted-foreground">
                     Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredImages.length)} of {filteredImages.length} images
