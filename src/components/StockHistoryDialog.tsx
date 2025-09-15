@@ -31,6 +31,7 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [itemDetails, setItemDetails] = useState<{ dateAdded: string; quantity: number } | null>(null);
 
   const loadStockHistory = async () => {
     if (!open) return;
@@ -38,6 +39,7 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
     setLoading(true);
     setError(null);
     try {
+      // Load stock changes
       const { data, error } = await supabase
         .from('stock_changes')
         .select('*')
@@ -47,6 +49,20 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
 
       if (error) throw error;
       setStockChanges(data || []);
+
+      // Load original item details
+      const tableName = inventoryType === 'asin' ? 'asin_inventory' : 'sku_inventory';
+      const { data: itemData, error: itemError } = await supabase
+        .from(tableName)
+        .select('date_added, quantity')
+        .eq('id', inventoryId)
+        .single();
+
+      if (itemError) throw itemError;
+      setItemDetails({
+        dateAdded: itemData.date_added,
+        quantity: itemData.quantity
+      });
     } catch (error) {
       console.error('Error loading stock history:', error);
       setError(error instanceof Error ? error.message : 'Failed to load stock history');
@@ -159,6 +175,26 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
               <p className="text-sm text-muted-foreground/70 mt-1">
                 Stock changes will appear here when inventory quantities are updated
               </p>
+              {itemDetails && (
+                <div className="mt-6 p-4 bg-muted/50 rounded-lg max-w-sm mx-auto">
+                  <div className="text-sm text-muted-foreground mb-2">Original Stock Information</div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">Date Added:</span>
+                      <span className="text-sm font-medium">
+                        {format(new Date(itemDetails.dateAdded), 'MMM dd, yyyy')}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">Current Quantity:</span>
+                      <span className="text-sm font-medium">{itemDetails.quantity}</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground/70 mt-2">
+                      Added {formatDistanceToNow(new Date(itemDetails.dateAdded), { addSuffix: true })}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <>
