@@ -17,14 +17,15 @@ export const useProductImages = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch all product images for the user
+  // Fetch all product images for the user (limited to 1000 for performance)
   const { data: productImages, isLoading, error } = useQuery({
     queryKey: ['product-images'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('product_images')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(1000);
       
       if (error) throw error;
       return data as ProductImage[];
