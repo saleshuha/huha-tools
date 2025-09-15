@@ -354,22 +354,23 @@ export function Replenishment() {
           quantity: specificAsin.quantity,
           status: specificAsin.status,
           last_sold_date: specificAsin.last_sold_date,
-          sku: specificAsin.sku
+          sku: specificAsin.sku,
+          willBeIncluded: specificAsin.quantity <= 3 && specificAsin.status !== 'ordered'
         });
       } else {
         console.log('B0DYG97DRP not found in inventory items');
       }
       
-      // Items that need restocking: either out of stock OR low stock with recent sales
+      // Items that need restocking: either out of stock OR low stock (regardless of sale date)
       const allRestockItems = allInventoryItems.filter(item => {
         const isOutOfStock = item.quantity === 0 && item.status !== 'ordered';
-        const isLowStockWithSales = item.quantity > 0 && item.quantity <= 5 && item.last_sold_date && item.status !== 'ordered';
-        return isOutOfStock || isLowStockWithSales;
+        const isLowStock = item.quantity > 0 && item.quantity <= 3 && item.status !== 'ordered';
+        return isOutOfStock || isLowStock;
       });
       
       console.log('Items needing restock:', allRestockItems.length);
       console.log('Out of stock items:', allRestockItems.filter(item => item.quantity === 0).length);
-      console.log('Low stock with sales:', allRestockItems.filter(item => item.quantity > 0).length);
+      console.log('Low stock items (1-3):', allRestockItems.filter(item => item.quantity > 0).length);
       
       // Separate restock items into those that can be ordered and those that cannot
       const restockNeeded = allRestockItems
