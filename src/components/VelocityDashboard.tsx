@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from './ui/pagination';
 import { useVelocityAnalytics } from '@/hooks/useVelocityAnalytics';
 import { useEnhancedStockAnalytics, InventoryItemAnalysis, StockLifecycleEvent } from '@/hooks/useEnhancedStockAnalytics';
 import { TrendingUp, TrendingDown, AlertTriangle, Clock, Target, Zap, Activity, History, Package, ShoppingCart, Truck, Award, Search, Filter, X, ChevronDown, ChevronUp } from 'lucide-react';
@@ -22,6 +23,8 @@ export function VelocityDashboard() {
   const [sortBy, setSortBy] = useState<string>('urgency');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [showDetails, setShowDetails] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
 
   const handleProductClick = async (itemId: string, inventoryType: 'asin' | 'sku') => {
     const analysis = await loadItemAnalysis(itemId, inventoryType);
@@ -84,13 +87,28 @@ export function VelocityDashboard() {
     return filtered;
   }, [allInventoryItems, searchTerm, selectedCategory, selectedType, sortBy, sortOrder]);
 
+  // Paginated items
+  const paginatedItems = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredAndSortedItems.slice(startIndex, endIndex);
+  }, [filteredAndSortedItems, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(filteredAndSortedItems.length / itemsPerPage);
+
   const resetFilters = () => {
     setSearchTerm('');
     setSelectedCategory('all');
     setSelectedType('all');
     setSortBy('urgency');
     setSortOrder('desc');
+    setCurrentPage(1);
   };
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedCategory, selectedType, sortBy, sortOrder]);
 
   const renderLifecycleTimeline = (events: StockLifecycleEvent[]) => {
     return (
@@ -441,7 +459,23 @@ export function VelocityDashboard() {
           </div>
 
           <div className="flex justify-between items-center text-sm text-muted-foreground">
-            <span>Showing {filteredAndSortedItems.length} of {allInventoryItems.length} items</span>
+            <div className="flex items-center gap-4">
+              <span>
+                Showing {Math.min((currentPage - 1) * itemsPerPage + 1, filteredAndSortedItems.length)}-{Math.min(currentPage * itemsPerPage, filteredAndSortedItems.length)} of {filteredAndSortedItems.length} items
+                {filteredAndSortedItems.length !== allInventoryItems.length && ` (filtered from ${allInventoryItems.length})`}
+              </span>
+              <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
+                <SelectTrigger className="w-20 h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex items-center gap-4">
               <span>Avg Velocity: {velocityMetrics.avgVelocity.toFixed(3)}/day</span>
               <span>Urgent: {velocityMetrics.totalUrgentItems}</span>
@@ -461,10 +495,87 @@ export function VelocityDashboard() {
         </CardHeader>
         <CardContent>
           <UnifiedInventoryTable 
-            items={filteredAndSortedItems}
+            items={paginatedItems}
             getUrgencyColor={getUrgencyColor}
             onProductClick={handleProductClick}
           />
+          
+          {totalPages > 1 && (
+            <div className="mt-6 flex justify-center">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (currentPage > 1) setCurrentPage(currentPage - 1);
+                      }}
+                      className={currentPage <= 1 ? "pointer-events-none opacity-50" : ""}
+                    />
+                  </PaginationItem>
+                  
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNumber;
+                    if (totalPages <= 5) {
+                      pageNumber = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNumber = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNumber = totalPages - 4 + i;
+                    } else {
+                      pageNumber = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <PaginationItem key={pageNumber}>
+                        <PaginationLink
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setCurrentPage(pageNumber);
+                          }}
+                          isActive={currentPage === pageNumber}
+                        >
+                          {pageNumber}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  })}
+                  
+                  {totalPages > 5 && currentPage < totalPages - 2 && (
+                    <>
+                      <PaginationItem>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                      <PaginationItem>
+                        <PaginationLink
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setCurrentPage(totalPages);
+                          }}
+                        >
+                          {totalPages}
+                        </PaginationLink>
+                      </PaginationItem>
+                    </>
+                  )}
+                  
+                  <PaginationItem>
+                    <PaginationNext 
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+                      }}
+                      className={currentPage >= totalPages ? "pointer-events-none opacity-50" : ""}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
         </CardContent>
       </Card>
 
