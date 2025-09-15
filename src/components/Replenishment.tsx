@@ -340,7 +340,10 @@ export function Replenishment() {
       console.log('Total items count:', allInventoryItems.length);
       
       // Separate items based on status for the existing logic (convert to RestockItem format)
-      const allOutOfStockItems = allInventoryItems.filter(item => item.quantity === 0 && item.status !== 'ordered');
+      const allOutOfStockItems = allInventoryItems.filter(item => 
+        (item.quantity === 0 && item.status !== 'ordered') ||
+        (item.quantity <= 5 && item.last_sold_date && item.status !== 'ordered')
+      );
       
       // Separate out of stock items into those that can be ordered and those that cannot
       const restockNeeded = allOutOfStockItems
