@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { POFileUpload } from '@/components/po/POFileUpload';
 import { POProfitAnalytics } from '@/components/po/POProfitAnalytics';
@@ -365,13 +365,25 @@ export const POTracker = () => {
     
     let filtered = [...poOrders];
     
-    // Apply country filtering first
+    // Apply country filtering with fallback
     if (selectedCountry) {
       const beforeCountryFilter = filtered.length;
-      filtered = filtered.filter(order => 
+      const countryFilteredOrders = filtered.filter(order => 
         !order.country || order.country === selectedCountry
       );
-      console.log('🔍 FILTERING DEBUG: After country filter:', filtered.length, 'orders (was', beforeCountryFilter, 'for country', selectedCountry, ')');
+      
+      // If no orders found for selected country, show all orders with a notification
+      if (countryFilteredOrders.length === 0 && beforeCountryFilter > 0) {
+        console.log(`🔍 FILTERING DEBUG: No ${selectedCountry} orders found, showing all ${beforeCountryFilter} orders`);
+        // Don't filter by country, but show a toast notification
+        if (beforeCountryFilter > 0) {
+          const availableCountries = [...new Set(filtered.map(order => order.country).filter(Boolean))];
+          console.log(`🌍 Available countries in data:`, availableCountries);
+        }
+      } else {
+        filtered = countryFilteredOrders;
+        console.log('🔍 FILTERING DEBUG: After country filter:', filtered.length, 'orders (was', beforeCountryFilter, 'for country', selectedCountry, ')');
+      }
     }
     
     // Use appropriate search query based on active tab
@@ -454,11 +466,19 @@ export const POTracker = () => {
     // Use labelEligibleOrders (excludes closed POs) for labels tab, all orders for others
     let ordersToFilter = activeTab === 'labels' ? [...labelEligibleOrders] : [...poOrders];
     
-    // Apply country filtering
+    // Apply country filtering with fallback
     if (selectedCountry) {
-      ordersToFilter = ordersToFilter.filter(order => 
+      const beforeCountryFilter = ordersToFilter.length;
+      const countryFilteredOrders = ordersToFilter.filter(order => 
         !order.country || order.country === selectedCountry
       );
+      
+      // If no orders found for selected country, keep all orders
+      if (countryFilteredOrders.length === 0 && beforeCountryFilter > 0) {
+        console.log(`🔍 PO GROUPS DEBUG: No ${selectedCountry} orders found, showing all ${beforeCountryFilter} orders`);
+      } else {
+        ordersToFilter = countryFilteredOrders;
+      }
     }
 
     if (query) {
@@ -932,6 +952,33 @@ export const POTracker = () => {
           </Button>
         </div>
       </div>
+
+      {/* Country Mismatch Notification */}
+      {selectedCountry && poOrders.length > 0 && filteredOrders.length === poOrders.length && (
+        (() => {
+          const ordersInSelectedCountry = poOrders.filter(order => 
+            !order.country || order.country === selectedCountry
+          ).length;
+          const availableCountries = [...new Set(poOrders.map(order => order.country).filter(Boolean))];
+          
+          return ordersInSelectedCountry === 0 && availableCountries.length > 0 ? (
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h3 className="font-medium text-amber-800 dark:text-amber-200">
+                    No {selectedCountry} Orders Found
+                  </h3>
+                  <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                    You're viewing {selectedCountry} context but all your PO data is from {availableCountries.join(', ')}. 
+                    Showing all {poOrders.length} orders. To add {selectedCountry} orders, upload PO files while {selectedCountry} is selected.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null;
+        })()
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3 h-12 bg-gradient-subtle rounded-xl shadow-elegant p-1 border border-border/20">
