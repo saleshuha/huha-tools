@@ -5,13 +5,16 @@ import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from './ui/pagination';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { useVelocityAnalytics } from '@/hooks/useVelocityAnalytics';
 import { useEnhancedStockAnalytics, InventoryItemAnalysis, StockLifecycleEvent } from '@/hooks/useEnhancedStockAnalytics';
 import { TrendingUp, TrendingDown, AlertTriangle, Clock, Target, Zap, Activity, History, Package, ShoppingCart, Truck, Award, Search, Filter, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Separator } from './ui/separator';
 import { format, formatDistanceToNow } from 'date-fns';
+import { SunskyOrderDialog } from './SunskyOrderDialog';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 export function VelocityDashboard() {
   const { velocityItems, velocityMetrics, loading, getUrgencyColor, getVelocityColor } = useVelocityAnalytics();
@@ -25,6 +28,10 @@ export function VelocityDashboard() {
   const [showDetails, setShowDetails] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [selectedOrderItems, setSelectedOrderItems] = useState<string[]>([]);
+  const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
+  const [orderingItems, setOrderingItems] = useState<{[key: string]: boolean}>({});
+  const { toast } = useToast();
 
   const handleProductClick = async (itemId: string, inventoryType: 'asin' | 'sku') => {
     try {
@@ -36,6 +43,68 @@ export function VelocityDashboard() {
     } catch (error) {
       console.error('Error loading item analysis:', error);
     }
+  };
+
+  const handleOrderItem = async (itemId: string, quantity: number, sku?: string) => {
+    if (!sku) {
+      toast({
+        title: "Error",
+        description: "SKU not found for this item",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setOrderingItems(prev => ({ ...prev, [itemId]: true }));
+    
+    try {
+      // Get ASIN inventory details for ordering
+      const { data: asinData, error } = await supabase
+        .from('asin_inventory')
+        .select('*')
+        .eq('id', itemId)
+        .single();
+
+      if (error || !asinData) {
+        throw new Error('Failed to fetch item details');
+      }
+
+      setSelectedOrderItems([sku]);
+      setIsOrderDialogOpen(true);
+      
+    } catch (error) {
+      console.error('Error preparing order:', error);
+      toast({
+        title: "Error",
+        description: "Failed to prepare order for this item",
+        variant: "destructive"
+      });
+    } finally {
+      setOrderingItems(prev => ({ ...prev, [itemId]: false }));
+    }
+  };
+
+  const handleBulkOrder = () => {
+    const itemsToOrder = filteredAndSortedItems
+      .filter(item => item.recommended_reorder_quantity > 0)
+      .map(item => {
+        // Extract SKU from identifier if available
+        const skuMatch = item.identifier.match(/SKU: ([^)]+)/);
+        return skuMatch ? skuMatch[1] : null;
+      })
+      .filter(Boolean);
+
+    if (itemsToOrder.length === 0) {
+      toast({
+        title: "No Items to Order",
+        description: "No items with recommendations found",
+        variant: "default"
+      });
+      return;
+    }
+
+    setSelectedOrderItems(itemsToOrder);
+    setIsOrderDialogOpen(true);
   };
 
   // Combine velocity items with enhanced analytics data - ASIN only
@@ -53,7 +122,9 @@ export function VelocityDashboard() {
   // Filter and sort items
   const filteredAndSortedItems = useMemo(() => {
     let filtered = allInventoryItems.filter(item => {
-      const matchesSearch = item.identifier.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = item.identifier.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (item.identifier.includes('SKU:') && 
+                           item.identifier.split('SKU:')[1]?.trim().toLowerCase().includes(searchTerm.toLowerCase()));
       const matchesCategory = selectedCategory === 'all' || item.velocity_category === selectedCategory;
       // No type filtering needed since we only have ASIN items
       return matchesSearch && matchesCategory;
@@ -401,7 +472,7 @@ export function VelocityDashboard() {
             <div className="relative flex-1 min-w-64">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search products..."
+                placeholder="Search products or SKUs..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -451,6 +522,16 @@ export function VelocityDashboard() {
               <X className="h-4 w-4" />
               Reset
             </Button>
+            
+            <Button
+              onClick={handleBulkOrder}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+              disabled={filteredAndSortedItems.filter(item => item.recommended_reorder_quantity > 0).length === 0}
+              size="sm"
+            >
+              <ShoppingCart className="h-4 w-4" />
+              Order All ({filteredAndSortedItems.filter(item => item.recommended_reorder_quantity > 0).length})
+            </Button>
           </div>
 
           <div className="flex justify-between items-center text-sm text-muted-foreground">
@@ -493,6 +574,8 @@ export function VelocityDashboard() {
             items={paginatedItems}
             getUrgencyColor={getUrgencyColor}
             onProductClick={handleProductClick}
+            onOrderItem={handleOrderItem}
+            orderingItems={orderingItems}
           />
           
           {totalPages > 1 && (
@@ -612,6 +695,20 @@ export function VelocityDashboard() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Sunsky Order Dialog */}
+      <SunskyOrderDialog
+        open={isOrderDialogOpen}
+        onOpenChange={setIsOrderDialogOpen}
+        selectedOrders={selectedOrderItems.map(sku => ({ sku }))}
+        onOrderSuccess={(orderNumber: string, selectedOrderIds: string[]) => {
+          setSelectedOrderItems([]);
+          toast({
+            title: "Order Placed Successfully",
+            description: `Sunsky order ${orderNumber} has been placed successfully`,
+          });
+        }}
+      />
     </div>
   );
 }
@@ -620,9 +717,11 @@ interface UnifiedInventoryTableProps {
   items: any[];
   getUrgencyColor: (score: number) => "default" | "destructive" | "secondary" | "outline";
   onProductClick?: (itemId: string, inventoryType: 'asin' | 'sku') => void;
+  onOrderItem?: (itemId: string, quantity: number, sku?: string) => void;
+  orderingItems?: {[key: string]: boolean};
 }
 
-function UnifiedInventoryTable({ items, getUrgencyColor, onProductClick }: UnifiedInventoryTableProps) {
+function UnifiedInventoryTable({ items, getUrgencyColor, onProductClick, onOrderItem, orderingItems = {} }: UnifiedInventoryTableProps) {
   if (items.length === 0) {
     return (
       <div className="text-center py-12">
@@ -729,16 +828,30 @@ function UnifiedInventoryTable({ items, getUrgencyColor, onProductClick }: Unifi
               </TableCell>
               <TableCell>
                 <div className="flex gap-2">
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      // Handle order action
-                    }}
-                  >
-                    Order {item.recommended_reorder_quantity}
-                  </Button>
+                  {item.recommended_reorder_quantity > 0 ? (
+                    <Button 
+                      size="sm" 
+                      className="bg-green-600 hover:bg-green-700"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const skuMatch = item.identifier.match(/SKU: ([^)]+)/);
+                        const sku = skuMatch ? skuMatch[1] : null;
+                        onOrderItem?.(item.item_id, item.recommended_reorder_quantity, sku);
+                      }}
+                      disabled={orderingItems[item.item_id] || false}
+                    >
+                      {orderingItems[item.item_id] ? (
+                        <>Processing...</>
+                      ) : (
+                        <>
+                          <ShoppingCart className="w-3 h-3 mr-1" />
+                          Order {item.recommended_reorder_quantity}
+                        </>
+                      )}
+                    </Button>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">No recommendation</span>
+                  )}
                 </div>
               </TableCell>
             </TableRow>
