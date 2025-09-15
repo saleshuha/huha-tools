@@ -339,14 +339,26 @@ export function Replenishment() {
       console.log('Processed inventory items:', allInventoryItems);
       console.log('Total items count:', allInventoryItems.length);
       
-      // Separate items based on status for the existing logic (convert to RestockItem format)
-      const allOutOfStockItems = allInventoryItems.filter(item => 
-        (item.quantity === 0 && item.status !== 'ordered') ||
-        (item.quantity <= 5 && item.last_sold_date && item.status !== 'ordered')
-      );
+      // Debug: Check items with sales but still have stock
+      const itemsWithSales = allInventoryItems.filter(item => item.last_sold_date);
+      const lowStockItems = allInventoryItems.filter(item => item.quantity <= 5 && item.quantity > 0);
+      console.log('Items with sales (last_sold_date):', itemsWithSales.length);
+      console.log('Low stock items (1-5 qty):', lowStockItems.length);
+      console.log('Items with sales AND low stock:', itemsWithSales.filter(item => item.quantity <= 5 && item.quantity > 0).length);
       
-      // Separate out of stock items into those that can be ordered and those that cannot
-      const restockNeeded = allOutOfStockItems
+      // Items that need restocking: either out of stock OR low stock with recent sales
+      const allRestockItems = allInventoryItems.filter(item => {
+        const isOutOfStock = item.quantity === 0 && item.status !== 'ordered';
+        const isLowStockWithSales = item.quantity > 0 && item.quantity <= 5 && item.last_sold_date && item.status !== 'ordered';
+        return isOutOfStock || isLowStockWithSales;
+      });
+      
+      console.log('Items needing restock:', allRestockItems.length);
+      console.log('Out of stock items:', allRestockItems.filter(item => item.quantity === 0).length);
+      console.log('Low stock with sales:', allRestockItems.filter(item => item.quantity > 0).length);
+      
+      // Separate restock items into those that can be ordered and those that cannot
+      const restockNeeded = allRestockItems
         .filter(item => {
           // Check if item has valid SKU for ordering
           const identifier = item.item_type === 'ASIN' 
@@ -368,7 +380,8 @@ export function Replenishment() {
         }));
 
       // Items that are out of stock but cannot be ordered (no valid SKU)
-      const outOfStockOnly = allOutOfStockItems
+      const outOfStockOnly = allRestockItems
+        .filter(item => item.quantity === 0) // Only truly out of stock items
         .filter(item => {
           const identifier = item.item_type === 'ASIN' 
             ? `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}` 
