@@ -25,7 +25,6 @@ import { TrendingUp, TrendingDown, AlertTriangle, Package, Download, RefreshCw, 
 import { Checkbox } from './ui/checkbox';
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, AreaChart, Area, BarChart as RechartsBarChart, Bar, PieChart as RechartsPieChart, Cell, Pie, Legend } from 'recharts';
 import { SunskyOrderDialog } from './SunskyOrderDialog';
-import { EnhancedStockHistoryDialog } from './EnhancedStockHistoryDialog';
 interface RestockItem {
   id: string;
   identifier: string;
@@ -2129,7 +2128,6 @@ export function Replenishment() {
               <h3 className="text-lg font-semibold">Intelligent Replenishment Analytics</h3>
               <p className="text-muted-foreground">Smart reorder recommendations based on sales velocity and demand patterns</p>
             </div>
-            <EnhancedStockHistoryDialog triggerVariant="full" />
           </div>
           
           <VelocityDashboard />
