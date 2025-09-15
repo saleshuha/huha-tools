@@ -346,6 +346,20 @@ export function Replenishment() {
       console.log('Low stock items (1-5 qty):', lowStockItems.length);
       console.log('Items with sales AND low stock:', itemsWithSales.filter(item => item.quantity <= 5 && item.quantity > 0).length);
       
+      // Debug: Check specific ASIN B0DYG97DRP
+      const specificAsin = allInventoryItems.find(item => item.asin === 'B0DYG97DRP');
+      if (specificAsin) {
+        console.log('Found B0DYG97DRP:', {
+          asin: specificAsin.asin,
+          quantity: specificAsin.quantity,
+          status: specificAsin.status,
+          last_sold_date: specificAsin.last_sold_date,
+          sku: specificAsin.sku
+        });
+      } else {
+        console.log('B0DYG97DRP not found in inventory items');
+      }
+      
       // Items that need restocking: either out of stock OR low stock with recent sales
       const allRestockItems = allInventoryItems.filter(item => {
         const isOutOfStock = item.quantity === 0 && item.status !== 'ordered';
