@@ -4093,6 +4093,25 @@ export type Database = {
         Args: { from_currency: string; to_currency: string }
         Returns: number
       }
+      get_inventory_velocity_analysis: {
+        Args: { country_filter?: string; lookback_days?: number }
+        Returns: {
+          average_days_between_sales: number
+          current_quantity: number
+          days_since_last_restock: number
+          days_since_last_sale: number
+          identifier: string
+          item_id: string
+          recommended_reorder_quantity: number
+          reorder_point: number
+          sales_velocity: number
+          stock_days_remaining: number
+          table_name: string
+          total_sales: number
+          urgency_score: number
+          velocity_category: string
+        }[]
+      }
       get_items_needing_restock: {
         Args: Record<PropertyKey, never> | { country_filter?: string }
         Returns: {
