@@ -17,6 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCountry } from '@/contexts/CountryContext';
 import { useInventoryAnalytics } from '@/hooks/useInventoryAnalytics';
 import { InventoryAnalytics } from './InventoryAnalytics';
+import { VelocityDashboard } from './VelocityDashboard';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
 import { cn } from '@/lib/utils';
@@ -34,6 +35,13 @@ interface RestockItem {
   date_sold?: string | null;
   last_restock_date?: string | null;
   restock_quantity?: number | null;
+  // Enhanced velocity fields
+  sales_velocity?: number;
+  velocity_category?: 'Fast Moving' | 'Medium Moving' | 'Slow Moving' | 'No Sales';
+  recommended_reorder_quantity?: number;
+  reorder_point?: number;
+  stock_days_remaining?: number | null;
+  urgency_score?: number;
 }
 interface SalesData {
   period: string;
@@ -1837,8 +1845,9 @@ export function Replenishment() {
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="restock" className="w-full">
-        <TabsList className="grid w-full grid-cols-1 h-14 p-2 bg-gradient-subtle rounded-xl shadow-elegant">
+        <TabsList className="grid w-full grid-cols-2 h-14 p-2 bg-gradient-subtle rounded-xl shadow-elegant">
           <TabsTrigger value="restock" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10">📦 Restock Management</TabsTrigger>
+          <TabsTrigger value="velocity" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10">⚡ Velocity Analytics</TabsTrigger>
         </TabsList>
 
 
@@ -2110,6 +2119,18 @@ export function Replenishment() {
               </Tabs>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Velocity Analytics Tab */}
+        <TabsContent value="velocity" className="space-y-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold">Intelligent Replenishment Analytics</h3>
+              <p className="text-muted-foreground">Smart reorder recommendations based on sales velocity and demand patterns</p>
+            </div>
+          </div>
+          
+          <VelocityDashboard />
         </TabsContent>
 
       </Tabs>
