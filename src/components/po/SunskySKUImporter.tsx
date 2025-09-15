@@ -137,6 +137,7 @@ interface SunskyBrand {
 }
 interface SearchFilters {
   keyword?: string;
+  productId?: string;
   categoryId?: number;
   brandId?: number;
   priceMin?: number;
@@ -273,6 +274,7 @@ export const SunskySKUImporter: React.FC = () => {
   } = useConcurrentSunskyExport();
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [productId, setProductId] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedSubCategory, setSelectedSubCategory] = useState<string>('all');
   const [selectedBrand, setSelectedBrand] = useState<string>('all');
@@ -1329,6 +1331,7 @@ export const SunskySKUImporter: React.FC = () => {
     try {
       const filters: SearchFilters = {
         keyword: searchTerm || undefined,
+        productId: productId || undefined,
         categoryId: selectedCategory !== 'all' ? parseInt(selectedCategory) : undefined,
         brandId: selectedBrand && selectedBrand !== 'all' ? parseInt(selectedBrand) : undefined,
         priceMin: priceMin ? parseFloat(priceMin) : undefined,
@@ -1983,6 +1986,11 @@ export const SunskySKUImporter: React.FC = () => {
                   </div>
                   
                   <div className="space-y-3">
+                    <Label htmlFor="product-id" className="text-sm font-semibold">Product ID</Label>
+                    <Input id="product-id" placeholder="Enter product ID..." value={productId} onChange={e => setProductId(e.target.value)} className="h-11 border-2 border-input bg-background/50 hover:border-primary/50 focus:border-primary transition-colors" />
+                  </div>
+                  
+                  <div className="space-y-3">
                     <Label htmlFor="category" className="text-sm font-semibold">Main Category</Label>
                     <Select value={selectedCategory} onValueChange={setSelectedCategory} disabled={fetchingCategories}>
                       <SelectTrigger className="h-11 border-2 border-input bg-background/50 hover:border-primary/50 transition-colors">
@@ -2079,6 +2087,7 @@ export const SunskySKUImporter: React.FC = () => {
 
                 <Button variant="outline" onClick={() => {
                   setSearchTerm('');
+                  setProductId('');
                   setSelectedCategory('all');
                   setSelectedSubCategory('all');
                   setSelectedBrand('all');
