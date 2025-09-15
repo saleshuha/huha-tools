@@ -4,6 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
+import { 
+  Pagination, 
+  PaginationContent, 
+  PaginationItem, 
+  PaginationLink, 
+  PaginationNext, 
+  PaginationPrevious 
+} from '@/components/ui/pagination';
 import { useInventoryAsinImages } from '@/hooks/useInventoryAsinImages';
 import { Download, Upload, Image as ImageIcon, Package, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -21,6 +29,9 @@ export function InventoryAsinManager() {
   } = useInventoryAsinImages();
 
   const [bulkImageData, setBulkImageData] = useState('');
+  const [missingCurrentPage, setMissingCurrentPage] = useState(1);
+  const [coveredCurrentPage, setCoveredCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   const { toast } = useToast();
 
   const handleBulkImageUpload = async () => {
@@ -76,6 +87,56 @@ export function InventoryAsinManager() {
 
     await bulkUploadImages(asinImagePairs);
     setBulkImageData('');
+  };
+
+  // Pagination logic
+  const getMissingPaginatedItems = () => {
+    const startIndex = (missingCurrentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return missingAsinItems.slice(startIndex, endIndex);
+  };
+
+  const getCoveredPaginatedItems = () => {
+    const startIndex = (coveredCurrentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return coveredAsinItems.slice(startIndex, endIndex);
+  };
+
+  const missingTotalPages = Math.ceil(missingAsinItems.length / itemsPerPage);
+  const coveredTotalPages = Math.ceil(coveredAsinItems.length / itemsPerPage);
+
+  const renderPagination = (currentPage: number, totalPages: number, onPageChange: (page: number) => void) => {
+    if (totalPages <= 1) return null;
+
+    return (
+      <Pagination className="mt-4">
+        <PaginationContent>
+          <PaginationItem>
+            <PaginationPrevious 
+              onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+              className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+            />
+          </PaginationItem>
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+            <PaginationItem key={page}>
+              <PaginationLink
+                onClick={() => onPageChange(page)}
+                isActive={currentPage === page}
+                className="cursor-pointer"
+              >
+                {page}
+              </PaginationLink>
+            </PaginationItem>
+          ))}
+          <PaginationItem>
+            <PaginationNext 
+              onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+              className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+            />
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
+    );
   };
 
   if (isLoading) {
@@ -206,7 +267,7 @@ B09DEF789 https://example.com/image3.jpg"
                   </tr>
                 </thead>
                 <tbody>
-                  {missingAsinItems.map((item) => (
+                  {getMissingPaginatedItems().map((item) => (
                     <tr key={item.asin} className="border-b">
                       <td className="px-4 py-2 font-mono text-sm">{item.asin}</td>
                       <td className="px-4 py-2">{item.title || 'No title'}</td>
@@ -222,6 +283,7 @@ B09DEF789 https://example.com/image3.jpg"
                 </tbody>
               </table>
             </div>
+            {renderPagination(missingCurrentPage, missingTotalPages, setMissingCurrentPage)}
           </CardContent>
         </Card>
       )}
@@ -248,7 +310,7 @@ B09DEF789 https://example.com/image3.jpg"
                   </tr>
                 </thead>
                 <tbody>
-                  {coveredAsinItems.map((item) => (
+                  {getCoveredPaginatedItems().map((item) => (
                     <tr key={item.asin} className="border-b">
                       <td className="px-4 py-2 font-mono text-sm">{item.asin}</td>
                       <td className="px-4 py-2">{item.title || 'No title'}</td>
@@ -280,6 +342,7 @@ B09DEF789 https://example.com/image3.jpg"
                 </tbody>
               </table>
             </div>
+            {renderPagination(coveredCurrentPage, coveredTotalPages, setCoveredCurrentPage)}
           </CardContent>
         </Card>
       )}
