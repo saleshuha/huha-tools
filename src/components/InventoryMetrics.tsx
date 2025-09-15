@@ -543,6 +543,27 @@ export function InventoryMetrics({
           </CardContent>
         </Card>
 
+        {/* Total Units */}
+        <Card 
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-20 flex flex-col border-l-4 border-l-purple-500"
+          onClick={() => setShowSoldModal(true)}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
+            <div className="flex flex-col justify-center min-w-0 flex-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground truncate">Total Units</CardTitle>
+              <div className="text-lg font-bold text-purple-600 mt-1">
+                {showOnlyAsin ? stats.asinTotalUnits : showOnlySku ? stats.skuTotalUnits : stats.asinTotalUnits + stats.skuTotalUnits}
+              </div>
+            </div>
+            <div className="w-6 h-6 bg-purple-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+              <BarChart3 className="h-3 w-3 text-purple-600" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0 pb-1 flex-shrink-0">
+            <p className="text-xs text-muted-foreground truncate">Inventory count</p>
+          </CardContent>
+        </Card>
+
         {/* In Stock */}
         <Card 
           className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-20 flex flex-col border-l-4 border-l-green-500"
@@ -600,26 +621,26 @@ export function InventoryMetrics({
           </CardContent>
         </Card>
 
-        {/* Total Units */}
-        <Card 
-          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-20 flex flex-col border-l-4 border-l-purple-500"
-          onClick={() => setShowSoldModal(true)}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
-            <div className="flex flex-col justify-center min-w-0 flex-1">
-              <CardTitle className="text-xs font-medium text-muted-foreground truncate">Total Units</CardTitle>
-              <div className="text-lg font-bold text-purple-600 mt-1">
-                {showOnlyAsin ? stats.asinTotalUnits : showOnlySku ? stats.skuTotalUnits : stats.asinTotalUnits + stats.skuTotalUnits}
+        {/* Non-Restock Eligible - Only show when viewing ASIN or combined view */}
+        {(!showOnlySku) && (
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-20 flex flex-col border-l-4 border-l-gray-500"
+            onClick={() => handleNonRestockEligibleClick()}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
+              <div className="flex flex-col justify-center min-w-0 flex-1">
+                <CardTitle className="text-xs font-medium text-muted-foreground truncate">Non-Restock</CardTitle>
+                <div className="text-lg font-bold text-gray-600 mt-1">{stats.nonRestockEligible}</div>
               </div>
-            </div>
-            <div className="w-6 h-6 bg-purple-500/10 rounded-full flex items-center justify-center flex-shrink-0">
-              <BarChart3 className="h-3 w-3 text-purple-600" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0 pb-1 flex-shrink-0">
-            <p className="text-xs text-muted-foreground truncate">Inventory count</p>
-          </CardContent>
-        </Card>
+              <div className="w-6 h-6 bg-gray-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+                <TrendingDown className="h-3 w-3 text-gray-600" />
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0 pb-1 flex-shrink-0">
+              <p className="text-xs text-muted-foreground truncate">Not for restock</p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Missing SKU - Only show when viewing ASIN or combined view */}
         {(!showOnlySku) && (
@@ -659,27 +680,6 @@ export function InventoryMetrics({
             </CardHeader>
             <CardContent className="pt-0 pb-1 flex-shrink-0">
               <p className="text-xs text-muted-foreground truncate">ASIN without Title</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Non-Restock Eligible - Only show when viewing ASIN or combined view */}
-        {(!showOnlySku) && (
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-20 flex flex-col border-l-4 border-l-gray-500"
-            onClick={() => handleNonRestockEligibleClick()}
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
-              <div className="flex flex-col justify-center min-w-0 flex-1">
-                <CardTitle className="text-xs font-medium text-muted-foreground truncate">Non-Restock</CardTitle>
-                <div className="text-lg font-bold text-gray-600 mt-1">{stats.nonRestockEligible}</div>
-              </div>
-              <div className="w-6 h-6 bg-gray-500/10 rounded-full flex items-center justify-center flex-shrink-0">
-                <TrendingDown className="h-3 w-3 text-gray-600" />
-              </div>
-            </CardHeader>
-            <CardContent className="pt-0 pb-1 flex-shrink-0">
-              <p className="text-xs text-muted-foreground truncate">Not for restock</p>
             </CardContent>
           </Card>
         )}
