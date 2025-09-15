@@ -838,9 +838,9 @@ function UnifiedInventoryTable({ items, getUrgencyColor, onProductClick, onOrder
                         const sku = skuMatch ? skuMatch[1] : null;
                         onOrderItem?.(item.item_id, item.recommended_reorder_quantity, sku);
                       }}
-                      disabled={orderingItems[item.item_id] || false}
+                      disabled={orderingItems?.[item.item_id] || false}
                     >
-                      {orderingItems[item.item_id] ? (
+                      {orderingItems?.[item.item_id] ? (
                         <>Processing...</>
                       ) : (
                         <>
