@@ -1729,13 +1729,10 @@ export function Replenishment() {
           <h2 className="text-2xl font-bold text-foreground">Sales & Replenishment Dashboard</h2>
           <p className="text-muted-foreground">Real-time analytics for {selectedCountry}</p>
         </div>
-        <div>
-          <Button onClick={loadAllData} variant="outline" size="sm" className="gap-2 mr-2">
-            <RefreshCw className="w-4 h-4" />
-            Refresh Data
-          </Button>
-          <EnhancedStockHistoryDialog triggerVariant="full" />
-        </div>
+        <Button onClick={loadAllData} variant="outline" size="sm" className="gap-2">
+          <RefreshCw className="w-4 h-4" />
+          Refresh Data
+        </Button>
       </div>
 
       {/* Advanced Metrics Grid */}
@@ -2132,6 +2129,7 @@ export function Replenishment() {
               <h3 className="text-lg font-semibold">Intelligent Replenishment Analytics</h3>
               <p className="text-muted-foreground">Smart reorder recommendations based on sales velocity and demand patterns</p>
             </div>
+            <EnhancedStockHistoryDialog triggerVariant="full" />
           </div>
           
           <VelocityDashboard />
