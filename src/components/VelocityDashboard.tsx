@@ -9,7 +9,7 @@ import { useVelocityAnalytics } from '@/hooks/useVelocityAnalytics';
 import { useEnhancedStockAnalytics, InventoryItemAnalysis, StockLifecycleEvent } from '@/hooks/useEnhancedStockAnalytics';
 import { TrendingUp, TrendingDown, AlertTriangle, Clock, Target, Zap, Activity, History, Package, ShoppingCart, Truck, Award, Search, Filter, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Separator } from './ui/separator';
 import { format, formatDistanceToNow } from 'date-fns';
 
@@ -27,23 +27,11 @@ export function VelocityDashboard() {
   const [itemsPerPage, setItemsPerPage] = useState(20);
 
   const handleProductClick = async (itemId: string, inventoryType: 'asin' | 'sku') => {
-    console.log('Row clicked - itemId:', itemId, 'inventoryType:', inventoryType);
-    console.log('Current selectedItem:', selectedItem);
-    console.log('Current showDetails:', showDetails);
     try {
       const analysis = await loadItemAnalysis(itemId, inventoryType);
-      console.log('Analysis result:', analysis);
       if (analysis) {
-        console.log('Setting selectedItem to:', analysis);
         setSelectedItem(analysis);
         setShowDetails(true);
-        console.log('Details panel should now be visible');
-        // Force a re-render check
-        setTimeout(() => {
-          console.log('After state update - selectedItem exists:', !!selectedItem, 'showDetails:', showDetails);
-        }, 100);
-      } else {
-        console.log('No analysis data received');
       }
     } catch (error) {
       console.error('Error loading item analysis:', error);
@@ -586,55 +574,17 @@ export function VelocityDashboard() {
         </CardContent>
       </Card>
 
-      {/* Test Debug Panel */}
-      <Card className="bg-yellow-50 border-yellow-200">
-        <CardContent className="p-4">
-          <div className="flex gap-4 items-center text-sm">
-            <span>Debug: selectedItem = {selectedItem ? 'SET' : 'NULL'}</span>
-            <span>showDetails = {showDetails ? 'TRUE' : 'FALSE'}</span>
-            <Button 
-              size="sm" 
-              onClick={() => {
-                console.log('Manual test - setting dummy selectedItem');
-                setSelectedItem({
-                  id: 'test',
-                  identifier: 'TEST-ITEM',
-                  date_added: new Date().toISOString(),
-                  current_quantity: 10,
-                  lifecycle_events: [],
-                  metrics: {
-                    performance_grade: 'A',
-                    sales_velocity: 1.5,
-                    avg_days_to_first_sale: 5,
-                    avg_days_from_order_to_restock: 10,
-                    recommended_order_quantity: 20,
-                    recommended_reorder_point: 5,
-                    velocity_category: 'Fast Moving',
-                    predicted_stockout_date: null
-                  }
-                } as any);
-                setShowDetails(true);
-              }}
-            >
-              Test Panel
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Product Details Panel */}
-      {selectedItem && showDetails && (
-        <Card>
-          <CardHeader className="cursor-pointer hover:bg-muted/50" onClick={() => setShowDetails(false)}>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <History className="h-5 w-5" />
-                Product Details: {selectedItem.identifier}
-              </CardTitle>
-              <X className="h-4 w-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
+      {/* Product Details Dialog */}
+      <Dialog open={showDetails} onOpenChange={setShowDetails}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              Product Details: {selectedItem?.identifier}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedItem && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -643,10 +593,6 @@ export function VelocityDashboard() {
                     Added {formatDistanceToNow(new Date(selectedItem.date_added), { addSuffix: true })}
                   </p>
                 </div>
-                <Button variant="outline" onClick={() => setShowDetails(false)}>
-                  <X className="h-4 w-4 mr-2" />
-                  Close
-                </Button>
               </div>
 
               {renderMetricsCards(selectedItem)}
@@ -663,9 +609,9 @@ export function VelocityDashboard() {
                 </CardContent>
               </Card>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
