@@ -1,30 +1,95 @@
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
-import { Progress } from './ui/progress';
+import { Input } from './ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { useVelocityAnalytics } from '@/hooks/useVelocityAnalytics';
 import { useEnhancedStockAnalytics, InventoryItemAnalysis, StockLifecycleEvent } from '@/hooks/useEnhancedStockAnalytics';
-import { TrendingUp, TrendingDown, AlertTriangle, Clock, Target, Zap, Activity, History, Package, ShoppingCart, Truck, Award } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
-import { HuhaTab01 } from './ui/huha-tab-01';
+import { TrendingUp, TrendingDown, AlertTriangle, Clock, Target, Zap, Activity, History, Package, ShoppingCart, Truck, Award, Search, Filter, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { Separator } from './ui/separator';
 import { format, formatDistanceToNow } from 'date-fns';
 
 export function VelocityDashboard() {
   const { velocityItems, velocityMetrics, loading, getUrgencyColor, getVelocityColor } = useVelocityAnalytics();
   const { asinAnalytics, skuAnalytics, loading: enhancedLoading, loadItemAnalysis } = useEnhancedStockAnalytics();
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<InventoryItemAnalysis | null>(null);
-  const [activeTab, setActiveTab] = useState('velocity');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedType, setSelectedType] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('urgency');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [showDetails, setShowDetails] = useState(false);
 
   const handleProductClick = async (itemId: string, inventoryType: 'asin' | 'sku') => {
     const analysis = await loadItemAnalysis(itemId, inventoryType);
     if (analysis) {
       setSelectedItem(analysis);
-      setActiveTab('details');
+      setShowDetails(true);
     }
+  };
+
+  // Combine velocity items with enhanced analytics data
+  const allInventoryItems = useMemo(() => {
+    const velocityWithType = velocityItems.map(item => ({
+      ...item,
+      type: item.table_name.includes('asin') ? 'ASIN' : 'SKU',
+      enhanced_data: asinAnalytics.find(a => a.id === item.item_id) || skuAnalytics.find(s => s.id === item.item_id)
+    }));
+    return velocityWithType;
+  }, [velocityItems, asinAnalytics, skuAnalytics]);
+
+  // Filter and sort items
+  const filteredAndSortedItems = useMemo(() => {
+    let filtered = allInventoryItems.filter(item => {
+      const matchesSearch = item.identifier.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = selectedCategory === 'all' || item.velocity_category === selectedCategory;
+      const matchesType = selectedType === 'all' || item.type === selectedType;
+      return matchesSearch && matchesCategory && matchesType;
+    });
+
+    // Sort items
+    filtered.sort((a, b) => {
+      let aValue, bValue;
+      switch (sortBy) {
+        case 'urgency':
+          aValue = a.urgency_score;
+          bValue = b.urgency_score;
+          break;
+        case 'velocity':
+          aValue = a.sales_velocity;
+          bValue = b.sales_velocity;
+          break;
+        case 'stock':
+          aValue = a.current_quantity;
+          bValue = b.current_quantity;
+          break;
+        case 'identifier':
+          aValue = a.identifier;
+          bValue = b.identifier;
+          break;
+        default:
+          aValue = a.urgency_score;
+          bValue = b.urgency_score;
+      }
+
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+      }
+      return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+    });
+
+    return filtered;
+  }, [allInventoryItems, searchTerm, selectedCategory, selectedType, sortBy, sortOrder]);
+
+  const resetFilters = () => {
+    setSearchTerm('');
+    setSelectedCategory('all');
+    setSelectedType('all');
+    setSortBy('urgency');
+    setSortOrder('desc');
   };
 
   const renderLifecycleTimeline = (events: StockLifecycleEvent[]) => {
@@ -209,7 +274,8 @@ export function VelocityDashboard() {
 
   if (loading || enhancedLoading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
+        {/* Summary Cards Skeleton */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
             <Card key={i} className="animate-pulse">
@@ -220,11 +286,21 @@ export function VelocityDashboard() {
             </Card>
           ))}
         </div>
+        
+        {/* Controls Skeleton */}
+        <div className="flex flex-wrap gap-4 animate-pulse">
+          <div className="h-10 bg-muted rounded w-64"></div>
+          <div className="h-10 bg-muted rounded w-32"></div>
+          <div className="h-10 bg-muted rounded w-32"></div>
+          <div className="h-10 bg-muted rounded w-32"></div>
+        </div>
+        
+        {/* Table Skeleton */}
         <Card className="animate-pulse">
           <CardContent className="p-6">
             <div className="h-4 bg-muted rounded w-1/4 mb-4"></div>
             <div className="space-y-2">
-              {[...Array(5)].map((_, i) => (
+              {[...Array(8)].map((_, i) => (
                 <div key={i} className="h-12 bg-muted rounded"></div>
               ))}
             </div>
@@ -234,451 +310,347 @@ export function VelocityDashboard() {
     );
   }
 
-  const getCategoryItems = (category: string) => {
-    return velocityItems.filter(item => item.velocity_category === category);
-  };
+  return (
+    <div className="space-y-6">
+      {/* Summary Cards - Clickable to filter */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card 
+          className={`cursor-pointer hover:shadow-md transition-all ${selectedCategory === 'Fast Moving' ? 'ring-2 ring-primary' : ''}`}
+          onClick={() => setSelectedCategory(selectedCategory === 'Fast Moving' ? 'all' : 'Fast Moving')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Fast Moving</CardTitle>
+            <TrendingUp className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{velocityMetrics.fastMovingItems}</div>
+            <p className="text-xs text-muted-foreground">High velocity items</p>
+          </CardContent>
+        </Card>
 
-  const tabItems = [
-    {
-      value: 'velocity',
-      label: 'Velocity Overview',
-      content: (
-        <div className="space-y-6">
-          {/* Velocity Overview Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Dialog>
-              <DialogTrigger asChild>
-                <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedCategory('Fast Moving')}>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Fast Moving</CardTitle>
-                    <TrendingUp className="h-4 w-4 text-green-600" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-green-600">{velocityMetrics.fastMovingItems}</div>
-                    <p className="text-xs text-muted-foreground">High velocity items</p>
-                  </CardContent>
-                </Card>
-              </DialogTrigger>
-              <DialogContent className="max-w-6xl">
-                <DialogHeader>
-                  <DialogTitle>Fast Moving Items</DialogTitle>
-                </DialogHeader>
-                <div className="max-h-96 overflow-auto">
-                  <VelocityItemsTable 
-                    items={getCategoryItems('Fast Moving')} 
-                    getUrgencyColor={getUrgencyColor} 
-                    onProductClick={handleProductClick}
-                  />
-                </div>
-              </DialogContent>
-            </Dialog>
+        <Card 
+          className={`cursor-pointer hover:shadow-md transition-all ${selectedCategory === 'Medium Moving' ? 'ring-2 ring-primary' : ''}`}
+          onClick={() => setSelectedCategory(selectedCategory === 'Medium Moving' ? 'all' : 'Medium Moving')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Medium Moving</CardTitle>
+            <Activity className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{velocityMetrics.mediumMovingItems}</div>
+            <p className="text-xs text-muted-foreground">Moderate velocity items</p>
+          </CardContent>
+        </Card>
 
-            <Dialog>
-              <DialogTrigger asChild>
-                <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedCategory('Medium Moving')}>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Medium Moving</CardTitle>
-                    <Activity className="h-4 w-4 text-blue-600" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-blue-600">{velocityMetrics.mediumMovingItems}</div>
-                    <p className="text-xs text-muted-foreground">Moderate velocity items</p>
-                  </CardContent>
-                </Card>
-              </DialogTrigger>
-              <DialogContent className="max-w-6xl">
-                <DialogHeader>
-                  <DialogTitle>Medium Moving Items</DialogTitle>
-                </DialogHeader>
-                <div className="max-h-96 overflow-auto">
-                  <VelocityItemsTable 
-                    items={getCategoryItems('Medium Moving')} 
-                    getUrgencyColor={getUrgencyColor}
-                    onProductClick={handleProductClick}
-                  />
-                </div>
-              </DialogContent>
-            </Dialog>
+        <Card 
+          className={`cursor-pointer hover:shadow-md transition-all ${selectedCategory === 'Slow Moving' ? 'ring-2 ring-primary' : ''}`}
+          onClick={() => setSelectedCategory(selectedCategory === 'Slow Moving' ? 'all' : 'Slow Moving')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Slow Moving</CardTitle>
+            <TrendingDown className="h-4 w-4 text-orange-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">{velocityMetrics.slowMovingItems}</div>
+            <p className="text-xs text-muted-foreground">Low velocity items</p>
+          </CardContent>
+        </Card>
 
-            <Dialog>
-              <DialogTrigger asChild>
-                <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedCategory('Slow Moving')}>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Slow Moving</CardTitle>
-                    <TrendingDown className="h-4 w-4 text-orange-600" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-orange-600">{velocityMetrics.slowMovingItems}</div>
-                    <p className="text-xs text-muted-foreground">Low velocity items</p>
-                  </CardContent>
-                </Card>
-              </DialogTrigger>
-              <DialogContent className="max-w-6xl">
-                <DialogHeader>
-                  <DialogTitle>Slow Moving Items</DialogTitle>
-                </DialogHeader>
-                <div className="max-h-96 overflow-auto">
-                  <VelocityItemsTable 
-                    items={getCategoryItems('Slow Moving')} 
-                    getUrgencyColor={getUrgencyColor}
-                    onProductClick={handleProductClick}
-                  />
-                </div>
-              </DialogContent>
-            </Dialog>
+        <Card 
+          className={`cursor-pointer hover:shadow-md transition-all ${selectedCategory === 'No Sales' ? 'ring-2 ring-primary' : ''}`}
+          onClick={() => setSelectedCategory(selectedCategory === 'No Sales' ? 'all' : 'No Sales')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">No Sales</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-red-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{velocityMetrics.noSalesItems}</div>
+            <p className="text-xs text-muted-foreground">Items with no sales</p>
+          </CardContent>
+        </Card>
+      </div>
 
-            <Dialog>
-              <DialogTrigger asChild>
-                <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setSelectedCategory('No Sales')}>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">No Sales</CardTitle>
-                    <AlertTriangle className="h-4 w-4 text-red-600" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-red-600">{velocityMetrics.noSalesItems}</div>
-                    <p className="text-xs text-muted-foreground">Items with no sales</p>
-                  </CardContent>
-                </Card>
-              </DialogTrigger>
-              <DialogContent className="max-w-6xl">
-                <DialogHeader>
-                  <DialogTitle>No Sales Items</DialogTitle>
-                </DialogHeader>
-                <div className="max-h-96 overflow-auto">
-                  <VelocityItemsTable 
-                    items={getCategoryItems('No Sales')} 
-                    getUrgencyColor={getUrgencyColor}
-                    onProductClick={handleProductClick}
-                  />
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          {/* Critical Items Section */}
-          {velocityMetrics.criticalItems.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-red-500" />
-                  Critical Items Requiring Immediate Attention
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <VelocityItemsTable 
-                  items={velocityMetrics.criticalItems} 
-                  getUrgencyColor={getUrgencyColor} 
-                  showActions 
-                  onProductClick={handleProductClick}
-                />
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Top Performers Section */}
-          {velocityMetrics.topPerformers.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Zap className="h-5 w-5 text-yellow-500" />
-                  Top Performing Items
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <VelocityItemsTable 
-                  items={velocityMetrics.topPerformers} 
-                  getUrgencyColor={getUrgencyColor}
-                  onProductClick={handleProductClick}
-                />
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Summary Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Average Velocity</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{velocityMetrics.avgVelocity.toFixed(3)}</div>
-                <p className="text-xs text-muted-foreground">Items sold per day</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Urgent Items</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-600">{velocityMetrics.totalUrgentItems}</div>
-                <p className="text-xs text-muted-foreground">Items needing immediate attention</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Avg Stock Days</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{velocityMetrics.avgStockDays.toFixed(1)}</div>
-                <p className="text-xs text-muted-foreground">Days of inventory remaining</p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      )
-    },
-    {
-      value: 'asin',
-      label: 'ASIN Analytics',
-      content: (
-        <div className="space-y-4">
-          {asinAnalytics.length === 0 ? (
-            <div className="text-center py-12">
-              <Package className="w-16 h-16 mx-auto mb-4 opacity-30 text-muted-foreground" />
-              <p className="text-muted-foreground font-medium">No ASIN inventory found</p>
-              <p className="text-sm text-muted-foreground/70 mt-1">
-                ASIN inventory items will appear here when available
-              </p>
+      {/* Advanced Controls */}
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex flex-wrap gap-4 mb-4">
+            <div className="relative flex-1 min-w-64">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search products..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {asinAnalytics.map(item => (
-                <Card 
-                  key={item.id} 
-                  className="cursor-pointer hover:shadow-md transition-shadow" 
-                  onClick={() => handleProductClick(item.id, 'asin')}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-medium truncate">{item.identifier}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          {item.current_quantity} in stock
-                        </p>
-                      </div>
-                      <Badge variant="outline">
-                        Grade {item.metrics.performance_grade}
-                      </Badge>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">Velocity:</span>
-                        <div className="font-medium">{item.metrics.sales_velocity.toFixed(3)}/day</div>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Category:</span>
-                        <div className="font-medium text-xs">{item.metrics.velocity_category}</div>
-                      </div>
-                    </div>
+            
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                <SelectItem value="Fast Moving">Fast Moving</SelectItem>
+                <SelectItem value="Medium Moving">Medium Moving</SelectItem>
+                <SelectItem value="Slow Moving">Slow Moving</SelectItem>
+                <SelectItem value="No Sales">No Sales</SelectItem>
+              </SelectContent>
+            </Select>
 
-                    <div className="mt-3 pt-3 border-t">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs text-muted-foreground">Next reorder:</span>
-                        <Badge variant={item.current_quantity <= item.metrics.recommended_reorder_point ? 'destructive' : 'secondary'}>
-                          {item.metrics.recommended_order_quantity} units
-                        </Badge>
-                      </div>
-                    </div>
+            <Select value={selectedType} onValueChange={setSelectedType}>
+              <SelectTrigger className="w-32">
+                <SelectValue placeholder="Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="ASIN">ASIN</SelectItem>
+                <SelectItem value="SKU">SKU</SelectItem>
+              </SelectContent>
+            </Select>
 
-                    {item.metrics.next_restock_suggestion && (
-                      <div className="mt-2 p-2 bg-orange-50 dark:bg-orange-950/20 rounded text-xs text-orange-800 dark:text-orange-400">
-                        {item.metrics.next_restock_suggestion}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-      )
-    },
-    {
-      value: 'sku',
-      label: 'SKU Analytics',
-      content: (
-        <div className="space-y-4">
-          {skuAnalytics.length === 0 ? (
-            <div className="text-center py-12">
-              <Package className="w-16 h-16 mx-auto mb-4 opacity-30 text-muted-foreground" />
-              <p className="text-muted-foreground font-medium">No SKU inventory found</p>
-              <p className="text-sm text-muted-foreground/70 mt-1">
-                SKU inventory items will appear here when available
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {skuAnalytics.map(item => (
-                <Card 
-                  key={item.id} 
-                  className="cursor-pointer hover:shadow-md transition-shadow" 
-                  onClick={() => handleProductClick(item.id, 'sku')}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-medium truncate">{item.identifier}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          {item.current_quantity} in stock
-                        </p>
-                      </div>
-                      <Badge variant="outline">
-                        Grade {item.metrics.performance_grade}
-                      </Badge>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">Velocity:</span>
-                        <div className="font-medium">{item.metrics.sales_velocity.toFixed(3)}/day</div>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Category:</span>
-                        <div className="font-medium text-xs">{item.metrics.velocity_category}</div>
-                      </div>
-                    </div>
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-32">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="urgency">Urgency</SelectItem>
+                <SelectItem value="velocity">Velocity</SelectItem>
+                <SelectItem value="stock">Stock</SelectItem>
+                <SelectItem value="identifier">Name</SelectItem>
+              </SelectContent>
+            </Select>
 
-                    <div className="mt-3 pt-3 border-t">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs text-muted-foreground">Next reorder:</span>
-                        <Badge variant={item.current_quantity <= item.metrics.recommended_reorder_point ? 'destructive' : 'secondary'}>
-                          {item.metrics.recommended_order_quantity} units
-                        </Badge>
-                      </div>
-                    </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+            >
+              {sortOrder === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
 
-                    {item.metrics.next_restock_suggestion && (
-                      <div className="mt-2 p-2 bg-orange-50 dark:bg-orange-950/20 rounded text-xs text-orange-800 dark:text-orange-400">
-                        {item.metrics.next_restock_suggestion}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-      )
-    },
-    {
-      value: 'details',
-      label: 'Product Details',
-      content: selectedItem ? (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold">{selectedItem.identifier}</h3>
-              <p className="text-sm text-muted-foreground">
-                Added {formatDistanceToNow(new Date(selectedItem.date_added), { addSuffix: true })}
-              </p>
-            </div>
-            <Button variant="outline" onClick={() => setSelectedItem(null)}>
-              Back to Overview
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={resetFilters}
+              className="flex items-center gap-2"
+            >
+              <X className="h-4 w-4" />
+              Reset
             </Button>
           </div>
 
-          {renderMetricsCards(selectedItem)}
+          <div className="flex justify-between items-center text-sm text-muted-foreground">
+            <span>Showing {filteredAndSortedItems.length} of {allInventoryItems.length} items</span>
+            <div className="flex items-center gap-4">
+              <span>Avg Velocity: {velocityMetrics.avgVelocity.toFixed(3)}/day</span>
+              <span>Urgent: {velocityMetrics.totalUrgentItems}</span>
+              <span>Critical: {velocityMetrics.criticalItems.length}</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
+      {/* Unified Inventory Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Package className="h-5 w-5" />
+            Comprehensive Inventory Analytics
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <UnifiedInventoryTable 
+            items={filteredAndSortedItems}
+            getUrgencyColor={getUrgencyColor}
+            onProductClick={handleProductClick}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Product Details Panel */}
+      {selectedItem && (
+        <Collapsible open={showDetails} onOpenChange={setShowDetails}>
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <History className="w-5 h-5" />
-                Lifecycle Timeline
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {renderLifecycleTimeline(selectedItem.lifecycle_events)}
-            </CardContent>
-          </Card>
-        </div>
-      ) : (
-        <div className="text-center py-12">
-          <History className="w-16 h-16 mx-auto mb-4 opacity-30 text-muted-foreground" />
-          <p className="text-muted-foreground font-medium">No product selected</p>
-          <p className="text-sm text-muted-foreground/70 mt-1">
-            Click on any product from the analytics tabs to view detailed lifecycle information
-          </p>
-        </div>
-      )
-    }
-  ];
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <History className="h-5 w-5" />
+                    Product Details: {selectedItem.identifier}
+                  </CardTitle>
+                  {showDetails ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold">{selectedItem.identifier}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Added {formatDistanceToNow(new Date(selectedItem.date_added), { addSuffix: true })}
+                      </p>
+                    </div>
+                    <Button variant="outline" onClick={() => setShowDetails(false)}>
+                      <X className="h-4 w-4 mr-2" />
+                      Close
+                    </Button>
+                  </div>
 
-  return (
-    <div className="space-y-6">
-      <HuhaTab01 
-        items={tabItems}
-        value={activeTab}
-        onValueChange={setActiveTab}
-        className="w-full"
-        tabsContentClassName="overflow-y-auto"
-      />
+                  {renderMetricsCards(selectedItem)}
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <History className="w-5 h-5" />
+                        Lifecycle Timeline
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {renderLifecycleTimeline(selectedItem.lifecycle_events)}
+                    </CardContent>
+                  </Card>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      )}
     </div>
   );
 }
 
-interface VelocityItemsTableProps {
+interface UnifiedInventoryTableProps {
   items: any[];
   getUrgencyColor: (score: number) => "default" | "destructive" | "secondary" | "outline";
-  showActions?: boolean;
   onProductClick?: (itemId: string, inventoryType: 'asin' | 'sku') => void;
 }
 
-function VelocityItemsTable({ items, getUrgencyColor, showActions = false, onProductClick }: VelocityItemsTableProps) {
+function UnifiedInventoryTable({ items, getUrgencyColor, onProductClick }: UnifiedInventoryTableProps) {
   if (items.length === 0) {
-    return <p className="text-muted-foreground text-center py-4">No items in this category</p>;
+    return (
+      <div className="text-center py-12">
+        <Package className="w-16 h-16 mx-auto mb-4 opacity-30 text-muted-foreground" />
+        <p className="text-muted-foreground font-medium">No items match your current filters</p>
+        <p className="text-sm text-muted-foreground/70 mt-1">
+          Try adjusting your search criteria or filters
+        </p>
+      </div>
+    );
   }
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Item</TableHead>
-          <TableHead>Current Stock</TableHead>
-          <TableHead>Velocity</TableHead>
-          <TableHead>Category</TableHead>
-          <TableHead>Recommended Order</TableHead>
-          <TableHead>Stock Days</TableHead>
-          <TableHead>Urgency</TableHead>
-          {showActions && <TableHead>Actions</TableHead>}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {items.map((item) => (
-          <TableRow 
-            key={item.item_id}
-            className={onProductClick ? "cursor-pointer hover:bg-muted/50" : ""}
-            onClick={() => onProductClick?.(item.item_id, item.table_name.includes('asin') ? 'asin' : 'sku')}
-          >
-            <TableCell className="font-medium">{item.identifier}</TableCell>
-            <TableCell>{item.current_quantity}</TableCell>
-            <TableCell>{item.sales_velocity.toFixed(3)}/day</TableCell>
-            <TableCell>
-              <Badge variant="outline">{item.velocity_category}</Badge>
-            </TableCell>
-            <TableCell className="font-bold text-green-600">
-              {item.recommended_reorder_quantity}
-            </TableCell>
-            <TableCell>
-              {item.stock_days_remaining ? `${item.stock_days_remaining.toFixed(1)} days` : 'N/A'}
-            </TableCell>
-            <TableCell>
-              <Badge variant={getUrgencyColor(item.urgency_score)}>
-                {item.urgency_score}
-              </Badge>
-            </TableCell>
-            {showActions && (
-              <TableCell>
-                <Button size="sm" variant="outline">
-                  Order {item.recommended_reorder_quantity}
-                </Button>
-              </TableCell>
-            )}
+    <div className="rounded-md border overflow-hidden">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Product</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Stock</TableHead>
+            <TableHead>Velocity</TableHead>
+            <TableHead>Category</TableHead>
+            <TableHead>Recommended Order</TableHead>
+            <TableHead>Stock Days</TableHead>
+            <TableHead>Urgency</TableHead>
+            <TableHead>Grade</TableHead>
+            <TableHead>Actions</TableHead>
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {items.map((item) => (
+            <TableRow 
+              key={item.item_id}
+              className="cursor-pointer hover:bg-muted/50 transition-colors"
+              onClick={() => onProductClick?.(item.item_id, item.table_name.includes('asin') ? 'asin' : 'sku')}
+            >
+              <TableCell>
+                <div className="font-medium">{item.identifier}</div>
+                {item.enhanced_data && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Added {formatDistanceToNow(new Date(item.enhanced_data.date_added), { addSuffix: true })}
+                  </div>
+                )}
+              </TableCell>
+              <TableCell>
+                <Badge variant={item.type === 'ASIN' ? 'default' : 'secondary'}>
+                  {item.type}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                <div className="font-medium">{item.current_quantity}</div>
+                {item.enhanced_data && item.current_quantity <= item.enhanced_data.metrics.recommended_reorder_point && (
+                  <div className="text-xs text-orange-600 mt-1">Below reorder point</div>
+                )}
+              </TableCell>
+              <TableCell>
+                <div className="font-medium">{item.sales_velocity.toFixed(3)}/day</div>
+                {item.enhanced_data && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Avg to first sale: {item.enhanced_data.metrics.avg_days_to_first_sale}d
+                  </div>
+                )}
+              </TableCell>
+              <TableCell>
+                <Badge variant="outline">{item.velocity_category}</Badge>
+              </TableCell>
+              <TableCell>
+                <div className="font-bold text-green-600">
+                  {item.recommended_reorder_quantity}
+                </div>
+                {item.enhanced_data && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Reorder at: {item.enhanced_data.metrics.recommended_reorder_point}
+                  </div>
+                )}
+              </TableCell>
+              <TableCell>
+                <div className="font-medium">
+                  {item.stock_days_remaining ? `${item.stock_days_remaining.toFixed(1)}d` : 'N/A'}
+                </div>
+                {item.enhanced_data && item.enhanced_data.metrics.predicted_stockout_date && (
+                  <div className="text-xs text-orange-600 mt-1">
+                    Expected stockout: {format(new Date(item.enhanced_data.metrics.predicted_stockout_date), 'MMM dd')}
+                  </div>
+                )}
+              </TableCell>
+              <TableCell>
+                <Badge variant={getUrgencyColor(item.urgency_score)}>
+                  {item.urgency_score}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                {item.enhanced_data ? (
+                  <Badge variant={
+                    item.enhanced_data.metrics.performance_grade === 'A' ? 'default' :
+                    item.enhanced_data.metrics.performance_grade === 'B' ? 'secondary' :
+                    item.enhanced_data.metrics.performance_grade === 'C' ? 'outline' : 'destructive'
+                  }>
+                    Grade {item.enhanced_data.metrics.performance_grade}
+                  </Badge>
+                ) : (
+                  <span className="text-muted-foreground text-xs">N/A</span>
+                )}
+              </TableCell>
+              <TableCell>
+                <div className="flex gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // Handle order action
+                    }}
+                  >
+                    Order {item.recommended_reorder_quantity}
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   );
 }
