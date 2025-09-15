@@ -692,22 +692,12 @@ function UnifiedInventoryTable({ items, getUrgencyColor, onProductClick }: Unifi
               <TableCell>
                 <div className="font-bold text-green-600">
                   {item.recommended_reorder_quantity}
-                  {/* Debug info */}
-                  <span className="text-xs text-gray-500 ml-2">
-                    (vel: {item.sales_velocity?.toFixed(3)})
-                  </span>
                 </div>
                 {item.enhanced_data && (
                   <div className="text-xs text-muted-foreground mt-1">
                     Reorder at: {item.enhanced_data.metrics.recommended_reorder_point}
                   </div>
                 )}
-                {/* Show calculation details for debugging */}
-                <div className="text-xs text-blue-600 mt-1">
-                  Cat: {item.velocity_category} | 
-                  Sales: {item.total_sales || 0} | 
-                  Days: {item.days_since_last_sale || 'N/A'}
-                </div>
               </TableCell>
               <TableCell>
                 <div className="font-medium">
