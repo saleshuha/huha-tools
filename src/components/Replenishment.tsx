@@ -260,13 +260,13 @@ export function Replenishment() {
     try {
       console.log('Loading restock items for country:', selectedCountry);
       
-      // Get ASIN inventory items that need restocking (quantity = 0, not ordered, and eligible for restock)
+      // Get ASIN inventory items that need restocking (out of stock OR sold items with low stock)
       const asinQuery = supabase.from('asin_inventory')
         .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added')
         .eq('country', selectedCountry)
-        .eq('quantity', 0)
         .eq('eligible_for_restock', true)
-        .neq('status', 'ordered');
+        .neq('status', 'ordered')
+        .or('quantity.eq.0,and(quantity.lte.5,date_sold.not.is.null)');
          
       const [asinResult] = await Promise.all([asinQuery]);
       
