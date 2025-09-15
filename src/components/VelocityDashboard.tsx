@@ -27,10 +27,19 @@ export function VelocityDashboard() {
   const [itemsPerPage, setItemsPerPage] = useState(20);
 
   const handleProductClick = async (itemId: string, inventoryType: 'asin' | 'sku') => {
-    const analysis = await loadItemAnalysis(itemId, inventoryType);
-    if (analysis) {
-      setSelectedItem(analysis);
-      setShowDetails(true);
+    console.log('Row clicked - itemId:', itemId, 'inventoryType:', inventoryType);
+    try {
+      const analysis = await loadItemAnalysis(itemId, inventoryType);
+      console.log('Analysis result:', analysis);
+      if (analysis) {
+        setSelectedItem(analysis);
+        setShowDetails(true);
+        console.log('Details panel should now be visible');
+      } else {
+        console.log('No analysis data received');
+      }
+    } catch (error) {
+      console.error('Error loading item analysis:', error);
     }
   };
 
