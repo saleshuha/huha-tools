@@ -580,54 +580,48 @@ export function VelocityDashboard() {
       </Card>
 
       {/* Product Details Panel */}
-      {selectedItem && (
-        <Collapsible open={showDetails} onOpenChange={setShowDetails}>
-          <Card>
-            <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer hover:bg-muted/50">
-                <div className="flex items-center justify-between">
+      {selectedItem && showDetails && (
+        <Card>
+          <CardHeader className="cursor-pointer hover:bg-muted/50" onClick={() => setShowDetails(false)}>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <History className="h-5 w-5" />
+                Product Details: {selectedItem.identifier}
+              </CardTitle>
+              <X className="h-4 w-4" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold">{selectedItem.identifier}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Added {formatDistanceToNow(new Date(selectedItem.date_added), { addSuffix: true })}
+                  </p>
+                </div>
+                <Button variant="outline" onClick={() => setShowDetails(false)}>
+                  <X className="h-4 w-4 mr-2" />
+                  Close
+                </Button>
+              </div>
+
+              {renderMetricsCards(selectedItem)}
+
+              <Card>
+                <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <History className="h-5 w-5" />
-                    Product Details: {selectedItem.identifier}
+                    <History className="w-5 h-5" />
+                    Lifecycle Timeline
                   </CardTitle>
-                  {showDetails ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                </div>
-              </CardHeader>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <CardContent>
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-semibold">{selectedItem.identifier}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Added {formatDistanceToNow(new Date(selectedItem.date_added), { addSuffix: true })}
-                      </p>
-                    </div>
-                    <Button variant="outline" onClick={() => setShowDetails(false)}>
-                      <X className="h-4 w-4 mr-2" />
-                      Close
-                    </Button>
-                  </div>
-
-                  {renderMetricsCards(selectedItem)}
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <History className="w-5 h-5" />
-                        Lifecycle Timeline
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {renderLifecycleTimeline(selectedItem.lifecycle_events)}
-                    </CardContent>
-                  </Card>
-                </div>
-              </CardContent>
-            </CollapsibleContent>
-          </Card>
-        </Collapsible>
+                </CardHeader>
+                <CardContent>
+                  {renderLifecycleTimeline(selectedItem.lifecycle_events)}
+                </CardContent>
+              </Card>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
