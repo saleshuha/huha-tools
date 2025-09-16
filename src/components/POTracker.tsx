@@ -2467,10 +2467,10 @@ export const POTracker = () => {
                                        const productImage = order.asin ? getImageByAsin(order.asin) : null;
                                        return productImage ? (
                                          <div className="relative group">
-                                           <img 
-                                             src={productImage.image_url} 
-                                             alt={productImage.image_name || order.title || 'Product'} 
-                                             className="w-16 h-16 rounded border object-cover cursor-pointer transition-transform hover:scale-105"
+                                            <img 
+                                              src={productImage.image_url} 
+                                              alt={productImage.image_name || order.title || 'Product'} 
+                                              className="w-16 h-16 rounded border object-contain cursor-pointer transition-transform hover:scale-105"
                                              onError={(e) => {
                                                e.currentTarget.style.display = 'none';
                                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
