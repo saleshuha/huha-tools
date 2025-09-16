@@ -2475,7 +2475,7 @@ export const POTracker = () => {
                                                 <img 
                                                   src={productImage.image_url} 
                                                   alt={productImage.image_name || order.title || 'Product'} 
-                                                  className="w-full h-full object-cover"
+                                                  className="w-full h-full object-contain"
                                                   onError={(e) => {
                                                     e.currentTarget.style.display = 'none';
                                                   }}
