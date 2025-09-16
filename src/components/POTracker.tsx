@@ -2476,15 +2476,15 @@ export const POTracker = () => {
                                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
                                              }}
                                            />
-                                           {/* Hover preview */}
-                                           <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
-                                             <div className="bg-background border border-border rounded-lg shadow-lg p-2">
-                                               <img 
-                                                 src={productImage.image_url} 
-                                                 alt={productImage.image_name || order.title || 'Product'} 
-                                                 className="w-48 h-48 object-contain rounded"
-                                               />
-                                               <div className="text-xs text-muted-foreground mt-1 max-w-48 truncate">
+                                            {/* Hover preview */}
+                                            <div className="absolute bottom-0 right-full mr-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                                              <div className="bg-background border border-border rounded-lg shadow-lg p-2">
+                                                <img 
+                                                  src={productImage.image_url} 
+                                                  alt={productImage.image_name || order.title || 'Product'} 
+                                                  className="w-20 h-20 object-contain rounded"
+                                                />
+                                               <div className="text-xs text-muted-foreground mt-1 max-w-20 truncate">
                                                  {productImage.image_name || order.title || 'Product Image'}
                                                </div>
                                              </div>
