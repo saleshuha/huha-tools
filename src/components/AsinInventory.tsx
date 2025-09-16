@@ -1422,7 +1422,7 @@ export function AsinInventory() {
                             <div className="text-xs text-muted-foreground ml-2">
                               <div className="flex items-center gap-1">
                                 <Activity className="w-3 h-3" />
-                                <span>Auto: Based on 180-day sales</span>
+                                <span>Auto: Based on 90-day sales</span>
                               </div>
                             </div>
                             {item.eligible_for_restock && (

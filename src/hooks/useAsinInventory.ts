@@ -612,7 +612,7 @@ export function useAsinInventory() {
     }
   };
 
-  // Auto-calculate restock eligibility based on sales activity within 180 days
+  // Auto-calculate restock eligibility based on sales activity within 90 days
   const calculateAutoRestockEligibility = async (items: AsinInventoryItem[]) => {
     const itemsToUpdate: { id: string; eligible: boolean }[] = [];
     
@@ -621,9 +621,9 @@ export function useAsinInventory() {
         // Determine the reference date (last restock date or date added)
         const referenceDate = item.lastRestockDate || item.dateAdded;
         const cutoffDate = new Date(referenceDate);
-        cutoffDate.setDate(cutoffDate.getDate() + 180);
+        cutoffDate.setDate(cutoffDate.getDate() + 90);
         
-        // Check for sales (negative change_amount) within 180 days after reference date
+        // Check for sales (negative change_amount) within 90 days after reference date
         const { data: stockChanges, error } = await supabase
           .from('stock_changes')
           .select('change_amount, created_at')
@@ -637,7 +637,7 @@ export function useAsinInventory() {
           continue;
         }
 
-        // Item is eligible if it has sales within 180 days
+        // Item is eligible if it has sales within 90 days
         const hasRecentSales = stockChanges && stockChanges.length > 0;
         const shouldBeEligible = hasRecentSales;
 
