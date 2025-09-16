@@ -2487,7 +2487,7 @@ export const POTracker = () => {
                                                 <img 
                                                   src={productImage.image_url} 
                                                   alt={productImage.image_name || order.title || 'Product preview'} 
-                                                  className="w-full h-full object-cover"
+                                                  className="w-full h-full object-contain"
                                                 />
                                               </div>
                                               <div className="text-xs text-muted-foreground mt-2 text-center">
