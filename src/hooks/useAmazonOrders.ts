@@ -142,10 +142,10 @@ export const useAmazonOrders = () => {
     }, {} as { [key: string]: number });
 
     // Current timestamp for date calculations
-    // Pending payments = orders with status "Approved" or "Non-submitted"
+    // Pending payments = orders with status "Approved" or "Non Submitted" (case insensitive)
     const pendingOrders = ordersData.filter(o => {
       const status = (o.status || '').toLowerCase().trim();
-      return status === 'approved' || status === 'non-submitted';
+      return status === 'approved' || status === 'non submitted' || status === 'non-submitted';
     });
     const pendingPayments = pendingOrders.length;
 
@@ -175,7 +175,7 @@ export const useAmazonOrders = () => {
         const dueDate = new Date(shipmentDate);
         // Calculate payment due date based on actual payment terms from database
         dueDate.setDate(dueDate.getDate() + creditDays);
-        const isOverdue = dueDate < now;
+        const isOverdue = dueDate <= now;
         
         // Enhanced logging for debugging
         console.log(`Order ${o.order_id}: Shipment: ${o.shipment_date}, Due: ${dueDate.toDateString()}, Credit Days: ${creditDays}, Is Overdue: ${isOverdue}`);
@@ -267,7 +267,7 @@ export const useAmazonOrders = () => {
           const shipmentDate = new Date(o.shipment_date);
           const dueDate = new Date(shipmentDate);
           dueDate.setDate(dueDate.getDate() + creditDays);
-          return dueDate <= next7Days && dueDate >= now;
+          return dueDate <= next7Days && dueDate > now;
         } catch {
           return false;
         }
@@ -279,7 +279,7 @@ export const useAmazonOrders = () => {
           const shipmentDate = new Date(o.shipment_date);
           const dueDate = new Date(shipmentDate);
           dueDate.setDate(dueDate.getDate() + creditDays);
-          return dueDate <= next30Days && dueDate >= now;
+          return dueDate <= next30Days && dueDate > now;
         } catch {
           return false;
         }
@@ -291,7 +291,7 @@ export const useAmazonOrders = () => {
           const shipmentDate = new Date(o.shipment_date);
           const dueDate = new Date(shipmentDate);
           dueDate.setDate(dueDate.getDate() + creditDays);
-          return dueDate <= next90Days && dueDate >= now;
+          return dueDate <= next90Days && dueDate > now;
         } catch {
           return false;
         }
