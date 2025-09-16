@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -2462,34 +2463,38 @@ export const POTracker = () => {
                                    className="h-4 w-4 rounded border-border"
                                  />
                                </TableCell>
-                                   <TableCell>
-                                     {(() => {
-                                       const productImage = order.asin ? getImageByAsin(order.asin) : null;
-                                       return productImage ? (
-                                         <div className="relative group">
-                                            <img 
-                                              src={productImage.image_url} 
-                                              alt={productImage.image_name || order.title || 'Product'} 
-                                              className="w-16 h-16 rounded border object-contain cursor-pointer transition-transform hover:scale-105"
-                                             onError={(e) => {
-                                               e.currentTarget.style.display = 'none';
-                                               e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                             }}
-                                           />
-                                            {/* Hover preview */}
-                                            <div className="absolute bottom-0 right-full mr-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
-                                              <div className="bg-background border border-border rounded-lg shadow-lg p-2">
+                                    <TableCell>
+                                      {(() => {
+                                        const productImage = order.asin ? getImageByAsin(order.asin) : null;
+                                        return productImage ? (
+                                          <Popover>
+                                            <PopoverTrigger asChild>
+                                              <div 
+                                                className="w-20 h-20 min-w-[5rem] min-h-[5rem] rounded-lg overflow-hidden border-2 border-border cursor-pointer hover:border-primary transition-colors flex-shrink-0"
+                                              >
                                                 <img 
                                                   src={productImage.image_url} 
                                                   alt={productImage.image_name || order.title || 'Product'} 
-                                                  className="w-20 h-20 object-contain rounded"
+                                                  className="w-full h-full object-cover"
+                                                  onError={(e) => {
+                                                    e.currentTarget.style.display = 'none';
+                                                  }}
                                                 />
-                                               <div className="text-xs text-muted-foreground mt-1 max-w-20 truncate">
-                                                 {productImage.image_name || order.title || 'Product Image'}
-                                               </div>
-                                             </div>
-                                           </div>
-                                         </div>
+                                              </div>
+                                            </PopoverTrigger>
+                                            <PopoverContent side="left" className="w-80 p-2">
+                                              <div className="w-full h-64 rounded-lg overflow-hidden bg-white">
+                                                <img 
+                                                  src={productImage.image_url} 
+                                                  alt={productImage.image_name || order.title || 'Product preview'} 
+                                                  className="w-full h-full object-contain"
+                                                />
+                                              </div>
+                                              <div className="text-xs text-muted-foreground mt-2 text-center">
+                                                {productImage.image_name || order.title || 'Product Image'}
+                                              </div>
+                                            </PopoverContent>
+                                          </Popover>
                                        ) : (
                                          <div className="w-16 h-16 rounded border bg-muted flex items-center justify-center">
                                            <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
