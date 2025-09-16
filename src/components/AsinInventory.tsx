@@ -56,6 +56,7 @@ export function AsinInventory() {
     bulkUpdateTitles,
     fetchTitlesFromSunsky,
     updateRestockEligibility,
+    calculateAutoRestockEligibility,
     refetch
   } = useAsinInventory();
   const {
@@ -1405,7 +1406,7 @@ export function AsinInventory() {
                           {item.quantity <= 5 && <AlertTriangle className="w-3 h-3 text-yellow-500" />}
                         </div>
                       </td>
-                        <td className="p-3 border-r">
+                         <td className="p-3 border-r">
                           <div className="space-y-2">
                             <div className="flex items-center gap-3">
                               <Switch
@@ -1415,8 +1416,14 @@ export function AsinInventory() {
                                 className="border-2 border-muted-foreground/30 data-[state=checked]:border-primary hover:border-primary/60 transition-colors"
                               />
                               <Label htmlFor={`restock-${item.id}`} className="text-sm font-medium">
-                                Restock
+                                Restock <span className="text-xs text-muted-foreground">(Manual)</span>
                               </Label>
+                            </div>
+                            <div className="text-xs text-muted-foreground ml-2">
+                              <div className="flex items-center gap-1">
+                                <Activity className="w-3 h-3" />
+                                <span>Auto: Based on 180-day sales</span>
+                              </div>
                             </div>
                             {item.eligible_for_restock && (
                               <div className="text-xs text-muted-foreground space-y-1 ml-10">

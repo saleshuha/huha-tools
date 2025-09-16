@@ -60,6 +60,11 @@ export function useAsinInventory() {
       }));
 
       setInventory(formattedData);
+      
+      // Auto-calculate restock eligibility after loading inventory
+      setTimeout(() => {
+        calculateAutoRestockEligibility(formattedData);
+      }, 100);
     } catch (error: any) {
       toast({
         title: "Error loading inventory",
@@ -607,7 +612,65 @@ export function useAsinInventory() {
     }
   };
 
-  // Update restock eligibility
+  // Auto-calculate restock eligibility based on sales activity within 180 days
+  const calculateAutoRestockEligibility = async (items: AsinInventoryItem[]) => {
+    const itemsToUpdate: { id: string; eligible: boolean }[] = [];
+    
+    for (const item of items) {
+      try {
+        // Determine the reference date (last restock date or date added)
+        const referenceDate = item.lastRestockDate || item.dateAdded;
+        const cutoffDate = new Date(referenceDate);
+        cutoffDate.setDate(cutoffDate.getDate() + 180);
+        
+        // Check for sales (negative change_amount) within 180 days after reference date
+        const { data: stockChanges, error } = await supabase
+          .from('stock_changes')
+          .select('change_amount, created_at')
+          .eq('inventory_id', item.id)
+          .lt('change_amount', 0) // Only sales (negative changes)
+          .gte('created_at', referenceDate)
+          .lte('created_at', cutoffDate.toISOString());
+
+        if (error) {
+          console.error(`Error checking stock changes for item ${item.id}:`, error);
+          continue;
+        }
+
+        // Item is eligible if it has sales within 180 days
+        const hasRecentSales = stockChanges && stockChanges.length > 0;
+        const shouldBeEligible = hasRecentSales;
+
+        // Only update if eligibility has changed
+        if (item.eligible_for_restock !== shouldBeEligible) {
+          itemsToUpdate.push({ id: item.id, eligible: shouldBeEligible });
+        }
+      } catch (error) {
+        console.error(`Error calculating eligibility for item ${item.id}:`, error);
+      }
+    }
+
+    // Batch update items if there are changes
+    if (itemsToUpdate.length > 0) {
+      console.log(`Auto-updating restock eligibility for ${itemsToUpdate.length} items`);
+      
+      // Update database in batches
+      for (const update of itemsToUpdate) {
+        await supabase
+          .from('asin_inventory')
+          .update({ eligible_for_restock: update.eligible })
+          .eq('id', update.id);
+      }
+
+      // Update local state
+      setInventory(prev => prev.map(item => {
+        const update = itemsToUpdate.find(u => u.id === item.id);
+        return update ? { ...item, eligible_for_restock: update.eligible } : item;
+      }));
+    }
+  };
+
+  // Update restock eligibility (manual override)
   const updateRestockEligibility = async (itemId: string, eligible: boolean) => {
     try {
       const { error } = await supabase
@@ -625,8 +688,8 @@ export function useAsinInventory() {
       ));
 
       toast({
-        title: "Updated",
-        description: `Item ${eligible ? 'marked as' : 'removed from'} restock eligible`,
+        title: "Manual Override",
+        description: `Item manually ${eligible ? 'enabled' : 'disabled'} for restock`,
       });
     } catch (error: any) {
       toast({
@@ -653,6 +716,7 @@ export function useAsinInventory() {
     bulkUpdateTitles,
     fetchTitlesFromSunsky,
     updateRestockEligibility,
+    calculateAutoRestockEligibility,
     refetch: loadInventory,
   };
 }
