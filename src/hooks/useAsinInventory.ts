@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -613,7 +613,7 @@ export function useAsinInventory() {
   };
 
   // Simplified auto-calculate restock eligibility
-  const calculateAutoRestockEligibility = useCallback(async (items: AsinInventoryItem[]) => {
+  const calculateAutoRestockEligibility = async (items: AsinInventoryItem[]) => {
     if (!items.length) return;
     
     try {
@@ -656,7 +656,7 @@ export function useAsinInventory() {
     } catch (error) {
       console.error('Auto-eligibility calculation error:', error);
     }
-  }, []);
+  };
 
   // Update restock eligibility (manual override)
   const updateRestockEligibility = async (itemId: string, eligible: boolean) => {
