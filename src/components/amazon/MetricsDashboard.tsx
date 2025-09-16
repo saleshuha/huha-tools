@@ -73,14 +73,8 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
         const qty = parseInt(order.quantity?.toString() || '1') || 1;
         const orderValue = cost * qty;
         
-        // Convert to USD if not already in USD
-        if (order.currency === 'AED') {
-          return sum + (orderValue * 0.27);
-        } else if (order.currency === 'SAR') {
-          return sum + (orderValue * 0.27);
-        } else {
-          return sum + orderValue;
-        }
+        // Use the centralized currency converter instead of hardcoded rates
+        return sum + convertCurrency(orderValue, order.currency || 'USD', 'USD');
       }, 0);
       values[status] = convertCurrency(totalValueUSD, 'USD', displayCurrency);
     });
@@ -121,14 +115,8 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
         const qty = parseInt(order.quantity?.toString() || '1') || 1;
         const orderValue = cost * qty;
         
-        // Convert to USD if not already in USD
-        if (order.currency === 'AED') {
-          return sum + (orderValue * 0.27);
-        } else if (order.currency === 'SAR') {
-          return sum + (orderValue * 0.27);
-        } else {
-          return sum + orderValue;
-        }
+        // Use the centralized currency converter instead of hardcoded rates
+        return sum + convertCurrency(orderValue, order.currency || 'USD', 'USD');
       }, 0);
       
       return convertCurrency(totalValueUSD, 'USD', displayCurrency);
@@ -181,14 +169,8 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
         const qty = parseInt(order.quantity?.toString() || '1') || 1;
         const orderValue = cost * qty;
         
-        // Convert to USD if not already in USD
-        if (order.currency === 'AED') {
-          return sum + (orderValue * 0.27);
-        } else if (order.currency === 'SAR') {
-          return sum + (orderValue * 0.27);
-        } else {
-          return sum + orderValue;
-        }
+        // Use the centralized currency converter instead of hardcoded rates
+        return sum + convertCurrency(orderValue, order.currency || 'USD', 'USD');
       }, 0);
       
       const formatDate = (date: Date) => {
@@ -242,14 +224,8 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
         const qty = parseInt(order.quantity?.toString() || '1') || 1;
         const orderValue = cost * qty;
         
-        // Convert to USD if not already in USD
-        if (order.currency === 'AED') {
-          return sum + (orderValue * 0.27);
-        } else if (order.currency === 'SAR') {
-          return sum + (orderValue * 0.27);
-        } else {
-          return sum + orderValue;
-        }
+        // Use the centralized currency converter instead of hardcoded rates
+        return sum + convertCurrency(orderValue, order.currency || 'USD', 'USD');
       }, 0);
       
       weeks.unshift({
