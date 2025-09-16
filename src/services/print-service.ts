@@ -218,24 +218,19 @@ export class PrintService {
     dpi: number,
     labelSizeMM?: { width: number; height: number }
   ): string {
-    // Direct coordinate conversion - elements are already positioned correctly on canvas
-    // Canvas uses pixel coordinates that directly correspond to the label's millimeter dimensions
-    // Convert from canvas pixels to ZPL dots using proper scaling
+    // Direct pixel to millimeter conversion - no proportional scaling needed
+    // Elements are positioned in pixels that correspond directly to millimeters via mmToPx/pxToMM functions
     
     if (!labelSizeMM) {
       console.warn('Label size not provided for ZPL conversion');
       return '';
     }
 
-    // Calculate the scale factor between canvas pixels and actual millimeters
-    const canvasWidthPx = mmToPx(labelSizeMM.width);  // Canvas width in pixels
-    const canvasHeightPx = mmToPx(labelSizeMM.height); // Canvas height in pixels
-    
-    // Convert element position from canvas pixels to millimeters proportionally
-    const elementXMM = (element.x / canvasWidthPx) * labelSizeMM.width;
-    const elementYMM = (element.y / canvasHeightPx) * labelSizeMM.height;
-    const elementWidthMM = (element.width / canvasWidthPx) * labelSizeMM.width;
-    const elementHeightMM = (element.height / canvasHeightPx) * labelSizeMM.height;
+    // Convert element coordinates directly from pixels to millimeters
+    const elementXMM = pxToMM(element.x);
+    const elementYMM = pxToMM(element.y);
+    const elementWidthMM = pxToMM(element.width);
+    const elementHeightMM = pxToMM(element.height);
     
     // Convert to ZPL dots
     let x = Math.round(this.mmToDots(elementXMM, dpi));
