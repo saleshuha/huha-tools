@@ -129,7 +129,7 @@ export function AsinInventory() {
             <img 
               src={productImage.image_url} 
               alt={`Product image for ${asin}`}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
                 e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-full bg-muted flex items-center justify-center"><Eye class="w-6 h-6 text-muted-foreground" /></div>';
