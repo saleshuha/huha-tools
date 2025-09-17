@@ -294,6 +294,31 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
+              {/* Financial Management */}
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  asChild
+                  className={`group relative w-full rounded-md transition-all duration-200 ${
+                    isActive("/financial-management")
+                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                  }`}
+                >
+                  <NavLink 
+                    to="/financial-management" 
+                    end
+                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
+                  >
+                    <CreditCard className="h-4 w-4 flex-shrink-0" />
+                    {!isCollapsed && (
+                      <span className="font-medium text-sm">
+                        Financial Management
+                      </span>
+                    )}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
               {/* Removed QZ Tray Setup - moved to between Tools and Data Viewer */}
 
               {/* Amazon Section - only show when not collapsed */}
