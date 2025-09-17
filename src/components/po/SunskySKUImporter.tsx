@@ -2839,9 +2839,28 @@ export const SunskySKUImporter: React.FC = () => {
                     });
                     return;
                   }
+                  
+                  if (isExporting || isConcurrentExporting) {
+                    toast({
+                      title: "Export in Progress",
+                      description: "Please wait for the current export to complete",
+                      variant: "destructive"
+                    });
+                    return;
+                  }
 
                   // Use the concurrent export directly for foreground processing
                   const apiIds = selectedExportAPIs.length > 0 ? selectedExportAPIs : availableAPIs.filter(api => api.is_active).map(api => api.id);
+                  
+                  if (apiIds.length === 0) {
+                    toast({
+                      title: "No API Keys",
+                      description: "No active API keys available for export",
+                      variant: "destructive"
+                    });
+                    return;
+                  }
+                  
                   const apiKeysWithNames = apiIds.map(id => {
                     const api = availableAPIs.find(a => a.id === id);
                     return {
@@ -2858,7 +2877,7 @@ export const SunskySKUImporter: React.FC = () => {
                     apiKeys: apiKeysWithNames
                   };
                   startConcurrentExport(exportConfig);
-                }} disabled={isExporting || !hasCredentials} className="flex-1">
+                }} disabled={isExporting || isConcurrentExporting || !hasCredentials} className="flex-1">
                   {isExporting || isConcurrentExporting ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
                   {isExporting || isConcurrentExporting ? 'Exporting...' : 'Export Now'}
                 </Button>

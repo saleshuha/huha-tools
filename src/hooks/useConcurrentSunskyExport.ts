@@ -334,6 +334,43 @@ export const useConcurrentSunskyExport = () => {
 
       // Combine all results
       const allProducts = apiResults.flat();
+      
+      // Check if we actually found any products
+      if (allProducts.length === 0) {
+        const noDataMessage = `No products found matching the criteria. Export cancelled.`;
+        setExportStatus(noDataMessage);
+        setOverallProgress(0);
+        setIsExporting(false);
+        
+        toast({
+          title: "No Data Found",
+          description: "No products were found matching your export criteria. Please check your filters and try again.",
+          variant: "destructive"
+        });
+        
+        // Mark background task as failed if provided
+        if (backgroundTaskId) {
+          try {
+            await supabase
+              .from('background_tasks')
+              .update({ 
+                status: 'failed',
+                completed_at: new Date().toISOString(),
+                metadata: {
+                  error: 'No products found matching criteria',
+                  totalProcessed: 0,
+                  lastUpdate: new Date().toISOString()
+                }
+              })
+              .eq('id', backgroundTaskId);
+          } catch (error) {
+            console.error('Failed to update background task:', error);
+          }
+        }
+        
+        return exportId;
+      }
+      
       const categoriesMap = new Map<number, { name: string; products: any[] }>();
       
       // Organize products by category
@@ -361,8 +398,8 @@ export const useConcurrentSunskyExport = () => {
       const completionMessage = `Export completed! Found ${allProducts.length} products using ${config.apiKeys.length} API keys concurrently.`;
       setExportStatus(completionMessage);
 
-      // Create export history entry and file for background task
-      if (backgroundTaskId) {
+      // Create export history entry and file for background task (only if we have products)
+      if (backgroundTaskId && allProducts.length > 0) {
         try {
           // Generate Excel file content
           console.log('📊 Generating Excel file for background export...');
