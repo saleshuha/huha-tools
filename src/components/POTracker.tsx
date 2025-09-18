@@ -1296,7 +1296,7 @@ export const POTracker = () => {
                            <TableHead>PO Items</TableHead>
                            <TableHead>ASN Quantity</TableHead>
                            <TableHead>Matched %</TableHead>
-                           <TableHead>Status Breakdown</TableHead>
+                           <TableHead>Pending Items</TableHead>
                            <TableHead>Actions</TableHead>
                          </TableRow>
                        </TableHeader>
@@ -1413,12 +1413,23 @@ export const POTracker = () => {
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <div className="flex flex-wrap gap-1">
-                                  {Object.entries(statusCounts).map(([status, count]) => (
-                                    <Badge key={status} variant="outline" className="text-xs">
-                                      {status}: {count as number}
-                                    </Badge>
-                                  ))}
+                                <div className="space-y-1">
+                                  <div className="text-sm font-medium">
+                                    {activeOrdersInPO.filter(order => 
+                                      order.status === 'pending'
+                                    ).length} pending
+                                  </div>
+                                  <div className="text-xs text-muted-foreground space-y-0.5">
+                                    <div>Need stock: {activeOrdersInPO.filter(order => 
+                                      order.status === 'pending' && 
+                                      findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number)
+                                    ).length}</div>
+                                    <div>Need order: {activeOrdersInPO.filter(order => 
+                                      order.status === 'pending' && 
+                                      !order.supplier_order_number &&
+                                      !findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number)
+                                    ).length}</div>
+                                  </div>
                                 </div>
                               </TableCell>
                                 <TableCell>
