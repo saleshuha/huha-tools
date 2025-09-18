@@ -965,19 +965,27 @@ export default function PODetailsPage() {
       let inventoryError: any = null;
       
       if (inventoryMatch.type === 'ASIN') {
+        // Update the specific ASIN inventory record using both ASIN and serial number
         const { error } = await supabase
           .from('asin_inventory')
           .update({ quantity: newInventoryQuantity })
           .eq('asin', inventoryMatch.identifier)
+          .eq('serial_number', inventoryMatch.serialNumber)
           .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
         inventoryError = error;
+        
+        console.log(`📦 Partial fulfillment - Updated ASIN inventory: ${inventoryMatch.identifier} (${inventoryMatch.serialNumber}) from ${inventoryMatch.quantity} to ${newInventoryQuantity}`);
       } else {
+        // Update the specific SKU inventory record using both SKU and bin serial number
         const { error } = await supabase
           .from('sku_inventory')
           .update({ quantity: newInventoryQuantity })
           .eq('sku_number', inventoryMatch.identifier)
+          .eq('bin_serial_number', inventoryMatch.serialNumber)
           .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
         inventoryError = error;
+        
+        console.log(`📦 Partial fulfillment - Updated SKU inventory: ${inventoryMatch.identifier} (${inventoryMatch.serialNumber}) from ${inventoryMatch.quantity} to ${newInventoryQuantity}`);
       }
 
       if (inventoryError) {
