@@ -8,6 +8,8 @@ import { useCurrencyDisplay } from '@/components/amazon/CurrencySelector';
 import { useCountry } from '@/contexts/CountryContext';
 import { useMemo, useState } from 'react';
 import { usePaymentTerms } from '@/hooks/usePaymentTerms';
+import { DatePickerWithRange } from '@/components/ui/date-range-picker';
+import { DateRange } from 'react-day-picker';
 
 interface MetricsDashboardProps {
   metrics: DashboardMetrics | null;
@@ -22,6 +24,7 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
   const { creditDays } = usePaymentTerms();
   const [weekOffset, setWeekOffset] = useState(0); // 0 = current 4 weeks, positive = future, negative = past
   const [upcomingWeeksOffset, setUpcomingWeeksOffset] = useState(0); // Separate offset for upcoming payments
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   
   // Force re-render when display currency or metrics change by creating a unique key
   const renderKey = `${displayCurrency}-${metrics?.totalValue || 0}`;
@@ -84,7 +87,7 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
 
   // Calculate values for upcoming payments (convert to USD then to display currency)
   const upcomingValues = useMemo(() => {
-    if (!metrics || !orders) return { next7Days: 0, next30Days: 0, next90Days: 0 };
+    if (!metrics || !orders) return { next7Days: 0, next30Days: 0, next90Days: 0, dateRange: 0 };
     
     const now = new Date();
     const next7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -96,7 +99,8 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
       return status === 'approved' || status === 'non-submitted';
     });
 
-    const calculateUpcomingValue = (endDate: Date) => {
+    const calculateUpcomingValue = (endDate: Date, startDate?: Date) => {
+      const start = startDate || now;
       
       const upcomingOrders = pendingOrders.filter(o => {
         if (!o.shipment_date) return false;
@@ -104,7 +108,7 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
           const shipmentDate = new Date(o.shipment_date);
           const dueDate = new Date(shipmentDate);
           dueDate.setDate(dueDate.getDate() + creditDays);
-          return dueDate <= endDate && dueDate >= now;
+          return dueDate <= endDate && dueDate >= start;
         } catch {
           return false;
         }
@@ -122,12 +126,18 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
       return convertCurrency(totalValueUSD, 'USD', displayCurrency);
     };
 
+    // Calculate custom date range value if both dates are selected
+    const dateRangeValue = dateRange?.from && dateRange?.to 
+      ? calculateUpcomingValue(dateRange.to, dateRange.from)
+      : 0;
+
     return {
       next7Days: calculateUpcomingValue(next7Days),
       next30Days: calculateUpcomingValue(next30Days),
-      next90Days: calculateUpcomingValue(next90Days)
+      next90Days: calculateUpcomingValue(next90Days),
+      dateRange: dateRangeValue
     };
-  }, [metrics, orders, convertCurrency, displayCurrency, selectedCountry]);
+  }, [metrics, orders, convertCurrency, displayCurrency, selectedCountry, dateRange, creditDays]);
 
   // Calculate weekly upcoming payments with navigation
   const weeklyUpcomingPayments = useMemo(() => {
@@ -362,38 +372,73 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm">Next 7 days</span>
-                <div className="flex flex-col items-end">
-                  <Badge variant={metrics.upcomingPayments.next7Days > 0 ? 'destructive' : 'outline'}>
-                    {metrics.upcomingPayments.next7Days}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {formatCurrency(upcomingValues.next7Days, displayCurrency)}
-                  </span>
-                </div>
+            <div className="space-y-4">
+              <div className="space-y-3">
+                <DatePickerWithRange
+                  date={dateRange}
+                  onDateChange={setDateRange}
+                  className="w-full"
+                />
+                {dateRange?.from && dateRange?.to && (
+                  <div className="flex justify-between items-center p-2 bg-muted rounded-md">
+                    <span className="text-sm font-medium">Custom Range</span>
+                    <div className="flex flex-col items-end">
+                      <Badge variant="default">
+                        {orders?.filter(o => {
+                          if (!o.shipment_date) return false;
+                          const status = (o.status || '').toLowerCase().trim();
+                          if (status !== 'approved' && status !== 'non-submitted') return false;
+                          try {
+                            const shipmentDate = new Date(o.shipment_date);
+                            const dueDate = new Date(shipmentDate);
+                            dueDate.setDate(dueDate.getDate() + creditDays);
+                            return dueDate >= dateRange.from && dueDate <= dateRange.to;
+                          } catch {
+                            return false;
+                          }
+                        }).length || 0}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {formatCurrency(upcomingValues.dateRange, displayCurrency)}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm">Next 30 days</span>
-                <div className="flex flex-col items-end">
-                  <Badge variant={metrics.upcomingPayments.next30Days > 0 ? 'default' : 'outline'}>
-                    {metrics.upcomingPayments.next30Days}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {formatCurrency(upcomingValues.next30Days, displayCurrency)}
-                  </span>
+              
+              <div className="space-y-3 pt-2 border-t">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm">Next 7 days</span>
+                  <div className="flex flex-col items-end">
+                    <Badge variant={metrics.upcomingPayments.next7Days > 0 ? 'destructive' : 'outline'}>
+                      {metrics.upcomingPayments.next7Days}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {formatCurrency(upcomingValues.next7Days, displayCurrency)}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm">Next 90 days</span>
-                <div className="flex flex-col items-end">
-                  <Badge variant="secondary">
-                    {metrics.upcomingPayments.next90Days}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {formatCurrency(upcomingValues.next90Days, displayCurrency)}
-                  </span>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm">Next 30 days</span>
+                  <div className="flex flex-col items-end">
+                    <Badge variant={metrics.upcomingPayments.next30Days > 0 ? 'default' : 'outline'}>
+                      {metrics.upcomingPayments.next30Days}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {formatCurrency(upcomingValues.next30Days, displayCurrency)}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm">Next 90 days</span>
+                  <div className="flex flex-col items-end">
+                    <Badge variant="secondary">
+                      {metrics.upcomingPayments.next90Days}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {formatCurrency(upcomingValues.next90Days, displayCurrency)}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
