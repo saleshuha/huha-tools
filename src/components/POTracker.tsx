@@ -462,24 +462,20 @@ export const POTracker = () => {
     
     let filtered = [...poOrders];
     
-    // Apply country filtering with fallback
+    // Apply strict country filtering
     if (selectedCountry) {
       const beforeCountryFilter = filtered.length;
       const countryFilteredOrders = filtered.filter(order => 
         !order.country || order.country === selectedCountry
       );
       
-      // If no orders found for selected country, show all orders with a notification
+      // Always apply country filter strictly - no fallback
+      filtered = countryFilteredOrders;
+      console.log('🔍 FILTERING DEBUG: After country filter:', filtered.length, 'orders (was', beforeCountryFilter, 'for country', selectedCountry, ')');
+      
       if (countryFilteredOrders.length === 0 && beforeCountryFilter > 0) {
-        console.log(`🔍 FILTERING DEBUG: No ${selectedCountry} orders found, showing all ${beforeCountryFilter} orders`);
-        // Don't filter by country, but show a toast notification
-        if (beforeCountryFilter > 0) {
-          const availableCountries = [...new Set(filtered.map(order => order.country).filter(Boolean))];
-          console.log(`🌍 Available countries in data:`, availableCountries);
-        }
-      } else {
-        filtered = countryFilteredOrders;
-        console.log('🔍 FILTERING DEBUG: After country filter:', filtered.length, 'orders (was', beforeCountryFilter, 'for country', selectedCountry, ')');
+        const availableCountries = [...new Set(poOrders.map(order => order.country).filter(Boolean))];
+        console.log(`🌍 Available countries in data:`, availableCountries);
       }
     }
     
@@ -563,19 +559,16 @@ export const POTracker = () => {
     // Use labelEligibleOrders (excludes closed POs) for labels tab, all orders for others
     let ordersToFilter = activeTab === 'labels' ? [...labelEligibleOrders] : [...poOrders];
     
-    // Apply country filtering with fallback
+    // Apply strict country filtering
     if (selectedCountry) {
       const beforeCountryFilter = ordersToFilter.length;
       const countryFilteredOrders = ordersToFilter.filter(order => 
         !order.country || order.country === selectedCountry
       );
       
-      // If no orders found for selected country, keep all orders
-      if (countryFilteredOrders.length === 0 && beforeCountryFilter > 0) {
-        console.log(`🔍 PO GROUPS DEBUG: No ${selectedCountry} orders found, showing all ${beforeCountryFilter} orders`);
-      } else {
-        ordersToFilter = countryFilteredOrders;
-      }
+      // Always apply country filter strictly - no fallback
+      ordersToFilter = countryFilteredOrders;
+      console.log('🔍 PO GROUPS DEBUG: After country filter:', ordersToFilter.length, 'orders (was', beforeCountryFilter, 'for country', selectedCountry, ')');
     }
 
     if (query) {
