@@ -38,7 +38,11 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
 
   // Filter and process data based on report type
   const reportData = useMemo(() => {
-    let filteredOrders = [...poOrders];
+    // First filter out closed/cancelled POs - only show active POs
+    let filteredOrders = poOrders.filter(order => 
+      order.status !== 'closed' && 
+      order.status !== 'cancelled'
+    );
 
     // Apply PO number filter
     if (selectedPO !== 'all') {
@@ -74,10 +78,10 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
           ['ordered', 'shipped', 'delivered'].includes(order.status)
         );
       case 'inventory':
-        // Combine PO orders with inventory data
+        // For inventory, filter only active inventory items (exclude any with deleted/inactive status)
         const inventoryItems = [
-          ...inventoryData.map(item => ({ ...item, source: 'asin_inventory' })),
-          ...skuInventoryData.map(item => ({ ...item, source: 'sku_inventory' }))
+          ...inventoryData.filter(item => item.status !== 'deleted' && item.status !== 'inactive').map(item => ({ ...item, source: 'asin_inventory' })),
+          ...skuInventoryData.filter(item => item.status !== 'deleted' && item.status !== 'inactive').map(item => ({ ...item, source: 'sku_inventory' }))
         ];
         return inventoryItems;
       case 'instock':
@@ -92,13 +96,19 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
 
   // Calculate summary statistics
   const summaryStats = useMemo(() => {
-    const processed = poOrders.filter(order => ['ordered', 'shipped', 'delivered'].includes(order.status));
-    const pending = poOrders.filter(order => order.status === 'pending');
-    const totalValue = poOrders.reduce((sum, order) => sum + (order.total_cost || 0), 0);
+    // Filter out closed/cancelled POs for consistent statistics
+    const activePOs = poOrders.filter(order => 
+      order.status !== 'closed' && 
+      order.status !== 'cancelled'
+    );
+    
+    const processed = activePOs.filter(order => ['ordered', 'shipped', 'delivered'].includes(order.status));
+    const pending = activePOs.filter(order => order.status === 'pending');
+    const totalValue = activePOs.reduce((sum, order) => sum + (order.total_cost || 0), 0);
     const processedValue = processed.reduce((sum, order) => sum + (order.total_cost || 0), 0);
 
     return {
-      totalItems: poOrders.length,
+      totalItems: activePOs.length,
       processedItems: processed.length,
       pendingItems: pending.length,
       totalValue: totalValue,
