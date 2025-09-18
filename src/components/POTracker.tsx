@@ -16,6 +16,7 @@ import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, Trend
 import { useToast } from '@/hooks/use-toast';
 import { POFileUpload } from '@/components/po/POFileUpload';
 import { POProfitAnalytics } from '@/components/po/POProfitAnalytics';
+import { POReportsSection } from '@/components/po/POReportsSection';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { usePOOrders } from '@/hooks/usePOOrders';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -1045,7 +1046,7 @@ export const POTracker = () => {
 
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 h-12 bg-gradient-subtle rounded-xl shadow-elegant p-1 border border-border/20">
+        <TabsList className="grid w-full grid-cols-5 h-12 bg-gradient-subtle rounded-xl shadow-elegant p-1 border border-border/20">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <Package className="h-4 w-4" />
             PO Overview
@@ -1057,6 +1058,10 @@ export const POTracker = () => {
           <TabsTrigger value="labels" className="flex items-center gap-2">
             <Printer className="h-4 w-4" />
             Print Labels
+          </TabsTrigger>
+          <TabsTrigger value="reports" className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Reports
           </TabsTrigger>
           <TabsTrigger value="close" className="flex items-center gap-2">
             <X className="h-4 w-4" />
@@ -2605,6 +2610,14 @@ export const POTracker = () => {
               </Card>
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="reports" className="space-y-6">
+          <POReportsSection 
+            poOrders={filteredOrders}
+            inventoryData={inventoryData?.asinInventory || []}
+            skuInventoryData={inventoryData?.skuInventory || []}
+          />
         </TabsContent>
 
         <TabsContent value="close" className="space-y-6">
