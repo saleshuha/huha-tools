@@ -40,8 +40,8 @@ export interface POOrder {
   printed_quantity?: number;
   external_id?: string;
   external_id_type?: string;
-  sku_code?: string; // Keep for backward compatibility
-  status: 'pending' | 'ordered' | 'shipped' | 'delivered' | 'cancelled' | 'closed' | 'partial-fulfilled';
+  sku_code?: string;
+  status: 'pending' | 'placed' | 'received' | 'cancelled' | 'closed';
   order_date?: string;
   expected_delivery?: string;
   notes?: string;
