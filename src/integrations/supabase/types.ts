@@ -479,57 +479,6 @@ export type Database = {
           },
         ]
       }
-      financial_records: {
-        Row: {
-          amount: number
-          country: string
-          created_at: string
-          currency: string
-          description: string
-          due_date: string | null
-          id: string
-          notes: string | null
-          payment_date: string | null
-          payment_status: Database["public"]["Enums"]["payment_status"]
-          person_name: string
-          type: Database["public"]["Enums"]["financial_record_type"]
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          amount: number
-          country?: string
-          created_at?: string
-          currency?: string
-          description: string
-          due_date?: string | null
-          id?: string
-          notes?: string | null
-          payment_date?: string | null
-          payment_status?: Database["public"]["Enums"]["payment_status"]
-          person_name: string
-          type?: Database["public"]["Enums"]["financial_record_type"]
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          amount?: number
-          country?: string
-          created_at?: string
-          currency?: string
-          description?: string
-          due_date?: string | null
-          id?: string
-          notes?: string | null
-          payment_date?: string | null
-          payment_status?: Database["public"]["Enums"]["payment_status"]
-          person_name?: string
-          type?: Database["public"]["Enums"]["financial_record_type"]
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       huha_stores: {
         Row: {
           created_at: string
@@ -4468,10 +4417,8 @@ export type Database = {
     }
     Enums: {
       country_code: "UAE" | "KSA"
-      financial_record_type: "loan" | "expense" | "debt" | "other"
       inventory_status: "in-stock" | "sold" | "reserved" | "damaged" | "ordered"
       listing_status: "pending" | "listed" | "failed" | "delisted"
-      payment_status: "pending" | "partial" | "paid" | "overdue"
       sunsky_order_status:
         | "unpaid"
         | "paid"
@@ -4611,10 +4558,8 @@ export const Constants = {
   public: {
     Enums: {
       country_code: ["UAE", "KSA"],
-      financial_record_type: ["loan", "expense", "debt", "other"],
       inventory_status: ["in-stock", "sold", "reserved", "damaged", "ordered"],
       listing_status: ["pending", "listed", "failed", "delisted"],
-      payment_status: ["pending", "partial", "paid", "overdue"],
       sunsky_order_status: [
         "unpaid",
         "paid",

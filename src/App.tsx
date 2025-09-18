@@ -30,7 +30,6 @@ import FileMergerPage from "./pages/FileMerger";
 import Inventory from "./pages/Inventory";
 import UserManagementPage from "./pages/UserManagement";
 import ReplenishmentPage from "./pages/Replenishment";
-import FinancialManagement from "./pages/FinancialManagement";
 import OrderProcessingPage from "./pages/OrderProcessing";
 import POTrackerPage from "./pages/POTracker";
 import Auth from "./pages/Auth";
@@ -261,8 +260,7 @@ const App = () => {
                         <Route path="/order-processing" element={<OrderProcessingPage />} />
                         <Route path="/users" element={<UserManagementPage />} />
                         <Route path="/preview-settings" element={<PreviewSettings />} />
-                          <Route path="/replenishment" element={<ReplenishmentPage />} />
-                          <Route path="/financial-management" element={<FinancialManagement />} />
+                        <Route path="/replenishment" element={<ReplenishmentPage />} />
                         <Route path="/po-tracker" element={<POTrackerPage />} />
                         <Route path="/po-details/:poNumber" element={<PODetailsPage />} />
                         <Route path="/add-sku" element={<AddSKUPageWrapper />} />
