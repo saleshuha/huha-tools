@@ -955,9 +955,21 @@ export default function PODetailsPage() {
 
   // Handle partial fulfillment - split order between stock and supplier
   const handlePartialFulfillment = async (order: any, stockQuantity: number, remainingQuantity: number) => {
+    console.log('🔄 Starting partial fulfillment:', {
+      orderId: order.id,
+      sku: order.sku_code,
+      stockQuantity,
+      remainingQuantity,
+      totalQuantity: order.quantity
+    });
+    
     try {
       const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
-      if (!inventoryMatch) return;
+      if (!inventoryMatch) {
+        throw new Error('No inventory match found for partial fulfillment');
+      }
+      
+      console.log('📦 Found inventory match for partial fulfillment:', inventoryMatch);
       
       // Get user ID once at the beginning
       const userId = (await supabase.auth.getUser()).data.user?.id;
@@ -1088,7 +1100,8 @@ export default function PODetailsPage() {
           quantity: stockQuantity,
           notes: `Partial fulfillment from stock: ${stockQuantity} pcs. Original quantity: ${order.quantity} pcs.`
         })
-        .eq('id', order.id);
+        .eq('id', order.id)
+        .eq('user_id', userId);
 
       if (orderError) {
         console.error('Order update error:', orderError);
