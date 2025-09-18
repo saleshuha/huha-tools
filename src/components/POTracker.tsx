@@ -1409,19 +1409,11 @@ export const POTracker = () => {
                                 <div className="space-y-1">
                                   <div className="text-sm font-medium">
                                     {activeOrdersInPO.filter(order => 
-                                      order.status === 'pending'
-                                    ).length} pending
+                                      order.status === 'pending' && !order.supplier_order_number
+                                    ).length} to place with Sunsky
                                   </div>
-                                  <div className="text-xs text-muted-foreground space-y-0.5">
-                                    <div>Need stock: {activeOrdersInPO.filter(order => 
-                                      order.status === 'pending' && 
-                                      findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number)
-                                    ).length}</div>
-                                    <div>Need order: {activeOrdersInPO.filter(order => 
-                                      order.status === 'pending' && 
-                                      !order.supplier_order_number &&
-                                      !findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number)
-                                    ).length}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    Items needing Sunsky orders
                                   </div>
                                 </div>
                               </TableCell>
