@@ -1119,7 +1119,7 @@ export default function PODetailsPage() {
           sku_user_id: order.sku_user_id,
           po_number: order.po_number,
           sku_code: order.sku_code,
-          file_name: order.file_name || `partial_fulfillment_${new Date().toISOString()}`,
+          file_name: order.file_name || `partial_fulfillment_${Date.now()}`,
           asin: order.asin,
           model_number: order.model_number,
           title: order.title,
@@ -1134,6 +1134,8 @@ export default function PODetailsPage() {
           external_id_type: order.external_id_type,
           order_date: order.order_date,
           expected_delivery: order.expected_delivery,
+          is_printed: false,
+          printed_quantity: 0,
           notes: `Remaining quantity from partial fulfillment. Original order quantity: ${order.quantity} pcs, fulfilled from stock: ${stockQuantity} pcs.`
         });
 
