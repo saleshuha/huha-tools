@@ -267,8 +267,8 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
   const handleExportCSV = () => {
     try {
       const headers = selectedReportType === 'inventory' 
-        ? ['Type', 'Identifier', 'Title', 'Quantity', 'Status', 'Date Added']
-        : ['PO Number', 'SKU/ASIN', 'Title', 'Quantity', 'Status', 'Unit Cost', 'Total Cost', 'Order Date'];
+        ? ['Type', 'ASIN/SKU', 'Title', 'QTY', 'Serial Number']
+        : ['PO Number', 'ASIN', 'SKU', 'Title', 'QTY', 'Serial Number'];
 
       const csvContent = [
         headers.join(','),
@@ -279,19 +279,16 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
               `"${item.asin || item.sku_number || 'N/A'}"`,
               `"${item.title || 'N/A'}"`,
               item.quantity || 0,
-              item.status || 'Unknown',
-              item.date_added ? format(new Date(item.date_added), 'yyyy-MM-dd') : 'N/A'
+              `"${item.serial_number || item.bin_serial_number || 'N/A'}"`
             ].join(',');
           } else {
             return [
               `"${item.po_number}"`,
-              `"${item.asin || item.sku_code || 'N/A'}"`,
+              `"${item.asin || 'N/A'}"`,
+              `"${item.sku_code || 'N/A'}"`,
               `"${item.title || 'N/A'}"`,
               item.quantity,
-              item.status,
-              item.unit_cost || 'N/A',
-              item.total_cost || 'N/A',
-              item.order_date ? format(new Date(item.order_date), 'yyyy-MM-dd') : format(new Date(item.created_at || ''), 'yyyy-MM-dd')
+              `"${item.serial_number || 'N/A'}"`
             ].join(',');
           }
         })
@@ -469,22 +466,19 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
                 {selectedReportType === 'inventory' ? (
                   <>
                     <TableHead>Type</TableHead>
-                    <TableHead>Identifier</TableHead>
+                    <TableHead>ASIN/SKU</TableHead>
                     <TableHead>Title</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Date Added</TableHead>
+                    <TableHead>QTY</TableHead>
+                    <TableHead>Serial Number</TableHead>
                   </>
                 ) : (
                   <>
                     <TableHead>PO Number</TableHead>
-                    <TableHead>SKU/ASIN</TableHead>
+                    <TableHead>ASIN</TableHead>
+                    <TableHead>SKU</TableHead>
                     <TableHead>Title</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Unit Cost</TableHead>
-                    <TableHead>Total Cost</TableHead>
-                    <TableHead>Order Date</TableHead>
+                    <TableHead>QTY</TableHead>
+                    <TableHead>Serial Number</TableHead>
                   </>
                 )}
               </TableRow>
@@ -492,7 +486,7 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
             <TableBody>
               {reportData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={selectedReportType === 'inventory' ? 6 : 8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={selectedReportType === 'inventory' ? 5 : 6} className="text-center py-8 text-muted-foreground">
                     No data available for the selected filters
                   </TableCell>
                 </TableRow>
@@ -513,41 +507,25 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
                           {item.title || 'N/A'}
                         </TableCell>
                         <TableCell>{item.quantity || 0}</TableCell>
-                        <TableCell>
-                          <Badge variant={item.status === 'in-stock' ? 'default' : 'secondary'}>
-                            {item.status || 'Unknown'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {item.date_added ? format(new Date(item.date_added), 'MMM dd, yyyy') : 'N/A'}
+                        <TableCell className="font-mono text-sm">
+                          {item.serial_number || item.bin_serial_number || 'N/A'}
                         </TableCell>
                       </>
                     ) : (
                       <>
                         <TableCell className="font-mono text-sm">{item.po_number}</TableCell>
                         <TableCell className="font-mono text-sm">
-                          {item.asin || item.sku_code || 'N/A'}
+                          {item.asin || 'N/A'}
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">
+                          {item.sku_code || 'N/A'}
                         </TableCell>
                         <TableCell className="max-w-xs truncate">
                           {item.title || 'N/A'}
                         </TableCell>
                         <TableCell>{item.quantity}</TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant={
-                              item.status === 'delivered' ? 'default' :
-                              item.status === 'shipped' ? 'secondary' :
-                              item.status === 'ordered' ? 'outline' : 'destructive'
-                            }
-                          >
-                            {item.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{item.unit_cost ? `$${item.unit_cost.toFixed(2)}` : 'N/A'}</TableCell>
-                        <TableCell>{item.total_cost ? `$${item.total_cost.toFixed(2)}` : 'N/A'}</TableCell>
-                        <TableCell>
-                          {item.order_date ? format(new Date(item.order_date), 'MMM dd, yyyy') : 
-                           format(new Date(item.created_at || ''), 'MMM dd, yyyy')}
+                        <TableCell className="font-mono text-sm">
+                          {item.serial_number || 'N/A'}
                         </TableCell>
                       </>
                     )}
