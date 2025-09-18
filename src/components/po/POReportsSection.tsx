@@ -230,9 +230,7 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
                     <td>${item.asin || 'N/A'}</td>
                     <td>${item.sku_code || 'N/A'}</td>
                     <td>${item.title || 'N/A'}</td>
-                    <td>${(item.status === 'closed' || item.status === 'partial-fulfilled') && item.processed_quantity 
-                      ? item.processed_quantity 
-                      : item.quantity}</td>
+                    <td>${item.quantity}</td>
                     <td>${item.serial_number || 'N/A'}</td>
                   `}
                 </tr>
@@ -290,9 +288,7 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
               `"${item.asin || 'N/A'}"`,
               `"${item.sku_code || 'N/A'}"`,
               `"${item.title || 'N/A'}"`,
-              (item.status === 'closed' || item.status === 'partial-fulfilled') && item.processed_quantity 
-                ? item.processed_quantity 
-                : item.quantity,
+              item.quantity,
               `"${item.serial_number || 'N/A'}"`
             ].join(',');
           }
@@ -543,9 +539,7 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
                           {item.title || 'N/A'}
                         </TableCell>
                         <TableCell>
-                          {(item.status === 'closed' || item.status === 'partial-fulfilled') && item.processed_quantity 
-                            ? item.processed_quantity 
-                            : item.quantity}
+                          {item.quantity}
                         </TableCell>
                         <TableCell>
                           <Badge 
