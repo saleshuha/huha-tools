@@ -195,20 +195,17 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
               <tr>
                 ${selectedReportType === 'inventory' ? `
                   <th>Type</th>
-                  <th>Identifier</th>
+                  <th>ASIN/SKU</th>
                   <th>Title</th>
-                  <th>Quantity</th>
-                  <th>Status</th>
-                  <th>Date Added</th>
+                  <th>QTY</th>
+                  <th>Serial Number</th>
                 ` : `
                   <th>PO Number</th>
-                  <th>SKU/ASIN</th>
+                  <th>ASIN</th>
+                  <th>SKU</th>
                   <th>Title</th>
-                  <th>Quantity</th>
-                  <th>Status</th>
-                  <th>Unit Cost</th>
-                  <th>Total Cost</th>
-                  <th>Order Date</th>
+                  <th>QTY</th>
+                  <th>Serial Number</th>
                 `}
               </tr>
             </thead>
@@ -220,17 +217,14 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
                     <td>${item.asin || item.sku_number || 'N/A'}</td>
                     <td>${item.title || 'N/A'}</td>
                     <td>${item.quantity || 0}</td>
-                    <td><span class="status-badge status-${item.status || 'unknown'}">${item.status || 'Unknown'}</span></td>
-                    <td>${item.date_added ? format(new Date(item.date_added), 'MMM dd, yyyy') : 'N/A'}</td>
+                    <td>${item.serial_number || item.bin_serial_number || 'N/A'}</td>
                   ` : `
                     <td>${item.po_number}</td>
-                    <td>${item.asin || item.sku_code || 'N/A'}</td>
+                    <td>${item.asin || 'N/A'}</td>
+                    <td>${item.sku_code || 'N/A'}</td>
                     <td>${item.title || 'N/A'}</td>
                     <td>${item.quantity}</td>
-                    <td><span class="status-badge status-${item.status}">${item.status}</span></td>
-                    <td>${item.unit_cost ? item.unit_cost.toFixed(2) : 'N/A'}</td>
-                    <td>${item.total_cost ? item.total_cost.toFixed(2) : 'N/A'}</td>
-                    <td>${item.order_date ? format(new Date(item.order_date), 'MMM dd, yyyy') : format(new Date(item.created_at || ''), 'MMM dd, yyyy')}</td>
+                    <td>${item.serial_number || 'N/A'}</td>
                   `}
                 </tr>
               `).join('')}
