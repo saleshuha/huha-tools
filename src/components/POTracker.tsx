@@ -227,6 +227,12 @@ export const POTracker = () => {
     await deletePOOrders();
   };
 
+  // Delete specific PO orders
+  const handleDeletePO = async (poNumber: string, orders: POOrder[]) => {
+    const orderIds = orders.map(order => order.id);
+    await deletePOOrders(orderIds);
+  };
+
   // Query to fetch available label templates with full data
   const { data: labelTemplates, isLoading: isLoadingTemplates } = useQuery({
     queryKey: ['label-templates'],
@@ -1338,6 +1344,18 @@ export const POTracker = () => {
                                         Close PO
                                       </Button>
                                     )}
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={() => {
+                                        if (confirm(`Are you sure you want to delete PO ${poNumber} and all its orders? This action cannot be undone.`)) {
+                                          handleDeletePO(poNumber, orders);
+                                        }
+                                      }}
+                                      className="text-destructive hover:text-destructive/90"
+                                    >
+                                      Delete PO
+                                    </Button>
                                   </div>
                                 </TableCell>
                              </TableRow>
