@@ -17,7 +17,7 @@ interface POReportsSectionProps {
   skuInventoryData?: any[];
 }
 
-type ReportType = 'processed' | 'inventory' | 'instock' | 'pending' | 'all';
+type ReportType = 'processed' | 'inventory' | 'instock' | 'pending' | 'fulfilled-stock' | 'all';
 
 export const POReportsSection: React.FC<POReportsSectionProps> = ({
   poOrders,
@@ -38,9 +38,8 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
 
   // Filter and process data based on report type
   const reportData = useMemo(() => {
-    // First filter out closed/cancelled POs - only show active POs
+    // First filter - only exclude cancelled POs (keep closed for fulfilled from stock)
     let filteredOrders = poOrders.filter(order => 
-      order.status !== 'closed' && 
       order.status !== 'cancelled'
     );
 
@@ -75,7 +74,11 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
     switch (selectedReportType) {
       case 'processed':
         return filteredOrders.filter(order => 
-          ['ordered', 'shipped', 'delivered'].includes(order.status)
+          ['ordered', 'shipped', 'delivered', 'closed', 'partial-fulfilled'].includes(order.status)
+        );
+      case 'fulfilled-stock':
+        return filteredOrders.filter(order => 
+          ['closed', 'partial-fulfilled'].includes(order.status)
         );
       case 'inventory':
         // For inventory, filter only active inventory items (exclude any with deleted/inactive status)
@@ -96,13 +99,13 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
 
   // Calculate summary statistics
   const summaryStats = useMemo(() => {
-    // Filter out closed/cancelled POs for consistent statistics
+    // Filter out cancelled POs for consistent statistics (keep closed for fulfilled from stock)
     const activePOs = poOrders.filter(order => 
-      order.status !== 'closed' && 
       order.status !== 'cancelled'
     );
     
-    const processed = activePOs.filter(order => ['ordered', 'shipped', 'delivered'].includes(order.status));
+    const processed = activePOs.filter(order => ['ordered', 'shipped', 'delivered', 'closed', 'partial-fulfilled'].includes(order.status));
+    const fulfilledFromStock = activePOs.filter(order => ['closed', 'partial-fulfilled'].includes(order.status));
     const pending = activePOs.filter(order => order.status === 'pending');
     const totalValue = activePOs.reduce((sum, order) => sum + (order.total_cost || 0), 0);
     const processedValue = processed.reduce((sum, order) => sum + (order.total_cost || 0), 0);
@@ -110,6 +113,7 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
     return {
       totalItems: activePOs.length,
       processedItems: processed.length,
+      fulfilledFromStockItems: fulfilledFromStock.length,
       pendingItems: pending.length,
       totalValue: totalValue,
       processedValue: processedValue,
@@ -174,6 +178,9 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
               </div>
               <div class="summary-card">
                 <strong>Processed Items:</strong> ${summaryStats.processedItems}
+              </div>
+              <div class="summary-card">
+                <strong>From Stock:</strong> ${summaryStats.fulfilledFromStockItems}
               </div>
               <div class="summary-card">
                 <strong>Pending Items:</strong> ${summaryStats.pendingItems}
@@ -332,6 +339,7 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="processed">Processed Items</SelectItem>
+                <SelectItem value="fulfilled-stock">Fulfilled from Stock</SelectItem>
                 <SelectItem value="inventory">Inventory Items</SelectItem>
                 <SelectItem value="instock">In-Stock Items</SelectItem>
                 <SelectItem value="pending">Pending Items</SelectItem>
@@ -378,7 +386,7 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
         </div>
 
         {/* Summary Statistics */}
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
@@ -398,6 +406,18 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
                 <div>
                   <p className="text-sm text-muted-foreground">Processed</p>
                   <p className="text-xl font-bold">{summaryStats.processedItems}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-emerald-500" />
+                <div>
+                  <p className="text-sm text-muted-foreground">From Stock</p>
+                  <p className="text-xl font-bold">{summaryStats.fulfilledFromStockItems}</p>
                 </div>
               </div>
             </CardContent>
@@ -467,12 +487,13 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
                   </>
                 ) : (
                   <>
-                    <TableHead>PO Number</TableHead>
-                    <TableHead>ASIN</TableHead>
-                    <TableHead>SKU</TableHead>
-                    <TableHead>Title</TableHead>
-                    <TableHead>QTY</TableHead>
-                    <TableHead>Serial Number</TableHead>
+                     <TableHead>PO Number</TableHead>
+                     <TableHead>ASIN</TableHead>
+                     <TableHead>SKU</TableHead>
+                     <TableHead>Title</TableHead>
+                     <TableHead>QTY</TableHead>
+                     <TableHead>Status</TableHead>
+                     <TableHead>Serial Number</TableHead>
                   </>
                 )}
               </TableRow>
@@ -518,6 +539,21 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
                           {item.title || 'N/A'}
                         </TableCell>
                         <TableCell>{item.quantity}</TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={
+                              item.status === 'closed' ? 'secondary' : 
+                              item.status === 'partial-fulfilled' ? 'outline' :
+                              item.status === 'delivered' ? 'default' :
+                              item.status === 'shipped' ? 'secondary' :
+                              item.status === 'ordered' ? 'secondary' : 'outline'
+                            }
+                          >
+                            {item.status === 'closed' ? 'Fulfilled from Stock' :
+                             item.status === 'partial-fulfilled' ? 'Partial from Stock' :
+                             item.status}
+                          </Badge>
+                        </TableCell>
                         <TableCell className="font-mono text-sm">
                           {item.serial_number || 'N/A'}
                         </TableCell>
