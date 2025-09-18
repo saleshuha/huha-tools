@@ -1302,13 +1302,16 @@ export const POTracker = () => {
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <Badge variant={parseInt(matchedPercentage) >= 80 ? "default" : parseInt(matchedPercentage) >= 50 ? "secondary" : "destructive"}>
-                                    {matchedPercentage}%
-                                  </Badge>
-                                  <span className="text-xs text-muted-foreground">
-                                    {matchedCount}/{activeOrdersInPO.length} matched
-                                  </span>
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant={parseInt(matchedPercentage) >= 80 ? "default" : parseInt(matchedPercentage) >= 50 ? "secondary" : "destructive"}>
+                                      {matchedPercentage}%
+                                    </Badge>
+                                  </div>
+                                  <div className="text-xs text-muted-foreground space-y-0.5">
+                                    <div>Total items: {activeOrdersInPO.length}</div>
+                                    <div>Matched items: {matchedCount}</div>
+                                  </div>
                                 </div>
                               </TableCell>
                               <TableCell>
