@@ -78,23 +78,32 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
         );
       case 'fulfilled-stock':
         // Enhanced data for fulfilled from stock items
-        return filteredOrders.filter(order => 
+        const fulfilledOrders = filteredOrders.filter(order => 
           ['closed', 'partial-fulfilled'].includes(order.status)
-        ).map(order => {
+        );
+        
+        console.log('🔍 Fulfilled orders found:', fulfilledOrders.length);
+        console.log('🔍 Sample fulfilled order:', fulfilledOrders[0]);
+        
+        return fulfilledOrders.map(order => {
           // Extract fulfilled quantity and serial numbers from notes
           const notes = order.notes || '';
           let fulfilledQuantity = order.quantity;
           let serialNumbers = 'N/A';
+
+          console.log('📋 Processing order:', order.po_number, 'Notes:', notes);
 
           // Parse notes for fulfillment details
           if (notes.includes('Partial fulfillment from stock:')) {
             const match = notes.match(/Partial fulfillment from stock:\s*(\d+)\s*pcs/);
             if (match) {
               fulfilledQuantity = parseInt(match[1]);
+              console.log('📦 Found partial fulfillment quantity:', fulfilledQuantity);
             }
           } else if (notes.includes('Fulfilled from stock')) {
             // For complete fulfillment, use original quantity
             fulfilledQuantity = order.quantity;
+            console.log('📦 Complete fulfillment, using original quantity:', fulfilledQuantity);
           }
 
           // Extract serial numbers from notes if present
@@ -102,14 +111,18 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
             const serialMatch = notes.match(/Serial numbers:\s*([^\n]+)/);
             if (serialMatch) {
               serialNumbers = serialMatch[1].trim();
+              console.log('🏷️ Found serial numbers:', serialNumbers);
             }
           }
 
-          return {
+          const result = {
             ...order,
             displayQuantity: fulfilledQuantity,
             displaySerialNumber: serialNumbers
           };
+          
+          console.log('✅ Final processed order:', result);
+          return result;
         });
       case 'inventory':
         // For inventory, filter only active inventory items (exclude any with deleted/inactive status)
@@ -537,7 +550,9 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
                   </TableCell>
                 </TableRow>
               ) : (
-                reportData.slice(0, 100).map((item: any, index) => (
+                reportData.slice(0, 100).map((item: any, index) => {
+                  console.log('🎯 Rendering item:', index, 'Type:', selectedReportType, 'Item:', item);
+                  return (
                   <TableRow key={index}>
                     {selectedReportType === 'inventory' ? (
                       <>
@@ -570,7 +585,10 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
                           {item.title || 'N/A'}
                         </TableCell>
                         <TableCell>
-                          {item.displayQuantity !== undefined ? item.displayQuantity : item.quantity}
+                          {(() => {
+                            console.log('🔢 Quantity rendering - displayQuantity:', item.displayQuantity, 'quantity:', item.quantity);
+                            return item.displayQuantity !== undefined ? item.displayQuantity : item.quantity;
+                          })()}
                         </TableCell>
                         <TableCell>
                           <Badge 
@@ -588,12 +606,16 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
                           </Badge>
                         </TableCell>
                         <TableCell className="font-mono text-sm">
-                          {item.displaySerialNumber !== undefined ? item.displaySerialNumber : 'N/A'}
+                          {(() => {
+                            console.log('🏷️ Serial rendering - displaySerialNumber:', item.displaySerialNumber);
+                            return item.displaySerialNumber !== undefined ? item.displaySerialNumber : 'N/A';
+                          })()}
                         </TableCell>
                       </>
                     )}
                   </TableRow>
-                ))
+                  );
+                })
               )}
             </TableBody>
           </Table>
