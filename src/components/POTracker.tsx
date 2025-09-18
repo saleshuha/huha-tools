@@ -1309,9 +1309,9 @@ export const POTracker = () => {
                            const asnQuantity = dbMetrics?.asn_quantity || 0;
                            
                             // Calculate matched percentage for display
-                            const activeOrdersInPO = orders.filter((order: any) => 
-                              order.status === 'pending' || order.status === 'ordered' || order.status === 'shipped'
-                            );
+                             const activeOrdersInPO = orders.filter((order: any) => 
+                               order.status === 'pending' || order.status === 'placed' || order.status === 'received'
+                             );
                             const matchedCount = activeOrdersInPO.filter((order: any) => {
                               const inventoryMatch = findInventoryMatch(
                                 order.asin, 
@@ -1544,16 +1544,15 @@ export const POTracker = () => {
                               </Badge>
                             </TableCell>
                                <TableCell>
-                                 <Badge 
-                                   variant={
-                                     order.status === 'delivered' ? 'default' :
-                                     order.status === 'shipped' ? 'secondary' :
-                                     order.status === 'ordered' ? 'outline' :
-                                     order.status === 'pending' ? 'destructive' :
-                                     order.status === 'closed' ? 'secondary' :
-                                     'outline'
-                                   }
-                                 >
+                                  <Badge 
+                                    variant={
+                                      order.status === 'received' ? 'default' :
+                                      order.status === 'placed' ? 'secondary' :
+                                      order.status === 'pending' ? 'destructive' :
+                                      order.status === 'closed' ? 'secondary' :
+                                      'outline'
+                                    }
+                                  >
                                    {order.status}
                                  </Badge>
                                </TableCell>

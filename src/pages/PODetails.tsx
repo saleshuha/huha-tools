@@ -28,10 +28,9 @@ interface StatusProgress {
 
 const statusColors = {
   pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300',
+  placed: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
+  received: 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300',
   closed: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
-  'partial-fulfilled': 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300',
-  shipped: 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300',
-  delivered: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300',
   cancelled: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300',
 };
 
@@ -126,8 +125,7 @@ export default function PODetailsPage() {
         (
           // Complete fulfillment: status closed and quantity 0
           (order.status === 'closed' && order.quantity === 0) ||
-          // Partial fulfillment: new status or has partial fulfillment notes
-          (order.status === 'partial-fulfilled') ||
+          // Partial fulfillment: has partial fulfillment notes
           (order.notes?.includes('Partial fulfillment from stock')) ||
           // Also check for other partial fulfillment patterns
           (order.notes?.includes('partial fulfillment')) ||
