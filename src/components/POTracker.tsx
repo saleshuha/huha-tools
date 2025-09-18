@@ -109,6 +109,15 @@ export const POTracker = () => {
   const [printingItems, setPrintingItems] = useState<Set<string>>(new Set());
   const [itemPrintQuantities, setItemPrintQuantities] = useState<{[key: string]: number}>({});
   const [preventTableReorder, setPreventTableReorder] = useState(false);
+  
+  // Inventory data for matching
+  const [inventoryData, setInventoryData] = useState<{
+    asinInventory: any[];
+    skuInventory: any[];
+  }>({
+    asinInventory: [],
+    skuInventory: []
+  });
 
   useEffect(() => {
     // Set up connection listener
@@ -358,6 +367,87 @@ export const POTracker = () => {
       refetchComprehensiveMetrics();
     }
   }, [poOrders, isLoading, refetchMetrics, refetchComprehensiveMetrics]);
+
+  // Fetch inventory data for matching
+  const fetchInventoryData = async () => {
+    try {
+      const [asinResult, skuResult] = await Promise.all([
+        supabase
+          .from('asin_inventory')
+          .select('*')
+          .eq('user_id', profile?.id)
+          .eq('country', selectedCountry),
+        supabase
+          .from('sku_inventory')
+          .select('*')
+          .eq('user_id', profile?.id)
+          .eq('country', selectedCountry)
+      ]);
+
+      setInventoryData({
+        asinInventory: asinResult.data || [],
+        skuInventory: skuResult.data || []
+      });
+    } catch (error) {
+      console.error('Error fetching inventory data:', error);
+    }
+  };
+
+  // Function to find inventory match for an ASIN
+  const findInventoryMatch = (asin: string, sunskySku?: string, poSku?: string, modelNumber?: string) => {
+    // First check ASIN inventory - aggregate all matching records
+    if (asin) {
+      const asinMatches = inventoryData.asinInventory.filter(item => item.asin === asin);
+      if (asinMatches.length > 0) {
+        const totalQuantity = asinMatches.reduce((sum, item) => sum + item.quantity, 0);
+        if (totalQuantity > 0) {
+          return {
+            type: 'ASIN',
+            status: 'in-stock',
+            quantity: totalQuantity,
+            identifier: asin
+          };
+        }
+      }
+    }
+
+    // Then check SKU inventory with multiple possible SKU values
+    const skusToCheck = [sunskySku, poSku, modelNumber].filter(Boolean);
+    
+    for (const sku of skusToCheck) {
+      const skuMatch = inventoryData.skuInventory.find(item => item.sku_number === sku);
+      if (skuMatch && skuMatch.quantity > 0) {
+        return {
+          type: 'SKU',
+          status: skuMatch.status,
+          quantity: skuMatch.quantity,
+          identifier: sku
+        };
+      }
+    }
+
+    // Also check SKU inventory for ASIN matches
+    if (asin) {
+      const skuAsinMatch = inventoryData.skuInventory.find(item => item.sku_number === asin);
+      if (skuAsinMatch && skuAsinMatch.quantity > 0) {
+        return {
+          type: 'SKU-ASIN',
+          status: skuAsinMatch.status,
+          quantity: skuAsinMatch.quantity,
+          identifier: asin
+        };
+      }
+    }
+
+    return null;
+  };
+
+  // Fetch inventory data when profile or country changes
+  useEffect(() => {
+    if (profile?.id && selectedCountry) {
+      fetchInventoryData();
+    }
+  }, [profile?.id, selectedCountry]);
 
   // Filter out closed POs from label printing by default
   const labelEligibleOrders = useMemo(() => {
@@ -1220,12 +1310,20 @@ export const POTracker = () => {
                            const totalLineItems = dbMetrics?.distinct_skus || 0;
                            const asnQuantity = dbMetrics?.asn_quantity || 0;
                            
-                           // Calculate matched percentage for display
-                           const activeOrdersInPO = orders.filter((order: any) => 
-                             order.status === 'pending' || order.status === 'ordered' || order.status === 'shipped'
-                           );
-                           const matchedCount = activeOrdersInPO.filter((order: any) => order.sunsky_sku !== null).length;
-                           const matchedPercentage = activeOrdersInPO.length > 0 ? ((matchedCount / activeOrdersInPO.length) * 100).toFixed(0) : '0';
+                            // Calculate matched percentage for display
+                            const activeOrdersInPO = orders.filter((order: any) => 
+                              order.status === 'pending' || order.status === 'ordered' || order.status === 'shipped'
+                            );
+                            const matchedCount = activeOrdersInPO.filter((order: any) => {
+                              const inventoryMatch = findInventoryMatch(
+                                order.asin, 
+                                order.sunsky_sku?.sku_code, 
+                                order.sku_code, 
+                                order.model_number
+                              );
+                              return inventoryMatch !== null;
+                            }).length;
+                            const matchedPercentage = activeOrdersInPO.length > 0 ? ((matchedCount / activeOrdersInPO.length) * 100).toFixed(0) : '0';
                            
                            const statusCounts = orders.reduce((counts: any, order: any) => {
                              counts[order.status] = (counts[order.status] || 0) + 1;
