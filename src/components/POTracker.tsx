@@ -956,7 +956,7 @@ export const POTracker = () => {
 
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 h-12 bg-gradient-subtle rounded-xl shadow-elegant p-1 border border-border/20">
+        <TabsList className="grid w-full grid-cols-4 h-12 bg-gradient-subtle rounded-xl shadow-elegant p-1 border border-border/20">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <Package className="h-4 w-4" />
             PO Overview
@@ -968,6 +968,10 @@ export const POTracker = () => {
           <TabsTrigger value="labels" className="flex items-center gap-2">
             <Printer className="h-4 w-4" />
             Print Labels
+          </TabsTrigger>
+          <TabsTrigger value="close" className="flex items-center gap-2">
+            <X className="h-4 w-4" />
+            Close PO
           </TabsTrigger>
         </TabsList>
 
@@ -1501,51 +1505,6 @@ export const POTracker = () => {
             </CardContent>
           </Card>
         </TabsContent>
-
-        {/* Bulk Close Confirmation Dialog */}
-        <Dialog open={showBulkCloseConfirm} onOpenChange={setShowBulkCloseConfirm}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Confirm Bulk PO Close</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Are you sure you want to close the following {selectedPOsForBulkClose.size} PO{selectedPOsForBulkClose.size !== 1 ? 's' : ''}? 
-                This action cannot be undone.
-              </p>
-              <div className="max-h-32 overflow-y-auto border rounded p-2">
-                {Array.from(selectedPOsForBulkClose).map(poNumber => (
-                  <div key={poNumber} className="text-sm font-mono">
-                    {poNumber}
-                  </div>
-                ))}
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowBulkCloseConfirm(false)}
-                  disabled={isClosingPOs}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => handleBulkClosePOs(Array.from(selectedPOsForBulkClose))}
-                  disabled={isClosingPOs}
-                >
-                  {isClosingPOs ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Closing...
-                    </>
-                  ) : (
-                    `Close ${selectedPOsForBulkClose.size} PO${selectedPOsForBulkClose.size !== 1 ? 's' : ''}`
-                  )}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
 
         <TabsContent value="upload" className="space-y-6">
           <Card>
@@ -2536,7 +2495,278 @@ export const POTracker = () => {
           )}
         </TabsContent>
 
+        <TabsContent value="close" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <X className="h-5 w-5" />
+                Close Purchase Orders
+              </CardTitle>
+              <p className="text-muted-foreground">
+                Close purchase orders when they are complete or no longer needed. This action cannot be undone.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Input
+                    type="text"
+                    placeholder="Search PO number, ASIN, model..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="max-w-sm"
+                  />
+                  
+                  <div className="flex items-center gap-2">
+                    {/* Bulk Close Actions */}
+                    {selectedPOsForBulkClose.size > 0 && (
+                      <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg border">
+                        <Badge variant="outline">
+                          {selectedPOsForBulkClose.size} PO{selectedPOsForBulkClose.size !== 1 ? 's' : ''} selected
+                        </Badge>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => setShowBulkCloseConfirm(true)}
+                          disabled={isClosingPOs}
+                        >
+                          {isClosingPOs ? (
+                            <>
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              Closing...
+                            </>
+                          ) : 'Close Selected'}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedPOsForBulkClose(new Set())}
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                    )}
+                    
+                    <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Filter by status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="ordered">Ordered</SelectItem>
+                        <SelectItem value="shipped">Shipped</SelectItem>
+                        <SelectItem value="delivered">Delivered</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                        <SelectItem value="closed">Closed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Close PO Table */}
+                <div className="border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="p-2 text-left font-medium">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={selectedPOsForBulkClose.size > 0 && Array.from(selectedPOsForBulkClose).length === groupedPOOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).filter(g => !g.orders.some(o => o.status === 'closed')).length}
+                              onChange={(e) => {
+                                const currentPagePOs = groupedPOOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map(g => g.poNumber).filter(po => !groupedPOOrders.find(g => g.poNumber === po)?.orders.some(o => o.status === 'closed'));
+                                if (e.target.checked) {
+                                  setSelectedPOsForBulkClose(prev => new Set([...prev, ...currentPagePOs]));
+                                } else {
+                                  setSelectedPOsForBulkClose(prev => {
+                                    const newSet = new Set(prev);
+                                    currentPagePOs.forEach(po => newSet.delete(po));
+                                    return newSet;
+                                  });
+                                }
+                              }}
+                              className="rounded"
+                            />
+                            PO Number
+                          </div>
+                        </TableHead>
+                        <TableHead className="p-2 text-left font-medium">Items</TableHead>
+                        <TableHead className="p-2 text-left font-medium">Status</TableHead>
+                        <TableHead className="p-2 text-left font-medium">Total Value</TableHead>
+                        <TableHead className="p-2 text-left font-medium">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {groupedPOOrders
+                        .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                        .map(({ poNumber, orders }) => {
+                          const isClosedPO = orders.some(order => order.status === 'closed');
+                          const totalValue = orders.reduce((sum, order) => sum + (order.total_cost || 0), 0);
+                          const currency = orders[0]?.currency || 'USD';
+                          const statusCounts = orders.reduce((acc, order) => {
+                            acc[order.status] = (acc[order.status] || 0) + 1;
+                            return acc;
+                          }, {} as Record<string, number>);
+
+                          return (
+                            <TableRow key={poNumber} className={isClosedPO ? 'opacity-50' : ''}>
+                              <TableCell className="p-2">
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedPOsForBulkClose.has(poNumber)}
+                                    onChange={(e) => {
+                                      if (isClosedPO) return;
+                                      const newSelected = new Set(selectedPOsForBulkClose);
+                                      if (e.target.checked) {
+                                        newSelected.add(poNumber);
+                                      } else {
+                                        newSelected.delete(poNumber);
+                                      }
+                                      setSelectedPOsForBulkClose(newSelected);
+                                    }}
+                                    disabled={isClosedPO}
+                                    className="rounded"
+                                  />
+                                  <span className="font-medium">{poNumber}</span>
+                                  {isClosedPO && (
+                                    <Badge variant="outline" className="text-xs">
+                                      Closed
+                                    </Badge>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="p-2">{orders.length}</TableCell>
+                              <TableCell className="p-2">
+                                <div className="flex flex-wrap gap-1">
+                                  {Object.entries(statusCounts).map(([status, count]) => (
+                                    <Badge key={status} variant="outline" className="text-xs">
+                                      {status}: {count}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </TableCell>
+                              <TableCell className="p-2 font-semibold">
+                                {totalValue.toLocaleString('en-US', { 
+                                  style: 'currency', 
+                                  currency: currency 
+                                })}
+                              </TableCell>
+                              <TableCell className="p-2">
+                                <div className="flex items-center gap-2">
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => navigate(`/po-details?po=${poNumber}`)}
+                                    disabled={isClosedPO}
+                                  >
+                                    View Details
+                                  </Button>
+                                  {!isClosedPO && (
+                                    <Button 
+                                      variant="destructive" 
+                                      size="sm"
+                                      onClick={() => {
+                                        if (confirm(`Are you sure you want to close PO ${poNumber}? This action cannot be undone.`)) {
+                                          handleClosePO(poNumber);
+                                        }
+                                      }}
+                                      className="text-white"
+                                    >
+                                      Close PO
+                                    </Button>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Pagination */}
+                {groupedPOOrders.length > itemsPerPage && (
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-muted-foreground">
+                      Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, groupedPOOrders.length)} of {groupedPOOrders.length} POs
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        Previous
+                      </Button>
+                      <span className="text-sm">
+                        Page {currentPage} of {Math.ceil(groupedPOOrders.length / itemsPerPage)}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.min(Math.ceil(groupedPOOrders.length / itemsPerPage), prev + 1))}
+                        disabled={currentPage >= Math.ceil(groupedPOOrders.length / itemsPerPage)}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
       </Tabs>
+
+      {/* Bulk Close Confirmation Dialog */}
+      <Dialog open={showBulkCloseConfirm} onOpenChange={setShowBulkCloseConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Bulk PO Close</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to close the following {selectedPOsForBulkClose.size} PO{selectedPOsForBulkClose.size !== 1 ? 's' : ''}? 
+              This action cannot be undone.
+            </p>
+            <div className="max-h-32 overflow-y-auto border rounded p-2">
+              {Array.from(selectedPOsForBulkClose).map(poNumber => (
+                <div key={poNumber} className="text-sm font-mono">
+                  {poNumber}
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setShowBulkCloseConfirm(false)}
+                disabled={isClosingPOs}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => handleBulkClosePOs(Array.from(selectedPOsForBulkClose))}
+                disabled={isClosingPOs}
+              >
+                {isClosingPOs ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Closing...
+                  </>
+                ) : (
+                  `Close ${selectedPOsForBulkClose.size} PO${selectedPOsForBulkClose.size !== 1 ? 's' : ''}`
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      
+      </Dialog>
     </div>
   );
 };
