@@ -1094,7 +1094,7 @@ export default function PODetailsPage() {
       const { error: orderError } = await supabase
         .from('po_orders')
         .update({ 
-          status: 'partial-fulfilled',
+          status: 'placed',
           quantity: stockQuantity,
           notes: `Partial fulfillment from stock: ${stockQuantity} pcs. Original quantity: ${order.quantity} pcs.`
         })
