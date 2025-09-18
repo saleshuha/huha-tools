@@ -6,7 +6,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { PaymentStatusBadge } from './PaymentStatusBadge';
 import { EditFinancialRecordDialog } from './EditFinancialRecordDialog';
 import { FinancialRecord, FinancialRecordType, PaymentStatus } from '@/types/financial';
-import { Edit, Trash2, CheckCircle, Search } from 'lucide-react';
+import { Edit, Trash2, CheckCircle, Search, Calendar } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
@@ -28,6 +31,8 @@ export const FinancialRecordsTable = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<FinancialRecordType | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<PaymentStatus | 'all'>('all');
+  const [startDate, setStartDate] = useState<Date>();
+  const [endDate, setEndDate] = useState<Date>();
   const [editingRecord, setEditingRecord] = useState<FinancialRecord | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
@@ -40,9 +45,21 @@ export const FinancialRecordsTable = ({
       const matchesType = typeFilter === 'all' || record.type === typeFilter;
       const matchesStatus = statusFilter === 'all' || record.payment_status === statusFilter;
 
-      return matchesSearch && matchesType && matchesStatus;
+      // Date range filter for due dates
+      let matchesDateRange = true;
+      if (startDate || endDate) {
+        const dueDate = record.due_date ? new Date(record.due_date) : null;
+        if (dueDate) {
+          if (startDate && dueDate < startDate) matchesDateRange = false;
+          if (endDate && dueDate > endDate) matchesDateRange = false;
+        } else if (startDate || endDate) {
+          matchesDateRange = false; // Exclude records without due date when filtering by date
+        }
+      }
+
+      return matchesSearch && matchesType && matchesStatus && matchesDateRange;
     });
-  }, [records, searchTerm, typeFilter, statusFilter]);
+  }, [records, searchTerm, typeFilter, statusFilter, startDate, endDate]);
 
   const formatAmount = (amount: number, currency: string) => {
     return new Intl.NumberFormat('en-US', {
@@ -114,6 +131,70 @@ export const FinancialRecordsTable = ({
             <SelectItem value="overdue">Overdue</SelectItem>
           </SelectContent>
         </Select>
+
+        {/* Date Range Filter */}
+        <div className="flex gap-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-[150px] justify-start text-left font-normal",
+                  !startDate && "text-muted-foreground"
+                )}
+              >
+                <Calendar className="mr-2 h-4 w-4" />
+                {startDate ? format(startDate, "MMM dd, yyyy") : "Start Date"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <CalendarComponent
+                mode="single"
+                selected={startDate}
+                onSelect={setStartDate}
+                initialFocus
+                className="p-3 pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-[150px] justify-start text-left font-normal",
+                  !endDate && "text-muted-foreground"
+                )}
+              >
+                <Calendar className="mr-2 h-4 w-4" />
+                {endDate ? format(endDate, "MMM dd, yyyy") : "End Date"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <CalendarComponent
+                mode="single"
+                selected={endDate}
+                onSelect={setEndDate}
+                initialFocus
+                className="p-3 pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
+
+          {(startDate || endDate) && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                setStartDate(undefined);
+                setEndDate(undefined);
+              }}
+              className="px-3"
+            >
+              Clear
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Results count */}
