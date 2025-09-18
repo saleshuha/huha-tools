@@ -317,8 +317,16 @@ export default function PODetailsPage() {
   // Filter orders for this specific PO
   const poOrdersForThisPO = poOrders.filter(order => order.po_number === poNumber);
   
-  // Only show matched items (items with sunsky_sku populated from database)
-  const allMatchedOrders = poOrdersForThisPO.filter(order => order.sunsky_sku !== null);
+  // Only show items that have actual inventory matches (either ASIN or SKU matches)
+  const allMatchedOrders = poOrdersForThisPO.filter(order => {
+    const inventoryMatch = findInventoryMatch(
+      order.asin, 
+      order.sunsky_sku?.sku_code, 
+      order.sku_code, 
+      order.model_number
+    );
+    return inventoryMatch !== null;
+  });
   
   // Group orders by ASIN to prevent duplicates in the table
   // Each ASIN should appear only once per PO, even with partial fulfillments
@@ -2243,7 +2251,7 @@ export default function PODetailsPage() {
         {/* Items Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Order Items ({matchedOrders.length} matched items)</CardTitle>
+            <CardTitle>Order Items ({matchedOrders.length} items with inventory matches)</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
