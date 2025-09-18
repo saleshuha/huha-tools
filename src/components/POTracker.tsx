@@ -1410,7 +1410,7 @@ export const POTracker = () => {
                                   {activeOrdersInPO.filter(order => 
                                     order.status === 'pending' && 
                                     !order.supplier_order_number &&
-                                    order.sunsky_sku
+                                    findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number) !== null
                                   ).length}
                                 </div>
                               </TableCell>
