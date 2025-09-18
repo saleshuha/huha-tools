@@ -70,16 +70,47 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
       );
     }
 
-    // Filter by report type
+    // Filter by report type and enhance data
     switch (selectedReportType) {
       case 'processed':
         return filteredOrders.filter(order => 
           ['ordered', 'shipped', 'delivered', 'closed', 'partial-fulfilled'].includes(order.status)
         );
       case 'fulfilled-stock':
+        // Enhanced data for fulfilled from stock items
         return filteredOrders.filter(order => 
           ['closed', 'partial-fulfilled'].includes(order.status)
-        );
+        ).map(order => {
+          // Extract fulfilled quantity and serial numbers from notes
+          const notes = order.notes || '';
+          let fulfilledQuantity = order.quantity;
+          let serialNumbers = 'N/A';
+
+          // Parse notes for fulfillment details
+          if (notes.includes('Partial fulfillment from stock:')) {
+            const match = notes.match(/Partial fulfillment from stock:\s*(\d+)\s*pcs/);
+            if (match) {
+              fulfilledQuantity = parseInt(match[1]);
+            }
+          } else if (notes.includes('Fulfilled from stock')) {
+            // For complete fulfillment, use original quantity
+            fulfilledQuantity = order.quantity;
+          }
+
+          // Extract serial numbers from notes if present
+          if (notes.includes('Serial numbers:')) {
+            const serialMatch = notes.match(/Serial numbers:\s*([^\n]+)/);
+            if (serialMatch) {
+              serialNumbers = serialMatch[1].trim();
+            }
+          }
+
+          return {
+            ...order,
+            displayQuantity: fulfilledQuantity,
+            displaySerialNumber: serialNumbers
+          };
+        });
       case 'inventory':
         // For inventory, filter only active inventory items (exclude any with deleted/inactive status)
         const inventoryItems = [
@@ -539,7 +570,7 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
                           {item.title || 'N/A'}
                         </TableCell>
                         <TableCell>
-                          {item.quantity}
+                          {item.displayQuantity !== undefined ? item.displayQuantity : item.quantity}
                         </TableCell>
                         <TableCell>
                           <Badge 
@@ -557,7 +588,7 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
                           </Badge>
                         </TableCell>
                         <TableCell className="font-mono text-sm">
-                          {item.serial_number || 'N/A'}
+                          {item.displaySerialNumber !== undefined ? item.displaySerialNumber : 'N/A'}
                         </TableCell>
                       </>
                     )}
