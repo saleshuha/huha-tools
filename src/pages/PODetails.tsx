@@ -1350,9 +1350,14 @@ export default function PODetailsPage() {
         throw new Error(`Cannot deduct ${quantityToUse} units - only ${inventoryMatch.quantity} available in stock`);
       }
 
+      // Get user ID once at the beginning
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
       // Get the actual inventory records to update them properly
       let inventoryError: any = null;
-      const userId = (await supabase.auth.getUser()).data.user?.id;
       
       if (inventoryMatch.type === 'ASIN') {
         // Get all ASIN inventory records for this ASIN
@@ -1462,20 +1467,30 @@ export default function PODetailsPage() {
       }
 
       // Update PO order quantity to 0 and status to 'closed' (fulfilled from stock)
+      console.log('🔄 Updating PO order:', {
+        orderId: order.id,
+        userId: userId,
+        quantityToUse,
+        inventoryType: inventoryMatch.type,
+        identifier: inventoryMatch.identifier
+      });
+
       const { error: poError } = await supabase
         .from('po_orders')
         .update({ 
           quantity: 0,
           status: 'closed',
-          notes: `Fulfilled from stock: ${quantityToUse} units deducted from ${inventoryMatch.type} inventory (${inventoryMatch.identifier}/${inventoryMatch.serialNumber})`
+          notes: `Fulfilled from stock: ${quantityToUse} units deducted from ${inventoryMatch.type} inventory (${inventoryMatch.identifier})`
         })
         .eq('id', order.id)
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
+        .eq('user_id', userId);
 
       if (poError) {
         console.error('PO order update error:', poError);
         throw new Error(`Failed to update PO order: ${poError.message || 'Unknown error'}`);
       }
+
+      console.log('✅ PO order updated successfully');
 
       // Add to items marked from stock - IMPORTANT: Add this before any async operations
       console.log('Adding item to itemsMarkedFromStock:', order.id, order.sku_code);
