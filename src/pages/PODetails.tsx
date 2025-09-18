@@ -958,41 +958,123 @@ export default function PODetailsPage() {
     try {
       const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
       if (!inventoryMatch) return;
-
-      // Update inventory quantity
-      const newInventoryQuantity = inventoryMatch.quantity - stockQuantity;
       
+      // Get user ID once at the beginning
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      // Update inventory quantity by fetching individual records
       let inventoryError: any = null;
       
       if (inventoryMatch.type === 'ASIN') {
-        // Update the specific ASIN inventory record using both ASIN and serial number
-        const { error } = await supabase
+        // Get all ASIN inventory records for this ASIN
+        const { data: asinRecords, error: fetchError } = await supabase
           .from('asin_inventory')
-          .update({ quantity: newInventoryQuantity })
+          .select('*')
           .eq('asin', inventoryMatch.identifier)
-          .eq('serial_number', inventoryMatch.serialNumber)
-          .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
-        inventoryError = error;
+          .eq('user_id', userId)
+          .gt('quantity', 0)
+          .order('quantity', { ascending: false }); // Start with highest quantities
         
-        console.log(`📦 Partial fulfillment - Updated ASIN inventory: ${inventoryMatch.identifier} (${inventoryMatch.serialNumber}) from ${inventoryMatch.quantity} to ${newInventoryQuantity}`);
+        if (fetchError) {
+          throw new Error(`Failed to fetch ASIN inventory: ${fetchError.message}`);
+        }
+        
+        if (!asinRecords || asinRecords.length === 0) {
+          throw new Error(`No ASIN inventory records found for ${inventoryMatch.identifier}`);
+        }
+        
+        // Deduct quantities from available records
+        let remainingToDeduct = stockQuantity;
+        const updatePromises = [];
+        
+        for (const record of asinRecords) {
+          if (remainingToDeduct <= 0) break;
+          
+          const deductFromThis = Math.min(remainingToDeduct, record.quantity);
+          const newQuantity = record.quantity - deductFromThis;
+          
+          updatePromises.push(
+            supabase
+              .from('asin_inventory')
+              .update({ quantity: newQuantity })
+              .eq('id', record.id)
+              .eq('user_id', userId)
+          );
+          
+          console.log(`📦 Partial fulfillment - Updating ASIN inventory: ${record.asin} (${record.serial_number}) from ${record.quantity} to ${newQuantity}`);
+          remainingToDeduct -= deductFromThis;
+        }
+        
+        if (remainingToDeduct > 0) {
+          throw new Error(`Insufficient stock: tried to deduct ${stockQuantity} but only ${stockQuantity - remainingToDeduct} available`);
+        }
+        
+        // Execute all updates
+        const results = await Promise.all(updatePromises);
+        const hasError = results.find(result => result.error);
+        if (hasError) {
+          inventoryError = hasError.error;
+        }
       } else {
-        // Update the specific SKU inventory record using both SKU and bin serial number
-        const { error } = await supabase
+        // Handle SKU inventory update
+        const { data: skuRecords, error: fetchError } = await supabase
           .from('sku_inventory')
-          .update({ quantity: newInventoryQuantity })
+          .select('*')
           .eq('sku_number', inventoryMatch.identifier)
-          .eq('bin_serial_number', inventoryMatch.serialNumber)
-          .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
-        inventoryError = error;
+          .eq('user_id', userId)
+          .gt('quantity', 0)
+          .order('quantity', { ascending: false });
         
-        console.log(`📦 Partial fulfillment - Updated SKU inventory: ${inventoryMatch.identifier} (${inventoryMatch.serialNumber}) from ${inventoryMatch.quantity} to ${newInventoryQuantity}`);
+        if (fetchError) {
+          throw new Error(`Failed to fetch SKU inventory: ${fetchError.message}`);
+        }
+        
+        if (!skuRecords || skuRecords.length === 0) {
+          throw new Error(`No SKU inventory records found for ${inventoryMatch.identifier}`);
+        }
+        
+        // Deduct quantities from available records
+        let remainingToDeduct = stockQuantity;
+        const updatePromises = [];
+        
+        for (const record of skuRecords) {
+          if (remainingToDeduct <= 0) break;
+          
+          const deductFromThis = Math.min(remainingToDeduct, record.quantity);
+          const newQuantity = record.quantity - deductFromThis;
+          
+          updatePromises.push(
+            supabase
+              .from('sku_inventory')
+              .update({ quantity: newQuantity })
+              .eq('id', record.id)
+              .eq('user_id', userId)
+          );
+          
+          console.log(`📦 Partial fulfillment - Updating SKU inventory: ${record.sku_number} (${record.bin_serial_number}) from ${record.quantity} to ${newQuantity}`);
+          remainingToDeduct -= deductFromThis;
+        }
+        
+        if (remainingToDeduct > 0) {
+          throw new Error(`Insufficient stock: tried to deduct ${stockQuantity} but only ${stockQuantity - remainingToDeduct} available`);
+        }
+        
+        // Execute all updates
+        const results = await Promise.all(updatePromises);
+        const hasError = results.find(result => result.error);
+        if (hasError) {
+          inventoryError = hasError.error;
+        }
       }
 
       if (inventoryError) {
         console.error('Inventory update error:', inventoryError);
         toast({
           title: "Inventory Update Failed",
-          description: "Failed to update inventory quantity",
+          description: `Failed to update inventory: ${inventoryError.message || 'Unknown error'}`,
           variant: "destructive"
         });
         return;
