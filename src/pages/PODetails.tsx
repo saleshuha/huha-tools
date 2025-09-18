@@ -1350,33 +1350,110 @@ export default function PODetailsPage() {
         throw new Error(`Cannot deduct ${quantityToUse} units - only ${inventoryMatch.quantity} available in stock`);
       }
 
-      // Update inventory quantity - target the specific inventory record
-      const newInventoryQuantity = inventoryMatch.quantity - quantityToUse;
-      
+      // Get the actual inventory records to update them properly
       let inventoryError: any = null;
+      const userId = (await supabase.auth.getUser()).data.user?.id;
       
       if (inventoryMatch.type === 'ASIN') {
-        // Update the specific ASIN inventory record using both ASIN and serial number
-        const { error } = await supabase
+        // Get all ASIN inventory records for this ASIN
+        const { data: asinRecords, error: fetchError } = await supabase
           .from('asin_inventory')
-          .update({ quantity: newInventoryQuantity })
+          .select('*')
           .eq('asin', inventoryMatch.identifier)
-          .eq('serial_number', inventoryMatch.serialNumber)
-          .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
-        inventoryError = error;
+          .eq('user_id', userId)
+          .gt('quantity', 0)
+          .order('quantity', { ascending: false }); // Start with highest quantities
         
-        console.log(`📦 Updated ASIN inventory: ${inventoryMatch.identifier} (${inventoryMatch.serialNumber}) from ${inventoryMatch.quantity} to ${newInventoryQuantity}`);
+        if (fetchError) {
+          throw new Error(`Failed to fetch ASIN inventory: ${fetchError.message}`);
+        }
+        
+        if (!asinRecords || asinRecords.length === 0) {
+          throw new Error(`No ASIN inventory records found for ${inventoryMatch.identifier}`);
+        }
+        
+        // Deduct quantities from available records
+        let remainingToDeduct = quantityToUse;
+        const updatePromises = [];
+        
+        for (const record of asinRecords) {
+          if (remainingToDeduct <= 0) break;
+          
+          const deductFromThis = Math.min(remainingToDeduct, record.quantity);
+          const newQuantity = record.quantity - deductFromThis;
+          
+          updatePromises.push(
+            supabase
+              .from('asin_inventory')
+              .update({ quantity: newQuantity })
+              .eq('id', record.id)
+              .eq('user_id', userId)
+          );
+          
+          console.log(`📦 Updating ASIN inventory: ${record.asin} (${record.serial_number}) from ${record.quantity} to ${newQuantity}`);
+          remainingToDeduct -= deductFromThis;
+        }
+        
+        if (remainingToDeduct > 0) {
+          throw new Error(`Insufficient stock: tried to deduct ${quantityToUse} but only ${quantityToUse - remainingToDeduct} available`);
+        }
+        
+        // Execute all updates
+        const results = await Promise.all(updatePromises);
+        const hasError = results.find(result => result.error);
+        if (hasError) {
+          inventoryError = hasError.error;
+        }
       } else {
-        // Update the specific SKU inventory record using both SKU and bin serial number
-        const { error } = await supabase
+        // Handle SKU inventory update
+        const { data: skuRecords, error: fetchError } = await supabase
           .from('sku_inventory')
-          .update({ quantity: newInventoryQuantity })
+          .select('*')
           .eq('sku_number', inventoryMatch.identifier)
-          .eq('bin_serial_number', inventoryMatch.serialNumber)
-          .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
-        inventoryError = error;
+          .eq('user_id', userId)
+          .gt('quantity', 0)
+          .order('quantity', { ascending: false });
         
-        console.log(`📦 Updated SKU inventory: ${inventoryMatch.identifier} (${inventoryMatch.serialNumber}) from ${inventoryMatch.quantity} to ${newInventoryQuantity}`);
+        if (fetchError) {
+          throw new Error(`Failed to fetch SKU inventory: ${fetchError.message}`);
+        }
+        
+        if (!skuRecords || skuRecords.length === 0) {
+          throw new Error(`No SKU inventory records found for ${inventoryMatch.identifier}`);
+        }
+        
+        // Deduct quantities from available records
+        let remainingToDeduct = quantityToUse;
+        const updatePromises = [];
+        
+        for (const record of skuRecords) {
+          if (remainingToDeduct <= 0) break;
+          
+          const deductFromThis = Math.min(remainingToDeduct, record.quantity);
+          const newQuantity = record.quantity - deductFromThis;
+          
+          updatePromises.push(
+            supabase
+              .from('sku_inventory')
+              .update({ quantity: newQuantity })
+              .eq('id', record.id)
+              .eq('user_id', userId)
+          );
+          
+          console.log(`📦 Updating SKU inventory: ${record.sku_number} (${record.bin_serial_number}) from ${record.quantity} to ${newQuantity}`);
+          remainingToDeduct -= deductFromThis;
+        }
+        
+        if (remainingToDeduct > 0) {
+          throw new Error(`Insufficient stock: tried to deduct ${quantityToUse} but only ${quantityToUse - remainingToDeduct} available`);
+        }
+        
+        // Execute all updates
+        const results = await Promise.all(updatePromises);
+        const hasError = results.find(result => result.error);
+        if (hasError) {
+          inventoryError = hasError.error;
+        }
       }
 
       if (inventoryError) {
@@ -1414,7 +1491,7 @@ export default function PODetailsPage() {
 
       toast({
         title: "Item Marked as Ordered",
-        description: `Order fulfilled from stock: ${quantityToUse} units deducted from inventory (${inventoryMatch.quantity} → ${newInventoryQuantity}). PO quantity set to 0.`
+        description: `Order fulfilled from stock: ${quantityToUse} units deducted from inventory. PO quantity set to 0.`
       });
 
     } catch (error) {
