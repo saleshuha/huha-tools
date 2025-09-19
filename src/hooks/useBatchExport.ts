@@ -17,7 +17,8 @@ export const useBatchExport = () => {
   const exportMergedFiles = useCallback(async (
     sourceFiles: BatchFile[],
     targetData: ExcelData | null,
-    rowLimit: number = 10000
+    rowLimit: number = 10000,
+    templateDefaultValues?: Record<string, string>
   ) => {
     if (!targetData || sourceFiles.length === 0) {
       toast({
@@ -92,10 +93,12 @@ export const useBatchExport = () => {
             
             // Apply default values for unmapped columns
             const fileDefaultValues = sourceFile.defaultValues || {};
-            Object.entries(fileDefaultValues).forEach(([targetCol, defaultValue]) => {
-              const targetIndex = targetData.headers.indexOf(targetCol);
-              if (targetIndex !== -1 && (targetRow[targetIndex] === '' || targetRow[targetIndex] === null || targetRow[targetIndex] === undefined)) {
-                targetRow[targetIndex] = defaultValue;
+            const allDefaultValues = { ...templateDefaultValues, ...fileDefaultValues };
+            
+            // Apply defaults to all empty columns
+            targetData.headers.forEach((header, index) => {
+              if ((targetRow[index] === '' || targetRow[index] === null || targetRow[index] === undefined) && allDefaultValues[header]) {
+                targetRow[index] = allDefaultValues[header];
               }
             });
             

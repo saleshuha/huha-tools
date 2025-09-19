@@ -152,7 +152,7 @@ export const BatchProcessor = () => {
       title: "Template applied",
       description: "Mappings and default values applied to all source files",
     });
-  }, [templateMappings, toast]);
+  }, [templateMappings, defaultValues, pretextValues, toast]);
 
   const exportAllFiles = useCallback(async () => {
     if (!targetData) {
@@ -183,7 +183,7 @@ export const BatchProcessor = () => {
       // Mark all files as processing
       setSourceFiles(prev => prev.map(f => ({ ...f, status: 'processing' })));
 
-      await exportMergedFiles(filesWithMappings, targetData, rowLimit);
+      await exportMergedFiles(filesWithMappings, targetData, rowLimit, defaultValues);
       
       // Mark all files as completed
       setSourceFiles(prev => prev.map(f => ({ ...f, status: 'completed' })));
