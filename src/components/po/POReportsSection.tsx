@@ -86,43 +86,28 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
         console.log('🔍 Sample fulfilled order:', fulfilledOrders[0]);
         
         return fulfilledOrders.map(order => {
-          // Extract fulfilled quantity and serial numbers from notes
+          // Extract fulfilled quantity from notes - much simpler now
           const notes = order.notes || '';
           let fulfilledQuantity = order.quantity;
           let serialNumbers = 'N/A';
 
-          console.log('📋 Processing order:', order.po_number, 'Notes:', notes);
+          console.log('📋 Processing order:', order.po_number, 'ASIN:', order.asin);
 
-          // Parse notes for fulfillment details - Updated patterns
+          // Parse notes for fulfillment quantity only
           if (notes.includes('Fulfilled from stock:')) {
-            // Pattern: "Fulfilled from stock: 1 units deducted from ASIN inventory (B0DTJLTJB7/00758(4))"
             const quantityMatch = notes.match(/Fulfilled from stock:\s*(\d+)\s*units?\s*deducted/);
             if (quantityMatch) {
               fulfilledQuantity = parseInt(quantityMatch[1]);
               console.log('📦 Found fulfillment quantity:', fulfilledQuantity);
             }
-
-            // Extract ASIN and serial number from pattern like "(B0DTJLTJB7/00758,12345)"
-            const serialMatch = notes.match(/\([^/]+\/([^)]+)\)/);
-            if (serialMatch) {
-              serialNumbers = serialMatch[1].trim();
-              console.log('🏷️ Found serial number:', serialNumbers);
-            }
-          } else if (notes.includes('Partial fulfillment from stock:')) {
-            // Handle partial fulfillment pattern if it exists
-            const match = notes.match(/Partial fulfillment from stock:\s*(\d+)\s*pcs/);
-            if (match) {
-              fulfilledQuantity = parseInt(match[1]);
-              console.log('📦 Found partial fulfillment quantity:', fulfilledQuantity);
-            }
           }
 
-          // Extract serial numbers from notes if present in other formats
-          if (serialNumbers === 'N/A' && notes.includes('Serial numbers:')) {
-            const serialMatch = notes.match(/Serial numbers:\s*([^\n]+)/);
-            if (serialMatch) {
-              serialNumbers = serialMatch[1].trim();
-              console.log('🏷️ Found serial numbers from alternate pattern:', serialNumbers);
+          // Simple lookup: find serial number from inventory data using ASIN
+          if (order.asin && inventoryData && inventoryData.length > 0) {
+            const inventoryItem = inventoryData.find(item => item.asin === order.asin);
+            if (inventoryItem && inventoryItem.serialNumber) {
+              serialNumbers = inventoryItem.serialNumber;
+              console.log('🏷️ Found serial number from inventory:', serialNumbers);
             }
           }
 
