@@ -30,81 +30,73 @@ export const useBatchExport = () => {
     }
 
     try {
-      // Group files into batches based on row count limit
-      const batches: BatchFile[][] = [];
-      let currentBatch: BatchFile[] = [];
-      let currentRowCount = 1; // Start with 1 for header row
-
+      // Process all files and split output based on row limit
+      const allMappedRows: string[][] = [];
+      
+      // Process each file
       for (const sourceFile of sourceFiles) {
-        const fileRowCount = sourceFile.data.data.length;
+        const mappings = sourceFile.mappings;
         
-        // If adding this file would exceed the limit, start a new batch
-        if (currentRowCount + fileRowCount > rowLimit && currentBatch.length > 0) {
-          batches.push([...currentBatch]);
-          currentBatch = [sourceFile];
-          currentRowCount = 1 + fileRowCount; // header + file rows
-        } else {
-          currentBatch.push(sourceFile);
-          currentRowCount += fileRowCount; // Add rows from this file
+        if (!mappings || Object.keys(mappings).length === 0) {
+          continue;
         }
-      }
 
-      // Add the last batch if it has files
-      if (currentBatch.length > 0) {
-        batches.push(currentBatch);
-      }
-
-      // Process each batch
-      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
-        const batch = batches[batchIndex];
-        const mappedData: string[][] = [];
-        
-        // Add header row
-        mappedData.push([...targetData.headers]);
-
-        // Process each file in the batch
-        for (const sourceFile of batch) {
-          const mappings = sourceFile.mappings;
+        // Process each row of source data
+        for (const sourceRow of sourceFile.data.data) {
+          const targetRow = new Array(targetData.headers.length).fill('');
           
-          if (!mappings || Object.keys(mappings).length === 0) {
-            continue;
-          }
-
-          // Process each row of source data
-          for (const sourceRow of sourceFile.data.data) {
-            const targetRow = new Array(targetData.headers.length).fill('');
-            
-            // Apply column mappings with optional pretext
-            Object.entries(mappings).forEach(([sourceCol, targetCol]) => {
-              const sourceIndex = sourceFile.data.headers.indexOf(sourceCol);
-              const targetIndex = targetData.headers.indexOf(targetCol);
-              if (sourceIndex !== -1 && targetIndex !== -1) {
-                let value = sourceRow[sourceIndex];
-                value = value !== undefined ? String(value) : '';
-                
-                // Add pretext if defined
-                if (sourceFile.pretextValues && sourceFile.pretextValues[sourceCol]) {
-                  value = sourceFile.pretextValues[sourceCol] + value;
-                }
-                
-                targetRow[targetIndex] = value;
+          // Apply column mappings with optional pretext
+          Object.entries(mappings).forEach(([sourceCol, targetCol]) => {
+            const sourceIndex = sourceFile.data.headers.indexOf(sourceCol);
+            const targetIndex = targetData.headers.indexOf(targetCol);
+            if (sourceIndex !== -1 && targetIndex !== -1) {
+              let value = sourceRow[sourceIndex];
+              value = value !== undefined ? String(value) : '';
+              
+              // Add pretext if defined
+              if (sourceFile.pretextValues && sourceFile.pretextValues[sourceCol]) {
+                value = sourceFile.pretextValues[sourceCol] + value;
               }
-            });
-            
-            // Apply default values for unmapped columns
-            const fileDefaultValues = sourceFile.defaultValues || {};
-            const allDefaultValues = { ...templateDefaultValues, ...fileDefaultValues };
-            
-            // Apply defaults to all empty columns
-            targetData.headers.forEach((header, index) => {
-              if ((targetRow[index] === '' || targetRow[index] === null || targetRow[index] === undefined) && allDefaultValues[header]) {
-                targetRow[index] = allDefaultValues[header];
-              }
-            });
-            
-            mappedData.push(targetRow);
-          }
+              
+              targetRow[targetIndex] = value;
+            }
+          });
+          
+          // Apply default values for unmapped columns
+          const fileDefaultValues = sourceFile.defaultValues || {};
+          const allDefaultValues = { ...templateDefaultValues, ...fileDefaultValues };
+          
+          // Apply defaults to all empty columns
+          targetData.headers.forEach((header, index) => {
+            if ((targetRow[index] === '' || targetRow[index] === null || targetRow[index] === undefined) && allDefaultValues[header]) {
+              targetRow[index] = allDefaultValues[header];
+            }
+          });
+          
+          allMappedRows.push(targetRow);
         }
+      }
+
+      if (allMappedRows.length === 0) {
+        toast({
+          title: "No data to export",
+          description: "No valid mapped data found",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Split all mapped rows into batches based on row limit
+      const outputBatches: string[][][] = [];
+      for (let i = 0; i < allMappedRows.length; i += rowLimit) {
+        const batchRows = allMappedRows.slice(i, i + rowLimit);
+        const batchData = [[...targetData.headers], ...batchRows];
+        outputBatches.push(batchData);
+      }
+
+      // Process each output batch
+      for (let batchIndex = 0; batchIndex < outputBatches.length; batchIndex++) {
+        const mappedData = outputBatches[batchIndex];
 
         if (mappedData.length <= 1) { // Only header, no data
           continue;
@@ -123,7 +115,7 @@ export const useBatchExport = () => {
 
         // Create and download zip for this batch
         const zip = new JSZip();
-        const batchFileName = batches.length === 1 ? 
+        const batchFileName = outputBatches.length === 1 ? 
           `merged_export.csv` : 
           `merged_export_batch_${batchIndex + 1}.csv`;
         
@@ -136,7 +128,7 @@ export const useBatchExport = () => {
           const url = URL.createObjectURL(zipBlob);
           link.setAttribute('href', url);
           link.setAttribute('download', 
-            batches.length === 1 ? 
+            outputBatches.length === 1 ? 
               'merged_export.zip' : 
               `merged_export_batch_${batchIndex + 1}.zip`
           );
@@ -152,7 +144,7 @@ export const useBatchExport = () => {
 
       toast({
         title: "Export completed",
-        description: `Created ${batches.length} merged file${batches.length > 1 ? 's' : ''} based on ${rowLimit} row limit`,
+        description: `Created ${outputBatches.length} merged file${outputBatches.length > 1 ? 's' : ''} based on ${rowLimit} row limit`,
       });
 
     } catch (error) {
