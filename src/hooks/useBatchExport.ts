@@ -9,6 +9,7 @@ export interface BatchFile {
   data: ExcelData;
   mappings?: ColumnMapping;
   defaultValues?: Record<string, string>;
+  pretextValues?: Record<string, string>;
 }
 
 export const useBatchExport = () => {
@@ -74,13 +75,20 @@ export const useBatchExport = () => {
         for (const sourceRow of sourceFile.data.data) {
           const targetRow = new Array(targetData.headers.length).fill('');
           
-          // Apply column mappings
+          // Apply column mappings with optional pretext
           Object.entries(mappings).forEach(([sourceCol, targetCol]) => {
             const sourceIndex = sourceFile.data.headers.indexOf(sourceCol);
             const targetIndex = targetData.headers.indexOf(targetCol);
             if (sourceIndex !== -1 && targetIndex !== -1) {
-              const value = sourceRow[sourceIndex];
-              targetRow[targetIndex] = value !== undefined ? String(value) : '';
+              let value = sourceRow[sourceIndex];
+              value = value !== undefined ? String(value) : '';
+              
+              // Add pretext if defined
+              if (sourceFile.pretextValues && sourceFile.pretextValues[sourceCol]) {
+                value = sourceFile.pretextValues[sourceCol] + value;
+              }
+              
+              targetRow[targetIndex] = value;
             }
           });
           

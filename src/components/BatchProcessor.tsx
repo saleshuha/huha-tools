@@ -27,6 +27,7 @@ export const BatchProcessor = () => {
   const [mappingMethod, setMappingMethod] = useState<MappingMethod>('dropdown');
   const [templateMappings, setTemplateMappings] = useState<ColumnMapping>({});
   const [defaultValues, setDefaultValues] = useState<Record<string, string>>({});
+  const [pretextValues, setPretextValues] = useState<Record<string, string>>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [showMappingSetup, setShowMappingSetup] = useState(false);
   
@@ -37,6 +38,7 @@ export const BatchProcessor = () => {
     setTargetData(data);
     setTemplateMappings({});
     setDefaultValues({});
+    setPretextValues({});
     toast({
       title: "Target file uploaded",
       description: `${data.headers.length} columns detected in ${data.fileName}`,
@@ -112,6 +114,21 @@ export const BatchProcessor = () => {
     });
   }, []);
 
+  const setPretextValue = useCallback((sourceColumn: string, value: string) => {
+    setPretextValues(prev => ({
+      ...prev,
+      [sourceColumn]: value
+    }));
+  }, []);
+
+  const removePretextValue = useCallback((sourceColumn: string) => {
+    setPretextValues(prev => {
+      const newPretext = { ...prev };
+      delete newPretext[sourceColumn];
+      return newPretext;
+    });
+  }, []);
+
   const applyTemplateMappings = useCallback(() => {
     if (Object.keys(templateMappings).length === 0) {
       toast({
@@ -125,7 +142,8 @@ export const BatchProcessor = () => {
     setSourceFiles(prev => prev.map(file => ({
       ...file,
       mappings: templateMappings,
-      defaultValues: defaultValues
+      defaultValues: defaultValues,
+      pretextValues: pretextValues
     })));
     toast({
       title: "Template applied",
@@ -275,10 +293,13 @@ export const BatchProcessor = () => {
                 targetData={targetData}
                 mappings={templateMappings}
                 defaultValues={defaultValues}
+                pretextValues={pretextValues}
                 onCreateMapping={createTemplateMapping}
                 onRemoveMapping={removeTemplateMapping}
                 onSetDefaultValue={setDefaultValue}
                 onRemoveDefaultValue={removeDefaultValue}
+                onSetPretextValue={setPretextValue}
+                onRemovePretextValue={removePretextValue}
               />
             ) : (
               <ClickConnectMappingView
@@ -286,15 +307,18 @@ export const BatchProcessor = () => {
                 targetData={targetData}
                 mappings={templateMappings}
                 defaultValues={defaultValues}
+                pretextValues={pretextValues}
                 onCreateMapping={createTemplateMapping}
                 onRemoveMapping={removeTemplateMapping}
                 onSetDefaultValue={setDefaultValue}
                 onRemoveDefaultValue={removeDefaultValue}
+                onSetPretextValue={setPretextValue}
+                onRemovePretextValue={removePretextValue}
               />
             )}
 
             <div className="flex gap-4 mt-6">
-              <Button onClick={applyTemplateMappings} disabled={Object.keys(templateMappings).length === 0 && Object.keys(defaultValues).length === 0}>
+              <Button onClick={applyTemplateMappings} disabled={Object.keys(templateMappings).length === 0 && Object.keys(defaultValues).length === 0 && Object.keys(pretextValues).length === 0}>
                 Apply to All Files
               </Button>
               <Button variant="default" onClick={() => setShowMappingSetup(false)} className="bg-primary hover:bg-primary/90 text-primary-foreground">
@@ -399,7 +423,7 @@ export const BatchProcessor = () => {
                   </Button>
                   <Button
                     onClick={exportAllFiles}
-                    disabled={!targetData || (Object.keys(templateMappings).length === 0 && Object.keys(defaultValues).length === 0) || isProcessing}
+                    disabled={!targetData || (Object.keys(templateMappings).length === 0 && Object.keys(defaultValues).length === 0 && Object.keys(pretextValues).length === 0) || isProcessing}
                     className="flex items-center gap-2 bg-accent hover:bg-accent/90"
                   >
                     <Download className="w-4 h-4" />
@@ -429,10 +453,10 @@ export const BatchProcessor = () => {
                 </div>
               )}
 
-              {(Object.keys(templateMappings).length > 0 || Object.keys(defaultValues).length > 0) && (
+              {(Object.keys(templateMappings).length > 0 || Object.keys(defaultValues).length > 0 || Object.keys(pretextValues).length > 0) && (
                 <Alert>
                   <AlertDescription>
-                    Template configured: {Object.keys(templateMappings).length} column mappings, {Object.keys(defaultValues).length} default values.
+                    Template configured: {Object.keys(templateMappings).length} column mappings, {Object.keys(defaultValues).length} default values, {Object.keys(pretextValues).length} pretext values.
                     Ready to export individual zip files.
                   </AlertDescription>
                 </Alert>
