@@ -26,6 +26,7 @@ export const BatchProcessor = () => {
   const [sourceFiles, setSourceFiles] = useState<ProcessingBatchFile[]>([]);
   const [mappingMethod, setMappingMethod] = useState<MappingMethod>('dropdown');
   const [templateMappings, setTemplateMappings] = useState<ColumnMapping>({});
+  const [defaultValues, setDefaultValues] = useState<Record<string, string>>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [showMappingSetup, setShowMappingSetup] = useState(false);
   
@@ -35,6 +36,7 @@ export const BatchProcessor = () => {
   const handleTargetUpload = useCallback((data: ExcelData) => {
     setTargetData(data);
     setTemplateMappings({});
+    setDefaultValues({});
     toast({
       title: "Target file uploaded",
       description: `${data.headers.length} columns detected in ${data.fileName}`,
@@ -95,6 +97,21 @@ export const BatchProcessor = () => {
     });
   }, []);
 
+  const setDefaultValue = useCallback((targetColumn: string, value: string) => {
+    setDefaultValues(prev => ({
+      ...prev,
+      [targetColumn]: value
+    }));
+  }, []);
+
+  const removeDefaultValue = useCallback((targetColumn: string) => {
+    setDefaultValues(prev => {
+      const newDefaults = { ...prev };
+      delete newDefaults[targetColumn];
+      return newDefaults;
+    });
+  }, []);
+
   const applyTemplateMappings = useCallback(() => {
     if (Object.keys(templateMappings).length === 0) {
       toast({
@@ -107,11 +124,12 @@ export const BatchProcessor = () => {
     setShowMappingSetup(false);
     setSourceFiles(prev => prev.map(file => ({
       ...file,
-      mappings: templateMappings
+      mappings: templateMappings,
+      defaultValues: defaultValues
     })));
     toast({
       title: "Template applied",
-      description: "Mappings applied to all source files",
+      description: "Mappings and default values applied to all source files",
     });
   }, [templateMappings, toast]);
 
@@ -256,8 +274,11 @@ export const BatchProcessor = () => {
                 sourceData={sourceFiles[0].data}
                 targetData={targetData}
                 mappings={templateMappings}
+                defaultValues={defaultValues}
                 onCreateMapping={createTemplateMapping}
                 onRemoveMapping={removeTemplateMapping}
+                onSetDefaultValue={setDefaultValue}
+                onRemoveDefaultValue={removeDefaultValue}
               />
             ) : (
               <ClickConnectMappingView
@@ -270,7 +291,7 @@ export const BatchProcessor = () => {
             )}
 
             <div className="flex gap-4 mt-6">
-              <Button onClick={applyTemplateMappings} disabled={Object.keys(templateMappings).length === 0}>
+              <Button onClick={applyTemplateMappings} disabled={Object.keys(templateMappings).length === 0 && Object.keys(defaultValues).length === 0}>
                 Apply to All Files
               </Button>
               <Button variant="default" onClick={() => setShowMappingSetup(false)} className="bg-primary hover:bg-primary/90 text-primary-foreground">
@@ -375,7 +396,7 @@ export const BatchProcessor = () => {
                   </Button>
                   <Button
                     onClick={exportAllFiles}
-                    disabled={!targetData || Object.keys(templateMappings).length === 0 || isProcessing}
+                    disabled={!targetData || (Object.keys(templateMappings).length === 0 && Object.keys(defaultValues).length === 0) || isProcessing}
                     className="flex items-center gap-2 bg-accent hover:bg-accent/90"
                   >
                     <Download className="w-4 h-4" />
@@ -405,10 +426,10 @@ export const BatchProcessor = () => {
                 </div>
               )}
 
-              {Object.keys(templateMappings).length > 0 && (
+              {(Object.keys(templateMappings).length > 0 || Object.keys(defaultValues).length > 0) && (
                 <Alert>
                   <AlertDescription>
-                    Template mappings configured for {Object.keys(templateMappings).length} columns.
+                    Template configured: {Object.keys(templateMappings).length} column mappings, {Object.keys(defaultValues).length} default values.
                     Ready to export individual zip files.
                   </AlertDescription>
                 </Alert>

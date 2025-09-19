@@ -8,6 +8,7 @@ export interface BatchFile {
   id: string;
   data: ExcelData;
   mappings?: ColumnMapping;
+  defaultValues?: Record<string, string>;
 }
 
 export const useBatchExport = () => {
@@ -46,7 +47,8 @@ export const useBatchExport = () => {
 
   const exportIndividualFiles = useCallback(async (
     sourceFiles: BatchFile[],
-    targetData: ExcelData | null
+    targetData: ExcelData | null,
+    defaultValues?: Record<string, string>
   ) => {
     if (!targetData || sourceFiles.length === 0) {
       toast({
@@ -67,9 +69,12 @@ export const useBatchExport = () => {
 
         // Process this source file's data
         const mappedData: string[][] = [];
+        const fileDefaultValues = sourceFile.defaultValues || defaultValues || {};
         
         for (const sourceRow of sourceFile.data.data) {
           const targetRow = new Array(targetData.headers.length).fill('');
+          
+          // Apply column mappings
           Object.entries(mappings).forEach(([sourceCol, targetCol]) => {
             const sourceIndex = sourceFile.data.headers.indexOf(sourceCol);
             const targetIndex = targetData.headers.indexOf(targetCol);
@@ -78,6 +83,15 @@ export const useBatchExport = () => {
               targetRow[targetIndex] = value !== undefined ? String(value) : '';
             }
           });
+          
+          // Apply default values for unmapped columns
+          Object.entries(fileDefaultValues).forEach(([targetCol, defaultValue]) => {
+            const targetIndex = targetData.headers.indexOf(targetCol);
+            if (targetIndex !== -1 && !targetRow[targetIndex]) {
+              targetRow[targetIndex] = defaultValue;
+            }
+          });
+          
           mappedData.push(targetRow);
         }
 
