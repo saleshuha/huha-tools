@@ -44,7 +44,7 @@ export const useBatchExport = () => {
           currentRowCount = 1 + fileRowCount; // header + file rows
         } else {
           currentBatch.push(sourceFile);
-          currentRowCount += fileRowCount;
+          currentRowCount += fileRowCount; // Add rows from this file
         }
       }
 
@@ -94,7 +94,7 @@ export const useBatchExport = () => {
             const fileDefaultValues = sourceFile.defaultValues || {};
             Object.entries(fileDefaultValues).forEach(([targetCol, defaultValue]) => {
               const targetIndex = targetData.headers.indexOf(targetCol);
-              if (targetIndex !== -1 && !targetRow[targetIndex]) {
+              if (targetIndex !== -1 && (targetRow[targetIndex] === '' || targetRow[targetIndex] === null || targetRow[targetIndex] === undefined)) {
                 targetRow[targetIndex] = defaultValue;
               }
             });
