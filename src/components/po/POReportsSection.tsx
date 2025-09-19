@@ -102,8 +102,8 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
               console.log('📦 Found fulfillment quantity:', fulfilledQuantity);
             }
 
-            // Extract ASIN and serial number from pattern like "(B0DTJLTJB7/00758(4))"
-            const serialMatch = notes.match(/\([^/]+\/([^(]+)\(\d+\)\)/);
+            // Extract ASIN and serial number from pattern like "(B0DTJLTJB7/00758,12345)"
+            const serialMatch = notes.match(/\([^/]+\/([^)]+)\)/);
             if (serialMatch) {
               serialNumbers = serialMatch[1].trim();
               console.log('🏷️ Found serial number:', serialNumbers);

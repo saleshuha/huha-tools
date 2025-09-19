@@ -1453,6 +1453,7 @@ export default function PODetailsPage() {
 
       // Get the actual inventory records to update them properly
       let inventoryError: any = null;
+      let deductedSerialNumbers = [];
       
       if (inventoryMatch.type === 'ASIN') {
         // Get all ASIN inventory records for this ASIN
@@ -1475,12 +1476,20 @@ export default function PODetailsPage() {
         // Deduct quantities from available records
         let remainingToDeduct = quantityToUse;
         const updatePromises = [];
+        const deductedSerialNumbers = [];
         
         for (const record of asinRecords) {
           if (remainingToDeduct <= 0) break;
           
           const deductFromThis = Math.min(remainingToDeduct, record.quantity);
           const newQuantity = record.quantity - deductFromThis;
+          
+          // Collect serial numbers for the notes
+          if (record.serial_number) {
+            for (let i = 0; i < deductFromThis; i++) {
+              deductedSerialNumbers.push(record.serial_number);
+            }
+          }
           
           updatePromises.push(
             supabase
@@ -1525,12 +1534,20 @@ export default function PODetailsPage() {
         // Deduct quantities from available records
         let remainingToDeduct = quantityToUse;
         const updatePromises = [];
+        const deductedSerialNumbers = [];
         
         for (const record of skuRecords) {
           if (remainingToDeduct <= 0) break;
           
           const deductFromThis = Math.min(remainingToDeduct, record.quantity);
           const newQuantity = record.quantity - deductFromThis;
+          
+          // Collect serial numbers for the notes
+          if (record.bin_serial_number) {
+            for (let i = 0; i < deductFromThis; i++) {
+              deductedSerialNumbers.push(record.bin_serial_number);
+            }
+          }
           
           updatePromises.push(
             supabase
@@ -1570,12 +1587,17 @@ export default function PODetailsPage() {
         identifier: inventoryMatch.identifier
       });
 
+      // Create notes with serial numbers
+      const serialNumbersText = deductedSerialNumbers.length > 0 
+        ? `/${deductedSerialNumbers.join(',')}`
+        : '';
+      
       const { error: poError } = await supabase
         .from('po_orders')
         .update({ 
           quantity: 0,
           status: 'closed',
-          notes: `Fulfilled from stock: ${quantityToUse} units deducted from ${inventoryMatch.type} inventory (${inventoryMatch.identifier})`
+          notes: `Fulfilled from stock: ${quantityToUse} units deducted from ${inventoryMatch.type} inventory (${inventoryMatch.identifier}${serialNumbersText})`
         })
         .eq('id', order.id)
         .eq('user_id', userId);
