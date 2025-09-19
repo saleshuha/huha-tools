@@ -105,8 +105,8 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
           // Simple lookup: find serial number from inventory data using ASIN
           if (order.asin && inventoryData && inventoryData.length > 0) {
             const inventoryItem = inventoryData.find(item => item.asin === order.asin);
-            if (inventoryItem && inventoryItem.serialNumber) {
-              serialNumbers = inventoryItem.serialNumber;
+            if (inventoryItem && inventoryItem.serial_number) {
+              serialNumbers = inventoryItem.serial_number;
               console.log('🏷️ Found serial number from inventory:', serialNumbers);
             }
           }
