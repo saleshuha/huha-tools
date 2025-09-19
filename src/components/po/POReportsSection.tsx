@@ -270,8 +270,8 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
                     <td>${item.asin || 'N/A'}</td>
                     <td>${item.sku_code || 'N/A'}</td>
                     <td>${item.title || 'N/A'}</td>
-                    <td>${item.quantity}</td>
-                    <td>${item.serial_number || 'N/A'}</td>
+                    <td>${item.displayQuantity || item.quantity}</td>
+                    <td>${item.displaySerialNumber || item.serial_number || 'N/A'}</td>
                   `}
                 </tr>
               `).join('')}
