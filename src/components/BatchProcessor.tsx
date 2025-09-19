@@ -11,16 +11,26 @@ import { FileUpload } from './FileUpload';
 import { MappingMethodSelector } from './MappingMethodSelector';
 import { DropdownMappingView } from './mapping/DropdownMappingView';
 import { ClickConnectMappingView } from './mapping/ClickConnectMappingView';
+import { useDropzone } from 'react-dropzone';
+import * as XLSX from 'xlsx';
 
 import { useToast } from '@/hooks/use-toast';
 import { useBatchExport, BatchFile } from '@/hooks/useBatchExport';
-import { FileSpreadsheet, Download, CheckCircle, AlertCircle, Clock, ArrowLeft } from 'lucide-react';
+import { FileSpreadsheet, Download, CheckCircle, AlertCircle, Clock, ArrowLeft, Upload, X, Loader2 } from 'lucide-react';
 import { ExcelData, ColumnMapping } from '@/types/excel';
 import { MappingMethod } from '@/types/mappingMethods';
 
 interface ProcessingBatchFile extends BatchFile {
   status: 'pending' | 'processing' | 'completed' | 'error';
   error?: string;
+}
+
+interface UploadState {
+  total: number;
+  completed: number;
+  failed: number;
+  isUploading: boolean;
+  errors: { fileName: string; error: string }[];
 }
 
 export const BatchProcessor = () => {
@@ -33,6 +43,13 @@ export const BatchProcessor = () => {
   const [rowLimit, setRowLimit] = useState<number>(10000);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showMappingSetup, setShowMappingSetup] = useState(false);
+  const [uploadState, setUploadState] = useState<UploadState>({
+    total: 0,
+    completed: 0,
+    failed: 0,
+    isUploading: false,
+    errors: []
+  });
   
   const { toast } = useToast();
   const { exportMergedFiles } = useBatchExport();
@@ -47,6 +64,167 @@ export const BatchProcessor = () => {
       description: `${data.headers.length} columns detected in ${data.fileName}`,
     });
   }, [toast]);
+
+  const processFileAsync = useCallback(async (file: File): Promise<ExcelData> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        try {
+          const fileData = e.target?.result;
+          const fileExtension = file.name.toLowerCase().split('.').pop();
+          
+          if (fileExtension === 'csv') {
+            const csvText = typeof fileData === 'string' ? fileData : new TextDecoder().decode(new Uint8Array(fileData as ArrayBuffer));
+            const lines = csvText.split('\n').filter(line => line.trim());
+            if (lines.length === 0) {
+              reject(new Error('CSV file is empty'));
+              return;
+            }
+            
+            const parseCSVLine = (line: string) => {
+              const result = [];
+              let current = '';
+              let inQuotes = false;
+              
+              for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === '"') {
+                  inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                  result.push(current.trim());
+                  current = '';
+                } else {
+                  current += char;
+                }
+              }
+              result.push(current.trim());
+              return result;
+            };
+            
+            const jsonData = lines.map(line => parseCSVLine(line));
+            const headers = jsonData[0].map((header: any) => 
+              header ? String(header).replace(/^"(.*)"$/, '$1').trim() : `Column_${jsonData[0].indexOf(header) + 1}`
+            );
+            const rowData = jsonData.slice(1).map(row => 
+              row.map(cell => typeof cell === 'string' ? cell.replace(/^"(.*)"$/, '$1') : cell)
+            );
+            
+            resolve({
+              headers,
+              data: rowData,
+              fileName: file.name,
+              sheetNames: ['Sheet1'],
+              selectedSheet: 'Sheet1'
+            });
+          } else {
+            const workbook = XLSX.read(fileData, { 
+              type: 'binary', 
+              cellStyles: true,
+              cellFormula: true,
+              cellHTML: false,
+              cellNF: true
+            });
+            
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+            
+            if (jsonData.length === 0) {
+              reject(new Error('File is empty'));
+              return;
+            }
+
+            const headers = jsonData[0].map((header: any) => 
+              header ? String(header).trim() : `Column_${jsonData[0].indexOf(header) + 1}`
+            );
+            const rowData = jsonData.slice(1);
+            
+            resolve({
+              headers,
+              data: rowData,
+              fileName: file.name,
+              sheetNames: workbook.SheetNames,
+              selectedSheet: sheetName
+            });
+          }
+        } catch (error) {
+          reject(new Error(`Failed to parse ${file.name.toLowerCase().endsWith('.csv') ? 'CSV' : 'Excel'} file`));
+        }
+      };
+      
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      
+      if (file.name.toLowerCase().endsWith('.csv')) {
+        reader.readAsText(file);
+      } else {
+        reader.readAsBinaryString(file);
+      }
+    });
+  }, []);
+
+  const processBatchFiles = useCallback(async (files: File[]) => {
+    const BATCH_SIZE = 5; // Process 5 files at a time
+    const results: ProcessingBatchFile[] = [];
+    
+    setUploadState({
+      total: files.length,
+      completed: 0,
+      failed: 0,
+      isUploading: true,
+      errors: []
+    });
+
+    // Process files in batches to prevent browser freezing
+    for (let i = 0; i < files.length; i += BATCH_SIZE) {
+      const batch = files.slice(i, i + BATCH_SIZE);
+      
+      const batchPromises = batch.map(async (file, index) => {
+        try {
+          const data = await processFileAsync(file);
+          const newFile: ProcessingBatchFile = {
+            id: `${Date.now()}-${Math.random()}-${i + index}`,
+            data,
+            status: 'pending'
+          };
+          
+          setUploadState(prev => ({
+            ...prev,
+            completed: prev.completed + 1
+          }));
+          
+          return newFile;
+        } catch (error) {
+          setUploadState(prev => ({
+            ...prev,
+            completed: prev.completed + 1,
+            failed: prev.failed + 1,
+            errors: [...prev.errors, {
+              fileName: file.name,
+              error: error instanceof Error ? error.message : 'Unknown error'
+            }]
+          }));
+          return null;
+        }
+      });
+
+      const batchResults = await Promise.all(batchPromises);
+      results.push(...batchResults.filter(Boolean) as ProcessingBatchFile[]);
+      
+      // Small delay between batches to prevent overwhelming the browser
+      if (i + BATCH_SIZE < files.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    setSourceFiles(prev => [...prev, ...results]);
+    setUploadState(prev => ({ ...prev, isUploading: false }));
+    
+    toast({
+      title: "Batch upload completed",
+      description: `${results.length} files processed successfully${uploadState.failed > 0 ? `, ${uploadState.failed} failed` : ''}`,
+    });
+  }, [processFileAsync, toast, uploadState.failed]);
 
   const handleSourceFilesUpload = useCallback((data: ExcelData) => {
     const newFile: ProcessingBatchFile = {
@@ -379,13 +557,23 @@ export const BatchProcessor = () => {
               <FileSpreadsheet className="w-5 h-5 text-primary" />
               Source Files ({sourceFiles.length})
             </h3>
-            <FileUpload
-              onFileUpload={handleSourceFilesUpload}
-              title="Upload Source Files"
-              description="Upload multiple files to process individually"
-              accept=".xlsx,.xls"
-              multiple={true}
+            
+            <BatchFileUploadZone 
+              onBatchUpload={processBatchFiles}
+              uploadState={uploadState}
+              disabled={uploadState.isUploading}
             />
+            
+            {/* Fallback single file upload */}
+            <div className="mt-4 pt-4 border-t border-border">
+              <FileUpload
+                onFileUpload={handleSourceFilesUpload}
+                title="Single File Upload"
+                description="Upload one file at a time (fallback method)"
+                accept=".xlsx,.xls"
+                multiple={false}
+              />
+            </div>
           </Card>
         </div>
 
@@ -505,6 +693,128 @@ export const BatchProcessor = () => {
           </Card>
         )}
       </div>
+    </div>
+  );
+};
+
+// Enhanced batch file upload component for handling large numbers of files
+interface BatchFileUploadZoneProps {
+  onBatchUpload: (files: File[]) => void;
+  uploadState: UploadState;
+  disabled: boolean;
+}
+
+const BatchFileUploadZone: React.FC<BatchFileUploadZoneProps> = ({ 
+  onBatchUpload, 
+  uploadState, 
+  disabled 
+}) => {
+  const { getRootProps, getInputProps, isDragActive, acceptedFiles } = useDropzone({
+    onDrop: onBatchUpload,
+    accept: {
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      'application/vnd.ms-excel': ['.xls'],
+      'text/csv': ['.csv']
+    },
+    multiple: true,
+    disabled,
+    maxSize: 1024 * 1024 * 1024 // 1GB per file
+  });
+
+  const uploadProgress = uploadState.total > 0 ? (uploadState.completed / uploadState.total) * 100 : 0;
+
+  return (
+    <div className="space-y-4">
+      <Card
+        {...getRootProps()}
+        className={`p-8 border-2 border-dashed cursor-pointer transition-all duration-200 ${
+          isDragActive 
+            ? 'border-primary bg-primary/5' 
+            : disabled
+              ? 'border-muted bg-muted/20 cursor-not-allowed opacity-60'
+              : 'border-border hover:border-primary/50 hover:bg-muted/30'
+        }`}
+      >
+        <input {...getInputProps()} />
+        
+        <div className="text-center space-y-4">
+          {uploadState.isUploading ? (
+            <>
+              <div className="w-16 h-16 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-primary animate-spin" />
+              </div>
+              <div className="space-y-2">
+                <p className="font-semibold text-lg">Processing Files...</p>
+                <p className="text-muted-foreground">
+                  {uploadState.completed} of {uploadState.total} files processed
+                </p>
+                <Progress value={uploadProgress} className="w-full max-w-md mx-auto" />
+                <p className="text-sm text-muted-foreground">
+                  {Math.round(uploadProgress)}% complete
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="w-16 h-16 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
+                <Upload className="w-8 h-8 text-primary" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-semibold">Bulk File Upload</h3>
+                <p className="text-muted-foreground">
+                  {isDragActive 
+                    ? 'Drop your files here...' 
+                    : 'Drag & drop multiple Excel/CSV files here, or click to browse'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Supports .xlsx, .xls, and .csv files • Processes up to 1000+ files efficiently
+                </p>
+              </div>
+              <Button 
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                disabled={disabled}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Choose Files
+              </Button>
+            </>
+          )}
+        </div>
+      </Card>
+
+      {/* Upload Results */}
+      {(uploadState.completed > 0 || uploadState.errors.length > 0) && (
+        <Alert>
+          <AlertDescription>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-medium">Upload Summary:</span>
+                <div className="flex gap-4 text-sm">
+                  <span className="text-green-600">
+                    ✓ {uploadState.completed - uploadState.failed} successful
+                  </span>
+                  {uploadState.failed > 0 && (
+                    <span className="text-red-600">✗ {uploadState.failed} failed</span>
+                  )}
+                </div>
+              </div>
+              
+              {uploadState.errors.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-border">
+                  <p className="text-sm font-medium text-destructive mb-1">Failed Files:</p>
+                  <div className="space-y-1 max-h-24 overflow-y-auto">
+                    {uploadState.errors.map((error, index) => (
+                      <div key={index} className="text-xs text-muted-foreground">
+                        <span className="font-medium">{error.fileName}:</span> {error.error}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
     </div>
   );
 };
