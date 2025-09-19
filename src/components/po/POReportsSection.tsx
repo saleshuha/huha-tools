@@ -619,7 +619,10 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
                         <TableCell className="font-mono text-sm">
                           {(() => {
                             console.log('🏷️ Serial rendering - displaySerialNumber:', item.displaySerialNumber);
-                            return item.displaySerialNumber !== undefined ? item.displaySerialNumber : 'N/A';
+                            const serialValue = item.displaySerialNumber || 'N/A';
+                            return serialValue === 'N/A' ? (
+                              <span className="text-muted-foreground">N/A</span>
+                            ) : serialValue;
                           })()}
                         </TableCell>
                       </>
