@@ -285,8 +285,11 @@ export const BatchProcessor = () => {
                 sourceData={sourceFiles[0].data}
                 targetData={targetData}
                 mappings={templateMappings}
+                defaultValues={defaultValues}
                 onCreateMapping={createTemplateMapping}
                 onRemoveMapping={removeTemplateMapping}
+                onSetDefaultValue={setDefaultValue}
+                onRemoveDefaultValue={removeDefaultValue}
               />
             )}
 

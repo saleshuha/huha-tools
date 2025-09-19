@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { X, MousePointer, ArrowRight } from 'lucide-react';
 import { ExcelData, ColumnMapping } from '@/types/excel';
 
@@ -9,16 +11,22 @@ interface ClickConnectMappingViewProps {
   sourceData: ExcelData;
   targetData: ExcelData | null;
   mappings: ColumnMapping;
+  defaultValues?: Record<string, string>;
   onCreateMapping: (sourceColumn: string, targetColumn: string) => void;
   onRemoveMapping: (sourceColumn: string) => void;
+  onSetDefaultValue?: (targetColumn: string, value: string) => void;
+  onRemoveDefaultValue?: (targetColumn: string) => void;
 }
 
 export const ClickConnectMappingView: React.FC<ClickConnectMappingViewProps> = ({
   sourceData,
   targetData,
   mappings,
+  defaultValues = {},
   onCreateMapping,
-  onRemoveMapping
+  onRemoveMapping,
+  onSetDefaultValue,
+  onRemoveDefaultValue
 }) => {
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [step, setStep] = useState<'select-source' | 'select-target'>('select-source');
@@ -50,6 +58,9 @@ export const ClickConnectMappingView: React.FC<ClickConnectMappingViewProps> = (
       </Card>
     );
   }
+
+  const mappedTargetColumns = Object.values(mappings);
+  const unmappedTargetColumns = targetData.headers.filter(col => !mappedTargetColumns.includes(col));
 
   return (
     <div className="space-y-6">
@@ -157,6 +168,55 @@ export const ClickConnectMappingView: React.FC<ClickConnectMappingViewProps> = (
           </div>
         </Card>
       </div>
+
+      {/* Default Values for Unmapped Columns */}
+      {unmappedTargetColumns.length > 0 && (
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
+            <span>Unmapped Target Columns - Set Default Values</span>
+            <Badge variant="outline">{unmappedTargetColumns.length} unmapped</Badge>
+          </h3>
+          
+          <div className="space-y-4">
+            {unmappedTargetColumns.map((targetColumn) => (
+              <div key={targetColumn} className="flex items-center space-x-4 p-4 border rounded-lg bg-muted/20">
+                <div className="flex-1">
+                  <Label className="text-sm font-medium text-accent">{targetColumn}</Label>
+                </div>
+                
+                <div className="flex-1">
+                  <Input
+                    type="text"
+                    placeholder="Enter default value for all rows"
+                    value={defaultValues[targetColumn] || ''}
+                    onChange={(e) => {
+                      if (onSetDefaultValue) {
+                        onSetDefaultValue(targetColumn, e.target.value);
+                      }
+                    }}
+                    className="bg-background border-2 hover:border-primary/50"
+                  />
+                </div>
+                
+                {defaultValues[targetColumn] && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (onRemoveDefaultValue) {
+                        onRemoveDefaultValue(targetColumn);
+                      }
+                    }}
+                    className="flex-shrink-0 hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
     </div>
   );
 };
