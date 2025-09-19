@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { FileUpload } from './FileUpload';
 import { MappingMethodSelector } from './MappingMethodSelector';
 import { DropdownMappingView } from './mapping/DropdownMappingView';
@@ -28,11 +30,12 @@ export const BatchProcessor = () => {
   const [templateMappings, setTemplateMappings] = useState<ColumnMapping>({});
   const [defaultValues, setDefaultValues] = useState<Record<string, string>>({});
   const [pretextValues, setPretextValues] = useState<Record<string, string>>({});
+  const [rowLimit, setRowLimit] = useState<number>(10000);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showMappingSetup, setShowMappingSetup] = useState(false);
   
   const { toast } = useToast();
-  const { exportIndividualFiles } = useBatchExport();
+  const { exportMergedFiles } = useBatchExport();
 
   const handleTargetUpload = useCallback((data: ExcelData) => {
     setTargetData(data);
@@ -177,39 +180,17 @@ export const BatchProcessor = () => {
     setIsProcessing(true);
 
     try {
-      // Process each file individually
-      for (let i = 0; i < filesWithMappings.length; i++) {
-        const file = filesWithMappings[i];
-        
-        setSourceFiles(prev => prev.map(f => 
-          f.id === file.id ? { ...f, status: 'processing' } : f
-        ));
+      // Mark all files as processing
+      setSourceFiles(prev => prev.map(f => ({ ...f, status: 'processing' })));
 
-        try {
-          await exportIndividualFiles([file], targetData);
-          
-          setSourceFiles(prev => prev.map(f => 
-            f.id === file.id ? { ...f, status: 'completed' } : f
-          ));
-
-          toast({
-            title: "File exported",
-            description: `${file.data.fileName} exported as individual zip`,
-          });
-        } catch (error) {
-          setSourceFiles(prev => prev.map(f => 
-            f.id === file.id ? { 
-              ...f, 
-              status: 'error', 
-              error: error instanceof Error ? error.message : 'Export failed'
-            } : f
-          ));
-        }
-      }
+      await exportMergedFiles(filesWithMappings, targetData, rowLimit);
+      
+      // Mark all files as completed
+      setSourceFiles(prev => prev.map(f => ({ ...f, status: 'completed' })));
 
       toast({
-        title: "Batch export completed",
-        description: `Successfully exported ${filesWithMappings.length} individual zip files`,
+        title: "Batch export completed", 
+        description: `Successfully exported merged files based on ${rowLimit} row limit`,
       });
     } catch (error) {
       toast({
@@ -220,7 +201,7 @@ export const BatchProcessor = () => {
     } finally {
       setIsProcessing(false);
     }
-  }, [sourceFiles, targetData, exportIndividualFiles, toast]);
+  }, [sourceFiles, targetData, exportMergedFiles, toast]);
 
   const getStatusIcon = (status: ProcessingBatchFile['status']) => {
     switch (status) {
@@ -414,6 +395,21 @@ export const BatchProcessor = () => {
               <div className="flex items-center justify-between">
                 <h3 className="text-xl font-semibold">Processing Queue</h3>
                 <div className="flex gap-2">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="rowLimit" className="text-sm font-medium">
+                      Row Limit:
+                    </Label>
+                    <Input
+                      id="rowLimit"
+                      type="number"
+                      min="1000"
+                      max="100000"
+                      step="1000"
+                      value={rowLimit}
+                      onChange={(e) => setRowLimit(Number(e.target.value))}
+                      className="w-24 text-sm"
+                    />
+                  </div>
                   <Button
                     onClick={setupTemplateMappings}
                     disabled={!targetData || isProcessing}
@@ -427,7 +423,7 @@ export const BatchProcessor = () => {
                     className="flex items-center gap-2 bg-accent hover:bg-accent/90"
                   >
                     <Download className="w-4 h-4" />
-                    Export Individual Zip Files
+                    Export Merged Files
                   </Button>
                   <Button
                     onClick={clearAllFiles}
@@ -457,7 +453,7 @@ export const BatchProcessor = () => {
                 <Alert>
                   <AlertDescription>
                     Template configured: {Object.keys(templateMappings).length} column mappings, {Object.keys(defaultValues).length} default values, {Object.keys(pretextValues).length} pretext values.
-                    Ready to export individual zip files.
+                    Files will be merged based on {rowLimit} row limit per export.
                   </AlertDescription>
                 </Alert>
               )}
