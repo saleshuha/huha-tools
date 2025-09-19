@@ -171,17 +171,20 @@ export const ClickConnectMappingView: React.FC<ClickConnectMappingViewProps> = (
 
       {/* Default Values for Unmapped Columns */}
       {unmappedTargetColumns.length > 0 && (
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
-            <span>Unmapped Target Columns - Set Default Values</span>
-            <Badge variant="outline">{unmappedTargetColumns.length} unmapped</Badge>
+        <Card className="p-6 border-2 border-accent/30 bg-accent/5">
+          <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2 text-foreground">
+            <span>Set Default Values for Unmapped Columns</span>
+            <Badge variant="outline" className="bg-accent/10 text-accent border-accent/30">
+              {unmappedTargetColumns.length} columns need defaults
+            </Badge>
           </h3>
           
-          <div className="space-y-4">
+          <div className="space-y-3">
             {unmappedTargetColumns.map((targetColumn) => (
-              <div key={targetColumn} className="flex items-center space-x-4 p-4 border rounded-lg bg-muted/20">
+              <div key={targetColumn} className="flex items-center space-x-4 p-4 border-2 border-accent/20 rounded-lg bg-background/50">
                 <div className="flex-1">
-                  <Label className="text-sm font-medium text-accent">{targetColumn}</Label>
+                  <Label className="text-sm font-semibold text-foreground">{targetColumn}</Label>
+                  <p className="text-xs text-muted-foreground mt-1">This column will use the default value for all rows</p>
                 </div>
                 
                 <div className="flex-1">
@@ -194,7 +197,7 @@ export const ClickConnectMappingView: React.FC<ClickConnectMappingViewProps> = (
                         onSetDefaultValue(targetColumn, e.target.value);
                       }
                     }}
-                    className="bg-background border-2 hover:border-primary/50"
+                    className="bg-background border-2 hover:border-accent/50 focus:border-accent"
                   />
                 </div>
                 

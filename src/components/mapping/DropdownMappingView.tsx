@@ -43,11 +43,16 @@ export const DropdownMappingView: React.FC<DropdownMappingViewProps> = ({
   const unmappedTargetColumns = targetData.headers.filter(col => !mappedTargetColumns.includes(col));
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
+        <h3 className="text-lg font-semibold mb-6 flex items-center space-x-2">
           <span>Column Mappings</span>
           <Badge variant="secondary">{Object.keys(mappings).length} mapped</Badge>
+          {unmappedTargetColumns.length > 0 && (
+            <Badge variant="outline" className="bg-accent/10 text-accent border-accent/30">
+              {unmappedTargetColumns.length} need defaults
+            </Badge>
+          )}
         </h3>
         
         <div className="space-y-4">
@@ -98,55 +103,58 @@ export const DropdownMappingView: React.FC<DropdownMappingViewProps> = ({
             </div>
           ))}
         </div>
-      </Card>
 
-      {unmappedTargetColumns.length > 0 && (
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
-            <span>Unmapped Target Columns - Set Default Values</span>
-            <Badge variant="outline">{unmappedTargetColumns.length} unmapped</Badge>
-          </h3>
-          
-          <div className="space-y-4">
-            {unmappedTargetColumns.map((targetColumn) => (
-              <div key={targetColumn} className="flex items-center space-x-4 p-4 border rounded-lg bg-muted/20">
-                <div className="flex-1">
-                  <Label className="text-sm font-medium text-accent">{targetColumn}</Label>
+        {unmappedTargetColumns.length > 0 && (
+          <div className="mt-8 pt-6 border-t border-border/50">
+            <h4 className="text-md font-semibold mb-4 flex items-center space-x-2 text-foreground">
+              <span>Set Default Values for Unmapped Columns</span>
+              <Badge variant="outline" className="bg-accent/10 text-accent border-accent/30">
+                {unmappedTargetColumns.length} columns need defaults
+              </Badge>
+            </h4>
+            
+            <div className="space-y-3">
+              {unmappedTargetColumns.map((targetColumn) => (
+                <div key={targetColumn} className="flex items-center space-x-4 p-4 border-2 border-accent/20 rounded-lg bg-accent/5">
+                  <div className="flex-1">
+                    <Label className="text-sm font-semibold text-foreground">{targetColumn}</Label>
+                    <p className="text-xs text-muted-foreground mt-1">This column will use the default value for all rows</p>
+                  </div>
+                  
+                  <div className="flex-1">
+                    <Input
+                      type="text"
+                      placeholder="Enter default value for all rows"
+                      value={defaultValues[targetColumn] || ''}
+                      onChange={(e) => {
+                        if (onSetDefaultValue) {
+                          onSetDefaultValue(targetColumn, e.target.value);
+                        }
+                      }}
+                      className="bg-background border-2 hover:border-accent/50 focus:border-accent"
+                    />
+                  </div>
+                  
+                  {defaultValues[targetColumn] && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        if (onRemoveDefaultValue) {
+                          onRemoveDefaultValue(targetColumn);
+                        }
+                      }}
+                      className="flex-shrink-0 hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  )}
                 </div>
-                
-                <div className="flex-1">
-                  <Input
-                    type="text"
-                    placeholder="Enter default value for all rows"
-                    value={defaultValues[targetColumn] || ''}
-                    onChange={(e) => {
-                      if (onSetDefaultValue) {
-                        onSetDefaultValue(targetColumn, e.target.value);
-                      }
-                    }}
-                    className="bg-background border-2 hover:border-primary/50"
-                  />
-                </div>
-                
-                {defaultValues[targetColumn] && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      if (onRemoveDefaultValue) {
-                        onRemoveDefaultValue(targetColumn);
-                      }
-                    }}
-                    className="flex-shrink-0 hover:bg-destructive/10 hover:text-destructive"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                )}
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </Card>
-      )}
+        )}
+      </Card>
     </div>
   );
 };
