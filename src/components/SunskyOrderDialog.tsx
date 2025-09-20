@@ -658,6 +658,51 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
     setCheckedItems(newChecked);
   };
 
+  const validateItemsExistence = async (items: OrderItem[]) => {
+    const validItems: OrderItem[] = [];
+    const invalidItems: OrderItem[] = [];
+    
+    setLoadingStatus('Validating items with Sunsky...');
+    setLoadingProgress(10);
+    
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      setCurrentItemName(item.itemNo);
+      setItemsProgress({ current: i + 1, total: items.length });
+      setLoadingProgress(10 + (i / items.length) * 30); // 10-40% for validation
+      
+      try {
+        const testResponse = await supabase.functions.invoke('sunsky-api', {
+          body: { 
+            action: 'getPricesAndFreights',
+            items: [item],
+            deliveryAddress: {
+              countryId: deliveryAddress.countryId,
+              state: deliveryAddress.state,
+              city: deliveryAddress.city,
+              postcode: deliveryAddress.postcode
+            }
+          }
+        });
+
+        if (testResponse.error) {
+          console.warn(`Item ${item.itemNo} validation failed:`, testResponse.error);
+          invalidItems.push(item);
+        } else if (testResponse.data?.result === 'success' && testResponse.data?.data?.items?.[0]) {
+          validItems.push(item);
+        } else {
+          console.warn(`Item ${item.itemNo} not found in Sunsky catalog`);
+          invalidItems.push(item);
+        }
+      } catch (error) {
+        console.warn(`Item ${item.itemNo} validation error:`, error);
+        invalidItems.push(item);
+      }
+    }
+
+    return { validItems, invalidItems };
+  };
+
   const handleCreateOrder = async () => {
     if (checkedItems.size === 0) {
       toast({
@@ -694,14 +739,53 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
       
       const items = Array.from(itemsMap.values());
 
+      // Validate all items exist in Sunsky before creating order
+      const itemsWithTitles = items.map(item => ({
+        ...item,
+        title: item.remark || 'PO Item' // Add required title property
+      }));
+      
+      const { validItems, invalidItems } = await validateItemsExistence(itemsWithTitles);
+
+      if (invalidItems.length > 0) {
+        const invalidSkus = invalidItems.map(item => item.itemNo).join(', ');
+        toast({
+          title: "Some Items Don't Exist",
+          description: `${invalidItems.length} item(s) don't exist in Sunsky catalog and will be excluded: ${invalidSkus.length > 50 ? invalidSkus.substring(0, 50) + '...' : invalidSkus}`,
+          variant: "destructive"
+        });
+
+        if (onItemsUnavailable) {
+          onItemsUnavailable(invalidItems);
+        }
+      }
+
+      if (validItems.length === 0) {
+        toast({
+          title: "No Valid Items",
+          description: "None of the selected items exist in Sunsky catalog",
+          variant: "destructive"
+        });
+        setLoading(false);
+        return;
+      }
+
+      setLoadingProgress(50);
+      setLoadingStatus('Creating order with validated items...');
+
       const orderData = {
         ...orderOptions,
-        items,
+        items: validItems, // Use only valid items
         deliveryAddress,
         selectedOrderIds: selectedOrders
-          .filter(order => checkedItems.has(order.sunsky_sku?.sku_code || order.sku_code))
+          .filter(order => {
+            const itemNo = order.partner_sku || order.sunsky_sku?.sku_code || order.sku_code;
+            return validItems.some(validItem => validItem.itemNo === itemNo);
+          })
           .map(order => order.id)
       };
+
+      setLoadingProgress(80);
 
       const response = await supabase.functions.invoke('sunsky-api', {
         body: { 
