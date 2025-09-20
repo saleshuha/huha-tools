@@ -236,35 +236,31 @@ export default function PODetailsPage() {
       skuInventoryCount: inventoryData.skuInventory.length 
     });
     
-    // First check ASIN inventory - aggregate all matching records with available stock
+    // First check ASIN inventory - aggregate all matching records
     if (asin) {
       console.log(`🎯 Checking ASIN inventory for: ${asin}`);
-      const asinMatches = inventoryData.asinInventory.filter(item => 
-        item.asin === asin && 
-        item.quantity > 0 && 
-        item.status !== 'sold'
-      );
+      const asinMatches = inventoryData.asinInventory.filter(item => item.asin === asin);
       if (asinMatches.length > 0) {
-        console.log(`✅ Found ${asinMatches.length} ASIN match(es) with available stock:`, asinMatches);
+        console.log(`✅ Found ${asinMatches.length} ASIN match(es):`, asinMatches);
         
-        // Aggregate quantities from all matching records with available stock
+        // Aggregate quantities from all matching records
         const totalQuantity = asinMatches.reduce((sum, item) => sum + item.quantity, 0);
         const firstMatch = asinMatches[0];
         
-        console.log(`📊 Total available quantity for ${asin}: ${totalQuantity}`);
+        console.log(`📊 Total aggregated quantity for ${asin}: ${totalQuantity}`);
         console.log(`🔍 Breakdown for ${asin}:`, asinMatches.map(item => 
-          `${item.serial_number}: ${item.quantity} units (${item.status})`
+          `${item.serial_number}: ${item.quantity} units`
         ).join(', '));
         
         return {
           type: 'ASIN',
-          status: 'in-stock',
+          status: totalQuantity > 0 ? 'in-stock' : firstMatch.status,
           quantity: totalQuantity,
           identifier: firstMatch.asin,
           serialNumber: asinMatches.map(item => `${item.serial_number}(${item.quantity})`).join(', ')
         };
       } else {
-        console.log(`❌ No ASIN match found with available stock in asin_inventory`);
+        console.log(`❌ No ASIN match found in asin_inventory`);
       }
     }
 
@@ -273,13 +269,9 @@ export default function PODetailsPage() {
     console.log(`🔑 Checking SKU inventory for SKUs:`, skusToCheck);
     
     for (const sku of skusToCheck) {
-      const skuMatch = inventoryData.skuInventory.find(item => 
-        item.sku_number === sku && 
-        item.quantity > 0 && 
-        item.status !== 'sold'
-      );
+      const skuMatch = inventoryData.skuInventory.find(item => item.sku_number === sku);
       if (skuMatch) {
-        console.log(`✅ Found SKU match for ${sku} with available stock:`, skuMatch);
+        console.log(`✅ Found SKU match for ${sku}:`, skuMatch);
         return {
           type: 'SKU',
           status: skuMatch.status,
@@ -288,7 +280,7 @@ export default function PODetailsPage() {
           serialNumber: skuMatch.bin_serial_number
         };
       } else {
-        console.log(`❌ No SKU match found with available stock for: ${sku}`);
+        console.log(`❌ No SKU match found for: ${sku}`);
       }
     }
 
@@ -297,13 +289,9 @@ export default function PODetailsPage() {
       console.log(`🎯 Checking SKU inventory for ASIN: ${asin}`);
       console.log(`📋 Available SKU numbers:`, inventoryData.skuInventory.map(item => item.sku_number));
       
-      const skuAsinMatch = inventoryData.skuInventory.find(item => 
-        item.sku_number === asin && 
-        item.quantity > 0 && 
-        item.status !== 'sold'
-      );
+      const skuAsinMatch = inventoryData.skuInventory.find(item => item.sku_number === asin);
       if (skuAsinMatch) {
-        console.log(`✅ Found SKU-ASIN match with available stock:`, skuAsinMatch);
+        console.log(`✅ Found SKU-ASIN match:`, skuAsinMatch);
         return {
           type: 'SKU-ASIN',
           status: skuAsinMatch.status,
@@ -312,7 +300,7 @@ export default function PODetailsPage() {
           serialNumber: skuAsinMatch.bin_serial_number
         };
       } else {
-        console.log(`❌ No SKU-ASIN match found with available stock for: ${asin}`);
+        console.log(`❌ No SKU-ASIN match found for: ${asin}`);
       }
     }
 
