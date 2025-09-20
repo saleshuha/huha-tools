@@ -70,49 +70,18 @@ export const usePOOrders = () => {
         setLoadingStatus(`Loading PO orders... Page ${page + 1} (${allPOOrders.length} loaded)`);
         setLoadingProgress(Math.min(20 + (page * 10), 80));
         
-        // Try to fetch with SKU matching first
-        let pageData: any[] | null = null;
-        let fetchError: any = null;
-
-        try {
-          const { data, error } = await supabase
-            .from('po_orders')
-            .select(`
-              *,
-              sunsky_sku:sunsky_skus!left(sku_number)
-            `)
-            .eq('user_id', user.id)
-            .range(startRange, endRange)
-            .order('created_at', { ascending: false });
-
-          if (error) throw error;
-          pageData = data;
-        } catch (error) {
-          console.warn(`⚠️ SKU join failed for page ${page + 1}, trying fallback...`);
-          fetchError = error;
-        }
-
-        // Fallback: fetch without SKU matching if join fails
-        if (!pageData || fetchError) {
-          const { data: fallbackData, error: fallbackError } = await supabase
-            .from('po_orders')
-            .select('*')
-            .eq('user_id', user.id)
-            .range(startRange, endRange)
-            .order('created_at', { ascending: false });
-          
-          if (fallbackError) throw fallbackError;
-          pageData = fallbackData;
-        }
+        // Fetch PO orders for this page
+        const { data: pageData, error: fetchError } = await supabase
+          .from('po_orders')
+          .select('*')
+          .eq('user_id', user.id)
+          .range(startRange, endRange)
+          .order('created_at', { ascending: false });
+        
+        if (fetchError) throw fetchError;
 
         if (pageData && pageData.length > 0) {
-          // Process SKU data for each order
-          const processedPageData = pageData.map((order: any) => ({
-            ...order,
-            sunsky_sku: order.sunsky_sku?.sku_number || null
-          }));
-          
-          allPOOrders = [...allPOOrders, ...processedPageData];
+          allPOOrders = [...allPOOrders, ...pageData];
           console.log(`✅ Page ${page + 1}: fetched ${pageData.length} records (total: ${allPOOrders.length})`);
           
           // Continue if this page was full
@@ -131,11 +100,33 @@ export const usePOOrders = () => {
 
       console.log(`📦 TOTAL PO orders fetched via pagination: ${allPOOrders.length}`);
 
-      // Type the final data
-      const typedData: POOrder[] = allPOOrders.map((order: any) => ({
-        ...order,
-        status: order.status as POOrder['status']
-      }));
+      // Fetch all sunsky_skus for matching
+      setLoadingStatus('Matching orders with Sunsky SKUs...');
+      setLoadingProgress(85);
+      
+      const { data: sunskySkus, error: skuError } = await supabase
+        .from('sunsky_skus')
+        .select('sku_code, user_id')
+        .eq('user_id', user.id);
+
+      if (skuError) {
+        console.warn('⚠️ Failed to fetch sunsky_skus:', skuError);
+      }
+
+      // Create a Set of sunsky SKU codes for fast matching
+      const sunskySkuSet = new Set(sunskySkus?.map(sku => sku.sku_code) || []);
+      
+      // Type the final data and add sunsky_sku matching
+      const typedData: POOrder[] = allPOOrders.map((order: any) => {
+        const hasSunskySku = sunskySkuSet.has(order.sku_code) || 
+                            (order.model_number && sunskySkuSet.has(order.model_number));
+        
+        return {
+          ...order,
+          status: order.status as POOrder['status'],
+          sunsky_sku: hasSunskySku ? (order.sku_code || order.model_number) : null
+        };
+      });
 
       console.log(`📊 SKU matching stats: ${typedData.filter((o: any) => o.sunsky_sku).length} orders have matching SKUs`);
       
