@@ -2302,17 +2302,107 @@ export default function PODetailsPage() {
                 <h3 className="text-sm font-semibold text-green-800 dark:text-green-200">Inventory</h3>
               </div>
               
-              {/* Mark From Stock - only show when instock items are selected */}
+              {/* Enhanced Bulk From Stock - with confirmation dialog */}
               {selectionType === 'instock' && (
-                <Button 
-                  size="sm"
-                  className="w-full bg-green-600 hover:bg-green-700 text-white disabled:bg-green-300 disabled:cursor-not-allowed transition-all duration-200 hover-scale"
-                  onClick={handleBulkMarkFromInventory}
-                  disabled={isUpdating || selectedItems.size === 0}
-                >
-                  <PackageCheck className="h-4 w-4 mr-2" />
-                  Mark From Stock
-                </Button>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button 
+                      size="sm"
+                      className="w-full bg-green-600 hover:bg-green-700 text-white disabled:bg-green-300 disabled:cursor-not-allowed transition-all duration-200 hover-scale"
+                      disabled={isUpdating || selectedItems.size === 0}
+                    >
+                      <PackageCheck className="h-4 w-4 mr-2" />
+                      Bulk From Stock ({selectedItems.size})
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Bulk From Stock Fulfillment</DialogTitle>
+                      <DialogDescription>
+                        Fulfill {selectedItems.size} selected items from inventory stock. This will:
+                        <br />• Deduct quantities from your inventory
+                        <br />• Mark items as fulfilled from stock
+                        <br />• Update order status accordingly
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+                        <h4 className="font-semibold text-green-800 dark:text-green-200 mb-3">
+                          Items to fulfill from stock:
+                        </h4>
+                        <div className="space-y-2">
+                          {Array.from(selectedItems).map((orderId) => {
+                            const order = matchedOrders.find(o => o.id === orderId);
+                            if (!order) return null;
+                            
+                            const inventoryMatch = findInventoryMatch(
+                              order.asin, 
+                              order.sunsky_sku?.sku_code, 
+                              order.sku_code, 
+                              order.model_number
+                            );
+                            const availableStock = inventoryMatch?.quantity || 0;
+                            const fulfillQuantity = Math.min(order.quantity, availableStock);
+                            
+                            return (
+                              <div key={orderId} className="flex items-center justify-between text-sm">
+                                <div>
+                                  <span className="font-mono font-medium">{order.asin}</span>
+                                  {order.title && (
+                                    <span className="text-muted-foreground ml-2">
+                                      {order.title.substring(0, 50)}...
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-right">
+                                  <div className="font-semibold text-green-700 dark:text-green-300">
+                                    {fulfillQuantity} of {order.quantity} units
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    Stock: {availableStock} available
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      
+                      <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg">
+                        <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
+                          <AlertTriangle className="h-4 w-4" />
+                          <span className="text-sm font-medium">Important:</span>
+                        </div>
+                        <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                          This action will immediately deduct inventory quantities and cannot be easily undone. 
+                          Please verify the items and quantities before proceeding.
+                        </p>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline">
+                        Cancel
+                      </Button>
+                      <Button 
+                        onClick={handleBulkMarkFromInventory}
+                        disabled={isUpdating}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        {isUpdating ? (
+                          <>
+                            <Clock className="h-4 w-4 mr-2 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            <PackageCheck className="h-4 w-4 mr-2" />
+                            Fulfill from Stock
+                          </>
+                        )}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               )}
               
               <Button 
