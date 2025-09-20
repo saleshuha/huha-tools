@@ -128,6 +128,8 @@ export default function PODetailsPage() {
         (
           // Complete fulfillment: status closed and quantity 0
           (order.status === 'closed' && order.quantity === 0) ||
+          // Fulfilled from stock with new note pattern
+          (order.notes?.includes('Fulfilled from stock:')) ||
           // Partial fulfillment: has partial fulfillment notes
           (order.notes?.includes('Partial fulfillment from stock')) ||
           // Also check for other partial fulfillment patterns
@@ -1107,13 +1109,13 @@ export default function PODetailsPage() {
         return;
       }
 
-      // Update the original order status to indicate it's been fulfilled from stock
+      // Update the original order to show it was fulfilled from stock (but keep it visible)
       const { error: orderError } = await supabase
         .from('po_orders')
         .update({ 
           status: 'closed',
-          quantity: 0,
-          notes: `Partial fulfillment from stock: ${stockQuantity} pcs. Original quantity: ${order.quantity} pcs.`
+          quantity: stockQuantity,
+          notes: `Fulfilled from stock: ${stockQuantity} pcs. Original quantity: ${order.quantity} pcs. Remaining ${remainingQuantity} pcs created as new pending order.`
         })
         .eq('id', order.id)
         .eq('user_id', userId);
@@ -2750,56 +2752,46 @@ export default function PODetailsPage() {
                        </div>
                     </TableCell>
                      <TableCell className="text-center font-semibold">
-                       {(() => {
-                         // Check if this is a partial fulfillment case
-                         const isPartialFulfillment = order.notes?.includes('Partial fulfillment from stock');
-                         const isRemainingQuantity = order.notes?.includes('Remaining quantity from partial fulfillment');
-                         
-                         if (isPartialFulfillment) {
-                           // This is the fulfilled portion - extract original quantity
-                           const originalQtyMatch = order.notes?.match(/Original quantity: (\d+) pcs/);
-                           const originalQuantity = originalQtyMatch ? parseInt(originalQtyMatch[1]) : order.quantity;
-                           const fulfilledFromStock = order.quantity;
-                           const remainingQuantity = originalQuantity - fulfilledFromStock;
+                         {(() => {
+                           // Check for different partial fulfillment scenarios
+                           const isFromStock = order.notes?.includes('Fulfilled from stock:');
+                           const isPartialFulfillment = order.notes?.includes('Partial fulfillment from stock');
+                           const isRemainingQuantity = order.notes?.includes('Remaining quantity from partial fulfillment');
                            
-                           return (
-                             <div className="space-y-1">
-                               <div className="text-sm font-semibold text-green-700">
-                                 ✓ {fulfilledFromStock} from stock
-                               </div>
-                               <div className="text-xs text-orange-600">
-                                 ⏳ {remainingQuantity} pending
-                               </div>
-                               <div className="text-xs text-gray-500 border-t pt-1">
-                                 Total: {originalQuantity}
-                               </div>
-                             </div>
-                           );
-                         } else if (isRemainingQuantity) {
-                           // This is the remaining portion - extract fulfilled amount
-                           const originalQtyMatch = order.notes?.match(/Original order quantity: (\d+) pcs/);
-                           const fulfilledMatch = order.notes?.match(/fulfilled from stock: (\d+) pcs/);
-                           const originalQuantity = originalQtyMatch ? parseInt(originalQtyMatch[1]) : order.quantity;
-                           const fulfilledFromStock = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
-                           
-                           return (
-                             <div className="space-y-1">
-                               <div className="text-sm font-semibold text-orange-600">
-                                 ⏳ {order.quantity} pending
-                               </div>
-                               <div className="text-xs text-green-700">
-                                 ✓ {fulfilledFromStock} from stock
-                               </div>
-                               <div className="text-xs text-gray-500 border-t pt-1">
-                                 Total: {originalQuantity}
-                               </div>
-                             </div>
-                           );
-                         } else {
-                           // Regular order
-                           return <span>{order.quantity}</span>;
-                         }
-                       })()}
+                           if (isFromStock || isPartialFulfillment) {
+                            // This is the fulfilled portion - show as completed
+                            return (
+                              <div className="space-y-1">
+                                <div className="text-sm font-semibold text-green-700 flex items-center gap-1">
+                                  ✓ {order.quantity} fulfilled from stock
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  Status: Completed
+                                </div>
+                              </div>
+                            );
+                          } else if (isRemainingQuantity) {
+                            // This is the remaining portion - show as pending
+                            const originalQtyMatch = order.notes?.match(/Original order quantity: (\d+) pcs/);
+                            const fulfilledQtyMatch = order.notes?.match(/fulfilled from stock: (\d+) pcs/);
+                            const originalQuantity = originalQtyMatch ? parseInt(originalQtyMatch[1]) : 0;
+                            const fulfilledQuantity = fulfilledQtyMatch ? parseInt(fulfilledQtyMatch[1]) : 0;
+                            
+                            return (
+                              <div className="space-y-1">
+                                <div className="text-sm font-semibold text-orange-600 flex items-center gap-1">
+                                  ⏳ {order.quantity} pending for Sunsky
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  Original: {originalQuantity} | Fulfilled: {fulfilledQuantity}
+                                </div>
+                              </div>
+                            );
+                          } else {
+                            // Regular order quantity
+                             return <span>{order.quantity}</span>;
+                          }
+                        })()}
                      </TableCell>
                     <TableCell className="text-center">
                       <Badge className={statusColors[order.status as keyof typeof statusColors] || statusColors.pending}>
