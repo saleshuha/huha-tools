@@ -1420,17 +1420,25 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
               <div className="space-y-4">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-base">Selected Items ({checkedItems.size})</CardTitle>
+                    <CardTitle className="text-base">Available Items ({checkedItems.size})</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
-                      {orderItems.filter(item => checkedItems.has(item.itemNo)).map((item) => (
+                      {orderItems
+                        .filter(item => checkedItems.has(item.itemNo) && (validatedItems.size === 0 || validatedItems.has(item.itemNo)))
+                        .map((item) => (
                         <div key={item.itemNo} className="flex justify-between">
                           <span className="truncate">{item.title}</span>
                           <span className="text-sm text-muted-foreground">Qty: {item.qty}</span>
                         </div>
                       ))}
                     </div>
+                    {checkedItems.size > 0 && orderItems.filter(item => checkedItems.has(item.itemNo) && (validatedItems.size === 0 || validatedItems.has(item.itemNo))).length === 0 && (
+                      <div className="text-center py-4 text-muted-foreground">
+                        <p>No valid items available for ordering</p>
+                        <p className="text-sm">All selected items were filtered out during validation</p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
