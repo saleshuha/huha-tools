@@ -57,111 +57,61 @@ export const usePOOrders = () => {
       
        // Since PostgREST limits results to 1000, we need to fetch all pages manually
        let allOrders: any[] = [];
-       let page = 0;
-       const pageSize = 1000;
-       let hasMore = true;
-
-       console.log('🔄 Starting paginated fetch to get ALL PO orders...');
-
-       while (hasMore) {
-         const startRange = page * pageSize;
-         const endRange = startRange + pageSize - 1;
-         
-         console.log(`📄 Fetching PO orders page ${page + 1} (rows ${startRange}-${endRange})...`);
-         
-         const { data: pageData, error } = await supabase
-           .from('po_orders')
-            .select(`
-              id, user_id, po_number, sku_code, quantity, status,
-              order_date, expected_delivery, notes, file_name, country,
-              currency, unit_cost, total_cost, sku_user_id, 
-              supplier_order_number, tracking_number, tracking_url,
-              created_at, updated_at, ship_to_location, asin,
-              model_number, title, external_id, external_id_type, is_printed, printed_quantity
-            `)
-           .eq('user_id', user.id)
-           .range(startRange, endRange)
-           .order('created_at', { ascending: false });
-
-         if (error) {
-           console.error('❌ Error fetching PO orders page:', error);
-           throw error;
-         }
-
-         if (pageData && pageData.length > 0) {
-           allOrders = [...allOrders, ...pageData];
-           console.log(`✅ Page ${page + 1}: fetched ${pageData.length} records (total so far: ${allOrders.length})`);
-           
-           // Continue if this page was full
-           hasMore = pageData.length === pageSize;
-           page++;
-         } else {
-           hasMore = false;
-         }
-
-         // Safety limit
-         if (page > 20) {
-           console.warn(`⚠️ Reached safety limit of 20 pages (${allOrders.length} records)`);
-           break;
-         }
-       }
-
-       console.log(`📊 Total PO orders fetched via pagination: ${allOrders.length}`);
-       
-       // Debug specific PO
-       const debugPO = '8RGH1C7S';
-       const debugPOOrders = allOrders.filter(order => order.po_number === debugPO);
-       console.log(`🔍 DEBUG: PO ${debugPO} has ${debugPOOrders.length} orders with total quantity:`, 
-         debugPOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0));
-
-        setLoadingProgress(70);
-        setLoadingStatus('Processing orders and matching SKUs...');
-
-        // Convert to POOrder format  
-        const processedOrders: POOrder[] = allOrders.map(order => ({
-          ...order,
-          status: order.status as POOrder['status'],
-        }));
-
-        // Fetch Sunsky SKUs to match with PO orders
-        console.log('🔄 Fetching Sunsky SKUs for matching...');
-        const { data: sunskySKUs, error: skuError } = await supabase
-          .from('sunsky_skus')
-          .select('*')
-          .eq('user_id', user.id);
-
-        if (skuError) {
-          console.error('❌ Error fetching Sunsky SKUs:', skuError);
-          // Continue without SKU matching if there's an error
-        }
-
-        // Match PO orders with Sunsky SKUs
-        const ordersWithSKUs = processedOrders.map(order => {
-          if (!sunskySKUs) return order;
-          
-          // Try to match by sku_code or model_number
-          const matchingSKU = sunskySKUs.find(sku => 
-            sku.sku_code === order.sku_code || 
-            sku.sku_code === order.model_number
-          );
-          
-          return {
-            ...order,
-            sunsky_sku: matchingSKU || null
-          };
+      // Use the database function that handles SKU matching automatically
+      const debugPO = '4ID5DFYI'; // Debug specific PO
+      
+      if (useRawData) {
+        console.log('🔄 Using raw data approach (get_all_po_orders_raw)...');
+        const { data, error } = await supabase.rpc('get_all_po_orders_raw', {
+          user_id_param: user.id
         });
 
-        console.log(`✅ Processed ${ordersWithSKUs.length} PO orders with SKU matching`);
-        console.log(`📊 SKU matching stats: ${ordersWithSKUs.filter(o => o.sunsky_sku).length} orders have matching SKUs`);
-        
-        // Debug specific PO after processing
-        const debugProcessedPOOrders = ordersWithSKUs.filter(order => order.po_number === debugPO);
-        console.log(`🔍 DEBUG AFTER PROCESSING: PO ${debugPO} has ${debugProcessedPOOrders.length} orders with total quantity:`, 
-          debugProcessedPOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0));
+        if (error) {
+          console.error('❌ Error calling get_all_po_orders_raw:', error);
+          throw error;
+        }
 
-        setPOOrders(ordersWithSKUs);
-        setLoadingProgress(100);
-        setLoadingStatus(`Loaded ${ordersWithSKUs.length} orders with SKU matching`);
+        if (data) {
+          const typedData: POOrder[] = data.map((order: any) => ({
+            ...order,
+            status: order.status as POOrder['status']
+          }));
+          
+          console.log(`✅ Raw approach: fetched ${typedData.length} PO orders with SKU data`);
+          setPOOrders(typedData);
+          setLoadingProgress(100);
+          setLoadingStatus(`Loaded ${typedData.length} orders`);
+        }
+      } else {
+        console.log('🔄 Using database function approach (get_all_po_orders_with_sku_data)...');
+        const { data, error } = await supabase.rpc('get_all_po_orders_with_sku_data', {
+          user_id_param: user.id
+        });
+
+        if (error) {
+          console.error('❌ Error calling get_all_po_orders_with_sku_data:', error);
+          throw error;
+        }
+
+        if (data) {
+          const typedData: POOrder[] = data.map((order: any) => ({
+            ...order,
+            status: order.status as POOrder['status']
+          }));
+          
+          console.log(`✅ Database function approach: fetched ${typedData.length} PO orders with SKU matching`);
+          console.log(`📊 SKU matching stats: ${typedData.filter((o: any) => o.sunsky_sku).length} orders have matching SKUs`);
+          
+          // Debug specific PO
+          const debugPOOrders = typedData.filter((order: any) => order.po_number === debugPO);
+          console.log(`🔍 DEBUG: PO ${debugPO} has ${debugPOOrders.length} orders with matching SKUs:`, 
+            debugPOOrders.filter((o: any) => o.sunsky_sku).length);
+
+          setPOOrders(typedData);
+          setLoadingProgress(100);
+          setLoadingStatus(`Loaded ${typedData.length} orders with SKU matching`);
+        }
+      }
 
     } catch (error) {
       console.error('❌ Error in fetchPOOrders:', error);
