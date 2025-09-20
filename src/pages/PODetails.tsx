@@ -1896,8 +1896,9 @@ export default function PODetailsPage() {
       });
     }
     
+    // Filter items that have valid Sunsky SKU matches
     const itemsWithSunskyData = itemsWithQuantity.filter(order => 
-      order.sunsky_sku?.sku_code || order.sku_code
+      order.sunsky_sku // sunsky_sku is now a string (the matched SKU) or null
     );
 
     if (itemsWithSunskyData.length === 0) {
@@ -2639,7 +2640,8 @@ export default function PODetailsPage() {
                 size="sm" 
                 className="w-full bg-orange-600 hover:bg-orange-700 text-white disabled:bg-orange-300 disabled:cursor-not-allowed transition-all duration-200 hover-scale"
                 onClick={handleOpenSunskyOrder}
-                disabled={isUpdating || selectedItems.size === 0}
+                disabled={isUpdating || selectedItems.size === 0 || 
+                  !matchedOrders.filter(order => selectedItems.has(order.id) && order.sunsky_sku).length}
               >
                 <ExternalLink className="h-4 w-4 mr-2" />
                 Order at Sunsky
