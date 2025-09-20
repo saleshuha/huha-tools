@@ -1546,7 +1546,7 @@ export const SunskySKUImporter: React.FC = () => {
     });
   }, []);
 
-  // Search PO model numbers in Sunsky and import matching items (simplified version)
+  // Search PO model numbers in Sunsky and import matching items (parallel version with all active API keys)
   const handleSearchPOModelNumbers = async () => {
     if (!hasCredentials) {
       toast({
@@ -1561,6 +1561,26 @@ export const SunskySKUImporter: React.FC = () => {
     setPOSearchProgress(0);
     
     try {
+      // Get all active API credentials for the user
+      const { data: allCredentials, error: credentialsError } = await supabase
+        .from('sunsky_credentials')
+        .select('id, name')
+        .eq('user_id', profile?.id)
+        .eq('is_active', true);
+
+      if (credentialsError) {
+        throw new Error(`Failed to fetch credentials: ${credentialsError.message}`);
+      }
+
+      if (!allCredentials || allCredentials.length === 0) {
+        toast({
+          title: "No Active API Keys",
+          description: "Please ensure you have at least one active API credential configured",
+          variant: "destructive"
+        });
+        return;
+      }
+
       // Get model numbers data from PO orders
       const modelData = await getPOModelNumbers();
       if (modelData.uniqueCount === 0) {
@@ -1572,10 +1592,12 @@ export const SunskySKUImporter: React.FC = () => {
         return;
       }
 
+      const activeAPICount = allCredentials.length;
+      
       // Show start message
       toast({
         title: `Searching ${modelData.uniqueCount} Model Numbers`,
-        description: `Starting simple search for PO model numbers in Sunsky catalog...`,
+        description: `Using ${activeAPICount} API key${activeAPICount > 1 ? 's' : ''} in parallel for faster processing...`,
         variant: "default"
       });
 
@@ -1589,117 +1611,158 @@ export const SunskySKUImporter: React.FC = () => {
         skippedItems: 0,
         matchedItems: 0,
         errorItems: 0,
-        currentItem: ''
+        currentItem: `Distributing ${modelData.uniqueCount} items across ${activeAPICount} API keys...`
       });
 
-      // Process each model number one by one and save immediately
-      const foundProducts: any[] = [];
-      let searchedCount = 0;
-      let matchedCount = 0;
-      let errorCount = 0;
-      let importedCount = 0;
+      // Divide model numbers into chunks for each API key
+      const chunkSize = Math.ceil(modelData.uniqueModels.length / activeAPICount);
+      const modelChunks = [];
+      
+      for (let i = 0; i < modelData.uniqueModels.length; i += chunkSize) {
+        modelChunks.push(modelData.uniqueModels.slice(i, i + chunkSize));
+      }
 
-      for (const modelNumber of modelData.uniqueModels) {
-        try {
-          // Update progress
-          searchedCount++;
-          const progress = Math.floor((searchedCount / modelData.uniqueCount) * 100);
-          setPOSearchProgress(progress);
-          
-          // Update current item
-          setPOSearchStats(prev => ({
-            ...prev,
-            searchedItems: searchedCount,
-            currentItem: `Searching: ${modelNumber}`
-          }));
+      // Process statistics tracking
+      let totalSearchedCount = 0;
+      let totalMatchedCount = 0;
+      let totalErrorCount = 0;
+      let totalImportedCount = 0;
 
-          // Search for product by itemNo using getProductDetails endpoint
-          const response = await supabase.functions.invoke('sunsky-api', {
-            body: {
-              action: 'getProductDetails',
-              apiId: selectedSearchAPI,
-              itemNo: modelNumber
-            }
-          });
+      // Process each chunk in parallel with different API keys
+      const processChunk = async (chunk: string[], apiId: string, chunkIndex: number) => {
+        let chunkSearchedCount = 0;
+        let chunkMatchedCount = 0;
+        let chunkErrorCount = 0;
+        let chunkImportedCount = 0;
 
-          if (response.error) {
-            console.warn(`Error searching for ${modelNumber}:`, response.error);
-            errorCount++;
-            continue;
-          }
-
-          // Check if product was found
-          if (response.data?.result === 'success' && response.data?.data) {
-            const product = response.data.data;
-            foundProducts.push(product);
-            matchedCount++;
+        for (const modelNumber of chunk) {
+          try {
+            chunkSearchedCount++;
+            totalSearchedCount++;
             
-            console.log(`✅ Found product for ${modelNumber}:`, product.name);
+            // Update progress and current item
+            const progress = Math.floor((totalSearchedCount / modelData.uniqueCount) * 100);
+            setPOSearchProgress(progress);
             
-            // Import this product immediately
-            try {
-              const importResponse = await supabase.functions.invoke('sunsky-api', {
-                body: {
-                  action: 'importSKUs',
-                  skus: [product] // Import single product
-                }
-              });
+            setPOSearchStats(prev => ({
+              ...prev,
+              searchedItems: totalSearchedCount,
+              currentItem: `API ${chunkIndex + 1}: Searching ${modelNumber}`
+            }));
 
-              if (!importResponse.error && importResponse.data?.result === 'success') {
-                importedCount++;
-                console.log(`✅ Imported SKU for ${modelNumber}`);
-                
-                // Update current item to show import success
-                setPOSearchStats(prev => ({
-                  ...prev,
-                  currentItem: `✅ Imported: ${modelNumber} - ${product.name}`
-                }));
-              } else {
-                console.warn(`❌ Failed to import SKU for ${modelNumber}:`, importResponse.error);
+            // Search for product by itemNo using getProductDetails endpoint
+            const response = await supabase.functions.invoke('sunsky-api', {
+              body: {
+                action: 'getProductDetails',
+                apiId: apiId,
+                itemNo: modelNumber
               }
-            } catch (importError) {
-              console.error(`Error importing SKU for ${modelNumber}:`, importError);
+            });
+
+            if (response.error) {
+              console.warn(`API ${chunkIndex + 1} - Error searching for ${modelNumber}:`, response.error);
+              chunkErrorCount++;
+              totalErrorCount++;
+              continue;
             }
-          } else {
-            console.log(`❌ No product found for ${modelNumber}`);
+
+            // Check if product was found
+            if (response.data?.result === 'success' && response.data?.data) {
+              const product = response.data.data;
+              chunkMatchedCount++;
+              totalMatchedCount++;
+              
+              console.log(`✅ API ${chunkIndex + 1} - Found product for ${modelNumber}:`, product.name);
+              
+              // Import this product immediately
+              try {
+                const importResponse = await supabase.functions.invoke('sunsky-api', {
+                  body: {
+                    action: 'importSKUs',
+                    skus: [product] // Import single product
+                  }
+                });
+
+                if (!importResponse.error && importResponse.data?.result === 'success') {
+                  chunkImportedCount++;
+                  totalImportedCount++;
+                  console.log(`✅ API ${chunkIndex + 1} - Imported SKU for ${modelNumber}`);
+                  
+                  // Update current item to show import success
+                  setPOSearchStats(prev => ({
+                    ...prev,
+                    currentItem: `API ${chunkIndex + 1}: ✅ Imported ${modelNumber} - ${product.name}`
+                  }));
+                } else {
+                  console.warn(`❌ API ${chunkIndex + 1} - Failed to import SKU for ${modelNumber}:`, importResponse.error);
+                }
+              } catch (importError) {
+                console.error(`API ${chunkIndex + 1} - Error importing SKU for ${modelNumber}:`, importError);
+              }
+            } else {
+              console.log(`❌ API ${chunkIndex + 1} - No product found for ${modelNumber}`);
+            }
+
+            // Update stats
+            setPOSearchStats(prev => ({
+              ...prev,
+              searchedItems: totalSearchedCount,
+              matchedItems: totalMatchedCount,
+              errorItems: totalErrorCount
+            }));
+
+            // Small delay to avoid overwhelming the API
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+          } catch (error) {
+            console.error(`API ${chunkIndex + 1} - Error processing ${modelNumber}:`, error);
+            chunkErrorCount++;
+            totalErrorCount++;
           }
-
-          // Small delay to avoid overwhelming the API
-          await new Promise(resolve => setTimeout(resolve, 150));
-
-        } catch (error) {
-          console.error(`Error processing ${modelNumber}:`, error);
-          errorCount++;
         }
 
-        // Update stats
-        setPOSearchStats(prev => ({
-          ...prev,
-          searchedItems: searchedCount,
-          matchedItems: matchedCount,
-          errorItems: errorCount
-        }));
-      }
+        console.log(`🔥 API ${chunkIndex + 1} completed: ${chunkSearchedCount} searched, ${chunkMatchedCount} matched, ${chunkImportedCount} imported, ${chunkErrorCount} errors`);
+        return {
+          searched: chunkSearchedCount,
+          matched: chunkMatchedCount,
+          imported: chunkImportedCount,
+          errors: chunkErrorCount
+        };
+      };
+
+      // Start all chunk processing in parallel
+      console.log(`🚀 Starting parallel processing with ${activeAPICount} API keys, chunks:`, modelChunks.map((chunk, i) => `API ${i + 1}: ${chunk.length} items`));
+      
+      const chunkPromises = modelChunks.map((chunk, index) => 
+        processChunk(chunk, allCredentials[index % activeAPICount].id, index)
+      );
+
+      // Wait for all chunks to complete
+      const chunkResults = await Promise.all(chunkPromises);
 
       // Refresh SKU list at the end
       await fetchSKUs(1, false);
       
-      // Show completion message
-      if (importedCount > 0) {
+      // Show completion message with detailed stats
+      const totalMatched = chunkResults.reduce((sum, result) => sum + result.matched, 0);
+      const totalImported = chunkResults.reduce((sum, result) => sum + result.imported, 0);
+      const totalErrors = chunkResults.reduce((sum, result) => sum + result.errors, 0);
+
+      if (totalImported > 0) {
         toast({
-          title: "Search & Import Complete",
-          description: `Successfully found and imported ${importedCount} of ${matchedCount} matched products from ${modelData.uniqueCount} PO model numbers. ${errorCount} errors.`
+          title: "Parallel Search & Import Complete",
+          description: `Successfully found and imported ${totalImported} of ${totalMatched} matched products from ${modelData.uniqueCount} PO model numbers using ${activeAPICount} API key${activeAPICount > 1 ? 's' : ''}. ${totalErrors} errors.`
         });
-      } else if (matchedCount > 0) {
+      } else if (totalMatched > 0) {
         toast({
           title: "Import Issues",
-          description: `Found ${matchedCount} products but failed to import them. Check console for details.`,
+          description: `Found ${totalMatched} products but failed to import them. Check console for details.`,
           variant: "destructive"
         });
       } else {
         toast({
           title: "No Matches Found",
-          description: `Searched ${modelData.uniqueCount} model numbers but found no matching products in Sunsky catalog.`,
+          description: `Searched ${modelData.uniqueCount} model numbers using ${activeAPICount} API key${activeAPICount > 1 ? 's' : ''} but found no matching products in Sunsky catalog.`,
           variant: "default"
         });
       }
@@ -1707,10 +1770,10 @@ export const SunskySKUImporter: React.FC = () => {
       // Final update
       setPOSearchStats(prev => ({
         ...prev,
-        currentItem: 'Search completed!',
+        currentItem: `✅ Parallel search completed using ${activeAPICount} API keys!`,
         searchedItems: modelData.uniqueCount,
-        matchedItems: matchedCount,
-        errorItems: errorCount
+        matchedItems: totalMatched,
+        errorItems: totalErrors
       }));
     } catch (error) {
       console.error('Error in PO model search:', error);
