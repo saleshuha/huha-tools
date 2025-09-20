@@ -86,13 +86,20 @@ export const useBatchExport = () => {
         return;
       }
 
+      // Debug logging
+      console.log('Total mapped rows:', allMappedRows.length);
+      console.log('Row limit:', rowLimit);
+
       // Split all mapped rows into batches based on row limit
       const outputBatches: string[][][] = [];
       for (let i = 0; i < allMappedRows.length; i += rowLimit) {
         const batchRows = allMappedRows.slice(i, i + rowLimit);
         const batchData = [[...targetData.headers], ...batchRows];
         outputBatches.push(batchData);
+        console.log(`Batch ${outputBatches.length}: ${batchRows.length} rows`);
       }
+
+      console.log('Total batches created:', outputBatches.length);
 
       // Process each output batch
       for (let batchIndex = 0; batchIndex < outputBatches.length; batchIndex++) {
