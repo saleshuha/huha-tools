@@ -1119,7 +1119,7 @@ export default function PODetailsPage() {
           sku_user_id: order.sku_user_id,
           po_number: order.po_number,
           sku_code: order.sku_code,
-          file_name: order.file_name || `partial_fulfillment_${Date.now()}`,
+          file_name: `${order.file_name || 'partial'}_remaining_${Date.now()}`, // Make file_name unique
           asin: order.asin,
           model_number: order.model_number,
           title: order.title,
@@ -1130,8 +1130,8 @@ export default function PODetailsPage() {
           country: order.country,
           ship_to_location: order.ship_to_location,
           status: 'pending',
-          external_id: order.external_id,
-          external_id_type: order.external_id_type,
+          external_id: order.external_id ? `${order.external_id}_remaining_${Date.now()}` : `remaining_${Date.now()}`, // Make external_id unique
+          external_id_type: order.external_id_type || 'partial_fulfillment',
           order_date: order.order_date,
           expected_delivery: order.expected_delivery,
           is_printed: false,
