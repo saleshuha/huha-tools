@@ -1131,12 +1131,13 @@ export default function PODetailsPage() {
       }
 
       // Create a new order for the remaining quantity that needs to be ordered from supplier
+      const timestamp = Date.now();
       const newOrderData = {
         user_id: order.user_id,
         sku_user_id: order.sku_user_id,
-        po_number: order.po_number,
-        sku_code: order.sku_code,
-        file_name: `${order.file_name || 'partial'}_remaining_${Date.now()}`,
+        po_number: `${order.po_number}_REMAIN_${timestamp}`,
+        sku_code: `${order.sku_code}_REMAIN_${timestamp}`,
+        file_name: `${order.file_name || 'partial'}_remaining_${timestamp}`,
         asin: order.asin,
         model_number: order.model_number,
         title: order.title,
@@ -1278,12 +1279,13 @@ export default function PODetailsPage() {
         }
         
         // Create the missing pending order
+        const fixTimestamp = Date.now();
         const newOrderData = {
           user_id: fulfilledOrder.user_id,
           sku_user_id: fulfilledOrder.sku_user_id,
-          po_number: fulfilledOrder.po_number,
-          sku_code: fulfilledOrder.sku_code,
-          file_name: `${fulfilledOrder.file_name || 'partial'}_remaining_fix_${Date.now()}`,
+          po_number: `${fulfilledOrder.po_number}_FIX_${fixTimestamp}`,
+          sku_code: `${fulfilledOrder.sku_code}_FIX_${fixTimestamp}`,
+          file_name: `${fulfilledOrder.file_name || 'partial'}_remaining_fix_${fixTimestamp}`,
           asin: fulfilledOrder.asin,
           model_number: fulfilledOrder.model_number,
           title: fulfilledOrder.title,
