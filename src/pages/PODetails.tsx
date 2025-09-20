@@ -236,35 +236,31 @@ export default function PODetailsPage() {
       skuInventoryCount: inventoryData.skuInventory.length 
     });
     
-    // First check ASIN inventory - aggregate all matching records with available stock
+    // First check ASIN inventory - aggregate all matching records
     if (asin) {
       console.log(`🎯 Checking ASIN inventory for: ${asin}`);
-      const asinMatches = inventoryData.asinInventory.filter(item => 
-        item.asin === asin && 
-        item.quantity > 0 && 
-        item.status !== 'sold'
-      );
+      const asinMatches = inventoryData.asinInventory.filter(item => item.asin === asin);
       if (asinMatches.length > 0) {
-        console.log(`✅ Found ${asinMatches.length} ASIN match(es) with available stock:`, asinMatches);
+        console.log(`✅ Found ${asinMatches.length} ASIN match(es):`, asinMatches);
         
-        // Aggregate quantities from all matching records with available stock
+        // Aggregate quantities from all matching records
         const totalQuantity = asinMatches.reduce((sum, item) => sum + item.quantity, 0);
         const firstMatch = asinMatches[0];
         
-        console.log(`📊 Total available quantity for ${asin}: ${totalQuantity}`);
+        console.log(`📊 Total aggregated quantity for ${asin}: ${totalQuantity}`);
         console.log(`🔍 Breakdown for ${asin}:`, asinMatches.map(item => 
-          `${item.serial_number}: ${item.quantity} units (${item.status})`
+          `${item.serial_number}: ${item.quantity} units`
         ).join(', '));
         
         return {
           type: 'ASIN',
-          status: 'in-stock',
+          status: totalQuantity > 0 ? 'in-stock' : firstMatch.status,
           quantity: totalQuantity,
           identifier: firstMatch.asin,
           serialNumber: asinMatches.map(item => `${item.serial_number}(${item.quantity})`).join(', ')
         };
       } else {
-        console.log(`❌ No ASIN match found with available stock in asin_inventory`);
+        console.log(`❌ No ASIN match found in asin_inventory`);
       }
     }
 
@@ -273,13 +269,9 @@ export default function PODetailsPage() {
     console.log(`🔑 Checking SKU inventory for SKUs:`, skusToCheck);
     
     for (const sku of skusToCheck) {
-      const skuMatch = inventoryData.skuInventory.find(item => 
-        item.sku_number === sku && 
-        item.quantity > 0 && 
-        item.status !== 'sold'
-      );
+      const skuMatch = inventoryData.skuInventory.find(item => item.sku_number === sku);
       if (skuMatch) {
-        console.log(`✅ Found SKU match for ${sku} with available stock:`, skuMatch);
+        console.log(`✅ Found SKU match for ${sku}:`, skuMatch);
         return {
           type: 'SKU',
           status: skuMatch.status,
@@ -288,7 +280,7 @@ export default function PODetailsPage() {
           serialNumber: skuMatch.bin_serial_number
         };
       } else {
-        console.log(`❌ No SKU match found with available stock for: ${sku}`);
+        console.log(`❌ No SKU match found for: ${sku}`);
       }
     }
 
@@ -297,13 +289,9 @@ export default function PODetailsPage() {
       console.log(`🎯 Checking SKU inventory for ASIN: ${asin}`);
       console.log(`📋 Available SKU numbers:`, inventoryData.skuInventory.map(item => item.sku_number));
       
-      const skuAsinMatch = inventoryData.skuInventory.find(item => 
-        item.sku_number === asin && 
-        item.quantity > 0 && 
-        item.status !== 'sold'
-      );
+      const skuAsinMatch = inventoryData.skuInventory.find(item => item.sku_number === asin);
       if (skuAsinMatch) {
-        console.log(`✅ Found SKU-ASIN match with available stock:`, skuAsinMatch);
+        console.log(`✅ Found SKU-ASIN match:`, skuAsinMatch);
         return {
           type: 'SKU-ASIN',
           status: skuAsinMatch.status,
@@ -312,7 +300,7 @@ export default function PODetailsPage() {
           serialNumber: skuAsinMatch.bin_serial_number
         };
       } else {
-        console.log(`❌ No SKU-ASIN match found with available stock for: ${asin}`);
+        console.log(`❌ No SKU-ASIN match found for: ${asin}`);
       }
     }
 
@@ -2314,17 +2302,107 @@ export default function PODetailsPage() {
                 <h3 className="text-sm font-semibold text-green-800 dark:text-green-200">Inventory</h3>
               </div>
               
-              {/* Mark From Stock - only show when instock items are selected */}
+              {/* Enhanced Bulk From Stock - with confirmation dialog */}
               {selectionType === 'instock' && (
-                <Button 
-                  size="sm"
-                  className="w-full bg-green-600 hover:bg-green-700 text-white disabled:bg-green-300 disabled:cursor-not-allowed transition-all duration-200 hover-scale"
-                  onClick={handleBulkMarkFromInventory}
-                  disabled={isUpdating || selectedItems.size === 0}
-                >
-                  <PackageCheck className="h-4 w-4 mr-2" />
-                  Mark From Stock
-                </Button>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button 
+                      size="sm"
+                      className="w-full bg-green-600 hover:bg-green-700 text-white disabled:bg-green-300 disabled:cursor-not-allowed transition-all duration-200 hover-scale"
+                      disabled={isUpdating || selectedItems.size === 0}
+                    >
+                      <PackageCheck className="h-4 w-4 mr-2" />
+                      Bulk From Stock ({selectedItems.size})
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Bulk From Stock Fulfillment</DialogTitle>
+                      <DialogDescription>
+                        Fulfill {selectedItems.size} selected items from inventory stock. This will:
+                        <br />• Deduct quantities from your inventory
+                        <br />• Mark items as fulfilled from stock
+                        <br />• Update order status accordingly
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+                        <h4 className="font-semibold text-green-800 dark:text-green-200 mb-3">
+                          Items to fulfill from stock:
+                        </h4>
+                        <div className="space-y-2">
+                          {Array.from(selectedItems).map((orderId) => {
+                            const order = matchedOrders.find(o => o.id === orderId);
+                            if (!order) return null;
+                            
+                            const inventoryMatch = findInventoryMatch(
+                              order.asin, 
+                              order.sunsky_sku?.sku_code, 
+                              order.sku_code, 
+                              order.model_number
+                            );
+                            const availableStock = inventoryMatch?.quantity || 0;
+                            const fulfillQuantity = Math.min(order.quantity, availableStock);
+                            
+                            return (
+                              <div key={orderId} className="flex items-center justify-between text-sm">
+                                <div>
+                                  <span className="font-mono font-medium">{order.asin}</span>
+                                  {order.title && (
+                                    <span className="text-muted-foreground ml-2">
+                                      {order.title.substring(0, 50)}...
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-right">
+                                  <div className="font-semibold text-green-700 dark:text-green-300">
+                                    {fulfillQuantity} of {order.quantity} units
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    Stock: {availableStock} available
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      
+                      <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg">
+                        <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
+                          <AlertTriangle className="h-4 w-4" />
+                          <span className="text-sm font-medium">Important:</span>
+                        </div>
+                        <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                          This action will immediately deduct inventory quantities and cannot be easily undone. 
+                          Please verify the items and quantities before proceeding.
+                        </p>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline">
+                        Cancel
+                      </Button>
+                      <Button 
+                        onClick={handleBulkMarkFromInventory}
+                        disabled={isUpdating}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        {isUpdating ? (
+                          <>
+                            <Clock className="h-4 w-4 mr-2 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            <PackageCheck className="h-4 w-4 mr-2" />
+                            Fulfill from Stock
+                          </>
+                        )}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               )}
               
               <Button 
