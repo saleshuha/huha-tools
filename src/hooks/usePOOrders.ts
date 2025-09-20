@@ -51,67 +51,103 @@ export const usePOOrders = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      setLoadingProgress(30);
-      
-      console.log('🔄 Starting deduplicated PO orders fetch for user:', user.id);
-      
-       // Since PostgREST limits results to 1000, we need to fetch all pages manually
-       let allOrders: any[] = [];
-      // Use the database function that handles SKU matching automatically
-      const debugPO = '4ID5DFYI'; // Debug specific PO
-      
-      if (useRawData) {
-        console.log('🔄 Using raw data approach (get_all_po_orders_raw)...');
-        const { data, error } = await supabase.rpc('get_all_po_orders_raw', {
-          user_id_param: user.id
-        });
+      setLoadingProgress(20);
+      setLoadingStatus('Loading PO data with SKU matching...');
 
-        if (error) {
-          console.error('❌ Error calling get_all_po_orders_raw:', error);
-          throw error;
+      // Use client-side pagination to fetch ALL PO orders (bypass PostgREST 1000-row limit)
+      const pageSize = 1000;
+      let allPOOrders: any[] = [];
+      let page = 0;
+      let hasMore = true;
+
+      console.log(`🚀 Starting client-side pagination to fetch ALL PO orders...`);
+
+      while (hasMore) {
+        const startRange = page * pageSize;
+        const endRange = startRange + pageSize - 1;
+        
+        console.log(`📄 Fetching page ${page + 1} (rows ${startRange}-${endRange})...`);
+        setLoadingStatus(`Loading PO orders... Page ${page + 1} (${allPOOrders.length} loaded)`);
+        setLoadingProgress(Math.min(20 + (page * 10), 80));
+        
+        // Try to fetch with SKU matching first
+        let pageData: any[] | null = null;
+        let fetchError: any = null;
+
+        try {
+          const { data, error } = await supabase
+            .from('po_orders')
+            .select(`
+              *,
+              sunsky_sku:sunsky_skus!left(sku_number)
+            `)
+            .eq('user_id', user.id)
+            .range(startRange, endRange)
+            .order('created_at', { ascending: false });
+
+          if (error) throw error;
+          pageData = data;
+        } catch (error) {
+          console.warn(`⚠️ SKU join failed for page ${page + 1}, trying fallback...`);
+          fetchError = error;
         }
 
-        if (data) {
-          const typedData: POOrder[] = data.map((order: any) => ({
+        // Fallback: fetch without SKU matching if join fails
+        if (!pageData || fetchError) {
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from('po_orders')
+            .select('*')
+            .eq('user_id', user.id)
+            .range(startRange, endRange)
+            .order('created_at', { ascending: false });
+          
+          if (fallbackError) throw fallbackError;
+          pageData = fallbackData;
+        }
+
+        if (pageData && pageData.length > 0) {
+          // Process SKU data for each order
+          const processedPageData = pageData.map((order: any) => ({
             ...order,
-            status: order.status as POOrder['status']
+            sunsky_sku: order.sunsky_sku?.sku_number || null
           }));
           
-          console.log(`✅ Raw approach: fetched ${typedData.length} PO orders with SKU data`);
-          setPOOrders(typedData);
-          setLoadingProgress(100);
-          setLoadingStatus(`Loaded ${typedData.length} orders`);
-        }
-      } else {
-        console.log('🔄 Using database function approach (get_all_po_orders_with_sku_data)...');
-        const { data, error } = await supabase.rpc('get_all_po_orders_with_sku_data', {
-          user_id_param: user.id
-        });
-
-        if (error) {
-          console.error('❌ Error calling get_all_po_orders_with_sku_data:', error);
-          throw error;
+          allPOOrders = [...allPOOrders, ...processedPageData];
+          console.log(`✅ Page ${page + 1}: fetched ${pageData.length} records (total: ${allPOOrders.length})`);
+          
+          // Continue if this page was full
+          hasMore = pageData.length === pageSize;
+          page++;
+        } else {
+          hasMore = false;
         }
 
-        if (data) {
-          const typedData: POOrder[] = data.map((order: any) => ({
-            ...order,
-            status: order.status as POOrder['status']
-          }));
-          
-          console.log(`✅ Database function approach: fetched ${typedData.length} PO orders with SKU matching`);
-          console.log(`📊 SKU matching stats: ${typedData.filter((o: any) => o.sunsky_sku).length} orders have matching SKUs`);
-          
-          // Debug specific PO
-          const debugPOOrders = typedData.filter((order: any) => order.po_number === debugPO);
-          console.log(`🔍 DEBUG: PO ${debugPO} has ${debugPOOrders.length} orders with matching SKUs:`, 
-            debugPOOrders.filter((o: any) => o.sunsky_sku).length);
-
-          setPOOrders(typedData);
-          setLoadingProgress(100);
-          setLoadingStatus(`Loaded ${typedData.length} orders with SKU matching`);
+        // Safety limit to prevent infinite loops
+        if (page > 100) {
+          console.warn(`⚠️ Reached safety limit of 100 pages (${allPOOrders.length} records)`);
+          break;
         }
       }
+
+      console.log(`📦 TOTAL PO orders fetched via pagination: ${allPOOrders.length}`);
+
+      // Type the final data
+      const typedData: POOrder[] = allPOOrders.map((order: any) => ({
+        ...order,
+        status: order.status as POOrder['status']
+      }));
+
+      console.log(`📊 SKU matching stats: ${typedData.filter((o: any) => o.sunsky_sku).length} orders have matching SKUs`);
+      
+      // Debug specific PO
+      const debugPO = '4ID5DFYI';
+      const debugPOOrders = typedData.filter((order: any) => order.po_number === debugPO);
+      console.log(`🔍 DEBUG: PO ${debugPO} has ${debugPOOrders.length} orders with matching SKUs:`, 
+        debugPOOrders.filter((o: any) => o.sunsky_sku).length);
+
+      setPOOrders(typedData);
+      setLoadingProgress(100);
+      setLoadingStatus(`Loaded ${typedData.length} orders with SKU matching`);
 
     } catch (error) {
       console.error('❌ Error in fetchPOOrders:', error);
