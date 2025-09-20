@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
+import { Switch } from '@/components/ui/switch';
 import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { POFileUpload } from '@/components/po/POFileUpload';
@@ -102,6 +103,7 @@ export const POTracker = () => {
   
   const [qzConnected, setQzConnected] = useState(false);
   const [selectedPOsForBulkClose, setSelectedPOsForBulkClose] = useState<Set<string>>(new Set());
+  const [disabledPOs, setDisabledPOs] = useState<Set<string>>(new Set());
   const [showBulkCloseConfirm, setShowBulkCloseConfirm] = useState(false);
   const [isClosingPOs, setIsClosingPOs] = useState(false);
   const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
@@ -1314,26 +1316,27 @@ export const POTracker = () => {
                     <Table>
                        <TableHeader>
                          <TableRow>
-                           <TableHead className="w-12">
-                             <input
-                               type="checkbox"
-                               checked={selectedPOsForBulkClose.size > 0 && Array.from(selectedPOsForBulkClose).length === groupedPOOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).length}
-                               onChange={(e) => {
-                                 const currentPagePOs = groupedPOOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map(group => group.poNumber);
-                                 if (e.target.checked) {
-                                   setSelectedPOsForBulkClose(prev => new Set([...prev, ...currentPagePOs.filter(po => !groupedPOOrders.find(g => g.poNumber === po)?.orders.some(o => o.status === 'closed'))]));
-                                 } else {
-                                   setSelectedPOsForBulkClose(prev => {
-                                     const newSet = new Set(prev);
-                                     currentPagePOs.forEach(po => newSet.delete(po));
-                                     return newSet;
-                                   });
-                                 }
-                               }}
-                               className="h-4 w-4 rounded border-border"
-                             />
-                           </TableHead>
-                           <TableHead>PO Number</TableHead>
+                            <TableHead className="w-12">
+                              <input
+                                type="checkbox"
+                                checked={selectedPOsForBulkClose.size > 0 && Array.from(selectedPOsForBulkClose).length === groupedPOOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).length}
+                                onChange={(e) => {
+                                  const currentPagePOs = groupedPOOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map(group => group.poNumber);
+                                  if (e.target.checked) {
+                                    setSelectedPOsForBulkClose(prev => new Set([...prev, ...currentPagePOs.filter(po => !groupedPOOrders.find(g => g.poNumber === po)?.orders.some(o => o.status === 'closed'))]));
+                                  } else {
+                                    setSelectedPOsForBulkClose(prev => {
+                                      const newSet = new Set(prev);
+                                      currentPagePOs.forEach(po => newSet.delete(po));
+                                      return newSet;
+                                    });
+                                  }
+                                }}
+                                className="h-4 w-4 rounded border-border"
+                              />
+                            </TableHead>
+                            <TableHead className="w-16">Enable</TableHead>
+                            <TableHead>PO Number</TableHead>
                            <TableHead>PO Items</TableHead>
                            <TableHead>ASN Quantity</TableHead>
                            <TableHead>Matched %</TableHead>
@@ -1380,36 +1383,57 @@ export const POTracker = () => {
                             const countryPrefix = selectedCountry === 'UAE' ? '🇦🇪' : '🇸🇦';
                             const currencySymbol = selectedCountry === 'UAE' ? 'AED' : 'SAR';
 
-                             return (
-                               <TableRow 
-                                 key={poNumber}
-                                 className={`
-                                   ${isClosedPO 
-                                     ? 'opacity-50 bg-muted/40 pointer-events-none cursor-not-allowed' 
-                                     : hasClosedItems 
-                                     ? 'opacity-75 bg-muted/20' 
-                                     : 'hover:bg-muted/10 transition-colors'
-                                   }
-                                 `}
-                               >
-                                 <TableCell>
-                                   <input
-                                     type="checkbox"
-                                     checked={selectedPOsForBulkClose.has(poNumber)}
-                                     onChange={(e) => {
-                                       if (isClosedPO) return;
-                                       const newSelected = new Set(selectedPOsForBulkClose);
-                                       if (e.target.checked) {
-                                         newSelected.add(poNumber);
-                                       } else {
-                                         newSelected.delete(poNumber);
-                                       }
-                                       setSelectedPOsForBulkClose(newSelected);
-                                     }}
-                                     disabled={isClosedPO}
-                                     className={`h-4 w-4 rounded border-border ${isClosedPO ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                                   />
-                                 </TableCell>
+                              const isDisabled = disabledPOs.has(poNumber);
+                              
+                              return (
+                                <TableRow 
+                                  key={poNumber}
+                                  className={`
+                                    ${isClosedPO 
+                                      ? 'opacity-50 bg-muted/40 pointer-events-none cursor-not-allowed' 
+                                      : isDisabled
+                                      ? 'opacity-40 bg-muted/10'
+                                      : hasClosedItems 
+                                      ? 'opacity-75 bg-muted/20' 
+                                      : 'hover:bg-muted/10 transition-colors'
+                                    }
+                                  `}
+                                >
+                                  <TableCell>
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedPOsForBulkClose.has(poNumber)}
+                                      onChange={(e) => {
+                                        if (isClosedPO || isDisabled) return;
+                                        const newSelected = new Set(selectedPOsForBulkClose);
+                                        if (e.target.checked) {
+                                          newSelected.add(poNumber);
+                                        } else {
+                                          newSelected.delete(poNumber);
+                                        }
+                                        setSelectedPOsForBulkClose(newSelected);
+                                      }}
+                                      disabled={isClosedPO || isDisabled}
+                                      className={`h-4 w-4 rounded border-border ${isClosedPO || isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Switch
+                                      checked={!isDisabled}
+                                      onCheckedChange={(checked) => {
+                                        if (isClosedPO) return;
+                                        const newDisabled = new Set(disabledPOs);
+                                        if (checked) {
+                                          newDisabled.delete(poNumber);
+                                        } else {
+                                          newDisabled.add(poNumber);
+                                        }
+                                        setDisabledPOs(newDisabled);
+                                      }}
+                                      disabled={isClosedPO}
+                                      className="scale-75"
+                                    />
+                                  </TableCell>
                                  <TableCell className="font-medium">
                                    <div className="flex items-center gap-2">
                                      <span className="text-xs opacity-60">{countryPrefix}</span>
