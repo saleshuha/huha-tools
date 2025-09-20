@@ -34,20 +34,19 @@ Deno.serve(async (req) => {
     // Create user-authenticated client for RLS-protected operations
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
     if (!anonKey) {
-      console.error('SUPABASE_ANON_KEY not available, falling back to direct database queries')
+      console.error('SUPABASE_ANON_KEY not available, falling back to service role')
     }
     
     const userClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      anonKey ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${authHeader}`
-          }
-        }
-      }
+      anonKey ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
+
+    // Set the user's session on the client using the JWT token
+    await userClient.auth.setSession({
+      access_token: authHeader,
+      refresh_token: '' // Not needed for this operation
+    })
 
     // Get user from token using service client
     const { data: { user }, error: userError } = await serviceClient.auth.getUser(authHeader)
