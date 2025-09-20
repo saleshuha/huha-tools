@@ -1681,6 +1681,12 @@ serve(async (req) => {
           if (productResult.result === 'success' && productResult.data) {
             const product = productResult.data;
             
+            // Convert price to user's currency
+            const convertedCost = await convertCurrency(
+              parseFloat(product.price || 0),
+              userCountry
+            );
+            
             // Store all product data as JSONB for complete information
             const fullProductData = {
               itemNo: product.itemNo,
