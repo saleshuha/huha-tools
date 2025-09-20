@@ -2594,7 +2594,7 @@ export default function PODetailsPage() {
         {/* Items Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Order Items ({matchedOrders.length} items with inventory matches)</CardTitle>
+            <CardTitle>Order Items ({matchedOrders.length} items with inventory matches of {poOrdersForThisPO.length} total)</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
