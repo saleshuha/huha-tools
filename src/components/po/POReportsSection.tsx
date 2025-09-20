@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,7 +29,7 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
   const { toast } = useToast();
   const [selectedReportType, setSelectedReportType] = useState<ReportType>('processed');
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
-  const [selectedPO, setSelectedPO] = useState<string>('all');
+  const [selectedPOs, setSelectedPOs] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Get unique PO numbers for filtering
@@ -44,8 +46,8 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
     );
 
     // Apply PO number filter
-    if (selectedPO !== 'all') {
-      filteredOrders = filteredOrders.filter(order => order.po_number === selectedPO);
+    if (selectedPOs.length > 0) {
+      filteredOrders = filteredOrders.filter(order => selectedPOs.includes(order.po_number));
     }
 
     // Apply date range filter
@@ -135,7 +137,7 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
       default:
         return filteredOrders;
     }
-  }, [poOrders, inventoryData, skuInventoryData, selectedReportType, selectedPO, dateRange, searchQuery]);
+  }, [poOrders, inventoryData, skuInventoryData, selectedReportType, selectedPOs, dateRange, searchQuery]);
 
   // Calculate summary statistics
   const summaryStats = useMemo(() => {
@@ -206,7 +208,7 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
           <div class="header">
             <h1>${reportTitle}</h1>
             <p>Generated on: ${currentDate}</p>
-            ${selectedPO !== 'all' ? `<p>PO Number: ${selectedPO}</p>` : ''}
+            ${selectedPOs.length > 0 ? `<p>PO Numbers: ${selectedPOs.join(', ')}</p>` : ''}
             ${dateRange.from || dateRange.to ? `<p>Date Range: ${dateRange.from ? format(dateRange.from, 'MMM dd, yyyy') : 'Start'} - ${dateRange.to ? format(dateRange.to, 'MMM dd, yyyy') : 'End'}</p>` : ''}
           </div>
 
@@ -389,18 +391,48 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
           </div>
 
           <div>
-            <Label htmlFor="po-filter">PO Number</Label>
-            <Select value={selectedPO} onValueChange={setSelectedPO}>
-              <SelectTrigger>
-                <SelectValue placeholder="All POs" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All PO Numbers</SelectItem>
-                {uniquePONumbers.map(poNumber => (
-                  <SelectItem key={poNumber} value={poNumber}>{poNumber}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="po-filter">PO Numbers</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full justify-start">
+                  {selectedPOs.length === 0 ? 'All PO Numbers' : `${selectedPOs.length} PO(s) selected`}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80">
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="all-pos"
+                      checked={selectedPOs.length === 0}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedPOs([]);
+                        }
+                      }}
+                    />
+                    <Label htmlFor="all-pos" className="text-sm font-medium">All PO Numbers</Label>
+                  </div>
+                  <div className="border-t pt-2 max-h-48 overflow-y-auto">
+                    {uniquePONumbers.map(poNumber => (
+                      <div key={poNumber} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`po-${poNumber}`}
+                          checked={selectedPOs.includes(poNumber)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedPOs(prev => [...prev, poNumber]);
+                            } else {
+                              setSelectedPOs(prev => prev.filter(po => po !== poNumber));
+                            }
+                          }}
+                        />
+                        <Label htmlFor={`po-${poNumber}`} className="text-sm">{poNumber}</Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div>
