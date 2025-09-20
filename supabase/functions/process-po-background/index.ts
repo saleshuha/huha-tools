@@ -32,14 +32,9 @@ Deno.serve(async (req) => {
     }
 
     // Create user-authenticated client for RLS-protected operations
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
-    if (!anonKey) {
-      console.error('SUPABASE_ANON_KEY not available, falling back to service role')
-    }
-    
     const userClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      anonKey ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       {
         global: {
           headers: {
