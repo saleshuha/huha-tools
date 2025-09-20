@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Package, Truck, CheckCircle, Clock, AlertTriangle, Plus, Save, ExternalLink, Upload, Edit, PackageCheck, PackageX, Trash2, Download, Printer, Eye, Info, ShoppingCart, X, Search } from 'lucide-react';
+import { ArrowLeft, Package, Truck, CheckCircle, Clock, AlertTriangle, Plus, Save, ExternalLink, Upload, Edit, PackageCheck, PackageX, Trash2, Download, Printer, Eye, Info, ShoppingCart, X, Search, Settings, RotateCcw, Undo } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -1131,72 +1131,54 @@ export default function PODetailsPage() {
       }
 
       // Create a new order for the remaining quantity that needs to be ordered from supplier
-      const { error: newOrderError } = await supabase
+      const newOrderData = {
+        user_id: order.user_id,
+        sku_user_id: order.sku_user_id,
+        po_number: order.po_number,
+        sku_code: order.sku_code,
+        file_name: `${order.file_name || 'partial'}_remaining_${Date.now()}`,
+        asin: order.asin,
+        model_number: order.model_number,
+        title: order.title,
+        quantity: remainingQuantity,
+        unit_cost: order.unit_cost,
+        total_cost: order.unit_cost ? (order.unit_cost * remainingQuantity) : null,
+        currency: order.currency,
+        country: order.country,
+        ship_to_location: order.ship_to_location,
+        status: 'pending',
+        external_id: `${order.external_id || order.id}_remaining_${Date.now()}`,
+        external_id_type: order.external_id_type || 'partial_fulfillment',
+        order_date: order.order_date,
+        expected_delivery: order.expected_delivery,
+        notes: `Remaining quantity from partial fulfillment. Original order quantity: ${order.quantity} pcs, fulfilled from stock: ${stockQuantity} pcs.`
+      };
+      
+      console.log('📦 Creating new pending order:', newOrderData);
+      
+      const { data: newOrderData_result, error: newOrderError } = await supabase
         .from('po_orders')
-        .insert({
-          user_id: order.user_id,
-          sku_user_id: order.sku_user_id,
-          po_number: order.po_number,
-          sku_code: order.sku_code,
-          file_name: `${order.file_name || 'partial'}_remaining_${Date.now()}`, // Make file_name unique
-          asin: order.asin,
-          model_number: order.model_number,
-          title: order.title,
-          quantity: remainingQuantity,
-          unit_cost: order.unit_cost,
-          total_cost: order.unit_cost ? (order.unit_cost * remainingQuantity) : null,
-          currency: order.currency,
-          country: order.country,
-          ship_to_location: order.ship_to_location,
-          status: 'pending',
-          external_id: order.external_id ? `${order.external_id}_remaining_${Date.now()}` : `remaining_${Date.now()}`, // Make external_id unique
-          external_id_type: order.external_id_type || 'partial_fulfillment',
-          order_date: order.order_date,
-          expected_delivery: order.expected_delivery,
-          is_printed: false,
-          printed_quantity: 0,
-          notes: `Remaining quantity from partial fulfillment. Original order quantity: ${order.quantity} pcs, fulfilled from stock: ${stockQuantity} pcs.`
-        });
+        .insert(newOrderData)
+        .select();
 
       if (newOrderError) {
-        console.error('New order creation error details:', {
+        console.error('❌ New order creation failed:', {
           error: newOrderError,
           message: newOrderError.message,
           details: newOrderError.details,
           hint: newOrderError.hint,
-          code: newOrderError.code
-        });
-        console.error('Order data being inserted:', {
-          user_id: order.user_id,
-          sku_user_id: order.sku_user_id,
-          po_number: order.po_number,
-          sku_code: order.sku_code,
-          file_name: order.file_name || `partial_fulfillment_${Date.now()}`,
-          asin: order.asin,
-          model_number: order.model_number,
-          title: order.title,
-          quantity: remainingQuantity,
-          unit_cost: order.unit_cost,
-          total_cost: order.unit_cost ? (order.unit_cost * remainingQuantity) : null,
-          currency: order.currency,
-          country: order.country,
-          ship_to_location: order.ship_to_location,
-          status: 'pending',
-          external_id: order.external_id,
-          external_id_type: order.external_id_type,
-          order_date: order.order_date,
-          expected_delivery: order.expected_delivery,
-          is_printed: false,
-          printed_quantity: 0,
-          notes: `Remaining quantity from partial fulfillment. Original order quantity: ${order.quantity} pcs, fulfilled from stock: ${stockQuantity} pcs.`
+          code: newOrderError.code,
+          orderData: newOrderData
         });
         toast({
           title: "New Order Creation Failed",
-          description: `Database error: ${newOrderError.message || 'Unknown error'}`,
+          description: `Database error: ${newOrderError.message || 'Unknown error'}. Check console for details.`,
           variant: "destructive"
         });
         return;
       }
+      
+      console.log('✅ New pending order created successfully:', newOrderData_result);
 
       // Track this item as marked from stock
       setItemsMarkedFromStock(prev => {
@@ -1212,8 +1194,15 @@ export default function PODetailsPage() {
         return newSet;
       });
 
-      // Refresh data
+      // Refresh data immediately to show the new pending order
+      console.log('🔄 Refreshing PO data to show new pending order...');
       await fetchPOOrders();
+      
+      // Small delay to ensure state updates
+      setTimeout(async () => {
+        await fetchPOOrders();
+        console.log('🔄 Second data refresh completed');
+      }, 500);
 
       toast({
         title: "Partial Fulfillment Complete",
@@ -1225,6 +1214,128 @@ export default function PODetailsPage() {
       toast({
         title: "Partial Fulfillment Failed",
         description: "Failed to process partial fulfillment",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Fix existing partial fulfillments that might not have created pending orders
+  const handleFixExistingPartialFulfillments = async () => {
+    try {
+      console.log('🔧 Checking for existing partial fulfillments without pending orders...');
+      
+      // Find all fulfilled from stock orders
+      const fulfilledOrders = poOrders.filter(order => 
+        order.po_number === poNumber && 
+        (order.notes?.includes('Fulfilled from stock:') || order.notes?.includes('Partial fulfillment from stock:'))
+      );
+      
+      if (fulfilledOrders.length === 0) {
+        toast({
+          title: "No Partial Fulfillments",
+          description: "No existing partial fulfillments found to fix",
+        });
+        return;
+      }
+      
+      console.log('🔍 Found fulfilled orders:', fulfilledOrders);
+      
+      let createdCount = 0;
+      
+      for (const fulfilledOrder of fulfilledOrders) {
+        // Extract original quantity and fulfilled quantity from notes
+        const originalQtyMatch = fulfilledOrder.notes?.match(/Original quantity: (\d+) pcs/) || 
+                               fulfilledOrder.notes?.match(/Original order quantity: (\d+) pcs/);
+        const fulfilledQtyMatch = fulfilledOrder.notes?.match(/Fulfilled from stock: (\d+) pcs/) ||
+                                 fulfilledOrder.notes?.match(/Partial fulfillment from stock: (\d+) pcs/);
+        
+        if (!originalQtyMatch || !fulfilledQtyMatch) {
+          console.log(`⚠️ Could not extract quantities from notes for order ${fulfilledOrder.id}`);
+          continue;
+        }
+        
+        const originalQuantity = parseInt(originalQtyMatch[1]);
+        const fulfilledQuantity = parseInt(fulfilledQtyMatch[1]);
+        const remainingQuantity = originalQuantity - fulfilledQuantity;
+        
+        if (remainingQuantity <= 0) {
+          console.log(`✅ No remaining quantity for order ${fulfilledOrder.id}`);
+          continue;
+        }
+        
+        // Check if pending order already exists
+        const existingPendingOrder = poOrders.find(order =>
+          order.po_number === poNumber &&
+          order.sku_code === fulfilledOrder.sku_code &&
+          order.asin === fulfilledOrder.asin &&
+          order.status === 'pending' &&
+          order.notes?.includes('Remaining quantity from partial fulfillment')
+        );
+        
+        if (existingPendingOrder) {
+          console.log(`✅ Pending order already exists for ${fulfilledOrder.sku_code}`);
+          continue;
+        }
+        
+        // Create the missing pending order
+        const newOrderData = {
+          user_id: fulfilledOrder.user_id,
+          sku_user_id: fulfilledOrder.sku_user_id,
+          po_number: fulfilledOrder.po_number,
+          sku_code: fulfilledOrder.sku_code,
+          file_name: `${fulfilledOrder.file_name || 'partial'}_remaining_fix_${Date.now()}`,
+          asin: fulfilledOrder.asin,
+          model_number: fulfilledOrder.model_number,
+          title: fulfilledOrder.title,
+          quantity: remainingQuantity,
+          unit_cost: fulfilledOrder.unit_cost,
+          total_cost: fulfilledOrder.unit_cost ? (fulfilledOrder.unit_cost * remainingQuantity) : null,
+          currency: fulfilledOrder.currency,
+          country: fulfilledOrder.country,
+          ship_to_location: fulfilledOrder.ship_to_location,
+          status: 'pending',
+          external_id: `${fulfilledOrder.external_id || fulfilledOrder.id}_remaining_fix_${Date.now()}`,
+          external_id_type: fulfilledOrder.external_id_type || 'partial_fulfillment_fix',
+          order_date: fulfilledOrder.order_date,
+          expected_delivery: fulfilledOrder.expected_delivery,
+          notes: `Remaining quantity from partial fulfillment (FIXED). Original order quantity: ${originalQuantity} pcs, fulfilled from stock: ${fulfilledQuantity} pcs.`
+        };
+        
+        console.log(`📦 Creating missing pending order for ${fulfilledOrder.sku_code}:`, newOrderData);
+        
+        const { data: newOrderResult, error: newOrderError } = await supabase
+          .from('po_orders')
+          .insert(newOrderData)
+          .select();
+          
+        if (newOrderError) {
+          console.error(`❌ Failed to create pending order for ${fulfilledOrder.sku_code}:`, newOrderError);
+        } else {
+          console.log(`✅ Created pending order for ${fulfilledOrder.sku_code}:`, newOrderResult);
+          createdCount++;
+        }
+      }
+      
+      if (createdCount > 0) {
+        // Refresh data to show new orders
+        await fetchPOOrders();
+        
+        toast({
+          title: "Fixed Partial Fulfillments",
+          description: `Created ${createdCount} missing pending order(s) for existing partial fulfillments`
+        });
+      } else {
+        toast({
+          title: "All Good",
+          description: "All existing partial fulfillments already have pending orders"
+        });
+      }
+      
+    } catch (error) {
+      console.error('Error fixing existing partial fulfillments:', error);
+      toast({
+        title: "Fix Failed",
+        description: "Failed to fix existing partial fulfillments",
         variant: "destructive"
       });
     }
@@ -2269,10 +2380,56 @@ export default function PODetailsPage() {
               Export PO Details
             </Button>
           </div>
-        </div>
+         </div>
 
-        {/* Action Control Center */}
-        <div className="space-y-6 mb-8">
+         {/* Debug & Fix Tools */}
+         <div className="p-4 bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 rounded-xl border border-orange-200 dark:border-orange-800 shadow-sm mb-6">
+           <div className="flex items-center justify-between mb-3">
+             <div className="flex items-center gap-3">
+               <div className="p-2 bg-orange-100 dark:bg-orange-800 rounded-lg">
+                 <Settings className="h-5 w-5 text-orange-600 dark:text-orange-300" />
+               </div>
+               <div>
+                 <p className="text-sm font-medium text-orange-800 dark:text-orange-200">Debug & Fix Tools</p>
+                 <p className="text-xs text-orange-600 dark:text-orange-400">Fix existing partial fulfillments and debug issues</p>
+               </div>
+             </div>
+           </div>
+           <div className="flex gap-2">
+             <Button 
+               onClick={handleFixExistingPartialFulfillments}
+               variant="outline" 
+               size="sm" 
+               className="border-orange-300 text-orange-700 hover:bg-orange-50 gap-2"
+             >
+               <Package className="h-4 w-4" />
+               Fix Missing Pending Orders
+             </Button>
+             <Button 
+               onClick={handleResetPartialFulfillments}
+               variant="outline" 
+               size="sm" 
+               className="border-orange-300 text-orange-700 hover:bg-orange-50 gap-2"
+               disabled={itemsMarkedFromStock.size === 0}
+             >
+               <RotateCcw className="h-4 w-4" />
+               Reset Partial Fulfillments
+             </Button>
+             <Button 
+               onClick={handleReverseInventoryDeductions}
+               variant="outline" 
+               size="sm" 
+               className="border-orange-300 text-orange-700 hover:bg-orange-50 gap-2"
+               disabled={itemsMarkedFromStock.size === 0}
+             >
+               <Undo className="h-4 w-4" />
+               Reverse Inventory Deductions
+             </Button>
+           </div>
+         </div>
+
+         {/* Action Control Center */}
+         <div className="space-y-6 mb-8">
           {/* Instructions */}
           {selectedItems.size === 0 && (
             <div className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-xl border border-blue-200 dark:border-blue-800 shadow-sm">
