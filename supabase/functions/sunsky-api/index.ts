@@ -775,11 +775,25 @@ async function processImportJob(job: any, userId: string, userCountry: string) {
       // Handle PO model number search
       console.log(`Processing PO search with ${job.total_items} model numbers`);
       
-      // Get model numbers from job criteria
-      const modelNumbers = criteria.unique_models || [];
+      // Get unique model numbers from PO orders in the database
+      const { data: poOrders, error: poError } = await supabase
+        .from('po_orders')
+        .select('model_number')
+        .eq('user_id', userId)
+        .in('status', ['pending', 'ordered', 'shipped'])
+        .not('model_number', 'is', null);
+        
+      if (poError || !poOrders) {
+        throw new Error('Failed to fetch PO orders: ' + poError?.message);
+      }
+      
+      // Extract unique model numbers
+      const modelNumbers = [...new Set(poOrders.map(po => po.model_number).filter(mn => mn && mn.trim() !== ''))];
+      
+      console.log(`Found ${modelNumbers.length} unique model numbers from PO orders`);
       
       if (!modelNumbers.length) {
-        throw new Error('No model numbers found in PO search criteria');
+        throw new Error('No model numbers found in PO orders');
       }
       
       // Update job with correct total
