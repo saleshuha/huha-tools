@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Package, Truck, CheckCircle, Clock, AlertTriangle, Plus, Save, ExternalLink, Upload, Edit, PackageCheck, PackageX, Trash2, Download, Printer, Eye, Info, ShoppingCart, X } from 'lucide-react';
+import { ArrowLeft, Package, Truck, CheckCircle, Clock, AlertTriangle, Plus, Save, ExternalLink, Upload, Edit, PackageCheck, PackageX, Trash2, Download, Printer, Eye, Info, ShoppingCart, X, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -80,6 +80,9 @@ export default function PODetailsPage() {
   
   // Track items marked from stock
   const [itemsMarkedFromStock, setItemsMarkedFromStock] = useState<Set<string>>(new Set());
+  
+  // Search state
+  const [searchTerm, setSearchTerm] = useState('');
 
   console.log('PODetailsPage: Rendering with poNumber:', poNumber);
   console.log('PODetailsPage: poOrders:', poOrders);
@@ -360,6 +363,20 @@ export default function PODetailsPage() {
     
     // Sort: in-stock items first (true sorts before false)
     return hasStockB ? (hasStockA ? 0 : 1) : (hasStockA ? -1 : 0);
+  });
+
+  // Filter orders based on search term
+  const filteredOrders = matchedOrders.filter(order => {
+    if (!searchTerm.trim()) return true;
+    
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      order.asin?.toLowerCase().includes(searchLower) ||
+      order.title?.toLowerCase().includes(searchLower) ||
+      order.sku_code?.toLowerCase().includes(searchLower) ||
+      order.model_number?.toLowerCase().includes(searchLower) ||
+      order.sunsky_sku?.sku_code?.toLowerCase().includes(searchLower)
+    );
   });
 
   // Calculate status progress
@@ -826,7 +843,7 @@ export default function PODetailsPage() {
 
   // Handle select all/none with smart logic
   const handleSelectAll = () => {
-    if (selectedItems.size === matchedOrders.length) {
+    if (selectedItems.size === filteredOrders.length) {
       // Deselect all
       setSelectedItems(new Set());
       setSelectionType(null);
@@ -834,11 +851,11 @@ export default function PODetailsPage() {
       // Select all available items (first check what type we can select)
       if (selectionType === null) {
         // No current selection, select all items  
-        setSelectedItems(new Set(matchedOrders.map(order => order.id)));
+        setSelectedItems(new Set(filteredOrders.map(order => order.id)));
         // Don't set a specific type for select all
       } else {
         // Already have a selection type, only select items of the same type
-        const compatibleItems = matchedOrders.filter(order => {
+        const compatibleItems = filteredOrders.filter(order => {
           const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
           const hasStock = inventoryMatch && inventoryMatch.quantity > 0;
           const itemType = hasStock ? 'instock' : 'outstock';
@@ -2588,18 +2605,29 @@ export default function PODetailsPage() {
         {/* Items Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Order Items ({matchedOrders.length} items with inventory matches)</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Order Items ({filteredOrders.length} of {matchedOrders.length} items)</CardTitle>
+              <div className="relative w-80">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Search by ASIN, title, SKU, or model number..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12">
-                    <Checkbox
-                      checked={selectedItems.size === matchedOrders.length && matchedOrders.length > 0}
-                      onCheckedChange={handleSelectAll}
-                      aria-label="Select all items"
-                    />
+                     <Checkbox
+                       checked={selectedItems.size === filteredOrders.length && filteredOrders.length > 0}
+                       onCheckedChange={handleSelectAll}
+                       aria-label="Select all items"
+                     />
                   </TableHead>
                   <TableHead>Item Details</TableHead>
                   <TableHead>Inventory Status</TableHead>
@@ -2609,8 +2637,8 @@ export default function PODetailsPage() {
                   <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
-                {matchedOrders.map((order) => {
+               <TableBody>
+                 {filteredOrders.map((order) => {
                   const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
                   const hasStock = inventoryMatch && inventoryMatch.quantity > 0;
                   const itemType = hasStock ? 'instock' : 'outstock';
