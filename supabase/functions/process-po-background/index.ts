@@ -19,7 +19,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabaseClient = createClient(
+    // Create service role client for admin operations
+    const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
@@ -30,8 +31,26 @@ Deno.serve(async (req) => {
       throw new Error('No authorization header')
     }
 
-    // Get user from token
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(authHeader)
+    // Create user-authenticated client for RLS-protected operations
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
+    if (!anonKey) {
+      console.error('SUPABASE_ANON_KEY not available, falling back to direct database queries')
+    }
+    
+    const userClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      anonKey ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${authHeader}`
+          }
+        }
+      }
+    )
+
+    // Get user from token using service client
+    const { data: { user }, error: userError } = await serviceClient.auth.getUser(authHeader)
     if (userError || !user) {
       throw new Error('Invalid user token')
     }
@@ -44,7 +63,7 @@ Deno.serve(async (req) => {
       console.log(`Starting background PO processing for user ${user.id}`)
       
       // Start background processing without waiting
-      EdgeRuntime.waitUntil(processModelNumbersBackground(supabaseClient, user.id, jobId, modelData))
+      EdgeRuntime.waitUntil(processModelNumbersBackground(userClient, user.id, jobId, modelData))
       
       return new Response(
         JSON.stringify({ success: true, message: 'Background processing started', jobId }),
@@ -66,7 +85,7 @@ Deno.serve(async (req) => {
       const historyId = crypto.randomUUID()
       
       // Insert background task for tracking
-      const { error: taskError } = await supabaseClient
+      const { error: taskError } = await serviceClient
         .from('background_tasks')
         .insert({
           id: taskId,
@@ -90,7 +109,7 @@ Deno.serve(async (req) => {
       }
       
       // Insert export history for long-term tracking
-      const { error: historyError } = await supabaseClient
+      const { error: historyError } = await serviceClient
         .from('export_history')
         .insert({
           id: historyId,
@@ -112,7 +131,7 @@ Deno.serve(async (req) => {
       }
       
       // Start background export without waiting
-      EdgeRuntime.waitUntil(processSunskyExportBackground(supabaseClient, user.id, taskId, historyId, config, availableAPIs))
+      EdgeRuntime.waitUntil(processSunskyExportBackground(userClient, user.id, taskId, historyId, config, availableAPIs))
       
       return new Response(
         JSON.stringify({ 
