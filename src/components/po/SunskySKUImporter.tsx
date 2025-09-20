@@ -1583,6 +1583,9 @@ export const SunskySKUImporter: React.FC = () => {
         willProcess: modelData.uniqueCount
       });
 
+      console.log('📋 Sample model numbers to search:', modelData.uniqueModels.slice(0, 10));
+      console.log('🔍 Looking for SYA002416823A:', modelData.uniqueModels.includes('SYA002416823A'));
+
       // Create import job first
       const {
         data: importJob
