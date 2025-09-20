@@ -1090,12 +1090,12 @@ export default function PODetailsPage() {
         return;
       }
 
-      // Update the original order status to indicate partial fulfillment from stock
+      // Update the original order status to indicate it's been fulfilled from stock
       const { error: orderError } = await supabase
         .from('po_orders')
         .update({ 
-          status: 'placed',
-          quantity: stockQuantity,
+          status: 'closed',
+          quantity: 0,
           notes: `Partial fulfillment from stock: ${stockQuantity} pcs. Original quantity: ${order.quantity} pcs.`
         })
         .eq('id', order.id)
