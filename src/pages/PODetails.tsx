@@ -2131,6 +2131,37 @@ export default function PODetailsPage() {
             </h1>
           </div>
           <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={async () => {
+                setLoading(true);
+                try {
+                  await Promise.all([
+                    fetchPOOrders(),
+                    fetchInventoryData()
+                  ]);
+                  toast({
+                    title: "Success",
+                    description: "PO data refreshed with latest SKU matches",
+                  });
+                } catch (error) {
+                  console.error('Error refreshing PO data:', error);
+                  toast({
+                    title: "Error",
+                    description: "Failed to refresh PO data",
+                    variant: "destructive",
+                  });
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              disabled={loading}
+              className="gap-2 hover-scale transition-all duration-200 bg-white/50 hover:bg-white/70 border-primary/20"
+              title="Refresh to show newly imported SKU matches"
+            >
+              <RotateCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
             
             {/* Print Dialog */}
             <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
