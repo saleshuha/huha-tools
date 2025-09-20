@@ -844,84 +844,191 @@ async function processImportJob(job: any, userId: string, userCountry: string) {
         }
         
         try {
-          // Search for the model number
-          const searchParams = {
-            lang: 'en',
-            page: 1,
-            pageSize: 10,
-            keyword: modelNumber
-          };
+          let foundMatch = false;
+          let productDetail = null;
           
-          const searchResult = await makeSunskyRequest('/openapi/product!search.do', searchParams, credentials.key, credentials.secret, userId);
-          
-          if (searchResult.result === 'success' && searchResult.data?.result?.length > 0) {
-            // Look for exact or close matches
-            const normalizedSearch = modelNumber.trim().toLowerCase().replace(/[-_\s]/g, '');
-            let foundMatch = false;
+          // Strategy 1: Try direct product lookup first (treat model number as itemNo)
+          try {
+            console.log(`🔍 Trying direct lookup for model: ${modelNumber}`);
+            const directResult = await makeSunskyRequest(
+              '/openapi/product!detail.do',
+              { lang: 'en', itemNo: modelNumber },
+              credentials.key,
+              credentials.secret,
+              userId
+            );
             
-            for (const product of searchResult.data.result) {
-              const normalizedItem = (product.itemNo || '').trim().toLowerCase().replace(/[-_\s]/g, '');
-              const normalizedName = (product.name || '').trim().toLowerCase().replace(/[-_\s]/g, '');
-              
-              if (normalizedItem === normalizedSearch || 
-                  normalizedName.includes(normalizedSearch) ||
-                  normalizedSearch.includes(normalizedItem)) {
+            if (directResult.result === 'success' && directResult.data) {
+              productDetail = directResult.data;
+              foundMatch = true;
+              console.log(`✅ Direct match found: ${modelNumber}`);
+            }
+          } catch (directError) {
+            console.log(`Direct lookup failed for ${modelNumber}:`, directError.message);
+          }
+          
+          // Strategy 2: Search by category if direct lookup failed
+          if (!foundMatch) {
+            console.log(`🔍 Trying category search for model: ${modelNumber}`);
+            
+            // Try searching in popular electronics categories
+            const searchCategories = [1032, 1042, 1052]; // Common electronics category IDs
+            
+            for (const categoryId of searchCategories) {
+              try {
+                const searchParams = {
+                  lang: 'en',
+                  categoryId: categoryId,
+                  page: 1,
+                  pageSize: 100,
+                  status: 1
+                };
                 
-                // Get detailed product info
-                const detailResult = await makeSunskyRequest(
-                  '/openapi/product!detail.do',
-                  { lang: 'en', itemNo: product.itemNo },
-                  credentials.key,
-                  credentials.secret,
+                const searchResult = await makeSunskyRequest(
+                  '/openapi/product!search.do', 
+                  searchParams, 
+                  credentials.key, 
+                  credentials.secret, 
                   userId
                 );
                 
-                if (detailResult.result === 'success' && detailResult.data) {
-                  const productDetail = detailResult.data;
+                if (searchResult.result === 'success' && searchResult.data?.result?.length > 0) {
+                  const normalizedSearch = modelNumber.trim().toLowerCase().replace(/[-_\s]/g, '');
                   
-                  // Convert price to user's currency
-                  const convertedCost = await convertCurrency(
-                    parseFloat(productDetail.price || 0),
-                    userCountry
+                  // Look for matches in search results
+                  for (const product of searchResult.data.result) {
+                    const normalizedItem = (product.itemNo || '').trim().toLowerCase().replace(/[-_\s]/g, '');
+                    const normalizedName = (product.name || '').trim().toLowerCase().replace(/[-_\s]/g, '');
+                    
+                    if (normalizedItem.includes(normalizedSearch) || 
+                        normalizedName.includes(normalizedSearch) ||
+                        normalizedSearch.includes(normalizedItem)) {
+                      
+                      // Get detailed product info
+                      const detailResult = await makeSunskyRequest(
+                        '/openapi/product!detail.do',
+                        { lang: 'en', itemNo: product.itemNo },
+                        credentials.key,
+                        credentials.secret,
+                        userId
+                      );
+                      
+                      if (detailResult.result === 'success' && detailResult.data) {
+                        productDetail = detailResult.data;
+                        foundMatch = true;
+                        console.log(`✅ Category match found: ${modelNumber} -> ${product.itemNo}`);
+                        break;
+                      }
+                    }
+                  }
+                }
+                
+                if (foundMatch) break;
+              } catch (categoryError) {
+                console.log(`Category search failed for ${modelNumber} in category ${categoryId}:`, categoryError.message);
+              }
+            }
+          }
+          
+          // Strategy 3: Try brand-based search if we can extract brand info
+          if (!foundMatch && modelNumber.length > 3) {
+            console.log(`🔍 Trying brand search for model: ${modelNumber}`);
+            
+            // Extract potential brand names from model number
+            const potentialBrands = ['Apple', 'Samsung', 'Huawei', 'Xiaomi', 'OnePlus', 'Google', 'Sony', 'LG'];
+            const modelUpper = modelNumber.toUpperCase();
+            
+            for (const brand of potentialBrands) {
+              if (modelUpper.includes(brand.toUpperCase())) {
+                try {
+                  const searchParams = {
+                    lang: 'en',
+                    brandName: brand,
+                    page: 1,
+                    pageSize: 50,
+                    status: 1
+                  };
+                  
+                  const searchResult = await makeSunskyRequest(
+                    '/openapi/product!search.do', 
+                    searchParams, 
+                    credentials.key, 
+                    credentials.secret, 
+                    userId
                   );
                   
-                  // Insert/update SKU
-                  const { error: skuError } = await supabase
-                    .from('sunsky_skus')
-                    .upsert({
-                      user_id: userId,
-                      sku_code: productDetail.itemNo,
-                      title: productDetail.name,
-                      cost: convertedCost,
-                      weight: productDetail.unitWeight ? parseFloat(productDetail.unitWeight) : null,
-                      description: `Imported from Sunsky - Lead Time: ${productDetail.leadTime || 'N/A'}`,
-                      currency: userCountry === 'KSA' ? 'SAR' : 'AED',
-                      country: userCountry,
-                      product_data: productDetail
-                    }, { 
-                      onConflict: 'user_id,sku_code',
-                      ignoreDuplicates: false 
-                    });
-                  
-                  if (!skuError) {
-                    successCount++;
-                    foundMatch = true;
-                    console.log(`✅ Imported ${modelNumber} -> ${productDetail.itemNo}: ${productDetail.name}`);
-                    break; // Found and imported, move to next model number
-                  } else {
-                    console.error(`Failed to import ${modelNumber}:`, skuError);
+                  if (searchResult.result === 'success' && searchResult.data?.result?.length > 0) {
+                    const normalizedSearch = modelNumber.trim().toLowerCase().replace(/[-_\s]/g, '');
+                    
+                    for (const product of searchResult.data.result) {
+                      const normalizedItem = (product.itemNo || '').trim().toLowerCase().replace(/[-_\s]/g, '');
+                      const normalizedName = (product.name || '').trim().toLowerCase().replace(/[-_\s]/g, '');
+                      
+                      if (normalizedItem.includes(normalizedSearch) || 
+                          normalizedName.includes(normalizedSearch)) {
+                        
+                        const detailResult = await makeSunskyRequest(
+                          '/openapi/product!detail.do',
+                          { lang: 'en', itemNo: product.itemNo },
+                          credentials.key,
+                          credentials.secret,
+                          userId
+                        );
+                        
+                        if (detailResult.result === 'success' && detailResult.data) {
+                          productDetail = detailResult.data;
+                          foundMatch = true;
+                          console.log(`✅ Brand match found: ${modelNumber} -> ${product.itemNo} (${brand})`);
+                          break;
+                        }
+                      }
+                    }
                   }
+                  
+                  if (foundMatch) break;
+                } catch (brandError) {
+                  console.log(`Brand search failed for ${modelNumber} with brand ${brand}:`, brandError.message);
                 }
               }
             }
+          }
+          
+          // If we found a match, process it
+          if (foundMatch && productDetail) {
+            // Convert price to user's currency
+            const convertedCost = await convertCurrency(
+              parseFloat(productDetail.price || 0),
+              userCountry
+            );
             
-            if (!foundMatch) {
+            // Insert/update SKU
+            const { error: skuError } = await supabase
+              .from('sunsky_skus')
+              .upsert({
+                user_id: userId,
+                sku_code: productDetail.itemNo,
+                title: productDetail.name,
+                cost: convertedCost,
+                weight: productDetail.unitWeight ? parseFloat(productDetail.unitWeight) : null,
+                description: `Imported from Sunsky - Lead Time: ${productDetail.leadTime || 'N/A'}`,
+                currency: userCountry === 'KSA' ? 'SAR' : 'AED',
+                country: userCountry,
+                product_data: productDetail
+              }, { 
+                onConflict: 'user_id,sku_code',
+                ignoreDuplicates: false 
+              });
+            
+            if (!skuError) {
+              successCount++;
+              console.log(`✅ Successfully imported: ${modelNumber} -> ${productDetail.itemNo}: ${productDetail.name}`);
+            } else {
               errorCount++;
-              console.log(`❌ No matching product found for model: ${modelNumber}`);
+              console.error(`Failed to save SKU for ${modelNumber}:`, skuError);
             }
           } else {
             errorCount++;
-            console.log(`❌ No search results for model: ${modelNumber}`);
+            console.log(`❌ No product found for model: ${modelNumber}`);
           }
         } catch (error) {
           errorCount++;
@@ -1454,7 +1561,7 @@ serve(async (req) => {
 
         if (categoryId) params.categoryId = categoryId;
         if (brandId) params.brandId = brandId;
-        if (keyword) params.keyword = keyword;
+        // Note: keyword parameter is not supported by Sunsky API - use categoryId or brandName instead
         if (dateFrom) params.dateFrom = dateFrom;
         if (dateTo) params.dateTo = dateTo;
         if (brandName) params.brandName = brandName;
@@ -1781,12 +1888,12 @@ serve(async (req) => {
             
             const productResult = await makeSunskyRequest('/openapi/product!search.do', searchParams, credentials.key, credentials.secret, user.id);
             
-            if (productResult.result === 'success' && productResult.data?.products) {
+            if (productResult.result === 'success' && productResult.data?.result) {
               // Extract unique brands from products
               const brandSet = new Set<string>();
               const brands: any[] = [];
               
-              productResult.data.products.forEach((product: any) => {
+              productResult.data.result.forEach((product: any) => {
                 if (product.brandName && !brandSet.has(product.brandName)) {
                   brandSet.add(product.brandName);
                   brands.push({
