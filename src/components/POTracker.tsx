@@ -395,8 +395,19 @@ export const POTracker = () => {
   };
 
   // Function to find inventory match for an ASIN
-  const findInventoryMatch = (asin: string, sunskySku?: string, poSku?: string, modelNumber?: string) => {
-    // First check ASIN inventory - aggregate all matching records
+  const findInventoryMatch = (asin: string, sunskySku?: string, poSku?: string, modelNumber?: string, orderSunskySku?: any) => {
+    // First priority: If the order has a sunsky_sku, it's considered matched
+    if (orderSunskySku) {
+      return {
+        type: 'SUNSKY',
+        status: 'sunsky-match',
+        quantity: 1,
+        identifier: orderSunskySku.sku_code,
+        sunskyData: orderSunskySku
+      };
+    }
+
+    // Second check: ASIN inventory - aggregate all matching records
     if (asin) {
       const asinMatches = inventoryData.asinInventory.filter(item => item.asin === asin);
       if (asinMatches.length > 0) {
@@ -1344,15 +1355,16 @@ export const POTracker = () => {
                              const activeOrdersInPO = orders.filter((order: any) => 
                                order.status === 'pending' || order.status === 'placed' || order.status === 'received'
                              );
-                            const matchedCount = activeOrdersInPO.filter((order: any) => {
-                              const inventoryMatch = findInventoryMatch(
-                                order.asin, 
-                                order.sunsky_sku?.sku_code, 
-                                order.sku_code, 
-                                order.model_number
-                              );
-                              return inventoryMatch !== null;
-                            }).length;
+                             const matchedCount = activeOrdersInPO.filter((order: any) => {
+                               const inventoryMatch = findInventoryMatch(
+                                 order.asin, 
+                                 order.sunsky_sku?.sku_code, 
+                                 order.sku_code, 
+                                 order.model_number,
+                                 order.sunsky_sku
+                               );
+                               return inventoryMatch !== null;
+                             }).length;
                             const matchedPercentage = activeOrdersInPO.length > 0 ? ((matchedCount / activeOrdersInPO.length) * 100).toFixed(0) : '0';
                            
                            const statusCounts = orders.reduce((counts: any, order: any) => {
@@ -1447,7 +1459,7 @@ export const POTracker = () => {
                                   {activeOrdersInPO.filter(order => 
                                     order.status === 'pending' && 
                                     !order.supplier_order_number &&
-                                    findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number) !== null
+                                    findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku) !== null
                                   ).length}
                                 </div>
                               </TableCell>
