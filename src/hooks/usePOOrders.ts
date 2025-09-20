@@ -114,25 +114,54 @@ export const usePOOrders = () => {
        console.log(`🔍 DEBUG: PO ${debugPO} has ${debugPOOrders.length} orders with total quantity:`, 
          debugPOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0));
 
-       setLoadingProgress(70);
-       setLoadingStatus('Processing orders...');
+        setLoadingProgress(70);
+        setLoadingStatus('Processing orders and matching SKUs...');
 
-       // Convert to POOrder format  
-       const processedOrders: POOrder[] = allOrders.map(order => ({
-         ...order,
-         status: order.status as POOrder['status'],
-       }));
+        // Convert to POOrder format  
+        const processedOrders: POOrder[] = allOrders.map(order => ({
+          ...order,
+          status: order.status as POOrder['status'],
+        }));
 
-      console.log(`✅ Processed ${processedOrders.length} deduplicated PO orders`);
-      
-      // Debug specific PO after processing
-      const debugProcessedPOOrders = processedOrders.filter(order => order.po_number === debugPO);
-      console.log(`🔍 DEBUG AFTER PROCESSING: PO ${debugPO} has ${debugProcessedPOOrders.length} orders with total quantity:`, 
-        debugProcessedPOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0));
+        // Fetch Sunsky SKUs to match with PO orders
+        console.log('🔄 Fetching Sunsky SKUs for matching...');
+        const { data: sunskySKUs, error: skuError } = await supabase
+          .from('sunsky_skus')
+          .select('*')
+          .eq('user_id', user.id);
 
-      setPOOrders(processedOrders);
-      setLoadingProgress(100);
-      setLoadingStatus(`Loaded ${processedOrders.length} orders`);
+        if (skuError) {
+          console.error('❌ Error fetching Sunsky SKUs:', skuError);
+          // Continue without SKU matching if there's an error
+        }
+
+        // Match PO orders with Sunsky SKUs
+        const ordersWithSKUs = processedOrders.map(order => {
+          if (!sunskySKUs) return order;
+          
+          // Try to match by sku_code or model_number
+          const matchingSKU = sunskySKUs.find(sku => 
+            sku.sku_code === order.sku_code || 
+            sku.sku_code === order.model_number
+          );
+          
+          return {
+            ...order,
+            sunsky_sku: matchingSKU || null
+          };
+        });
+
+        console.log(`✅ Processed ${ordersWithSKUs.length} PO orders with SKU matching`);
+        console.log(`📊 SKU matching stats: ${ordersWithSKUs.filter(o => o.sunsky_sku).length} orders have matching SKUs`);
+        
+        // Debug specific PO after processing
+        const debugProcessedPOOrders = ordersWithSKUs.filter(order => order.po_number === debugPO);
+        console.log(`🔍 DEBUG AFTER PROCESSING: PO ${debugPO} has ${debugProcessedPOOrders.length} orders with total quantity:`, 
+          debugProcessedPOOrders.reduce((sum, order) => sum + (order.quantity || 0), 0));
+
+        setPOOrders(ordersWithSKUs);
+        setLoadingProgress(100);
+        setLoadingStatus(`Loaded ${ordersWithSKUs.length} orders with SKU matching`);
 
     } catch (error) {
       console.error('❌ Error in fetchPOOrders:', error);
