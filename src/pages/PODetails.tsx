@@ -1140,10 +1140,40 @@ export default function PODetailsPage() {
         });
 
       if (newOrderError) {
-        console.error('New order creation error:', newOrderError);
+        console.error('New order creation error details:', {
+          error: newOrderError,
+          message: newOrderError.message,
+          details: newOrderError.details,
+          hint: newOrderError.hint,
+          code: newOrderError.code
+        });
+        console.error('Order data being inserted:', {
+          user_id: order.user_id,
+          sku_user_id: order.sku_user_id,
+          po_number: order.po_number,
+          sku_code: order.sku_code,
+          file_name: order.file_name || `partial_fulfillment_${Date.now()}`,
+          asin: order.asin,
+          model_number: order.model_number,
+          title: order.title,
+          quantity: remainingQuantity,
+          unit_cost: order.unit_cost,
+          total_cost: order.unit_cost ? (order.unit_cost * remainingQuantity) : null,
+          currency: order.currency,
+          country: order.country,
+          ship_to_location: order.ship_to_location,
+          status: 'pending',
+          external_id: order.external_id,
+          external_id_type: order.external_id_type,
+          order_date: order.order_date,
+          expected_delivery: order.expected_delivery,
+          is_printed: false,
+          printed_quantity: 0,
+          notes: `Remaining quantity from partial fulfillment. Original order quantity: ${order.quantity} pcs, fulfilled from stock: ${stockQuantity} pcs.`
+        });
         toast({
           title: "New Order Creation Failed",
-          description: "Failed to create order for remaining quantity",
+          description: `Database error: ${newOrderError.message || 'Unknown error'}`,
           variant: "destructive"
         });
         return;
