@@ -167,19 +167,19 @@ async function processModelNumbersBackground(supabaseClient: any, userId: string
     const userCountry = userProfile.country || 'UAE' // fallback to UAE if no country set
     console.log(`Using user country: ${userCountry}`)
 
-    // Get all active API keys
+    // Get all active API keys using the secure RPC
     const { data: activeKeys, error: keysError } = await supabaseClient
-      .from('sunsky_credentials')
-      .select('id, api_key, api_secret')
-      .eq('user_id', userId)
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
+      .rpc('get_user_sunsky_credentials_secure', { p_user_id: userId })
 
     if (keysError || !activeKeys || activeKeys.length === 0) {
+      console.error('Failed to get credentials:', keysError)
       throw new Error("No active API keys found")
     }
 
-    console.log(`Found ${activeKeys.length} active API keys for parallel processing`)
+    // Filter only active credentials
+    const activeCredentials = activeKeys.filter((key: any) => key.is_active)
+
+    console.log(`Found ${activeCredentials.length} active API keys for parallel processing`)
 
     const uniqueModelNumbers = modelData.uniqueModels
 
@@ -193,15 +193,15 @@ async function processModelNumbersBackground(supabaseClient: any, userId: string
       .eq('id', jobId)
 
     // Chunk model numbers across API keys
-    const chunkSize = Math.ceil(uniqueModelNumbers.length / activeKeys.length)
+    const chunkSize = Math.ceil(uniqueModelNumbers.length / activeCredentials.length)
     const chunks = []
     
-    for (let i = 0; i < activeKeys.length; i++) {
+    for (let i = 0; i < activeCredentials.length; i++) {
       const start = i * chunkSize
       const end = Math.min(start + chunkSize, uniqueModelNumbers.length)
       if (start < uniqueModelNumbers.length) {
         chunks.push({
-          apiKey: activeKeys[i],
+          apiKey: activeCredentials[i],
           modelNumbers: uniqueModelNumbers.slice(start, end),
           chunkIndex: i
         })
