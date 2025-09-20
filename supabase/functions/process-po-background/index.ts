@@ -39,14 +39,15 @@ Deno.serve(async (req) => {
     
     const userClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      anonKey ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      anonKey ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${authHeader}`
+          }
+        }
+      }
     )
-
-    // Set the user's session on the client using the JWT token
-    await userClient.auth.setSession({
-      access_token: authHeader,
-      refresh_token: '' // Not needed for this operation
-    })
 
     // Get user from token using service client
     const { data: { user }, error: userError } = await serviceClient.auth.getUser(authHeader)
@@ -186,8 +187,15 @@ async function processModelNumbersBackground(supabaseClient: any, userId: string
     console.log(`Using user country: ${userCountry}`)
 
     // Get all active API keys using the secure RPC (no parameters needed)
+    console.log('Attempting to fetch credentials with user client...')
     const { data: activeKeys, error: keysError } = await supabaseClient
       .rpc('get_user_sunsky_credentials_secure')
+
+    console.log('Credentials fetch result:', { 
+      hasKeys: !!activeKeys, 
+      keysCount: activeKeys?.length || 0, 
+      error: keysError 
+    })
 
     if (keysError || !activeKeys || activeKeys.length === 0) {
       console.error('Failed to get credentials:', keysError)
@@ -196,6 +204,16 @@ async function processModelNumbersBackground(supabaseClient: any, userId: string
 
     // Filter only active credentials
     const activeCredentials = activeKeys.filter((key: any) => key.is_active)
+    
+    console.log('Active credentials found:', {
+      total: activeCredentials.length,
+      sample: activeCredentials[0] ? {
+        id: activeCredentials[0].id,
+        hasApiKey: !!activeCredentials[0].api_key,
+        hasApiSecret: !!activeCredentials[0].api_secret,
+        credentialsKeys: Object.keys(activeCredentials[0])
+      } : null
+    })
     
     if (activeCredentials.length === 0) {
       console.error('No active credentials found after filtering')
