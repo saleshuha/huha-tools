@@ -306,6 +306,20 @@ export const SunskySKUImporter: React.FC = () => {
     errorItems: 0,
     currentItem: ''
   });
+
+  // Individual API progress tracking for PO search
+  const [poApiProgress, setPOApiProgress] = useState<Array<{
+    apiId: string;
+    apiName: string;
+    progress: number;
+    currentItem: string;
+    status: 'idle' | 'processing' | 'completed' | 'error';
+    processed: number;
+    total: number;
+    matched: number;
+    imported: number;
+    errors: number;
+  }>>([]);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [selectedProduct, setSelectedProduct] = useState<SunskyProduct | null>(null);
   const [categoryFetchMode, setCategoryFetchMode] = useState<'top' | 'all' | 'modified'>('top');
@@ -1559,6 +1573,7 @@ export const SunskySKUImporter: React.FC = () => {
     
     setIsSearchingPO(true);
     setPOSearchProgress(0);
+    setPOApiProgress([]); // Clear any previous API progress
     
     try {
       // Get all active API credentials for the user
@@ -1593,6 +1608,20 @@ export const SunskySKUImporter: React.FC = () => {
       }
 
       const activeAPICount = allCredentials.length;
+      
+      // Initialize individual API progress tracking
+      setPOApiProgress(allCredentials.map((api, index) => ({
+        apiId: api.id,
+        apiName: api.name || `API ${index + 1}`,
+        progress: 0,
+        currentItem: '',
+        status: 'idle',
+        processed: 0,
+        total: 0,
+        matched: 0,
+        imported: 0,
+        errors: 0
+      })));
       
       // Show start message
       toast({
@@ -1635,14 +1664,37 @@ export const SunskySKUImporter: React.FC = () => {
         let chunkErrorCount = 0;
         let chunkImportedCount = 0;
 
+        // Update API status to processing
+        setPOApiProgress(prev => prev.map((api, index) => 
+          index === chunkIndex 
+            ? { ...api, status: 'processing', total: chunk.length }
+            : api
+        ));
+
         for (const modelNumber of chunk) {
           try {
             chunkSearchedCount++;
             totalSearchedCount++;
             
-            // Update progress and current item
-            const progress = Math.floor((totalSearchedCount / modelData.uniqueCount) * 100);
-            setPOSearchProgress(progress);
+            // Update individual API progress
+            const apiProgress = Math.floor((chunkSearchedCount / chunk.length) * 100);
+            setPOApiProgress(prev => prev.map((api, index) => 
+              index === chunkIndex 
+                ? { 
+                    ...api, 
+                    progress: apiProgress,
+                    currentItem: modelNumber,
+                    processed: chunkSearchedCount,
+                    matched: chunkMatchedCount,
+                    imported: chunkImportedCount,
+                    errors: chunkErrorCount
+                  }
+                : api
+            ));
+            
+            // Update overall progress and stats
+            const overallProgress = Math.floor((totalSearchedCount / modelData.uniqueCount) * 100);
+            setPOSearchProgress(overallProgress);
             
             setPOSearchStats(prev => ({
               ...prev,
@@ -1663,6 +1715,11 @@ export const SunskySKUImporter: React.FC = () => {
               console.warn(`API ${chunkIndex + 1} - Error searching for ${modelNumber}:`, response.error);
               chunkErrorCount++;
               totalErrorCount++;
+              
+              // Update API error count
+              setPOApiProgress(prev => prev.map((api, index) => 
+                index === chunkIndex ? { ...api, errors: chunkErrorCount } : api
+              ));
               continue;
             }
 
@@ -1688,11 +1745,16 @@ export const SunskySKUImporter: React.FC = () => {
                   totalImportedCount++;
                   console.log(`✅ API ${chunkIndex + 1} - Imported SKU for ${modelNumber}`);
                   
-                  // Update current item to show import success
-                  setPOSearchStats(prev => ({
-                    ...prev,
-                    currentItem: `API ${chunkIndex + 1}: ✅ Imported ${modelNumber} - ${product.name}`
-                  }));
+                  // Update API imported count and current item
+                  setPOApiProgress(prev => prev.map((api, index) => 
+                    index === chunkIndex 
+                      ? { 
+                          ...api, 
+                          imported: chunkImportedCount,
+                          currentItem: `✅ Imported ${modelNumber}`
+                        }
+                      : api
+                  ));
                 } else {
                   console.warn(`❌ API ${chunkIndex + 1} - Failed to import SKU for ${modelNumber}:`, importResponse.error);
                 }
@@ -1718,8 +1780,25 @@ export const SunskySKUImporter: React.FC = () => {
             console.error(`API ${chunkIndex + 1} - Error processing ${modelNumber}:`, error);
             chunkErrorCount++;
             totalErrorCount++;
+            
+            // Update API error count
+            setPOApiProgress(prev => prev.map((api, index) => 
+              index === chunkIndex ? { ...api, errors: chunkErrorCount } : api
+            ));
           }
         }
+
+        // Mark API as completed
+        setPOApiProgress(prev => prev.map((api, index) => 
+          index === chunkIndex 
+            ? { 
+                ...api, 
+                status: 'completed',
+                progress: 100,
+                currentItem: `✅ Completed: ${chunkImportedCount}/${chunkMatchedCount} imported`
+              }
+            : api
+        ));
 
         console.log(`🔥 API ${chunkIndex + 1} completed: ${chunkSearchedCount} searched, ${chunkMatchedCount} matched, ${chunkImportedCount} imported, ${chunkErrorCount} errors`);
         return {
@@ -2053,8 +2132,49 @@ export const SunskySKUImporter: React.FC = () => {
                       <Progress value={poSearchProgress} className="h-3" />
                     </div>
 
-                    {/* Current Item */}
-                    {poSearchStats.currentItem && <div className="space-y-1">
+                    {/* Current Item - replaced with Individual API Progress */}
+                    {poApiProgress.length > 0 && <div className="space-y-3">
+                        <Label className="text-xs text-muted-foreground">API Progress Status:</Label>
+                        <div className="space-y-2">
+                          {poApiProgress.map((api, index) => (
+                            <div key={api.apiId} className="bg-card p-3 rounded-lg border">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-sm">{api.apiName}</span>
+                                  <span className={`text-xs px-2 py-1 rounded-full ${
+                                    api.status === 'idle' ? 'bg-gray-100 text-gray-600' :
+                                    api.status === 'processing' ? 'bg-blue-100 text-blue-600' :
+                                    api.status === 'completed' ? 'bg-green-100 text-green-600' :
+                                    'bg-red-100 text-red-600'
+                                  }`}>
+                                    {api.status}
+                                  </span>
+                                </div>
+                                <span className="text-sm font-mono">{Math.round(api.progress)}%</span>
+                              </div>
+                              
+                              <Progress value={api.progress} className="h-2 mb-2" />
+                              
+                              <div className="text-xs text-muted-foreground space-y-1">
+                                {api.currentItem && (
+                                  <div className="font-mono bg-muted/30 p-1 rounded text-xs">
+                                    {api.currentItem}
+                                  </div>
+                                )}
+                                <div className="flex justify-between text-xs">
+                                  <span>Processed: {api.processed}/{api.total}</span>
+                                  <span className="text-green-600">Matched: {api.matched}</span>
+                                  <span className="text-blue-600">Imported: {api.imported}</span>
+                                  {api.errors > 0 && <span className="text-red-600">Errors: {api.errors}</span>}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>}
+
+                    {/* Fallback: Single current item display when no API progress */}
+                    {poApiProgress.length === 0 && poSearchStats.currentItem && <div className="space-y-1">
                         <Label className="text-xs text-muted-foreground">Currently Searching:</Label>
                         <div className="text-sm font-mono bg-muted/50 p-2 rounded border">
                           {poSearchStats.currentItem}
