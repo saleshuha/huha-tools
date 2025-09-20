@@ -1169,13 +1169,45 @@ export const POTracker = () => {
             <CardContent>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <Input
-                    type="text"
-                    placeholder="Search PO number, ASIN, model..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="max-w-sm"
-                  />
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="text"
+                      placeholder="Search PO number, ASIN, model..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="max-w-sm"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          await fetchPOOrders();
+                          refetchComprehensiveMetrics();
+                          refetchMetrics();
+                          toast({
+                            title: "Success",
+                            description: "PO data refreshed successfully with latest SKU matches",
+                          });
+                        } catch (error) {
+                          console.error('Error refreshing PO data:', error);
+                          toast({
+                            title: "Error",
+                            description: "Failed to refresh PO data",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                      disabled={isLoading}
+                      title="Refresh PO data to show newly imported SKU matches"
+                    >
+                      {isLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
                   <div className="flex items-center gap-2">
                     {/* Bulk Close Actions */}
                     {selectedPOsForBulkClose.size > 0 && (
