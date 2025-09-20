@@ -657,7 +657,7 @@ async function processImportJob(job: any, userId: string, userCountry: string) {
     let errorCount = 0;
     let currentChunk = 0;
     
-    // For category import, we'll process in chunks as we fetch
+    // Handle different import types
     if (type === 'category') {
       const searchParams: any = {
         lang: 'en',
@@ -770,6 +770,164 @@ async function processImportJob(job: any, userId: string, userCountry: string) {
         const chunkResults = await processProductChunk(currentChunkItems, credentials, userId, userCountry, job.id);
         successCount += chunkResults.successCount;
         errorCount += chunkResults.errorCount;
+      }
+    } else if (type === 'po_search') {
+      // Handle PO model number search
+      console.log(`Processing PO search with ${job.total_items} model numbers`);
+      
+      // Get model numbers from job criteria
+      const modelNumbers = criteria.unique_models || [];
+      
+      if (!modelNumbers.length) {
+        throw new Error('No model numbers found in PO search criteria');
+      }
+      
+      // Update job with correct total
+      await supabase
+        .from('sunsky_import_jobs')
+        .update({ 
+          total_items: modelNumbers.length,
+          processed_items: 0
+        })
+        .eq('id', job.id);
+      
+      // Process each model number
+      for (let i = 0; i < modelNumbers.length; i++) {
+        const modelNumber = modelNumbers[i];
+        
+        // Check if job is cancelled or paused
+        const { data: currentJob } = await supabase
+          .from('sunsky_import_jobs')
+          .select('paused, cancelled, status')
+          .eq('id', job.id)
+          .single();
+        
+        if (currentJob?.cancelled) {
+          console.log(`Job ${job.id} cancelled, stopping processing`);
+          await supabase
+            .from('sunsky_import_jobs')
+            .update({ 
+              status: 'cancelled',
+              success_count: successCount,
+              error_count: errorCount,
+              completed_at: new Date().toISOString()
+            })
+            .eq('id', job.id);
+          return;
+        }
+        
+        if (currentJob?.paused) {
+          console.log(`Job ${job.id} paused, stopping processing`);
+          await supabase
+            .from('sunsky_import_jobs')
+            .update({ 
+              status: 'paused',
+              success_count: successCount,
+              error_count: errorCount
+            })
+            .eq('id', job.id);
+          return;
+        }
+        
+        try {
+          // Search for the model number
+          const searchParams = {
+            lang: 'en',
+            page: 1,
+            pageSize: 10,
+            keyword: modelNumber
+          };
+          
+          const searchResult = await makeSunskyRequest('/openapi/product!search.do', searchParams, credentials.key, credentials.secret, userId);
+          
+          if (searchResult.result === 'success' && searchResult.data?.result?.length > 0) {
+            // Look for exact or close matches
+            const normalizedSearch = modelNumber.trim().toLowerCase().replace(/[-_\s]/g, '');
+            let foundMatch = false;
+            
+            for (const product of searchResult.data.result) {
+              const normalizedItem = (product.itemNo || '').trim().toLowerCase().replace(/[-_\s]/g, '');
+              const normalizedName = (product.name || '').trim().toLowerCase().replace(/[-_\s]/g, '');
+              
+              if (normalizedItem === normalizedSearch || 
+                  normalizedName.includes(normalizedSearch) ||
+                  normalizedSearch.includes(normalizedItem)) {
+                
+                // Get detailed product info
+                const detailResult = await makeSunskyRequest(
+                  '/openapi/product!detail.do',
+                  { lang: 'en', itemNo: product.itemNo },
+                  credentials.key,
+                  credentials.secret,
+                  userId
+                );
+                
+                if (detailResult.result === 'success' && detailResult.data) {
+                  const productDetail = detailResult.data;
+                  
+                  // Convert price to user's currency
+                  const convertedCost = await convertCurrency(
+                    parseFloat(productDetail.price || 0),
+                    userCountry
+                  );
+                  
+                  // Insert/update SKU
+                  const { error: skuError } = await supabase
+                    .from('sunsky_skus')
+                    .upsert({
+                      user_id: userId,
+                      sku_code: productDetail.itemNo,
+                      title: productDetail.name,
+                      cost: convertedCost,
+                      weight: productDetail.unitWeight ? parseFloat(productDetail.unitWeight) : null,
+                      description: `Imported from Sunsky - Lead Time: ${productDetail.leadTime || 'N/A'}`,
+                      currency: userCountry === 'KSA' ? 'SAR' : 'AED',
+                      country: userCountry,
+                      product_data: productDetail
+                    }, { 
+                      onConflict: 'user_id,sku_code',
+                      ignoreDuplicates: false 
+                    });
+                  
+                  if (!skuError) {
+                    successCount++;
+                    foundMatch = true;
+                    console.log(`✅ Imported ${modelNumber} -> ${productDetail.itemNo}: ${productDetail.name}`);
+                    break; // Found and imported, move to next model number
+                  } else {
+                    console.error(`Failed to import ${modelNumber}:`, skuError);
+                  }
+                }
+              }
+            }
+            
+            if (!foundMatch) {
+              errorCount++;
+              console.log(`❌ No matching product found for model: ${modelNumber}`);
+            }
+          } else {
+            errorCount++;
+            console.log(`❌ No search results for model: ${modelNumber}`);
+          }
+        } catch (error) {
+          errorCount++;
+          console.error(`❌ Error processing model ${modelNumber}:`, error.message);
+        }
+        
+        // Update progress
+        await supabase
+          .from('sunsky_import_jobs')
+          .update({ 
+            processed_items: i + 1,
+            success_count: successCount,
+            error_count: errorCount
+          })
+          .eq('id', job.id);
+          
+        // Small delay to avoid overwhelming the API
+        if (i < modelNumbers.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
       }
     }
 
