@@ -1546,7 +1546,7 @@ export const SunskySKUImporter: React.FC = () => {
     });
   }, []);
 
-  // Search PO model numbers in Sunsky and import matching items with background processing
+  // Search PO model numbers in Sunsky and import matching items (simplified version)
   const handleSearchPOModelNumbers = async () => {
     if (!hasCredentials) {
       toast({
@@ -1556,70 +1556,28 @@ export const SunskySKUImporter: React.FC = () => {
       });
       return;
     }
+    
     setIsSearchingPO(true);
     setPOSearchProgress(0);
+    
     try {
       // Get model numbers data from PO orders
       const modelData = await getPOModelNumbers();
       if (modelData.uniqueCount === 0) {
         toast({
           title: "No Model Numbers Found",
-          description: `Searched ${modelData.totalUniqueCount || 0} PO records but found no model numbers. Check console for details.`,
+          description: `Searched ${modelData.totalUniqueCount || 0} PO records but found no model numbers.`,
           variant: "default"
         });
         return;
       }
 
-      // Show enhanced diagnostics
+      // Show start message
       toast({
-        title: `Found ${modelData.uniqueCount} Model Numbers`,
-        description: `Total PO items: ${modelData.totalCount} | Unique models: ${modelData.uniqueCount} | Already imported: ${modelData.alreadyImportedCount} | Processing ALL models...`,
+        title: `Searching ${modelData.uniqueCount} Model Numbers`,
+        description: `Starting simple search for PO model numbers in Sunsky catalog...`,
         variant: "default"
       });
-      console.log(`🎯 STARTING PO MODEL SEARCH:`, {
-        totalPOItems: modelData.totalCount,
-        uniqueModels: modelData.uniqueCount,
-        alreadyImported: modelData.alreadyImportedCount,
-        willProcess: modelData.uniqueCount
-      });
-
-      console.log('📋 Sample model numbers to search:', modelData.uniqueModels.slice(0, 10));
-      console.log('🔍 Looking for SYA002416823A:', modelData.uniqueModels.includes('SYA002416823A'));
-
-      // Create import job first
-      const {
-        data: importJob
-      } = await supabase.from('sunsky_import_jobs').insert({
-        user_id: profile?.id,
-        type: 'po_search',
-        criteria: {
-          source: 'po_model_numbers',
-          total_models: modelData.totalCount,
-          unique_models: modelData.uniqueCount,
-          api_keys_used: 3 // Will be updated by background function
-        },
-        status: 'pending',
-        total_items: modelData.uniqueCount,
-        processed_items: 0,
-        success_count: 0,
-        error_count: 0,
-        started_at: new Date().toISOString()
-      }).select().single();
-      if (!importJob) {
-        throw new Error('Failed to create import job');
-      }
-
-      // Start background processing
-      const response = await supabase.functions.invoke('process-po-background', {
-        body: {
-          action: 'start',
-          jobId: importJob.id,
-          modelData: modelData
-        }
-      });
-      if (response.error) {
-        throw new Error('Failed to start background processing');
-      }
 
       // Initialize stats for UI
       setPOSearchStats({
@@ -1631,20 +1589,122 @@ export const SunskySKUImporter: React.FC = () => {
         skippedItems: 0,
         matchedItems: 0,
         errorItems: 0,
-        currentItem: 'Started background processing...'
+        currentItem: ''
       });
 
-      // Start polling for job progress
-      pollJobProgress(importJob.id);
-      toast({
-        title: "Background Processing Started",
-        description: `Processing ${modelData.uniqueCount} unique model numbers in the background. You can continue working on other features.`
-      });
+      // Process each model number one by one
+      const foundProducts: any[] = [];
+      let searchedCount = 0;
+      let matchedCount = 0;
+      let errorCount = 0;
+
+      for (const modelNumber of modelData.uniqueModels) {
+        try {
+          // Update progress
+          searchedCount++;
+          const progress = Math.floor((searchedCount / modelData.uniqueCount) * 100);
+          setPOSearchProgress(progress);
+          
+          // Update current item
+          setPOSearchStats(prev => ({
+            ...prev,
+            searchedItems: searchedCount,
+            currentItem: `Searching: ${modelNumber}`
+          }));
+
+          // Search for product by itemNo using getProductDetails endpoint
+          const response = await supabase.functions.invoke('sunsky-api', {
+            body: {
+              action: 'getProductDetails',
+              apiId: selectedSearchAPI,
+              itemNo: modelNumber
+            }
+          });
+
+          if (response.error) {
+            console.warn(`Error searching for ${modelNumber}:`, response.error);
+            errorCount++;
+            continue;
+          }
+
+          // Check if product was found
+          if (response.data?.result === 'success' && response.data?.data) {
+            const product = response.data.data;
+            foundProducts.push(product);
+            matchedCount++;
+            
+            console.log(`✅ Found product for ${modelNumber}:`, product.name);
+          } else {
+            console.log(`❌ No product found for ${modelNumber}`);
+          }
+
+          // Small delay to avoid overwhelming the API
+          await new Promise(resolve => setTimeout(resolve, 100));
+
+        } catch (error) {
+          console.error(`Error processing ${modelNumber}:`, error);
+          errorCount++;
+        }
+
+        // Update stats
+        setPOSearchStats(prev => ({
+          ...prev,
+          searchedItems: searchedCount,
+          matchedItems: matchedCount,
+          errorItems: errorCount
+        }));
+      }
+
+      // Import found products to SKU list
+      if (foundProducts.length > 0) {
+        try {
+          const response = await supabase.functions.invoke('sunsky-api', {
+            body: {
+              action: 'importSKUs',
+              skus: foundProducts
+            }
+          });
+
+          if (response.error) {
+            throw new Error('Failed to import SKUs');
+          }
+
+          // Refresh SKU list
+          await fetchSKUs(1, false);
+          
+          toast({
+            title: "Import Complete",
+            description: `Successfully imported ${foundProducts.length} products from ${modelData.uniqueCount} PO model numbers. ${errorCount} errors.`
+          });
+        } catch (error) {
+          console.error('Error importing SKUs:', error);
+          toast({
+            title: "Import Failed",
+            description: "Found products but failed to import them to SKU list.",
+            variant: "destructive"
+          });
+        }
+      } else {
+        toast({
+          title: "No Matches Found",
+          description: `Searched ${modelData.uniqueCount} model numbers but found no matching products in Sunsky catalog.`,
+          variant: "default"
+        });
+      }
+
+      // Final update
+      setPOSearchStats(prev => ({
+        ...prev,
+        currentItem: 'Search completed!',
+        searchedItems: modelData.uniqueCount,
+        matchedItems: matchedCount,
+        errorItems: errorCount
+      }));
     } catch (error) {
-      console.error('Error starting background processing:', error);
+      console.error('Error in PO model search:', error);
       toast({
-        title: "Processing Failed",
-        description: error instanceof Error ? error.message : "Failed to start background processing",
+        title: "Search Failed",
+        description: error instanceof Error ? error.message : "Failed to search PO model numbers",
         variant: "destructive"
       });
     } finally {
