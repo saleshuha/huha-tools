@@ -131,6 +131,9 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
     coupon: ''
   });
 
+  // Store validated items to avoid re-validation
+  const [validatedItems, setValidatedItems] = useState<Set<string>>(new Set());
+
   // Load countries on mount
   useEffect(() => {
     if (open && selectedOrders.length > 0) {
@@ -569,6 +572,9 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
     console.log('Available items:', availableItems);
     console.log('Unavailable items:', unavailableItems);
     
+    // Store validated items to avoid re-validation during order creation
+    setValidatedItems(new Set(availableItems.map(item => item.itemNo)));
+    
     // Reset progress tracking
     setItemsProgress({ current: 0, total: 0 });
     setCurrentItemName('');
@@ -739,13 +745,27 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
       
       const items = Array.from(itemsMap.values());
 
-      // Validate all items exist in Sunsky before creating order
+      // Add required title property for API
       const itemsWithTitles = items.map(item => ({
         ...item,
-        title: item.remark || 'PO Item' // Add required title property
+        title: item.remark || 'PO Item'
       }));
       
-      const { validItems, invalidItems } = await validateItemsExistence(itemsWithTitles);
+      // Skip validation if items were already validated during shipping step
+      const alreadyValidated = itemsWithTitles.every(item => validatedItems.has(item.itemNo));
+      let validItems = itemsWithTitles;
+      let invalidItems: any[] = [];
+      
+      if (!alreadyValidated) {
+        // Only validate if items weren't validated during shipping
+        const validationResult = await validateItemsExistence(itemsWithTitles);
+        validItems = validationResult.validItems;
+        invalidItems = validationResult.invalidItems;
+      } else {
+        // Items already validated, just show progress
+        setLoadingProgress(50);
+        setLoadingStatus('Using pre-validated items...');
+      }
 
       if (invalidItems.length > 0) {
         const invalidSkus = invalidItems.map(item => item.itemNo).join(', ');
@@ -778,7 +798,7 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
         return;
       }
 
-      setLoadingProgress(50);
+      setLoadingProgress(80);
       setLoadingStatus('Creating order with validated items...');
 
       const orderData = {
