@@ -1592,11 +1592,12 @@ export const SunskySKUImporter: React.FC = () => {
         currentItem: ''
       });
 
-      // Process each model number one by one
+      // Process each model number one by one and save immediately
       const foundProducts: any[] = [];
       let searchedCount = 0;
       let matchedCount = 0;
       let errorCount = 0;
+      let importedCount = 0;
 
       for (const modelNumber of modelData.uniqueModels) {
         try {
@@ -1634,12 +1635,37 @@ export const SunskySKUImporter: React.FC = () => {
             matchedCount++;
             
             console.log(`✅ Found product for ${modelNumber}:`, product.name);
+            
+            // Import this product immediately
+            try {
+              const importResponse = await supabase.functions.invoke('sunsky-api', {
+                body: {
+                  action: 'importSKUs',
+                  skus: [product] // Import single product
+                }
+              });
+
+              if (!importResponse.error && importResponse.data?.result === 'success') {
+                importedCount++;
+                console.log(`✅ Imported SKU for ${modelNumber}`);
+                
+                // Update current item to show import success
+                setPOSearchStats(prev => ({
+                  ...prev,
+                  currentItem: `✅ Imported: ${modelNumber} - ${product.name}`
+                }));
+              } else {
+                console.warn(`❌ Failed to import SKU for ${modelNumber}:`, importResponse.error);
+              }
+            } catch (importError) {
+              console.error(`Error importing SKU for ${modelNumber}:`, importError);
+            }
           } else {
             console.log(`❌ No product found for ${modelNumber}`);
           }
 
           // Small delay to avoid overwhelming the API
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, 150));
 
         } catch (error) {
           console.error(`Error processing ${modelNumber}:`, error);
@@ -1655,35 +1681,21 @@ export const SunskySKUImporter: React.FC = () => {
         }));
       }
 
-      // Import found products to SKU list
-      if (foundProducts.length > 0) {
-        try {
-          const response = await supabase.functions.invoke('sunsky-api', {
-            body: {
-              action: 'importSKUs',
-              skus: foundProducts
-            }
-          });
-
-          if (response.error) {
-            throw new Error('Failed to import SKUs');
-          }
-
-          // Refresh SKU list
-          await fetchSKUs(1, false);
-          
-          toast({
-            title: "Import Complete",
-            description: `Successfully imported ${foundProducts.length} products from ${modelData.uniqueCount} PO model numbers. ${errorCount} errors.`
-          });
-        } catch (error) {
-          console.error('Error importing SKUs:', error);
-          toast({
-            title: "Import Failed",
-            description: "Found products but failed to import them to SKU list.",
-            variant: "destructive"
-          });
-        }
+      // Refresh SKU list at the end
+      await fetchSKUs(1, false);
+      
+      // Show completion message
+      if (importedCount > 0) {
+        toast({
+          title: "Search & Import Complete",
+          description: `Successfully found and imported ${importedCount} of ${matchedCount} matched products from ${modelData.uniqueCount} PO model numbers. ${errorCount} errors.`
+        });
+      } else if (matchedCount > 0) {
+        toast({
+          title: "Import Issues",
+          description: `Found ${matchedCount} products but failed to import them. Check console for details.`,
+          variant: "destructive"
+        });
       } else {
         toast({
           title: "No Matches Found",
