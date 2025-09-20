@@ -240,7 +240,9 @@ export default function PODetailsPage() {
     if (asin) {
       console.log(`🎯 Checking ASIN inventory for: ${asin}`);
       const asinMatches = inventoryData.asinInventory.filter(item => 
-        item.asin === asin && item.quantity > 0 && item.status !== 'sold'
+        item.asin === asin && 
+        item.quantity > 0 && 
+        item.status !== 'sold'
       );
       if (asinMatches.length > 0) {
         console.log(`✅ Found ${asinMatches.length} ASIN match(es) with available stock:`, asinMatches);
@@ -249,20 +251,20 @@ export default function PODetailsPage() {
         const totalQuantity = asinMatches.reduce((sum, item) => sum + item.quantity, 0);
         const firstMatch = asinMatches[0];
         
-        console.log(`📊 Total aggregated quantity for ${asin}: ${totalQuantity}`);
+        console.log(`📊 Total available quantity for ${asin}: ${totalQuantity}`);
         console.log(`🔍 Breakdown for ${asin}:`, asinMatches.map(item => 
-          `${item.serial_number}: ${item.quantity} units`
+          `${item.serial_number}: ${item.quantity} units (${item.status})`
         ).join(', '));
         
         return {
           type: 'ASIN',
-          status: totalQuantity > 0 ? 'in-stock' : firstMatch.status,
+          status: 'in-stock',
           quantity: totalQuantity,
           identifier: firstMatch.asin,
           serialNumber: asinMatches.map(item => `${item.serial_number}(${item.quantity})`).join(', ')
         };
       } else {
-        console.log(`❌ No ASIN match found in asin_inventory`);
+        console.log(`❌ No ASIN match found with available stock in asin_inventory`);
       }
     }
 
@@ -272,7 +274,9 @@ export default function PODetailsPage() {
     
     for (const sku of skusToCheck) {
       const skuMatch = inventoryData.skuInventory.find(item => 
-        item.sku_number === sku && item.quantity > 0 && item.status !== 'sold'
+        item.sku_number === sku && 
+        item.quantity > 0 && 
+        item.status !== 'sold'
       );
       if (skuMatch) {
         console.log(`✅ Found SKU match for ${sku} with available stock:`, skuMatch);
@@ -284,7 +288,7 @@ export default function PODetailsPage() {
           serialNumber: skuMatch.bin_serial_number
         };
       } else {
-        console.log(`❌ No SKU match found for: ${sku} with available stock`);
+        console.log(`❌ No SKU match found with available stock for: ${sku}`);
       }
     }
 
@@ -294,7 +298,9 @@ export default function PODetailsPage() {
       console.log(`📋 Available SKU numbers:`, inventoryData.skuInventory.map(item => item.sku_number));
       
       const skuAsinMatch = inventoryData.skuInventory.find(item => 
-        item.sku_number === asin && item.quantity > 0 && item.status !== 'sold'
+        item.sku_number === asin && 
+        item.quantity > 0 && 
+        item.status !== 'sold'
       );
       if (skuAsinMatch) {
         console.log(`✅ Found SKU-ASIN match with available stock:`, skuAsinMatch);
@@ -306,7 +312,7 @@ export default function PODetailsPage() {
           serialNumber: skuAsinMatch.bin_serial_number
         };
       } else {
-        console.log(`❌ No SKU-ASIN match found for: ${asin} with available stock`);
+        console.log(`❌ No SKU-ASIN match found with available stock for: ${asin}`);
       }
     }
 
@@ -2308,107 +2314,17 @@ export default function PODetailsPage() {
                 <h3 className="text-sm font-semibold text-green-800 dark:text-green-200">Inventory</h3>
               </div>
               
-              {/* Enhanced Bulk From Stock - with confirmation dialog */}
+              {/* Mark From Stock - only show when instock items are selected */}
               {selectionType === 'instock' && (
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button 
-                      size="sm"
-                      className="w-full bg-green-600 hover:bg-green-700 text-white disabled:bg-green-300 disabled:cursor-not-allowed transition-all duration-200 hover-scale"
-                      disabled={isUpdating || selectedItems.size === 0}
-                    >
-                      <PackageCheck className="h-4 w-4 mr-2" />
-                      Bulk From Stock ({selectedItems.size})
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle>Bulk From Stock Fulfillment</DialogTitle>
-                      <DialogDescription>
-                        Fulfill {selectedItems.size} selected items from inventory stock. This will:
-                        <br />• Deduct quantities from your inventory
-                        <br />• Mark items as fulfilled from stock
-                        <br />• Update order status accordingly
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
-                        <h4 className="font-semibold text-green-800 dark:text-green-200 mb-3">
-                          Items to fulfill from stock:
-                        </h4>
-                        <div className="space-y-2">
-                          {Array.from(selectedItems).map((orderId) => {
-                            const order = matchedOrders.find(o => o.id === orderId);
-                            if (!order) return null;
-                            
-                            const inventoryMatch = findInventoryMatch(
-                              order.asin, 
-                              order.sunsky_sku?.sku_code, 
-                              order.sku_code, 
-                              order.model_number
-                            );
-                            const availableStock = inventoryMatch?.quantity || 0;
-                            const fulfillQuantity = Math.min(order.quantity, availableStock);
-                            
-                            return (
-                              <div key={orderId} className="flex items-center justify-between text-sm">
-                                <div>
-                                  <span className="font-mono font-medium">{order.asin}</span>
-                                  {order.title && (
-                                    <span className="text-muted-foreground ml-2">
-                                      {order.title.substring(0, 50)}...
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-right">
-                                  <div className="font-semibold text-green-700 dark:text-green-300">
-                                    {fulfillQuantity} of {order.quantity} units
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    Stock: {availableStock} available
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                      
-                      <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg">
-                        <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
-                          <AlertTriangle className="h-4 w-4" />
-                          <span className="text-sm font-medium">Important:</span>
-                        </div>
-                        <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
-                          This action will immediately deduct inventory quantities and cannot be easily undone. 
-                          Please verify the items and quantities before proceeding.
-                        </p>
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline">
-                        Cancel
-                      </Button>
-                      <Button 
-                        onClick={handleBulkMarkFromInventory}
-                        disabled={isUpdating}
-                        className="bg-green-600 hover:bg-green-700"
-                      >
-                        {isUpdating ? (
-                          <>
-                            <Clock className="h-4 w-4 mr-2 animate-spin" />
-                            Processing...
-                          </>
-                        ) : (
-                          <>
-                            <PackageCheck className="h-4 w-4 mr-2" />
-                            Fulfill from Stock
-                          </>
-                        )}
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                <Button 
+                  size="sm"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white disabled:bg-green-300 disabled:cursor-not-allowed transition-all duration-200 hover-scale"
+                  onClick={handleBulkMarkFromInventory}
+                  disabled={isUpdating || selectedItems.size === 0}
+                >
+                  <PackageCheck className="h-4 w-4 mr-2" />
+                  Mark From Stock
+                </Button>
               )}
               
               <Button 
@@ -2594,7 +2510,7 @@ export default function PODetailsPage() {
         {/* Items Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Order Items ({matchedOrders.length} items with inventory matches of {poOrdersForThisPO.length} total)</CardTitle>
+            <CardTitle>Order Items ({matchedOrders.length} items with inventory matches)</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
@@ -2733,13 +2649,12 @@ export default function PODetailsPage() {
                          const isPartialFulfillment = order.notes?.includes('Partial fulfillment from stock');
                          const isRemainingQuantity = order.notes?.includes('Remaining quantity from partial fulfillment');
                          
-                          if (isPartialFulfillment) {
-                            // This is the fulfilled portion - extract quantities from notes
-                            const originalQtyMatch = order.notes?.match(/Original quantity: (\d+) pcs/);
-                            const fulfilledMatch = order.notes?.match(/Partial fulfillment from stock: (\d+) pcs/);
-                            const originalQuantity = originalQtyMatch ? parseInt(originalQtyMatch[1]) : order.quantity;
-                            const fulfilledFromStock = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
-                            const remainingQuantity = originalQuantity - fulfilledFromStock;
+                         if (isPartialFulfillment) {
+                           // This is the fulfilled portion - extract original quantity
+                           const originalQtyMatch = order.notes?.match(/Original quantity: (\d+) pcs/);
+                           const originalQuantity = originalQtyMatch ? parseInt(originalQtyMatch[1]) : order.quantity;
+                           const fulfilledFromStock = order.quantity;
+                           const remainingQuantity = originalQuantity - fulfilledFromStock;
                            
                            return (
                              <div className="space-y-1">
