@@ -2733,12 +2733,13 @@ export default function PODetailsPage() {
                          const isPartialFulfillment = order.notes?.includes('Partial fulfillment from stock');
                          const isRemainingQuantity = order.notes?.includes('Remaining quantity from partial fulfillment');
                          
-                         if (isPartialFulfillment) {
-                           // This is the fulfilled portion - extract original quantity
-                           const originalQtyMatch = order.notes?.match(/Original quantity: (\d+) pcs/);
-                           const originalQuantity = originalQtyMatch ? parseInt(originalQtyMatch[1]) : order.quantity;
-                           const fulfilledFromStock = order.quantity;
-                           const remainingQuantity = originalQuantity - fulfilledFromStock;
+                          if (isPartialFulfillment) {
+                            // This is the fulfilled portion - extract quantities from notes
+                            const originalQtyMatch = order.notes?.match(/Original quantity: (\d+) pcs/);
+                            const fulfilledMatch = order.notes?.match(/Partial fulfillment from stock: (\d+) pcs/);
+                            const originalQuantity = originalQtyMatch ? parseInt(originalQtyMatch[1]) : order.quantity;
+                            const fulfilledFromStock = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
+                            const remainingQuantity = originalQuantity - fulfilledFromStock;
                            
                            return (
                              <div className="space-y-1">
