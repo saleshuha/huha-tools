@@ -2925,41 +2925,68 @@ export default function PODetailsPage() {
                                isRemainingQuantity
                              });
                              
-                             if (isFromStock) {
-                               // For new format, the order.quantity contains the fulfilled quantity
-                               // But also try to parse from notes as backup
-                               const fulfilledMatch = order.notes?.match(/Fulfilled from stock: (\d+) pcs/);
-                               const fulfilledQuantity = fulfilledMatch ? parseInt(fulfilledMatch[1]) : order.quantity;
-                               
-                               console.log("📦 From Stock Display:", { fulfilledMatch, fulfilledQuantity, orderQuantity: order.quantity });
-                               
-                               return (
-                                 <div className="space-y-1">
-                                   <div className="text-sm font-semibold text-green-700 flex items-center gap-1">
-                                     ✓ {fulfilledQuantity} fulfilled from stock
-                                   </div>
-                                   <div className="text-xs text-gray-500">
-                                     Status: Completed
-                                   </div>
-                                 </div>
-                               );
-                             } else if (isPartialFulfillment) {
-                               // Legacy partial fulfillment format - quantity is 0, need to parse from notes
-                               const fulfilledMatch = order.notes?.match(/Partial fulfillment from stock: (\d+) pcs/);
-                               const fulfilledQuantity = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
-                               
-                               console.log("🔄 Legacy Partial Display:", { fulfilledMatch, fulfilledQuantity, orderQuantity: order.quantity });
-                               
-                               return (
-                                 <div className="space-y-1">
-                                   <div className="text-sm font-semibold text-green-700 flex items-center gap-1">
-                                     ✓ {fulfilledQuantity} fulfilled from stock
-                                   </div>
-                                   <div className="text-xs text-gray-500">
-                                     Status: Completed
-                                   </div>
-                                 </div>
-                               );
+                              if (isFromStock) {
+                                // For new format, the order.quantity contains the fulfilled quantity
+                                // But also try to parse from notes as backup
+                                const fulfilledMatch = order.notes?.match(/Fulfilled from stock: (\d+) pcs/);
+                                let fulfilledQuantity = fulfilledMatch ? parseInt(fulfilledMatch[1]) : order.quantity;
+                                
+                                // If still 0 or invalid, try to parse original quantity and calculate
+                                if (!fulfilledQuantity || fulfilledQuantity <= 0) {
+                                  const originalMatch = order.notes?.match(/Original quantity: (\d+) pcs/);
+                                  if (originalMatch) {
+                                    fulfilledQuantity = parseInt(originalMatch[1]);
+                                  }
+                                }
+                                
+                                // Ensure we have a valid number
+                                fulfilledQuantity = fulfilledQuantity || 1;
+                                
+                                console.log("📦 From Stock Display:", { 
+                                  notes: order.notes, 
+                                  fulfilledMatch, 
+                                  fulfilledQuantity, 
+                                  orderQuantity: order.quantity 
+                                });
+                                
+                                return (
+                                  <div className="space-y-1">
+                                    <div className="text-sm font-semibold text-green-700 flex items-center gap-1">
+                                      ✓ {fulfilledQuantity} fulfilled from stock
+                                    </div>
+                                    <div className="text-xs text-gray-500">
+                                      Status: Completed
+                                    </div>
+                                  </div>
+                                );
+                              } else if (isPartialFulfillment) {
+                                // Legacy partial fulfillment format - quantity is 0, need to parse from notes
+                                const fulfilledMatch = order.notes?.match(/Partial fulfillment from stock: (\d+) pcs/);
+                                let fulfilledQuantity = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
+                                
+                                // If no match, try other patterns
+                                if (!fulfilledQuantity) {
+                                  const altMatch = order.notes?.match(/(\d+) pcs/);
+                                  fulfilledQuantity = altMatch ? parseInt(altMatch[1]) : 1;
+                                }
+                                
+                                console.log("🔄 Legacy Partial Display:", { 
+                                  notes: order.notes, 
+                                  fulfilledMatch, 
+                                  fulfilledQuantity, 
+                                  orderQuantity: order.quantity 
+                                });
+                                
+                                return (
+                                  <div className="space-y-1">
+                                    <div className="text-sm font-semibold text-green-700 flex items-center gap-1">
+                                      ✓ {fulfilledQuantity} fulfilled from stock
+                                    </div>
+                                    <div className="text-xs text-gray-500">
+                                      Status: Completed
+                                    </div>
+                                  </div>
+                                );
                              } else if (isRemainingQuantity) {
                                // This is the remaining portion - show as pending
                                const originalQtyMatch = order.notes?.match(/Original order quantity: (\d+) pcs/);
