@@ -167,9 +167,9 @@ async function processModelNumbersBackground(supabaseClient: any, userId: string
     const userCountry = userProfile.country || 'UAE' // fallback to UAE if no country set
     console.log(`Using user country: ${userCountry}`)
 
-    // Get all active API keys using the secure RPC
+    // Get all active API keys using the secure RPC (no parameters needed)
     const { data: activeKeys, error: keysError } = await supabaseClient
-      .rpc('get_user_sunsky_credentials_secure', { p_user_id: userId })
+      .rpc('get_user_sunsky_credentials_secure')
 
     if (keysError || !activeKeys || activeKeys.length === 0) {
       console.error('Failed to get credentials:', keysError)
@@ -178,6 +178,11 @@ async function processModelNumbersBackground(supabaseClient: any, userId: string
 
     // Filter only active credentials
     const activeCredentials = activeKeys.filter((key: any) => key.is_active)
+    
+    if (activeCredentials.length === 0) {
+      console.error('No active credentials found after filtering')
+      throw new Error("No active API keys found")
+    }
 
     console.log(`Found ${activeCredentials.length} active API keys for parallel processing`)
 
