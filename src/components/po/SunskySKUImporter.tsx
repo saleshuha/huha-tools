@@ -1452,20 +1452,23 @@ export const SunskySKUImporter: React.FC = () => {
         setImportProgress((imported + errors) / total * 100);
       }
 
-      // Force refresh the SKU list
+      // Force refresh the SKU list and show newly imported items
       console.log('Forcing SKU list refresh after manual import...');
       try {
-        // Clear cache and force refresh
-        await fetchSKUs(1, false); // Force refresh without cache
+        // Clear cache first
+        localStorage.removeItem('sunsky_skus_cache');
+        
+        // Force a complete refresh without cache
+        await refreshSKUs();
+        
         console.log('SKU list refreshed successfully');
       } catch (refreshError) {
         console.error('Error refreshing SKU list:', refreshError);
-        // Fallback: try the refresh function
-        try {
-          await refreshSKUs();
-        } catch (fallbackError) {
-          console.error('Fallback refresh also failed:', fallbackError);
-        }
+        toast({
+          title: "Warning", 
+          description: "Imported SKUs successfully but refresh failed. Please click the 'Imported SKUs' tab to see new items.",
+          variant: "destructive"
+        });
       }
       toast({
         title: "Import Complete",
