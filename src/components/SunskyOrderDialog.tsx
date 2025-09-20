@@ -749,9 +749,13 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
 
       if (invalidItems.length > 0) {
         const invalidSkus = invalidItems.map(item => item.itemNo).join(', ');
+        const message = invalidItems.length === items.length 
+          ? `All ${invalidItems.length} item(s) are no longer available in Sunsky's catalog. Your SKU database may need updating.` 
+          : `${invalidItems.length} item(s) are no longer available in Sunsky's catalog and will be excluded: ${invalidSkus.length > 50 ? invalidSkus.substring(0, 50) + '...' : invalidSkus}`;
+        
         toast({
-          title: "Some Items Don't Exist",
-          description: `${invalidItems.length} item(s) don't exist in Sunsky catalog and will be excluded: ${invalidSkus.length > 50 ? invalidSkus.substring(0, 50) + '...' : invalidSkus}`,
+          title: invalidItems.length === items.length ? "All Items Unavailable" : "Some Items Unavailable",
+          description: message,
           variant: "destructive"
         });
 
@@ -763,9 +767,13 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
       if (validItems.length === 0) {
         toast({
           title: "No Valid Items",
-          description: "None of the selected items exist in Sunsky catalog",
+          description: "None of the selected items exist in Sunsky's current catalog. Your local SKU database may be outdated. Visit the Sunsky SKU Importer to refresh your database.",
           variant: "destructive"
         });
+        
+        // Log the invalid SKUs for debugging
+        console.log("Invalid SKUs that failed validation:", invalidItems.map(item => item.itemNo));
+        
         setLoading(false);
         return;
       }
