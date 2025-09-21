@@ -11,7 +11,7 @@ import { Calendar } from './ui/calendar';
 import { useCountry } from '@/contexts/CountryContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Package, CheckCircle, XCircle, Search, Download, FileText, RefreshCw, Activity, BarChart3, TrendingDown, CalendarIcon, Plus, TrendingUp } from 'lucide-react';
+import { Package, CheckCircle, XCircle, Search, Download, FileText, RefreshCw, Activity, BarChart3, TrendingDown, CalendarIcon, Plus, TrendingUp, ImageIcon } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 interface InventoryItem {
@@ -36,6 +36,7 @@ interface InventoryStats {
   skuSoldUnits: number;
   missingSku: number;
   missingTitles: number;
+  missingImages: number;
   restockEligible: number;
   nonRestockEligible: number;
 }
@@ -63,11 +64,12 @@ export function InventoryMetrics({
     skuSoldUnits: 0,
     missingSku: 0,
     missingTitles: 0,
+    missingImages: 0,
     restockEligible: 0,
     nonRestockEligible: 0
   });
   const [loading, setLoading] = useState(true);
-  const [selectedMetric, setSelectedMetric] = useState<'active' | 'instock' | 'outofstock' | 'sold' | 'missing-sku' | 'missing-titles' | 'restock-eligible' | 'non-restock-eligible' | null>(null);
+  const [selectedMetric, setSelectedMetric] = useState<'active' | 'instock' | 'outofstock' | 'sold' | 'missing-sku' | 'missing-titles' | 'missing-images' | 'restock-eligible' | 'non-restock-eligible' | null>(null);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [exportLoading, setExportLoading] = useState(false);
@@ -115,6 +117,15 @@ export function InventoryMetrics({
         // Calculate items with missing titles
         const missingTitles = asinItems.filter(item => !item.title || item.title.trim() === '').length;
         
+        // Calculate items with missing images
+        const { data: productImages } = await supabase
+          .from('product_images')
+          .select('asin')
+          .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
+        
+        const existingImageAsins = new Set((productImages || []).map(img => img.asin));
+        const missingImages = asinItems.filter(item => !existingImageAsins.has(item.asin)).length;
+        
         setStats({
           activeItems,
           inStockItems,
@@ -125,6 +136,7 @@ export function InventoryMetrics({
           skuSoldUnits: 0,
           missingSku,
           missingTitles,
+          missingImages,
           restockEligible,
           nonRestockEligible
         });
@@ -169,6 +181,7 @@ export function InventoryMetrics({
           skuSoldUnits,
           missingSku: 0,
           missingTitles: 0,
+          missingImages: 0,
           restockEligible,
           nonRestockEligible
         });
@@ -208,6 +221,15 @@ export function InventoryMetrics({
         // Calculate items with missing titles (only for ASIN)
         const missingTitles = asinItems.filter(item => !item.title || item.title.trim() === '').length;
         
+        // Calculate items with missing images
+        const { data: productImages } = await supabase
+          .from('product_images')
+          .select('asin')
+          .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
+        
+        const existingImageAsins = new Set((productImages || []).map(img => img.asin));
+        const missingImages = asinItems.filter(item => !existingImageAsins.has(item.asin)).length;
+        
         setStats({
           activeItems,
           inStockItems,
@@ -218,6 +240,7 @@ export function InventoryMetrics({
           skuSoldUnits,
           missingSku,
           missingTitles,
+          missingImages,
           restockEligible,
           nonRestockEligible
         });
@@ -456,6 +479,44 @@ export function InventoryMetrics({
     }
   };
 
+  const loadMissingImageItems = async () => {
+    try {
+      if (showOnlyAsin || !showOnlySku) {
+        // Get current user's product images
+        const { data: productImages } = await supabase
+          .from('product_images')
+          .select('asin')
+          .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
+        
+        const existingImageAsins = new Set((productImages || []).map(img => img.asin));
+        
+        // Load ASIN data and filter for missing images
+        const { data: asinData } = await supabase
+          .from('asin_inventory')
+          .select('*') 
+          .eq('country', selectedCountry);
+        
+        const allItems = (asinData || [])
+          .filter(item => !existingImageAsins.has(item.asin))
+          .map(item => ({
+            ...item,
+            type: 'asin' as const,
+            identifier: `${item.asin} (${item.serial_number})`
+          }));
+        
+        setInventoryItems(allItems);
+      } else {
+        setInventoryItems([]);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error loading missing image items",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleMissingTitlesClick = async () => {
     setSelectedMetric('missing-titles');
     await loadMissingTitleItems();
@@ -464,6 +525,11 @@ export function InventoryMetrics({
   const handleMissingSkuClick = async () => {
     setSelectedMetric('missing-sku');
     await loadMissingSkuItems();
+  };
+
+  const handleMissingImagesClick = async () => {
+    setSelectedMetric('missing-images');
+    await loadMissingImageItems();
   };
 
   const handleRestockEligibleClick = async () => {
@@ -684,6 +750,27 @@ export function InventoryMetrics({
           </Card>
         )}
 
+        {/* Missing Images - Only show when viewing ASIN or combined view */}
+        {(!showOnlySku) && (
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-20 flex flex-col border-l-4 border-l-pink-500"
+            onClick={handleMissingImagesClick}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
+              <div className="flex flex-col justify-center min-w-0 flex-1">
+                <CardTitle className="text-xs font-medium text-muted-foreground truncate">Missing Images</CardTitle>
+                <div className="text-lg font-bold text-pink-600 mt-1">{stats.missingImages}</div>
+              </div>
+              <div className="w-6 h-6 bg-pink-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+                <ImageIcon className="h-3 w-3 text-pink-600" />
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0 pb-1 flex-shrink-0">
+              <p className="text-xs text-muted-foreground truncate">ASIN without Images</p>
+            </CardContent>
+          </Card>
+        )}
+
       </div>
 
       {/* Details Modal */}
@@ -697,6 +784,7 @@ export function InventoryMetrics({
               {selectedMetric === 'outofstock' && 'Out of Stock Items'}
               {selectedMetric === 'missing-sku' && 'Items with Missing SKU'}
               {selectedMetric === 'missing-titles' && 'Items with Missing Titles'}
+              {selectedMetric === 'missing-images' && 'Items with Missing Images'}
               {selectedMetric === 'restock-eligible' && 'Restock Eligible Items'}
               {selectedMetric === 'non-restock-eligible' && 'Non-Restock Eligible Items'}
               <Badge variant="outline" className="ml-2">
