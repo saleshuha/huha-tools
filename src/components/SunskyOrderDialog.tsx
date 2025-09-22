@@ -7,10 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Package, Truck, ExternalLink, Save, BookOpen, Trash2 } from 'lucide-react';
+import { Loader2, Package, Truck, ExternalLink, Save, BookOpen, Trash2, Database } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { SunskyDataViewer } from '@/components/SunskyDataViewer';
 
 interface SunskyOrderDialogProps {
   open: boolean;
@@ -98,6 +99,10 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
   
   // Sunsky credentials state
   const [sunskyCredentials, setSunskyCredentials] = useState<SunskyCredential[]>([]);
+  
+  // Data viewer state
+  const [showDataViewer, setShowDataViewer] = useState(false);
+  const [invalidItemsData, setInvalidItemsData] = useState<any[]>([]);
   const [selectedCredentialId, setSelectedCredentialId] = useState<string>('');
   const [loadingCredentials, setLoadingCredentials] = useState(false);
   
@@ -785,10 +790,23 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
       }
 
       if (validItems.length === 0) {
+        // Store invalid items for the data viewer
+        setInvalidItemsData(invalidItems);
+        
         toast({
           title: "No Valid Items",
-          description: "None of the selected items exist in Sunsky's current catalog. Your local SKU database may be outdated. Visit the Sunsky SKU Importer to refresh your database.",
-          variant: "destructive"
+          description: "None of the selected items exist in Sunsky's current catalog. Click 'View Data' to analyze the issues.",
+          variant: "destructive",
+          action: (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowDataViewer(true)}
+            >
+              <Database className="h-4 w-4 mr-2" />
+              View Data
+            </Button>
+          )
         });
         
         // Log the invalid SKUs for debugging
@@ -1567,6 +1585,20 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
           </div>
         </DialogFooter>
       </DialogContent>
+      
+      <SunskyDataViewer
+        open={showDataViewer}
+        onOpenChange={setShowDataViewer}
+        invalidItems={invalidItemsData}
+        onRefreshComplete={() => {
+          // Optionally refresh the dialog data
+          setShowDataViewer(false);
+          toast({
+            title: "Data Refreshed",
+            description: "You can now retry creating your order",
+          });
+        }}
+      />
     </Dialog>
   );
 }
