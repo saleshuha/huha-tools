@@ -853,22 +853,9 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
         
         toast({
           title: "No Valid Items",
-          description: `None of the selected items exist in Sunsky's current catalog. Sunsky API returned "ITEM_NOT_EXIST" for your items. Click 'View Data' to analyze the issues.`,
+          description: `None of the selected items exist in Sunsky's current catalog. Sunsky API returned "ITEM_NOT_EXIST" for your items.`,
           variant: "destructive",
-          duration: 10000, // Show longer so user can see the button
-          action: (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                console.log("📊 Opening Data Viewer");
-                setShowDataViewer(true);
-              }}
-            >
-              <Database className="h-4 w-4 mr-2" />
-              View Data
-            </Button>
-          )
+          duration: 5000,
         });
         
         // Log the invalid SKUs for debugging
@@ -1648,13 +1635,28 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
                   </div>
                 </Card>
               ) : (
-                <Button 
-                  onClick={handleCreateOrder}
-                  disabled={loading || checkedItems.size === 0}
-                >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Create Order
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={handleCreateOrder}
+                    disabled={loading || checkedItems.size === 0}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Create Order
+                  </Button>
+                  
+                  {invalidItemsData.length > 0 && (
+                    <Button
+                      variant="outline" 
+                      onClick={() => {
+                        console.log("📊 Opening Data Viewer");
+                        setShowDataViewer(true);
+                      }}
+                    >
+                      <Database className="h-4 w-4 mr-2" />
+                      View Data Issues
+                    </Button>
+                  )}
+                </div>
               )
             )}
           </div>
