@@ -17,6 +17,7 @@ import { usePOOrders } from '@/hooks/usePOOrders';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { SunskyOrderDialog } from '@/components/SunskyOrderDialog';
+import { SunskyDataViewer } from '@/components/SunskyDataViewer';
 
 // Cache busting comment - Fixed poDetails issue - v2
 
@@ -77,6 +78,10 @@ export default function PODetailsPage() {
   // Sunsky order dialog state
   const [sunskyOrderDialogOpen, setSunskyOrderDialogOpen] = useState(false);
   const [hasSunskyCredentials, setHasSunskyCredentials] = useState(false);
+  
+  // Data viewer state
+  const [showDataViewer, setShowDataViewer] = useState(false);
+  const [invalidItemsData, setInvalidItemsData] = useState<any[]>([]);
   
   // Track items marked from stock
   const [itemsMarkedFromStock, setItemsMarkedFromStock] = useState<Set<string>>(new Set());
@@ -1902,10 +1907,28 @@ export default function PODetailsPage() {
     );
 
     if (itemsWithSunskyData.length === 0) {
+      // Prepare invalid items data for the data viewer
+      const invalidItems = itemsWithQuantity.map(order => ({
+        itemNo: order.sku_code || order.model_number || 'N/A',
+        title: order.title || 'Unknown Item',
+        qty: order.quantity
+      }));
+      
+      setInvalidItemsData(invalidItems);
+      
       toast({
         title: "No Sunsky Data",
-        description: "Selected items don't have Sunsky SKU information",
-        variant: "destructive"
+        description: "Selected items don't have Sunsky SKU information. Click 'View Data' to analyze the issues.",
+        variant: "destructive",
+        action: (
+          <Button
+            variant="outline" 
+            size="sm"
+            onClick={() => setShowDataViewer(true)}
+          >
+            View Data
+          </Button>
+        )
       });
       return;
     }
@@ -3170,6 +3193,20 @@ export default function PODetailsPage() {
           onOpenChange={setSunskyOrderDialogOpen}
           selectedOrders={matchedOrders.filter(order => selectedItems.has(order.id))}
           onOrderSuccess={handleSunskyOrderSuccess}
+        />
+
+        {/* Sunsky Data Viewer */}
+        <SunskyDataViewer
+          open={showDataViewer}
+          onOpenChange={setShowDataViewer}
+          invalidItems={invalidItemsData}
+          onRefreshComplete={() => {
+            setShowDataViewer(false);
+            toast({
+              title: "Data Refreshed",
+              description: "You can now retry ordering from Sunsky",
+            });
+          }}
         />
       </div>
     </div>
