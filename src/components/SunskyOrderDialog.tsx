@@ -806,15 +806,22 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
         // Store invalid items for the data viewer
         setInvalidItemsData(invalidItems);
         
+        console.log("🚫 NO VALID ITEMS - Showing Data Viewer button");
+        console.log("Invalid items data:", invalidItems);
+        
         toast({
           title: "No Valid Items",
-          description: "None of the selected items exist in Sunsky's current catalog. Click 'View Data' to analyze the issues.",
+          description: `None of the selected items exist in Sunsky's current catalog. Sunsky API returned "ITEM_NOT_EXIST" for your items. Click 'View Data' to analyze the issues.`,
           variant: "destructive",
+          duration: 10000, // Show longer so user can see the button
           action: (
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setShowDataViewer(true)}
+              onClick={() => {
+                console.log("📊 Opening Data Viewer");
+                setShowDataViewer(true);
+              }}
             >
               <Database className="h-4 w-4 mr-2" />
               View Data
