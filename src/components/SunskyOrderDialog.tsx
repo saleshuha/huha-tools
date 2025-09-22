@@ -676,11 +676,21 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
     setLoadingStatus('Validating items with Sunsky...');
     setLoadingProgress(10);
     
+    // Log delivery address for debugging
+    console.log('🏠 Delivery address for validation:', {
+      countryId: deliveryAddress.countryId,
+      state: deliveryAddress.state,
+      city: deliveryAddress.city,
+      postcode: deliveryAddress.postcode
+    });
+    
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       setCurrentItemName(item.itemNo);
       setItemsProgress({ current: i + 1, total: items.length });
       setLoadingProgress(10 + (i / items.length) * 30); // 10-40% for validation
+      
+      console.log(`🔍 Validating item ${item.itemNo} (${item.title})`);
       
       try {
         const testResponse = await supabase.functions.invoke('sunsky-api', {
@@ -696,17 +706,20 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
           }
         });
 
+        console.log(`📋 API response for ${item.itemNo}:`, testResponse);
+
         if (testResponse.error) {
-          console.warn(`Item ${item.itemNo} validation failed:`, testResponse.error);
+          console.warn(`❌ Item ${item.itemNo} validation failed:`, testResponse.error);
           invalidItems.push(item);
         } else if (testResponse.data?.result === 'success' && testResponse.data?.data?.items?.[0]) {
+          console.log(`✅ Item ${item.itemNo} is VALID in Sunsky catalog`);
           validItems.push(item);
         } else {
-          console.warn(`Item ${item.itemNo} not found in Sunsky catalog`);
+          console.warn(`⚠️ Item ${item.itemNo} not found in Sunsky catalog. Response:`, testResponse.data);
           invalidItems.push(item);
         }
       } catch (error) {
-        console.warn(`Item ${item.itemNo} validation error:`, error);
+        console.warn(`💥 Item ${item.itemNo} validation error:`, error);
         invalidItems.push(item);
       }
     }
