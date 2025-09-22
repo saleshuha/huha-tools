@@ -311,7 +311,33 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
   };
 
   const initializeOrderItems = () => {
-    const items = selectedOrders.map(order => ({
+    // Filter out closed, delivered, or fulfilled items
+    const activeOrders = selectedOrders.filter(order => {
+      const status = order.status || order.order_status || order.item_status || '';
+      const statusLower = status.toLowerCase();
+      
+      // Skip items that are already closed, delivered, fulfilled, or completed
+      const excludedStatuses = ['delivered', 'closed', 'completed', 'fulfilled', 'shipped', 'cancelled'];
+      const isExcluded = excludedStatuses.some(excludedStatus => statusLower.includes(excludedStatus));
+      
+      if (isExcluded) {
+        console.log(`⏭️ Skipping ${order.sku_code || order.partner_sku || 'unknown'} - Status: ${status}`);
+        return false;
+      }
+      
+      return true;
+    });
+    
+    if (activeOrders.length < selectedOrders.length) {
+      const skippedCount = selectedOrders.length - activeOrders.length;
+      toast({
+        title: `Filtered Items`,
+        description: `Skipped ${skippedCount} item(s) that are already closed, delivered, or fulfilled`,
+        variant: "default"
+      });
+    }
+    
+    const items = activeOrders.map(order => ({
       // Handle both PO orders and Noon orders
       itemNo: order.partner_sku || order.sunsky_sku?.sku_code || order.sku_code,
       qty: order.quantity || 1,
@@ -325,11 +351,13 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
     if (validItems.length === 0) {
       toast({
         title: "No Valid Items Selected",
-        description: "Please ensure items have valid SKU codes and quantities greater than 0",
+        description: "All selected items are either completed/fulfilled or don't have valid SKU codes",
         variant: "destructive"
       });
       return;
     }
+    
+    console.log(`📋 Processing ${validItems.length} active items (skipped ${selectedOrders.length - activeOrders.length} completed items)`);
     
     setOrderItems(validItems);
     setCheckedItems(new Set(validItems.map(item => item.itemNo)));
