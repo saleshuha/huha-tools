@@ -756,6 +756,8 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
   };
 
   const handleCreateOrder = async () => {
+    console.log("🚀 Starting order creation process...");
+    
     if (checkedItems.size === 0) {
       toast({
         title: "No Items Selected",
@@ -765,6 +767,18 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
       return;
     }
 
+    if (!selectedCredentialId) {
+      toast({
+        title: "No Sunsky Account Selected",
+        description: "Please select a Sunsky account to place the order",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    console.log(`📋 Creating order with ${checkedItems.size} selected items`);
+    console.log("🔑 Using Sunsky credential ID:", selectedCredentialId);
+    
     setLoading(true);
     try {
       // Deduplicate items by itemNo and sum quantities
@@ -879,8 +893,19 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
           .map(order => order.id)
       };
 
+      console.log("📦 Order data prepared:", {
+        itemCount: validItems.length,
+        orderOptions,
+        deliveryAddress: {
+          countryId: deliveryAddress.countryId,
+          receiver: deliveryAddress.receiver,
+          city: deliveryAddress.city
+        }
+      });
+
       setLoadingProgress(80);
 
+      console.log("🔄 Calling Sunsky API to create order...");
       const response = await supabase.functions.invoke('sunsky-api', {
         body: { 
           action: 'createOrder',
@@ -888,6 +913,8 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
           apiId: selectedCredentialId // Pass selected credential ID
         }
       });
+
+      console.log("📡 Sunsky API response received:", response);
 
       // Handle edge function errors (non-2xx status codes)
       if (response.error) {
