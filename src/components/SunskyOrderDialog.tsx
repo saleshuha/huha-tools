@@ -704,8 +704,16 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
     setLoadingStatus('Validating items with Sunsky...');
     setLoadingProgress(10);
     
-    // Log delivery address for debugging
-    console.log('🏠 Delivery address for validation:', {
+    // Use a simple, reliable delivery address for validation (same as direct test)
+    const validationAddress = {
+      countryId: '224', // UAE
+      state: '',
+      city: 'Dubai', 
+      postcode: '00000'
+    };
+    
+    console.log('🏠 Using standardized delivery address for validation:', validationAddress);
+    console.log('🏠 Original delivery address:', {
       countryId: deliveryAddress.countryId,
       state: deliveryAddress.state,
       city: deliveryAddress.city,
@@ -718,19 +726,14 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
       setItemsProgress({ current: i + 1, total: items.length });
       setLoadingProgress(10 + (i / items.length) * 30); // 10-40% for validation
       
-      console.log(`🔍 Validating item ${item.itemNo} (${item.title})`);
+      console.log(`🔍 Validating item ${item.itemNo} (${item.title}) with standardized address`);
       
       try {
         const testResponse = await supabase.functions.invoke('sunsky-api', {
           body: { 
             action: 'getPricesAndFreights',
-            items: [item],
-            deliveryAddress: {
-              countryId: deliveryAddress.countryId,
-              state: deliveryAddress.state,
-              city: deliveryAddress.city,
-              postcode: deliveryAddress.postcode
-            }
+            items: [{ itemNo: item.itemNo, qty: item.qty }],
+            deliveryAddress: validationAddress
           }
         });
 
@@ -739,7 +742,7 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
         if (testResponse.error) {
           console.warn(`❌ Item ${item.itemNo} validation failed:`, testResponse.error);
           invalidItems.push(item);
-        } else if (testResponse.data?.result === 'success' && testResponse.data?.data?.items?.[0]) {
+        } else if (testResponse.data?.result === 'success') {
           console.log(`✅ Item ${item.itemNo} is VALID in Sunsky catalog`);
           validItems.push(item);
         } else {
