@@ -235,41 +235,44 @@ export function SunskyDataViewer({ open, onOpenChange, invalidItems, onRefreshCo
                     const localMatch = localSKUData.find(local => local.sku_code === item.itemNo);
                     const isOutdated = localMatch && new Date(localMatch.updated_at) < new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
                     
-                    return (
-                      <div key={index} className="flex items-start justify-between p-3 border rounded-lg">
-                        <div className="flex-1 space-y-1">
-                          <div className="flex items-center gap-2">
-                            <code className="text-sm font-mono bg-muted px-2 py-1 rounded">
-                              {item.itemNo}
-                            </code>
-                            <Badge variant={localMatch ? (isOutdated ? "secondary" : "outline") : "destructive"}>
-                              {localMatch ? (isOutdated ? "Outdated" : "Found Locally") : "Not Found"}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground truncate">{item.title}</p>
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <span>Qty: {item.qty}</span>
-                            {localMatch && (
-                              <>
-                                <span>Cost: {localMatch.cost} {localMatch.currency}</span>
-                                <span>Updated: {new Date(localMatch.updated_at).toLocaleDateString()}</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center">
-                          {localMatch ? (
-                            isOutdated ? (
-                              <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                            ) : (
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                            )
-                          ) : (
-                            <XCircle className="h-4 w-4 text-destructive" />
-                          )}
-                        </div>
-                      </div>
-                    );
+                     return (
+                       <div key={index} className="flex items-start justify-between p-3 border rounded-lg">
+                         <div className="flex-1 space-y-1">
+                           <div className="flex items-center gap-2">
+                             <code className="text-sm font-mono bg-muted px-2 py-1 rounded">
+                               {item.itemNo}
+                             </code>
+                             <Badge variant="destructive">
+                               API: Not Available
+                             </Badge>
+                             {localMatch && (
+                               <Badge variant={isOutdated ? "secondary" : "outline"}>
+                                 Local: {isOutdated ? "Outdated" : "Found"}
+                               </Badge>
+                             )}
+                           </div>
+                           <p className="text-sm text-muted-foreground truncate">{item.title}</p>
+                           <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                             <span>Qty: {item.qty}</span>
+                             {localMatch && (
+                               <>
+                                 <span>Cost: {localMatch.cost} {localMatch.currency}</span>
+                                 <span>Updated: {new Date(localMatch.updated_at).toLocaleDateString()}</span>
+                               </>
+                             )}
+                           </div>
+                           {localMatch && (
+                             <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded border">
+                               ⚠️ This item exists in your local database but Sunsky API says it's not available. 
+                               The item may have been discontinued or your local data needs updating.
+                             </div>
+                           )}
+                         </div>
+                         <div className="flex items-center">
+                           <XCircle className="h-4 w-4 text-destructive" />
+                         </div>
+                       </div>
+                     );
                   })}
                 </div>
               </ScrollArea>
@@ -278,13 +281,14 @@ export function SunskyDataViewer({ open, onOpenChange, invalidItems, onRefreshCo
 
           {/* Action Buttons */}
           <div className="flex items-center justify-between pt-4 border-t">
-            <div className="text-sm text-muted-foreground">
-              {skuStats.matched > 0 ? (
-                <span>Some items found locally but may be outdated. Consider refreshing your database.</span>
-              ) : (
-                <span>No local matches found. Visit SKU Importer to update your database.</span>
-              )}
-            </div>
+           <div className="text-sm text-muted-foreground">
+             <div className="space-y-1">
+               <p><strong>Understanding the Status:</strong></p>
+               <p>• <span className="text-destructive font-medium">API: Not Available</span> - Sunsky's live API says this item doesn't exist</p>
+               <p>• <span className="text-muted-foreground font-medium">Local: Found</span> - Item exists in your local database but may be outdated</p>
+               <p className="text-amber-600">Items found locally but unavailable via API are likely discontinued or renamed.</p>
+             </div>
+           </div>
             <div className="flex gap-2">
               <Button
                 variant="outline"
