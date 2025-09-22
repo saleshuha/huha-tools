@@ -159,6 +159,74 @@ export function SunskyDataViewer({ open, onOpenChange, invalidItems, onRefreshCo
     });
   };
 
+  const testSpecificSKU = async (skuCode: string) => {
+    try {
+      setLoading(true);
+      
+      toast({
+        title: "Testing SKU",
+        description: `Checking ${skuCode} directly in Sunsky API...`,
+      });
+
+      console.log(`🔍 Testing SKU: ${skuCode}`);
+
+      // Test the SKU directly with Sunsky API
+      const response = await supabase.functions.invoke('sunsky-api', {
+        body: { 
+          action: 'getPricesAndFreights',
+          items: [{ itemNo: skuCode, qty: 1 }],
+          deliveryAddress: {
+            countryId: '224', // UAE
+            state: '',
+            city: 'Dubai',
+            postcode: '00000'
+          }
+        }
+      });
+
+      console.log(`📡 Direct Sunsky API response for ${skuCode}:`, response);
+
+      if (response.error) {
+        toast({
+          title: "API Call Failed",
+          description: `Error: ${response.error.message}`,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const data = response.data;
+      
+      if (data.result === 'success') {
+        toast({
+          title: "SKU Test Result: AVAILABLE ✅",
+          description: `${skuCode} is available in Sunsky! Found pricing and shipping data.`,
+          duration: 8000
+        });
+        console.log(`✅ ${skuCode} is AVAILABLE in Sunsky:`, data);
+      } else if (data.result === 'error') {
+        const errorMsg = data.messages?.[0] || data.message || 'Unknown error';
+        toast({
+          title: "SKU Test Result: NOT AVAILABLE ❌",
+          description: `${skuCode} - Sunsky says: ${errorMsg}`,
+          variant: "destructive",
+          duration: 8000
+        });
+        console.log(`❌ ${skuCode} is NOT AVAILABLE in Sunsky:`, data);
+      }
+
+    } catch (error) {
+      console.error(`💥 Error testing ${skuCode}:`, error);
+      toast({
+        title: "Test Failed",
+        description: `Failed to test ${skuCode}: ${error.message}`,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[80vh]">
@@ -250,6 +318,15 @@ export function SunskyDataViewer({ open, onOpenChange, invalidItems, onRefreshCo
                                  Local: {isOutdated ? "Outdated" : "Found"}
                                </Badge>
                              )}
+                             <Button
+                               variant="outline"
+                               size="sm"
+                               onClick={() => testSpecificSKU(item.itemNo)}
+                               disabled={loading}
+                               className="ml-auto"
+                             >
+                               Test SKU
+                             </Button>
                            </div>
                            <p className="text-sm text-muted-foreground truncate">{item.title}</p>
                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
