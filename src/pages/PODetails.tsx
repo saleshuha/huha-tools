@@ -2524,297 +2524,259 @@ export default function PODetailsPage() {
           )}
 
           {/* Action Button Groups */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
             
-            {/* 1. Inventory Management */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="p-1.5 bg-green-100 dark:bg-green-800 rounded-lg">
-                  <Package className="h-4 w-4 text-green-600 dark:text-green-300" />
-                </div>
-                <h3 className="text-sm font-semibold text-green-800 dark:text-green-200">Inventory</h3>
-              </div>
-              
-              {/* Enhanced Bulk From Stock - with confirmation dialog */}
-              {selectionType === 'instock' && (
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button 
-                      size="sm"
-                      className="w-full bg-green-600 hover:bg-green-700 text-white disabled:bg-green-300 disabled:cursor-not-allowed transition-all duration-200 hover-scale"
-                      disabled={isUpdating || selectedItems.size === 0}
-                    >
-                      <PackageCheck className="h-4 w-4 mr-2" />
-                      Bulk From Stock ({selectedItems.size})
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle>Bulk From Stock Fulfillment</DialogTitle>
-                      <DialogDescription>
-                        Fulfill {selectedItems.size} selected items from inventory stock. This will:
-                        <br />• Deduct quantities from your inventory
-                        <br />• Mark items as fulfilled from stock
-                        <br />• Update order status accordingly
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
-                        <h4 className="font-semibold text-green-800 dark:text-green-200 mb-3">
-                          Items to fulfill from stock:
-                        </h4>
-                        <div className="space-y-2">
-                          {Array.from(selectedItems).map((orderId) => {
-                            const order = matchedOrders.find(o => o.id === orderId);
-                            if (!order) return null;
-                            
-                            const inventoryMatch = findInventoryMatch(
-                              order.asin, 
-                              order.sunsky_sku?.sku_code, 
-                              order.sku_code, 
-                              order.model_number
-                            );
-                            const availableStock = inventoryMatch?.quantity || 0;
-                            const fulfillQuantity = Math.min(order.quantity, availableStock);
-                            
-                            return (
-                              <div key={orderId} className="flex items-center justify-between text-sm">
-                                <div>
-                                  <span className="font-mono font-medium">{order.asin}</span>
-                                  {order.title && (
-                                    <span className="text-muted-foreground ml-2">
-                                      {order.title.substring(0, 50)}...
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-right">
-                                  <div className="font-semibold text-green-700 dark:text-green-300">
-                                    {fulfillQuantity} of {order.quantity} units
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    Stock: {availableStock} available
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                      
-                      <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg">
-                        <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
-                          <AlertTriangle className="h-4 w-4" />
-                          <span className="text-sm font-medium">Important:</span>
-                        </div>
-                        <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
-                          This action will immediately deduct inventory quantities and cannot be easily undone. 
-                          Please verify the items and quantities before proceeding.
-                        </p>
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline">
-                        Cancel
-                      </Button>
-                      <Button 
-                        onClick={handleBulkMarkFromInventory}
-                        disabled={isUpdating}
-                        className="bg-green-600 hover:bg-green-700"
-                      >
-                        {isUpdating ? (
-                          <>
-                            <Clock className="h-4 w-4 mr-2 animate-spin" />
-                            Processing...
-                          </>
-                        ) : (
-                          <>
-                            <PackageCheck className="h-4 w-4 mr-2" />
-                            Fulfill from Stock
-                          </>
-                        )}
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              )}
-              
-              <Button 
-                size="sm" 
-                variant="outline"
-                className="w-full border-green-200 hover:bg-green-50 hover:border-green-300 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200"
-                onClick={handleBulkMarkFromSupplier}
-                disabled={isUpdating || selectedItems.size === 0}
-              >
-                <Truck className="h-4 w-4 mr-2" />
-                Mark From Supplier
-              </Button>
-            </div>
-
-            {/* 2. Supplier Operations */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="p-1.5 bg-orange-100 dark:bg-orange-800 rounded-lg">
-                  <ShoppingCart className="h-4 w-4 text-orange-600 dark:text-orange-300" />
-                </div>
-                <h3 className="text-sm font-semibold text-orange-800 dark:text-orange-200">Supplier</h3>
-              </div>
-              
-              <Button 
-                size="sm" 
-                className="w-full bg-orange-600 hover:bg-orange-700 text-white disabled:bg-orange-300 disabled:cursor-not-allowed transition-all duration-200 hover-scale"
-                onClick={handleOpenSunskyOrder}
-                disabled={isUpdating || selectedItems.size === 0 || 
-                  !matchedOrders.filter(order => selectedItems.has(order.id) && order.sunsky_sku).length}
-              >
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Order at Sunsky
-              </Button>
-            </div>
-
-            {/* 3. Tracking & Updates */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="p-1.5 bg-blue-100 dark:bg-blue-800 rounded-lg">
-                  <Clock className="h-4 w-4 text-blue-600 dark:text-blue-300" />
-                </div>
-                <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-200">Tracking</h3>
-              </div>
-              
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    className="w-full border-blue-200 hover:bg-blue-50 hover:border-blue-300 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200"
-                    disabled={selectedItems.size === 0}
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    Update Selected
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-md bg-background border shadow-lg">
-                  <DialogHeader>
-                    <DialogTitle>Bulk Update Tracking</DialogTitle>
-                    <DialogDescription>
-                      Update tracking information for {selectedItems.size} selected items
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="bulk-selected-supplier-order">Supplier Order Number</Label>
-                      <Input
-                        id="bulk-selected-supplier-order"
-                        value={bulkTrackingInfo.supplier_order_number}
-                        onChange={(e) => setBulkTrackingInfo({...bulkTrackingInfo, supplier_order_number: e.target.value})}
-                        placeholder="Enter supplier order number"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="bulk-selected-tracking-number">Tracking Number</Label>
-                      <Input
-                        id="bulk-selected-tracking-number"
-                        value={bulkTrackingInfo.tracking_number}
-                        onChange={(e) => setBulkTrackingInfo({...bulkTrackingInfo, tracking_number: e.target.value})}
-                        placeholder="Enter tracking number"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="bulk-selected-tracking-url">Tracking URL</Label>
-                      <Input
-                        id="bulk-selected-tracking-url"
-                        value={bulkTrackingInfo.tracking_url}
-                        onChange={(e) => setBulkTrackingInfo({...bulkTrackingInfo, tracking_url: e.target.value})}
-                        placeholder="Enter tracking URL"  
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button onClick={handleBulkTrackingUpdateSelected} disabled={isUpdating}>
-                      {isUpdating ? 'Updating...' : 'Update Selected Items'}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-              
+            {/* Bulk From Stock - with confirmation dialog */}
+            {selectionType === 'instock' && (
               <Dialog>
                 <DialogTrigger asChild>
                   <Button 
                     size="sm"
-                    variant="outline" 
-                    className="w-full border-blue-200 hover:bg-blue-50 hover:border-blue-300 transition-all duration-200"
+                    className="w-full bg-green-600 hover:bg-green-700 text-white disabled:bg-green-300 disabled:cursor-not-allowed transition-all duration-200 hover-scale"
+                    disabled={isUpdating || selectedItems.size === 0}
                   >
-                    <Upload className="h-4 w-4 mr-2" />
-                    Update All Items
+                    <PackageCheck className="h-4 w-4 mr-2" />
+                    Bulk From Stock ({selectedItems.size})
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-md">
+                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>Bulk Update Tracking</DialogTitle>
+                    <DialogTitle>Bulk From Stock Fulfillment</DialogTitle>
                     <DialogDescription>
-                      Update tracking information for all {matchedOrders.length} items in this PO
+                      Fulfill {selectedItems.size} selected items from inventory stock. This will:
+                      <br />• Deduct quantities from your inventory
+                      <br />• Mark items as fulfilled from stock
+                      <br />• Update order status accordingly
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="bulk-supplier-order">Supplier Order Number</Label>
-                      <Input
-                        id="bulk-supplier-order"
-                        value={bulkTrackingData.supplier_order_number}
-                        onChange={(e) => setBulkTrackingData({...bulkTrackingData, supplier_order_number: e.target.value})}
-                        placeholder="Enter supplier order number"
-                      />
+                    <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+                      <h4 className="font-semibold text-green-800 dark:text-green-200 mb-3">
+                        Items to fulfill from stock:
+                      </h4>
+                      <div className="space-y-2">
+                        {Array.from(selectedItems).map((orderId) => {
+                          const order = matchedOrders.find(o => o.id === orderId);
+                          if (!order) return null;
+                          
+                          const inventoryMatch = findInventoryMatch(
+                            order.asin, 
+                            order.sunsky_sku?.sku_code, 
+                            order.sku_code, 
+                            order.model_number
+                          );
+                          const availableStock = inventoryMatch?.quantity || 0;
+                          const fulfillQuantity = Math.min(order.quantity, availableStock);
+                          
+                          return (
+                            <div key={orderId} className="flex items-center justify-between text-sm">
+                              <div>
+                                <span className="font-mono font-medium">{order.asin}</span>
+                                {order.title && (
+                                  <span className="text-muted-foreground ml-2">
+                                    {order.title.substring(0, 50)}...
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-right">
+                                <div className="font-semibold text-green-700 dark:text-green-300">
+                                  {fulfillQuantity} of {order.quantity} units
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  Stock: {availableStock} available
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <div>
-                      <Label htmlFor="bulk-tracking-number">Tracking Number</Label>
-                      <Input
-                        id="bulk-tracking-number"
-                        value={bulkTrackingData.tracking_number}
-                        onChange={(e) => setBulkTrackingData({...bulkTrackingData, tracking_number: e.target.value})}
-                        placeholder="Enter tracking number"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="bulk-tracking-url">Tracking URL</Label>
-                      <Input
-                        id="bulk-tracking-url"
-                        value={bulkTrackingData.tracking_url}
-                        onChange={(e) => setBulkTrackingData({...bulkTrackingData, tracking_url: e.target.value})}
-                        placeholder="Enter tracking URL"
-                      />
+                    
+                    <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg">
+                      <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
+                        <AlertTriangle className="h-4 w-4" />
+                        <span className="text-sm font-medium">Important:</span>
+                      </div>
+                      <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                        This action will immediately deduct inventory quantities and cannot be easily undone. 
+                        Please verify the items and quantities before proceeding.
+                      </p>
                     </div>
                   </div>
                   <DialogFooter>
-                    <Button onClick={handleBulkTrackingUpdate} disabled={isUpdating}>
-                      {isUpdating ? 'Updating...' : 'Update All Items'}
+                    <Button variant="outline">
+                      Cancel
+                    </Button>
+                    <Button 
+                      onClick={handleBulkMarkFromInventory}
+                      disabled={isUpdating}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      {isUpdating ? (
+                        <>
+                          <Clock className="h-4 w-4 mr-2 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <PackageCheck className="h-4 w-4 mr-2" />
+                          Fulfill from Stock
+                        </>
+                      )}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
-            </div>
-
-            {/* 4. Utilities */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                  <Edit className="h-4 w-4 text-gray-600 dark:text-gray-300" />
+            )}
+            
+            <Button 
+              size="sm" 
+              variant="outline"
+              className="w-full transition-all duration-200"
+              onClick={handleBulkMarkFromSupplier}
+              disabled={isUpdating || selectedItems.size === 0}
+            >
+              <Truck className="h-4 w-4 mr-2" />
+              Mark From Supplier
+            </Button>
+            
+            <Button 
+              size="sm" 
+              className="w-full bg-orange-600 hover:bg-orange-700 text-white disabled:bg-orange-300 disabled:cursor-not-allowed transition-all duration-200"
+              onClick={handleOpenSunskyOrder}
+              disabled={isUpdating || selectedItems.size === 0 || 
+                !matchedOrders.filter(order => selectedItems.has(order.id) && order.sunsky_sku).length}
+            >
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Order at Sunsky
+            </Button>
+            
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  className="w-full transition-all duration-200"
+                  disabled={selectedItems.size === 0}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Update Selected
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md bg-background border shadow-lg">
+                <DialogHeader>
+                  <DialogTitle>Bulk Update Tracking</DialogTitle>
+                  <DialogDescription>
+                    Update tracking information for {selectedItems.size} selected items
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="bulk-selected-supplier-order">Supplier Order Number</Label>
+                    <Input
+                      id="bulk-selected-supplier-order"
+                      value={bulkTrackingInfo.supplier_order_number}
+                      onChange={(e) => setBulkTrackingInfo({...bulkTrackingInfo, supplier_order_number: e.target.value})}
+                      placeholder="Enter supplier order number"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="bulk-selected-tracking-number">Tracking Number</Label>
+                    <Input
+                      id="bulk-selected-tracking-number"
+                      value={bulkTrackingInfo.tracking_number}
+                      onChange={(e) => setBulkTrackingInfo({...bulkTrackingInfo, tracking_number: e.target.value})}
+                      placeholder="Enter tracking number"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="bulk-selected-tracking-url">Tracking URL</Label>
+                    <Input
+                      id="bulk-selected-tracking-url"
+                      value={bulkTrackingInfo.tracking_url}
+                      onChange={(e) => setBulkTrackingInfo({...bulkTrackingInfo, tracking_url: e.target.value})}
+                      placeholder="Enter tracking URL"  
+                    />
+                  </div>
                 </div>
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Utilities</h3>
-              </div>
-              
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="w-full border-red-200 hover:bg-red-50 hover:border-red-300 hover:text-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200"
-                onClick={() => {
-                  setSelectedItems(new Set());
-                  setSelectionType(null);
-                }}
-                disabled={selectedItems.size === 0}
-              >
-                <X className="h-4 w-4 mr-2" />
-                Clear Selection
-              </Button>
-            </div>
+                <DialogFooter>
+                  <Button onClick={handleBulkTrackingUpdateSelected} disabled={isUpdating}>
+                    {isUpdating ? 'Updating...' : 'Update Selected Items'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button 
+                  size="sm"
+                  variant="outline" 
+                  className="w-full transition-all duration-200"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Update All Items
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Bulk Update Tracking</DialogTitle>
+                  <DialogDescription>
+                    Update tracking information for all {matchedOrders.length} items in this PO
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="bulk-supplier-order">Supplier Order Number</Label>
+                    <Input
+                      id="bulk-supplier-order"
+                      value={bulkTrackingData.supplier_order_number}
+                      onChange={(e) => setBulkTrackingData({...bulkTrackingData, supplier_order_number: e.target.value})}
+                      placeholder="Enter supplier order number"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="bulk-tracking-number">Tracking Number</Label>
+                    <Input
+                      id="bulk-tracking-number"
+                      value={bulkTrackingData.tracking_number}
+                      onChange={(e) => setBulkTrackingData({...bulkTrackingData, tracking_number: e.target.value})}
+                      placeholder="Enter tracking number"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="bulk-tracking-url">Tracking URL</Label>
+                    <Input
+                      id="bulk-tracking-url"
+                      value={bulkTrackingData.tracking_url}
+                      onChange={(e) => setBulkTrackingData({...bulkTrackingData, tracking_url: e.target.value})}
+                      placeholder="Enter tracking URL"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button onClick={handleBulkTrackingUpdate} disabled={isUpdating}>
+                    {isUpdating ? 'Updating...' : 'Update All Items'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+          
+          <div className="flex justify-end">
+            <Button 
+              size="sm" 
+              variant="outline" 
+              className="border-red-200 hover:bg-red-50 hover:border-red-300 hover:text-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200"
+              onClick={() => {
+                setSelectedItems(new Set());
+                setSelectionType(null);
+              }}
+              disabled={selectedItems.size === 0}
+            >
+              <X className="h-4 w-4 mr-2" />
+              Clear Selection
+            </Button>
           </div>
         </div>
 
