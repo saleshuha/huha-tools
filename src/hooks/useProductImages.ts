@@ -93,12 +93,27 @@ export const useProductImages = () => {
     return foundImage;
   };
 
-  // Add new product image
+  // Add new product image with duplicate checking
   const addProductImage = useMutation({
     mutationFn: async ({ asin, imageUrl, imageName }: { asin: string; imageUrl: string; imageName?: string }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
+      // First check if image already exists for this user and ASIN
+      const { data: existingImage } = await supabase
+        .from('product_images')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('asin', asin.trim())
+        .maybeSingle();
+
+      if (existingImage) {
+        // Image already exists, return existing data with a flag
+        console.log(`🖼️ Image already exists for ASIN ${asin}, skipping insertion`);
+        return { ...existingImage, wasExisting: true };
+      }
+
+      // Insert new image since it doesn't exist
       const { data, error } = await supabase
         .from('product_images')
         .insert({
@@ -110,17 +125,40 @@ export const useProductImages = () => {
         .select()
         .single();
       
-      if (error) throw error;
-      return data;
+      if (error) {
+        // Handle unique constraint violation gracefully
+        if (error.code === '23505' && error.message.includes('unique_user_asin')) {
+          console.log(`🖼️ Duplicate detected during insert for ASIN ${asin}, fetching existing image`);
+          // Fetch the existing image that caused the conflict
+          const { data: conflictImage } = await supabase
+            .from('product_images')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('asin', asin.trim())
+            .single();
+          return { ...conflictImage, wasExisting: true };
+        }
+        throw error;
+      }
+      return { ...data, wasExisting: false };
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['product-images'] });
-      toast({
-        title: "Image added successfully",
-        description: "Product image has been saved.",
-      });
+      // Show appropriate toast based on whether image was new or existing
+      if (data.wasExisting) {
+        toast({
+          title: "Image already exists",
+          description: `Image for ${variables.asin} was already in the database`,
+          variant: "default"
+        });
+      } else {
+        toast({
+          title: "Image added successfully",
+          description: `Product image saved for ${variables.asin}`,
+        });
+      }
     },
-    onError: (error: any) => {
+    onError: (error: any, variables) => {
       toast({
         title: "Failed to add image",
         description: error.message || "An error occurred while adding the image.",
