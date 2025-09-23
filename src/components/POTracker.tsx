@@ -2596,10 +2596,13 @@ export const POTracker = () => {
                                                <ImageIcon className="h-6 w-6 text-muted-foreground/50 mx-auto mb-1" />
                                                <div className="text-xs text-muted-foreground/70">No Image</div>
                                                {order.asin && (
-                                                 <div className="text-xs text-muted-foreground/50 font-mono mt-1">
-                                                   {order.asin.slice(0, 8)}...
+                                                 <div className="text-xs text-muted-foreground/50 font-mono mt-1" title={`ASIN: ${order.asin}`}>
+                                                   {order.asin.slice(0, 6)}...
                                                  </div>
                                                )}
+                                               <div className="text-xs text-orange-600 mt-1">
+                                                 📊 {productImages?.length || 0} total
+                                               </div>
                                              </div>
                                            </div>
                                          );
