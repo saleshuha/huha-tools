@@ -2510,7 +2510,7 @@ export const POTracker = () => {
                                          return productImage ? (
                                            <Popover>
                                              <PopoverTrigger asChild>
-                                               <div className="w-16 h-16 rounded border overflow-hidden flex-shrink-0 cursor-pointer hover:border-primary transition-colors">
+                                               <div className="w-20 h-20 rounded border overflow-hidden flex-shrink-0 cursor-pointer hover:border-primary transition-colors">
                                                  <img 
                                                    src={productImage.image_url} 
                                                    alt={order.asin} 
