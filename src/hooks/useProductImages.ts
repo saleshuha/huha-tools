@@ -22,6 +22,10 @@ export const useProductImages = () => {
     queryKey: ['product-images'],
     queryFn: async () => {
       console.log('🖼️ Fetching product images... (forcing fresh fetch)');
+      // Force a completely fresh fetch by adding a timestamp
+      const timestamp = Date.now();
+      console.log('🖼️ Fresh fetch timestamp:', timestamp);
+      
       const { data, error } = await supabase
         .from('product_images')
         .select('*')
@@ -43,6 +47,8 @@ export const useProductImages = () => {
     },
     staleTime: 0, // Force fresh fetch every time
     gcTime: 0, // Don't cache the data (renamed from cacheTime)
+    refetchOnMount: true, // Always refetch when component mounts
+    refetchOnWindowFocus: true, // Refetch when window regains focus
   });
 
   // Get image by ASIN with comprehensive debugging
@@ -183,10 +189,14 @@ export const useProductImages = () => {
   });
 
   // Manual refresh function to force cache invalidation
-  const refreshImages = () => {
+  const refreshImages = async () => {
     console.log('🖼️ Manually refreshing product images...');
-    queryClient.invalidateQueries({ queryKey: ['product-images'] });
-    refetch();
+    // Clear all related caches
+    await queryClient.resetQueries({ queryKey: ['product-images'] });
+    await queryClient.invalidateQueries({ queryKey: ['product-images'] });
+    // Force immediate refetch
+    await refetch();
+    console.log('🖼️ Manual refresh completed');
   };
 
   return {
