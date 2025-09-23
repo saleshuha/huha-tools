@@ -6,7 +6,6 @@ import { supabase } from "@/integrations/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import { useUserProfile } from "@/hooks/useUserProfile"
-import { useIsMobile } from "@/hooks/use-mobile"
 import {
   Sidebar,
   SidebarContent,
@@ -147,7 +146,6 @@ export function AppSidebar() {
   const location = useLocation()
   const isCollapsed = state === "collapsed"
   const isNative = Capacitor.isNativePlatform()
-  const isMobile = useIsMobile()
   
   const { toast } = useToast()
   const { isAdmin } = useUserProfile()
@@ -183,13 +181,12 @@ export function AppSidebar() {
     return isActive("/sunsky-importer") || isActive("/sunsky-order-tracking")
   }
 
-  // Default open state based on mobile vs desktop
-  const [isToolsOpen, setIsToolsOpen] = useState(() => !isMobile && isToolsSectionActive())
-  const [isPaymentReportsOpen, setIsPaymentReportsOpen] = useState(() => !isMobile && isPaymentReportsSectionActive())
-  const [isPOTrackerOpen, setIsPOTrackerOpen] = useState(() => !isMobile && isPOTrackerSectionActive())
-  const [isAmazonOpen, setIsAmazonOpen] = useState(() => !isMobile && isAmazonSectionActive())
-  const [isNoonOpen, setIsNoonOpen] = useState(() => !isMobile && isNoonSectionActive())
-  const [isSourceOpen, setIsSourceOpen] = useState(() => !isMobile && isSourceSectionActive())
+  const [isToolsOpen, setIsToolsOpen] = useState(() => isToolsSectionActive())
+  const [isPaymentReportsOpen, setIsPaymentReportsOpen] = useState(() => isPaymentReportsSectionActive())
+  const [isPOTrackerOpen, setIsPOTrackerOpen] = useState(() => isPOTrackerSectionActive())
+  const [isAmazonOpen, setIsAmazonOpen] = useState(() => isAmazonSectionActive())
+  const [isNoonOpen, setIsNoonOpen] = useState(() => isNoonSectionActive())
+  const [isSourceOpen, setIsSourceOpen] = useState(() => isSourceSectionActive())
 
   const handleLogout = async () => {
     try {
@@ -212,11 +209,7 @@ export function AppSidebar() {
 
 
   return (
-    <Sidebar 
-      collapsible={isMobile ? "offcanvas" : "icon"} 
-      className="border-r border-sidebar-border bg-sidebar"
-      variant={isMobile ? "floating" : "sidebar"}
-    >
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border bg-sidebar">
       <SidebarContent className="overflow-y-auto">
         <SidebarGroup>
           <SidebarGroupLabel className="text-sidebar-foreground/70 font-medium px-3 py-2 text-xs uppercase tracking-wide">

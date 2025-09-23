@@ -14,16 +14,16 @@ export function Inventory() {
         <div className="absolute top-1/2 left-0 w-64 h-64 bg-gradient-to-br from-indigo-400/5 to-purple-400/5 rounded-full blur-2xl"></div>
       </div>
       
-      <div className="relative z-10 w-full space-y-3 sm:space-y-6">
+      <div className="relative z-10 w-full space-y-6">
         {/* Enhanced Header */}
         <HuhaHeader01
-          icon={<Package className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />}
+          icon={<Package className="w-5 h-5 text-primary-foreground" />}
           title="Instock Inventory Management"
           subtitle="Advanced Amazon ASIN tracking and analytics"
         />
         
         {/* Enhanced Content Container */}
-        <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/20 dark:border-slate-700/30 shadow-2xl shadow-blue-500/10 mx-2 sm:mx-6">
+        <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl rounded-3xl border border-white/20 dark:border-slate-700/30 shadow-2xl shadow-blue-500/10 mx-6">
           <AsinInventory />
         </div>
       </div>
