@@ -19,7 +19,8 @@ import { BackgroundTasksPanel } from "@/components/BackgroundTasksPanel";
 import { ThemeColorWidget } from "@/components/theme/ThemeColorWidget";
 import { Button } from "@/components/ui/button";
 import { QZTrayStatusIndicator } from "@/components/QZTrayStatusIndicator";
-import { Activity } from "lucide-react";
+import { Activity, Smartphone } from "lucide-react";
+import { useMobileViewToggle } from "@/hooks/useMobileViewToggle";
 import Index from "./pages/Index";
 
 import ExcelMapperPage from "./pages/ExcelMapper";
@@ -137,6 +138,7 @@ const App = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [showBackgroundTasks, setShowBackgroundTasks] = useState(false);
+  const { isMobileView, isMobileViewForced, toggleMobileView } = useMobileViewToggle();
   const isNative = Capacitor.isNativePlatform();
 
   useEffect(() => {
@@ -197,47 +199,60 @@ const App = () => {
             <Sonner />
             <BrowserRouter>
               <SidebarProvider>
-                <div className="min-h-screen flex w-full">
+                <div className={`min-h-screen flex w-full ${isMobileView ? 'mobile-view' : ''}`}>
                   <AppSidebar />
                   <div className="flex-1 flex flex-col">
-                    <header className="h-12 flex items-center border-b bg-background shadow-sm">
-                      <div className="flex items-center justify-between w-full gap-4 px-4">
-                        <div className="flex items-center gap-3">
+                    <header className="h-12 sm:h-14 flex items-center border-b bg-background shadow-sm">
+                      <div className="flex items-center justify-between w-full gap-2 sm:gap-4 px-2 sm:px-4">
+                        <div className="flex items-center gap-2 sm:gap-3">
                           <SidebarTrigger className="h-8 w-8" />
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1 sm:gap-2">
                             <img 
                               src="/lovable-uploads/4f9a15c5-2d12-4ee0-b0bd-e982c5b4ece7.png" 
                               alt="HuHa Logo" 
-                              className="h-6 w-6 object-contain"
+                              className="h-5 w-5 sm:h-6 sm:w-6 object-contain"
                             />
                             <div className="flex flex-col">
-                              <h1 className="font-semibold text-sm text-foreground">HuHa Product Management System</h1>
-                              <p className="text-xs text-muted-foreground">Professional Inventory & Analytics Platform</p>
+                              <h1 className="font-semibold text-xs sm:text-sm text-foreground">HuHa</h1>
+                              <p className="hidden sm:block text-xs text-muted-foreground">Inventory Platform</p>
                             </div>
                           </div>
                         </div>
-                        <div className="flex-1 flex justify-center">
+                        <div className="hidden md:flex flex-1 justify-center">
                           <span className="text-xs font-medium text-muted-foreground">اللَّهُمَّ صل عَلَى مُحَمَّدٍ وَعَلَى آلِ مُحَمَّدٍ</span>
                         </div>
-                         <div className="flex items-center gap-2">
-                           <QZTrayStatusIndicator />
-                           <Button
-                             variant="outline"
-                             size="sm"
-                             onClick={() => setShowBackgroundTasks(true)}
-                             className="flex items-center gap-2"
-                           >
-                             <Activity className="h-4 w-4" />
-                             Tasks
-                           </Button>
-                          <ThemeColorWidget />
+                        <div className="flex items-center gap-1 sm:gap-2">
+                          <button
+                            onClick={toggleMobileView}
+                            className="hidden sm:flex items-center gap-1 px-2 py-1 text-xs bg-muted hover:bg-muted/80 rounded-md transition-colors"
+                            title={isMobileViewForced ? "Exit mobile view" : "Preview mobile view"}
+                          >
+                            <Smartphone className="w-3 h-3" />
+                            <span className="hidden md:inline">{isMobileViewForced ? "Desktop" : "Mobile"}</span>
+                          </button>
+                          <div className="hidden sm:block">
+                            <QZTrayStatusIndicator />
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowBackgroundTasks(true)}
+                            className="flex items-center gap-1 sm:gap-2 text-xs px-2 py-1 h-8"
+                          >
+                            <Activity className="h-3 w-3 sm:h-4 sm:w-4" />
+                            <span className="hidden sm:inline">Tasks</span>
+                          </Button>
+                          <div className="hidden sm:block">
+                            <ThemeColorWidget />
+                          </div>
                           <CountrySwitcher />
                         </div>
                       </div>
                     </header>
-                    <main className="flex-1">
-                      <div className="app-container">
-                        <Routes>
+                    <main className="flex-1 overflow-auto">
+                      <div className={isMobileView ? 'mobile-content' : ''}>
+                        <div className="app-container">
+                          <Routes>
                         <Route path="/" element={<Index />} />
                         
                         {/* Tools Routes - Hide in native app */}
@@ -301,7 +316,8 @@ const App = () => {
                         
                         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                         <Route path="*" element={<NotFound />} />
-                        </Routes>
+                          </Routes>
+                        </div>
                       </div>
                     </main>
                   </div>
