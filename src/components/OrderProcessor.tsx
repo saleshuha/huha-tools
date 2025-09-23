@@ -122,8 +122,7 @@ export function OrderProcessor() {
         .from('order_imports')
         .select('*')
         .order('order_place_date', { ascending: false, nullsFirst: false })
-        .order('created_at', { ascending: false })
-        .range(0, 49999); // Use range instead of limit to avoid default 1000 limit
+        .order('created_at', { ascending: false }); // Remove range limit entirely
       
       if (error) {
         console.error('Error loading imported orders:', error);
@@ -181,8 +180,7 @@ export function OrderProcessor() {
       const { data, error } = await supabase
         .from('processed_orders')
         .select('*')
-        .order('processed_at', { ascending: false })
-        .range(0, 49999); // Use range to avoid default limits
+        .order('processed_at', { ascending: false }); // Remove range limit
       
       if (error) {
         console.error('Error loading processed orders:', error);
@@ -507,7 +505,8 @@ export function OrderProcessor() {
       const { data: refreshedProcessed } = await supabase
         .from('processed_orders')
         .select('*')
-        .order('processed_at', { ascending: false });
+        .order('processed_at', { ascending: false })
+        .limit(100000); // Explicitly set high limit to avoid default 1000 limit
       
       if (refreshedProcessed) {
         setDbResults(refreshedProcessed);
