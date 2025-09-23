@@ -3199,23 +3199,13 @@ export const POTracker = () => {
                             </Button>
                           </div>
                         </div>
-                       );
-                     })()}
-                             size="sm"
-                             onClick={() => setLabelCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                             disabled={labelCurrentPage === totalPages}
-                           >
-                             Next
-                           </Button>
-                         </div>
-                       </div>
-                     );
-                   })()}
-                 </CardContent>
-              </Card>
-            </div>
-          )}
-        </TabsContent>
+                        );
+                      })()}
+                  </CardContent>
+               </Card>
+             </div>
+           )}
+         </TabsContent>
 
         <TabsContent value="reports" className="space-y-6">
           <POReportsSection 
