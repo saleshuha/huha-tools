@@ -89,17 +89,59 @@ export const POTracker = () => {
   const [selectedForPrint, setSelectedForPrint] = useState<Set<string>>(new Set());
   const [labelCurrentPage, setLabelCurrentPage] = useState(1);
   const [labelItemsPerPage, setLabelItemsPerPage] = useState(20);
-  const [printSettings, setPrintSettings] = useState({
+  
+  // Load saved print settings from localStorage or use defaults
+  const defaultPrintSettings = {
     template: 'default',
-    copies: 1,
-    copiesByQuantity: true,
-    pageSize: 'default',
-    dpi: 203 as 203 | 300,
-    darkness: 10,
+    pageSize: '4x6',
     customWidth: 100,
     customHeight: 60,
+    dpi: 203 as 203 | 300,
+    darkness: 10,
+    copiesByQuantity: true,
+    copies: 1,
     autoSizeFromTemplate: true
+  };
+
+  const getStoredPrintSettings = () => {
+    try {
+      const stored = localStorage.getItem('poTracker_printSettings');
+      if (stored) {
+        return { ...defaultPrintSettings, ...JSON.parse(stored) };
+      }
+    } catch (error) {
+      console.error('Failed to load stored print settings:', error);
+    }
+    return defaultPrintSettings;
+  };
+
+  const [printSettings, setPrintSettings] = useState(getStoredPrintSettings);
+  const [isPrintConfigCollapsed, setIsPrintConfigCollapsed] = useState(() => {
+    try {
+      const stored = localStorage.getItem('poTracker_printConfigCollapsed');
+      return stored ? JSON.parse(stored) : false;
+    } catch {
+      return false;
+    }
   });
+
+  // Save print settings to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem('poTracker_printSettings', JSON.stringify(printSettings));
+    } catch (error) {
+      console.error('Failed to save print settings:', error);
+    }
+  }, [printSettings]);
+
+  // Save collapse state to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('poTracker_printConfigCollapsed', JSON.stringify(isPrintConfigCollapsed));
+    } catch (error) {
+      console.error('Failed to save print config collapse state:', error);
+    }
+  }, [isPrintConfigCollapsed]);
   
   const [qzConnected, setQzConnected] = useState(false);
   const [selectedPOsForBulkClose, setSelectedPOsForBulkClose] = useState<Set<string>>(new Set());
@@ -2119,36 +2161,58 @@ export const POTracker = () => {
                 </CardHeader>
               </Card>
 
-              {/* Enhanced Print Settings Panel with Tabbed Interface */}
-              <Card className="shadow-soft border-border/50 bg-gradient-to-r from-card to-card/50">
-                <CardHeader className="bg-gradient-to-r from-primary/5 to-accent/5 border-b border-border/30">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      <Printer className="h-5 w-5 text-primary" />
+              {/* Enhanced Print Settings Panel with Collapsible Tabbed Interface */}
+              <Card className="shadow-soft border-2 border-border bg-gradient-to-r from-card to-card/50">
+                <CardHeader 
+                  className="bg-gradient-to-r from-primary/5 to-accent/5 border-b border-border cursor-pointer hover:from-primary/10 hover:to-accent/10 transition-all"
+                  onClick={() => setIsPrintConfigCollapsed(!isPrintConfigCollapsed)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-primary/10 rounded-lg border border-primary/20">
+                        <Printer className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-lg font-semibold text-foreground">
+                          Print Configuration
+                        </CardTitle>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Customize your label printing settings and preview
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <CardTitle className="text-lg font-semibold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                        Print Configuration
-                      </CardTitle>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Customize your label printing settings and preview
-                      </p>
-                    </div>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      {isPrintConfigCollapsed ? (
+                        <Plus className="h-4 w-4" />
+                      ) : (
+                        <X className="h-4 w-4" />
+                      )}
+                    </Button>
                   </div>
                 </CardHeader>
-                <CardContent className="p-6">
+                {!isPrintConfigCollapsed && (
+                <CardContent className="p-6 border-2 border-border border-t-0 rounded-t-none">
                   <Tabs defaultValue="template" className="w-full">
-                    <TabsList className="grid w-full grid-cols-3 mb-6 bg-muted/50 p-1 rounded-lg">
-                      <TabsTrigger value="template" className="flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                        <div className="w-2 h-2 bg-primary rounded-full"></div>
+                    <TabsList className="grid w-full grid-cols-3 mb-6 bg-gradient-subtle p-1 rounded-lg border border-border shadow-soft">
+                      <TabsTrigger 
+                        value="template" 
+                        className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-medium border border-transparent data-[state=active]:border-primary-dark rounded-md transition-all"
+                      >
+                        <div className="w-2 h-2 bg-current rounded-full"></div>
                         Template & Layout
                       </TabsTrigger>
-                      <TabsTrigger value="quality" className="flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                        <div className="w-2 h-2 bg-accent rounded-full"></div>
+                      <TabsTrigger 
+                        value="quality" 
+                        className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-medium border border-transparent data-[state=active]:border-primary-dark rounded-md transition-all"
+                      >
+                        <div className="w-2 h-2 bg-current rounded-full"></div>
                         Print Quality
                       </TabsTrigger>
-                      <TabsTrigger value="advanced" className="flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                        <div className="w-2 h-2 bg-secondary rounded-full"></div>
+                      <TabsTrigger 
+                        value="advanced" 
+                        className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-medium border border-transparent data-[state=active]:border-primary-dark rounded-md transition-all"
+                      >
+                        <div className="w-2 h-2 bg-current rounded-full"></div>
                         Advanced
                       </TabsTrigger>
                     </TabsList>
@@ -2627,9 +2691,10 @@ export const POTracker = () => {
                           </Button>
                         </div>
                       </div>
-                    )}
+                     )}
                   </div>
                 </CardContent>
+                )}
               </Card>
 
               {/* Enhanced Items Selection Table */}
