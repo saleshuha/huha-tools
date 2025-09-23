@@ -39,13 +39,12 @@ export const useProductImages = () => {
       const userId = session.user.id;
       console.log('🖼️ Authenticated user ID:', userId);
       
-      // Query with explicit user_id filter and increased limit to get all images
+      // Query with explicit user_id filter - no limit to get all images
       const { data, error } = await supabase
         .from('product_images')
         .select('*')
         .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(5000); // Increase limit to accommodate all images
+        .order('created_at', { ascending: false });
       
       if (error) {
         console.error('🖼️ Error fetching product images:', error);
