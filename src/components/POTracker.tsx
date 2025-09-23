@@ -415,11 +415,16 @@ export const POTracker = () => {
       if (asinMatches.length > 0) {
         const totalQuantity = asinMatches.reduce((sum, item) => sum + item.quantity, 0);
         if (totalQuantity > 0) {
+          const serialNumbers = asinMatches
+            .filter(item => item.serial_number)
+            .map(item => item.serial_number);
           return {
             type: 'ASIN',
             status: 'in-stock',
             quantity: totalQuantity,
-            identifier: asin
+            identifier: asin,
+            serialNumbers: serialNumbers,
+            inventoryItems: asinMatches
           };
         }
       }
@@ -435,7 +440,9 @@ export const POTracker = () => {
           type: 'SKU',
           status: skuMatch.status,
           quantity: skuMatch.quantity,
-          identifier: sku
+          identifier: sku,
+          serialNumber: skuMatch.bin_serial_number,
+          inventoryItem: skuMatch
         };
       }
     }
@@ -448,7 +455,9 @@ export const POTracker = () => {
           type: 'SKU-ASIN',
           status: skuAsinMatch.status,
           quantity: skuAsinMatch.quantity,
-          identifier: asin
+          identifier: asin,
+          serialNumber: skuAsinMatch.bin_serial_number,
+          inventoryItem: skuAsinMatch
         };
       }
     }
@@ -498,13 +507,39 @@ export const POTracker = () => {
     
     if (currentSearchQuery) {
       const lowerCaseQuery = currentSearchQuery.toLowerCase();
-      filtered = filtered.filter(order =>
-        order.po_number.toLowerCase().includes(lowerCaseQuery) ||
-        order.sku_code?.toLowerCase().includes(lowerCaseQuery) ||
-        order.asin?.toLowerCase().includes(lowerCaseQuery) ||
-        order.model_number?.toLowerCase().includes(lowerCaseQuery) ||
-        order.title?.toLowerCase().includes(lowerCaseQuery)
-      );
+      filtered = filtered.filter(order => {
+        // Basic search fields
+        const basicMatch = order.po_number.toLowerCase().includes(lowerCaseQuery) ||
+          order.sku_code?.toLowerCase().includes(lowerCaseQuery) ||
+          order.asin?.toLowerCase().includes(lowerCaseQuery) ||
+          order.model_number?.toLowerCase().includes(lowerCaseQuery) ||
+          order.title?.toLowerCase().includes(lowerCaseQuery);
+        
+        // Check inventory serial numbers
+        const inventoryMatch = findInventoryMatch(
+          order.asin, 
+          order.sunsky_sku?.sku_code, 
+          order.sku_code, 
+          order.model_number,
+          order.sunsky_sku
+        );
+        
+        let serialMatch = false;
+        if (inventoryMatch) {
+          // Check ASIN inventory serial numbers
+          if (inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0) {
+            serialMatch = inventoryMatch.serialNumbers.some(serial => 
+              serial?.toLowerCase().includes(lowerCaseQuery)
+            );
+          }
+          // Check SKU inventory serial number
+          if (inventoryMatch.serialNumber) {
+            serialMatch = inventoryMatch.serialNumber.toLowerCase().includes(lowerCaseQuery);
+          }
+        }
+        
+        return basicMatch || serialMatch;
+      });
       console.log('🔍 FILTERING DEBUG: After search filter:', filtered.length, 'orders');
     }
     
@@ -1203,7 +1238,7 @@ export const POTracker = () => {
                   <div className="flex items-center gap-2">
                     <Input
                       type="text"
-                      placeholder="Search PO number, ASIN, model..."
+                      placeholder="Search PO number, ASIN, model, serial number..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="max-w-sm"
@@ -1833,7 +1868,7 @@ export const POTracker = () => {
                       <div className="relative flex-1 max-w-sm">
                         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
-                          placeholder="Search PO number, ASIN, model..."
+                          placeholder="Search PO number, ASIN, model, serial number..."
                           value={labelSearchQuery}
                           onChange={(e) => {
                             console.log('Label search query changed to:', e.target.value);
@@ -2421,12 +2456,12 @@ export const POTracker = () => {
                   <div className="mb-4">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                      <Input
-                        placeholder="Search by SKU, title, ASIN..."
-                        value={labelSearchQuery}
-                        onChange={(e) => setLabelSearchQuery(e.target.value)}
-                        className="pl-10 pr-10 border-2 border-transparent hover:border-border focus:border-primary transition-colors"
-                      />
+                        <Input
+                          placeholder="Search by SKU, title, ASIN, serial number..."
+                          value={labelSearchQuery}
+                          onChange={(e) => setLabelSearchQuery(e.target.value)}
+                          className="pl-10 pr-10 border-2 border-transparent hover:border-border focus:border-primary transition-colors"
+                        />
                       {labelSearchQuery && (
                         <Button
                           variant="ghost"
@@ -2561,16 +2596,46 @@ export const POTracker = () => {
                                      )}
                                    </div>
                                  </TableCell>
-                                <TableCell>
-                                  <div className="space-y-1">
-                                    <div className="text-sm font-medium break-words whitespace-pre-wrap" title={order.title}>
-                                      {order.title || 'No title'}
-                                    </div>
-                                    {order.asin && (
-                                      <div className="text-xs text-muted-foreground font-mono">{order.asin}</div>
-                                    )}
-                                  </div>
-                                </TableCell>
+                                 <TableCell>
+                                   <div className="space-y-1">
+                                     <div className="text-sm font-medium break-words whitespace-pre-wrap" title={order.title}>
+                                       {order.title || 'No title'}
+                                     </div>
+                                     {order.asin && (
+                                       <div className="text-xs text-muted-foreground font-mono">{order.asin}</div>
+                                     )}
+                                     {(() => {
+                                       const inventoryMatch = findInventoryMatch(
+                                         order.asin, 
+                                         order.sunsky_sku?.sku_code, 
+                                         order.sku_code, 
+                                         order.model_number,
+                                         order.sunsky_sku
+                                       );
+                                       
+                                       if (inventoryMatch) {
+                                         // Show serial numbers for ASIN inventory matches
+                                         if (inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0) {
+                                           return (
+                                             <div className="text-xs text-green-600 dark:text-green-400 font-mono">
+                                               Serial: {inventoryMatch.serialNumbers.slice(0, 2).join(', ')}
+                                               {inventoryMatch.serialNumbers.length > 2 && ` +${inventoryMatch.serialNumbers.length - 2} more`}
+                                             </div>
+                                           );
+                                         }
+                                         // Show serial number for SKU inventory matches
+                                         if (inventoryMatch.serialNumber) {
+                                           return (
+                                             <div className="text-xs text-green-600 dark:text-green-400 font-mono">
+                                               Serial: {inventoryMatch.serialNumber}
+                                             </div>
+                                           );
+                                         }
+                                       }
+                                       return null;
+                                     })()}
+                                   </div>
+                                 </TableCell>
                                 <TableCell>
                                   <Badge variant="secondary" className="font-mono">
                                     {order.quantity}
@@ -2710,7 +2775,7 @@ export const POTracker = () => {
                 <div className="flex items-center justify-between">
                   <Input
                     type="text"
-                    placeholder="Search PO number, ASIN, model..."
+                    placeholder="Search PO number, ASIN, model, serial number..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="max-w-sm"
