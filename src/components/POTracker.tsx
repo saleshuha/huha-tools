@@ -1,5 +1,5 @@
 // POTracker component for Amazon purchase orders - updated
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -326,6 +326,7 @@ export const POTracker = () => {
 
   useEffect(() => {
     if (profile?.id && selectedCountry) {
+      console.log('🔄 Initial data fetch for profile:', profile.id, 'country:', selectedCountry);
       fetchPOOrders();
       initializeQZ();
       
@@ -336,7 +337,7 @@ export const POTracker = () => {
         setItemsPerPage(25); // KSA typically has smaller batches
       }
     }
-  }, [profile?.id, selectedCountry, fetchPOOrders]);
+  }, [profile?.id, selectedCountry]); // Removed function dependencies to prevent loops
 
   const initializeQZ = async () => {
     try {
@@ -363,17 +364,20 @@ export const POTracker = () => {
     }
   };
 
-  // Refetch metrics when PO orders change
+  // Refetch metrics when PO orders change - Fixed to prevent infinite loop
   useEffect(() => {
     if (!isLoading && refetchMetrics && refetchComprehensiveMetrics) {
       refetchMetrics();
       refetchComprehensiveMetrics();
     }
-  }, [poOrders, isLoading, refetchMetrics, refetchComprehensiveMetrics]);
+  }, [poOrders?.length, isLoading]); // Only depend on length, not the functions
 
-  // Fetch inventory data for matching
-  const fetchInventoryData = async () => {
+  // Fetch inventory data for matching - Wrapped in useCallback to prevent re-creation
+  const fetchInventoryData = useCallback(async () => {
+    if (!profile?.id || !selectedCountry) return;
+    
     try {
+      console.log('🔄 Fetching inventory data for profile:', profile.id, 'country:', selectedCountry);
       const [asinResult, skuResult] = await Promise.all([
         supabase
           .from('asin_inventory')
@@ -394,7 +398,7 @@ export const POTracker = () => {
     } catch (error) {
       console.error('Error fetching inventory data:', error);
     }
-  };
+  }, [profile?.id, selectedCountry]);
 
   // Function to find inventory match for an ASIN
   const findInventoryMatch = (asin: string, sunskySku?: string, poSku?: string, modelNumber?: string, orderSunskySku?: any) => {
@@ -465,12 +469,10 @@ export const POTracker = () => {
     return null;
   };
 
-  // Fetch inventory data when profile or country changes
+  // Fetch inventory data when profile or country changes - Now uses stable callback
   useEffect(() => {
-    if (profile?.id && selectedCountry) {
-      fetchInventoryData();
-    }
-  }, [profile?.id, selectedCountry]);
+    fetchInventoryData();
+  }, [fetchInventoryData]);
 
   // Filter out closed POs from label printing by default
   const labelEligibleOrders = useMemo(() => {
