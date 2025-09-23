@@ -21,13 +21,18 @@ export const useProductImages = () => {
   const { data: productImages, isLoading, error } = useQuery({
     queryKey: ['product-images'],
     queryFn: async () => {
+      console.log('🖼️ Fetching product images...');
       const { data, error } = await supabase
         .from('product_images')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(1000);
       
-      if (error) throw error;
+      if (error) {
+        console.error('🖼️ Error fetching product images:', error);
+        throw error;
+      }
+      console.log('🖼️ Product images fetched:', data?.length);
       return data as ProductImage[];
     }
   });

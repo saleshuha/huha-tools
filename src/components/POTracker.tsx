@@ -23,7 +23,7 @@ import { usePOOrders } from '@/hooks/usePOOrders';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useCountry } from '@/contexts/CountryContext';
 import { useProductImages } from '@/hooks/useProductImages';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { PrintService } from '@/services/print-service';
@@ -173,7 +173,14 @@ export const POTracker = () => {
   const { poOrders, isLoading, fetchPOOrders, processPOFiles, deletePOOrders, updatePrintStatus } = usePOOrders();
   const { profile } = useUserProfile();
   const { selectedCountry } = useCountry();
-  const { getImageByAsin } = useProductImages();
+  const queryClient = useQueryClient();
+  const { getImageByAsin, productImages, isLoading: imagesLoading } = useProductImages();
+  
+  // Debug: Force fetch on component mount
+  React.useEffect(() => {
+    console.log('🖼️ POTracker mounted, forcing product images refetch');
+    queryClient.invalidateQueries({ queryKey: ['product-images'] });
+  }, [queryClient]);
   const { toast } = useToast();
   // Function to handle bulk PO closing
   const handleBulkClosePOs = async (poNumbers: string[]) => {
