@@ -2505,45 +2505,18 @@ export const POTracker = () => {
                                  />
                                </TableCell>
                                     <TableCell>
-                                       {(() => {
-                                          const productImage = order.asin ? getImageByAsin(order.asin) : null;
-                                        return productImage ? (
-                                          <Popover>
-                                            <PopoverTrigger asChild>
-                                              <div 
-                                                className="w-20 h-20 min-w-[5rem] min-h-[5rem] rounded-lg overflow-hidden border-2 border-border cursor-pointer hover:border-primary transition-colors flex-shrink-0"
-                                              >
-                                                <img 
-                                                  src={productImage.image_url} 
-                                                  alt={productImage.image_name || order.title || 'Product'} 
-                                                  className="w-full h-full object-contain"
-                                                  onError={(e) => {
-                                                    e.currentTarget.style.display = 'none';
-                                                  }}
-                                                />
-                                              </div>
-                                            </PopoverTrigger>
-                                            <PopoverContent side="left" className="w-80 p-2">
-                                              <div className="w-full h-64 rounded-lg overflow-hidden bg-white">
-                                                <img 
-                                                  src={productImage.image_url} 
-                                                  alt={productImage.image_name || order.title || 'Product preview'} 
-                                                  className="w-full h-full object-contain"
-                                                />
-                                              </div>
-                                              <div className="text-xs text-muted-foreground mt-2 text-center">
-                                                {productImage.image_name || order.title || 'Product Image'}
-                                              </div>
-                                            </PopoverContent>
-                                          </Popover>
-                                       ) : (
-                                         <div className="w-16 h-16 rounded border bg-muted flex items-center justify-center relative">
-                                           <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                           </svg>
-                                         </div>
-                                       );
-                                     })()}
+                                        {(() => {
+                                           const productImage = order.asin ? getImageByAsin(order.asin) : null;
+                                         return productImage ? (
+                                               <div className="w-16 h-16 rounded border overflow-hidden flex-shrink-0">
+                                                 <img 
+                                                   src={productImage.image_url} 
+                                                   alt={order.asin} 
+                                                   className="w-full h-full object-contain"
+                                                 />
+                                               </div>
+                                        ) : null;
+                                      })()}
                                    </TableCell>
                                  <TableCell className="w-32">
                                    <div className="space-y-1">
