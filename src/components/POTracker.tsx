@@ -474,9 +474,9 @@ export const POTracker = () => {
     fetchInventoryData();
   }, [fetchInventoryData]);
 
-  // Filter out closed POs from label printing by default
+  // Filter orders for label printing (exclude truly cancelled orders but keep fulfilled ones)
   const labelEligibleOrders = useMemo(() => {
-    return poOrders.filter(order => order.status !== 'closed');
+    return poOrders.filter(order => order.status !== 'cancelled');
   }, [poOrders]);
 
   const filteredOrders = useMemo(() => {
@@ -1335,7 +1335,7 @@ export const POTracker = () => {
                          <SelectItem value="shipped">Shipped</SelectItem>
                          <SelectItem value="delivered">Delivered</SelectItem>
                          <SelectItem value="cancelled">Cancelled</SelectItem>
-                         <SelectItem value="closed">Closed</SelectItem>
+                          <SelectItem value="closed">Fulfilled from Stock</SelectItem>
                          <SelectItem value="partial-fulfilled">Partial Fulfilled</SelectItem>
                        </SelectContent>
                     </Select>
@@ -2663,33 +2663,54 @@ export const POTracker = () => {
                                  </TableCell>
                                  <TableCell>
                                    <div className="space-y-1">
-                                     <Badge variant="secondary" className="font-mono">
-                                       {order.quantity}
-                                     </Badge>
-                                     {(() => {
-                                       const inventoryMatch = findInventoryMatch(
-                                         order.asin, 
-                                         order.sunsky_sku?.sku_code, 
-                                         order.sku_code, 
-                                         order.model_number,
-                                         order.sunsky_sku
-                                       );
-                                       
-                                       if (inventoryMatch && inventoryMatch.quantity > 0) {
-                                         const isInStock = inventoryMatch.type === 'ASIN' || inventoryMatch.type === 'SKU' || inventoryMatch.type === 'SKU-ASIN';
-                                         if (isInStock) {
-                                           const fulfilledFromStock = Math.min(order.quantity, inventoryMatch.quantity);
-                                           return (
-                                             <div className="text-xs">
-                                               <Badge variant="outline" className="text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800">
-                                                 Fulfilled from stock: {fulfilledFromStock}
-                                               </Badge>
-                                             </div>
-                                           );
-                                         }
-                                       }
-                                       return null;
-                                     })()}
+                                      <div className="space-y-1">
+                                        {order.status === 'closed' && order.notes?.includes('Fulfilled from stock:') ? (
+                                          <div className="space-y-1">
+                                            <Badge variant="outline" className="text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800">
+                                              {(() => {
+                                                const fulfilledMatch = order.notes?.match(/Fulfilled from stock:\s*(\d+)/);
+                                                const originalMatch = order.notes?.match(/Original quantity:\s*(\d+)/);
+                                                const fulfilledQty = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
+                                                const originalQty = originalMatch ? parseInt(originalMatch[1]) : order.quantity;
+                                                return `Fulfilled: ${fulfilledQty}/${originalQty}`;
+                                              })()}
+                                            </Badge>
+                                            <div className="text-xs text-muted-foreground">
+                                              From Stock
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <>
+                                            <Badge variant="secondary" className="font-mono">
+                                              {order.quantity}
+                                            </Badge>
+                                            {(() => {
+                                              const inventoryMatch = findInventoryMatch(
+                                                order.asin, 
+                                                order.sunsky_sku?.sku_code, 
+                                                order.sku_code, 
+                                                order.model_number,
+                                                order.sunsky_sku
+                                              );
+                                              
+                                              if (inventoryMatch && inventoryMatch.quantity > 0) {
+                                                const isInStock = inventoryMatch.type === 'ASIN' || inventoryMatch.type === 'SKU' || inventoryMatch.type === 'SKU-ASIN';
+                                                if (isInStock) {
+                                                  const fulfilledFromStock = Math.min(order.quantity, inventoryMatch.quantity);
+                                                  return (
+                                                    <div className="text-xs">
+                                                      <Badge variant="outline" className="text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800">
+                                                        Available in stock: {fulfilledFromStock}
+                                                      </Badge>
+                                                    </div>
+                                                  );
+                                                }
+                                              }
+                                              return null;
+                                            })()}
+                                          </>
+                                        )}
+                                      </div>
                                    </div>
                                  </TableCell>
                                 <TableCell>
