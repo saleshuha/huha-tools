@@ -58,34 +58,20 @@ export const useProductImages = () => {
     enabled: true, // Query enabled by default, authentication check is inside queryFn
   });
 
-  // Get image by ASIN with fallback matching for variants
+  // Get image by ASIN - strict exact matching only
   const getImageByAsin = (asin: string): ProductImage | undefined => {
     if (!productImages || productImages.length === 0 || !asin) {
       return undefined;
     }
     
-    // First try exact match
-    let foundImage = productImages.find(img => img.asin?.trim() === asin.trim());
-    
-    // If no exact match, try to find similar ASINs (product variants)
-    if (!foundImage && asin.length >= 8) {
-      // Try matching first 8 characters (common for product families)
-      const asinPrefix = asin.substring(0, 8);
-      foundImage = productImages.find(img => img.asin?.startsWith(asinPrefix));
-      
-      // If still no match, try first 6 characters
-      if (!foundImage && asin.length >= 6) {
-        const shorterPrefix = asin.substring(0, 6);
-        foundImage = productImages.find(img => img.asin?.startsWith(shorterPrefix));
-      }
-    }
+    // Only exact match to ensure correct product images
+    const foundImage = productImages.find(img => img.asin?.trim() === asin.trim());
     
     // Debug logging (reduced frequency)
     if (Math.random() < 0.01) { // 1% logging
-      console.log('🔍 Image matching:', {
+      console.log('🔍 Exact ASIN match:', {
         searchAsin: asin,
-        exactMatch: !!productImages.find(img => img.asin?.trim() === asin.trim()),
-        fallbackMatch: !!foundImage,
+        foundMatch: !!foundImage,
         foundAsin: foundImage?.asin
       });
     }
