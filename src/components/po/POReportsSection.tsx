@@ -459,7 +459,7 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
 
         {/* Summary Statistics */}
         <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
-          <Card>
+          <Card className="relative overflow-hidden border-l-4 border-l-blue-500 bg-gradient-to-br from-blue-500/5 to-background hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
                 <Package className="h-4 w-4 text-blue-500" />
@@ -471,7 +471,7 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="relative overflow-hidden border-l-4 border-l-green-500 bg-gradient-to-br from-green-500/5 to-background hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
                 <CheckCircle className="h-4 w-4 text-green-500" />
@@ -483,7 +483,7 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="relative overflow-hidden border-l-4 border-l-emerald-500 bg-gradient-to-br from-emerald-500/5 to-background hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
                 <Package className="h-4 w-4 text-emerald-500" />
@@ -495,7 +495,7 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="relative overflow-hidden border-l-4 border-l-yellow-500 bg-gradient-to-br from-yellow-500/5 to-background hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-yellow-500" />
@@ -507,7 +507,7 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="relative overflow-hidden border-l-4 border-l-purple-500 bg-gradient-to-br from-purple-500/5 to-background hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
                 <Package className="h-4 w-4 text-purple-500" />
@@ -519,7 +519,7 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="relative overflow-hidden border-l-4 border-l-green-500 bg-gradient-to-br from-green-500/5 to-background hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
                 <CheckCircle className="h-4 w-4 text-green-500" />
@@ -531,7 +531,7 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="relative overflow-hidden border-l-4 border-l-indigo-500 bg-gradient-to-br from-indigo-500/5 to-background hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-indigo-500" />
