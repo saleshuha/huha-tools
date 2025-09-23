@@ -333,6 +333,48 @@
   @apply px-2 sm:px-4;
 }
 
+/* Force mobile view styles when toggled */
+.mobile-view {
+  max-width: 390px !important;
+  margin: 0 auto;
+  border: 2px solid hsl(var(--primary));
+  border-radius: 20px;
+  background: hsl(var(--background));
+  box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
+  transform: scale(0.9);
+  transition: all 0.3s ease-in-out;
+}
+
+.mobile-view .mobile-content {
+  padding: 0.5rem;
+}
+
+.mobile-view header {
+  border-radius: 16px 16px 0 0;
+}
+
+.mobile-view main {
+  border-radius: 0 0 16px 16px;
+}
+
+/* Mobile view indicator */
+.mobile-view::before {
+  content: "📱 Mobile Preview Mode";
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  z-index: 9999;
+  box-shadow: 0 4px 12px hsl(var(--primary) / 0.3);
+  animation: fade-in 0.3s ease-out;
+}
+
 /* Mobile Tables */
 @media (max-width: 768px) {
   .data-table {

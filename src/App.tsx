@@ -224,11 +224,17 @@ const App = () => {
                         <div className="flex items-center gap-1 sm:gap-2">
                           <button
                             onClick={toggleMobileView}
-                            className="hidden sm:flex items-center gap-1 px-2 py-1 text-xs bg-muted hover:bg-muted/80 rounded-md transition-colors"
+                            className={`hidden sm:flex items-center gap-1 px-2 py-1 text-xs rounded-md transition-all duration-200 ${
+                              isMobileViewForced 
+                                ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md" 
+                                : "bg-muted hover:bg-muted/80"
+                            }`}
                             title={isMobileViewForced ? "Exit mobile view" : "Preview mobile view"}
                           >
                             <Smartphone className="w-3 h-3" />
-                            <span className="hidden md:inline">{isMobileViewForced ? "Desktop" : "Mobile"}</span>
+                            <span className="hidden md:inline font-medium">
+                              {isMobileViewForced ? "Mobile Mode" : "Desktop Mode"}
+                            </span>
                           </button>
                           <div className="hidden sm:block">
                             <QZTrayStatusIndicator />

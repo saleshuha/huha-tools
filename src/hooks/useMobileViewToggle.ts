@@ -15,10 +15,14 @@ export function useMobileViewToggle() {
   }, []);
 
   const toggleMobileView = () => {
+    console.log('Toggle mobile view clicked, current state:', isMobileViewForced);
     setIsMobileViewForced(!isMobileViewForced);
+    console.log('New mobile view state will be:', !isMobileViewForced);
   };
 
   const isMobileView = actuallyMobile || isMobileViewForced;
+
+  console.log('Mobile view states:', { actuallyMobile, isMobileViewForced, isMobileView });
 
   return {
     isMobileView,
