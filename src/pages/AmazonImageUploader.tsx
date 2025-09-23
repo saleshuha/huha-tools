@@ -22,7 +22,7 @@ export default function AmazonImageUploader() {
     errors: 0,
     currentItem: ''
   });
-  const { addProductImage } = useProductImages();
+  const { addProductImage, deleteAllProductImages } = useProductImages();
   const { toast } = useToast();
 
   const handleBulkPaste = async () => {
@@ -404,6 +404,35 @@ B09DEF789 https://example.com/image3.jpg"
                         <li>• <code>ASIN ImageURL</code> - Space separated</li>
                         <li>• <code>ASIN	ImageURL</code> - Tab separated</li>
                       </ul>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                {/* Clear All Images Card */}
+                <Card className="border-red-200 dark:border-red-800">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-red-700 dark:text-red-300">
+                      <ImageIcon className="h-5 w-5" />
+                      Clear All Images
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="bg-red-50 dark:bg-red-950/50 p-4 rounded-lg border border-red-200 dark:border-red-800">
+                      <p className="text-sm text-red-700 dark:text-red-300 mb-3">
+                        ⚠️ <strong>Warning:</strong> This will permanently delete all product images from the database. This action cannot be undone.
+                      </p>
+                      <Button
+                        onClick={() => {
+                          if (window.confirm('Are you sure you want to delete ALL product images? This cannot be undone.')) {
+                            deleteAllProductImages.mutate();
+                          }
+                        }}
+                        disabled={deleteAllProductImages.isPending}
+                        variant="destructive"
+                        className="w-full"
+                      >
+                        {deleteAllProductImages.isPending ? 'Deleting...' : 'Clear All Images'}
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>

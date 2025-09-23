@@ -212,6 +212,36 @@ export const useProductImages = () => {
     }
   });
 
+  // Delete ALL product images for the current user
+  const deleteAllProductImages = useMutation({
+    mutationFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { error, count } = await supabase
+        .from('product_images')
+        .delete()
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+      return count;
+    },
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: ['product-images'] });
+      toast({
+        title: "All images deleted",
+        description: `Successfully removed ${count || 'all'} product images from the database.`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to delete images",
+        description: error.message || "An error occurred while deleting all images.",
+        variant: "destructive"
+      });
+    }
+  });
+
   // Manual refresh function to force cache invalidation
   const refreshImages = async () => {
     console.log('🖼️ Manually refreshing product images...');
@@ -231,6 +261,7 @@ export const useProductImages = () => {
     addProductImage,
     updateProductImage,
     deleteProductImage,
+    deleteAllProductImages,
     refreshImages
   };
 };
