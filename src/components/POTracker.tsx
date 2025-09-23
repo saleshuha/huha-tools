@@ -2559,6 +2559,17 @@ export const POTracker = () => {
                                      <TableCell>
                                          {(() => {
                                             const productImage = order.asin ? getImageByAsin(order.asin) : null;
+                                            
+                                            // Debug logging to see what's happening
+                                            if (order.asin) {
+                                              console.log(`🖼️ ASIN ${order.asin}:`, {
+                                                hasImage: !!productImage,
+                                                imageUrl: productImage?.image_url,
+                                                totalImages: productImages?.length || 0,
+                                                availableAsins: productImages?.map(img => img.asin).join(', ')
+                                              });
+                                            }
+                                            
                                           return productImage ? (
                                             <Popover>
                                               <PopoverTrigger asChild>
@@ -2568,7 +2579,7 @@ export const POTracker = () => {
                                                     alt={order.asin} 
                                                     className="w-full h-full object-contain"
                                                     onError={(e) => {
-                                                      console.warn(`Failed to load image for ASIN ${order.asin}:`, productImage.image_url);
+                                                      console.error(`❌ Failed to load image for ASIN ${order.asin}:`, productImage.image_url);
                                                       e.currentTarget.style.display = 'none';
                                                       const parent = e.currentTarget.parentElement;
                                                       if (parent && !parent.querySelector('.fallback-text')) {
@@ -2591,6 +2602,7 @@ export const POTracker = () => {
                                                     alt={order.asin} 
                                                     className="w-full h-full object-contain"
                                                     onError={(e) => {
+                                                      console.error(`❌ Popover image failed for ASIN ${order.asin}`);
                                                       e.currentTarget.style.display = 'none';
                                                       const parent = e.currentTarget.parentElement;
                                                       if (parent && !parent.querySelector('.fallback-text')) {
