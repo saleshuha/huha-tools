@@ -122,7 +122,8 @@ export function OrderProcessor() {
         .from('order_imports')
         .select('*')
         .order('order_place_date', { ascending: false, nullsFirst: false })
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(50000); // Increase limit to handle large datasets
       
       if (error) {
         console.error('Error loading imported orders:', error);
