@@ -23,24 +23,27 @@ export const useProductImages = () => {
     queryFn: async () => {
       console.log('🖼️ Fetching product images with user authentication...');
       
-      // Get current user first
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      // Get current session first
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (authError) {
-        console.error('🖼️ Authentication error:', authError);
-        throw new Error('Authentication failed');
+      if (sessionError) {
+        console.error('🖼️ Session error:', sessionError);
+        throw new Error('Session authentication failed');
       }
       
-      if (!user) {
-        console.error('🖼️ No authenticated user found');
-        throw new Error('User not authenticated');
+      if (!session?.user) {
+        console.error('🖼️ No authenticated session found');
+        throw new Error('User not authenticated - no session');
       }
       
-      // Query with explicit user_id filter
+      const userId = session.user.id;
+      console.log('🖼️ Authenticated user ID:', userId);
+      
+      // Query with explicit user_id filter - no limit to get all images
       const { data, error } = await supabase
         .from('product_images')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false });
       
       if (error) {
@@ -48,7 +51,7 @@ export const useProductImages = () => {
         throw error;
       }
       
-      console.log('🖼️ Product images fetched for user:', data?.length || 0);
+      console.log('🖼️ Product images fetched successfully:', data?.length || 0);
       return data as ProductImage[];
     },
     staleTime: 0, // Force fresh fetch every time
