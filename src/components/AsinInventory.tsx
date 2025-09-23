@@ -108,25 +108,18 @@ export function AsinInventory() {
     setIsPreviewDialogOpen(true);
   };
 
-  // Component for displaying product images
+  // Component for displaying product images - v2.0
   const ProductImage = ({ asin }: { asin: string }) => {
     const productImage = getImageByAsin(asin);
     
     // Specific debug for problematic ASIN
     if (asin === 'B0FPBNTD3P') {
-      console.log('🖼️ DEBUG B0FPBNTD3P:', {
+      console.log('🖼️ DEBUG B0FPBNTD3P v2.0:', {
         asin,
-        productImage,
+        hasProductImage: !!productImage,
+        imageUrl: productImage?.image_url,
         imagesLoading,
-        totalImagesCount: productImages?.length || 0
-      });
-    }
-    
-    // Debug logging
-    if (!productImage && Math.random() < 0.1) { // Log 10% of missing images
-      console.log('🖼️ No image found for ASIN:', asin, {
-        totalImages: !imagesLoading ? 'loaded' : 'loading',
-        hasAsin: !!asin
+        totalImages: productImages?.length || 0
       });
     }
     
