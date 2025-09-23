@@ -2869,7 +2869,7 @@ export const POTracker = () => {
                               <div className="w-2 h-2 bg-emerald rounded-full"></div>
                               <span className="text-foreground">Quantity</span>
                               {sortField === 'quantity' && !originalOrderPreserved && (
-                                <div className={`text-xs p-1 rounded bg-emerald/10 text-emerald-foreground ${
+                                <div className={`text-xs p-1 rounded bg-emerald/10 text-emerald-700 dark:text-emerald-300 ${
                                   sortDirection === 'asc' ? 'rotate-0' : 'rotate-180'
                                 } transition-transform`}>
                                   ↑
@@ -3072,7 +3072,7 @@ export const POTracker = () => {
                                     <div className="space-y-2">
                                       {order.status === 'closed' && order.notes?.includes('Fulfilled from stock:') ? (
                                         <div className="space-y-2">
-                                          <Badge variant="outline" className="bg-sky/10 text-sky-foreground border-sky/30 font-mono">
+                                          <Badge variant="outline" className="bg-sky/10 text-sky-700 dark:text-sky-300 border-sky/30 font-mono">
                                              {(() => {
                                                const fulfilledMatch = order.notes?.match(/Fulfilled from stock:\s*(\d+)/);
                                                const originalMatch = order.notes?.match(/Original quantity:\s*(\d+)/);
@@ -3091,7 +3091,7 @@ export const POTracker = () => {
                                         </div>
                                       ) : (
                                         <div className="flex items-center gap-2">
-                                          <Badge variant="secondary" className="font-mono bg-emerald/10 text-emerald-foreground border-emerald/30">
+                                          <Badge variant="secondary" className="font-mono bg-emerald/10 text-emerald-700 dark:text-emerald-300 border-emerald/30">
                                             {order.quantity}
                                           </Badge>
                                           <div className="text-xs text-muted-foreground">items</div>
@@ -3458,7 +3458,7 @@ export const POTracker = () => {
                                           handleClosePO(poNumber);
                                         }
                                       }}
-                                      className="text-white"
+                                      className="text-destructive-foreground"
                                     >
                                       Close PO
                                     </Button>
