@@ -175,16 +175,6 @@ export const POTracker = () => {
   const { selectedCountry } = useCountry();
   const { getImageByAsin, productImages, isLoading: imagesLoading, refreshImages } = useProductImages();
   const { toast } = useToast();
-  
-  // Force refresh images when component mounts to ensure fresh data
-  useEffect(() => {
-    const refreshData = async () => {
-      console.log('🖼️ POTracker: Forcing product images refresh...');
-      await refreshImages();
-    };
-    
-    refreshData();
-  }, [refreshImages]);
   // Function to handle bulk PO closing
   const handleBulkClosePOs = async (poNumbers: string[]) => {
     setIsClosingPOs(true);
@@ -2567,24 +2557,31 @@ export const POTracker = () => {
                                  />
                                </TableCell>
                                       <TableCell>
-                                           {(() => {
-                                              const productImage = order.asin ? getImageByAsin(order.asin) : null;
+                                          {(() => {
+                                             const productImage = order.asin ? getImageByAsin(order.asin) : null;
+                                             
+                                             // Force immediate logging for debugging
+                                             console.log(`🖼️ IMMEDIATE DEBUG for order ${order.id}:`, {
+                                               orderAsin: order.asin,
+                                               hasOrderAsin: !!order.asin,
+                                               foundImage: !!productImage,
+                                               imageUrl: productImage?.image_url,
+                                               productImagesCount: productImages?.length || 0,
+                                               productImagesLoading: imagesLoading,
+                                               firstFewAsins: productImages?.slice(0, 3).map(img => img.asin) || [],
+                                               asinTrimmed: order.asin?.trim(),
+                                               exactMatch: productImages?.find(img => img.asin === order.asin?.trim())
+                                             });
+                                             
+                                             // Also log all available ASINs vs the order ASIN
+                                             if (order.asin && productImages?.length > 0) {
+                                               console.log(`🔍 ASIN COMPARISON for ${order.asin}:`, {
+                                                 searchingFor: order.asin,
+                                                 availableAsins: productImages.map(img => ({ asin: img.asin, url: img.image_url }))
+                                               });
+                                             }
                                               
-                                              // Enhanced debugging - log the actual productImages content
-                                              console.log(`🖼️ ENHANCED DEBUG for order ${order.id}:`, {
-                                                orderAsin: order.asin,
-                                                hasOrderAsin: !!order.asin,
-                                                foundImage: !!productImage,
-                                                imageUrl: productImage?.image_url,
-                                                productImagesCount: productImages?.length || 0,
-                                                productImagesLoading: imagesLoading,
-                                                allProductImagesAsins: productImages?.map(img => img.asin) || [],
-                                                asinTrimmed: order.asin?.trim(),
-                                                exactManualMatch: productImages?.find(img => img.asin === order.asin),
-                                                trimmedManualMatch: productImages?.find(img => img.asin?.trim() === order.asin?.trim())
-                                              });
-                                               
-                                            return productImage ? (
+                                           return productImage ? (
                                              <Popover>
                                                <PopoverTrigger asChild>
                                                  <div className="w-20 h-20 rounded border overflow-hidden flex-shrink-0 cursor-pointer hover:border-primary transition-colors">
