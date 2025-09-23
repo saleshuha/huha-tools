@@ -39,12 +39,13 @@ export const useProductImages = () => {
       const userId = session.user.id;
       console.log('🖼️ Authenticated user ID:', userId);
       
-      // Query with explicit user_id filter - no limit to get all images
+      // Query with explicit user_id filter - use range to get ALL rows
       const { data, error } = await supabase
         .from('product_images')
         .select('*')
         .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(0, -1); // Explicitly request all rows (no limit)
       
       if (error) {
         console.error('🖼️ Error fetching product images:', error);

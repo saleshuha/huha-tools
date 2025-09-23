@@ -125,8 +125,8 @@ export const ProductImageManager = () => {
           </CardTitle>
           <p className="text-muted-foreground">
             Upload and manage product images with ASIN mapping for display in your purchase orders.
-            <span className="block text-sm mt-1 font-medium text-amber-600 dark:text-amber-400">
-              ⚠️ Performance limit: Shows up to 1,000 most recent images | Current: {productImages.length}
+            <span className="block text-sm mt-1 font-medium text-green-600 dark:text-green-400">
+              ✅ Showing all images | Total: {productImages.length}
             </span>
           </p>
         </CardHeader>
@@ -184,7 +184,7 @@ export const ProductImageManager = () => {
                   setShowAll(true);
                   setCurrentPage(1);
                 }}
-                title={`Show all ${filteredImages.length} images (max 1,000 loaded)`}
+                title={`Show all ${filteredImages.length} images`}
               >
                 Show All ({filteredImages.length})
               </Button>
