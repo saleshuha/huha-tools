@@ -86,7 +86,7 @@ export const POTracker = () => {
   const [selectedPOForLabels, setSelectedPOForLabels] = useState<string | null>(null);
   const [selectedPOsForLabels, setSelectedPOsForLabels] = useState<Set<string>>(new Set()); // Multi-select
   const [labelSearchQuery, setLabelSearchQuery] = useState('');
-  const [selectedForPrint, setSelectedForPrint] = useState<Set<string>>(new Set());
+  const [selectedForPrint, setSelectedForPrint] = useState<Map<string, number>>(new Map());
   const [labelCurrentPage, setLabelCurrentPage] = useState(1);
   const [labelItemsPerPage, setLabelItemsPerPage] = useState(20);
   
@@ -152,7 +152,6 @@ export const POTracker = () => {
   const [selectedPrinter, setSelectedPrinter] = useState<string>('');
   const [isPrinting, setIsPrinting] = useState(false);
   const [printingItems, setPrintingItems] = useState<Set<string>>(new Set());
-  const [itemPrintQuantities, setItemPrintQuantities] = useState<{[key: string]: number}>({});
   const [preventTableReorder, setPreventTableReorder] = useState(false);
   
   // Inventory data for matching
@@ -773,7 +772,8 @@ export const POTracker = () => {
       let allZPLCodes: string[] = [];
       
       for (const order of selectedOrders) {
-        const copies = printSettings.copiesByQuantity ? order.quantity : printSettings.copies;
+        const customQuantity = selectedForPrint.get(order.id) || 1;
+        const copies = printSettings.copiesByQuantity ? customQuantity : customQuantity;
         
         for (let i = 0; i < copies; i++) {
           let zplCode = generateZPLFromTemplate(order, printSettings);
@@ -800,9 +800,9 @@ export const POTracker = () => {
       // Update printed quantities for each order in database
       console.log('🖨️ Updating print status for', selectedOrders.length, 'orders');
       const updatePromises = selectedOrders.map(async (order) => {
-        const copies = printSettings.copiesByQuantity ? order.quantity : printSettings.copies;
+        const customQuantity = selectedForPrint.get(order.id) || 1;
+        const copies = printSettings.copiesByQuantity ? customQuantity : customQuantity;
         const newPrintedQuantity = (order.printed_quantity || 0) + copies;
-        
         console.log(`🖨️ Updating order ${order.id}: printed_quantity ${order.printed_quantity || 0} + ${copies} = ${newPrintedQuantity}`);
         
         const { error } = await supabase
@@ -828,7 +828,7 @@ export const POTracker = () => {
       await fetchPOOrders();
       console.log('🖨️ Data refresh completed');
       
-      setSelectedForPrint(new Set());
+      setSelectedForPrint(new Map());
 
     } catch (error) {
       console.error('Print error:', error);
@@ -1071,7 +1071,7 @@ export const POTracker = () => {
       setPreventTableReorder(true);
       setPrintingItems(prev => new Set([...prev, order.id]));
 
-      const copies = customQuantity || itemPrintQuantities[order.id] || (printSettings.copiesByQuantity ? order.quantity : printSettings.copies);
+      const copies = customQuantity || (printSettings.copiesByQuantity ? order.quantity : printSettings.copies);
       let allZPLCodes: string[] = [];
       
       for (let i = 0; i < copies; i++) {
@@ -2142,7 +2142,7 @@ export const POTracker = () => {
                          setLabelsStep('list');
                          setSelectedPOForLabels(null);
                          setSelectedPOsForLabels(new Set());
-                         setSelectedForPrint(new Set());
+                         setSelectedForPrint(new Map());
                          setOriginalOrderPreserved(false); // Reset order preservation when going back
                        }}
                      >
@@ -2736,24 +2736,28 @@ export const POTracker = () => {
                             const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
                             const poOrders = filteredOrders.filter(order => selectedPOsList.includes(order.po_number));
                             const currentPageIds = new Set(poOrders.map(order => order.id));
-                            const allSelected = Array.from(currentPageIds).every(id => selectedForPrint.has(id));
-                            
-                            if (allSelected) {
-                              setSelectedForPrint(prev => {
-                                const newSet = new Set(prev);
-                                currentPageIds.forEach(id => newSet.delete(id));
-                                return newSet;
-                              });
-                            } else {
-                              setSelectedForPrint(prev => new Set([...prev, ...currentPageIds]));
-                            }
+                             const allSelected = Array.from(currentPageIds).every(id => selectedForPrint.has(id));
+                             
+                             if (allSelected) {
+                               setSelectedForPrint(prev => {
+                                 const newMap = new Map(prev);
+                                 currentPageIds.forEach(id => newMap.delete(id));
+                                 return newMap;
+                               });
+                             } else {
+                               setSelectedForPrint(prev => {
+                                 const newMap = new Map(prev);
+                                 currentPageIds.forEach(id => newMap.set(id, 1)); // Default quantity of 1
+                                 return newMap;
+                               });
+                             }
                           }}
                           className="hover:bg-primary/10 hover:border-primary/30 transition-colors"
                         >
                           {(() => {
                             const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
                             const poOrders = filteredOrders.filter(order => selectedPOsList.includes(order.po_number));
-                            const allSelected = poOrders.every(order => selectedForPrint.has(order.id));
+                             const allSelected = poOrders.every(order => selectedForPrint.has(order.id));
                             return allSelected && poOrders.length > 0 ? (
                               <>
                                 <Square className="h-3 w-3 mr-1" />
@@ -2909,26 +2913,26 @@ export const POTracker = () => {
                               <TableRow 
                                 key={order.id} 
                                 className={`group hover:bg-gradient-to-r hover:from-primary/10 hover:to-accent/10 transition-all duration-300 border-b border-border ${
-                                  selectedForPrint.has(order.id) ? 'bg-primary/10 border-primary/30' : ''
+                                   selectedForPrint.has(order.id) ? 'bg-primary/10 border-primary/30' : ''
                                 } ${index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}`}
                               >
                                 {/* Enhanced Checkbox Cell */}
                                 <TableCell className="w-12 border-r border-border/50 bg-background/50">
                                   <div className="flex items-center justify-center">
-                                    <input
-                                      type="checkbox"
-                                      checked={selectedForPrint.has(order.id)}
-                                      onChange={(e) => {
-                                        const newSelected = new Set(selectedForPrint);
-                                        if (e.target.checked) {
-                                          newSelected.add(order.id);
-                                        } else {
-                                          newSelected.delete(order.id);
-                                        }
-                                        setSelectedForPrint(newSelected);
-                                      }}
-                                      className="h-4 w-4 rounded border-border accent-primary group-hover:scale-110 transition-transform"
-                                    />
+                                     <input
+                                       type="checkbox"
+                                       checked={selectedForPrint.has(order.id)}
+                                       onChange={(e) => {
+                                         const newSelected = new Map(selectedForPrint);
+                                         if (e.target.checked) {
+                                           newSelected.set(order.id, 1); // Default quantity of 1
+                                         } else {
+                                           newSelected.delete(order.id);
+                                         }
+                                         setSelectedForPrint(newSelected);
+                                       }}
+                                       className="h-4 w-4 rounded border-border accent-primary group-hover:scale-110 transition-transform"
+                                     />
                                   </div>
                                 </TableCell>
 
@@ -3101,27 +3105,31 @@ export const POTracker = () => {
                                  </div>
                                </TableCell>
 
-                                {/* Enhanced Print Qty Cell */}
-                                <TableCell className="w-24 border-r border-border/50">
-                                  <div className="flex items-center gap-2">
-                                    <Input
-                                      type="number"
-                                      min="1"
-                                      max="99"
-                                      placeholder="Qty"
-                                      className="w-16 h-9 text-center bg-background border-2 border-border focus:border-primary group-hover:border-primary/50 transition-colors font-mono text-foreground"
-                                      value={itemPrintQuantities[order.id] || ''}
-                                      onChange={(e) => {
-                                        const value = parseInt(e.target.value) || 0;
-                                        setItemPrintQuantities(prev => ({
-                                          ...prev,
-                                          [order.id]: value
-                                        }));
-                                      }}
-                                      disabled={printingItems.has(order.id)}
-                                    />
-                                  </div>
-                                </TableCell>
+                                 {/* Enhanced Print Qty Cell */}
+                                 <TableCell className="w-24 border-r border-border/50">
+                                   <div className="flex items-center gap-2">
+                                     <Input
+                                       type="number"
+                                       min="1"
+                                       max="99"
+                                       placeholder="Qty"
+                                       className="w-16 h-9 text-center bg-background border-2 border-border focus:border-primary group-hover:border-primary/50 transition-colors font-mono text-foreground"
+                                       value={selectedForPrint.has(order.id) ? (selectedForPrint.get(order.id) || 1) : ''}
+                                       onChange={(e) => {
+                                         const value = parseInt(e.target.value) || 1;
+                                         if (selectedForPrint.has(order.id)) {
+                                           const newSelected = new Map(selectedForPrint);
+                                           newSelected.set(order.id, value);
+                                           setSelectedForPrint(newSelected);
+                                         }
+                                       }}
+                                       disabled={!selectedForPrint.has(order.id) || printingItems.has(order.id)}
+                                     />
+                                     {!selectedForPrint.has(order.id) && (
+                                       <span className="text-xs text-muted-foreground whitespace-nowrap">Select first</span>
+                                     )}
+                                   </div>
+                                 </TableCell>
 
                                 {/* Enhanced Status Cell */}
                                 <TableCell className="border-r border-border/50">
@@ -3154,29 +3162,27 @@ export const POTracker = () => {
 
                                 {/* Enhanced Actions Cell */}
                                 <TableCell>
-                                 <Button 
-                                   variant="outline" 
-                                   size="sm"
-                                   onClick={() => {
-                                     const printQty = itemPrintQuantities[order.id];
-                                     if (printQty && printQty > 0) {
-                                       handleSingleItemPrint(order, printQty);
-                                     } else {
-                                       handleSingleItemPrint(order);
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => {
+                                      const printQty = selectedForPrint.get(order.id) || 1;
+                                      handleSingleItemPrint(order, printQty);
+                                     }}
+                                     disabled={
+                                       !qzConnected || 
+                                       !selectedPrinter || 
+                                       printingItems.has(order.id) ||
+                                       !selectedForPrint.has(order.id) ||
+                                       !selectedForPrint.get(order.id) ||
+                                       selectedForPrint.get(order.id) <= 0
                                      }
-                                    }}
-                                    disabled={
-                                      !qzConnected || 
-                                      !selectedPrinter || 
-                                      printingItems.has(order.id) ||
-                                      (!itemPrintQuantities[order.id] || itemPrintQuantities[order.id] <= 0)
-                                    }
-                                     className={`w-full group-hover:shadow-soft transition-all duration-300 border-2 border-border hover:border-primary ${
-                                       printingItems.has(order.id) 
-                                         ? 'bg-primary/10 border-primary text-primary' 
-                                         : 'hover:bg-primary/5 hover:text-primary'
-                                     }`}
-                                 >
+                                      className={`w-full group-hover:shadow-soft transition-all duration-300 border-2 border-border hover:border-primary ${
+                                        printingItems.has(order.id) 
+                                          ? 'bg-primary/10 border-primary text-primary' 
+                                          : 'hover:bg-primary/5 hover:text-primary'
+                                      }`}
+                                  >
                                    {printingItems.has(order.id) ? (
                                      <div className="flex items-center gap-2">
                                        <Loader2 className="h-3 w-3 animate-spin" />
