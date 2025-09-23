@@ -47,14 +47,41 @@ export const useProductImages = () => {
   const getImageByAsin = (asin: string): ProductImage | undefined => {
     const foundImage = productImages?.find(img => img.asin === asin);
     
-    // Debug for specific ASIN
+    // Enhanced debug for specific ASIN
     if (asin === 'B0FPBNTD3P') {
-      console.log('🖼️ getImageByAsin DEBUG for B0FPBNTD3P:', {
+      console.log('🖼️ getImageByAsin ENHANCED DEBUG for B0FPBNTD3P:', {
         searchingFor: asin,
+        searchingForLength: asin.length,
         foundImage: !!foundImage,
         totalImages: productImages?.length || 0,
         imageUrl: foundImage?.image_url,
-        allAsins: productImages?.slice(0, 10).map(img => img.asin)
+        // Check first 10 ASINs to see the actual data structure
+        sampleAsins: productImages?.slice(0, 10).map(img => ({
+          asin: img.asin,
+          asinLength: img.asin?.length,
+          asinRaw: JSON.stringify(img.asin),
+        })),
+        // Look for exact matches by checking each character
+        exactMatch: productImages?.find(img => {
+          const match = img.asin === asin;
+          if (img.asin && img.asin.includes('B0FPBNTD3P')) {
+            console.log('🔍 Potential match found:', {
+              dbAsin: img.asin,
+              dbAsinLength: img.asin.length,
+              searchAsin: asin,
+              searchLength: asin.length,
+              exactMatch: match,
+              charByChar: img.asin.split('').map((c, i) => ({ 
+                char: c, 
+                code: c.charCodeAt(0), 
+                searchChar: asin[i],
+                searchCode: asin[i]?.charCodeAt(0),
+                match: c === asin[i] 
+              }))
+            });
+          }
+          return match;
+        })
       });
     }
     
