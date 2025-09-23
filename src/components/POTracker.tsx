@@ -472,6 +472,11 @@ export const POTracker = () => {
     }
   }, [profile?.id, selectedCountry]);
 
+  // Force refresh images when component mounts
+  useEffect(() => {
+    refreshImages();
+  }, [refreshImages]);
+
   // Filter out closed POs from label printing by default
   const labelEligibleOrders = useMemo(() => {
     return poOrders.filter(order => order.status !== 'closed');
@@ -2556,89 +2561,63 @@ export const POTracker = () => {
                                    className="h-4 w-4 rounded border-border"
                                  />
                                </TableCell>
-                                      <TableCell>
-                                          {(() => {
-                                             const productImage = order.asin ? getImageByAsin(order.asin) : null;
-                                             
-                                             // Force immediate logging for debugging
-                                             console.log(`🖼️ IMMEDIATE DEBUG for order ${order.id}:`, {
-                                               orderAsin: order.asin,
-                                               hasOrderAsin: !!order.asin,
-                                               foundImage: !!productImage,
-                                               imageUrl: productImage?.image_url,
-                                               productImagesCount: productImages?.length || 0,
-                                               productImagesLoading: imagesLoading,
-                                               firstFewAsins: productImages?.slice(0, 3).map(img => img.asin) || [],
-                                               asinTrimmed: order.asin?.trim(),
-                                               exactMatch: productImages?.find(img => img.asin === order.asin?.trim())
-                                             });
-                                             
-                                             // Also log all available ASINs vs the order ASIN
-                                             if (order.asin && productImages?.length > 0) {
-                                               console.log(`🔍 ASIN COMPARISON for ${order.asin}:`, {
-                                                 searchingFor: order.asin,
-                                                 availableAsins: productImages.map(img => ({ asin: img.asin, url: img.image_url }))
-                                               });
-                                             }
-                                              
-                                           return productImage ? (
-                                             <Popover>
-                                               <PopoverTrigger asChild>
-                                                 <div className="w-20 h-20 rounded border overflow-hidden flex-shrink-0 cursor-pointer hover:border-primary transition-colors">
-                                                   <img 
-                                                     src={productImage.image_url} 
-                                                     alt={order.asin} 
-                                                     className="w-full h-full object-contain"
-                                                     onError={(e) => {
-                                                       console.error(`❌ Failed to load image for ASIN ${order.asin}:`, productImage.image_url);
-                                                       e.currentTarget.style.display = 'none';
-                                                       const parent = e.currentTarget.parentElement;
-                                                       if (parent && !parent.querySelector('.fallback-text')) {
-                                                         const fallback = document.createElement('div');
-                                                         fallback.className = 'fallback-text w-full h-full flex items-center justify-center text-xs text-muted-foreground bg-muted';
-                                                         fallback.textContent = 'Load Error';
-                                                         parent.appendChild(fallback);
-                                                       }
-                                                     }}
-                                                     onLoad={() => {
-                                                       console.log(`✅ Successfully loaded image for ASIN ${order.asin}`);
-                                                     }}
-                                                   />
+                                       <TableCell>
+                                           {(() => {
+                                              const productImage = order.asin ? getImageByAsin(order.asin) : null;
+                                               
+                                            return productImage ? (
+                                              <Popover>
+                                                <PopoverTrigger asChild>
+                                                  <div className="w-20 h-20 rounded border overflow-hidden flex-shrink-0 cursor-pointer hover:border-primary transition-colors">
+                                                    <img 
+                                                      src={productImage.image_url} 
+                                                      alt={order.asin} 
+                                                      className="w-full h-full object-contain"
+                                                      onError={(e) => {
+                                                        e.currentTarget.style.display = 'none';
+                                                        const parent = e.currentTarget.parentElement;
+                                                        if (parent && !parent.querySelector('.fallback-text')) {
+                                                          const fallback = document.createElement('div');
+                                                          fallback.className = 'fallback-text w-full h-full flex items-center justify-center text-xs text-muted-foreground bg-muted';
+                                                          fallback.textContent = 'Load Error';
+                                                          parent.appendChild(fallback);
+                                                        }
+                                                      }}
+                                                    />
+                                                  </div>
+                                                </PopoverTrigger>
+                                                <PopoverContent side="left" className="w-80 p-2">
+                                                  <div className="w-full h-64 rounded-lg overflow-hidden bg-white">
+                                                    <img 
+                                                      src={productImage.image_url} 
+                                                      alt={order.asin} 
+                                                      className="w-full h-full object-contain"
+                                                      onError={(e) => {
+                                                        e.currentTarget.style.display = 'none';
+                                                        const parent = e.currentTarget.parentElement;
+                                                        if (parent && !parent.querySelector('.fallback-text')) {
+                                                          const fallback = document.createElement('div');
+                                                          fallback.className = 'fallback-text w-full h-full flex items-center justify-center text-muted-foreground';
+                                                          fallback.textContent = 'Image failed to load';
+                                                          parent.appendChild(fallback);
+                                                        }
+                                                      }}
+                                                    />
+                                                  </div>
+                                                 <div className="text-xs text-muted-foreground mt-2 text-center">
+                                                   ASIN: {order.asin}
                                                  </div>
-                                               </PopoverTrigger>
-                                               <PopoverContent side="left" className="w-80 p-2">
-                                                 <div className="w-full h-64 rounded-lg overflow-hidden bg-white">
-                                                   <img 
-                                                     src={productImage.image_url} 
-                                                     alt={order.asin} 
-                                                     className="w-full h-full object-contain"
-                                                     onError={(e) => {
-                                                       console.error(`❌ Popover image failed for ASIN ${order.asin}`);
-                                                       e.currentTarget.style.display = 'none';
-                                                       const parent = e.currentTarget.parentElement;
-                                                       if (parent && !parent.querySelector('.fallback-text')) {
-                                                         const fallback = document.createElement('div');
-                                                         fallback.className = 'fallback-text w-full h-full flex items-center justify-center text-muted-foreground';
-                                                         fallback.textContent = 'Image failed to load';
-                                                         parent.appendChild(fallback);
-                                                       }
-                                                     }}
-                                                   />
-                                                 </div>
-                                                <div className="text-xs text-muted-foreground mt-2 text-center">
-                                                  ASIN: {order.asin}
-                                                </div>
-                                              </PopoverContent>
-                                            </Popover>
-                                          ) : (
-                                            <div className="w-20 h-20 rounded border overflow-hidden flex-shrink-0 bg-muted flex items-center justify-center">
-                                              <div className="text-xs text-muted-foreground text-center p-1">
-                                                {imagesLoading ? 'Loading...' : `No Image${order.asin ? ` (${order.asin})` : ''}`}
-                                              </div>
-                                            </div>
-                                          );
-                                        })()}
-                                    </TableCell>
+                                               </PopoverContent>
+                                             </Popover>
+                                           ) : (
+                                             <div className="w-20 h-20 rounded border overflow-hidden flex-shrink-0 bg-muted flex items-center justify-center">
+                                               <div className="text-xs text-muted-foreground text-center p-1">
+                                                 {imagesLoading ? 'Loading...' : 'No Image'}
+                                               </div>
+                                             </div>
+                                           );
+                                         })()}
+                                     </TableCell>
                                  <TableCell className="w-32">
                                    <div className="space-y-1">
                                      {order.sku_code && (
