@@ -2556,28 +2556,52 @@ export const POTracker = () => {
                                    className="h-4 w-4 rounded border-border"
                                  />
                                </TableCell>
-                                    <TableCell>
-                                        {(() => {
-                                           const productImage = order.asin ? getImageByAsin(order.asin) : null;
-                                         return productImage ? (
-                                           <Popover>
-                                             <PopoverTrigger asChild>
-                                               <div className="w-20 h-20 rounded border overflow-hidden flex-shrink-0 cursor-pointer hover:border-primary transition-colors">
-                                                 <img 
-                                                   src={productImage.image_url} 
-                                                   alt={order.asin} 
-                                                   className="w-full h-full object-contain"
-                                                 />
-                                               </div>
-                                             </PopoverTrigger>
-                                             <PopoverContent side="left" className="w-80 p-2">
-                                               <div className="w-full h-64 rounded-lg overflow-hidden bg-white">
-                                                 <img 
-                                                   src={productImage.image_url} 
-                                                   alt={order.asin} 
-                                                   className="w-full h-full object-contain"
-                                                 />
-                                               </div>
+                                     <TableCell>
+                                         {(() => {
+                                            const productImage = order.asin ? getImageByAsin(order.asin) : null;
+                                          return productImage ? (
+                                            <Popover>
+                                              <PopoverTrigger asChild>
+                                                <div className="w-20 h-20 rounded border overflow-hidden flex-shrink-0 cursor-pointer hover:border-primary transition-colors">
+                                                  <img 
+                                                    src={productImage.image_url} 
+                                                    alt={order.asin} 
+                                                    className="w-full h-full object-contain"
+                                                    onError={(e) => {
+                                                      console.warn(`Failed to load image for ASIN ${order.asin}:`, productImage.image_url);
+                                                      e.currentTarget.style.display = 'none';
+                                                      const parent = e.currentTarget.parentElement;
+                                                      if (parent && !parent.querySelector('.fallback-text')) {
+                                                        const fallback = document.createElement('div');
+                                                        fallback.className = 'fallback-text w-full h-full flex items-center justify-center text-xs text-muted-foreground bg-muted';
+                                                        fallback.textContent = 'No Image';
+                                                        parent.appendChild(fallback);
+                                                      }
+                                                    }}
+                                                    onLoad={() => {
+                                                      console.log(`✅ Successfully loaded image for ASIN ${order.asin}`);
+                                                    }}
+                                                  />
+                                                </div>
+                                              </PopoverTrigger>
+                                              <PopoverContent side="left" className="w-80 p-2">
+                                                <div className="w-full h-64 rounded-lg overflow-hidden bg-white">
+                                                  <img 
+                                                    src={productImage.image_url} 
+                                                    alt={order.asin} 
+                                                    className="w-full h-full object-contain"
+                                                    onError={(e) => {
+                                                      e.currentTarget.style.display = 'none';
+                                                      const parent = e.currentTarget.parentElement;
+                                                      if (parent && !parent.querySelector('.fallback-text')) {
+                                                        const fallback = document.createElement('div');
+                                                        fallback.className = 'fallback-text w-full h-full flex items-center justify-center text-muted-foreground';
+                                                        fallback.textContent = 'Image failed to load';
+                                                        parent.appendChild(fallback);
+                                                      }
+                                                    }}
+                                                  />
+                                                </div>
                                                <div className="text-xs text-muted-foreground mt-2 text-center">
                                                  ASIN: {order.asin}
                                                </div>
