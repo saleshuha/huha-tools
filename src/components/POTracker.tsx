@@ -2661,11 +2661,36 @@ export const POTracker = () => {
                                      })()}
                                    </div>
                                  </TableCell>
-                                <TableCell>
-                                  <Badge variant="secondary" className="font-mono">
-                                    {order.quantity}
-                                  </Badge>
-                                </TableCell>
+                                 <TableCell>
+                                   <div className="space-y-1">
+                                     <Badge variant="secondary" className="font-mono">
+                                       {order.quantity}
+                                     </Badge>
+                                     {(() => {
+                                       const inventoryMatch = findInventoryMatch(
+                                         order.asin, 
+                                         order.sunsky_sku?.sku_code, 
+                                         order.sku_code, 
+                                         order.model_number,
+                                         order.sunsky_sku
+                                       );
+                                       
+                                       if (inventoryMatch && inventoryMatch.quantity > 0) {
+                                         const isInStock = inventoryMatch.type === 'ASIN' || inventoryMatch.type === 'SKU' || inventoryMatch.type === 'SKU-ASIN';
+                                         if (isInStock) {
+                                           return (
+                                             <div className="text-xs">
+                                               <Badge variant="outline" className="text-green-600 dark:text-green-400 border-green-200 dark:border-green-800">
+                                                 In-Stock: {inventoryMatch.quantity}
+                                               </Badge>
+                                             </div>
+                                           );
+                                         }
+                                       }
+                                       return null;
+                                     })()}
+                                   </div>
+                                 </TableCell>
                                 <TableCell>
                                   <Input
                                     type="number"
