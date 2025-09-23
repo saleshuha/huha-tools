@@ -65,7 +65,7 @@ export function AsinInventory() {
   const {
     runTitleFetch
   } = useBackgroundTasks();
-  const { getImageByAsin, isLoading: imagesLoading } = useProductImages();
+  const { getImageByAsin, isLoading: imagesLoading, productImages } = useProductImages();
   const [searchTerm, setSearchTerm] = useState('');
   const [searchMethod, setSearchMethod] = useState<'all' | 'asin' | 'sku' | 'serial' | 'title' | 'notes'>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -111,6 +111,16 @@ export function AsinInventory() {
   // Component for displaying product images
   const ProductImage = ({ asin }: { asin: string }) => {
     const productImage = getImageByAsin(asin);
+    
+    // Specific debug for problematic ASIN
+    if (asin === 'B0FPBNTD3P') {
+      console.log('🖼️ DEBUG B0FPBNTD3P:', {
+        asin,
+        productImage,
+        imagesLoading,
+        totalImagesCount: productImages?.length || 0
+      });
+    }
     
     // Debug logging
     if (!productImage && Math.random() < 0.1) { // Log 10% of missing images

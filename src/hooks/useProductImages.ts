@@ -22,11 +22,17 @@ export const useProductImages = () => {
     queryKey: ['product-images'],
     queryFn: async () => {
       console.log('🖼️ Fetching product images...');
-      const { data, error } = await supabase
+    const { data, error } = await supabase
         .from('product_images')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(5000); // Increased limit to get more images
+      
+      console.log('🖼️ Raw fetched images count:', data?.length || 0);
+      if (data) {
+        const testAsin = data.find(img => img.asin === 'B0FPBNTD3P');
+        console.log('🖼️ Test ASIN B0FPBNTD3P found in fetch:', !!testAsin, testAsin);
+      }
       
       if (error) {
         console.error('🖼️ Error fetching product images:', error);
@@ -39,7 +45,20 @@ export const useProductImages = () => {
 
   // Get image by ASIN
   const getImageByAsin = (asin: string): ProductImage | undefined => {
-    return productImages?.find(img => img.asin === asin);
+    const foundImage = productImages?.find(img => img.asin === asin);
+    
+    // Debug for specific ASIN
+    if (asin === 'B0FPBNTD3P') {
+      console.log('🖼️ getImageByAsin DEBUG for B0FPBNTD3P:', {
+        searchingFor: asin,
+        foundImage: !!foundImage,
+        totalImages: productImages?.length || 0,
+        imageUrl: foundImage?.image_url,
+        allAsins: productImages?.slice(0, 10).map(img => img.asin)
+      });
+    }
+    
+    return foundImage;
   };
 
   // Add new product image
