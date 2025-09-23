@@ -1940,18 +1940,18 @@ export const POTracker = () => {
               <CardContent>
                  <div className="space-y-4">
                     {/* Search Bar and Controls */}
-                    <div className="flex items-center gap-4">
-                      <div className="relative flex-1 max-w-sm">
-                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                         <Input
-                           placeholder="Search PO number, ASIN, model, serial number..."
-                           value={labelSearchQuery}
-                           onChange={(e) => {
-                             console.log('Label search query changed to:', e.target.value);
-                             setLabelSearchQuery(e.target.value);
-                           }}
-                           className="pl-9 pr-9 border-2 border-border focus:border-primary"
-                         />
+                     <div className="flex items-center gap-4">
+                       <div className="relative flex-1">
+                         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            placeholder="Search PO number, ASIN, model, serial number..."
+                            value={labelSearchQuery}
+                            onChange={(e) => {
+                              console.log('Label search query changed to:', e.target.value);
+                              setLabelSearchQuery(e.target.value);
+                            }}
+                            className="pl-9 pr-9 border-2 border-border focus:border-primary"
+                          />
                         {labelSearchQuery && (
                           <Button
                             variant="ghost" 
