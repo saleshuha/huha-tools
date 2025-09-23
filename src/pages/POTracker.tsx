@@ -1,4 +1,4 @@
-import { POTracker } from '@/components/POTracker';
+import { POTrackerEnhanced } from '@/components/POTrackerEnhanced';
 import { ShoppingCart } from 'lucide-react';
 import { HuhaHeader01 } from '@/components/ui/huha-header-01';
 
@@ -20,7 +20,7 @@ export default function POTrackerPage() {
           className="mb-8"
         />
         <div className="container mx-auto">
-          <POTracker />
+          <POTrackerEnhanced />
         </div>
       </div>
     </div>

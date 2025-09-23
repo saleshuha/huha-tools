@@ -1152,102 +1152,163 @@ export const POTracker = () => {
   }, [filteredOrders, startIndex, endIndex]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold mb-2">Purchase Order Dashboard</h2>
-          <p className="text-muted-foreground">Monitor and manage your purchase orders across all suppliers</p>
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" size="sm" onClick={() => fetchPOOrders()}>
-            <RefreshCw className="h-4 w-4 mr-2 animate-spin" style={{ animationPlayState: isLoading ? 'running' : 'paused' }} />
-            Refresh
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => refreshImages()}>
-            <ImageIcon className="h-4 w-4 mr-2 animate-spin" style={{ animationPlayState: imagesLoading ? 'running' : 'paused' }} />
-            Images
-          </Button>
-        </div>
-      </div>
-
-
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5 h-12 bg-muted/30 rounded-lg p-1 border border-border shadow-soft">
-          <TabsTrigger 
-            value="overview" 
-            className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
-          >
-            <Package className="h-4 w-4" />
-            PO Overview
-          </TabsTrigger>
-          <TabsTrigger 
-            value="upload" 
-            className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
-          >
-            <FileUp className="h-4 w-4" />
-            Uploads
-          </TabsTrigger>
-          <TabsTrigger 
-            value="labels" 
-            className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
-          >
-            <Printer className="h-4 w-4" />
-            Print Labels
-          </TabsTrigger>
-          <TabsTrigger 
-            value="reports" 
-            className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
-          >
-            <BarChart3 className="h-4 w-4" />
-            Reports
-          </TabsTrigger>
-          <TabsTrigger 
-            value="close" 
-            className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
-          >
-            <X className="h-4 w-4" />
-            Close PO
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="relative overflow-hidden border-l-4 border-l-primary bg-gradient-to-br from-primary/5 to-background">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-primary">
-                  <Package className="h-5 w-5" />
-                  {viewMode === 'grouped' ? 'Unique PO Numbers' : 'Total Line Items'}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {viewMode === 'grouped' ? 
-                    (comprehensiveMetrics?.unique_po_numbers || groupedPOOrders.length) :
-                    (comprehensiveMetrics?.total_active_orders || poOrders.length)
-                  }
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {viewMode === 'grouped' ? 
-                    `Line Items: ${comprehensiveMetrics?.total_active_orders || poOrders.length}` :
-                    `Qty: ${comprehensiveMetrics?.total_active_quantity || poOrders.reduce((sum, order) => sum + (order.quantity || 0), 0)}`
-                  }
-                </div>
-                <p className="text-muted-foreground mt-1">
-                  {viewMode === 'grouped' ? 'Unique POs with total line items' : 'All line items across POs'}
-                </p>
-                {isLoadingComprehensiveMetrics && (
-                  <div className="flex items-center gap-2 mt-2">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    <span className="text-xs text-muted-foreground">Loading metrics...</span>
+    <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-muted/20">
+      <div className="container mx-auto px-4 py-8 space-y-8 animate-fade-in">
+        {/* Enhanced Header Section with Glassmorphism */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary/5 via-accent/5 to-primary/5 backdrop-blur-sm border border-border/30 shadow-soft">
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-accent/10 opacity-50"></div>
+          <div className="relative p-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-6">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-primary/20 rounded-2xl blur-lg"></div>
+                  <div className="relative p-4 bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl border border-primary/20 shadow-glow">
+                    <ShoppingCart className="h-10 w-10 text-primary drop-shadow-sm" />
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                </div>
+                <div className="space-y-2">
+                  <h1 className="text-4xl font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent drop-shadow-sm">
+                    Purchase Order Dashboard
+                  </h1>
+                  <p className="text-lg text-muted-foreground/80 font-medium">
+                    Monitor and manage your purchase orders across all suppliers with advanced analytics
+                  </p>
+                  {selectedCountry && (
+                    <Badge variant="secondary" className="bg-accent/10 text-accent-foreground border-accent/20">
+                      <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 bg-accent rounded-full"></div>
+                        {selectedCountry}
+                      </div>
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchPOOrders()}
+                  disabled={isLoading}
+                  className="gap-2 bg-background/50 hover:bg-background/80 border-border/50 hover:border-primary/30 shadow-soft hover:shadow-glow transition-all duration-300"
+                >
+                  <RefreshCw 
+                    className="h-4 w-4 animate-spin" 
+                    style={{ animationPlayState: isLoading ? 'running' : 'paused' }} 
+                  />
+                  Refresh
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => refreshImages()}
+                  disabled={imagesLoading}
+                  className="gap-2 bg-background/50 hover:bg-background/80 border-border/50 hover:border-accent/30 shadow-soft hover:shadow-accent-glow transition-all duration-300"
+                >
+                  <ImageIcon 
+                    className="h-4 w-4 animate-spin" 
+                    style={{ animationPlayState: imagesLoading ? 'running' : 'paused' }} 
+                  />
+                  Images
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
 
-            <Card className="relative overflow-hidden border-l-4 border-l-green-500 bg-gradient-to-br from-green-500/5 to-background">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-green-600">
-                  <CheckCircle className="h-5 w-5" />
+
+        {/* Enhanced Main Tabs with Modern Styling */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <div className="relative mb-8">
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-accent/5 to-primary/5 rounded-2xl blur-lg"></div>
+            <TabsList className="relative grid w-full grid-cols-5 h-14 bg-gradient-to-r from-card/80 via-card to-card/80 backdrop-blur-md border border-border/30 shadow-soft rounded-2xl p-2">
+              <TabsTrigger 
+                value="overview" 
+                className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-accent data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 rounded-xl hover:bg-accent/10 font-medium"
+              >
+                <Package className="h-4 w-4" />
+                <span>PO Overview</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="upload" 
+                className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-accent data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 rounded-xl hover:bg-accent/10 font-medium"
+              >
+                <FileUp className="h-4 w-4" />
+                <span>Uploads</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="labels" 
+                className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-accent data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 rounded-xl hover:bg-accent/10 font-medium"
+              >
+                <Printer className="h-4 w-4" />
+                <span>Print Labels</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="reports" 
+                className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-accent data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 rounded-xl hover:bg-accent/10 font-medium"
+              >
+                <BarChart3 className="h-4 w-4" />
+                <span>Reports</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="close" 
+                className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-accent data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 rounded-xl hover:bg-accent/10 font-medium"
+              >
+                <X className="h-4 w-4" />
+                <span>Close PO</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          <TabsContent value="overview" className="space-y-8 animate-fade-in">
+            {/* Enhanced Overview Metrics with Glassmorphism */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <Card className="relative overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-glow border-l-4 border-l-primary bg-gradient-to-br from-primary/5 via-background to-background/50 backdrop-blur-sm">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <CardHeader className="relative pb-3">
+                  <CardTitle className="flex items-center gap-3 text-primary">
+                    <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
+                      <Package className="h-5 w-5" />
+                    </div>
+                    <span className="font-semibold">
+                      {viewMode === 'grouped' ? 'Unique PO Numbers' : 'Total Line Items'}
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="relative">
+                  <div className="text-3xl font-bold text-primary mb-2 group-hover:scale-105 transition-transform">
+                    {viewMode === 'grouped' ? 
+                      (comprehensiveMetrics?.unique_po_numbers || groupedPOOrders.length) :
+                      (comprehensiveMetrics?.total_active_orders || poOrders.length)
+                    }
+                  </div>
+                  <div className="text-sm font-medium text-muted-foreground mb-1">
+                    {viewMode === 'grouped' ? 
+                      `Line Items: ${comprehensiveMetrics?.total_active_orders || poOrders.length}` :
+                      `Qty: ${comprehensiveMetrics?.total_active_quantity || poOrders.reduce((sum, order) => sum + (order.quantity || 0), 0)}`
+                    }
+                  </div>
+                  <p className="text-xs text-muted-foreground/70">
+                    {viewMode === 'grouped' ? 'Unique POs with total line items' : 'All line items across POs'}
+                  </p>
+                  {isLoadingComprehensiveMetrics && (
+                    <div className="flex items-center gap-2 mt-3 text-primary/70">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <span className="text-xs">Loading metrics...</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="relative overflow-hidden group cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-glow border-l-4 border-l-green-500 bg-gradient-to-br from-green-500/5 via-background to-background/50 backdrop-blur-sm">
+                <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <CardHeader className="relative pb-3">
+                  <CardTitle className="flex items-center gap-3 text-green-600">
+                    <div className="p-2 bg-green-500/10 rounded-lg group-hover:bg-green-500/20 transition-colors">
+                      <CheckCircle className="h-5 w-5" />
+                    </div>
+                    <span className="font-semibold">Status Distribution</span>
+                  </CardTitle>
+                </CardHeader>
                   Total Matched Items
                 </CardTitle>
               </CardHeader>
