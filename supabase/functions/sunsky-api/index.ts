@@ -2909,6 +2909,72 @@ serve(async (req) => {
         });
       }
 
+      case 'getRecentOrders': {
+        const { apiId, skipDeliveredOrders = true, dateFrom } = requestData;
+        
+        if (!apiId) {
+          throw new Error('API credential ID is required');
+        }
+
+        const credentials = await getApiCredentials(user.id, apiId);
+        
+        // Set default date to last 30 days if not provided
+        const defaultDateFrom = new Date();
+        defaultDateFrom.setDate(defaultDateFrom.getDate() - 30);
+        const fromDate = dateFrom || defaultDateFrom.toISOString().split('T')[0];
+        
+        console.log('Fetching recent orders with params:', { 
+          apiId, 
+          skipDeliveredOrders, 
+          dateFrom: fromDate 
+        });
+
+        try {
+          const params: any = {
+            pageSize: 100,
+            page: 1,
+            gmtCreatedStart: fromDate
+          };
+
+          // Skip delivered orders if requested
+          if (skipDeliveredOrders) {
+            // Filter out delivered status orders
+            params.status = 'pending,processing,shipped'; // Adjust statuses as needed
+          }
+
+          const response = await makeSunskyRequest(
+            '/openapi/order!listOrders.do',
+            params,
+            credentials.key,
+            credentials.secret,
+            user.id
+          );
+
+          if (response.result === 'success') {
+            console.log(`Fetched ${response.data?.orders?.length || 0} recent orders`);
+            
+            return new Response(JSON.stringify({
+              result: 'success',
+              data: response.data,
+              message: `Retrieved ${response.data?.orders?.length || 0} recent orders`
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          } else {
+            throw new Error(response.messages?.[0] || 'Failed to fetch recent orders');
+          }
+        } catch (error: any) {
+          console.error('Error fetching recent orders:', error);
+          
+          return new Response(JSON.stringify({
+            result: 'error',
+            message: `Failed to fetch recent orders: ${error.message}`
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
+
       case 'setActiveApiKey': {
         const { apiId } = requestData;
 
