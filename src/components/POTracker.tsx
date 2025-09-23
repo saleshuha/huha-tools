@@ -145,7 +145,14 @@ export const POTracker = () => {
   
   const [qzConnected, setQzConnected] = useState(false);
   const [selectedPOsForBulkClose, setSelectedPOsForBulkClose] = useState<Set<string>>(new Set());
-  const [disabledPOs, setDisabledPOs] = useState<Set<string>>(new Set());
+  const [disabledPOs, setDisabledPOs] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem('poTracker_disabledPOs');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
   const [showBulkCloseConfirm, setShowBulkCloseConfirm] = useState(false);
   const [isClosingPOs, setIsClosingPOs] = useState(false);
   const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
@@ -162,6 +169,15 @@ export const POTracker = () => {
     asinInventory: [],
     skuInventory: []
   });
+
+  // Save disabled POs to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('poTracker_disabledPOs', JSON.stringify(Array.from(disabledPOs)));
+    } catch (error) {
+      console.error('Failed to save disabled POs state:', error);
+    }
+  }, [disabledPOs]);
 
   useEffect(() => {
     // Set up connection listener
