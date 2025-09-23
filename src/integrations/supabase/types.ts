@@ -530,6 +530,54 @@ export type Database = {
         }
         Relationships: []
       }
+      fulfillment_history: {
+        Row: {
+          asin: string | null
+          created_at: string
+          fulfilled_quantity: number
+          fulfillment_source: string
+          id: string
+          inventory_id: string | null
+          model_number: string | null
+          notes: string | null
+          original_quantity: number
+          po_number: string
+          sku_code: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          asin?: string | null
+          created_at?: string
+          fulfilled_quantity: number
+          fulfillment_source?: string
+          id?: string
+          inventory_id?: string | null
+          model_number?: string | null
+          notes?: string | null
+          original_quantity: number
+          po_number: string
+          sku_code?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          asin?: string | null
+          created_at?: string
+          fulfilled_quantity?: number
+          fulfillment_source?: string
+          id?: string
+          inventory_id?: string | null
+          model_number?: string | null
+          notes?: string | null
+          original_quantity?: number
+          po_number?: string
+          sku_code?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       huha_stores: {
         Row: {
           created_at: string
