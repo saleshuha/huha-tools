@@ -2505,18 +2505,23 @@ export const POTracker = () => {
                                  />
                                </TableCell>
                                     <TableCell>
-                                      {(() => {
-                                         const productImage = order.asin ? getImageByAsin(order.asin) : null;
-                                         
-                                         // Debug logging
-                                         if (Math.random() < 0.05) { // Log 5% of items
-                                           console.log('🔍 Image debug:', {
-                                             orderAsin: order.asin,
-                                             hasImage: !!productImage,
-                                             totalImages: productImages?.length || 0,
-                                             isLoading: imagesLoading
-                                           });
-                                         }
+                                       {(() => {
+                                          const productImage = order.asin ? getImageByAsin(order.asin) : null;
+                                          
+                                          // Enhanced debug logging to find the issue
+                                          console.log('🖼️ ASIN Lookup Debug:', {
+                                            orderAsin: order.asin,
+                                            foundImage: !!productImage,
+                                            imageUrl: productImage?.image_url,
+                                            totalImages: productImages?.length || 0,
+                                            isLoading: imagesLoading,
+                                            // Show first few available ASINs for comparison
+                                            availableAsins: productImages?.slice(0, 5).map(img => img.asin) || [],
+                                            // Check if any images contain part of this ASIN
+                                            partialMatches: order.asin ? productImages?.filter(img => 
+                                              img.asin.includes(order.asin.substring(0, 6))
+                                            ).map(img => img.asin) || [] : []
+                                          });
                                         return productImage ? (
                                           <Popover>
                                             <PopoverTrigger asChild>
