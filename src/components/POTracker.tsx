@@ -337,7 +337,7 @@ export const POTracker = () => {
         setItemsPerPage(25); // KSA typically has smaller batches
       }
     }
-  }, [profile?.id, selectedCountry, fetchPOOrders]);
+  }, [profile?.id, selectedCountry]); // Remove fetchPOOrders dependency to prevent infinite loop
 
   const initializeQZ = async () => {
     try {
@@ -476,7 +476,7 @@ export const POTracker = () => {
   // Force refresh images when component mounts
   useEffect(() => {
     refreshImages();
-  }, [refreshImages]);
+  }, []); // Remove refreshImages dependency to prevent infinite loop
 
   // Filter out closed POs from label printing by default
   const labelEligibleOrders = useMemo(() => {
