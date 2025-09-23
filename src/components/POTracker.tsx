@@ -1616,44 +1616,32 @@ export const POTracker = () => {
                                   ).length}
                                 </div>
                               </TableCell>
-                                <TableCell>
-                                  <div className="flex items-center gap-2">
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm"
-                                      onClick={() => navigate(`/po-details/${poNumber}`)}
-                                      disabled={isClosedPO}
-                                    >
-                                      View Details
-                                    </Button>
-                                    {!isClosedPO && (
-                                      <Button 
-                                        variant="outline" 
-                                        size="sm"
-                                        onClick={() => {
-                                          if (confirm(`Are you sure you want to close PO ${poNumber}? This action cannot be undone.`)) {
-                                            handleClosePO(poNumber);
-                                          }
-                                        }}
-                                        className="text-red-600 hover:text-red-700"
-                                      >
-                                        Close PO
-                                      </Button>
-                                    )}
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm"
-                                      onClick={() => {
-                                        if (confirm(`Are you sure you want to delete PO ${poNumber} and all its orders? This action cannot be undone.`)) {
-                                          handleDeletePO(poNumber, orders);
-                                        }
-                                      }}
-                                      className="text-destructive hover:text-destructive/90"
-                                    >
-                                      Delete PO
-                                    </Button>
-                                  </div>
-                                </TableCell>
+                                 <TableCell>
+                                   <div className="flex items-center gap-2">
+                                     <Button 
+                                       variant="outline" 
+                                       size="sm"
+                                       onClick={() => navigate(`/po-details/${poNumber}`)}
+                                       disabled={isClosedPO}
+                                     >
+                                       View Details
+                                     </Button>
+                                     {!isClosedPO && (
+                                       <Button 
+                                         variant="outline" 
+                                         size="sm"
+                                         onClick={() => {
+                                           if (confirm(`Are you sure you want to close PO ${poNumber}? This action cannot be undone.`)) {
+                                             handleClosePO(poNumber);
+                                           }
+                                         }}
+                                         className="text-red-600 hover:text-red-700"
+                                       >
+                                         Close PO
+                                       </Button>
+                                     )}
+                                   </div>
+                                 </TableCell>
                              </TableRow>
                            );
                          })}
