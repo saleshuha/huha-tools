@@ -2667,13 +2667,14 @@ export const POTracker = () => {
                                         {order.status === 'closed' && order.notes?.includes('Fulfilled from stock:') ? (
                                           <div className="space-y-1">
                                             <Badge variant="outline" className="text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800">
-                                              {(() => {
-                                                const fulfilledMatch = order.notes?.match(/Fulfilled from stock:\s*(\d+)/);
-                                                const originalMatch = order.notes?.match(/Original quantity:\s*(\d+)/);
-                                                const fulfilledQty = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
-                                                const originalQty = originalMatch ? parseInt(originalMatch[1]) : order.quantity;
-                                                return `Fulfilled: ${fulfilledQty}/${originalQty}`;
-                                              })()}
+                                               {(() => {
+                                                 const fulfilledMatch = order.notes?.match(/Fulfilled from stock:\s*(\d+)/);
+                                                 const originalMatch = order.notes?.match(/Original quantity:\s*(\d+)/);
+                                                 const fulfilledQty = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
+                                                 // If original quantity not in notes, assume fulfilled quantity was the original
+                                                 const originalQty = originalMatch ? parseInt(originalMatch[1]) : (fulfilledQty > 0 ? fulfilledQty : 1);
+                                                 return `Fulfilled: ${fulfilledQty}/${originalQty}`;
+                                               })()}
                                             </Badge>
                                             <div className="text-xs text-muted-foreground">
                                               From Stock
