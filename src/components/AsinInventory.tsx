@@ -65,7 +65,7 @@ export function AsinInventory() {
   const {
     runTitleFetch
   } = useBackgroundTasks();
-  const { getImageByAsin, isLoading: imagesLoading, productImages } = useProductImages();
+  const { getImageByAsin, isLoading: imagesLoading, productImages, refreshImages } = useProductImages();
   const [searchTerm, setSearchTerm] = useState('');
   const [searchMethod, setSearchMethod] = useState<'all' | 'asin' | 'sku' | 'serial' | 'title' | 'notes'>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -1167,6 +1167,12 @@ export function AsinInventory() {
                   <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all" onClick={emailInventory}>
                     <Mail className="w-4 h-4 mr-2" />
                     Email Export
+                  </Button>
+
+                  {/* Refresh Images */}
+                  <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all" onClick={refreshImages}>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Refresh Images
                   </Button>
 
                   {/* Refresh */}

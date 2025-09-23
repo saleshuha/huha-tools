@@ -17,16 +17,16 @@ export const useProductImages = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch all product images for the user (limited to 1000 for performance)
-  const { data: productImages, isLoading, error } = useQuery({
+  // Fetch all product images for the user (unlimited for now to solve the issue)
+  const { data: productImages, isLoading, error, refetch } = useQuery({
     queryKey: ['product-images'],
     queryFn: async () => {
-      console.log('🖼️ Fetching product images...');
-    const { data, error } = await supabase
+      console.log('🖼️ Fetching product images... (forcing fresh fetch)');
+      const { data, error } = await supabase
         .from('product_images')
         .select('*')
-        .order('created_at', { ascending: false })
-        .limit(5000); // Increased limit to get more images
+        .order('created_at', { ascending: false });
+        // Removed limit completely to ensure we get all images
       
       console.log('🖼️ Raw fetched images count:', data?.length || 0);
       if (data) {
@@ -40,7 +40,9 @@ export const useProductImages = () => {
       }
       console.log('🖼️ Product images fetched:', data?.length);
       return data as ProductImage[];
-    }
+    },
+    staleTime: 0, // Force fresh fetch every time
+    gcTime: 0, // Don't cache the data (renamed from cacheTime)
   });
 
   // Get image by ASIN with comprehensive debugging
@@ -180,6 +182,13 @@ export const useProductImages = () => {
     }
   });
 
+  // Manual refresh function to force cache invalidation
+  const refreshImages = () => {
+    console.log('🖼️ Manually refreshing product images...');
+    queryClient.invalidateQueries({ queryKey: ['product-images'] });
+    refetch();
+  };
+
   return {
     productImages: productImages || [],
     isLoading,
@@ -187,6 +196,7 @@ export const useProductImages = () => {
     getImageByAsin,
     addProductImage,
     updateProductImage,
-    deleteProductImage
+    deleteProductImage,
+    refreshImages
   };
 };
