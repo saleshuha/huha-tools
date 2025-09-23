@@ -458,7 +458,7 @@ export const POReportsSection: React.FC<POReportsSectionProps> = ({
         </div>
 
         {/* Summary Statistics */}
-        <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
           <Card className="relative overflow-hidden border-l-4 border-l-blue-500 bg-gradient-to-br from-blue-500/5 to-background hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
