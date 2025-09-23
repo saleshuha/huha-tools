@@ -550,7 +550,21 @@ export const POTracker = () => {
         if (aValue === undefined) return sortDirection === 'asc' ? 1 : -1;
         if (bValue === undefined) return sortDirection === 'asc' ? -1 : 1;
         
-        // Convert to string for comparison if needed
+        // Handle numeric fields (quantity, unit_cost, total_cost)
+        if (sortField === 'quantity' || sortField === 'unit_cost' || sortField === 'total_cost') {
+          const aNum = Number(aValue) || 0;
+          const bNum = Number(bValue) || 0;
+          return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
+        }
+        
+        // Handle date fields
+        if (sortField === 'order_date' || sortField === 'expected_delivery' || sortField === 'created_at' || sortField === 'updated_at') {
+          const aDate = new Date(aValue as string).getTime();
+          const bDate = new Date(bValue as string).getTime();
+          return sortDirection === 'asc' ? aDate - bDate : bDate - aDate;
+        }
+        
+        // Convert to string for comparison (text fields)
         const aStr = String(aValue).toLowerCase();
         const bStr = String(bValue).toLowerCase();
         
