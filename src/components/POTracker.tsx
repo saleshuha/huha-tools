@@ -173,7 +173,7 @@ export const POTracker = () => {
   const { poOrders, isLoading, fetchPOOrders, processPOFiles, deletePOOrders, updatePrintStatus } = usePOOrders();
   const { profile } = useUserProfile();
   const { selectedCountry } = useCountry();
-  const { getImageByAsin, productImages, isLoading: imagesLoading } = useProductImages();
+  const { getImageByAsin, productImages, isLoading: imagesLoading, refreshImages } = useProductImages();
   const { toast } = useToast();
   // Function to handle bulk PO closing
   const handleBulkClosePOs = async (poNumbers: string[]) => {
@@ -1053,6 +1053,10 @@ export const POTracker = () => {
           <Button variant="outline" size="sm" onClick={() => fetchPOOrders()}>
             <RefreshCw className="h-4 w-4 mr-2 animate-spin" style={{ animationPlayState: isLoading ? 'running' : 'paused' }} />
             Refresh
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => refreshImages()}>
+            <ImageIcon className="h-4 w-4 mr-2 animate-spin" style={{ animationPlayState: imagesLoading ? 'running' : 'paused' }} />
+            Images
           </Button>
         </div>
       </div>
