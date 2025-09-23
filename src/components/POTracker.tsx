@@ -326,6 +326,7 @@ export const POTracker = () => {
 
   useEffect(() => {
     if (profile?.id && selectedCountry) {
+      console.log('🔄 POTracker: Fetching PO orders due to profile/country change', { profileId: profile.id, country: selectedCountry });
       fetchPOOrders();
       initializeQZ();
       
@@ -623,6 +624,14 @@ export const POTracker = () => {
 
   // Filtered PO Groups for labels search
   const filteredPOGroups = useMemo(() => {
+    console.log('🔍 FILTERING PO GROUPS DEBUG:', {
+      activeTab,
+      poOrdersCount: poOrders.length,
+      labelEligibleOrdersCount: labelEligibleOrders.length,
+      labelSearchQuery,
+      searchQuery,
+      isLoading
+    });
     const groups: { [key: string]: POOrder[] } = {};
     
     // Use labelSearchQuery for the labels tab, searchQuery for others
@@ -664,8 +673,9 @@ export const POTracker = () => {
       orders
     }));
 
+    console.log('🔍 Final filtered PO groups:', poGroups.length);
     return poGroups;
-  }, [poOrders, labelEligibleOrders, labelSearchQuery, searchQuery, activeTab, selectedCountry]);
+  }, [poOrders, labelEligibleOrders, labelSearchQuery, searchQuery, activeTab, selectedCountry, isLoading]);
 
   const groupedPOOrders = useMemo(() => {
     const groups: { [key: string]: POOrder[] } = {};
@@ -1962,22 +1972,30 @@ export const POTracker = () => {
 
                   {/* PO Groups List */}
                   <div className="space-y-2">
-                    {filteredPOGroups.length === 0 ? (
-                      <Card className="p-8">
-                        <div className="text-center">
-                          <Package className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                          <h3 className="text-lg font-medium mb-2">No Purchase Orders Found</h3>
-                          <p className="text-muted-foreground mb-4">
-                            {labelSearchQuery ? 'No POs match your search criteria.' : 'Upload some PO data to start printing labels.'}
-                          </p>
-                          <Button 
-                            variant="outline" 
-                            onClick={() => setActiveTab('upload')}
-                          >
-                            <FileUp className="h-4 w-4 mr-2" />
-                            Upload PO Data
-                          </Button>
-                        </div>
+                     {filteredPOGroups.length === 0 ? (
+                       <Card className="p-8">
+                         <div className="text-center">
+                           <Package className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                           <h3 className="text-lg font-medium mb-2">
+                             {isLoading ? 'Loading Purchase Orders...' : 'No Purchase Orders Found'}
+                           </h3>
+                           <p className="text-muted-foreground mb-4">
+                             {isLoading 
+                               ? 'Please wait while we fetch your PO data.' 
+                               : labelSearchQuery 
+                               ? 'No POs match your search criteria.' 
+                               : 'Upload some PO data to start printing labels.'}
+                           </p>
+                           {!isLoading && (
+                             <Button 
+                               variant="outline" 
+                               onClick={() => setActiveTab('upload')}
+                             >
+                               <FileUp className="h-4 w-4 mr-2" />
+                               Upload PO Data
+                             </Button>
+                           )}
+                         </div>
                       </Card>
                     ) : (
                       filteredPOGroups.map((group) => (
