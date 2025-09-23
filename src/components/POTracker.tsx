@@ -485,6 +485,9 @@ export const POTracker = () => {
     
     let filtered = [...poOrders];
     
+    // Filter out 0 quantity items
+    filtered = filtered.filter(order => order.quantity > 0);
+    
     // Apply strict country filtering
     if (selectedCountry) {
       const beforeCountryFilter = filtered.length;
