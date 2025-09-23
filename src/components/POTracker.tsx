@@ -2508,13 +2508,29 @@ export const POTracker = () => {
                                         {(() => {
                                            const productImage = order.asin ? getImageByAsin(order.asin) : null;
                                          return productImage ? (
-                                               <div className="w-16 h-16 rounded border overflow-hidden flex-shrink-0">
+                                           <Popover>
+                                             <PopoverTrigger asChild>
+                                               <div className="w-16 h-16 rounded border overflow-hidden flex-shrink-0 cursor-pointer hover:border-primary transition-colors">
                                                  <img 
                                                    src={productImage.image_url} 
                                                    alt={order.asin} 
                                                    className="w-full h-full object-contain"
                                                  />
                                                </div>
+                                             </PopoverTrigger>
+                                             <PopoverContent side="left" className="w-80 p-2">
+                                               <div className="w-full h-64 rounded-lg overflow-hidden bg-white">
+                                                 <img 
+                                                   src={productImage.image_url} 
+                                                   alt={order.asin} 
+                                                   className="w-full h-full object-contain"
+                                                 />
+                                               </div>
+                                               <div className="text-xs text-muted-foreground mt-2 text-center">
+                                                 ASIN: {order.asin}
+                                               </div>
+                                             </PopoverContent>
+                                           </Popover>
                                         ) : null;
                                       })()}
                                    </TableCell>
