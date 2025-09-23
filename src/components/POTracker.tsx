@@ -326,7 +326,6 @@ export const POTracker = () => {
 
   useEffect(() => {
     if (profile?.id && selectedCountry) {
-      console.log('🔄 POTracker: Fetching PO orders due to profile/country change', { profileId: profile.id, country: selectedCountry });
       fetchPOOrders();
       initializeQZ();
       
@@ -337,7 +336,7 @@ export const POTracker = () => {
         setItemsPerPage(25); // KSA typically has smaller batches
       }
     }
-  }, [profile?.id, selectedCountry]); // Remove fetchPOOrders dependency to prevent infinite loop
+  }, [profile?.id, selectedCountry, fetchPOOrders]);
 
   const initializeQZ = async () => {
     try {
@@ -473,11 +472,6 @@ export const POTracker = () => {
     }
   }, [profile?.id, selectedCountry]);
 
-  // Force refresh images when component mounts
-  useEffect(() => {
-    refreshImages();
-  }, []); // Remove refreshImages dependency to prevent infinite loop
-
   // Filter out closed POs from label printing by default
   const labelEligibleOrders = useMemo(() => {
     return poOrders.filter(order => order.status !== 'closed');
@@ -490,9 +484,6 @@ export const POTracker = () => {
     console.log('🔍 FILTERING DEBUG: Selected country:', selectedCountry);
     
     let filtered = [...poOrders];
-    
-    // Filter out 0 quantity items
-    filtered = filtered.filter(order => order.quantity > 0);
     
     // Apply strict country filtering
     if (selectedCountry) {
@@ -624,14 +615,6 @@ export const POTracker = () => {
 
   // Filtered PO Groups for labels search
   const filteredPOGroups = useMemo(() => {
-    console.log('🔍 FILTERING PO GROUPS DEBUG:', {
-      activeTab,
-      poOrdersCount: poOrders.length,
-      labelEligibleOrdersCount: labelEligibleOrders.length,
-      labelSearchQuery,
-      searchQuery,
-      isLoading
-    });
     const groups: { [key: string]: POOrder[] } = {};
     
     // Use labelSearchQuery for the labels tab, searchQuery for others
@@ -673,9 +656,8 @@ export const POTracker = () => {
       orders
     }));
 
-    console.log('🔍 Final filtered PO groups:', poGroups.length);
     return poGroups;
-  }, [poOrders, labelEligibleOrders, labelSearchQuery, searchQuery, activeTab, selectedCountry, isLoading]);
+  }, [poOrders, labelEligibleOrders, labelSearchQuery, searchQuery, activeTab, selectedCountry]);
 
   const groupedPOOrders = useMemo(() => {
     const groups: { [key: string]: POOrder[] } = {};
@@ -1972,30 +1954,22 @@ export const POTracker = () => {
 
                   {/* PO Groups List */}
                   <div className="space-y-2">
-                     {filteredPOGroups.length === 0 ? (
-                       <Card className="p-8">
-                         <div className="text-center">
-                           <Package className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                           <h3 className="text-lg font-medium mb-2">
-                             {isLoading ? 'Loading Purchase Orders...' : 'No Purchase Orders Found'}
-                           </h3>
-                           <p className="text-muted-foreground mb-4">
-                             {isLoading 
-                               ? 'Please wait while we fetch your PO data.' 
-                               : labelSearchQuery 
-                               ? 'No POs match your search criteria.' 
-                               : 'Upload some PO data to start printing labels.'}
-                           </p>
-                           {!isLoading && (
-                             <Button 
-                               variant="outline" 
-                               onClick={() => setActiveTab('upload')}
-                             >
-                               <FileUp className="h-4 w-4 mr-2" />
-                               Upload PO Data
-                             </Button>
-                           )}
-                         </div>
+                    {filteredPOGroups.length === 0 ? (
+                      <Card className="p-8">
+                        <div className="text-center">
+                          <Package className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                          <h3 className="text-lg font-medium mb-2">No Purchase Orders Found</h3>
+                          <p className="text-muted-foreground mb-4">
+                            {labelSearchQuery ? 'No POs match your search criteria.' : 'Upload some PO data to start printing labels.'}
+                          </p>
+                          <Button 
+                            variant="outline" 
+                            onClick={() => setActiveTab('upload')}
+                          >
+                            <FileUp className="h-4 w-4 mr-2" />
+                            Upload PO Data
+                          </Button>
+                        </div>
                       </Card>
                     ) : (
                       filteredPOGroups.map((group) => (
@@ -2579,63 +2553,36 @@ export const POTracker = () => {
                                    className="h-4 w-4 rounded border-border"
                                  />
                                </TableCell>
-                                       <TableCell>
-                                           {(() => {
-                                              const productImage = order.asin ? getImageByAsin(order.asin) : null;
-                                               
-                                            return productImage ? (
-                                              <Popover>
-                                                <PopoverTrigger asChild>
-                                                  <div className="w-20 h-20 rounded border overflow-hidden flex-shrink-0 cursor-pointer hover:border-primary transition-colors">
-                                                    <img 
-                                                      src={productImage.image_url} 
-                                                      alt={order.asin} 
-                                                      className="w-full h-full object-contain"
-                                                      onError={(e) => {
-                                                        e.currentTarget.style.display = 'none';
-                                                        const parent = e.currentTarget.parentElement;
-                                                        if (parent && !parent.querySelector('.fallback-text')) {
-                                                          const fallback = document.createElement('div');
-                                                          fallback.className = 'fallback-text w-full h-full flex items-center justify-center text-xs text-muted-foreground bg-muted';
-                                                          fallback.textContent = 'Load Error';
-                                                          parent.appendChild(fallback);
-                                                        }
-                                                      }}
-                                                    />
-                                                  </div>
-                                                </PopoverTrigger>
-                                                <PopoverContent side="left" className="w-80 p-2">
-                                                  <div className="w-full h-64 rounded-lg overflow-hidden bg-white">
-                                                    <img 
-                                                      src={productImage.image_url} 
-                                                      alt={order.asin} 
-                                                      className="w-full h-full object-contain"
-                                                      onError={(e) => {
-                                                        e.currentTarget.style.display = 'none';
-                                                        const parent = e.currentTarget.parentElement;
-                                                        if (parent && !parent.querySelector('.fallback-text')) {
-                                                          const fallback = document.createElement('div');
-                                                          fallback.className = 'fallback-text w-full h-full flex items-center justify-center text-muted-foreground';
-                                                          fallback.textContent = 'Image failed to load';
-                                                          parent.appendChild(fallback);
-                                                        }
-                                                      }}
-                                                    />
-                                                  </div>
-                                                 <div className="text-xs text-muted-foreground mt-2 text-center">
-                                                   ASIN: {order.asin}
-                                                 </div>
-                                               </PopoverContent>
-                                             </Popover>
-                                           ) : (
-                                             <div className="w-20 h-20 rounded border overflow-hidden flex-shrink-0 bg-muted flex items-center justify-center">
-                                               <div className="text-xs text-muted-foreground text-center p-1">
-                                                 {imagesLoading ? 'Loading...' : 'No Image'}
+                                    <TableCell>
+                                        {(() => {
+                                           const productImage = order.asin ? getImageByAsin(order.asin) : null;
+                                         return productImage ? (
+                                           <Popover>
+                                             <PopoverTrigger asChild>
+                                               <div className="w-20 h-20 rounded border overflow-hidden flex-shrink-0 cursor-pointer hover:border-primary transition-colors">
+                                                 <img 
+                                                   src={productImage.image_url} 
+                                                   alt={order.asin} 
+                                                   className="w-full h-full object-contain"
+                                                 />
                                                </div>
-                                             </div>
-                                           );
-                                         })()}
-                                     </TableCell>
+                                             </PopoverTrigger>
+                                             <PopoverContent side="left" className="w-80 p-2">
+                                               <div className="w-full h-64 rounded-lg overflow-hidden bg-white">
+                                                 <img 
+                                                   src={productImage.image_url} 
+                                                   alt={order.asin} 
+                                                   className="w-full h-full object-contain"
+                                                 />
+                                               </div>
+                                               <div className="text-xs text-muted-foreground mt-2 text-center">
+                                                 ASIN: {order.asin}
+                                               </div>
+                                             </PopoverContent>
+                                           </Popover>
+                                        ) : null;
+                                      })()}
+                                   </TableCell>
                                  <TableCell className="w-32">
                                    <div className="space-y-1">
                                      {order.sku_code && (
