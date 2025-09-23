@@ -2787,15 +2787,15 @@ export const POTracker = () => {
                     </div>
                 </CardHeader>
                 <CardContent className="p-6">
-                  {/* Enhanced Search Bar */}
+                  {/* Enhanced Search Bar - Always Highlighted */}
                   <div className="mb-6">
                     <div className="relative group">
-                      <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4 group-focus-within:text-primary transition-colors" />
+                      <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-primary h-4 w-4 transition-colors" />
                          <Input
                            placeholder="Search by SKU, title, ASIN, serial number..."
                            value={labelSearchQuery}
                            onChange={(e) => setLabelSearchQuery(e.target.value)}
-                           className="pl-12 pr-12 h-12 bg-background/50 border-2 border-border hover:border-primary/70 focus:border-primary transition-all duration-300 shadow-sm"
+                           className="pl-12 pr-12 h-12 bg-primary/5 border-2 border-primary/30 focus:border-primary hover:border-primary/50 transition-all duration-300 shadow-medium ring-2 ring-primary/10"
                          />
                       {labelSearchQuery && (
                         <Button
@@ -2810,29 +2810,29 @@ export const POTracker = () => {
                     </div>
                   </div>
                   
-                  {/* Enhanced Table Container */}
-                  <div className="rounded-xl border border-border/50 overflow-hidden shadow-soft bg-gradient-to-b from-background to-background/50">
+                  {/* Enhanced Table Container with Borders and Grid */}
+                  <div className="rounded-xl border-2 border-border overflow-hidden shadow-medium bg-gradient-to-b from-background to-background/50">
                     <Table>
-                      <TableHeader className="bg-gradient-to-r from-muted/30 to-muted/50">
-                        <TableRow className="hover:bg-muted/50 border-b border-border/30">
-                          <TableHead className="w-12 font-semibold">
+                      <TableHeader className="bg-gradient-to-r from-primary/10 to-accent/10 border-b-2 border-border">
+                        <TableRow className="hover:bg-muted/50 border-b border-border">
+                          <TableHead className="w-12 font-semibold border-r border-border/50 bg-muted/20">
                             <div className="flex items-center justify-center">
-                              <CheckSquare className="h-4 w-4 text-muted-foreground" />
+                              <CheckSquare className="h-4 w-4 text-foreground" />
                             </div>
                           </TableHead>
-                          <TableHead className="w-20 font-semibold">
+                          <TableHead className="w-20 font-semibold border-r border-border/50 bg-muted/20">
                             <div className="flex items-center gap-2">
-                              <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                              Image
+                              <ImageIcon className="h-4 w-4 text-foreground" />
+                              <span className="text-foreground">Image</span>
                             </div>
                           </TableHead>
                           <TableHead 
-                            className={`cursor-pointer hover:bg-muted/50 select-none w-32 font-semibold transition-colors ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}
+                            className={`cursor-pointer hover:bg-muted/50 select-none w-32 font-semibold transition-colors border-r border-border/50 bg-muted/20 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}
                             onClick={() => !originalOrderPreserved && handleSort('sku_code')}
                           >
                             <div className="flex items-center gap-2">
                               <div className="w-2 h-2 bg-primary rounded-full"></div>
-                              SKU/Model
+                              <span className="text-foreground">SKU/Model</span>
                               {sortField === 'sku_code' && !originalOrderPreserved && (
                                 <div className={`text-xs p-1 rounded bg-primary/10 text-primary ${
                                   sortDirection === 'asc' ? 'rotate-0' : 'rotate-180'
@@ -2846,12 +2846,12 @@ export const POTracker = () => {
                             </div>
                           </TableHead>
                           <TableHead 
-                            className={`cursor-pointer hover:bg-muted/50 select-none font-semibold transition-colors ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}
+                            className={`cursor-pointer hover:bg-muted/50 select-none font-semibold transition-colors border-r border-border/50 bg-muted/20 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}
                             onClick={() => !originalOrderPreserved && handleSort('combined_title')}
                           >
                             <div className="flex items-center gap-2">
                               <div className="w-2 h-2 bg-accent rounded-full"></div>
-                              Title & ASIN
+                              <span className="text-foreground">Title & ASIN</span>
                               {sortField === 'combined_title' && !originalOrderPreserved && (
                                 <div className={`text-xs p-1 rounded bg-accent/10 text-accent ${
                                   sortDirection === 'asc' ? 'rotate-0' : 'rotate-180'
@@ -2862,14 +2862,14 @@ export const POTracker = () => {
                             </div>
                           </TableHead>
                           <TableHead 
-                            className={`cursor-pointer hover:bg-muted/50 select-none font-semibold transition-colors ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}
+                            className={`cursor-pointer hover:bg-muted/50 select-none font-semibold transition-colors border-r border-border/50 bg-muted/20 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}
                             onClick={() => !originalOrderPreserved && handleSort('quantity')}
                           >
                             <div className="flex items-center gap-2">
                               <div className="w-2 h-2 bg-emerald rounded-full"></div>
-                              Quantity
+                              <span className="text-foreground">Quantity</span>
                               {sortField === 'quantity' && !originalOrderPreserved && (
-                                <div className={`text-xs p-1 rounded bg-emerald/10 text-emerald ${
+                                <div className={`text-xs p-1 rounded bg-emerald/10 text-emerald-foreground ${
                                   sortDirection === 'asc' ? 'rotate-0' : 'rotate-180'
                                 } transition-transform`}>
                                   ↑
@@ -2877,27 +2877,27 @@ export const POTracker = () => {
                               )}
                             </div>
                            </TableHead>
-                           <TableHead className="w-24 font-semibold">
+                           <TableHead className="w-24 font-semibold border-r border-border/50 bg-muted/20">
                              <div className="flex items-center gap-2">
                                <div className="w-2 h-2 bg-sky rounded-full"></div>
-                               Print Qty
+                               <span className="text-foreground">Print Qty</span>
                              </div>
                            </TableHead>
-                           <TableHead className="font-semibold">
+                           <TableHead className="font-semibold border-r border-border/50 bg-muted/20">
                              <div className="flex items-center gap-2">
                                <div className="w-2 h-2 bg-cyan rounded-full"></div>
-                               Status
+                               <span className="text-foreground">Status</span>
                              </div>
                            </TableHead>
-                           <TableHead className="font-semibold">
+                           <TableHead className="font-semibold bg-muted/20">
                              <div className="flex items-center gap-2">
                                <div className="w-2 h-2 bg-secondary rounded-full"></div>
-                               Actions
+                               <span className="text-foreground">Actions</span>
                              </div>
                            </TableHead>
                         </TableRow>
                       </TableHeader>
-                       <TableBody className="divide-y divide-border/30">
+                       <TableBody className="divide-y-2 divide-border">
                           {(() => {
                              const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
                              const ordersForSelectedPOs = filteredOrders.filter(order => selectedPOsList.includes(order.po_number));
@@ -2908,12 +2908,12 @@ export const POTracker = () => {
                              return paginatedOrders.map((order, index) => (
                               <TableRow 
                                 key={order.id} 
-                                className={`group hover:bg-gradient-to-r hover:from-primary/5 hover:to-accent/5 transition-all duration-300 ${
-                                  selectedForPrint.has(order.id) ? 'bg-primary/5 border-primary/20' : ''
-                                } ${index % 2 === 0 ? 'bg-background/50' : 'bg-background/30'}`}
+                                className={`group hover:bg-gradient-to-r hover:from-primary/10 hover:to-accent/10 transition-all duration-300 border-b border-border ${
+                                  selectedForPrint.has(order.id) ? 'bg-primary/10 border-primary/30' : ''
+                                } ${index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}`}
                               >
                                 {/* Enhanced Checkbox Cell */}
-                                <TableCell className="w-12">
+                                <TableCell className="w-12 border-r border-border/50 bg-background/50">
                                   <div className="flex items-center justify-center">
                                     <input
                                       type="checkbox"
@@ -2927,13 +2927,13 @@ export const POTracker = () => {
                                         }
                                         setSelectedForPrint(newSelected);
                                       }}
-                                      className="h-4 w-4 rounded border-border/50 accent-primary group-hover:scale-110 transition-transform"
+                                      className="h-4 w-4 rounded border-border accent-primary group-hover:scale-110 transition-transform"
                                     />
                                   </div>
                                 </TableCell>
 
                                 {/* Enhanced Image Cell */}
-                                <TableCell className="w-20">
+                                <TableCell className="w-20 border-r border-border/50">
                                   {(() => {
                                      const productImage = order.asin ? getImageByAsin(order.asin) : null;
                                      console.log('🖼️ Image lookup for ASIN:', order.asin, 'Found:', !!productImage, 'URL:', productImage?.image_url);
@@ -2985,48 +2985,48 @@ export const POTracker = () => {
                                 })()}
                                </TableCell>
 
-                               {/* Enhanced SKU/Model Cell */}
-                               <TableCell className="w-32">
-                                 <div className="space-y-2">
-                                   {order.sku_code && (
-                                     <div className="flex items-center gap-2">
-                                       <div className="w-1.5 h-1.5 bg-primary rounded-full flex-shrink-0"></div>
-                                       <div className="text-sm font-semibold font-mono break-words bg-primary/5 px-2 py-1 rounded-md">
-                                         {order.sku_code}
-                                       </div>
-                                     </div>
-                                   )}
-                                   {order.model_number && order.model_number !== order.sku_code && (
-                                     <div className="flex items-center gap-2">
-                                       <div className="w-1.5 h-1.5 bg-accent rounded-full flex-shrink-0"></div>
-                                       <div className="text-xs text-muted-foreground font-mono break-words bg-accent/5 px-2 py-1 rounded-md">
-                                         {order.model_number}
-                                       </div>
-                                     </div>
-                                   )}
-                                   {!order.sku_code && !order.model_number && (
-                                     <div className="flex items-center gap-2">
-                                       <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full flex-shrink-0"></div>
-                                       <span className="text-xs text-muted-foreground bg-muted/30 px-2 py-1 rounded-md">N/A</span>
-                                     </div>
-                                   )}
-                                 </div>
-                               </TableCell>
+                                {/* Enhanced SKU/Model Cell */}
+                                <TableCell className="w-32 border-r border-border/50">
+                                  <div className="space-y-2">
+                                    {order.sku_code && (
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-1.5 h-1.5 bg-primary rounded-full flex-shrink-0"></div>
+                                        <div className="text-sm font-semibold font-mono break-words bg-primary/10 text-primary-foreground px-2 py-1 rounded-md border border-primary/20">
+                                          {order.sku_code}
+                                        </div>
+                                      </div>
+                                    )}
+                                    {order.model_number && order.model_number !== order.sku_code && (
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-1.5 h-1.5 bg-accent rounded-full flex-shrink-0"></div>
+                                        <div className="text-xs text-foreground font-mono break-words bg-accent/10 px-2 py-1 rounded-md border border-accent/20">
+                                          {order.model_number}
+                                        </div>
+                                      </div>
+                                    )}
+                                    {!order.sku_code && !order.model_number && (
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full flex-shrink-0"></div>
+                                        <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded-md border border-muted">N/A</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </TableCell>
 
-                               {/* Enhanced Title & ASIN Cell */}
-                               <TableCell>
+                                {/* Enhanced Title & ASIN Cell */}
+                                <TableCell className="border-r border-border/50">
                                  <div className="space-y-2">
                                    <div className="text-sm font-medium break-words text-foreground group-hover:text-primary/80 transition-colors" title={order.title}>
                                      {order.title || 'No title available'}
                                    </div>
-                                   {order.asin && (
-                                     <div className="flex items-center gap-2">
-                                       <div className="w-1.5 h-1.5 bg-accent rounded-full flex-shrink-0"></div>
-                                       <div className="text-xs text-muted-foreground font-mono bg-accent/5 px-2 py-1 rounded-md">
-                                         {order.asin}
-                                       </div>
-                                     </div>
-                                   )}
+                                    {order.asin && (
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-1.5 h-1.5 bg-accent rounded-full flex-shrink-0"></div>
+                                        <div className="text-xs text-foreground font-mono bg-accent/10 px-2 py-1 rounded-md border border-accent/20">
+                                          {order.asin}
+                                        </div>
+                                      </div>
+                                    )}
                                    {(() => {
                                      const inventoryMatch = findInventoryMatch(
                                        order.asin, 
@@ -3042,10 +3042,10 @@ export const POTracker = () => {
                                          return (
                                            <div className="flex items-center gap-2">
                                              <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
-                                             <div className="text-xs text-success-foreground font-mono bg-success/10 px-2 py-1 rounded-md">
-                                               Serial: {inventoryMatch.serialNumbers.slice(0, 2).join(', ')}
-                                               {inventoryMatch.serialNumbers.length > 2 && ` +${inventoryMatch.serialNumbers.length - 2} more`}
-                                             </div>
+                                              <div className="text-xs text-success-foreground font-mono bg-success/10 px-2 py-1 rounded-md border border-success/20">
+                                                Serial: {inventoryMatch.serialNumbers.slice(0, 2).join(', ')}
+                                                {inventoryMatch.serialNumbers.length > 2 && ` +${inventoryMatch.serialNumbers.length - 2} more`}
+                                              </div>
                                            </div>
                                          );
                                        }
@@ -3054,9 +3054,9 @@ export const POTracker = () => {
                                          return (
                                            <div className="flex items-center gap-2">
                                              <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
-                                             <div className="text-xs text-success-foreground font-mono bg-success/10 px-2 py-1 rounded-md">
-                                               Serial: {inventoryMatch.serialNumber}
-                                             </div>
+                                              <div className="text-xs text-success-foreground font-mono bg-success/10 px-2 py-1 rounded-md border border-success/20">
+                                                Serial: {inventoryMatch.serialNumber}
+                                              </div>
                                            </div>
                                          );
                                        }
@@ -3066,8 +3066,8 @@ export const POTracker = () => {
                                  </div>
                                </TableCell>
 
-                               {/* Enhanced Quantity Cell */}
-                               <TableCell>
+                                {/* Enhanced Quantity Cell */}
+                                <TableCell className="border-r border-border/50">
                                  <div className="space-y-2">
                                     <div className="space-y-2">
                                       {order.status === 'closed' && order.notes?.includes('Fulfilled from stock:') ? (
@@ -3101,59 +3101,59 @@ export const POTracker = () => {
                                  </div>
                                </TableCell>
 
-                               {/* Enhanced Print Qty Cell */}
-                               <TableCell className="w-24">
-                                 <div className="flex items-center gap-2">
-                                   <Input
-                                     type="number"
-                                     min="1"
-                                     max="99"
-                                     placeholder="Qty"
-                                     className="w-16 h-9 text-center bg-background/70 border-border/50 focus:border-primary/50 group-hover:border-primary/30 transition-colors font-mono"
-                                     value={itemPrintQuantities[order.id] || ''}
-                                     onChange={(e) => {
-                                       const value = parseInt(e.target.value) || 0;
-                                       setItemPrintQuantities(prev => ({
-                                         ...prev,
-                                         [order.id]: value
-                                       }));
-                                     }}
-                                     disabled={printingItems.has(order.id)}
-                                   />
-                                 </div>
-                               </TableCell>
+                                {/* Enhanced Print Qty Cell */}
+                                <TableCell className="w-24 border-r border-border/50">
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      type="number"
+                                      min="1"
+                                      max="99"
+                                      placeholder="Qty"
+                                      className="w-16 h-9 text-center bg-background border-2 border-border focus:border-primary group-hover:border-primary/50 transition-colors font-mono text-foreground"
+                                      value={itemPrintQuantities[order.id] || ''}
+                                      onChange={(e) => {
+                                        const value = parseInt(e.target.value) || 0;
+                                        setItemPrintQuantities(prev => ({
+                                          ...prev,
+                                          [order.id]: value
+                                        }));
+                                      }}
+                                      disabled={printingItems.has(order.id)}
+                                    />
+                                  </div>
+                                </TableCell>
 
-                               {/* Enhanced Status Cell */}
-                               <TableCell>
-                                 <div className="flex flex-col gap-2">
-                                   <Badge 
-                                     variant={order.printed_quantity > 0 ? 'default' : 'outline'}
-                                     className={`text-xs font-medium ${
-                                       order.printed_quantity > 0 
-                                         ? 'bg-success/10 text-success-foreground border-success/30' 
-                                         : 'bg-muted/10 border-muted-foreground/30'
-                                     }`}
-                                   >
-                                     <div className="flex items-center gap-1">
-                                       <div className={`w-1.5 h-1.5 rounded-full ${
-                                         order.printed_quantity > 0 ? 'bg-success' : 'bg-muted-foreground'
-                                       }`}></div>
-                                       {order.printed_quantity || 0}/{order.quantity} printed
-                                     </div>
-                                   </Badge>
-                                   {order.printed_quantity > 0 && (
-                                     <div className="flex items-center gap-1">
-                                       <div className="w-1.5 h-1.5 bg-warning rounded-full flex-shrink-0"></div>
-                                       <span className="text-xs text-muted-foreground font-medium">
-                                         {order.quantity - (order.printed_quantity || 0)} remaining
-                                       </span>
-                                     </div>
-                                   )}
-                                 </div>
-                               </TableCell>
+                                {/* Enhanced Status Cell */}
+                                <TableCell className="border-r border-border/50">
+                                  <div className="flex flex-col gap-2">
+                                    <Badge 
+                                      variant={order.printed_quantity > 0 ? 'default' : 'outline'}
+                                      className={`text-xs font-medium ${
+                                        order.printed_quantity > 0 
+                                          ? 'bg-success/10 text-success-foreground border-success/30' 
+                                          : 'bg-muted/10 border-muted-foreground/30'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-1">
+                                        <div className={`w-1.5 h-1.5 rounded-full ${
+                                          order.printed_quantity > 0 ? 'bg-success' : 'bg-muted-foreground'
+                                        }`}></div>
+                                        {order.printed_quantity || 0}/{order.quantity} printed
+                                      </div>
+                                    </Badge>
+                                    {order.printed_quantity > 0 && (
+                                      <div className="flex items-center gap-1">
+                                        <div className="w-1.5 h-1.5 bg-warning rounded-full flex-shrink-0"></div>
+                                        <span className="text-xs text-foreground font-medium">
+                                          {order.quantity - (order.printed_quantity || 0)} remaining
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </TableCell>
 
-                               {/* Enhanced Actions Cell */}
-                               <TableCell>
+                                {/* Enhanced Actions Cell */}
+                                <TableCell>
                                  <Button 
                                    variant="outline" 
                                    size="sm"
@@ -3171,11 +3171,11 @@ export const POTracker = () => {
                                       printingItems.has(order.id) ||
                                       (!itemPrintQuantities[order.id] || itemPrintQuantities[order.id] <= 0)
                                     }
-                                    className={`w-full group-hover:shadow-soft transition-all duration-300 ${
-                                      printingItems.has(order.id) 
-                                        ? 'bg-primary/10 border-primary/30' 
-                                        : 'hover:bg-primary/5 hover:border-primary/30'
-                                    }`}
+                                     className={`w-full group-hover:shadow-soft transition-all duration-300 border-2 border-border hover:border-primary ${
+                                       printingItems.has(order.id) 
+                                         ? 'bg-primary/10 border-primary text-primary-foreground' 
+                                         : 'hover:bg-primary/5 hover:text-primary'
+                                     }`}
                                  >
                                    {printingItems.has(order.id) ? (
                                      <div className="flex items-center gap-2">
