@@ -2770,11 +2770,11 @@ export const POTracker = () => {
                         
                         <Badge 
                           variant={selectedForPrint.size > 0 ? "default" : "outline"} 
-                          className={`font-medium transition-colors ${
-                            selectedForPrint.size > 0 
-                              ? 'bg-primary/10 text-primary-foreground border-primary/20' 
-                              : ''
-                          }`}
+                      className={`font-medium transition-colors ${
+                        selectedForPrint.size > 0 
+                          ? 'bg-primary/10 text-primary border-primary/20' 
+                          : ''
+                      }`}
                         >
                           <div className="flex items-center gap-1">
                             <div className={`w-2 h-2 rounded-full ${
@@ -2991,7 +2991,7 @@ export const POTracker = () => {
                                     {order.sku_code && (
                                       <div className="flex items-center gap-2">
                                         <div className="w-1.5 h-1.5 bg-primary rounded-full flex-shrink-0"></div>
-                                        <div className="text-sm font-semibold font-mono break-words bg-primary/10 text-primary-foreground px-2 py-1 rounded-md border border-primary/20">
+                                        <div className="text-sm font-semibold font-mono break-words bg-primary/10 text-primary px-2 py-1 rounded-md border border-primary/20">
                                           {order.sku_code}
                                         </div>
                                       </div>
@@ -3173,7 +3173,7 @@ export const POTracker = () => {
                                     }
                                      className={`w-full group-hover:shadow-soft transition-all duration-300 border-2 border-border hover:border-primary ${
                                        printingItems.has(order.id) 
-                                         ? 'bg-primary/10 border-primary text-primary-foreground' 
+                                         ? 'bg-primary/10 border-primary text-primary' 
                                          : 'hover:bg-primary/5 hover:text-primary'
                                      }`}
                                  >
