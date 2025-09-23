@@ -2118,138 +2118,120 @@ export const POTracker = () => {
                 </CardHeader>
               </Card>
 
-              {/* Print Settings Panel */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Print Settings</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                      {/* Template Selection */}
-                      <div className="space-y-2">
-                        <Label>Template</Label>
-                        <Select 
-                          value={printSettings.template} 
-                          onValueChange={(value) => {
-                            setPrintSettings(prev => ({ ...prev, template: value }));
-                            
-                            // Auto-size from template if it's a custom template and auto-size is enabled
-                            if (value !== 'default' && value !== 'compact' && value !== 'detailed' && value !== 'minimal' && 
-                                printSettings.autoSizeFromTemplate && printSettings.pageSize === 'custom' && labelTemplates) {
-                              const selectedTemplate = labelTemplates.find(t => t.id === value);
-                              if (selectedTemplate) {
-                                setPrintSettings(prev => ({
-                                  ...prev,
-                                  customWidth: selectedTemplate.width || 100,
-                                  customHeight: selectedTemplate.height || 60
-                                }));
-                              }
-                            }
-                          }}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select template" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-background border shadow-lg z-50">
-                            <SelectItem value="default">Default</SelectItem>
-                            <SelectItem value="compact">Compact</SelectItem>
-                            <SelectItem value="detailed">Detailed</SelectItem>
-                            <SelectItem value="minimal">Minimal</SelectItem>
-                            {labelTemplates?.map((template) => (
-                              <SelectItem key={template.id} value={template.id}>
-                                {template.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                    {/* Page Size */}
-                    <div className="space-y-2">
-                      <Label>Page Size</Label>
-                      <Select 
-                        value={printSettings.pageSize} 
-                        onValueChange={(value) => {
-                          setPrintSettings(prev => ({ ...prev, pageSize: value }));
-                          
-                          // Auto-size from template if custom template and auto-size enabled
-                          if (value === 'custom' && printSettings.autoSizeFromTemplate && labelTemplates) {
-                            const selectedTemplate = labelTemplates.find(t => t.id === printSettings.template);
-                            if (selectedTemplate) {
-                              setPrintSettings(prev => ({
-                                ...prev,
-                                customWidth: selectedTemplate.width || 100,
-                                customHeight: selectedTemplate.height || 60
-                              }));
-                            }
-                          }
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-background border shadow-lg z-50">
-                          <SelectItem value="default">Default (4x6)</SelectItem>
-                          <SelectItem value="4x6">4" x 6"</SelectItem>
-                          <SelectItem value="4x3">4" x 3"</SelectItem>
-                          <SelectItem value="3x2">3" x 2"</SelectItem>
-                          <SelectItem value="2x1">2" x 1"</SelectItem>
-                          <SelectItem value="custom">Custom Size</SelectItem>
-                        </SelectContent>
-                      </Select>
+              {/* Enhanced Print Settings Panel with Tabbed Interface */}
+              <Card className="shadow-soft border-border/50 bg-gradient-to-r from-card to-card/50">
+                <CardHeader className="bg-gradient-to-r from-primary/5 to-accent/5 border-b border-border/30">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-primary/10 rounded-lg">
+                      <Printer className="h-5 w-5 text-primary" />
                     </div>
-
-                    {/* DPI Selection */}
-                    <div className="space-y-2">
-                      <Label>DPI Quality</Label>
-                      <Select 
-                        value={printSettings.dpi.toString()} 
-                        onValueChange={(value) => setPrintSettings(prev => ({ ...prev, dpi: parseInt(value) as 203 | 300 }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-background border shadow-lg z-50">
-                          <SelectItem value="203">203 DPI (Standard)</SelectItem>
-                          <SelectItem value="300">300 DPI (High Quality)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Darkness */}
-                    <div className="space-y-2">
-                      <Label>Darkness (0-30)</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        max="30"
-                        value={printSettings.darkness}
-                        onChange={(e) => setPrintSettings(prev => ({ 
-                          ...prev, 
-                          darkness: Math.min(30, Math.max(0, parseInt(e.target.value) || 10))
-                        }))}
-                      />
+                    <div>
+                      <CardTitle className="text-lg font-semibold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                        Print Configuration
+                      </CardTitle>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Customize your label printing settings and preview
+                      </p>
                     </div>
                   </div>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <Tabs defaultValue="template" className="w-full">
+                    <TabsList className="grid w-full grid-cols-3 mb-6 bg-muted/50 p-1 rounded-lg">
+                      <TabsTrigger value="template" className="flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                        <div className="w-2 h-2 bg-primary rounded-full"></div>
+                        Template & Layout
+                      </TabsTrigger>
+                      <TabsTrigger value="quality" className="flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                        <div className="w-2 h-2 bg-accent rounded-full"></div>
+                        Print Quality
+                      </TabsTrigger>
+                      <TabsTrigger value="advanced" className="flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                        <div className="w-2 h-2 bg-secondary rounded-full"></div>
+                        Advanced
+                      </TabsTrigger>
+                    </TabsList>
 
-                  {/* Custom Size Controls */}
-                  {printSettings.pageSize === 'custom' && (
-                    <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-medium">Custom Label Size</h4>
-                        <div className="flex items-center space-x-2">
-                          <input
-                            id="auto-size"
-                            type="checkbox"
-                            checked={printSettings.autoSizeFromTemplate}
-                            onChange={(e) => {
-                              const autoSize = e.target.checked;
-                              setPrintSettings(prev => ({ ...prev, autoSizeFromTemplate: autoSize }));
+                    <TabsContent value="template" className="space-y-6 animate-fade-in">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Template Selection with Preview */}
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <Label className="text-sm font-medium">Label Template</Label>
+                            <Badge variant="outline" className="text-xs">Choose Design</Badge>
+                          </div>
+                          <Select 
+                            value={printSettings.template} 
+                            onValueChange={(value) => {
+                              setPrintSettings(prev => ({ ...prev, template: value }));
                               
-                              // If enabling auto-size and we have a custom template selected
-                              if (autoSize && printSettings.template !== 'default' && printSettings.template !== 'compact' && 
-                                  printSettings.template !== 'detailed' && printSettings.template !== 'minimal' && labelTemplates) {
+                              // Auto-size from template if it's a custom template and auto-size is enabled
+                              if (value !== 'default' && value !== 'compact' && value !== 'detailed' && value !== 'minimal' && 
+                                  printSettings.autoSizeFromTemplate && printSettings.pageSize === 'custom' && labelTemplates) {
+                                const selectedTemplate = labelTemplates.find(t => t.id === value);
+                                if (selectedTemplate) {
+                                  setPrintSettings(prev => ({
+                                    ...prev,
+                                    customWidth: selectedTemplate.width || 100,
+                                    customHeight: selectedTemplate.height || 60
+                                  }));
+                                }
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="bg-background/50 border-border/50 hover:border-primary/50 transition-colors">
+                              <SelectValue placeholder="Select template" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-popover border shadow-medium z-50">
+                              <SelectItem value="default" className="hover:bg-accent/50">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-3 h-2 bg-primary rounded-sm"></div>
+                                  Default
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="compact" className="hover:bg-accent/50">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-3 h-2 bg-accent rounded-sm"></div>
+                                  Compact
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="detailed" className="hover:bg-accent/50">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-3 h-2 bg-emerald rounded-sm"></div>
+                                  Detailed
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="minimal" className="hover:bg-accent/50">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-3 h-2 bg-sky rounded-sm"></div>
+                                  Minimal
+                                </div>
+                              </SelectItem>
+                              {labelTemplates?.map((template) => (
+                                <SelectItem key={template.id} value={template.id} className="hover:bg-accent/50">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-3 h-2 bg-gradient-to-r from-primary to-accent rounded-sm"></div>
+                                    {template.name}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Page Size with Visual Indicators */}
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <Label className="text-sm font-medium">Label Size</Label>
+                            <Badge variant="outline" className="text-xs">Dimensions</Badge>
+                          </div>
+                          <Select 
+                            value={printSettings.pageSize} 
+                            onValueChange={(value) => {
+                              setPrintSettings(prev => ({ ...prev, pageSize: value }));
+                              
+                              // Auto-size from template if custom template and auto-size enabled
+                              if (value === 'custom' && printSettings.autoSizeFromTemplate && labelTemplates) {
                                 const selectedTemplate = labelTemplates.find(t => t.id === printSettings.template);
                                 if (selectedTemplate) {
                                   setPrintSettings(prev => ({
@@ -2260,167 +2242,427 @@ export const POTracker = () => {
                                 }
                               }
                             }}
-                            className="h-4 w-4 rounded border-border"
-                          />
-                          <Label htmlFor="auto-size" className="text-sm">Auto-size from template</Label>
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Width (mm)</Label>
-                          <Input
-                            type="number"
-                            min="10"
-                            max="300"
-                            value={printSettings.customWidth}
-                            onChange={(e) => setPrintSettings(prev => ({ 
-                              ...prev, 
-                              customWidth: Math.max(10, parseInt(e.target.value) || 100)
-                            }))}
-                            disabled={printSettings.autoSizeFromTemplate}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Height (mm)</Label>
-                          <Input
-                            type="number"
-                            min="10"
-                            max="300"
-                            value={printSettings.customHeight}
-                            onChange={(e) => setPrintSettings(prev => ({ 
-                              ...prev, 
-                              customHeight: Math.max(10, parseInt(e.target.value) || 60)
-                            }))}
-                            disabled={printSettings.autoSizeFromTemplate}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                  {/* Copy Settings */}
-                  <div className="flex items-center gap-4 mt-4 pt-4 border-t">
-                    <div className="flex items-center space-x-2">
-                      <input
-                        id="copies-by-qty"
-                        type="checkbox"
-                        checked={printSettings.copiesByQuantity}
-                        onChange={(e) => setPrintSettings(prev => ({ ...prev, copiesByQuantity: e.target.checked }))}
-                        className="h-4 w-4 rounded border-border"
-                      />
-                      <Label htmlFor="copies-by-qty" className="text-sm">Print copies per quantity</Label>
-                    </div>
-                    
-                    {!printSettings.copiesByQuantity && (
-                      <div className="flex items-center gap-2">
-                        <Label className="text-sm">Copies per item:</Label>
-                        <Input
-                          type="number"
-                          min="1"
-                          max="10"
-                          value={printSettings.copies}
-                          onChange={(e) => setPrintSettings(prev => ({ 
-                            ...prev, 
-                            copies: Math.max(1, parseInt(e.target.value) || 1)
-                          }))}
-                          className="w-20"
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Printer Selection & Actions */}
-                  <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                    <div className="flex items-center gap-4">
-                      {qzConnected && availablePrinters.length > 0 && (
-                        <div className="flex items-center gap-2">
-                          <Label className="text-sm">Printer:</Label>
-                          <Select value={selectedPrinter} onValueChange={setSelectedPrinter}>
-                            <SelectTrigger className="w-[200px]">
-                              <SelectValue placeholder="Select printer" />
+                          >
+                            <SelectTrigger className="bg-background/50 border-border/50 hover:border-primary/50 transition-colors">
+                              <SelectValue />
                             </SelectTrigger>
-                            <SelectContent className="bg-background border shadow-lg z-50">
-                              {availablePrinters.map((printer) => (
-                                <SelectItem key={printer} value={printer}>
-                                  {printer}
-                                </SelectItem>
-                              ))}
+                            <SelectContent className="bg-popover border shadow-medium z-50">
+                              <SelectItem value="default">📄 Default (4×6")</SelectItem>
+                              <SelectItem value="4x6">📄 4" × 6" (Standard)</SelectItem>
+                              <SelectItem value="4x3">📄 4" × 3" (Medium)</SelectItem>
+                              <SelectItem value="3x2">📄 3" × 2" (Small)</SelectItem>
+                              <SelectItem value="2x1">📄 2" × 1" (Mini)</SelectItem>
+                              <SelectItem value="custom">⚙️ Custom Size</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
+                      </div>
+
+                      {/* Custom Size Controls with Enhanced UI */}
+                      {printSettings.pageSize === 'custom' && (
+                        <div className="space-y-4 p-6 bg-gradient-to-br from-muted/30 to-muted/50 border border-border/30 rounded-xl animate-slide-down">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="p-1.5 bg-primary/10 rounded-md">
+                                <div className="w-3 h-3 bg-primary rounded-sm"></div>
+                              </div>
+                              <h4 className="text-sm font-semibold">Custom Label Dimensions</h4>
+                            </div>
+                            <div className="flex items-center space-x-3">
+                              <input
+                                id="auto-size"
+                                type="checkbox"
+                                checked={printSettings.autoSizeFromTemplate}
+                                onChange={(e) => {
+                                  const autoSize = e.target.checked;
+                                  setPrintSettings(prev => ({ ...prev, autoSizeFromTemplate: autoSize }));
+                                  
+                                  // If enabling auto-size and we have a custom template selected
+                                  if (autoSize && printSettings.template !== 'default' && printSettings.template !== 'compact' && 
+                                      printSettings.template !== 'detailed' && printSettings.template !== 'minimal' && labelTemplates) {
+                                    const selectedTemplate = labelTemplates.find(t => t.id === printSettings.template);
+                                    if (selectedTemplate) {
+                                      setPrintSettings(prev => ({
+                                        ...prev,
+                                        customWidth: selectedTemplate.width || 100,
+                                        customHeight: selectedTemplate.height || 60
+                                      }));
+                                    }
+                                  }
+                                }}
+                                className="h-4 w-4 rounded border-border accent-primary"
+                              />
+                              <Label htmlFor="auto-size" className="text-sm font-medium">Auto-size from template</Label>
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                              <Label className="text-sm font-medium flex items-center gap-2">
+                                <div className="w-2 h-2 bg-primary rounded-full"></div>
+                                Width (mm)
+                              </Label>
+                              <Input
+                                type="number"
+                                min="10"
+                                max="300"
+                                value={printSettings.customWidth}
+                                onChange={(e) => setPrintSettings(prev => ({ 
+                                  ...prev, 
+                                  customWidth: Math.max(10, parseInt(e.target.value) || 100)
+                                }))}
+                                disabled={printSettings.autoSizeFromTemplate}
+                                className="bg-background/70 border-border/50 focus:border-primary/50 transition-colors"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-sm font-medium flex items-center gap-2">
+                                <div className="w-2 h-2 bg-accent rounded-full"></div>
+                                Height (mm)
+                              </Label>
+                              <Input
+                                type="number"
+                                min="10"
+                                max="300"
+                                value={printSettings.customHeight}
+                                onChange={(e) => setPrintSettings(prev => ({ 
+                                  ...prev, 
+                                  customHeight: Math.max(10, parseInt(e.target.value) || 60)
+                                }))}
+                                disabled={printSettings.autoSizeFromTemplate}
+                                className="bg-background/70 border-border/50 focus:border-primary/50 transition-colors"
+                              />
+                            </div>
+                          </div>
+                        </div>
                       )}
+                    </TabsContent>
 
-                      <Badge variant={qzConnected ? 'default' : 'destructive'} className="text-xs">
-                        {qzConnected ? `QZ Connected (${availablePrinters.length} printers)` : 'QZ Disconnected'}
-                      </Badge>
-                    </div>
+                    <TabsContent value="quality" className="space-y-6 animate-fade-in">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* DPI Selection with Quality Indicators */}
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <Label className="text-sm font-medium">Print Quality (DPI)</Label>
+                            <Badge variant="outline" className="text-xs">Resolution</Badge>
+                          </div>
+                          <Select 
+                            value={printSettings.dpi.toString()} 
+                            onValueChange={(value) => setPrintSettings(prev => ({ ...prev, dpi: parseInt(value) as 203 | 300 }))}
+                          >
+                            <SelectTrigger className="bg-background/50 border-border/50 hover:border-primary/50 transition-colors">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-popover border shadow-medium z-50">
+                              <SelectItem value="203" className="hover:bg-accent/50">
+                                <div className="flex items-center justify-between w-full">
+                                  <span>203 DPI</span>
+                                  <Badge variant="secondary" className="text-xs ml-2">Standard</Badge>
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="300" className="hover:bg-accent/50">
+                                <div className="flex items-center justify-between w-full">
+                                  <span>300 DPI</span>
+                                  <Badge variant="default" className="text-xs ml-2">High Quality</Badge>
+                                </div>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
 
-                    <div className="flex items-center gap-2">
-                      <Button 
-                        variant="outline" 
-                        onClick={handleDownloadZPL}
-                        disabled={selectedForPrint.size === 0}
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        Download ZPL
-                      </Button>
-                      
-                      <Button 
-                        onClick={handleDirectPrint}
-                        disabled={selectedForPrint.size === 0 || !qzConnected || !selectedPrinter || isPrinting}
-                      >
-                        {isPrinting ? (
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        ) : (
-                          <Printer className="h-4 w-4 mr-2" />
+                        {/* Darkness with Visual Slider */}
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Label className="text-sm font-medium">Print Darkness</Label>
+                              <Badge variant="outline" className="text-xs">0-30</Badge>
+                            </div>
+                            <div className="text-sm font-mono text-muted-foreground bg-muted/30 px-2 py-1 rounded">
+                              {printSettings.darkness}
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Input
+                              type="range"
+                              min="0"
+                              max="30"
+                              value={printSettings.darkness}
+                              onChange={(e) => setPrintSettings(prev => ({ 
+                                ...prev, 
+                                darkness: parseInt(e.target.value)
+                              }))}
+                              className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer slider-thumb"
+                            />
+                            <div className="flex justify-between text-xs text-muted-foreground">
+                              <span>Light</span>
+                              <span>Medium</span>
+                              <span>Dark</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="advanced" className="space-y-6 animate-fade-in">
+                      {/* Copy Settings with Enhanced UI */}
+                      <div className="p-6 bg-gradient-to-br from-muted/20 to-muted/40 border border-border/30 rounded-xl">
+                        <div className="flex items-center gap-2 mb-4">
+                          <div className="p-1.5 bg-accent/10 rounded-md">
+                            <div className="w-3 h-3 bg-accent rounded-sm"></div>
+                          </div>
+                          <h4 className="text-sm font-semibold">Copy Configuration</h4>
+                        </div>
+                        
+                        <div className="space-y-4">
+                          <div className="flex items-center space-x-3 p-3 bg-background/50 rounded-lg border border-border/30">
+                            <input
+                              id="copies-by-qty"
+                              type="checkbox"
+                              checked={printSettings.copiesByQuantity}
+                              onChange={(e) => setPrintSettings(prev => ({ ...prev, copiesByQuantity: e.target.checked }))}
+                              className="h-4 w-4 rounded border-border accent-primary"
+                            />
+                            <div className="flex-1">
+                              <Label htmlFor="copies-by-qty" className="text-sm font-medium cursor-pointer">
+                                Print copies based on quantity
+                              </Label>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Automatically print one label per item quantity
+                              </p>
+                            </div>
+                          </div>
+                          
+                          {!printSettings.copiesByQuantity && (
+                            <div className="flex items-center gap-4 p-3 bg-background/50 rounded-lg border border-border/30 animate-slide-down">
+                              <Label className="text-sm font-medium">Fixed copies per item:</Label>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setPrintSettings(prev => ({ 
+                                    ...prev, 
+                                    copies: Math.max(1, prev.copies - 1)
+                                  }))}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  -
+                                </Button>
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  max="10"
+                                  value={printSettings.copies}
+                                  onChange={(e) => setPrintSettings(prev => ({ 
+                                    ...prev, 
+                                    copies: Math.max(1, parseInt(e.target.value) || 1)
+                                  }))}
+                                  className="w-16 text-center bg-background/70"
+                                />
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setPrintSettings(prev => ({ 
+                                    ...prev, 
+                                    copies: Math.min(10, prev.copies + 1)
+                                  }))}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  +
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+
+                  {/* Enhanced Action Toolbar */}
+                  <div className="mt-6 pt-6 border-t border-border/30">
+                    {/* Status and Printer Section */}
+                    <div className="flex items-center justify-between mb-4 p-4 bg-gradient-to-r from-muted/30 to-muted/50 rounded-lg border border-border/30">
+                      <div className="flex items-center gap-4">
+                        {qzConnected && availablePrinters.length > 0 && (
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-success rounded-full animate-glow-pulse"></div>
+                              <Label className="text-sm font-medium">Printer:</Label>
+                            </div>
+                            <Select value={selectedPrinter} onValueChange={setSelectedPrinter}>
+                              <SelectTrigger className="w-[220px] bg-background/70 border-border/50 hover:border-primary/50">
+                                <SelectValue placeholder="Select printer" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-popover border shadow-medium z-50">
+                                {availablePrinters.map((printer) => (
+                                  <SelectItem key={printer} value={printer} className="hover:bg-accent/50">
+                                    <div className="flex items-center gap-2">
+                                      <Printer className="h-3 w-3" />
+                                      {printer}
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
                         )}
-                        Print Labels ({selectedForPrint.size})
-                      </Button>
-                    </div>
-                  </div>
 
-                  {/* Connection Status */}
-                  {!qzConnected && (
-                    <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <AlertCircle className="h-4 w-4 text-yellow-600" />
-                        <span className="text-sm text-yellow-800">
-                          QZ Tray not connected. Labels will be downloaded instead of printed directly.
-                        </span>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={initializeQZ}
-                          className="ml-auto"
+                        <Badge 
+                          variant={qzConnected ? 'default' : 'destructive'} 
+                          className={`text-xs font-medium ${qzConnected ? 'bg-success/10 text-success-foreground' : ''}`}
                         >
-                          <RefreshCw className="h-4 w-4 mr-1" />
-                          Connect
-                        </Button>
+                          {qzConnected ? (
+                            <div className="flex items-center gap-1">
+                              <div className="w-1.5 h-1.5 bg-success rounded-full"></div>
+                              QZ Connected ({availablePrinters.length} printers)
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              <div className="w-1.5 h-1.5 bg-destructive rounded-full"></div>
+                              QZ Disconnected
+                            </div>
+                          )}
+                        </Badge>
+                      </div>
+
+                      {/* Quick Stats */}
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 bg-primary rounded-full"></div>
+                          {selectedForPrint.size} selected
+                        </div>
                       </div>
                     </div>
-                  )}
+
+                    {/* Primary Action Buttons */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {/* Preview Button */}
+                        <Button 
+                          variant="outline" 
+                          size="lg"
+                          disabled={selectedForPrint.size === 0}
+                          className="group hover:shadow-soft transition-all"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="p-1 bg-accent/10 rounded group-hover:bg-accent/20 transition-colors">
+                              <div className="w-3 h-3 bg-accent rounded-sm"></div>
+                            </div>
+                            Preview Labels
+                          </div>
+                        </Button>
+
+                        {/* Download Button */}
+                        <Button 
+                          variant="outline" 
+                          size="lg"
+                          onClick={handleDownloadZPL}
+                          disabled={selectedForPrint.size === 0}
+                          className="group hover:shadow-soft transition-all"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Download className="h-4 w-4 group-hover:scale-110 transition-transform" />
+                            Download ZPL
+                            {selectedForPrint.size > 0 && (
+                              <Badge variant="secondary" className="ml-1 text-xs">
+                                {selectedForPrint.size}
+                              </Badge>
+                            )}
+                          </div>
+                        </Button>
+                      </div>
+                      
+                      {/* Primary Print Button */}
+                      <Button 
+                        size="lg"
+                        onClick={handleDirectPrint}
+                        disabled={selectedForPrint.size === 0 || !qzConnected || !selectedPrinter || isPrinting}
+                        className="bg-gradient-to-r from-primary to-primary-dark hover:from-primary-dark hover:to-primary shadow-glow hover:shadow-accent-glow transition-all group min-w-[180px]"
+                      >
+                        {isPrinting ? (
+                          <div className="flex items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span>Printing...</span>
+                            <div className="w-2 h-2 bg-background/50 rounded-full animate-bounce"></div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <Printer className="h-4 w-4 group-hover:scale-110 transition-transform" />
+                            <span>Print Labels</span>
+                            {selectedForPrint.size > 0 && (
+                              <Badge variant="secondary" className="ml-1 bg-background/20 text-primary-foreground">
+                                {selectedForPrint.size}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                      </Button>
+                    </div>
+
+                    {/* Connection Status Alert */}
+                    {!qzConnected && (
+                      <div className="mt-4 p-4 bg-gradient-to-r from-warning/10 to-warning/5 border border-warning/20 rounded-lg animate-fade-in">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-warning/10 rounded-lg">
+                              <AlertCircle className="h-4 w-4 text-warning" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-warning-foreground">
+                                QZ Tray Connection Required
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Labels will be downloaded instead of printed directly
+                              </p>
+                            </div>
+                          </div>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={initializeQZ}
+                            className="hover:bg-warning/10 hover:border-warning/30"
+                          >
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            Connect QZ Tray
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
 
-              {/* Items Selection Table */}
-              <Card>
-                <CardHeader>
+              {/* Enhanced Items Selection Table */}
+              <Card className="shadow-soft border-border/50 bg-gradient-to-b from-card to-card/50">
+                <CardHeader className="bg-gradient-to-r from-primary/5 to-accent/5 border-b border-border/30">
                     <div className="flex items-center justify-between">
-                      <CardTitle>Select Items to Print</CardTitle>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                          <Package className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg font-semibold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                            Select Items to Print
+                          </CardTitle>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Choose which items to include in your print job
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Enhanced Toolbar */}
+                      <div className="flex items-center gap-3">
                         {originalOrderPreserved && (
                           <Button 
                             variant="outline" 
                             size="sm"
                             onClick={() => setOriginalOrderPreserved(false)}
-                            className="text-xs"
+                            className="text-xs hover:bg-accent/10 hover:border-accent/30 transition-colors"
                           >
                             <ArrowUpDown className="h-3 w-3 mr-1" />
                             Enable Sorting
                           </Button>
                         )}
+                        
                         <Button 
                           variant="outline" 
                           size="sm"
@@ -2440,362 +2682,525 @@ export const POTracker = () => {
                               setSelectedForPrint(prev => new Set([...prev, ...currentPageIds]));
                             }
                           }}
+                          className="hover:bg-primary/10 hover:border-primary/30 transition-colors"
                         >
                           {(() => {
                             const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
                             const poOrders = filteredOrders.filter(order => selectedPOsList.includes(order.po_number));
                             const allSelected = poOrders.every(order => selectedForPrint.has(order.id));
-                            return allSelected && poOrders.length > 0 ? 'Unselect All' : 'Select All';
+                            return allSelected && poOrders.length > 0 ? (
+                              <>
+                                <Square className="h-3 w-3 mr-1" />
+                                Unselect All
+                              </>
+                            ) : (
+                              <>
+                                <CheckSquare className="h-3 w-3 mr-1" />
+                                Select All
+                              </>
+                            );
                           })()}
                         </Button>
-                        <Badge variant="outline">
-                          {selectedForPrint.size} selected
+                        
+                        <Badge 
+                          variant={selectedForPrint.size > 0 ? "default" : "outline"} 
+                          className={`font-medium transition-colors ${
+                            selectedForPrint.size > 0 
+                              ? 'bg-primary/10 text-primary-foreground border-primary/20' 
+                              : ''
+                          }`}
+                        >
+                          <div className="flex items-center gap-1">
+                            <div className={`w-2 h-2 rounded-full ${
+                              selectedForPrint.size > 0 ? 'bg-primary' : 'bg-muted-foreground'
+                            }`}></div>
+                            {selectedForPrint.size} selected
+                          </div>
                         </Badge>
                       </div>
                     </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="mb-4">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <CardContent className="p-6">
+                  {/* Enhanced Search Bar */}
+                  <div className="mb-6">
+                    <div className="relative group">
+                      <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4 group-focus-within:text-primary transition-colors" />
                         <Input
                           placeholder="Search by SKU, title, ASIN, serial number..."
                           value={labelSearchQuery}
                           onChange={(e) => setLabelSearchQuery(e.target.value)}
-                          className="pl-10 pr-10 border-2 border-transparent hover:border-border focus:border-primary transition-colors"
+                          className="pl-12 pr-12 h-12 bg-background/50 border-border/50 hover:border-primary/30 focus:border-primary/50 transition-all duration-300 shadow-sm"
                         />
                       {labelSearchQuery && (
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive transition-colors"
                           onClick={() => setLabelSearchQuery('')}
                         >
-                          <X className="h-3 w-3" />
+                          <X className="h-4 w-4" />
                         </Button>
                       )}
                     </div>
                   </div>
-                  <div className="rounded-lg border">
+                  
+                  {/* Enhanced Table Container */}
+                  <div className="rounded-xl border border-border/50 overflow-hidden shadow-soft bg-gradient-to-b from-background to-background/50">
                     <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-12">Select</TableHead>
-                          <TableHead className="w-16">Image</TableHead>
+                      <TableHeader className="bg-gradient-to-r from-muted/30 to-muted/50">
+                        <TableRow className="hover:bg-muted/50 border-b border-border/30">
+                          <TableHead className="w-12 font-semibold">
+                            <div className="flex items-center justify-center">
+                              <CheckSquare className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          </TableHead>
+                          <TableHead className="w-20 font-semibold">
+                            <div className="flex items-center gap-2">
+                              <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                              Image
+                            </div>
+                          </TableHead>
                           <TableHead 
-                            className={`cursor-pointer hover:bg-muted/50 select-none w-32 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}
+                            className={`cursor-pointer hover:bg-muted/50 select-none w-32 font-semibold transition-colors ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}
                             onClick={() => !originalOrderPreserved && handleSort('sku_code')}
                           >
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-primary rounded-full"></div>
                               SKU/Model
                               {sortField === 'sku_code' && !originalOrderPreserved && (
-                                <span className="text-xs">
-                                  {sortDirection === 'asc' ? '↑' : '↓'}
-                                </span>
+                                <div className={`text-xs p-1 rounded bg-primary/10 text-primary ${
+                                  sortDirection === 'asc' ? 'rotate-0' : 'rotate-180'
+                                } transition-transform`}>
+                                  ↑
+                                </div>
                               )}
                               {originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' && (
-                                <span className="text-xs text-muted-foreground">(Original Order)</span>
+                                <Badge variant="outline" className="text-xs ml-auto">Original Order</Badge>
                               )}
                             </div>
                           </TableHead>
                           <TableHead 
-                            className={`cursor-pointer hover:bg-muted/50 select-none ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}
+                            className={`cursor-pointer hover:bg-muted/50 select-none font-semibold transition-colors ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}
                             onClick={() => !originalOrderPreserved && handleSort('combined_title')}
                           >
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-accent rounded-full"></div>
                               Title & ASIN
                               {sortField === 'combined_title' && !originalOrderPreserved && (
-                                <span className="text-xs">
-                                  {sortDirection === 'asc' ? '↑' : '↓'}
-                                </span>
+                                <div className={`text-xs p-1 rounded bg-accent/10 text-accent ${
+                                  sortDirection === 'asc' ? 'rotate-0' : 'rotate-180'
+                                } transition-transform`}>
+                                  ↑
+                                </div>
                               )}
                             </div>
                           </TableHead>
                           <TableHead 
-                            className={`cursor-pointer hover:bg-muted/50 select-none ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}
+                            className={`cursor-pointer hover:bg-muted/50 select-none font-semibold transition-colors ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}
                             onClick={() => !originalOrderPreserved && handleSort('quantity')}
                           >
-                            <div className="flex items-center gap-1">
-                              Qty
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-emerald rounded-full"></div>
+                              Quantity
                               {sortField === 'quantity' && !originalOrderPreserved && (
-                                <span className="text-xs">
-                                  {sortDirection === 'asc' ? '↑' : '↓'}
-                                </span>
+                                <div className={`text-xs p-1 rounded bg-emerald/10 text-emerald ${
+                                  sortDirection === 'asc' ? 'rotate-0' : 'rotate-180'
+                                } transition-transform`}>
+                                  ↑
+                                </div>
                               )}
                             </div>
                            </TableHead>
-                           <TableHead className="w-24">Print Qty</TableHead>
-                           <TableHead>Print Status</TableHead>
-                           <TableHead>Actions</TableHead>
+                           <TableHead className="w-24 font-semibold">
+                             <div className="flex items-center gap-2">
+                               <div className="w-2 h-2 bg-sky rounded-full"></div>
+                               Print Qty
+                             </div>
+                           </TableHead>
+                           <TableHead className="font-semibold">
+                             <div className="flex items-center gap-2">
+                               <div className="w-2 h-2 bg-cyan rounded-full"></div>
+                               Status
+                             </div>
+                           </TableHead>
+                           <TableHead className="font-semibold">
+                             <div className="flex items-center gap-2">
+                               <div className="w-2 h-2 bg-secondary rounded-full"></div>
+                               Actions
+                             </div>
+                           </TableHead>
                         </TableRow>
                       </TableHeader>
-                       <TableBody>
-                         {(() => {
-                            const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
-                            const ordersForSelectedPOs = filteredOrders.filter(order => selectedPOsList.includes(order.po_number));
-                            const startIndex = (labelCurrentPage - 1) * labelItemsPerPage;
-                            const endIndex = startIndex + labelItemsPerPage;
-                            const paginatedOrders = ordersForSelectedPOs.slice(startIndex, endIndex);
-                            
-                            return paginatedOrders.map((order) => (
-                             <TableRow key={order.id}>
-                               <TableCell>
-                                 <input
-                                   type="checkbox"
-                                   checked={selectedForPrint.has(order.id)}
-                                   onChange={(e) => {
-                                     const newSelected = new Set(selectedForPrint);
-                                     if (e.target.checked) {
-                                       newSelected.add(order.id);
-                                     } else {
-                                       newSelected.delete(order.id);
-                                     }
-                                     setSelectedForPrint(newSelected);
-                                   }}
-                                   className="h-4 w-4 rounded border-border"
-                                 />
+                       <TableBody className="divide-y divide-border/30">
+                          {(() => {
+                             const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
+                             const ordersForSelectedPOs = filteredOrders.filter(order => selectedPOsList.includes(order.po_number));
+                             const startIndex = (labelCurrentPage - 1) * labelItemsPerPage;
+                             const endIndex = startIndex + labelItemsPerPage;
+                             const paginatedOrders = ordersForSelectedPOs.slice(startIndex, endIndex);
+                             
+                             return paginatedOrders.map((order, index) => (
+                              <TableRow 
+                                key={order.id} 
+                                className={`group hover:bg-gradient-to-r hover:from-primary/5 hover:to-accent/5 transition-all duration-300 ${
+                                  selectedForPrint.has(order.id) ? 'bg-primary/5 border-primary/20' : ''
+                                } ${index % 2 === 0 ? 'bg-background/50' : 'bg-background/30'}`}
+                              >
+                                {/* Enhanced Checkbox Cell */}
+                                <TableCell className="w-12">
+                                  <div className="flex items-center justify-center">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedForPrint.has(order.id)}
+                                      onChange={(e) => {
+                                        const newSelected = new Set(selectedForPrint);
+                                        if (e.target.checked) {
+                                          newSelected.add(order.id);
+                                        } else {
+                                          newSelected.delete(order.id);
+                                        }
+                                        setSelectedForPrint(newSelected);
+                                      }}
+                                      className="h-4 w-4 rounded border-border/50 accent-primary group-hover:scale-110 transition-transform"
+                                    />
+                                  </div>
+                                </TableCell>
+
+                                {/* Enhanced Image Cell */}
+                                <TableCell className="w-20">
+                                  {(() => {
+                                     const productImage = order.asin ? getImageByAsin(order.asin) : null;
+                                     console.log('🖼️ Image lookup for ASIN:', order.asin, 'Found:', !!productImage, 'URL:', productImage?.image_url);
+                                   return productImage ? (
+                                     <Popover>
+                                       <PopoverTrigger asChild>
+                                         <div className="w-16 h-16 rounded-lg border border-border/30 overflow-hidden flex-shrink-0 cursor-pointer hover:border-primary/50 hover:shadow-soft transition-all duration-300 group-hover:scale-105 bg-background/80">
+                                           <img 
+                                             src={productImage.image_url} 
+                                             alt={`Product image for ${order.asin}`}
+                                             className="w-full h-full object-contain"
+                                             onError={(e) => {
+                                               console.log('🖼️ Image failed to load:', productImage.image_url);
+                                               e.currentTarget.style.display = 'none';
+                                             }}
+                                             onLoad={() => {
+                                               console.log('🖼️ Image loaded successfully:', productImage.image_url);
+                                             }}
+                                           />
+                                         </div>
+                                       </PopoverTrigger>
+                                       <PopoverContent side="left" className="w-80 p-3 bg-popover/95 backdrop-blur-sm border-border/50 shadow-strong">
+                                         <div className="w-full h-64 rounded-xl overflow-hidden bg-background/50 border border-border/30">
+                                           <img 
+                                             src={productImage.image_url} 
+                                             alt={`Product image for ${order.asin}`}
+                                             className="w-full h-full object-contain"
+                                           />
+                                         </div>
+                                         <div className="flex items-center justify-center gap-2 mt-3 p-2 bg-muted/30 rounded-lg">
+                                           <div className="w-2 h-2 bg-primary rounded-full"></div>
+                                           <span className="text-xs font-mono text-muted-foreground">ASIN: {order.asin}</span>
+                                         </div>
+                                       </PopoverContent>
+                                     </Popover>
+                                  ) : (
+                                    <div className="w-16 h-16 rounded-lg border border-dashed border-border/30 flex items-center justify-center bg-gradient-to-br from-muted/20 to-muted/40 group-hover:from-muted/30 group-hover:to-muted/50 transition-all duration-300">
+                                      <div className="text-center">
+                                        <ImageIcon className="h-5 w-5 text-muted-foreground/50 mx-auto mb-1" />
+                                        <div className="text-xs text-muted-foreground/70 font-medium">No Image</div>
+                                        {order.asin && (
+                                          <div className="text-xs text-muted-foreground/50 font-mono mt-1 bg-muted/30 px-1 rounded" title={`ASIN: ${order.asin}`}>
+                                            {order.asin.slice(0, 6)}...
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
                                </TableCell>
-                                     <TableCell>
-                                         {(() => {
-                                            const productImage = order.asin ? getImageByAsin(order.asin) : null;
-                                            console.log('🖼️ Image lookup for ASIN:', order.asin, 'Found:', !!productImage, 'URL:', productImage?.image_url);
-                                          return productImage ? (
-                                            <Popover>
-                                              <PopoverTrigger asChild>
-                                                <div className="w-20 h-20 rounded border overflow-hidden flex-shrink-0 cursor-pointer hover:border-primary transition-colors">
-                                                  <img 
-                                                    src={productImage.image_url} 
-                                                    alt={`Product image for ${order.asin}`}
-                                                    className="w-full h-full object-contain"
-                                                    onError={(e) => {
-                                                      console.log('🖼️ Image failed to load:', productImage.image_url);
-                                                      e.currentTarget.style.display = 'none';
-                                                    }}
-                                                    onLoad={() => {
-                                                      console.log('🖼️ Image loaded successfully:', productImage.image_url);
-                                                    }}
-                                                  />
-                                                </div>
-                                              </PopoverTrigger>
-                                              <PopoverContent side="left" className="w-80 p-2">
-                                                <div className="w-full h-64 rounded-lg overflow-hidden bg-white">
-                                                  <img 
-                                                    src={productImage.image_url} 
-                                                    alt={`Product image for ${order.asin}`}
-                                                    className="w-full h-full object-contain"
-                                                  />
-                                                </div>
-                                                <div className="text-xs text-muted-foreground mt-2 text-center">
-                                                  ASIN: {order.asin}
-                                                </div>
-                                              </PopoverContent>
-                                            </Popover>
-                                         ) : (
-                                           <div className="w-20 h-20 rounded border border-dashed border-muted-foreground/30 flex items-center justify-center bg-muted/30">
-                                             <div className="text-center">
-                                               <ImageIcon className="h-6 w-6 text-muted-foreground/50 mx-auto mb-1" />
-                                               <div className="text-xs text-muted-foreground/70">No Image</div>
-                                               {order.asin && (
-                                                 <div className="text-xs text-muted-foreground/50 font-mono mt-1" title={`ASIN: ${order.asin}`}>
-                                                   {order.asin.slice(0, 6)}...
-                                                 </div>
-                                               )}
-                                               <div className="text-xs text-orange-600 mt-1">
-                                                 📊 {productImages?.length || 0} total
-                                               </div>
-                                             </div>
-                                           </div>
-                                         );
-                                       })()}
-                                    </TableCell>
-                                 <TableCell className="w-32">
-                                   <div className="space-y-1">
-                                     {order.sku_code && (
-                                       <div className="text-sm font-medium font-mono break-words">{order.sku_code}</div>
-                                     )}
-                                     {order.model_number && order.model_number !== order.sku_code && (
-                                       <div className="text-xs text-muted-foreground font-mono break-words">{order.model_number}</div>
-                                     )}
-                                     {!order.sku_code && !order.model_number && (
-                                       <span className="text-xs text-muted-foreground">N/A</span>
-                                     )}
-                                   </div>
-                                 </TableCell>
-                                 <TableCell>
-                                   <div className="space-y-1">
-                                     <div className="text-sm font-medium break-words whitespace-pre-wrap" title={order.title}>
-                                       {order.title || 'No title'}
+
+                               {/* Enhanced SKU/Model Cell */}
+                               <TableCell className="w-32">
+                                 <div className="space-y-2">
+                                   {order.sku_code && (
+                                     <div className="flex items-center gap-2">
+                                       <div className="w-1.5 h-1.5 bg-primary rounded-full flex-shrink-0"></div>
+                                       <div className="text-sm font-semibold font-mono break-words bg-primary/5 px-2 py-1 rounded-md">
+                                         {order.sku_code}
+                                       </div>
                                      </div>
-                                     {order.asin && (
-                                       <div className="text-xs text-muted-foreground font-mono">{order.asin}</div>
-                                     )}
-                                     {(() => {
-                                       const inventoryMatch = findInventoryMatch(
-                                         order.asin, 
-                                         order.sunsky_sku?.sku_code, 
-                                         order.sku_code, 
-                                         order.model_number,
-                                         order.sunsky_sku
-                                       );
-                                       
-                                       if (inventoryMatch) {
-                                         // Show serial numbers for ASIN inventory matches
-                                         if (inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0) {
-                                           return (
-                                             <div className="text-xs text-green-600 dark:text-green-400 font-mono">
+                                   )}
+                                   {order.model_number && order.model_number !== order.sku_code && (
+                                     <div className="flex items-center gap-2">
+                                       <div className="w-1.5 h-1.5 bg-accent rounded-full flex-shrink-0"></div>
+                                       <div className="text-xs text-muted-foreground font-mono break-words bg-accent/5 px-2 py-1 rounded-md">
+                                         {order.model_number}
+                                       </div>
+                                     </div>
+                                   )}
+                                   {!order.sku_code && !order.model_number && (
+                                     <div className="flex items-center gap-2">
+                                       <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full flex-shrink-0"></div>
+                                       <span className="text-xs text-muted-foreground bg-muted/30 px-2 py-1 rounded-md">N/A</span>
+                                     </div>
+                                   )}
+                                 </div>
+                               </TableCell>
+
+                               {/* Enhanced Title & ASIN Cell */}
+                               <TableCell>
+                                 <div className="space-y-2">
+                                   <div className="text-sm font-medium break-words text-foreground group-hover:text-primary/80 transition-colors" title={order.title}>
+                                     {order.title || 'No title available'}
+                                   </div>
+                                   {order.asin && (
+                                     <div className="flex items-center gap-2">
+                                       <div className="w-1.5 h-1.5 bg-accent rounded-full flex-shrink-0"></div>
+                                       <div className="text-xs text-muted-foreground font-mono bg-accent/5 px-2 py-1 rounded-md">
+                                         {order.asin}
+                                       </div>
+                                     </div>
+                                   )}
+                                   {(() => {
+                                     const inventoryMatch = findInventoryMatch(
+                                       order.asin, 
+                                       order.sunsky_sku?.sku_code, 
+                                       order.sku_code, 
+                                       order.model_number,
+                                       order.sunsky_sku
+                                     );
+                                     
+                                     if (inventoryMatch) {
+                                       // Show serial numbers for ASIN inventory matches
+                                       if (inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0) {
+                                         return (
+                                           <div className="flex items-center gap-2">
+                                             <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
+                                             <div className="text-xs text-success-foreground font-mono bg-success/10 px-2 py-1 rounded-md">
                                                Serial: {inventoryMatch.serialNumbers.slice(0, 2).join(', ')}
                                                {inventoryMatch.serialNumbers.length > 2 && ` +${inventoryMatch.serialNumbers.length - 2} more`}
                                              </div>
-                                           );
-                                         }
-                                         // Show serial number for SKU inventory matches
-                                         if (inventoryMatch.serialNumber) {
-                                           return (
-                                             <div className="text-xs text-green-600 dark:text-green-400 font-mono">
+                                           </div>
+                                         );
+                                       }
+                                       // Show serial number for SKU inventory matches
+                                       if (inventoryMatch.serialNumber) {
+                                         return (
+                                           <div className="flex items-center gap-2">
+                                             <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
+                                             <div className="text-xs text-success-foreground font-mono bg-success/10 px-2 py-1 rounded-md">
                                                Serial: {inventoryMatch.serialNumber}
                                              </div>
-                                           );
-                                         }
+                                           </div>
+                                         );
                                        }
-                                       return null;
-                                     })()}
-                                   </div>
-                                 </TableCell>
-                                 <TableCell>
-                                   <div className="space-y-1">
-                                      <div className="space-y-1">
-                                        {order.status === 'closed' && order.notes?.includes('Fulfilled from stock:') ? (
-                                          <div className="space-y-1">
-                                            <Badge variant="outline" className="text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800">
-                                               {(() => {
-                                                 const fulfilledMatch = order.notes?.match(/Fulfilled from stock:\s*(\d+)/);
-                                                 const originalMatch = order.notes?.match(/Original quantity:\s*(\d+)/);
-                                                 const fulfilledQty = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
-                                                 // If original quantity not in notes, assume fulfilled quantity was the original
-                                                 const originalQty = originalMatch ? parseInt(originalMatch[1]) : (fulfilledQty > 0 ? fulfilledQty : 1);
-                                                 return `Fulfilled: ${fulfilledQty}/${originalQty}`;
-                                               })()}
-                                            </Badge>
-                                            <div className="text-xs text-muted-foreground">
+                                     }
+                                     return null;
+                                   })()}
+                                 </div>
+                               </TableCell>
+
+                               {/* Enhanced Quantity Cell */}
+                               <TableCell>
+                                 <div className="space-y-2">
+                                    <div className="space-y-2">
+                                      {order.status === 'closed' && order.notes?.includes('Fulfilled from stock:') ? (
+                                        <div className="space-y-2">
+                                          <Badge variant="outline" className="bg-sky/10 text-sky-foreground border-sky/30 font-mono">
+                                             {(() => {
+                                               const fulfilledMatch = order.notes?.match(/Fulfilled from stock:\s*(\d+)/);
+                                               const originalMatch = order.notes?.match(/Original quantity:\s*(\d+)/);
+                                               const fulfilledQty = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
+                                               // If original quantity not in notes, assume fulfilled quantity was the original
+                                               const originalQty = originalMatch ? parseInt(originalMatch[1]) : (fulfilledQty > 0 ? fulfilledQty : 1);
+                                               return `Fulfilled: ${fulfilledQty}/${originalQty}`;
+                                             })()}
+                                          </Badge>
+                                          <div className="flex items-center gap-1">
+                                            <div className="w-1.5 h-1.5 bg-sky rounded-full flex-shrink-0"></div>
+                                            <div className="text-xs text-muted-foreground font-medium">
                                               From Stock
                                             </div>
                                           </div>
-                                        ) : (
-                                          <>
-                                            <Badge variant="secondary" className="font-mono">
-                                              {order.quantity}
-                                            </Badge>
-                                             {(() => {
-                                               const inventoryMatch = findInventoryMatch(
-                                                 order.asin, 
-                                                 order.sunsky_sku?.sku_code, 
-                                                 order.sku_code, 
-                                                 order.model_number,
-                                                 order.sunsky_sku
-                                               );
-                                               
-                                               // Removed inventory stock display as requested
-                                               return null;
-                                             })()}
-                                          </>
-                                        )}
-                                      </div>
-                                   </div>
-                                 </TableCell>
-                                <TableCell>
-                                  <Input
-                                    type="number"
-                                    min="1"
-                                    max="99"
-                                    placeholder="Qty"
-                                    className="w-16 h-8 text-center"
-                                    value={itemPrintQuantities[order.id] || ''}
-                                    onChange={(e) => {
-                                      const value = parseInt(e.target.value) || 0;
-                                      setItemPrintQuantities(prev => ({
-                                        ...prev,
-                                        [order.id]: value
-                                      }));
-                                    }}
-                                    disabled={printingItems.has(order.id)}
-                                  />
-                                </TableCell>
-                                 <TableCell>
-                                   <div className="flex flex-col gap-1">
-                                     <Badge 
-                                       variant={order.printed_quantity > 0 ? 'default' : 'outline'}
-                                       className="text-xs"
-                                     >
+                                        </div>
+                                      ) : (
+                                        <div className="flex items-center gap-2">
+                                          <Badge variant="secondary" className="font-mono bg-emerald/10 text-emerald-foreground border-emerald/30">
+                                            {order.quantity}
+                                          </Badge>
+                                          <div className="text-xs text-muted-foreground">items</div>
+                                        </div>
+                                      )}
+                                    </div>
+                                 </div>
+                               </TableCell>
+
+                               {/* Enhanced Print Qty Cell */}
+                               <TableCell className="w-24">
+                                 <div className="flex items-center gap-2">
+                                   <Input
+                                     type="number"
+                                     min="1"
+                                     max="99"
+                                     placeholder="Qty"
+                                     className="w-16 h-9 text-center bg-background/70 border-border/50 focus:border-primary/50 group-hover:border-primary/30 transition-colors font-mono"
+                                     value={itemPrintQuantities[order.id] || ''}
+                                     onChange={(e) => {
+                                       const value = parseInt(e.target.value) || 0;
+                                       setItemPrintQuantities(prev => ({
+                                         ...prev,
+                                         [order.id]: value
+                                       }));
+                                     }}
+                                     disabled={printingItems.has(order.id)}
+                                   />
+                                 </div>
+                               </TableCell>
+
+                               {/* Enhanced Status Cell */}
+                               <TableCell>
+                                 <div className="flex flex-col gap-2">
+                                   <Badge 
+                                     variant={order.printed_quantity > 0 ? 'default' : 'outline'}
+                                     className={`text-xs font-medium ${
+                                       order.printed_quantity > 0 
+                                         ? 'bg-success/10 text-success-foreground border-success/30' 
+                                         : 'bg-muted/10 border-muted-foreground/30'
+                                     }`}
+                                   >
+                                     <div className="flex items-center gap-1">
+                                       <div className={`w-1.5 h-1.5 rounded-full ${
+                                         order.printed_quantity > 0 ? 'bg-success' : 'bg-muted-foreground'
+                                       }`}></div>
                                        {order.printed_quantity || 0}/{order.quantity} printed
-                                     </Badge>
-                                     {order.printed_quantity > 0 && (
-                                       <span className="text-xs text-muted-foreground">
+                                     </div>
+                                   </Badge>
+                                   {order.printed_quantity > 0 && (
+                                     <div className="flex items-center gap-1">
+                                       <div className="w-1.5 h-1.5 bg-warning rounded-full flex-shrink-0"></div>
+                                       <span className="text-xs text-muted-foreground font-medium">
                                          {order.quantity - (order.printed_quantity || 0)} remaining
                                        </span>
-                                     )}
-                                   </div>
-                                 </TableCell>
-                                <TableCell>
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm"
-                                    onClick={() => {
-                                      const printQty = itemPrintQuantities[order.id];
-                                      if (printQty && printQty > 0) {
-                                        handleSingleItemPrint(order, printQty);
-                                      } else {
-                                        handleSingleItemPrint(order);
-                                      }
-                                     }}
-                                     disabled={
-                                       !qzConnected || 
-                                       !selectedPrinter || 
-                                       printingItems.has(order.id) ||
-                                       (!itemPrintQuantities[order.id] || itemPrintQuantities[order.id] <= 0)
+                                     </div>
+                                   )}
+                                 </div>
+                               </TableCell>
+
+                               {/* Enhanced Actions Cell */}
+                               <TableCell>
+                                 <Button 
+                                   variant="outline" 
+                                   size="sm"
+                                   onClick={() => {
+                                     const printQty = itemPrintQuantities[order.id];
+                                     if (printQty && printQty > 0) {
+                                       handleSingleItemPrint(order, printQty);
+                                     } else {
+                                       handleSingleItemPrint(order);
                                      }
-                                     className="w-full"
-                                  >
-                                    {printingItems.has(order.id) ? (
-                                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                    ) : (
-                                      <Printer className="h-3 w-3 mr-1" />
-                                    )}
-                                    {printingItems.has(order.id) ? 'Printing...' : 'Print'}
-                                  </Button>
-                                </TableCell>
-                             </TableRow>
-                           ));
-                         })()}
+                                    }}
+                                    disabled={
+                                      !qzConnected || 
+                                      !selectedPrinter || 
+                                      printingItems.has(order.id) ||
+                                      (!itemPrintQuantities[order.id] || itemPrintQuantities[order.id] <= 0)
+                                    }
+                                    className={`w-full group-hover:shadow-soft transition-all duration-300 ${
+                                      printingItems.has(order.id) 
+                                        ? 'bg-primary/10 border-primary/30' 
+                                        : 'hover:bg-primary/5 hover:border-primary/30'
+                                    }`}
+                                 >
+                                   {printingItems.has(order.id) ? (
+                                     <div className="flex items-center gap-2">
+                                       <Loader2 className="h-3 w-3 animate-spin" />
+                                       <span className="text-xs">Printing...</span>
+                                     </div>
+                                   ) : (
+                                     <div className="flex items-center gap-2">
+                                       <Printer className="h-3 w-3 group-hover:scale-110 transition-transform" />
+                                       <span className="text-xs font-medium">Print</span>
+                                     </div>
+                                   )}
+                                 </Button>
+                               </TableCell>
+                              </TableRow>
+                            ));
+                          })()}
                        </TableBody>
                      </Table>
                    </div>
                    
-                   {/* Pagination Controls */}
-                    {(() => {
-                      const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
-                      const ordersForSelectedPOs = filteredOrders.filter(order => selectedPOsList.includes(order.po_number));
-                      const totalPages = Math.ceil(ordersForSelectedPOs.length / labelItemsPerPage);
-                      
-                      if (totalPages <= 1) return null;
-                      
-                      return (
-                        <div className="flex items-center justify-between px-2 py-4 border-t">
-                          <div className="flex items-center space-x-2">
-                            <p className="text-sm text-muted-foreground">
-                              Page {labelCurrentPage} of {totalPages} ({ordersForSelectedPOs.length} items)
-                           </p>
-                         </div>
-                         <div className="flex items-center space-x-2">
-                           <Button
-                             variant="outline"
-                             size="sm"
-                             onClick={() => setLabelCurrentPage(prev => Math.max(1, prev - 1))}
-                             disabled={labelCurrentPage === 1}
-                           >
-                             Previous
-                           </Button>
-                           <Button
-                             variant="outline"
+                    {/* Enhanced Pagination Controls */}
+                     {(() => {
+                       const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
+                       const ordersForSelectedPOs = filteredOrders.filter(order => selectedPOsList.includes(order.po_number));
+                       const totalPages = Math.ceil(ordersForSelectedPOs.length / labelItemsPerPage);
+                       
+                       if (totalPages <= 1) return null;
+                       
+                       return (
+                         <div className="flex items-center justify-between px-6 py-4 border-t border-border/30 bg-gradient-to-r from-muted/20 to-muted/30">
+                           <div className="flex items-center gap-3">
+                             <div className="flex items-center gap-2">
+                               <div className="w-2 h-2 bg-primary rounded-full"></div>
+                               <p className="text-sm text-muted-foreground font-medium">
+                                 Page {labelCurrentPage} of {totalPages}
+                               </p>
+                             </div>
+                             <div className="text-sm text-muted-foreground">
+                               ({ordersForSelectedPOs.length} items total)
+                             </div>
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setLabelCurrentPage(prev => Math.max(1, prev - 1))}
+                              disabled={labelCurrentPage === 1}
+                              className="hover:bg-primary/10 hover:border-primary/30 transition-colors"
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 rounded bg-gradient-to-r from-primary/20 to-accent/20"></div>
+                                Previous
+                              </div>
+                            </Button>
+                            <div className="flex items-center gap-1">
+                              {Array.from({length: Math.min(5, totalPages)}, (_, i) => {
+                                const pageNum = Math.max(1, Math.min(totalPages - 4, labelCurrentPage - 2)) + i;
+                                return (
+                                  <Button
+                                    key={pageNum}
+                                    variant={pageNum === labelCurrentPage ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={() => setLabelCurrentPage(pageNum)}
+                                    className={`w-8 h-8 p-0 ${
+                                      pageNum === labelCurrentPage 
+                                        ? 'bg-primary text-primary-foreground shadow-glow' 
+                                        : 'hover:bg-accent/10 hover:border-accent/30'
+                                    } transition-all`}
+                                  >
+                                    {pageNum}
+                                  </Button>
+                                );
+                              })}
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setLabelCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                              disabled={labelCurrentPage === totalPages}
+                              className="hover:bg-primary/10 hover:border-primary/30 transition-colors"
+                            >
+                              <div className="flex items-center gap-2">
+                                Next
+                                <div className="w-3 h-3 rounded bg-gradient-to-r from-accent/20 to-primary/20"></div>
+                              </div>
+                            </Button>
+                          </div>
+                        </div>
+                       );
+                     })()}
                              size="sm"
                              onClick={() => setLabelCurrentPage(prev => Math.min(totalPages, prev + 1))}
                              disabled={labelCurrentPage === totalPages}
