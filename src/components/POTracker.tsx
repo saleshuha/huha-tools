@@ -372,22 +372,6 @@ export const POTracker = () => {
     }
   }, [poOrders?.length, isLoading]); // Only depend on length, not the functions
 
-  // Initialize print quantities with default values when orders load
-  useEffect(() => {
-    if (poOrders && poOrders.length > 0) {
-      const newQuantities: {[key: string]: number} = {};
-      poOrders.forEach(order => {
-        if (!itemPrintQuantities[order.id]) {
-          newQuantities[order.id] = order.quantity || 1;
-        }
-      });
-      
-      if (Object.keys(newQuantities).length > 0) {
-        setItemPrintQuantities(prev => ({...prev, ...newQuantities}));
-      }
-    }
-  }, [poOrders]);
-
   // Fetch inventory data for matching - Wrapped in useCallback to prevent re-creation
   const fetchInventoryData = useCallback(async () => {
     if (!profile?.id || !selectedCountry) return;
