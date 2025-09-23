@@ -39,13 +39,37 @@ export const useProductImages = () => {
       const userId = session.user.id;
       console.log('🖼️ Authenticated user ID:', userId);
       
-      // Query with explicit user_id filter - use range to get ALL rows
-      const { data, error } = await supabase
-        .from('product_images')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .range(0, -1); // Explicitly request all rows (no limit)
+      // Fetch ALL images using batch loading to bypass Supabase limits
+      let allImages: any[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const { data: batch, error: batchError } = await supabase
+          .from('product_images')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .range(from, from + batchSize - 1);
+          
+        if (batchError) {
+          console.error('🖼️ Error fetching batch:', batchError);
+          throw batchError;
+        }
+        
+        if (batch && batch.length > 0) {
+          allImages = [...allImages, ...batch];
+          hasMore = batch.length === batchSize; // Continue if we got a full batch
+          from += batchSize;
+          console.log(`🖼️ Fetched batch: ${batch.length} images, total so far: ${allImages.length}`);
+        } else {
+          hasMore = false;
+        }
+      }
+      
+      const data = allImages;
+      const error = null;
       
       if (error) {
         console.error('🖼️ Error fetching product images:', error);
