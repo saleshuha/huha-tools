@@ -3042,7 +3042,7 @@ export const POTracker = () => {
                                          return (
                                            <div className="flex items-center gap-2">
                                              <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
-                                              <div className="text-xs text-success-foreground font-mono bg-success/10 px-2 py-1 rounded-md border border-success/20">
+                                               <div className="text-xs text-success font-mono bg-success/10 px-2 py-1 rounded-md border border-success/20">
                                                 Serial: {inventoryMatch.serialNumbers.slice(0, 2).join(', ')}
                                                 {inventoryMatch.serialNumbers.length > 2 && ` +${inventoryMatch.serialNumbers.length - 2} more`}
                                               </div>
@@ -3054,7 +3054,7 @@ export const POTracker = () => {
                                          return (
                                            <div className="flex items-center gap-2">
                                              <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
-                                              <div className="text-xs text-success-foreground font-mono bg-success/10 px-2 py-1 rounded-md border border-success/20">
+                                              <div className="text-xs text-success font-mono bg-success/10 px-2 py-1 rounded-md border border-success/20">
                                                 Serial: {inventoryMatch.serialNumber}
                                               </div>
                                            </div>
@@ -3130,7 +3130,7 @@ export const POTracker = () => {
                                       variant={order.printed_quantity > 0 ? 'default' : 'outline'}
                                       className={`text-xs font-medium ${
                                         order.printed_quantity > 0 
-                                          ? 'bg-success/10 text-success-foreground border-success/30' 
+                                          ? 'bg-success/10 text-success border-success/30' 
                                           : 'bg-muted/10 border-muted-foreground/30'
                                       }`}
                                     >
