@@ -26,7 +26,7 @@ export const useProductImages = () => {
         .from('product_images')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(1000);
+        .limit(5000); // Increased limit to get more images
       
       if (error) {
         console.error('🖼️ Error fetching product images:', error);

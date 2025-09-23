@@ -112,10 +112,22 @@ export function AsinInventory() {
   const ProductImage = ({ asin }: { asin: string }) => {
     const productImage = getImageByAsin(asin);
     
+    // Debug logging
+    if (!productImage && Math.random() < 0.1) { // Log 10% of missing images
+      console.log('🖼️ No image found for ASIN:', asin, {
+        totalImages: !imagesLoading ? 'loaded' : 'loading',
+        hasAsin: !!asin
+      });
+    }
+    
     if (!productImage) {
       return (
-        <div className="w-20 h-20 min-w-[5rem] min-h-[5rem] bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-border flex-shrink-0">
+        <div className="w-20 h-20 min-w-[5rem] min-h-[5rem] bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-border flex-shrink-0 relative">
           <Eye className="w-6 h-6 text-muted-foreground" />
+          {/* Debug info */}
+          <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 text-xs text-red-500 whitespace-nowrap text-center bg-white px-1 rounded shadow-sm">
+            {asin ? asin.substring(0,8) : 'No ASIN'}
+          </div>
         </div>
       );
     }

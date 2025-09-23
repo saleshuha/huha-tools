@@ -77,8 +77,18 @@ export const usePOAsinImages = () => {
 
   // Combine PO ASINs with existing images
   const poAsinItemsWithImages = useMemo(() => {
+    console.log('🔍 PO Images Debug:', {
+      poAsinItemsCount: poAsinItems.length,
+      productImagesCount: productImages.length,
+      samplePOAsin: poAsinItems[0]?.asin,
+      sampleImage: productImages[0]?.asin
+    });
+    
     return poAsinItems.map(item => {
       const existingImage = productImages.find(img => img.asin === item.asin);
+      if (!existingImage && Math.random() < 0.1) { // Log 10% of missing matches
+        console.log('🔍 No image match for PO ASIN:', item.asin);
+      }
       return {
         ...item,
         hasImage: !!existingImage,
