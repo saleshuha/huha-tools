@@ -2561,15 +2561,15 @@ export const POTracker = () => {
                                             const productImage = order.asin ? getImageByAsin(order.asin) : null;
                                             
                                             // Debug logging to see what's happening
-                                            if (order.asin) {
-                                              console.log(`🖼️ ASIN ${order.asin}:`, {
-                                                hasImage: !!productImage,
-                                                imageUrl: productImage?.image_url,
-                                                totalImages: productImages?.length || 0,
-                                                availableAsins: productImages?.map(img => img.asin).join(', ')
-                                              });
-                                            }
-                                            
+                                            console.log(`🖼️ DEBUG ASIN ${order.asin}:`, {
+                                              hasImage: !!productImage,
+                                              imageUrl: productImage?.image_url,
+                                              totalImages: productImages?.length || 0,
+                                              imagesLoading: imagesLoading,
+                                              availableAsins: productImages?.slice(0, 5).map(img => img.asin).join(', ') + (productImages?.length > 5 ? '...' : ''),
+                                              getImageByAsinResult: productImage
+                                            });
+                                             
                                           return productImage ? (
                                             <Popover>
                                               <PopoverTrigger asChild>
@@ -2585,7 +2585,7 @@ export const POTracker = () => {
                                                       if (parent && !parent.querySelector('.fallback-text')) {
                                                         const fallback = document.createElement('div');
                                                         fallback.className = 'fallback-text w-full h-full flex items-center justify-center text-xs text-muted-foreground bg-muted';
-                                                        fallback.textContent = 'No Image';
+                                                        fallback.textContent = 'Load Error';
                                                         parent.appendChild(fallback);
                                                       }
                                                     }}
@@ -2619,9 +2619,15 @@ export const POTracker = () => {
                                                </div>
                                              </PopoverContent>
                                            </Popover>
-                                        ) : null;
-                                      })()}
-                                   </TableCell>
+                                         ) : (
+                                           <div className="w-20 h-20 rounded border overflow-hidden flex-shrink-0 bg-muted flex items-center justify-center">
+                                             <div className="text-xs text-muted-foreground text-center p-1">
+                                               {imagesLoading ? 'Loading...' : 'No Image'}
+                                             </div>
+                                           </div>
+                                         );
+                                        })()}
+                                    </TableCell>
                                  <TableCell className="w-32">
                                    <div className="space-y-1">
                                      {order.sku_code && (
