@@ -2555,36 +2555,56 @@ export const POTracker = () => {
                                    className="h-4 w-4 rounded border-border"
                                  />
                                </TableCell>
-                                    <TableCell>
-                                        {(() => {
-                                           const productImage = order.asin ? getImageByAsin(order.asin) : null;
-                                         return productImage ? (
-                                           <Popover>
-                                             <PopoverTrigger asChild>
-                                               <div className="w-20 h-20 rounded border overflow-hidden flex-shrink-0 cursor-pointer hover:border-primary transition-colors">
-                                                 <img 
-                                                   src={productImage.image_url} 
-                                                   alt={order.asin} 
-                                                   className="w-full h-full object-contain"
-                                                 />
-                                               </div>
-                                             </PopoverTrigger>
-                                             <PopoverContent side="left" className="w-80 p-2">
-                                               <div className="w-full h-64 rounded-lg overflow-hidden bg-white">
-                                                 <img 
-                                                   src={productImage.image_url} 
-                                                   alt={order.asin} 
-                                                   className="w-full h-full object-contain"
-                                                 />
-                                               </div>
-                                               <div className="text-xs text-muted-foreground mt-2 text-center">
-                                                 ASIN: {order.asin}
-                                               </div>
-                                             </PopoverContent>
-                                           </Popover>
-                                        ) : null;
-                                      })()}
-                                   </TableCell>
+                                     <TableCell>
+                                         {(() => {
+                                            const productImage = order.asin ? getImageByAsin(order.asin) : null;
+                                            console.log('🖼️ Image lookup for ASIN:', order.asin, 'Found:', !!productImage, 'URL:', productImage?.image_url);
+                                          return productImage ? (
+                                            <Popover>
+                                              <PopoverTrigger asChild>
+                                                <div className="w-20 h-20 rounded border overflow-hidden flex-shrink-0 cursor-pointer hover:border-primary transition-colors">
+                                                  <img 
+                                                    src={productImage.image_url} 
+                                                    alt={`Product image for ${order.asin}`}
+                                                    className="w-full h-full object-contain"
+                                                    onError={(e) => {
+                                                      console.log('🖼️ Image failed to load:', productImage.image_url);
+                                                      e.currentTarget.style.display = 'none';
+                                                    }}
+                                                    onLoad={() => {
+                                                      console.log('🖼️ Image loaded successfully:', productImage.image_url);
+                                                    }}
+                                                  />
+                                                </div>
+                                              </PopoverTrigger>
+                                              <PopoverContent side="left" className="w-80 p-2">
+                                                <div className="w-full h-64 rounded-lg overflow-hidden bg-white">
+                                                  <img 
+                                                    src={productImage.image_url} 
+                                                    alt={`Product image for ${order.asin}`}
+                                                    className="w-full h-full object-contain"
+                                                  />
+                                                </div>
+                                                <div className="text-xs text-muted-foreground mt-2 text-center">
+                                                  ASIN: {order.asin}
+                                                </div>
+                                              </PopoverContent>
+                                            </Popover>
+                                         ) : (
+                                           <div className="w-20 h-20 rounded border border-dashed border-muted-foreground/30 flex items-center justify-center bg-muted/30">
+                                             <div className="text-center">
+                                               <ImageIcon className="h-6 w-6 text-muted-foreground/50 mx-auto mb-1" />
+                                               <div className="text-xs text-muted-foreground/70">No Image</div>
+                                               {order.asin && (
+                                                 <div className="text-xs text-muted-foreground/50 font-mono mt-1">
+                                                   {order.asin.slice(0, 8)}...
+                                                 </div>
+                                               )}
+                                             </div>
+                                           </div>
+                                         );
+                                       })()}
+                                    </TableCell>
                                  <TableCell className="w-32">
                                    <div className="space-y-1">
                                      {order.sku_code && (
