@@ -120,15 +120,18 @@ export function OrderProcessor() {
       
       const { data, error } = await supabase
         .from('order_imports')
-        .select('*')
+        .select('*', { count: 'exact' })
         .order('order_place_date', { ascending: false, nullsFirst: false })
-        .order('created_at', { ascending: false }); // Remove range limit entirely
+        .order('created_at', { ascending: false })
+        .limit(100000); // Explicitly set high limit to override default 1000
       
       if (error) {
         console.error('Error loading imported orders:', error);
         setLoading(false);
       } else {
         console.log(`Loaded ${data?.length || 0} orders from database`);
+        console.log('First few orders:', data?.slice(0, 3)); // Debug: show first few orders
+        console.log('Last few orders:', data?.slice(-3)); // Debug: show last few orders
         const formattedOrders: OrderItem[] = (data || []).map((order: any) => ({
           orderId: order.order_id || '',
           orderStatus: order.order_status || '',
