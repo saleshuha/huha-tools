@@ -17,78 +17,63 @@ export const useProductImages = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch all product images for the user (unlimited for now to solve the issue)
+  // Fetch all product images for the user with proper authentication
   const { data: productImages, isLoading, error, refetch } = useQuery({
     queryKey: ['product-images'],
     queryFn: async () => {
-      console.log('🖼️ Fetching product images... (forcing fresh fetch)');
-      // Force a completely fresh fetch by adding a timestamp
-      const timestamp = Date.now();
-      console.log('🖼️ Fresh fetch timestamp:', timestamp);
+      console.log('🖼️ Fetching product images with user authentication...');
       
+      // Get current user first
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError) {
+        console.error('🖼️ Authentication error:', authError);
+        throw new Error('Authentication failed');
+      }
+      
+      if (!user) {
+        console.error('🖼️ No authenticated user found');
+        throw new Error('User not authenticated');
+      }
+      
+      // Query with explicit user_id filter
       const { data, error } = await supabase
         .from('product_images')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
-        // Removed limit completely to ensure we get all images
-      
-      console.log('🖼️ Raw fetched images count:', data?.length || 0);
-      if (data) {
-        const testAsin = data.find(img => img.asin === 'B0FPBNTD3P');
-        console.log('🖼️ Test ASIN B0FPBNTD3P found in fetch:', !!testAsin, testAsin);
-      }
       
       if (error) {
         console.error('🖼️ Error fetching product images:', error);
         throw error;
       }
-      console.log('🖼️ Product images fetched:', data?.length);
+      
+      console.log('🖼️ Product images fetched for user:', data?.length || 0);
       return data as ProductImage[];
     },
     staleTime: 0, // Force fresh fetch every time
-    gcTime: 0, // Don't cache the data (renamed from cacheTime)
+    gcTime: 0, // Don't cache the data
     refetchOnMount: true, // Always refetch when component mounts
     refetchOnWindowFocus: true, // Refetch when window regains focus
+    enabled: true, // Query enabled by default, authentication check is inside queryFn
   });
 
-  // Get image by ASIN with comprehensive debugging
+  // Get image by ASIN - clean implementation
   const getImageByAsin = (asin: string): ProductImage | undefined => {
-    if (!productImages || productImages.length === 0) {
+    if (!productImages || productImages.length === 0 || !asin) {
       return undefined;
     }
     
-    const foundImage = productImages.find(img => img.asin === asin);
+    // Simple ASIN lookup with trimming for consistency
+    const foundImage = productImages.find(img => img.asin?.trim() === asin.trim());
     
-    // Enhanced debug for specific ASIN to identify the root cause
-    if (asin === 'B0FPBNTD3P') {
-      console.log('🖼️ COMPREHENSIVE DEBUG for B0FPBNTD3P:', {
-        searchingFor: asin,
-        searchingForType: typeof asin,
-        searchingForLength: asin.length,
-        foundImage: !!foundImage,
-        totalImages: productImages.length,
-        
-        // Check if ANY image contains this string
-        containsMatch: productImages.find(img => img.asin?.includes('B0FPBNTD3P')),
-        
-        // Sample of actual ASINs in the data
-        sampleAsins: productImages.slice(0, 5).map(img => ({
-          asin: img.asin,
-          type: typeof img.asin,
-          length: img.asin?.length
-        })),
-        
-        // Look specifically for B0FPBNTD3P variations
-        exactMatches: productImages.filter(img => 
-          img.asin === 'B0FPBNTD3P' || 
-          img.asin?.includes('B0FPBNTD3P') ||
-          img.asin?.toLowerCase() === 'b0fpbntd3p'
-        ),
-        
-        // Check entire dataset for this ASIN
-        allMatches: productImages.filter(img => img.asin?.includes('FPBNTD3P'))
-      });
-    }
+    // Debug logging for troubleshooting (can be removed once confirmed working)
+    console.log('🔍 Image debug:', {
+      orderAsin: asin,
+      hasImage: !!foundImage,
+      totalImages: productImages.length,
+      isLoading
+    });
     
     return foundImage;
   };
