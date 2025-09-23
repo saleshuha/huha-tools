@@ -49,12 +49,14 @@ export default function AmazonImageUploader() {
     try {
       let processed = 0;
       let errors = 0;
+      const errorDetails: string[] = [];
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         const trimmedLine = line.trim();
         if (!trimmedLine) {
           errors++;
+          errorDetails.push(`Line ${i + 1}: Empty line`);
           setProgress(prev => ({ 
             ...prev, 
             processed: processed + errors,
@@ -83,6 +85,7 @@ export default function AmazonImageUploader() {
           imageUrl = parts.slice(1).join(' ').trim();
         } else {
           errors++;
+          errorDetails.push(`Line ${i + 1}: Invalid format - ${trimmedLine.substring(0, 30)}`);
           setProgress(prev => ({ 
             ...prev, 
             processed: processed + errors,
@@ -92,8 +95,10 @@ export default function AmazonImageUploader() {
           continue;
         }
 
+        // Validate ASIN and URL
         if (!asin || !imageUrl) {
           errors++;
+          errorDetails.push(`Line ${i + 1}: Missing ASIN or URL - ${trimmedLine.substring(0, 30)}`);
           setProgress(prev => ({ 
             ...prev, 
             processed: processed + errors,
@@ -103,11 +108,28 @@ export default function AmazonImageUploader() {
           continue;
         }
 
+        // Validate ASIN format (basic check)
+        if (!/^[A-Z0-9]{10}$/i.test(asin)) {
+          errors++;
+          errorDetails.push(`Line ${i + 1}: Invalid ASIN format - ${asin}`);
+          setProgress(prev => ({ 
+            ...prev, 
+            processed: processed + errors,
+            errors,
+            currentItem: `Invalid ASIN: ${asin}`
+          }));
+          continue;
+        }
+
         // Validate URL format
         try {
-          new URL(imageUrl);
+          const url = new URL(imageUrl);
+          if (!['http:', 'https:'].includes(url.protocol)) {
+            throw new Error('Invalid protocol');
+          }
         } catch {
           errors++;
+          errorDetails.push(`Line ${i + 1}: Invalid URL - ${asin}: ${imageUrl.substring(0, 50)}`);
           setProgress(prev => ({ 
             ...prev, 
             processed: processed + errors,
@@ -125,9 +147,9 @@ export default function AmazonImageUploader() {
 
         try {
           await addProductImage.mutateAsync({
-            asin,
+            asin: asin.toUpperCase(), // Standardize ASIN to uppercase
             imageUrl: imageUrl,
-            imageName: `Image for ${asin}`
+            imageName: `Image for ${asin.toUpperCase()}`
           });
           processed++;
           
@@ -135,35 +157,52 @@ export default function AmazonImageUploader() {
           setProgress(prev => ({ 
             ...prev, 
             processed: processed + errors,
-            currentItem: `Saved: ${asin}`
+            currentItem: `✅ Saved: ${asin}`
           }));
 
           // Small delay to make progress visible
-          await new Promise(resolve => setTimeout(resolve, 100));
-        } catch (error) {
+          await new Promise(resolve => setTimeout(resolve, 150));
+        } catch (error: any) {
           errors++;
+          const errorMsg = error?.message || 'Unknown error';
+          errorDetails.push(`Line ${i + 1}: Failed to save ${asin} - ${errorMsg}`);
           setProgress(prev => ({ 
             ...prev, 
             processed: processed + errors,
             errors,
-            currentItem: `Failed: ${asin}`
+            currentItem: `❌ Failed: ${asin}`
           }));
         }
       }
 
-      toast({
-        title: "Bulk Upload Complete",
-        description: `Processed: ${processed} images, Errors: ${errors}`,
-        variant: processed > 0 ? "default" : "destructive"
-      });
-
+      // Show completion toast with detailed feedback
       if (processed > 0) {
+        toast({
+          title: "✅ Bulk Upload Complete",
+          description: `Successfully saved ${processed} images${errors > 0 ? ` (${errors} errors)` : ''}`,
+          variant: "default"
+        });
         setBulkData('');
+      } else {
+        toast({
+          title: "❌ Upload Failed",
+          description: `No images were saved. ${errors} errors found.`,
+          variant: "destructive"
+        });
       }
-    } catch (error) {
+
+      // Log detailed errors to console for debugging
+      if (errorDetails.length > 0) {
+        console.group('Image Upload Errors:');
+        errorDetails.forEach(error => console.warn(error));
+        console.groupEnd();
+      }
+
+    } catch (error: any) {
+      console.error('Bulk upload error:', error);
       toast({
         title: "Upload Error",
-        description: "Failed to process bulk data",
+        description: `Failed to process bulk data: ${error?.message || 'Unknown error'}`,
         variant: "destructive"
       });
     } finally {
@@ -171,7 +210,7 @@ export default function AmazonImageUploader() {
       // Reset progress after a delay
       setTimeout(() => {
         setProgress({ total: 0, processed: 0, errors: 0, currentItem: '' });
-      }, 2000);
+      }, 3000);
     }
   };
 
