@@ -58,22 +58,37 @@ export const useProductImages = () => {
     enabled: true, // Query enabled by default, authentication check is inside queryFn
   });
 
-  // Get image by ASIN - clean implementation
+  // Get image by ASIN with fallback matching for variants
   const getImageByAsin = (asin: string): ProductImage | undefined => {
     if (!productImages || productImages.length === 0 || !asin) {
       return undefined;
     }
     
-    // Simple ASIN lookup with trimming for consistency
-    const foundImage = productImages.find(img => img.asin?.trim() === asin.trim());
+    // First try exact match
+    let foundImage = productImages.find(img => img.asin?.trim() === asin.trim());
     
-    // Debug logging for troubleshooting (can be removed once confirmed working)
-    console.log('🔍 Image debug:', {
-      orderAsin: asin,
-      hasImage: !!foundImage,
-      totalImages: productImages.length,
-      isLoading
-    });
+    // If no exact match, try to find similar ASINs (product variants)
+    if (!foundImage && asin.length >= 8) {
+      // Try matching first 8 characters (common for product families)
+      const asinPrefix = asin.substring(0, 8);
+      foundImage = productImages.find(img => img.asin?.startsWith(asinPrefix));
+      
+      // If still no match, try first 6 characters
+      if (!foundImage && asin.length >= 6) {
+        const shorterPrefix = asin.substring(0, 6);
+        foundImage = productImages.find(img => img.asin?.startsWith(shorterPrefix));
+      }
+    }
+    
+    // Debug logging (reduced frequency)
+    if (Math.random() < 0.01) { // 1% logging
+      console.log('🔍 Image matching:', {
+        searchAsin: asin,
+        exactMatch: !!productImages.find(img => img.asin?.trim() === asin.trim()),
+        fallbackMatch: !!foundImage,
+        foundAsin: foundImage?.asin
+      });
+    }
     
     return foundImage;
   };
