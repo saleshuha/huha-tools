@@ -230,7 +230,7 @@ export const usePOOrders = () => {
         const model = item.model_number?.trim();
         const asin = item.asin?.trim(); 
         const title = item.title?.trim() || 'Unknown Product';
-        const qty = parseInt(item.quantity) || 0;
+        const qty = parseInt(item.quantity) || 1; // Default to 1 instead of 0
         const location = item.ship_to_location?.trim();
 
         // Validate required fields
