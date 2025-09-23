@@ -108,18 +108,29 @@ export function AsinInventory() {
     setIsPreviewDialogOpen(true);
   };
 
-  // Component for displaying product images - v2.0
+  // Component for displaying product images - v3.0 with proper loading handling
   const ProductImage = ({ asin }: { asin: string }) => {
     const productImage = getImageByAsin(asin);
     
-    // Specific debug for problematic ASIN
+    // Always show loading state when images are still being fetched
+    if (imagesLoading) {
+      return (
+        <div className="w-20 h-20 min-w-[5rem] min-h-[5rem] bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-border flex-shrink-0 animate-pulse">
+          <div className="w-4 h-4 bg-muted-foreground/50 rounded animate-spin border-2 border-transparent border-t-muted-foreground/50"></div>
+        </div>
+      );
+    }
+    
+    // Specific debug for problematic ASIN - only when not loading
     if (asin === 'B0FPBNTD3P') {
-      console.log('🖼️ DEBUG B0FPBNTD3P v2.0:', {
+      console.log('🖼️ ProductImage DEBUG B0FPBNTD3P v3.0:', {
         asin,
         hasProductImage: !!productImage,
         imageUrl: productImage?.image_url,
         imagesLoading,
-        totalImages: productImages?.length || 0
+        totalImages: productImages?.length || 0,
+        productImagesType: typeof productImages,
+        productImagesArray: Array.isArray(productImages)
       });
     }
     

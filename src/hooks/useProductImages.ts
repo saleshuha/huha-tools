@@ -43,45 +43,42 @@ export const useProductImages = () => {
     }
   });
 
-  // Get image by ASIN
+  // Get image by ASIN with comprehensive debugging
   const getImageByAsin = (asin: string): ProductImage | undefined => {
-    const foundImage = productImages?.find(img => img.asin === asin);
+    if (!productImages || productImages.length === 0) {
+      return undefined;
+    }
     
-    // Enhanced debug for specific ASIN
+    const foundImage = productImages.find(img => img.asin === asin);
+    
+    // Enhanced debug for specific ASIN to identify the root cause
     if (asin === 'B0FPBNTD3P') {
-      console.log('🖼️ getImageByAsin ENHANCED DEBUG for B0FPBNTD3P:', {
+      console.log('🖼️ COMPREHENSIVE DEBUG for B0FPBNTD3P:', {
         searchingFor: asin,
+        searchingForType: typeof asin,
         searchingForLength: asin.length,
         foundImage: !!foundImage,
-        totalImages: productImages?.length || 0,
-        imageUrl: foundImage?.image_url,
-        // Check first 10 ASINs to see the actual data structure
-        sampleAsins: productImages?.slice(0, 10).map(img => ({
+        totalImages: productImages.length,
+        
+        // Check if ANY image contains this string
+        containsMatch: productImages.find(img => img.asin?.includes('B0FPBNTD3P')),
+        
+        // Sample of actual ASINs in the data
+        sampleAsins: productImages.slice(0, 5).map(img => ({
           asin: img.asin,
-          asinLength: img.asin?.length,
-          asinRaw: JSON.stringify(img.asin),
+          type: typeof img.asin,
+          length: img.asin?.length
         })),
-        // Look for exact matches by checking each character
-        exactMatch: productImages?.find(img => {
-          const match = img.asin === asin;
-          if (img.asin && img.asin.includes('B0FPBNTD3P')) {
-            console.log('🔍 Potential match found:', {
-              dbAsin: img.asin,
-              dbAsinLength: img.asin.length,
-              searchAsin: asin,
-              searchLength: asin.length,
-              exactMatch: match,
-              charByChar: img.asin.split('').map((c, i) => ({ 
-                char: c, 
-                code: c.charCodeAt(0), 
-                searchChar: asin[i],
-                searchCode: asin[i]?.charCodeAt(0),
-                match: c === asin[i] 
-              }))
-            });
-          }
-          return match;
-        })
+        
+        // Look specifically for B0FPBNTD3P variations
+        exactMatches: productImages.filter(img => 
+          img.asin === 'B0FPBNTD3P' || 
+          img.asin?.includes('B0FPBNTD3P') ||
+          img.asin?.toLowerCase() === 'b0fpbntd3p'
+        ),
+        
+        // Check entire dataset for this ASIN
+        allMatches: productImages.filter(img => img.asin?.includes('FPBNTD3P'))
       });
     }
     
