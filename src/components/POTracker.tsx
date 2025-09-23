@@ -1243,7 +1243,7 @@ export const POTracker = () => {
                       placeholder="Search PO number, ASIN, model, serial number..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="max-w-sm"
+                      className="max-w-sm border-2 border-border focus:border-primary"
                     />
                     <Button
                       variant="outline"
@@ -1268,6 +1268,7 @@ export const POTracker = () => {
                       }}
                       disabled={isLoading}
                       title="Refresh PO data to show newly imported SKU matches"
+                      className="border-2 border-border hover:border-primary"
                     >
                       {isLoading ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -1306,12 +1307,12 @@ export const POTracker = () => {
                       </div>
                     )}
                     
-                    <div className="flex items-center border rounded-lg p-1">
+                    <div className="flex items-center border-2 border-border rounded-lg p-1">
                       <Button
                         variant={viewMode === 'grouped' ? 'default' : 'ghost'}
                         size="sm"
                         onClick={() => setViewMode('grouped')}
-                        className="h-8"
+                        className="h-8 border border-transparent hover:border-border"
                       >
                         Grouped
                       </Button>
@@ -1319,13 +1320,13 @@ export const POTracker = () => {
                         variant={viewMode === 'detailed' ? 'default' : 'ghost'}
                         size="sm"
                         onClick={() => setViewMode('detailed')}
-                        className="h-8"
+                        className="h-8 border border-transparent hover:border-border"
                       >
                         Line Items
                       </Button>
                     </div>
                     <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as POOrder['status'] | 'all')}>
-                      <SelectTrigger className="w-[180px]">
+                      <SelectTrigger className="w-[180px] border-2 border-border focus:border-primary">
                         <SelectValue placeholder="Filter by status" />
                       </SelectTrigger>
                        <SelectContent>
@@ -1366,7 +1367,7 @@ export const POTracker = () => {
                   </div>
                 )}
 
-                <div className="rounded-lg border">
+                <div className="rounded-lg border-2 border-border">
                   {viewMode === 'grouped' ? (
                     <Table>
                        <TableHeader>
@@ -1869,15 +1870,15 @@ export const POTracker = () => {
                     <div className="flex items-center gap-4">
                       <div className="relative flex-1 max-w-sm">
                         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                          placeholder="Search PO number, ASIN, model, serial number..."
-                          value={labelSearchQuery}
-                          onChange={(e) => {
-                            console.log('Label search query changed to:', e.target.value);
-                            setLabelSearchQuery(e.target.value);
-                          }}
-                          className="pl-9 pr-9"
-                        />
+                         <Input
+                           placeholder="Search PO number, ASIN, model, serial number..."
+                           value={labelSearchQuery}
+                           onChange={(e) => {
+                             console.log('Label search query changed to:', e.target.value);
+                             setLabelSearchQuery(e.target.value);
+                           }}
+                           className="pl-9 pr-9 border-2 border-border focus:border-primary"
+                         />
                         {labelSearchQuery && (
                           <Button
                             variant="ghost" 
@@ -2534,14 +2535,14 @@ export const POTracker = () => {
                     </div>
 
                     {/* Primary Action Buttons */}
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between p-4 border-2 border-border rounded-lg bg-card/50">
                       <div className="flex items-center gap-3">
                         {/* Preview Button */}
                         <Button 
                           variant="outline" 
                           size="lg"
                           disabled={selectedForPrint.size === 0}
-                          className="group hover:shadow-soft transition-all"
+                          className="group hover:shadow-soft transition-all border-2 border-border hover:border-primary"
                         >
                           <div className="flex items-center gap-2">
                             <div className="p-1 bg-accent/10 rounded group-hover:bg-accent/20 transition-colors">
@@ -2557,7 +2558,7 @@ export const POTracker = () => {
                           size="lg"
                           onClick={handleDownloadZPL}
                           disabled={selectedForPrint.size === 0}
-                          className="group hover:shadow-soft transition-all"
+                          className="group hover:shadow-soft transition-all border-2 border-border hover:border-primary"
                         >
                           <div className="flex items-center gap-2">
                             <Download className="h-4 w-4 group-hover:scale-110 transition-transform" />
@@ -2576,7 +2577,7 @@ export const POTracker = () => {
                         size="lg"
                         onClick={handleDirectPrint}
                         disabled={selectedForPrint.size === 0 || !qzConnected || !selectedPrinter || isPrinting}
-                        className="bg-gradient-to-r from-primary to-primary-dark hover:from-primary-dark hover:to-primary shadow-glow hover:shadow-accent-glow transition-all group min-w-[180px]"
+                        className="bg-primary hover:bg-primary-dark text-primary-foreground shadow-glow hover:shadow-accent-glow transition-all group min-w-[180px] border-2 border-primary-dark"
                       >
                         {isPrinting ? (
                           <div className="flex items-center gap-2">
@@ -2725,12 +2726,12 @@ export const POTracker = () => {
                   <div className="mb-6">
                     <div className="relative group">
                       <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4 group-focus-within:text-primary transition-colors" />
-                        <Input
-                          placeholder="Search by SKU, title, ASIN, serial number..."
-                          value={labelSearchQuery}
-                          onChange={(e) => setLabelSearchQuery(e.target.value)}
-                          className="pl-12 pr-12 h-12 bg-background/50 border-border/50 hover:border-primary/30 focus:border-primary/50 transition-all duration-300 shadow-sm"
-                        />
+                         <Input
+                           placeholder="Search by SKU, title, ASIN, serial number..."
+                           value={labelSearchQuery}
+                           onChange={(e) => setLabelSearchQuery(e.target.value)}
+                           className="pl-12 pr-12 h-12 bg-background/50 border-2 border-border hover:border-primary/70 focus:border-primary transition-all duration-300 shadow-sm"
+                         />
                       {labelSearchQuery && (
                         <Button
                           variant="ghost"
@@ -3229,13 +3230,13 @@ export const POTracker = () => {
             <CardContent>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <Input
-                    type="text"
-                    placeholder="Search PO number, ASIN, model, serial number..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="max-w-sm"
-                  />
+                    <Input
+                      type="text"
+                      placeholder="Search PO number, ASIN, model, serial number..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="max-w-sm border-2 border-border focus:border-primary"
+                    />
                   
                   <div className="flex items-center gap-2">
                     {/* Bulk Close Actions */}
