@@ -2685,30 +2685,18 @@ export const POTracker = () => {
                                             <Badge variant="secondary" className="font-mono">
                                               {order.quantity}
                                             </Badge>
-                                            {(() => {
-                                              const inventoryMatch = findInventoryMatch(
-                                                order.asin, 
-                                                order.sunsky_sku?.sku_code, 
-                                                order.sku_code, 
-                                                order.model_number,
-                                                order.sunsky_sku
-                                              );
-                                              
-                                              if (inventoryMatch && inventoryMatch.quantity > 0) {
-                                                const isInStock = inventoryMatch.type === 'ASIN' || inventoryMatch.type === 'SKU' || inventoryMatch.type === 'SKU-ASIN';
-                                                if (isInStock) {
-                                                  const fulfilledFromStock = Math.min(order.quantity, inventoryMatch.quantity);
-                                                  return (
-                                                    <div className="text-xs">
-                                                      <Badge variant="outline" className="text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800">
-                                                        Available in stock: {fulfilledFromStock}
-                                                      </Badge>
-                                                    </div>
-                                                  );
-                                                }
-                                              }
-                                              return null;
-                                            })()}
+                                             {(() => {
+                                               const inventoryMatch = findInventoryMatch(
+                                                 order.asin, 
+                                                 order.sunsky_sku?.sku_code, 
+                                                 order.sku_code, 
+                                                 order.model_number,
+                                                 order.sunsky_sku
+                                               );
+                                               
+                                               // Removed inventory stock display as requested
+                                               return null;
+                                             })()}
                                           </>
                                         )}
                                       </div>
