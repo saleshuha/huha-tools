@@ -462,10 +462,23 @@ export function OrderProcessor() {
       };
       
       matches.push(match);
+      
+      // Debug: Log when we find a match
+      if (inventoryMatch) {
+        console.log('Found match:', {
+          orderId: order.orderId,
+          asin: order.asin,
+          sku: order.sku,
+          inventoryType,
+          matchType,
+          inventoryTitle: inventoryMatch.title?.substring(0, 50)
+        });
+      }
     }
     
     console.log(`Found ${matches.filter(m => m.inventoryMatch).length} matches out of ${matches.length} orders`);
     setMatchedItems(matches);
+    console.log('Updated matchedItems state with', matches.length, 'items,', matches.filter(m => m.inventoryMatch).length, 'with matches');
     return matches;
   };
 
@@ -649,9 +662,24 @@ export function OrderProcessor() {
 
   // Get matched orders (orders with inventory matches) with filters applied
   const matchedOrders = useMemo(() => {
+    console.log('Computing matchedOrders:', {
+      matchedItemsCount: matchedItems.length,
+      matchedItemsWithInventory: matchedItems.filter(m => m.inventoryMatch).length,
+      filters: {
+        matchedSearchTerm,
+        matchedOrderDateFilter,
+        matchedUploadDateFilter,
+        matchedOrderStatusFilter,
+        matchedInventoryTypeFilter,
+        matchedMatchTypeFilter
+      }
+    });
+    
     let matched = matchedItems
       .filter(m => m.inventoryMatch)
       .map(m => ({ ...m.orderItem, matchedItem: m })); // Include match details
+    
+    console.log('After basic filter - matched count:', matched.length);
       
     // Apply search filter
     if (matchedSearchTerm) {
@@ -663,6 +691,7 @@ export function OrderProcessor() {
         order.itemTitle?.toLowerCase().includes(searchLower) ||
         order.orderStatus?.toLowerCase().includes(searchLower)
       );
+      console.log('After search filter - matched count:', matched.length);
     }
       
     // Apply matched orders filters
@@ -671,6 +700,7 @@ export function OrderProcessor() {
         const orderDate = order.orderPlaceDate ? new Date(order.orderPlaceDate).toISOString().split('T')[0] : '';
         return orderDate === matchedOrderDateFilter;
       });
+      console.log('After date filter - matched count:', matched.length);
     }
     
     if (matchedUploadDateFilter) {
@@ -678,28 +708,32 @@ export function OrderProcessor() {
         const uploadDate = order.uploadDate || '';
         return uploadDate === matchedUploadDateFilter;
       });
+      console.log('After upload date filter - matched count:', matched.length);
     }
     
     if (matchedOrderStatusFilter && matchedOrderStatusFilter !== 'all') {
       matched = matched.filter(order => 
         order.orderStatus?.toLowerCase().includes(matchedOrderStatusFilter.toLowerCase())
       );
+      console.log('After status filter - matched count:', matched.length);
     }
     
     if (matchedInventoryTypeFilter && matchedInventoryTypeFilter !== 'all') {
       matched = matched.filter(order => 
         order.matchedItem?.inventoryType === matchedInventoryTypeFilter
       );
+      console.log('After inventory type filter - matched count:', matched.length);
     }
     
     if (matchedMatchTypeFilter && matchedMatchTypeFilter !== 'all') {
       matched = matched.filter(order => 
         order.matchedItem?.matchType === matchedMatchTypeFilter
       );
+      console.log('After match type filter - matched count:', matched.length);
     }
     
     // Sort by order place date, then by order ID
-    return matched.sort((a, b) => {
+    const result = matched.sort((a, b) => {
       const dateA = new Date(a.orderPlaceDate || '1970-01-01');
       const dateB = new Date(b.orderPlaceDate || '1970-01-01');
       if (dateA.getTime() !== dateB.getTime()) {
@@ -707,6 +741,9 @@ export function OrderProcessor() {
       }
       return a.orderId.localeCompare(b.orderId);
     });
+    
+    console.log('Final matched orders count:', result.length);
+    return result;
   }, [matchedItems, matchedOrderDateFilter, matchedUploadDateFilter, matchedOrderStatusFilter, matchedSearchTerm, matchedInventoryTypeFilter, matchedMatchTypeFilter]);
 
   // Get unmatched orders (orders without inventory matches) grouped by date
