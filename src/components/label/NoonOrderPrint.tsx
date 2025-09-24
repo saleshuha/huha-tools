@@ -24,6 +24,7 @@ interface NoonOrderToProcess {
   file_name: string;
   asin_code?: string;
   sku_code?: string;
+  partner_sku?: string;
   product_title?: string;
   quantity: number;
   order_number?: string;
@@ -181,7 +182,8 @@ export const NoonOrderPrint: React.FC = () => {
         id: order.id,
         file_name: order.file_name || 'Unknown File',
         asin_code: order.purchase_item_nr || '',
-        sku_code: order.sku || order.partner_sku || '',
+        sku_code: order.sku || '',
+        partner_sku: order.partner_sku || '',
         product_title: order.title || order.sku || 'Unknown Product',
         quantity: order.quantity || 1,
         order_number: order.order_nr || '',
@@ -234,6 +236,7 @@ export const NoonOrderPrint: React.FC = () => {
       'Order Number',
       'ASIN',
       'SKU',
+      'Partner SKU',
       'Title',
       'Quantity',
       'Order Date',
@@ -251,6 +254,7 @@ export const NoonOrderPrint: React.FC = () => {
             order.order_number || '',
             order.asin_code || '',
             order.sku_code || '',
+            order.partner_sku || '',
             order.product_title || '',
             '1', // Each label represents quantity of 1
             order.order_date,
@@ -265,6 +269,7 @@ export const NoonOrderPrint: React.FC = () => {
         order.order_number || '',
         order.asin_code || '',
         order.sku_code || '',
+        order.partner_sku || '',
         order.product_title || '',
         order.quantity.toString(),
         order.order_date,

@@ -101,11 +101,12 @@ export const DomainDataMapper: React.FC<DomainDataMapperProps> = ({ domain }) =>
       id: 'noon-orders',
       name: 'Noon Orders',
       description: 'Noon marketplace orders',
-      headers: ['Order Number', 'Purchase Item', 'SKU', 'Title', 'Quantity', 'Status'],
+      headers: ['Order Number', 'Purchase Item', 'SKU', 'Partner SKU', 'Title', 'Quantity', 'Status'],
       data: noonOrders.map(order => [
         order.order_nr || '',
         order.purchase_item_nr || '',
         order.sku || '',
+        order.partner_sku || '',
         order.title || '',
         order.quantity?.toString() || '1',
         order.item_status || 'pending'
