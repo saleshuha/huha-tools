@@ -16,6 +16,7 @@ interface ProcessingOrder {
   quantity: number;
   purchase_item_nr: string;
   sku: string;
+  partner_sku: string;
   title: string;
   order_country_code: string;
   file_name: string;
@@ -28,6 +29,7 @@ const ALL_COLUMNS = [
   { key: 'order_nr', label: 'Order Nr', default: true },
   { key: 'purchase_item_nr', label: 'Item Nr', default: true },
   { key: 'sku', label: 'SKU', default: true },
+  { key: 'partner_sku', label: 'Partner SKU', default: true },
   { key: 'title', label: 'Title', default: true },
   { key: 'quantity', label: 'Qty', default: true },
   { key: 'order_status', label: 'Status', default: true },
@@ -52,7 +54,7 @@ export function NoonProcessingOrdersTable({ selectedStoreId }: { selectedStoreId
       setLoading(true);
       let query = supabase
         .from('noon_processing_orders')
-        .select('id, order_nr, order_status, quantity, purchase_item_nr, sku, title, order_country_code, file_name, file_upload_date, order_received_at, created_at')
+        .select('id, order_nr, order_status, quantity, purchase_item_nr, sku, partner_sku, title, order_country_code, file_name, file_upload_date, order_received_at, created_at')
         .order('created_at', { ascending: false });
       
       // Filter by store if selectedStoreId is provided
@@ -285,6 +287,8 @@ export function NoonProcessingOrdersTable({ selectedStoreId }: { selectedStoreId
                                 return <span className="font-mono text-muted-foreground">{order.purchase_item_nr}</span>;
                               case 'sku':
                                 return <span className="font-mono text-foreground">{order.sku || 'N/A'}</span>;
+                              case 'partner_sku':
+                                return <span className="font-mono text-muted-foreground">{order.partner_sku || 'N/A'}</span>;
                               case 'title':
                                 return (
                                   <span className="max-w-[200px] truncate block text-foreground" title={order.title}>
