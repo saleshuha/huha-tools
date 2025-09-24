@@ -478,24 +478,13 @@ export const POTracker = () => {
     }
   }, [profile?.id, selectedCountry]);
 
-  // Function to find inventory match for an ASIN - Simplified and robust
+  // Function to find inventory match for an ASIN - Prioritize actual inventory over Sunsky
   const findInventoryMatch = (asin: string, sunskySku?: string, poSku?: string, modelNumber?: string, orderSunskySku?: any) => {
     if (!asin && !sunskySku && !poSku && !modelNumber) {
       return null;
     }
-    
-    // First priority: If the order has a sunsky_sku, it's considered matched
-    if (orderSunskySku) {
-      return {
-        type: 'SUNSKY',
-        status: 'sunsky-match',
-        quantity: 1,
-        identifier: orderSunskySku.sku_code,
-        sunskyData: orderSunskySku
-      };
-    }
 
-    // Check ASIN inventory first - most reliable match
+    // Check ASIN inventory FIRST - this is the most reliable and shows serial numbers
     if (asin && inventoryData?.asinInventory?.length > 0) {
       const asinMatches = inventoryData.asinInventory.filter(item => 
         item.asin && item.asin.trim().toUpperCase() === asin.trim().toUpperCase()
@@ -543,6 +532,17 @@ export const POTracker = () => {
           };
         }
       }
+    }
+
+    // ONLY if no actual inventory is found, show Sunsky match as fallback
+    if (orderSunskySku) {
+      return {
+        type: 'SUNSKY',
+        status: 'sunsky-match',
+        quantity: 1,
+        identifier: orderSunskySku.sku_code,
+        sunskyData: orderSunskySku
+      };
     }
 
     return null;
