@@ -83,7 +83,7 @@ export function InventoryMetrics({
         // Load only ASIN data
         const {
           data: asinData
-        } = await supabase.from('asin_inventory').select('*').eq('country', selectedCountry).limit(100000); // Explicitly set high limit to override default 1000
+        } = await supabase.from('asin_inventory').select('*').eq('country', selectedCountry); // Remove limit to get all items
         const asinItems = asinData || [];
         const activeItems = asinItems.length;
         const inStockItems = asinItems.filter(item => item.quantity > 0).length;

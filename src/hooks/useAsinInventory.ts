@@ -38,10 +38,14 @@ export function useAsinInventory() {
         .from('asin_inventory')
         .select('*')
         .eq('country', selectedCountry)
-        .order('date_added', { ascending: true }) // Show oldest items first to find 00001, 00002 etc.
-        .limit(100000); // Explicitly set high limit to override default 1000
+        .order('date_added', { ascending: true }); // Show oldest items first to find 00001, 00002 etc.
 
       if (error) throw error;
+      
+      console.log(`🔍 Debug: Loaded ${data?.length || 0} inventory items from database`);
+      if (data && data.length >= 1000) {
+        console.log('⚠️ Warning: Loaded exactly 1000+ items, might be hitting a limit');
+      }
 
       const formattedData: AsinInventoryItem[] = data.map(item => ({
         id: item.id,
