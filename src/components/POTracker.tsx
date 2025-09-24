@@ -3094,20 +3094,12 @@ export const POTracker = () => {
                                          // ASIN inventory matches - show serial numbers
                                          if (inventoryMatch.type === 'ASIN') {
                                            if (inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0) {
-                                             const isOrdered = inventoryMatch.status === 'ordered';
                                              return (
                                                <div className="flex items-center gap-2">
-                                                 <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                                                   isOrdered ? 'bg-yellow-500' : 'bg-success'
-                                                 }`}></div>
-                                                 <div className={`text-xs font-mono px-2 py-1 rounded-md border ${
-                                                   isOrdered 
-                                                     ? 'text-yellow-700 bg-yellow-50 border-yellow-200' 
-                                                     : 'text-success bg-success/10 border-success/20'
-                                                 }`}>
+                                                 <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
+                                                 <div className="text-xs text-success font-mono bg-success/10 px-2 py-1 rounded-md border border-success/20">
                                                    Serial: {inventoryMatch.serialNumbers.slice(0, 3).join(', ')}
                                                    {inventoryMatch.serialNumbers.length > 3 && ` +${inventoryMatch.serialNumbers.length - 3} more`}
-                                                   {isOrdered && ' (Ordered)'}
                                                  </div>
                                                </div>
                                              );
@@ -3126,31 +3118,11 @@ export const POTracker = () => {
                                          
                                          // SKU inventory matches - show bin/serial number
                                          if (inventoryMatch.type.startsWith('SKU') && inventoryMatch.serialNumber) {
-                                           const isOrdered = inventoryMatch.status === 'ordered' || inventoryMatch.quantity === 0;
                                            return (
                                              <div className="flex items-center gap-2">
-                                               <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                                                 isOrdered ? 'bg-yellow-500' : 'bg-blue-500'
-                                               }`}></div>
-                                               <div className={`text-xs font-mono px-2 py-1 rounded-md border ${
-                                                 isOrdered 
-                                                   ? 'text-yellow-700 bg-yellow-50 border-yellow-200' 
-                                                   : 'text-blue-600 bg-blue-50 border-blue-200'
-                                               }`}>
+                                               <div className="w-1.5 h-1.5 bg-blue-500 rounded-full flex-shrink-0"></div>
+                                               <div className="text-xs text-blue-600 font-mono bg-blue-50 px-2 py-1 rounded-md border border-blue-200">
                                                  Bin: {inventoryMatch.serialNumber}
-                                                 {isOrdered && ' (Ordered)'}
-                                               </div>
-                                             </div>
-                                           );
-                                         }
-                                         
-                                         // Sunsky matches
-                                         if (inventoryMatch.type === 'SUNSKY') {
-                                           return (
-                                             <div className="flex items-center gap-2">
-                                               <div className="w-1.5 h-1.5 bg-orange-500 rounded-full flex-shrink-0"></div>
-                                               <div className="text-xs text-orange-600 font-medium bg-orange-50 px-2 py-1 rounded-md border border-orange-200">
-                                                 Sunsky Match
                                                </div>
                                              </div>
                                            );
