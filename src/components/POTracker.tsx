@@ -431,10 +431,14 @@ export const POTracker = () => {
 
   // Fetch inventory data for matching - Wrapped in useCallback to prevent re-creation
   const fetchInventoryData = useCallback(async () => {
-    if (!profile?.id || !selectedCountry) return;
+    if (!profile?.id || !selectedCountry) {
+      console.log('🚨 Cannot fetch inventory: missing profile or country', { profileId: profile?.id, country: selectedCountry });
+      return;
+    }
     
     try {
       console.log('🔄 Fetching inventory data for profile:', profile.id, 'country:', selectedCountry);
+      
       const [asinResult, skuResult] = await Promise.all([
         supabase
           .from('asin_inventory')
@@ -449,14 +453,28 @@ export const POTracker = () => {
       ]);
 
       console.log('🔍 ASIN Inventory loaded:', asinResult.data?.length || 0, 'items');
-      console.log('🔍 Searching for B0DYG4TT9H:', asinResult.data?.find(item => item.asin === 'B0DYG4TT9H'));
+      console.log('🔍 ASIN Inventory errors:', asinResult.error);
+      
+      if (asinResult.data) {
+        const b0dyg4tt9h = asinResult.data.find(item => item.asin === 'B0DYG4TT9H');
+        console.log('🔍 B0DYG4TT9H found in inventory:', b0dyg4tt9h);
+        
+        if (b0dyg4tt9h) {
+          console.log('🔍 B0DYG4TT9H details:', {
+            asin: b0dyg4tt9h.asin,
+            serial_number: b0dyg4tt9h.serial_number,
+            quantity: b0dyg4tt9h.quantity,
+            status: b0dyg4tt9h.status
+          });
+        }
+      }
 
       setInventoryData({
         asinInventory: asinResult.data || [],
         skuInventory: skuResult.data || []
       });
     } catch (error) {
-      console.error('Error fetching inventory data:', error);
+      console.error('🚨 Error fetching inventory data:', error);
     }
   }, [profile?.id, selectedCountry]);
 
