@@ -219,6 +219,22 @@ export function AsinInventory() {
 
     let filtered = inventory;
 
+    // Remove duplicates first - keep the most recent record for each ASIN+SKU+Serial combination
+    const uniqueMap = new Map();
+    filtered.forEach(item => {
+      const key = `${item.asin}-${item.sku || ''}-${item.serialNumber || ''}`;
+      const existing = uniqueMap.get(key);
+      if (!existing || new Date(item.dateAdded) > new Date(existing.dateAdded)) {
+        uniqueMap.set(key, item);
+      }
+    });
+    filtered = Array.from(uniqueMap.values());
+    console.log('🔧 DEDUPLICATION COMPLETE:', {
+      originalCount: inventory.length,
+      uniqueCount: filtered.length,
+      duplicatesRemoved: inventory.length - filtered.length
+    });
+
     // Apply search filter
     if (searchTerm) {
       const searchTerms = searchTerm.toLowerCase().split(' ').filter(term => term.length > 0);
