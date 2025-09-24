@@ -25,6 +25,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { DualQuantityEditor } from './DualQuantityEditor';
 import { StockHistoryDialog } from './StockHistoryDialog';
 import { SkuEditor } from './SkuEditor';
+import { SerialNumberEditor } from './SerialNumberEditor';
 import { TitleEditor } from './TitleEditor';
 import { InventoryMetrics } from './InventoryMetrics';
 import { InventoryDashboard } from './InventoryDashboard';
@@ -51,6 +52,7 @@ export function AsinInventory() {
     restockItem,
     updateQuantity,
     updateSku,
+    updateSerialNumber,
     updateTitle,
     bulkUpdateSkus,
     bulkUpdateTitles,
@@ -1422,7 +1424,12 @@ export function AsinInventory() {
                              </div>
                            </div>
                          </td>
-                        <td className="p-3 font-mono text-sm border-r">{item.serialNumber}</td>
+                         <td className="p-3 font-mono text-sm border-r">
+                           <SerialNumberEditor 
+                             currentSerialNumber={item.serialNumber} 
+                             onUpdate={newSerialNumber => updateSerialNumber(item.id, newSerialNumber)} 
+                           />
+                         </td>
                         <td className="p-3 border-r">
                           <div className="space-y-1">
                             <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' || item.status === 'ordered' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'} className="text-xs">
@@ -1521,10 +1528,13 @@ export function AsinInventory() {
                       <Label className="text-xs text-muted-foreground">ASIN</Label>
                       <p className="font-mono text-sm">{item.asin}</p>
                     </div>
-                     <div>
-                       <Label className="text-xs text-muted-foreground">Serial Number</Label>
-                       <p className="font-mono text-sm">{item.serialNumber}</p>
-                     </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Serial Number</Label>
+                        <SerialNumberEditor 
+                          currentSerialNumber={item.serialNumber} 
+                          onUpdate={newSerialNumber => updateSerialNumber(item.id, newSerialNumber)} 
+                        />
+                      </div>
                      <div>
                        <Label className="text-xs text-muted-foreground">SKU</Label>
                        <SkuEditor currentSku={item.sku} onUpdate={newSku => updateSku(item.id, newSku)} />

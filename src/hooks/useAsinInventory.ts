@@ -427,6 +427,52 @@ export function useAsinInventory() {
     }
   };
 
+  // Update Serial Number for an item
+  const updateSerialNumber = async (id: string, newSerialNumber: string) => {
+    if (!profile) return;
+
+    try {
+      // Check for duplicate serial numbers
+      const { data: existingItems, error: checkError } = await supabase
+        .from('asin_inventory')
+        .select('id, asin, serial_number')
+        .eq('user_id', profile.id)
+        .eq('serial_number', newSerialNumber.trim())
+        .neq('id', id);
+
+      if (checkError) throw checkError;
+
+      if (existingItems && existingItems.length > 0) {
+        const existingAsin = existingItems[0].asin;
+        throw new Error(`Serial number "${newSerialNumber}" is already used by ASIN "${existingAsin}". Each serial number must be unique.`);
+      }
+
+      const { error } = await supabase
+        .from('asin_inventory')
+        .update({ serial_number: newSerialNumber.trim() })
+        .eq('id', id)
+        .eq('user_id', profile.id);
+
+      if (error) throw error;
+
+      setInventory(prev => prev.map(item => 
+        item.id === id ? { ...item, serialNumber: newSerialNumber.trim() } : item
+      ));
+
+      toast({
+        title: "Serial Number Updated",
+        description: `Serial number has been updated successfully.`,
+      });
+    } catch (error) {
+      console.error('Error updating serial number:', error);
+      toast({
+        title: "Error updating serial number",
+        description: error instanceof Error ? error.message : "Failed to update serial number",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Bulk update SKUs for multiple items by ASIN
   const bulkUpdateSkus = async (asinSkuPairs: { asin: string; sku: string }[]) => {
     if (!profile) return;
@@ -699,6 +745,7 @@ export function useAsinInventory() {
     updateQuantity,
     updateBin,
     updateSku,
+    updateSerialNumber,
     updateTitle,
     bulkUpdateSkus,
     bulkUpdateTitles,
