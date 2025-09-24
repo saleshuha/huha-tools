@@ -232,15 +232,6 @@ export const POTracker = () => {
   const { selectedCountry } = useCountry();
   const { getImageByAsin, productImages, isLoading: imagesLoading, refreshImages } = useProductImages();
   const { toast } = useToast();
-
-  // Debug logging for profile and country
-  console.log('🟡 POTracker component state:', {
-    profileId: profile?.id,
-    selectedCountry,
-    hasProfile: !!profile,
-    hasCountry: !!selectedCountry,
-    inventoryLength: inventoryData.asinInventory.length
-  });
   // Function to handle bulk PO closing
   const handleBulkClosePOs = async (poNumbers: string[]) => {
     setIsClosingPOs(true);
@@ -581,21 +572,8 @@ export const POTracker = () => {
 
   // Fetch inventory data when profile or country changes - Now uses stable callback
   useEffect(() => {
-    console.log('🟡 useEffect triggered for inventory fetch', {
-      profileId: profile?.id,
-      selectedCountry,
-      hasProfile: !!profile,
-      hasCountry: !!selectedCountry
-    });
-    
     if (profile?.id && selectedCountry) {
-      console.log('🟢 Calling fetchInventoryData');
       fetchInventoryData();
-    } else {
-      console.log('🔴 Skipping inventory fetch - missing profile or country', {
-        profileId: profile?.id,
-        selectedCountry
-      });
     }
   }, [fetchInventoryData, profile?.id, selectedCountry]);
 
