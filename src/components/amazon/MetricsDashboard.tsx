@@ -8,8 +8,6 @@ import { useCurrencyDisplay } from '@/components/amazon/CurrencySelector';
 import { useCountry } from '@/contexts/CountryContext';
 import { useMemo, useState } from 'react';
 import { usePaymentTerms } from '@/hooks/usePaymentTerms';
-import { DatePickerWithRange } from '@/components/ui/date-range-picker';
-import { DateRange } from 'react-day-picker';
 
 interface MetricsDashboardProps {
   metrics: DashboardMetrics | null;
@@ -24,7 +22,7 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
   const { creditDays } = usePaymentTerms();
   const [weekOffset, setWeekOffset] = useState(0); // 0 = current 4 weeks, positive = future, negative = past
   const [upcomingWeeksOffset, setUpcomingWeeksOffset] = useState(0); // Separate offset for upcoming payments
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  
   
   // Force re-render when display currency or metrics change by creating a unique key
   const renderKey = `${displayCurrency}-${metrics?.totalValue || 0}`;
@@ -127,9 +125,7 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
     };
 
     // Calculate custom date range value if both dates are selected
-    const dateRangeValue = dateRange?.from && dateRange?.to 
-      ? calculateUpcomingValue(dateRange.to, dateRange.from)
-      : 0;
+    const dateRangeValue = 0;
 
     return {
       next7Days: calculateUpcomingValue(next7Days),
@@ -137,7 +133,7 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
       next90Days: calculateUpcomingValue(next90Days),
       dateRange: dateRangeValue
     };
-  }, [metrics, orders, convertCurrency, displayCurrency, selectedCountry, dateRange, creditDays]);
+  }, [metrics, orders, convertCurrency, displayCurrency, selectedCountry, creditDays]);
 
   // Calculate weekly upcoming payments with navigation
   const weeklyUpcomingPayments = useMemo(() => {
@@ -373,38 +369,6 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="space-y-3">
-                <DatePickerWithRange
-                  date={dateRange}
-                  onDateChange={setDateRange}
-                  className="w-full"
-                />
-                {dateRange?.from && dateRange?.to && (
-                  <div className="flex justify-between items-center p-2 bg-muted rounded-md">
-                    <span className="text-sm font-medium">Custom Range</span>
-                    <div className="flex flex-col items-end">
-                      <Badge variant="default">
-                        {orders?.filter(o => {
-                          if (!o.shipment_date) return false;
-                          const status = (o.status || '').toLowerCase().trim();
-                          if (status !== 'approved' && status !== 'non-submitted') return false;
-                          try {
-                            const shipmentDate = new Date(o.shipment_date);
-                            const dueDate = new Date(shipmentDate);
-                            dueDate.setDate(dueDate.getDate() + creditDays);
-                            return dueDate >= dateRange.from && dueDate <= dateRange.to;
-                          } catch {
-                            return false;
-                          }
-                        }).length || 0}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {formatCurrency(upcomingValues.dateRange, displayCurrency)}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
               
               <div className="space-y-3 pt-2 border-t">
                 <div className="flex justify-between items-center">
