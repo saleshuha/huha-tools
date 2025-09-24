@@ -113,7 +113,7 @@ export function useInventoryAnalytics() {
           
           // For non-country specific, get all ASIN inventory quantities only
           const [{ data: allAsin }] = await Promise.all([
-            supabase.from('asin_inventory').select('quantity, restock_quantity').neq('status', 'sold').eq('eligible_for_restock', true)
+            supabase.from('asin_inventory').select('quantity, restock_quantity').neq('status', 'sold').eq('eligible_for_restock', true).limit(100000)
           ]);
 
           const asinTotal = allAsin?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;

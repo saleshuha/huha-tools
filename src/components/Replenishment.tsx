@@ -800,10 +800,12 @@ export function Replenishment() {
         // Query ASIN inventory for sales data
         let asinSalesQuery = supabase.from('asin_inventory').select('*').eq('status', 'sold').eq('country', selectedCountry) // Filter by selected country
         .eq('eligible_for_restock', true)
-        .gte('date_sold', startDate.toISOString());
+        .gte('date_sold', startDate.toISOString())
+        .limit(100000); // Explicitly set high limit to override default 1000
         let asinRestockQuery = supabase.from('asin_inventory').select('restock_quantity').eq('country', selectedCountry) // Filter by selected country
         .eq('eligible_for_restock', true)
-        .not('last_restock_date', 'is', null).gte('last_restock_date', startDate.toISOString());
+        .not('last_restock_date', 'is', null).gte('last_restock_date', startDate.toISOString())
+        .limit(100000); // Explicitly set high limit to override default 1000
         const [asinSalesData, asinRestockData] = await Promise.all([asinSalesQuery, asinRestockQuery]);
         if (asinSalesData.error) throw asinSalesData.error;
         if (asinRestockData.error) throw asinRestockData.error;
