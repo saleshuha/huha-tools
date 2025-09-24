@@ -206,85 +206,87 @@ export function AsinInventory() {
   const filteredInventory = useMemo(() => {
     let filtered = inventory;
 
-     // Apply search filter
-     if (searchTerm) {
-       const searchTerms = searchTerm.toLowerCase().split(' ').filter(term => term.length > 0);
-       console.log('Search Terms:', searchTerms);
-       console.log('Search Method:', searchMethod);
-       console.log('Total Inventory Items:', inventory.length);
-       
-       // Debug logging for serial number searches
-       if (searchTerm.includes('02001')) {
-         console.log(`🔍 Searching for serial "02001"`);
-         const serialMatches = inventory.filter(item => {
-           const serialMatch = item.serialNumber && item.serialNumber.toLowerCase().includes('02001');
-           if (serialMatch) {
-             console.log(`✅ Found matching item:`, {
-               id: item.id,
-               asin: item.asin,
-               serialNumber: item.serialNumber,
-               status: item.status
-             });
-           }
-           return serialMatch;
-         });
-         console.log(`Found ${serialMatches.length} items with serial containing "02001"`);
-         
-         // Also log all serial numbers to help debug
-         const allSerials = inventory.map(item => item.serialNumber).filter(Boolean);
-         console.log(`All serial numbers in inventory:`, allSerials.slice(0, 20));
-       }
+    // Apply search filter
+    if (searchTerm) {
+      const searchTerms = searchTerm.toLowerCase().split(' ').filter(term => term.length > 0);
+      
+      // Comprehensive debugging for serial number searches
+      console.log('🔍 SEARCH DEBUG:', {
+        searchTerm,
+        searchTerms,
+        searchMethod,
+        totalItems: inventory.length
+      });
+      
+      // Show all serial numbers for debugging
+      const allSerials = inventory.map(item => ({
+        serialNumber: item.serialNumber,
+        asin: item.asin,
+        id: item.id
+      })).filter(item => item.serialNumber);
+      
+      console.log('📋 ALL SERIAL NUMBERS IN DATABASE:', allSerials);
+      
+      // Specific search term debugging
+      if (searchMethod === 'serial' || searchMethod === 'all') {
+        searchTerms.forEach(term => {
+          const matches = inventory.filter(item => 
+            item.serialNumber && 
+            item.serialNumber.toLowerCase().trim().includes(term.toLowerCase().trim())
+          );
+          console.log(`🎯 Serial search for "${term}":`, {
+            searchTerm: term,
+            exactMatches: matches.length,
+            matchingItems: matches.map(item => ({
+              serialNumber: item.serialNumber,
+              asin: item.asin,
+              status: item.status
+            }))
+          });
+        });
+      }
        
        filtered = filtered.filter(item => {
          if (searchMethod === 'all') {
            const matches = searchTerms.every(term => {
-             const asinMatch = item.asin.toLowerCase().includes(term);
-             const serialMatch = item.serialNumber && item.serialNumber.toLowerCase().includes(term);
-             const skuMatch = item.sku && item.sku.toLowerCase().includes(term);
-             const titleMatch = item.title && item.title.toLowerCase().includes(term);
-             const notesMatch = item.notes && item.notes.toLowerCase().includes(term);
+             const asinMatch = item.asin.toLowerCase().trim().includes(term.toLowerCase().trim());
+             const serialMatch = item.serialNumber && item.serialNumber.toLowerCase().trim().includes(term.toLowerCase().trim());
+             const skuMatch = item.sku && item.sku.toLowerCase().trim().includes(term.toLowerCase().trim());
+             const titleMatch = item.title && item.title.toLowerCase().trim().includes(term.toLowerCase().trim());
+             const notesMatch = item.notes && item.notes.toLowerCase().trim().includes(term.toLowerCase().trim());
              const termFound = asinMatch || serialMatch || skuMatch || titleMatch || notesMatch;
-
-             // Debug logging for specific searches
-             if (term === 'oppo' || term === 'reno' || term === 'reno6' || term === '02001') {
-               console.log(`Searching for "${term}" in item:`, {
-                 asin: item.asin,
-                 title: item.title?.substring(0, 50) + '...',
-                 serialNumber: item.serialNumber,
-                 asinMatch,
-                 serialMatch,
-                 titleMatch,
-                 termFound
-               });
-             }
              return termFound;
            });
            return matches;
          } else if (searchMethod === 'asin') {
-           return searchTerms.every(term => item.asin.toLowerCase().includes(term));
+           return searchTerms.every(term => item.asin.toLowerCase().trim().includes(term.toLowerCase().trim()));
          } else if (searchMethod === 'sku') {
-           return item.sku && searchTerms.every(term => item.sku.toLowerCase().includes(term));
+           return item.sku && searchTerms.every(term => item.sku.toLowerCase().trim().includes(term.toLowerCase().trim()));
          } else if (searchMethod === 'serial') {
            return searchTerms.every(term => {
-             const serialMatch = item.serialNumber && item.serialNumber.toLowerCase().includes(term);
+             const serialMatch = item.serialNumber && item.serialNumber.toLowerCase().trim().includes(term.toLowerCase().trim());
              return serialMatch;
            });
          } else if (searchMethod === 'title') {
-           return item.title && searchTerms.every(term => item.title.toLowerCase().includes(term));
+           return item.title && searchTerms.every(term => item.title.toLowerCase().trim().includes(term.toLowerCase().trim()));
          } else if (searchMethod === 'notes') {
-           return item.notes && searchTerms.every(term => item.notes.toLowerCase().includes(term));
+           return item.notes && searchTerms.every(term => item.notes.toLowerCase().trim().includes(term.toLowerCase().trim()));
          }
          return false;
        });
-      console.log('Filtered Results:', filtered.length);
-
-      // Additional debugging for title searches
-      if (searchTerm.toLowerCase().includes('oppo') || searchTerm.toLowerCase().includes('reno')) {
-        const titlesWithSearchTerm = inventory.filter(item => item.title && item.title.toLowerCase().includes(searchTerm.toLowerCase()));
-        console.log(`Items with "${searchTerm}" in title:`, titlesWithSearchTerm.length);
-        if (titlesWithSearchTerm.length > 0) {
-          console.log('Sample titles:', titlesWithSearchTerm.slice(0, 3).map(item => item.title));
-        }
+      console.log('✅ FINAL FILTERED RESULTS:', filtered.length);
+      
+      // Show what was found or not found
+      if (filtered.length === 0) {
+        console.log('❌ NO MATCHES FOUND for search term:', searchTerm);
+        console.log('💡 TIP: Check the "ALL SERIAL NUMBERS IN DATABASE" log above to see available serial numbers');
+      } else {
+        console.log('✅ FOUND MATCHES:', filtered.map(item => ({
+          asin: item.asin,
+          serialNumber: item.serialNumber,
+          sku: item.sku,
+          title: item.title?.substring(0, 30) + '...'
+        })));
       }
     }
 
