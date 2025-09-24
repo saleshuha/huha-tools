@@ -38,7 +38,8 @@ export function useAsinInventory() {
         .from('asin_inventory')
         .select('*')
         .eq('country', selectedCountry)
-        .order('date_added', { ascending: false });
+        .order('date_added', { ascending: false })
+        .limit(100000); // Explicitly set high limit to override default 1000
 
       if (error) throw error;
 

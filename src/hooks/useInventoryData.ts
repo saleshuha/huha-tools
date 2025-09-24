@@ -57,7 +57,8 @@ export function useInventoryData() {
       const { data: asinData, error: asinError } = await supabase
         .from('asin_inventory')
         .select('id, asin, sku, title, quantity, status, serial_number')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(100000); // Explicitly set high limit to override default 1000
 
       if (asinError) throw asinError;
 
@@ -65,7 +66,8 @@ export function useInventoryData() {
       const { data: skuData, error: skuError } = await supabase
         .from('sku_inventory')
         .select('id, sku_number, title, quantity, status, bin_serial_number')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(100000); // Explicitly set high limit to override default 1000
 
       if (skuError) throw skuError;
 
