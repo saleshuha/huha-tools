@@ -126,45 +126,52 @@ export function BulkTitleUpload({ inventory, onTitleUpdate }: BulkTitleUploadPro
     const unmatched: { asin: string; title: string }[] = [];
 
     console.log(`🔍 Matching ${asinTitlePairs.length} ASINs against ${inventory.length} inventory items`);
-    console.log(`📦 Sample inventory ASINs:`, inventory.slice(0, 10).map(item => item.asin));
-    console.log(`📝 Sample upload ASINs:`, asinTitlePairs.slice(0, 10).map(pair => pair.asin));
+    console.log(`📦 All inventory ASINs:`, inventory.map(item => item.asin));
+    console.log(`📝 Upload ASINs:`, asinTitlePairs.map(pair => pair.asin));
     console.log(`🏠 Inventory item structure sample:`, inventory[0]);
 
-    // Check if any of the first few upload ASINs exist in inventory
-    const firstUploadAsin = asinTitlePairs[0]?.asin;
-    if (firstUploadAsin) {
-      const exactMatch = inventory.find(item => item.asin === firstUploadAsin);
-      const lowerMatch = inventory.find(item => item.asin && item.asin.toLowerCase() === firstUploadAsin.toLowerCase());
-      console.log(`🔍 Testing first ASIN "${firstUploadAsin}":`, { exactMatch: !!exactMatch, lowerMatch: !!lowerMatch });
-      
-      // Find all inventory items that contain this ASIN (partial match)
-      const partialMatches = inventory.filter(item => item.asin && item.asin.includes(firstUploadAsin));
-      console.log(`🔍 Partial matches for "${firstUploadAsin}":`, partialMatches.length);
-    }
+    // Check for the specific ASIN B0DV72G4TY
+    const testAsin = 'B0DV72G4TY';
+    const testAsinInInventory = inventory.find(item => item.asin === testAsin);
+    const testAsinInUpload = asinTitlePairs.find(pair => pair.asin === testAsin);
+    console.log(`🧪 Test ASIN ${testAsin}:`, {
+      inInventory: !!testAsinInInventory,
+      inventoryItem: testAsinInInventory,
+      inUpload: !!testAsinInUpload,
+      uploadItem: testAsinInUpload
+    });
 
     for (const pair of asinTitlePairs) {
-      const inventoryItem = inventory.find(item => 
-        item.asin && item.asin.toLowerCase() === pair.asin.toLowerCase()
-      );
+      console.log(`🔍 Matching ASIN: "${pair.asin}" (length: ${pair.asin.length})`);
+      
+      const inventoryItem = inventory.find(item => {
+        const match = item.asin && item.asin.toLowerCase() === pair.asin.toLowerCase();
+        if (pair.asin === testAsin) {
+          console.log(`🧪 Detailed match for ${testAsin}:`, {
+            inventoryAsin: item.asin,
+            inventoryAsinLower: item.asin?.toLowerCase(),
+            uploadAsin: pair.asin,
+            uploadAsinLower: pair.asin.toLowerCase(),
+            match: match
+          });
+        }
+        return match;
+      });
 
       if (inventoryItem) {
+        console.log(`✅ Matched: ${pair.asin}`);
         matched.push({
           ...pair,
           currentTitle: inventoryItem.title || 'No title'
         });
       } else {
+        console.log(`❌ Unmatched: ${pair.asin}`);
         unmatched.push(pair);
       }
     }
 
     console.log(`✅ Matched: ${matched.length}, ❌ Unmatched: ${unmatched.length}`);
-    if (unmatched.length > 0) {
-      console.log(`🔍 First 5 unmatched ASINs:`, unmatched.slice(0, 5).map(item => item.asin));
-    }
-    if (matched.length > 0) {
-      console.log(`✅ First 5 matched ASINs:`, matched.slice(0, 5).map(item => item.asin));
-    }
-
+    
     return { matched, unmatched };
   };
 
