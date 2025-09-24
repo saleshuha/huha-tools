@@ -588,6 +588,10 @@ export const POTracker = () => {
     console.log('🔍 FILTERING DEBUG: Selected POs:', Array.from(selectedPOsForLabels));
     console.log('🔍 FILTERING DEBUG: Selected country:', selectedCountry);
     
+    // Check if B0DYG4TT9H exists in original orders
+    const b0dyg4tt9hExists = poOrders.find(order => order.asin === 'B0DYG4TT9H');
+    console.log('🔍 B0DYG4TT9H exists in original orders:', !!b0dyg4tt9hExists, b0dyg4tt9hExists);
+    
     let filtered = [...poOrders];
     
     // Apply strict country filtering
@@ -3096,27 +3100,30 @@ export const POTracker = () => {
                                         </div>
                                       </div>
                                     )}
-                                    {(() => {
-                                      const inventoryMatch = findInventoryMatch(
-                                        order.asin, 
-                                        order.sunsky_sku?.sku_code, 
-                                        order.sku_code, 
-                                        order.model_number,
-                                        order.sunsky_sku
-                                      );
-                                      
-                                      // Only show serial numbers for ASIN inventory matches
-                                      if (inventoryMatch && inventoryMatch.type === 'ASIN') {
-                                        // Debug logging for B0DYG4TT9H
-                                        if (order.asin === 'B0DYG4TT9H') {
-                                          console.log('🔍 Display Debug B0DYG4TT9H:', {
-                                            inventoryMatch,
-                                            hasSerialNumbers: inventoryMatch.serialNumbers?.length > 0,
-                                            serialNumbers: inventoryMatch.serialNumbers
-                                          });
-                                        }
-                                        
-                                        if (inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0) {
+                                     {(() => {
+                                       const inventoryMatch = findInventoryMatch(
+                                         order.asin, 
+                                         order.sunsky_sku?.sku_code, 
+                                         order.sku_code, 
+                                         order.model_number,
+                                         order.sunsky_sku
+                                       );
+                                       
+                                       // Debug logging for B0DYG4TT9H - check if it's being processed
+                                       if (order.asin === 'B0DYG4TT9H') {
+                                         console.log('🔍 FOUND B0DYG4TT9H in orders! Processing...', {
+                                           order,
+                                           inventoryMatch,
+                                           hasInventoryMatch: !!inventoryMatch,
+                                           matchType: inventoryMatch?.type,
+                                           hasSerialNumbers: inventoryMatch?.serialNumbers?.length > 0,
+                                           serialNumbers: inventoryMatch?.serialNumbers
+                                         });
+                                       }
+                                       
+                                       // Only show serial numbers for ASIN inventory matches
+                                       if (inventoryMatch && inventoryMatch.type === 'ASIN') {
+                                         if (inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0) {
                                           return (
                                             <div className="flex items-center gap-2">
                                               <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
