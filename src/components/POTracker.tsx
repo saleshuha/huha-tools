@@ -3059,8 +3059,8 @@ export const POTracker = () => {
                                         order.sunsky_sku
                                       );
                                       
-                                      if (inventoryMatch) {
-                                        // Show serial numbers for ASIN inventory matches
+                                      // Only show serial numbers for ASIN inventory matches
+                                      if (inventoryMatch && inventoryMatch.type === 'ASIN') {
                                         if (inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0) {
                                           return (
                                             <div className="flex items-center gap-2">
@@ -3072,24 +3072,13 @@ export const POTracker = () => {
                                             </div>
                                           );
                                         }
-                                        // Show serial number for SKU inventory matches
-                                        if (inventoryMatch.serialNumber) {
-                                          return (
-                                            <div className="flex items-center gap-2">
-                                              <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
-                                              <div className="text-xs text-success font-mono bg-success/10 px-2 py-1 rounded-md border border-success/20">
-                                                Serial: {inventoryMatch.serialNumber}
-                                              </div>
-                                            </div>
-                                          );
-                                        }
-                                        // Show inventory match indicator even if no serial numbers
+                                        // Show ASIN inventory match indicator even if no serial numbers
                                         if (inventoryMatch.quantity > 0) {
                                           return (
                                             <div className="flex items-center gap-2">
                                               <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
                                               <div className="text-xs text-success font-medium bg-success/10 px-2 py-1 rounded-md border border-success/20">
-                                                In Stock ({inventoryMatch.quantity})
+                                                ASIN In Stock ({inventoryMatch.quantity})
                                               </div>
                                             </div>
                                           );
