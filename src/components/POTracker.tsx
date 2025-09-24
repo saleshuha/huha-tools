@@ -432,98 +432,56 @@ export const POTracker = () => {
   // Fetch inventory data for matching - Wrapped in useCallback to prevent re-creation
   const fetchInventoryData = useCallback(async () => {
     if (!profile?.id || !selectedCountry) {
-      console.log('🚨 Cannot fetch inventory: missing profile or country', { profileId: profile?.id, country: selectedCountry });
+      console.log('Cannot fetch inventory: missing profile or country');
       return;
     }
     
     try {
-      console.log('🔄 Fetching inventory data for profile:', profile.id, 'country:', selectedCountry);
-      
-      // Fetch with no limit to ensure we get all records
       const [asinResult, skuResult] = await Promise.all([
         supabase
           .from('asin_inventory')
           .select('*')
-          .eq('user_id', profile?.id)
+          .eq('user_id', profile.id)
           .eq('country', selectedCountry)
           .order('created_at', { ascending: false }),
         supabase
           .from('sku_inventory')
           .select('*')
-          .eq('user_id', profile?.id)
+          .eq('user_id', profile.id)
           .eq('country', selectedCountry)
           .order('created_at', { ascending: false })
       ]);
 
-      console.log('🔍 ASIN Inventory loaded:', asinResult.data?.length || 0, 'items');
-      console.log('🔍 SKU Inventory loaded:', skuResult.data?.length || 0, 'items');
-      console.log('🔍 ASIN Inventory errors:', asinResult.error);
-      console.log('🔍 SKU Inventory errors:', skuResult.error);
+      if (asinResult.error) {
+        console.error('Error fetching ASIN inventory:', asinResult.error);
+      }
       
-      if (asinResult.data) {
-        // Log first few ASINs to verify data
-        console.log('🔍 First 5 ASINs in inventory:', asinResult.data.slice(0, 5).map(item => ({
-          asin: item.asin,
-          serial: item.serial_number,
-          quantity: item.quantity
-        })));
-        
-        // Check for specific problem ASINs
-        const problemAsins = ['B0DYG4TT9H', 'B0DYGBR4L3', 'B0DYG859T2', 'B0DYG3YKJZ'];
-        problemAsins.forEach(asin => {
-          const found = asinResult.data.find(item => item.asin === asin);
-          console.log(`🔍 ${asin} found in inventory:`, !!found, found ? {
-            asin: found.asin,
-            serial: found.serial_number,
-            quantity: found.quantity,
-            status: found.status
-          } : 'NOT FOUND');
-        });
-        
-        // Also check case variations and partial matches
-        const partialMatches = asinResult.data.filter(item => 
-          item.asin && (
-            item.asin.includes('DYGBR4L3') || 
-            item.asin.includes('DYG859T2') || 
-            item.asin.includes('DYG3YKJZ')
-          )
-        );
-        console.log('🔍 Partial matches for problem ASINs:', partialMatches.map(item => ({
-          asin: item.asin,
-          serial: item.serial_number
-        })));
+      if (skuResult.error) {
+        console.error('Error fetching SKU inventory:', skuResult.error);
       }
 
-      setInventoryData({
-        asinInventory: asinResult.data || [],
-        skuInventory: skuResult.data || []
-      });
+      const asinInventory = asinResult.data || [];
+      const skuInventory = skuResult.data || [];
       
-      console.log('🔍 Inventory data set successfully. ASIN count:', asinResult.data?.length || 0);
+      console.log(`Loaded ${asinInventory.length} ASIN items and ${skuInventory.length} SKU items`);
+
+      setInventoryData({
+        asinInventory,
+        skuInventory
+      });
     } catch (error) {
-      console.error('🚨 Error fetching inventory data:', error);
+      console.error('Error fetching inventory data:', error);
+      setInventoryData({
+        asinInventory: [],
+        skuInventory: []
+      });
     }
   }, [profile?.id, selectedCountry]);
 
-  // Function to find inventory match for an ASIN
+  // Function to find inventory match for an ASIN - Simplified and robust
   const findInventoryMatch = (asin: string, sunskySku?: string, poSku?: string, modelNumber?: string, orderSunskySku?: any) => {
     if (!asin && !sunskySku && !poSku && !modelNumber) {
       return null;
-    }
-    
-    const problemAsins = ['B0DYG4TT9H', 'B0DYGBR4L3', 'B0DYG859T2', 'B0DYG3YKJZ'];
-    const isProblemAsin = asin && problemAsins.includes(asin);
-    
-    if (isProblemAsin) {
-      console.log(`🔍 DEBUG ${asin} - findInventoryMatch called with:`, {
-        asin,
-        sunskySku,
-        poSku, 
-        modelNumber,
-        inventoryDataLength: inventoryData?.asinInventory?.length || 0,
-        hasAsinInventory: !!inventoryData?.asinInventory,
-        hasSkuInventory: !!inventoryData?.skuInventory
-      });
     }
     
     // First priority: If the order has a sunsky_sku, it's considered matched
@@ -537,132 +495,65 @@ export const POTracker = () => {
       };
     }
 
-    // Second check: ASIN inventory - aggregate all matching records (case-insensitive)
-    if (asin) {
-      if (isProblemAsin) {
-        console.log(`🔍 DEBUG ${asin} - Checking ASIN inventory...`);
-      }
-      
+    // Check ASIN inventory first - most reliable match
+    if (asin && inventoryData?.asinInventory?.length > 0) {
       const asinMatches = inventoryData.asinInventory.filter(item => 
-        item.asin && item.asin.toUpperCase() === asin.toUpperCase()
+        item.asin && item.asin.trim().toUpperCase() === asin.trim().toUpperCase()
       );
       
-      if (isProblemAsin) {
-        console.log(`🔍 DEBUG ${asin} - Found ASIN matches:`, asinMatches.length, asinMatches.map(m => ({ 
-          asin: m.asin, 
-          serial: m.serial_number, 
-          qty: m.quantity,
-          status: m.status
-        })));
-        
-        // Also check all inventory for partial matches
-        const partialMatches = inventoryData.asinInventory.filter(item => 
-          item.asin && (item.asin.includes(asin.slice(-6)) || asin.includes(item.asin.slice(-6)))
-        );
-        console.log(`🔍 DEBUG ${asin} - Partial matches:`, partialMatches.map(m => ({ 
-          asin: m.asin, 
-          serial: m.serial_number 
-        })));
-      }
-      
       if (asinMatches.length > 0) {
-        const totalQuantity = asinMatches.reduce((sum, item) => sum + (item.quantity || 0), 0);
+        const totalQuantity = asinMatches.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0);
+        
         if (totalQuantity > 0) {
+          // Get all serial numbers from matching items
           const serialNumbers = asinMatches
-            .filter(item => item.serial_number)
-            .map(item => item.serial_number);
-          
-          if (isProblemAsin) {
-            console.log(`🔍 DEBUG ${asin} - Match found!`, {
-              totalQuantity,
-              serialNumbers,
-              allDetails: asinMatches.map(item => ({ 
-                id: item.id, 
-                serial: item.serial_number, 
-                quantity: item.quantity,
-                status: item.status
-              }))
-            });
-          }
+            .filter(item => item.serial_number && item.serial_number.trim())
+            .map(item => item.serial_number.trim());
           
           return {
             type: 'ASIN',
             status: 'in-stock',
             quantity: totalQuantity,
             identifier: asin,
-            serialNumbers: serialNumbers,
+            serialNumbers: serialNumbers.length > 0 ? serialNumbers : null,
             inventoryItems: asinMatches
           };
         }
       }
     }
 
-    // Then check SKU inventory with multiple possible SKU values (case-insensitive)
-    const skusToCheck = [sunskySku, poSku, modelNumber].filter(Boolean);
-    
-    for (const sku of skusToCheck) {
-      const skuMatch = inventoryData.skuInventory.find(item => 
-        item.sku_number && item.sku_number.toUpperCase() === sku.toUpperCase()
-      );
-      if (skuMatch && skuMatch.quantity > 0) {
-        return {
-          type: 'SKU',
-          status: skuMatch.status,
-          quantity: skuMatch.quantity,
-          identifier: sku,
-          serialNumber: skuMatch.bin_serial_number,
-          inventoryItem: skuMatch
-        };
+    // Check SKU inventory by multiple identifiers
+    if (inventoryData?.skuInventory?.length > 0) {
+      const skusToCheck = [sunskySku, poSku, modelNumber, asin].filter(Boolean);
+      
+      for (const sku of skusToCheck) {
+        const skuMatch = inventoryData.skuInventory.find(item => 
+          (item.sku_number && item.sku_number.trim().toUpperCase() === sku.trim().toUpperCase()) ||
+          (item.asin && item.asin.trim().toUpperCase() === sku.trim().toUpperCase())
+        );
+        
+        if (skuMatch && (parseInt(skuMatch.quantity) || 0) > 0) {
+          return {
+            type: 'SKU',
+            status: skuMatch.status,
+            quantity: parseInt(skuMatch.quantity) || 0,
+            identifier: sku,
+            serialNumber: skuMatch.bin_serial_number,
+            inventoryItem: skuMatch
+          };
+        }
       }
-    }
-
-    // Also check SKU inventory for ASIN matches (case-insensitive)
-    if (asin) {
-      const skuAsinMatch = inventoryData.skuInventory.find(item => 
-        item.sku_number && item.sku_number.toUpperCase() === asin.toUpperCase()
-      );
-      if (skuAsinMatch && skuAsinMatch.quantity > 0) {
-        return {
-          type: 'SKU-ASIN',
-          status: skuAsinMatch.status,
-          quantity: skuAsinMatch.quantity,
-          identifier: asin,
-          serialNumber: skuAsinMatch.bin_serial_number,
-          inventoryItem: skuAsinMatch
-        };
-      }
-    }
-
-    // Also check if ASIN exists in SKU inventory by ASIN field (case-insensitive)
-    if (asin) {
-      const skuByAsinMatch = inventoryData.skuInventory.find(item => 
-        item.asin && item.asin.toUpperCase() === asin.toUpperCase()
-      );
-      if (skuByAsinMatch && skuByAsinMatch.quantity > 0) {
-        return {
-          type: 'SKU-BY-ASIN',
-          status: skuByAsinMatch.status,
-          quantity: skuByAsinMatch.quantity,
-          identifier: asin,
-          serialNumber: skuByAsinMatch.bin_serial_number,
-          inventoryItem: skuByAsinMatch
-        };
-      }
-    }
-
-    if (isProblemAsin) {
-      console.log(`🔍 DEBUG ${asin} - No matches found anywhere!`);
     }
 
     return null;
   };
 
-  // Fetch inventory data when profile or country changes - Now uses stable callback
+  // Fetch inventory data when profile or country changes - stable dependency array
   useEffect(() => {
     if (profile?.id && selectedCountry) {
       fetchInventoryData();
     }
-  }, [fetchInventoryData, profile?.id, selectedCountry]);
+  }, [profile?.id, selectedCountry, fetchInventoryData]);
 
   // Filter orders for label printing (exclude truly cancelled orders but keep fulfilled ones)
   const labelEligibleOrders = useMemo(() => {
@@ -670,14 +561,6 @@ export const POTracker = () => {
   }, [poOrders]);
 
   const filteredOrders = useMemo(() => {
-    console.log('🔍 FILTERING DEBUG: Starting with', poOrders.length, 'orders');
-    
-    // Check if B0DYG4TT9H exists in original orders
-    const b0dyg4tt9hExists = poOrders.find(order => order.asin === 'B0DYG4TT9H');
-    if (b0dyg4tt9hExists) {
-      console.log('🔍 B0DYG4TT9H exists in PO orders:', b0dyg4tt9hExists);
-    }
-    
     let filtered = [...poOrders];
     
     // Apply strict country filtering
@@ -3195,33 +3078,60 @@ export const POTracker = () => {
                                          order.sunsky_sku
                                        );
                                        
-                                       // Only show serial numbers for ASIN inventory matches
-                                       if (inventoryMatch && inventoryMatch.type === 'ASIN') {
-                                         if (inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0) {
-                                          return (
-                                            <div className="flex items-center gap-2">
-                                              <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
-                                              <div className="text-xs text-success font-mono bg-success/10 px-2 py-1 rounded-md border border-success/20">
-                                                Serial: {inventoryMatch.serialNumbers.slice(0, 3).join(', ')}
-                                                {inventoryMatch.serialNumbers.length > 3 && ` +${inventoryMatch.serialNumbers.length - 3} more`}
-                                              </div>
-                                            </div>
-                                          );
-                                        }
-                                        // Show ASIN inventory match indicator even if no serial numbers
-                                        if (inventoryMatch.quantity > 0) {
-                                          return (
-                                            <div className="flex items-center gap-2">
-                                              <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
-                                              <div className="text-xs text-success font-medium bg-success/10 px-2 py-1 rounded-md border border-success/20">
-                                                ASIN In Stock ({inventoryMatch.quantity})
-                                              </div>
-                                            </div>
-                                          );
-                                        }
-                                      }
-                                      return null;
-                                    })()}
+                                       // Show inventory match information
+                                       if (inventoryMatch) {
+                                         // ASIN inventory matches - show serial numbers
+                                         if (inventoryMatch.type === 'ASIN') {
+                                           if (inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0) {
+                                             return (
+                                               <div className="flex items-center gap-2">
+                                                 <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
+                                                 <div className="text-xs text-success font-mono bg-success/10 px-2 py-1 rounded-md border border-success/20">
+                                                   Serial: {inventoryMatch.serialNumbers.slice(0, 3).join(', ')}
+                                                   {inventoryMatch.serialNumbers.length > 3 && ` +${inventoryMatch.serialNumbers.length - 3} more`}
+                                                 </div>
+                                               </div>
+                                             );
+                                           } else if (inventoryMatch.quantity > 0) {
+                                             // Show ASIN in stock even without serial numbers
+                                             return (
+                                               <div className="flex items-center gap-2">
+                                                 <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
+                                                 <div className="text-xs text-success font-medium bg-success/10 px-2 py-1 rounded-md border border-success/20">
+                                                   ASIN In Stock ({inventoryMatch.quantity})
+                                                 </div>
+                                               </div>
+                                             );
+                                           }
+                                         }
+                                         
+                                         // SKU inventory matches - show bin/serial number
+                                         if (inventoryMatch.type.startsWith('SKU') && inventoryMatch.serialNumber) {
+                                           return (
+                                             <div className="flex items-center gap-2">
+                                               <div className="w-1.5 h-1.5 bg-blue-500 rounded-full flex-shrink-0"></div>
+                                               <div className="text-xs text-blue-600 font-mono bg-blue-50 px-2 py-1 rounded-md border border-blue-200">
+                                                 Bin: {inventoryMatch.serialNumber}
+                                               </div>
+                                             </div>
+                                           );
+                                         }
+                                         
+                                         // Sunsky matches
+                                         if (inventoryMatch.type === 'SUNSKY') {
+                                           return (
+                                             <div className="flex items-center gap-2">
+                                               <div className="w-1.5 h-1.5 bg-orange-500 rounded-full flex-shrink-0"></div>
+                                               <div className="text-xs text-orange-600 font-medium bg-orange-50 px-2 py-1 rounded-md border border-orange-200">
+                                                 Sunsky Match
+                                               </div>
+                                             </div>
+                                           );
+                                         }
+                                       }
+                                       
+                                       return null;
+                                     })()}
                                  </div>
                                </TableCell>
 
