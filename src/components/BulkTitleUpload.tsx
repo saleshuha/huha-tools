@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import React from 'react';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
 import { Label } from './ui/label';
@@ -26,6 +27,15 @@ export function BulkTitleUpload({ inventory, onTitleUpdate }: BulkTitleUploadPro
   }>({ matched: [], unmatched: [] });
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
+
+  // Debug: Log inventory data when component receives it
+  React.useEffect(() => {
+    console.log(`📊 BulkTitleUpload received inventory:`, {
+      count: inventory.length,
+      hasB0DV72G4TY: inventory.some(item => item.asin === 'B0DV72G4TY'),
+      sampleAsins: inventory.slice(0, 5).map(item => ({ asin: item.asin, title: item.title }))
+    });
+  }, [inventory]);
 
   const processFile = async (file: File) => {
     const fileExtension = file.name.split('.').pop()?.toLowerCase();
@@ -140,6 +150,14 @@ export function BulkTitleUpload({ inventory, onTitleUpdate }: BulkTitleUploadPro
       inUpload: !!testAsinInUpload,
       uploadItem: testAsinInUpload
     });
+
+    // Check if the ASIN exists but with different case or whitespace
+    const allInventoryAsins = inventory.map(item => item.asin).filter(Boolean);
+    const matchingAsins = allInventoryAsins.filter(asin => 
+      asin.toLowerCase().includes(testAsin.toLowerCase()) || 
+      testAsin.toLowerCase().includes(asin.toLowerCase())
+    );
+    console.log(`🔍 ASINs containing or matching ${testAsin}:`, matchingAsins);
 
     for (const pair of asinTitlePairs) {
       console.log(`🔍 Matching ASIN: "${pair.asin}" (length: ${pair.asin.length})`);
