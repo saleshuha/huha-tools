@@ -99,30 +99,47 @@ export function BulkTitleUpload({ inventory, onTitleUpdate }: BulkTitleUploadPro
     const mapped: { asin: string; title: string }[] = [];
     const lines = text.trim().split('\n');
     
+    console.log(`🔍 Parsing ${lines.length} lines of pasted text`);
+    
     for (const line of lines) {
       if (!line.trim()) continue;
       
+      console.log(`📝 Processing line: "${line}"`);
+      
       // First try tab separation (most common)
       let parts = line.split('\t');
+      console.log(`📝 Tab split result:`, parts);
+      
       if (parts.length < 2) {
         // Then try comma separation
         parts = line.split(',');
+        console.log(`📝 Comma split result:`, parts);
       }
       if (parts.length < 2) {
         // Finally try any whitespace (space separation)
         parts = line.split(/\s+/);
+        console.log(`📝 Space split result:`, parts);
       }
       
       if (parts.length >= 2) {
         const asin = parts[0].trim();
         const title = parts.slice(1).join(' ').trim(); // Join remaining parts as title
         
+        console.log(`📝 Extracted - ASIN: "${asin}" (${asin.length}), Title: "${title}"`);
+        
         // Make sure we have valid ASIN and title
         if (asin && title && asin.length >= 10) { // ASINs are typically 10 characters
           mapped.push({ asin, title });
+          console.log(`✅ Added valid pair: ${asin} -> ${title}`);
+        } else {
+          console.log(`❌ Invalid pair - ASIN: "${asin}" (${asin.length}), Title: "${title}"`);
         }
+      } else {
+        console.log(`❌ Could not split line into ASIN and title: "${line}"`);
       }
     }
+
+    console.log(`📊 Final parsed result:`, mapped);
 
     if (mapped.length === 0) {
       throw new Error('No valid ASIN-Title pairs found. Please ensure each line contains ASIN followed by Title separated by comma, tab, or space.');
