@@ -429,10 +429,9 @@ export const POTracker = () => {
     }
   }, [poOrders?.length, isLoading]); // Only depend on length, not the functions
 
-  // Fetch inventory data for matching - Wrapped in useCallback to prevent re-creation
+  // Fetch inventory data for matching - Clean and efficient
   const fetchInventoryData = useCallback(async () => {
     if (!profile?.id || !selectedCountry) {
-      console.log('Cannot fetch inventory: missing profile or country');
       return;
     }
     
@@ -460,34 +459,9 @@ export const POTracker = () => {
         console.error('Error fetching SKU inventory:', skuResult.error);
       }
 
-      const asinInventory = asinResult.data || [];
-      const skuInventory = skuResult.data || [];
-      
-      console.log(`Loaded ${asinInventory.length} ASIN items and ${skuInventory.length} SKU items`);
-      
-      // Debug specific ASIN B0DYGL6CFR
-      const targetAsin = 'B0DYGL6CFR';
-      const foundAsin = asinInventory.find(item => item.asin === targetAsin);
-      console.log(`🔍 DEBUG ${targetAsin}:`, foundAsin ? {
-        asin: foundAsin.asin,
-        serial_number: foundAsin.serial_number,
-        quantity: foundAsin.quantity,
-        status: foundAsin.status,
-        id: foundAsin.id
-      } : 'NOT FOUND in ASIN inventory');
-      
-      // Also check SKU inventory for this ASIN
-      const foundInSku = skuInventory.find(item => item.asin === targetAsin);
-      console.log(`🔍 DEBUG ${targetAsin} in SKU inventory:`, foundInSku ? {
-        asin: foundInSku.asin,
-        sku_number: foundInSku.sku_number,
-        bin_serial_number: foundInSku.bin_serial_number,
-        quantity: foundInSku.quantity
-      } : 'NOT FOUND in SKU inventory');
-
       setInventoryData({
-        asinInventory,
-        skuInventory
+        asinInventory: asinResult.data || [],
+        skuInventory: skuResult.data || []
       });
     } catch (error) {
       console.error('Error fetching inventory data:', error);
@@ -498,64 +472,46 @@ export const POTracker = () => {
     }
   }, [profile?.id, selectedCountry]);
 
-  // Function to find inventory match for an ASIN - Prioritize actual inventory over Sunsky
+  // Function to find inventory match - Show serial numbers even for items with 0 quantity
   const findInventoryMatch = (asin: string, sunskySku?: string, poSku?: string, modelNumber?: string, orderSunskySku?: any) => {
     if (!asin && !sunskySku && !poSku && !modelNumber) {
       return null;
     }
 
-    // Debug specific ASIN B0DYGL6CFR
-    const isTargetAsin = asin === 'B0DYGL6CFR';
-    if (isTargetAsin) {
-      console.log(`🔍 MATCHING DEBUG ${asin}:`, {
-        asin,
-        sunskySku,
-        poSku,
-        modelNumber,
-        hasOrderSunskySku: !!orderSunskySku,
-        inventoryLength: inventoryData?.asinInventory?.length || 0
-      });
-    }
-
-    // Check ASIN inventory FIRST - this is the most reliable and shows serial numbers
+    // Check ASIN inventory FIRST - show serial numbers even if quantity is 0
     if (asin && inventoryData?.asinInventory?.length > 0) {
       const asinMatches = inventoryData.asinInventory.filter(item => 
         item.asin && item.asin.trim().toUpperCase() === asin.trim().toUpperCase()
       );
       
-      if (isTargetAsin) {
-        console.log(`🔍 MATCHING DEBUG ${asin} - ASIN matches found:`, asinMatches.length);
-        console.log(`🔍 MATCHING DEBUG ${asin} - Match details:`, asinMatches.map(item => ({
-          asin: item.asin,
-          serial_number: item.serial_number,
-          quantity: item.quantity,
-          status: item.status
-        })));
-      }
-      
       if (asinMatches.length > 0) {
+        // Get all serial numbers from matching items (regardless of quantity)
+        const serialNumbers = asinMatches
+          .filter(item => item.serial_number && item.serial_number.trim())
+          .map(item => item.serial_number.trim());
+        
         const totalQuantity = asinMatches.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0);
         
+        // Show serial numbers if they exist, even for items with 0 quantity
+        if (serialNumbers.length > 0) {
+          return {
+            type: 'ASIN',
+            status: totalQuantity > 0 ? 'in-stock' : 'ordered',
+            quantity: totalQuantity,
+            identifier: asin,
+            serialNumbers: serialNumbers,
+            inventoryItems: asinMatches
+          };
+        }
+        
+        // If no serial numbers but positive quantity, still show as in stock
         if (totalQuantity > 0) {
-          // Get all serial numbers from matching items
-          const serialNumbers = asinMatches
-            .filter(item => item.serial_number && item.serial_number.trim())
-            .map(item => item.serial_number.trim());
-          
-          if (isTargetAsin) {
-            console.log(`🔍 MATCHING DEBUG ${asin} - Final result:`, {
-              totalQuantity,
-              serialNumbers,
-              hasSerialNumbers: serialNumbers.length > 0
-            });
-          }
-          
           return {
             type: 'ASIN',
             status: 'in-stock',
             quantity: totalQuantity,
             identifier: asin,
-            serialNumbers: serialNumbers.length > 0 ? serialNumbers : null,
+            serialNumbers: null,
             inventoryItems: asinMatches
           };
         }
@@ -572,37 +528,25 @@ export const POTracker = () => {
           (item.asin && item.asin.trim().toUpperCase() === sku.trim().toUpperCase())
         );
         
-        if (skuMatch && (parseInt(skuMatch.quantity) || 0) > 0) {
-          if (isTargetAsin) {
-            console.log(`🔍 MATCHING DEBUG ${asin} - SKU match found:`, {
-              sku,
-              skuMatch: {
-                sku_number: skuMatch.sku_number,
-                asin: skuMatch.asin,
-                bin_serial_number: skuMatch.bin_serial_number,
-                quantity: skuMatch.quantity
-              }
-            });
+        if (skuMatch) {
+          const quantity = parseInt(skuMatch.quantity) || 0;
+          // Show SKU matches even with 0 quantity if they have a bin serial number
+          if (quantity > 0 || skuMatch.bin_serial_number) {
+            return {
+              type: 'SKU',
+              status: quantity > 0 ? skuMatch.status : 'ordered',
+              quantity: quantity,
+              identifier: sku,
+              serialNumber: skuMatch.bin_serial_number,
+              inventoryItem: skuMatch
+            };
           }
-          
-          return {
-            type: 'SKU',
-            status: skuMatch.status,
-            quantity: parseInt(skuMatch.quantity) || 0,
-            identifier: sku,
-            serialNumber: skuMatch.bin_serial_number,
-            inventoryItem: skuMatch
-          };
         }
       }
     }
 
     // ONLY if no actual inventory is found, show Sunsky match as fallback
     if (orderSunskySku) {
-      if (isTargetAsin) {
-        console.log(`🔍 MATCHING DEBUG ${asin} - Falling back to Sunsky match`);
-      }
-      
       return {
         type: 'SUNSKY',
         status: 'sunsky-match',
@@ -610,10 +554,6 @@ export const POTracker = () => {
         identifier: orderSunskySku.sku_code,
         sunskyData: orderSunskySku
       };
-    }
-
-    if (isTargetAsin) {
-      console.log(`🔍 MATCHING DEBUG ${asin} - No matches found anywhere!`);
     }
 
     return null;
@@ -3154,12 +3094,20 @@ export const POTracker = () => {
                                          // ASIN inventory matches - show serial numbers
                                          if (inventoryMatch.type === 'ASIN') {
                                            if (inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0) {
+                                             const isOrdered = inventoryMatch.status === 'ordered';
                                              return (
                                                <div className="flex items-center gap-2">
-                                                 <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
-                                                 <div className="text-xs text-success font-mono bg-success/10 px-2 py-1 rounded-md border border-success/20">
+                                                 <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                                                   isOrdered ? 'bg-yellow-500' : 'bg-success'
+                                                 }`}></div>
+                                                 <div className={`text-xs font-mono px-2 py-1 rounded-md border ${
+                                                   isOrdered 
+                                                     ? 'text-yellow-700 bg-yellow-50 border-yellow-200' 
+                                                     : 'text-success bg-success/10 border-success/20'
+                                                 }`}>
                                                    Serial: {inventoryMatch.serialNumbers.slice(0, 3).join(', ')}
                                                    {inventoryMatch.serialNumbers.length > 3 && ` +${inventoryMatch.serialNumbers.length - 3} more`}
+                                                   {isOrdered && ' (Ordered)'}
                                                  </div>
                                                </div>
                                              );
@@ -3178,11 +3126,19 @@ export const POTracker = () => {
                                          
                                          // SKU inventory matches - show bin/serial number
                                          if (inventoryMatch.type.startsWith('SKU') && inventoryMatch.serialNumber) {
+                                           const isOrdered = inventoryMatch.status === 'ordered' || inventoryMatch.quantity === 0;
                                            return (
                                              <div className="flex items-center gap-2">
-                                               <div className="w-1.5 h-1.5 bg-blue-500 rounded-full flex-shrink-0"></div>
-                                               <div className="text-xs text-blue-600 font-mono bg-blue-50 px-2 py-1 rounded-md border border-blue-200">
+                                               <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                                                 isOrdered ? 'bg-yellow-500' : 'bg-blue-500'
+                                               }`}></div>
+                                               <div className={`text-xs font-mono px-2 py-1 rounded-md border ${
+                                                 isOrdered 
+                                                   ? 'text-yellow-700 bg-yellow-50 border-yellow-200' 
+                                                   : 'text-blue-600 bg-blue-50 border-blue-200'
+                                               }`}>
                                                  Bin: {inventoryMatch.serialNumber}
+                                                 {isOrdered && ' (Ordered)'}
                                                </div>
                                              </div>
                                            );
