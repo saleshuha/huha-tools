@@ -8,7 +8,8 @@ import { useCurrencyDisplay } from '@/components/amazon/CurrencySelector';
 import { useCountry } from '@/contexts/CountryContext';
 import { useMemo, useState } from 'react';
 import { usePaymentTerms } from '@/hooks/usePaymentTerms';
-import { PaymentDetailsDialog } from '@/components/amazon/PaymentDetailsDialog';
+import { DatePickerWithRange } from '@/components/ui/date-range-picker';
+import { DateRange } from 'react-day-picker';
 
 interface MetricsDashboardProps {
   metrics: DashboardMetrics | null;
@@ -23,6 +24,7 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
   const { creditDays } = usePaymentTerms();
   const [weekOffset, setWeekOffset] = useState(0); // 0 = current 4 weeks, positive = future, negative = past
   const [upcomingWeeksOffset, setUpcomingWeeksOffset] = useState(0); // Separate offset for upcoming payments
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   
   
   // Force re-render when display currency or metrics change by creating a unique key
@@ -520,34 +522,167 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
         </Card>
       </div>
 
-      {/* Payment Details Section - Full Width */}
+      {/* Payment Details Section - Simple Date Range with Amount */}
       <div className="w-full">
         <Card className="border-l-4 border-l-primary">
-          <PaymentDetailsDialog orders={orders || []}>
-            <div className="w-full cursor-pointer hover:bg-muted/30 transition-colors">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-lg font-medium flex items-center gap-2">
-                  <Calendar className="h-5 w-5 text-primary" />
-                  Payment Details by Date Range
-                </CardTitle>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-lg font-medium flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-primary" />
+              Payment Details by Date Range
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Select Date Range:</label>
+                <DatePickerWithRange
+                  date={dateRange}
+                  onDateChange={setDateRange}
+                  className="w-full max-w-md"
+                />
+              </div>
+              
+              {dateRange?.from && dateRange?.to && (
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="text-center p-4 bg-destructive/10 rounded-lg border border-destructive/20">
+                    <div className="text-2xl font-bold text-destructive">
+                      {orders?.filter(o => {
+                        if (!o.shipment_date) return false;
+                        const status = (o.status || '').toLowerCase().trim();
+                        if (status !== 'approved' && status !== 'non-submitted') return false;
+                        try {
+                          const shipmentDate = new Date(o.shipment_date);
+                          const dueDate = new Date(shipmentDate);
+                          dueDate.setDate(dueDate.getDate() + creditDays);
+                          const now = new Date();
+                          return dueDate < now && dueDate >= dateRange.from && dueDate <= dateRange.to;
+                        } catch {
+                          return false;
+                        }
+                      }).length || 0}
+                    </div>
+                    <p className="text-sm font-medium text-destructive">Overdue</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatCurrency(
+                        orders?.filter(o => {
+                          if (!o.shipment_date) return false;
+                          const status = (o.status || '').toLowerCase().trim();
+                          if (status !== 'approved' && status !== 'non-submitted') return false;
+                          try {
+                            const shipmentDate = new Date(o.shipment_date);
+                            const dueDate = new Date(shipmentDate);
+                            dueDate.setDate(dueDate.getDate() + creditDays);
+                            const now = new Date();
+                            return dueDate < now && dueDate >= dateRange.from && dueDate <= dateRange.to;
+                          } catch {
+                            return false;
+                          }
+                        }).reduce((sum, order) => {
+                          const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
+                          const qty = parseInt(order.quantity?.toString() || '1') || 1;
+                          const orderValue = cost * qty;
+                          return sum + convertCurrency(orderValue, order.currency || 'USD', displayCurrency);
+                        }, 0) || 0,
+                        displayCurrency
+                      )}
+                    </p>
+                  </div>
+
+                  <div className="text-center p-4 bg-warning/10 rounded-lg border border-warning/20">
+                    <div className="text-2xl font-bold text-warning">
+                      {orders?.filter(o => {
+                        if (!o.shipment_date) return false;
+                        const status = (o.status || '').toLowerCase().trim();
+                        if (status !== 'approved' && status !== 'non-submitted') return false;
+                        try {
+                          const shipmentDate = new Date(o.shipment_date);
+                          const dueDate = new Date(shipmentDate);
+                          dueDate.setDate(dueDate.getDate() + creditDays);
+                          const now = new Date();
+                          return dueDate >= now && dueDate >= dateRange.from && dueDate <= dateRange.to;
+                        } catch {
+                          return false;
+                        }
+                      }).length || 0}
+                    </div>
+                    <p className="text-sm font-medium text-warning">Pending</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatCurrency(
+                        orders?.filter(o => {
+                          if (!o.shipment_date) return false;
+                          const status = (o.status || '').toLowerCase().trim();
+                          if (status !== 'approved' && status !== 'non-submitted') return false;
+                          try {
+                            const shipmentDate = new Date(o.shipment_date);
+                            const dueDate = new Date(shipmentDate);
+                            dueDate.setDate(dueDate.getDate() + creditDays);
+                            const now = new Date();
+                            return dueDate >= now && dueDate >= dateRange.from && dueDate <= dateRange.to;
+                          } catch {
+                            return false;
+                          }
+                        }).reduce((sum, order) => {
+                          const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
+                          const qty = parseInt(order.quantity?.toString() || '1') || 1;
+                          const orderValue = cost * qty;
+                          return sum + convertCurrency(orderValue, order.currency || 'USD', displayCurrency);
+                        }, 0) || 0,
+                        displayCurrency
+                      )}
+                    </p>
+                  </div>
+
+                  <div className="text-center p-4 bg-primary/10 rounded-lg border border-primary/20">
                     <div className="text-2xl font-bold text-primary">
-                      {(metrics.pendingPayments || 0) + (metrics.overduePayments || 0)}
+                      {orders?.filter(o => {
+                        if (!o.shipment_date) return false;
+                        const status = (o.status || '').toLowerCase().trim();
+                        if (status !== 'approved' && status !== 'non-submitted') return false;
+                        try {
+                          const shipmentDate = new Date(o.shipment_date);
+                          const dueDate = new Date(shipmentDate);
+                          dueDate.setDate(dueDate.getDate() + creditDays);
+                          return dueDate >= dateRange.from && dueDate <= dateRange.to;
+                        } catch {
+                          return false;
+                        }
+                      }).length || 0}
                     </div>
-                    <div className="text-lg font-semibold text-primary">
-                      {formatCurrency((convertedPendingValue || 0) + (convertedOverdueValue || 0), displayCurrency)}
-                    </div>
+                    <p className="text-sm font-medium text-primary">Total</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatCurrency(
+                        orders?.filter(o => {
+                          if (!o.shipment_date) return false;
+                          const status = (o.status || '').toLowerCase().trim();
+                          if (status !== 'approved' && status !== 'non-submitted') return false;
+                          try {
+                            const shipmentDate = new Date(o.shipment_date);
+                            const dueDate = new Date(shipmentDate);
+                            dueDate.setDate(dueDate.getDate() + creditDays);
+                            return dueDate >= dateRange.from && dueDate <= dateRange.to;
+                          } catch {
+                            return false;
+                          }
+                        }).reduce((sum, order) => {
+                          const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
+                          const qty = parseInt(order.quantity?.toString() || '1') || 1;
+                          const orderValue = cost * qty;
+                          return sum + convertCurrency(orderValue, order.currency || 'USD', displayCurrency);
+                        }, 0) || 0,
+                        displayCurrency
+                      )}
+                    </p>
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Click to view detailed breakdown of overdue, pending, and upcoming payments by custom date range. Total shown: {(metrics.pendingPayments || 0) + (metrics.overduePayments || 0)} unpaid orders worth {formatCurrency((convertedPendingValue || 0) + (convertedOverdueValue || 0), displayCurrency)}.
-                </p>
-              </CardContent>
+              )}
+
+              {(!dateRange?.from || !dateRange?.to) && (
+                <div className="text-center py-8 text-muted-foreground">
+                  Please select a date range to view payment details
+                </div>
+              )}
             </div>
-          </PaymentDetailsDialog>
+          </CardContent>
         </Card>
       </div>
     </div>
