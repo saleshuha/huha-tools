@@ -479,6 +479,21 @@ export const POTracker = () => {
           const serialNumbers = asinMatches
             .filter(item => item.serial_number)
             .map(item => item.serial_number);
+          
+          // Debug logging for specific ASIN
+          if (asin === 'B0DYG4TT9H') {
+            console.log('🔍 Debug ASIN B0DYG4TT9H:', {
+              asinMatches,
+              totalQuantity,
+              serialNumbers,
+              allSerialNumbers: asinMatches.map(item => ({ 
+                id: item.id, 
+                serial: item.serial_number, 
+                quantity: item.quantity 
+              }))
+            });
+          }
+          
           return {
             type: 'ASIN',
             status: 'in-stock',
@@ -3061,6 +3076,15 @@ export const POTracker = () => {
                                       
                                       // Only show serial numbers for ASIN inventory matches
                                       if (inventoryMatch && inventoryMatch.type === 'ASIN') {
+                                        // Debug logging for B0DYG4TT9H
+                                        if (order.asin === 'B0DYG4TT9H') {
+                                          console.log('🔍 Display Debug B0DYG4TT9H:', {
+                                            inventoryMatch,
+                                            hasSerialNumbers: inventoryMatch.serialNumbers?.length > 0,
+                                            serialNumbers: inventoryMatch.serialNumbers
+                                          });
+                                        }
+                                        
                                         if (inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0) {
                                           return (
                                             <div className="flex items-center gap-2">
