@@ -92,12 +92,14 @@ export function BulkTitleUpload({ inventory, onTitleUpdate }: BulkTitleUploadPro
     for (const line of lines) {
       if (!line.trim()) continue;
       
-      // Try comma first, then tab, then any whitespace
-      let parts = line.split(',');
+      // First try tab separation (most common)
+      let parts = line.split('\t');
       if (parts.length < 2) {
-        parts = line.split('\t');
+        // Then try comma separation
+        parts = line.split(',');
       }
       if (parts.length < 2) {
+        // Finally try any whitespace (space separation)
         parts = line.split(/\s+/);
       }
       
@@ -105,7 +107,8 @@ export function BulkTitleUpload({ inventory, onTitleUpdate }: BulkTitleUploadPro
         const asin = parts[0].trim();
         const title = parts.slice(1).join(' ').trim(); // Join remaining parts as title
         
-        if (asin && title) {
+        // Make sure we have valid ASIN and title
+        if (asin && title && asin.length >= 10) { // ASINs are typically 10 characters
           mapped.push({ asin, title });
         }
       }
