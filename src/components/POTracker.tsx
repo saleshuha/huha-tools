@@ -232,6 +232,15 @@ export const POTracker = () => {
   const { selectedCountry } = useCountry();
   const { getImageByAsin, productImages, isLoading: imagesLoading, refreshImages } = useProductImages();
   const { toast } = useToast();
+
+  // Debug logging for profile and country
+  console.log('🟡 POTracker component state:', {
+    profileId: profile?.id,
+    selectedCountry,
+    hasProfile: !!profile,
+    hasCountry: !!selectedCountry,
+    inventoryLength: inventoryData.asinInventory.length
+  });
   // Function to handle bulk PO closing
   const handleBulkClosePOs = async (poNumbers: string[]) => {
     setIsClosingPOs(true);
@@ -480,6 +489,11 @@ export const POTracker = () => {
 
   // Function to find inventory match for an ASIN
   const findInventoryMatch = (asin: string, sunskySku?: string, poSku?: string, modelNumber?: string, orderSunskySku?: any) => {
+    console.log('🔍 findInventoryMatch called for:', asin, {
+      inventoryDataLength: inventoryData?.asinInventory?.length || 0,
+      hasAsinInventory: !!inventoryData?.asinInventory
+    });
+    
     // First priority: If the order has a sunsky_sku, it's considered matched
     if (orderSunskySku) {
       return {
@@ -493,7 +507,10 @@ export const POTracker = () => {
 
     // Second check: ASIN inventory - aggregate all matching records
     if (asin) {
+      console.log('🔍 Checking ASIN inventory for:', asin);
       const asinMatches = inventoryData.asinInventory.filter(item => item.asin === asin);
+      console.log('🔍 Found ASIN matches:', asinMatches.length, asinMatches);
+      
       if (asinMatches.length > 0) {
         const totalQuantity = asinMatches.reduce((sum, item) => sum + item.quantity, 0);
         if (totalQuantity > 0) {
@@ -564,8 +581,23 @@ export const POTracker = () => {
 
   // Fetch inventory data when profile or country changes - Now uses stable callback
   useEffect(() => {
-    fetchInventoryData();
-  }, [fetchInventoryData]);
+    console.log('🟡 useEffect triggered for inventory fetch', {
+      profileId: profile?.id,
+      selectedCountry,
+      hasProfile: !!profile,
+      hasCountry: !!selectedCountry
+    });
+    
+    if (profile?.id && selectedCountry) {
+      console.log('🟢 Calling fetchInventoryData');
+      fetchInventoryData();
+    } else {
+      console.log('🔴 Skipping inventory fetch - missing profile or country', {
+        profileId: profile?.id,
+        selectedCountry
+      });
+    }
+  }, [fetchInventoryData, profile?.id, selectedCountry]);
 
   // Filter orders for label printing (exclude truly cancelled orders but keep fulfilled ones)
   const labelEligibleOrders = useMemo(() => {
