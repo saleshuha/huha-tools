@@ -8,6 +8,7 @@ import { useCurrencyDisplay } from '@/components/amazon/CurrencySelector';
 import { useCountry } from '@/contexts/CountryContext';
 import { useMemo, useState } from 'react';
 import { usePaymentTerms } from '@/hooks/usePaymentTerms';
+import { PaymentDetailsDialog } from '@/components/amazon/PaymentDetailsDialog';
 
 interface MetricsDashboardProps {
   metrics: DashboardMetrics | null;
@@ -517,24 +518,36 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
             </div>
           </CardContent>
         </Card>
+      </div>
 
-        {/* Total Unpaid Payments - Simple Metric Card */}
-        <Card className="border-l-4 border-l-accent">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Unpaid</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-accent">
-              {(metrics.pendingPayments || 0) + (metrics.overduePayments || 0)}
+      {/* Payment Details Section - Full Width */}
+      <div className="w-full">
+        <Card className="border-l-4 border-l-primary">
+          <PaymentDetailsDialog orders={orders || []}>
+            <div className="w-full cursor-pointer hover:bg-muted/30 transition-colors">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-lg font-medium flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-primary" />
+                  Payment Details by Date Range
+                </CardTitle>
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-primary">
+                      {(metrics.pendingPayments || 0) + (metrics.overduePayments || 0)}
+                    </div>
+                    <div className="text-lg font-semibold text-primary">
+                      {formatCurrency((convertedPendingValue || 0) + (convertedOverdueValue || 0), displayCurrency)}
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Click to view detailed breakdown of overdue, pending, and upcoming payments by custom date range. Total shown: {(metrics.pendingPayments || 0) + (metrics.overduePayments || 0)} unpaid orders worth {formatCurrency((convertedPendingValue || 0) + (convertedOverdueValue || 0), displayCurrency)}.
+                </p>
+              </CardContent>
             </div>
-            <div className="text-lg font-semibold text-accent">
-              {formatCurrency((convertedPendingValue || 0) + (convertedOverdueValue || 0), displayCurrency)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Pending + Overdue payments ({displayCurrency})
-            </p>
-          </CardContent>
+          </PaymentDetailsDialog>
         </Card>
       </div>
     </div>
