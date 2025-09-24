@@ -79,16 +79,44 @@ export function InventoryMetrics({
   const loadMetrics = async () => {
     try {
       setLoading(true);
+      console.log(`🔍 Loading metrics for country: ${selectedCountry}`);
+      
       if (showOnlyAsin) {
         // Load only ASIN data
         const {
-          data: asinData
-        } = await supabase.from('asin_inventory').select('*').eq('country', selectedCountry).limit(50000); // Explicit high limit to override Supabase default 1000
+          data: asinData,
+          count,
+          error
+        } = await supabase
+          .from('asin_inventory')
+          .select('*', { count: 'exact' })
+          .eq('country', selectedCountry)
+          .limit(50000); // Explicit high limit to override Supabase default 1000
+        
+        console.log(`📊 ASIN Query Results:`, { 
+          dataLength: asinData?.length || 0, 
+          totalCount: count,
+          error: error?.message,
+          country: selectedCountry 
+        });
+        if (error) {
+          console.error('❌ ASIN query error:', error);
+          throw error;
+        }
+        
         const asinItems = asinData || [];
         const activeItems = asinItems.length;
         const inStockItems = asinItems.filter(item => item.quantity > 0).length;
         const outOfStockItems = asinItems.filter(item => item.quantity === 0).length;
         const asinTotalUnits = asinItems.reduce((sum, item) => sum + item.quantity, 0);
+        
+        console.log(`📈 ASIN Metrics:`, {
+          totalRecords: activeItems,
+          inStock: inStockItems,
+          outOfStock: outOfStockItems,
+          totalUnits: asinTotalUnits,
+          actualCount: count
+        });
 
         // Calculate restock eligibility
         const restockEligible = asinItems.filter(item => item.eligible_for_restock === true).length;
@@ -599,7 +627,7 @@ export function InventoryMetrics({
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
             <div className="flex flex-col justify-center min-w-0 flex-1">
               <CardTitle className="text-xs font-medium text-muted-foreground truncate">
-                {showOnlyAsin ? 'Active ASIN' : showOnlySku ? 'Active SKU' : 'Active Items'}
+                {showOnlyAsin ? 'Total ASINs' : showOnlySku ? 'Total SKUs' : 'Total Items'}
               </CardTitle>
               <div className="text-lg font-bold text-primary mt-1">{stats.activeItems}</div>
             </div>
@@ -608,7 +636,9 @@ export function InventoryMetrics({
             </div>
           </CardHeader>
           <CardContent className="pt-0 pb-1 flex-shrink-0">
-            <p className="text-xs text-muted-foreground truncate">Total inventory</p>
+            <p className="text-xs text-muted-foreground truncate">
+              {showOnlyAsin ? 'All ASIN records' : showOnlySku ? 'All SKU records' : 'All records'}
+            </p>
           </CardContent>
         </Card>
 
