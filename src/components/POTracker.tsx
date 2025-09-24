@@ -448,6 +448,9 @@ export const POTracker = () => {
           .eq('country', selectedCountry)
       ]);
 
+      console.log('🔍 ASIN Inventory loaded:', asinResult.data?.length || 0, 'items');
+      console.log('🔍 Searching for B0DYG4TT9H:', asinResult.data?.find(item => item.asin === 'B0DYG4TT9H'));
+
       setInventoryData({
         asinInventory: asinResult.data || [],
         skuInventory: skuResult.data || []
