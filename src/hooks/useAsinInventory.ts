@@ -38,7 +38,7 @@ export function useAsinInventory() {
         .from('asin_inventory')
         .select('*')
         .eq('country', selectedCountry)
-        .order('date_added', { ascending: false })
+        .order('date_added', { ascending: true }) // Show oldest items first to find 00001, 00002 etc.
         .limit(100000); // Explicitly set high limit to override default 1000
 
       if (error) throw error;
