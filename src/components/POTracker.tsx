@@ -439,40 +439,50 @@ export const POTracker = () => {
     try {
       console.log('🔄 Fetching inventory data for profile:', profile.id, 'country:', selectedCountry);
       
+      // Fetch with no limit to ensure we get all records
       const [asinResult, skuResult] = await Promise.all([
         supabase
           .from('asin_inventory')
           .select('*')
           .eq('user_id', profile?.id)
-          .eq('country', selectedCountry),
+          .eq('country', selectedCountry)
+          .order('created_at', { ascending: false }),
         supabase
           .from('sku_inventory')
           .select('*')
           .eq('user_id', profile?.id)
           .eq('country', selectedCountry)
+          .order('created_at', { ascending: false })
       ]);
 
       console.log('🔍 ASIN Inventory loaded:', asinResult.data?.length || 0, 'items');
+      console.log('🔍 SKU Inventory loaded:', skuResult.data?.length || 0, 'items');
       console.log('🔍 ASIN Inventory errors:', asinResult.error);
+      console.log('🔍 SKU Inventory errors:', skuResult.error);
       
       if (asinResult.data) {
-        const b0dyg4tt9h = asinResult.data.find(item => item.asin === 'B0DYG4TT9H');
-        console.log('🔍 B0DYG4TT9H found in inventory:', b0dyg4tt9h);
+        // Log first few ASINs to verify data
+        console.log('🔍 First 5 ASINs in inventory:', asinResult.data.slice(0, 5).map(item => ({
+          asin: item.asin,
+          serial: item.serial_number,
+          quantity: item.quantity
+        })));
         
-        if (b0dyg4tt9h) {
-          console.log('🔍 B0DYG4TT9H details:', {
-            asin: b0dyg4tt9h.asin,
-            serial_number: b0dyg4tt9h.serial_number,
-            quantity: b0dyg4tt9h.quantity,
-            status: b0dyg4tt9h.status
-          });
-        }
+        // Check for B0DYG4TT9H specifically
+        const b0dyg4tt9h = asinResult.data.find(item => item.asin === 'B0DYG4TT9H');
+        console.log('🔍 B0DYG4TT9H found in inventory:', !!b0dyg4tt9h, b0dyg4tt9h);
+        
+        // Check for similar ASINs
+        const similarAsins = asinResult.data.filter(item => item.asin?.includes('4TT9H') || item.asin?.includes('DYG4'));
+        console.log('🔍 Similar ASINs found:', similarAsins.map(item => ({ asin: item.asin, serial: item.serial_number })));
       }
 
       setInventoryData({
         asinInventory: asinResult.data || [],
         skuInventory: skuResult.data || []
       });
+      
+      console.log('🔍 Inventory data set successfully. ASIN count:', asinResult.data?.length || 0);
     } catch (error) {
       console.error('🚨 Error fetching inventory data:', error);
     }
@@ -480,9 +490,17 @@ export const POTracker = () => {
 
   // Function to find inventory match for an ASIN
   const findInventoryMatch = (asin: string, sunskySku?: string, poSku?: string, modelNumber?: string, orderSunskySku?: any) => {
+    if (!asin && !sunskySku && !poSku && !modelNumber) {
+      return null;
+    }
+    
     console.log('🔍 findInventoryMatch called for:', asin, {
+      sunskySku,
+      poSku, 
+      modelNumber,
       inventoryDataLength: inventoryData?.asinInventory?.length || 0,
-      hasAsinInventory: !!inventoryData?.asinInventory
+      hasAsinInventory: !!inventoryData?.asinInventory,
+      hasSkuInventory: !!inventoryData?.skuInventory
     });
     
     // First priority: If the order has a sunsky_sku, it's considered matched
@@ -496,21 +514,27 @@ export const POTracker = () => {
       };
     }
 
-    // Second check: ASIN inventory - aggregate all matching records
+    // Second check: ASIN inventory - aggregate all matching records (case-insensitive)
     if (asin) {
       console.log('🔍 Checking ASIN inventory for:', asin);
-      const asinMatches = inventoryData.asinInventory.filter(item => item.asin === asin);
-      console.log('🔍 Found ASIN matches:', asinMatches.length, asinMatches);
+      const asinMatches = inventoryData.asinInventory.filter(item => 
+        item.asin && item.asin.toUpperCase() === asin.toUpperCase()
+      );
+      console.log('🔍 Found ASIN matches:', asinMatches.length, asinMatches.map(m => ({ 
+        asin: m.asin, 
+        serial: m.serial_number, 
+        qty: m.quantity 
+      })));
       
       if (asinMatches.length > 0) {
-        const totalQuantity = asinMatches.reduce((sum, item) => sum + item.quantity, 0);
+        const totalQuantity = asinMatches.reduce((sum, item) => sum + (item.quantity || 0), 0);
         if (totalQuantity > 0) {
           const serialNumbers = asinMatches
             .filter(item => item.serial_number)
             .map(item => item.serial_number);
           
           // Debug logging for specific ASIN
-          if (asin === 'B0DYG4TT9H') {
+          if (asin.toUpperCase() === 'B0DYG4TT9H') {
             console.log('🔍 Debug ASIN B0DYG4TT9H:', {
               asinMatches,
               totalQuantity,
@@ -535,11 +559,13 @@ export const POTracker = () => {
       }
     }
 
-    // Then check SKU inventory with multiple possible SKU values
+    // Then check SKU inventory with multiple possible SKU values (case-insensitive)
     const skusToCheck = [sunskySku, poSku, modelNumber].filter(Boolean);
     
     for (const sku of skusToCheck) {
-      const skuMatch = inventoryData.skuInventory.find(item => item.sku_number === sku);
+      const skuMatch = inventoryData.skuInventory.find(item => 
+        item.sku_number && item.sku_number.toUpperCase() === sku.toUpperCase()
+      );
       if (skuMatch && skuMatch.quantity > 0) {
         return {
           type: 'SKU',
@@ -552,9 +578,11 @@ export const POTracker = () => {
       }
     }
 
-    // Also check SKU inventory for ASIN matches
+    // Also check SKU inventory for ASIN matches (case-insensitive)
     if (asin) {
-      const skuAsinMatch = inventoryData.skuInventory.find(item => item.sku_number === asin);
+      const skuAsinMatch = inventoryData.skuInventory.find(item => 
+        item.sku_number && item.sku_number.toUpperCase() === asin.toUpperCase()
+      );
       if (skuAsinMatch && skuAsinMatch.quantity > 0) {
         return {
           type: 'SKU-ASIN',
@@ -563,6 +591,23 @@ export const POTracker = () => {
           identifier: asin,
           serialNumber: skuAsinMatch.bin_serial_number,
           inventoryItem: skuAsinMatch
+        };
+      }
+    }
+
+    // Also check if ASIN exists in SKU inventory by ASIN field (case-insensitive)
+    if (asin) {
+      const skuByAsinMatch = inventoryData.skuInventory.find(item => 
+        item.asin && item.asin.toUpperCase() === asin.toUpperCase()
+      );
+      if (skuByAsinMatch && skuByAsinMatch.quantity > 0) {
+        return {
+          type: 'SKU-BY-ASIN',
+          status: skuByAsinMatch.status,
+          quantity: skuByAsinMatch.quantity,
+          identifier: asin,
+          serialNumber: skuByAsinMatch.bin_serial_number,
+          inventoryItem: skuByAsinMatch
         };
       }
     }
@@ -584,13 +629,12 @@ export const POTracker = () => {
 
   const filteredOrders = useMemo(() => {
     console.log('🔍 FILTERING DEBUG: Starting with', poOrders.length, 'orders');
-    console.log('🔍 FILTERING DEBUG: Active tab:', activeTab, 'View mode:', viewMode);
-    console.log('🔍 FILTERING DEBUG: Selected POs:', Array.from(selectedPOsForLabels));
-    console.log('🔍 FILTERING DEBUG: Selected country:', selectedCountry);
     
     // Check if B0DYG4TT9H exists in original orders
     const b0dyg4tt9hExists = poOrders.find(order => order.asin === 'B0DYG4TT9H');
-    console.log('🔍 B0DYG4TT9H exists in original orders:', !!b0dyg4tt9hExists, b0dyg4tt9hExists);
+    if (b0dyg4tt9hExists) {
+      console.log('🔍 B0DYG4TT9H exists in PO orders:', b0dyg4tt9hExists);
+    }
     
     let filtered = [...poOrders];
     
@@ -3108,18 +3152,6 @@ export const POTracker = () => {
                                          order.model_number,
                                          order.sunsky_sku
                                        );
-                                       
-                                       // Debug logging for B0DYG4TT9H - check if it's being processed
-                                       if (order.asin === 'B0DYG4TT9H') {
-                                         console.log('🔍 FOUND B0DYG4TT9H in orders! Processing...', {
-                                           order,
-                                           inventoryMatch,
-                                           hasInventoryMatch: !!inventoryMatch,
-                                           matchType: inventoryMatch?.type,
-                                           hasSerialNumbers: inventoryMatch?.serialNumbers?.length > 0,
-                                           serialNumbers: inventoryMatch?.serialNumbers
-                                         });
-                                       }
                                        
                                        // Only show serial numbers for ASIN inventory matches
                                        if (inventoryMatch && inventoryMatch.type === 'ASIN') {
