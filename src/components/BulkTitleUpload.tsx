@@ -122,6 +122,10 @@ export function BulkTitleUpload({ inventory, onTitleUpdate }: BulkTitleUploadPro
     const matched: { asin: string; title: string; currentTitle?: string }[] = [];
     const unmatched: { asin: string; title: string }[] = [];
 
+    console.log(`🔍 Matching ${asinTitlePairs.length} ASINs against ${inventory.length} inventory items`);
+    console.log(`📦 Sample inventory ASINs:`, inventory.slice(0, 10).map(item => item.asin));
+    console.log(`📝 Sample upload ASINs:`, asinTitlePairs.slice(0, 10).map(pair => pair.asin));
+
     for (const pair of asinTitlePairs) {
       const inventoryItem = inventory.find(item => 
         item.asin && item.asin.toLowerCase() === pair.asin.toLowerCase()
@@ -135,6 +139,11 @@ export function BulkTitleUpload({ inventory, onTitleUpdate }: BulkTitleUploadPro
       } else {
         unmatched.push(pair);
       }
+    }
+
+    console.log(`✅ Matched: ${matched.length}, ❌ Unmatched: ${unmatched.length}`);
+    if (unmatched.length > 0) {
+      console.log(`🔍 First 5 unmatched ASINs:`, unmatched.slice(0, 5).map(item => item.asin));
     }
 
     return { matched, unmatched };
