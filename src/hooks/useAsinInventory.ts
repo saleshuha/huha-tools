@@ -34,12 +34,40 @@ export function useAsinInventory() {
     
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      // First get count to check if we need pagination
+      const { count, error: countError } = await supabase
         .from('asin_inventory')
-        .select('*')
-        .eq('country', selectedCountry)
-        .order('date_added', { ascending: true })
-        .limit(50000); // Explicit high limit to override Supabase default 1000 limit
+        .select('*', { count: 'exact', head: true })
+        .eq('country', selectedCountry);
+
+      console.log(`📊 Total records in database: ${count}`);
+
+      // Load all records without limit using pagination if needed
+      let allData: any[] = [];
+      const batchSize = 1000;
+      let from = 0;
+      
+      while (true) {
+        const { data: batchData, error: batchError } = await supabase
+          .from('asin_inventory')
+          .select('*')
+          .eq('country', selectedCountry)
+          .order('date_added', { ascending: true })
+          .range(from, from + batchSize - 1);
+
+        if (batchError) throw batchError;
+        
+        if (!batchData || batchData.length === 0) break;
+        
+        allData = [...allData, ...batchData];
+        console.log(`📦 Loaded batch: ${from + 1}-${from + batchData.length}, Total so far: ${allData.length}`);
+        
+        if (batchData.length < batchSize) break; // Last batch
+        from += batchSize;
+      }
+
+      const data = allData;
+      const error = countError;
 
       if (error) throw error;
       
