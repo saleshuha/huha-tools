@@ -373,14 +373,17 @@ export function AsinInventory() {
     const items = [];
     for (const line of lines) {
       const parts = line.split('\t');
-      if (parts.length >= 4) {
+      if (parts.length >= 1 && parts[0].trim()) { // Only ASIN is mandatory
+        const quantity = parseInt(parts[4]) || 0; // Allow 0 quantity
+        const status = quantity === 0 ? 'sold' : (parts[3]?.trim() as AsinInventoryItem['status'] || 'in-stock');
+        
         items.push({
-          asin: parts[0].trim(),
-          serialNumber: parts[1].trim(),
-          sku: parts[2]?.trim() || '',
-          status: parts[3].trim() as AsinInventoryItem['status'],
-          quantity: parseInt(parts[4]) || 1,
-          notes: parts[5]?.trim() || '',
+          asin: parts[0].trim(), // Mandatory ASIN
+          serialNumber: parts[1]?.trim() || '', // Optional
+          sku: parts[2]?.trim() || '', // Optional
+          status: status, // Auto-set to 'sold' if quantity is 0
+          quantity: quantity,
+          notes: parts[5]?.trim() || '', // Optional
           dateAdded: new Date().toISOString()
         });
       }
@@ -1058,17 +1061,19 @@ export function AsinInventory() {
                         <DialogTitle>Bulk Add ASIN Items</DialogTitle>
                       </DialogHeader>
                       <div className="space-y-4">
-                         <div>
-                           <Label htmlFor="bulkText">
-                             Paste tab-separated data (ASIN, Serial Number, SKU, Status, Quantity, Notes)
-                           </Label>
-                           <Textarea id="bulkText" value={bulkText} onChange={e => setBulkText(e.target.value)} placeholder="B123456789	SN001	SKU123	in-stock	5	Optional notes&#10;B987654321	SN002	SKU456	sold	1	Another item" rows={8} className="font-mono text-sm" />
-                         </div>
-                         <div className="text-sm text-muted-foreground">
-                           <p><strong>Format:</strong> Each line should contain tab-separated values</p>
-                           <p><strong>Order:</strong> ASIN → Serial Number → SKU → Status → Quantity → Notes</p>
-                           <p><strong>Status options:</strong> in-stock, sold, reserved, damaged</p>
-                         </div>
+                          <div>
+                            <Label htmlFor="bulkText">
+                              Paste tab-separated data (Only ASIN is required, other fields are optional)
+                            </Label>
+                            <Textarea id="bulkText" value={bulkText} onChange={e => setBulkText(e.target.value)} placeholder="B123456789	SN001	SKU123	in-stock	5	Optional notes&#10;B987654321		SKU456		0	Zero qty item (auto-sold)&#10;B555555555			in-stock	3	Only ASIN and quantity" rows={8} className="font-mono text-sm" />
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            <p><strong>Format:</strong> Each line should contain tab-separated values</p>
+                            <p><strong>Required:</strong> ASIN (first field only)</p>
+                            <p><strong>Optional:</strong> Serial Number → SKU → Status → Quantity → Notes</p>
+                            <p><strong>Note:</strong> Items with 0 quantity are automatically marked as 'sold'</p>
+                            <p><strong>Status options:</strong> in-stock, sold, reserved, damaged</p>
+                          </div>
                       </div>
                       <DialogFooter>
                         <Button variant="outline" onClick={() => setIsBulkDialogOpen(false)}>
