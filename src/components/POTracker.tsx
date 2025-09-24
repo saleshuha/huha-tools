@@ -3050,42 +3050,53 @@ export const POTracker = () => {
                                         </div>
                                       </div>
                                     )}
-                                   {(() => {
-                                     const inventoryMatch = findInventoryMatch(
-                                       order.asin, 
-                                       order.sunsky_sku?.sku_code, 
-                                       order.sku_code, 
-                                       order.model_number,
-                                       order.sunsky_sku
-                                     );
-                                     
-                                     if (inventoryMatch) {
-                                       // Show serial numbers for ASIN inventory matches
-                                       if (inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0) {
-                                         return (
-                                           <div className="flex items-center gap-2">
-                                             <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
-                                               <div className="text-xs text-success font-mono bg-success/10 px-2 py-1 rounded-md border border-success/20">
-                                                Serial: {inventoryMatch.serialNumbers.slice(0, 2).join(', ')}
-                                                {inventoryMatch.serialNumbers.length > 2 && ` +${inventoryMatch.serialNumbers.length - 2} more`}
+                                    {(() => {
+                                      const inventoryMatch = findInventoryMatch(
+                                        order.asin, 
+                                        order.sunsky_sku?.sku_code, 
+                                        order.sku_code, 
+                                        order.model_number,
+                                        order.sunsky_sku
+                                      );
+                                      
+                                      if (inventoryMatch) {
+                                        // Show serial numbers for ASIN inventory matches
+                                        if (inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0) {
+                                          return (
+                                            <div className="flex items-center gap-2">
+                                              <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
+                                              <div className="text-xs text-success font-mono bg-success/10 px-2 py-1 rounded-md border border-success/20">
+                                                Serial: {inventoryMatch.serialNumbers.slice(0, 3).join(', ')}
+                                                {inventoryMatch.serialNumbers.length > 3 && ` +${inventoryMatch.serialNumbers.length - 3} more`}
                                               </div>
-                                           </div>
-                                         );
-                                       }
-                                       // Show serial number for SKU inventory matches
-                                       if (inventoryMatch.serialNumber) {
-                                         return (
-                                           <div className="flex items-center gap-2">
-                                             <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
+                                            </div>
+                                          );
+                                        }
+                                        // Show serial number for SKU inventory matches
+                                        if (inventoryMatch.serialNumber) {
+                                          return (
+                                            <div className="flex items-center gap-2">
+                                              <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
                                               <div className="text-xs text-success font-mono bg-success/10 px-2 py-1 rounded-md border border-success/20">
                                                 Serial: {inventoryMatch.serialNumber}
                                               </div>
-                                           </div>
-                                         );
-                                       }
-                                     }
-                                     return null;
-                                   })()}
+                                            </div>
+                                          );
+                                        }
+                                        // Show inventory match indicator even if no serial numbers
+                                        if (inventoryMatch.quantity > 0) {
+                                          return (
+                                            <div className="flex items-center gap-2">
+                                              <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
+                                              <div className="text-xs text-success font-medium bg-success/10 px-2 py-1 rounded-md border border-success/20">
+                                                In Stock ({inventoryMatch.quantity})
+                                              </div>
+                                            </div>
+                                          );
+                                        }
+                                      }
+                                      return null;
+                                    })()}
                                  </div>
                                </TableCell>
 
