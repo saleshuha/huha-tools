@@ -8,6 +8,7 @@ import { useCurrencyDisplay } from '@/components/amazon/CurrencySelector';
 import { useCountry } from '@/contexts/CountryContext';
 import { useMemo, useState } from 'react';
 import { usePaymentTerms } from '@/hooks/usePaymentTerms';
+import { PaymentDetailsDialog } from '@/components/amazon/PaymentDetailsDialog';
 
 interface MetricsDashboardProps {
   metrics: DashboardMetrics | null;
@@ -516,6 +517,25 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
               ))}
             </div>
           </CardContent>
+        </Card>
+
+        {/* Payment Details by Date - Simple Metric Card */}
+        <Card className="border-l-4 border-l-accent cursor-pointer hover:shadow-md transition-shadow">
+          <PaymentDetailsDialog orders={orders || []}>
+            <div className="w-full">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-lg font-medium flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-accent" />
+                  Payment Details by Date
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  View detailed payment breakdown by custom date range including overdue, pending, and upcoming payments
+                </p>
+              </CardContent>
+            </div>
+          </PaymentDetailsDialog>
         </Card>
       </div>
     </div>

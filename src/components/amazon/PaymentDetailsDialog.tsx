@@ -12,9 +12,10 @@ import { usePaymentTerms } from '@/hooks/usePaymentTerms';
 
 interface PaymentDetailsDialogProps {
   orders: any[];
+  children: React.ReactNode;
 }
 
-export const PaymentDetailsDialog = ({ orders }: PaymentDetailsDialogProps) => {
+export const PaymentDetailsDialog = ({ orders, children }: PaymentDetailsDialogProps) => {
   const [open, setOpen] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const { formatCurrency, convertCurrency } = useCurrencyConverter();
@@ -105,10 +106,7 @@ export const PaymentDetailsDialog = ({ orders }: PaymentDetailsDialogProps) => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="flex items-center gap-2">
-          <Calendar className="h-4 w-4" />
-          Payment Details by Date
-        </Button>
+        {children}
       </DialogTrigger>
       <DialogContent className="max-w-4xl">
         <DialogHeader>

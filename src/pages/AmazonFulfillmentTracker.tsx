@@ -9,7 +9,6 @@ import { ImportOrdersDialog } from '@/components/amazon/ImportOrdersDialog';
 import { CurrencyRatesDialog } from '@/components/amazon/CurrencyRatesDialog';
 import { ReAuthDialog } from '@/components/amazon/ReAuthDialog';
 import { CurrencyDisplayProvider, CurrencySelector } from '@/components/amazon/CurrencySelector';
-import { PaymentDetailsDialog } from '@/components/amazon/PaymentDetailsDialog';
 import { useAmazonOrders } from '@/hooks/useAmazonOrders';
 import { useCountry } from '@/contexts/CountryContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -49,13 +48,6 @@ const AmazonFulfillmentTracker = () => {
             icon: <Upload className="h-4 w-4 mr-2" />,
             onClick: () => setShowImportDialog(true),
             variant: 'outline' as const
-          },
-          {
-            label: '',
-            icon: <PaymentDetailsDialog orders={orders} />,
-            onClick: () => {},
-            variant: 'outline' as const,
-            className: 'p-0'
           },
           ...(user && profile?.role === 'admin' ? [{
             label: 'Clear All Data',
