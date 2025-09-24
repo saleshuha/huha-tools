@@ -464,6 +464,26 @@ export const POTracker = () => {
       const skuInventory = skuResult.data || [];
       
       console.log(`Loaded ${asinInventory.length} ASIN items and ${skuInventory.length} SKU items`);
+      
+      // Debug specific ASIN B0DYGL6CFR
+      const targetAsin = 'B0DYGL6CFR';
+      const foundAsin = asinInventory.find(item => item.asin === targetAsin);
+      console.log(`🔍 DEBUG ${targetAsin}:`, foundAsin ? {
+        asin: foundAsin.asin,
+        serial_number: foundAsin.serial_number,
+        quantity: foundAsin.quantity,
+        status: foundAsin.status,
+        id: foundAsin.id
+      } : 'NOT FOUND in ASIN inventory');
+      
+      // Also check SKU inventory for this ASIN
+      const foundInSku = skuInventory.find(item => item.asin === targetAsin);
+      console.log(`🔍 DEBUG ${targetAsin} in SKU inventory:`, foundInSku ? {
+        asin: foundInSku.asin,
+        sku_number: foundInSku.sku_number,
+        bin_serial_number: foundInSku.bin_serial_number,
+        quantity: foundInSku.quantity
+      } : 'NOT FOUND in SKU inventory');
 
       setInventoryData({
         asinInventory,
@@ -484,11 +504,34 @@ export const POTracker = () => {
       return null;
     }
 
+    // Debug specific ASIN B0DYGL6CFR
+    const isTargetAsin = asin === 'B0DYGL6CFR';
+    if (isTargetAsin) {
+      console.log(`🔍 MATCHING DEBUG ${asin}:`, {
+        asin,
+        sunskySku,
+        poSku,
+        modelNumber,
+        hasOrderSunskySku: !!orderSunskySku,
+        inventoryLength: inventoryData?.asinInventory?.length || 0
+      });
+    }
+
     // Check ASIN inventory FIRST - this is the most reliable and shows serial numbers
     if (asin && inventoryData?.asinInventory?.length > 0) {
       const asinMatches = inventoryData.asinInventory.filter(item => 
         item.asin && item.asin.trim().toUpperCase() === asin.trim().toUpperCase()
       );
+      
+      if (isTargetAsin) {
+        console.log(`🔍 MATCHING DEBUG ${asin} - ASIN matches found:`, asinMatches.length);
+        console.log(`🔍 MATCHING DEBUG ${asin} - Match details:`, asinMatches.map(item => ({
+          asin: item.asin,
+          serial_number: item.serial_number,
+          quantity: item.quantity,
+          status: item.status
+        })));
+      }
       
       if (asinMatches.length > 0) {
         const totalQuantity = asinMatches.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0);
@@ -498,6 +541,14 @@ export const POTracker = () => {
           const serialNumbers = asinMatches
             .filter(item => item.serial_number && item.serial_number.trim())
             .map(item => item.serial_number.trim());
+          
+          if (isTargetAsin) {
+            console.log(`🔍 MATCHING DEBUG ${asin} - Final result:`, {
+              totalQuantity,
+              serialNumbers,
+              hasSerialNumbers: serialNumbers.length > 0
+            });
+          }
           
           return {
             type: 'ASIN',
@@ -522,6 +573,18 @@ export const POTracker = () => {
         );
         
         if (skuMatch && (parseInt(skuMatch.quantity) || 0) > 0) {
+          if (isTargetAsin) {
+            console.log(`🔍 MATCHING DEBUG ${asin} - SKU match found:`, {
+              sku,
+              skuMatch: {
+                sku_number: skuMatch.sku_number,
+                asin: skuMatch.asin,
+                bin_serial_number: skuMatch.bin_serial_number,
+                quantity: skuMatch.quantity
+              }
+            });
+          }
+          
           return {
             type: 'SKU',
             status: skuMatch.status,
@@ -536,6 +599,10 @@ export const POTracker = () => {
 
     // ONLY if no actual inventory is found, show Sunsky match as fallback
     if (orderSunskySku) {
+      if (isTargetAsin) {
+        console.log(`🔍 MATCHING DEBUG ${asin} - Falling back to Sunsky match`);
+      }
+      
       return {
         type: 'SUNSKY',
         status: 'sunsky-match',
@@ -543,6 +610,10 @@ export const POTracker = () => {
         identifier: orderSunskySku.sku_code,
         sunskyData: orderSunskySku
       };
+    }
+
+    if (isTargetAsin) {
+      console.log(`🔍 MATCHING DEBUG ${asin} - No matches found anywhere!`);
     }
 
     return null;
