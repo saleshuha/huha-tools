@@ -112,6 +112,21 @@ export function OrderProcessor() {
   
   const { toast } = useToast();
 
+  // Debug: Log inventory changes
+  useEffect(() => {
+    console.log('ASIN Inventory loaded:', {
+      count: asinInventory.length,
+      firstFew: asinInventory.slice(0, 2).map(item => ({ asin: item.asin, sku: item.sku }))
+    });
+  }, [asinInventory]);
+
+  useEffect(() => {
+    console.log('SKU Inventory loaded:', {
+      count: skuInventory.length,
+      firstFew: skuInventory.slice(0, 2).map(item => ({ skuNumber: item.skuNumber }))
+    });
+  }, [skuInventory]);
+
   // Load all imported orders from database, ordered by date
   useEffect(() => {
     const loadAllOrders = async () => {
@@ -374,6 +389,24 @@ export function OrderProcessor() {
 
   const matchOrdersWithInventory = async (orders: OrderItem[]) => {
     console.log(`Starting to match ${orders.length} orders with inventory...`);
+    console.log(`ASIN Inventory items: ${asinInventory.length}`);
+    console.log(`SKU Inventory items: ${skuInventory.length}`);
+    
+    // Debug: Show first few inventory items
+    if (asinInventory.length > 0) {
+      console.log('Sample ASIN inventory items:', asinInventory.slice(0, 3).map(item => ({ 
+        asin: item.asin, 
+        sku: item.sku, 
+        title: item.title?.substring(0, 50) 
+      })));
+    }
+    if (skuInventory.length > 0) {
+      console.log('Sample SKU inventory items:', skuInventory.slice(0, 3).map(item => ({ 
+        skuNumber: item.skuNumber, 
+        title: item.title?.substring(0, 50) 
+      })));
+    }
+    
     const matches: MatchedItem[] = [];
     
     for (const order of orders) {
