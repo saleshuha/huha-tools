@@ -38,7 +38,8 @@ export function useAsinInventory() {
         .from('asin_inventory')
         .select('*')
         .eq('country', selectedCountry)
-        .order('date_added', { ascending: true }); // Show oldest items first to find 00001, 00002 etc.
+        .order('date_added', { ascending: true })
+        .limit(50000); // Explicit high limit to override Supabase default 1000 limit
 
       if (error) throw error;
       

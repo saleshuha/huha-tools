@@ -83,7 +83,7 @@ export function InventoryMetrics({
         // Load only ASIN data
         const {
           data: asinData
-        } = await supabase.from('asin_inventory').select('*').eq('country', selectedCountry); // Remove limit to get all items
+        } = await supabase.from('asin_inventory').select('*').eq('country', selectedCountry).limit(50000); // Explicit high limit to override Supabase default 1000
         const asinItems = asinData || [];
         const activeItems = asinItems.length;
         const inStockItems = asinItems.filter(item => item.quantity > 0).length;
@@ -144,7 +144,7 @@ export function InventoryMetrics({
         // Load only SKU data
         const {
           data: skuData
-        } = await supabase.from('sku_inventory').select('*').eq('country', selectedCountry);
+        } = await supabase.from('sku_inventory').select('*').eq('country', selectedCountry).limit(50000);
         const skuItems = skuData || [];
         const activeItems = skuItems.length;
         const inStockItems = skuItems.filter(item => item.quantity > 0).length;
@@ -187,7 +187,7 @@ export function InventoryMetrics({
         });
       } else {
         // Load both ASIN and SKU data
-        const [asinData, skuData] = await Promise.all([supabase.from('asin_inventory').select('*').eq('country', selectedCountry).limit(100000), supabase.from('sku_inventory').select('*').eq('country', selectedCountry).limit(100000)]);
+        const [asinData, skuData] = await Promise.all([supabase.from('asin_inventory').select('*').eq('country', selectedCountry).limit(50000), supabase.from('sku_inventory').select('*').eq('country', selectedCountry).limit(50000)]);
 
         // Calculate metrics
         const allItems = [...(asinData.data || []).map(item => ({
@@ -263,7 +263,8 @@ export function InventoryMetrics({
           .from('asin_inventory')
           .select('*')
           .eq('country', selectedCountry)
-          .or('sku.is.null,sku.eq.');
+          .or('sku.is.null,sku.eq.')
+          .limit(50000);
         
         const allItems = (asinData || []).map(item => ({
           ...item,
@@ -290,7 +291,7 @@ export function InventoryMetrics({
         // Load only ASIN data
         const {
           data: asinData
-        } = await supabase.from('asin_inventory').select('*').eq('country', selectedCountry).limit(100000); // Explicitly set high limit to override default 1000
+        } = await supabase.from('asin_inventory').select('*').eq('country', selectedCountry).limit(50000); // Explicit high limit to override default 1000
         let allItems = (asinData || []).map(item => ({
           ...item,
           type: 'asin' as const,
@@ -332,7 +333,7 @@ export function InventoryMetrics({
         setInventoryItems(allItems);
       } else {
         // Load both ASIN and SKU data
-        const [asinData, skuData] = await Promise.all([supabase.from('asin_inventory').select('*').eq('country', selectedCountry).limit(100000), supabase.from('sku_inventory').select('*').eq('country', selectedCountry).limit(100000)]);
+        const [asinData, skuData] = await Promise.all([supabase.from('asin_inventory').select('*').eq('country', selectedCountry).limit(50000), supabase.from('sku_inventory').select('*').eq('country', selectedCountry).limit(50000)]);
         let allItems = [...(asinData.data || []).map(item => ({
           ...item,
           type: 'asin' as const,
@@ -367,7 +368,7 @@ export function InventoryMetrics({
     try {
       if (showOnlyAsin) {
         // Load only ASIN data
-        let query = supabase.from('asin_inventory').select('*').eq('country', selectedCountry).eq('status', 'sold').limit(100000);
+        let query = supabase.from('asin_inventory').select('*').eq('country', selectedCountry).eq('status', 'sold').limit(50000);
 
         // Apply date filters if set
         if (soldDateFrom) {
@@ -411,8 +412,8 @@ export function InventoryMetrics({
         setInventoryItems(allItems);
       } else {
         // Load both ASIN and SKU data
-        let asinQuery = supabase.from('asin_inventory').select('*').eq('country', selectedCountry).eq('status', 'sold').limit(100000);
-        let skuQuery = supabase.from('sku_inventory').select('*').eq('country', selectedCountry).eq('status', 'sold').limit(100000);
+        let asinQuery = supabase.from('asin_inventory').select('*').eq('country', selectedCountry).eq('status', 'sold').limit(50000);
+        let skuQuery = supabase.from('sku_inventory').select('*').eq('country', selectedCountry).eq('status', 'sold').limit(50000);
 
         // Apply date filters if set
         if (soldDateFrom) {
@@ -458,7 +459,8 @@ export function InventoryMetrics({
           .from('asin_inventory')
           .select('*')
           .eq('country', selectedCountry)
-          .or('title.is.null,title.eq.');
+          .or('title.is.null,title.eq.')
+          .limit(50000);
         
         const allItems = (asinData || []).map(item => ({
           ...item,
@@ -494,7 +496,8 @@ export function InventoryMetrics({
         const { data: asinData } = await supabase
           .from('asin_inventory')
           .select('*') 
-          .eq('country', selectedCountry);
+          .eq('country', selectedCountry)
+          .limit(50000);
         
         const allItems = (asinData || [])
           .filter(item => !existingImageAsins.has(item.asin))
