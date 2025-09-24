@@ -178,12 +178,6 @@ export function OrderProcessor() {
         
         setOrderData(formattedOrders);
         setAllOrders(formattedOrders);
-        
-        if (formattedOrders.length > 0) {
-          console.log('Matching orders with inventory...');
-          await matchOrdersWithInventory(formattedOrders);
-        }
-        
         setLoading(false);
         console.log('Orders loading complete');
       }
@@ -191,6 +185,14 @@ export function OrderProcessor() {
     
     loadAllOrders();
   }, []);
+
+  // Re-match orders when inventory data is loaded
+  useEffect(() => {
+    if (allOrders.length > 0 && (asinInventory.length > 0 || skuInventory.length > 0)) {
+      console.log('Inventory loaded, re-matching orders with inventory...');
+      matchOrdersWithInventory(allOrders);
+    }
+  }, [allOrders, asinInventory, skuInventory]);
 
   // Load processed orders from database
   useEffect(() => {
