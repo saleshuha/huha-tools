@@ -1510,9 +1510,10 @@ export function AsinInventory() {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedInventory.map(item => <tr key={item.id} className="border-b hover:bg-muted/25 transition-colors">
-                       <td className="p-3 border-r">
-                         <Checkbox checked={selectedItems.has(item.id)} onCheckedChange={checked => {
+                   {paginatedInventory.map(item => <tr key={item.id} className="border-b hover:bg-muted/25 transition-colors">
+                       <td className="p-3 border-r align-middle">
+                         <div className="flex justify-center">
+                           <Checkbox checked={selectedItems.has(item.id)} onCheckedChange={checked => {
                     const newSelected = new Set(selectedItems);
                     if (checked) {
                       newSelected.add(item.id);
@@ -1521,11 +1522,12 @@ export function AsinInventory() {
                     }
                     setSelectedItems(newSelected);
                   }} />
+                         </div>
                        </td>
-                         <td className="p-3 border-r">
+                         <td className="p-3 border-r align-middle">
                            <div className="flex items-center gap-3">
                              <ProductImage asin={item.asin} />
-                             <div className="space-y-1">
+                             <div className="space-y-1 min-w-0 flex-1">
                                <div className="font-medium text-sm max-w-xs break-words">
                                  {item.title || 'No title'}
                                </div>
@@ -1539,34 +1541,36 @@ export function AsinInventory() {
                              </div>
                            </div>
                          </td>
-                         <td className="p-3 font-mono text-sm border-r">
-                           <SerialNumberEditor 
-                             currentSerialNumber={item.serialNumber} 
-                             onUpdate={newSerialNumber => updateSerialNumber(item.id, newSerialNumber)} 
-                           />
+                         <td className="p-3 font-mono text-sm border-r align-middle">
+                           <div className="flex items-center justify-center">
+                             <SerialNumberEditor 
+                               currentSerialNumber={item.serialNumber} 
+                               onUpdate={newSerialNumber => updateSerialNumber(item.id, newSerialNumber)} 
+                             />
+                           </div>
                          </td>
-                        <td className="p-3 border-r">
-                          <div className="space-y-1">
+                        <td className="p-3 border-r align-middle">
+                          <div className="space-y-1 flex flex-col items-center">
                             <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' || item.status === 'ordered' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'} className="text-xs">
                               {item.status === 'in-stock' ? 'In Stock' : item.status === 'sold' || item.status === 'ordered' ? 'Sold' : item.status === 'reserved' ? 'Reserved' : 'Damaged'}
                             </Badge>
-                            <div className="text-xs">
+                            <div className="text-xs text-center">
                                <span className={item.eligible_for_restock ? 'text-green-600' : 'text-red-600'}>
                                  {item.eligible_for_restock ? 'Restock Eligible' : 'Restock Not Eligible'}
                                </span>
                             </div>
                           </div>
                         </td>
-                      <td className="p-3 border-r">
-                        <div className="flex items-center gap-1">
+                      <td className="p-3 border-r align-middle">
+                        <div className="flex items-center justify-center gap-1">
                           <span className={`font-semibold text-sm ${item.quantity === 0 ? 'text-red-500' : item.quantity <= 5 ? 'text-yellow-500' : 'text-green-500'}`}>
                             {item.quantity}
                           </span>
                           {item.quantity <= 5 && <AlertTriangle className="w-3 h-3 text-yellow-500" />}
                         </div>
                       </td>
-                         <td className="p-3 border-r">
-                          <div className="space-y-2">
+                         <td className="p-3 border-r align-middle">
+                          <div className="space-y-2 flex flex-col items-start">
                             <div className="flex items-center gap-3">
                               <Switch
                                 id={`restock-${item.id}`}
@@ -1596,8 +1600,8 @@ export function AsinInventory() {
                             )}
                            </div>
                          </td>
-                         <td className="p-3 border-r">
-                           <div className="flex items-center gap-2">
+                         <td className="p-3 border-r align-middle">
+                           <div className="flex items-center justify-center gap-2">
                              <Switch
                                id={`export-mode-${item.id}`}
                                checked={exportModes[item.id] === 'local'}
@@ -1614,8 +1618,8 @@ export function AsinInventory() {
                              </Label>
                            </div>
                          </td>
-                          <td className="p-3">
-                            <div className="flex gap-2">
+                          <td className="p-3 align-middle">
+                            <div className="flex items-center justify-center gap-2">
                               <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
                               <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
                               <Button 
