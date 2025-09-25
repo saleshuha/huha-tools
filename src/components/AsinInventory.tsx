@@ -1432,7 +1432,7 @@ export function AsinInventory() {
             <div className="overflow-x-auto border rounded-lg">
               <table className="w-full border-collapse">
                 <thead className="bg-muted/50">
-                  <tr className="border-b">
+                   <tr className="border-b">
                      <th className="w-12 p-3 text-left border-r">
                        <Checkbox checked={selectedItems.size === paginatedInventory.length && paginatedInventory.length > 0} onCheckedChange={checked => {
                     if (checked) {
@@ -1468,21 +1468,8 @@ export function AsinInventory() {
                           {sortBy === 'serialNumber' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
                         </button>
                       </th>
-                      <th className="w-20 p-3 text-left font-medium border-r">
-                        <button className="flex items-center gap-2 hover:text-primary transition-colors" onClick={() => {
-                    if (sortBy === 'status') {
-                      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                    } else {
-                      setSortBy('status');
-                      setSortOrder('asc');
-                    }
-                  }}>
-                          Status
-                          {sortBy === 'status' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
-                        </button>
-                      </th>
-                     <th className="w-16 p-3 text-left font-medium border-r">
-                       <button className="flex items-center gap-2 hover:text-primary transition-colors" onClick={() => {
+                     <th className="w-16 p-3 text-center font-medium border-r">
+                       <button className="flex items-center justify-center gap-2 hover:text-primary transition-colors w-full" onClick={() => {
                     if (sortBy === 'quantity') {
                       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
                     } else {
@@ -1494,19 +1481,32 @@ export function AsinInventory() {
                          {sortBy === 'quantity' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
                        </button>
                      </th>
-                      <th className="w-32 p-3 text-left font-medium border-r">
-                        <div className="flex items-center gap-2">
+                      <th className="w-20 p-3 text-center font-medium border-r">
+                        <button className="flex items-center justify-center gap-2 hover:text-primary transition-colors w-full" onClick={() => {
+                    if (sortBy === 'status') {
+                      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                    } else {
+                      setSortBy('status');
+                      setSortOrder('asc');
+                    }
+                  }}>
+                          Status
+                          {sortBy === 'status' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
+                        </button>
+                      </th>
+                      <th className="w-32 p-3 text-center font-medium border-r">
+                        <div className="flex items-center justify-center gap-2">
                           <Activity className="w-4 h-4" />
                           Restock Eligibility
                         </div>
                       </th>
-                      <th className="w-24 p-3 text-left font-medium border-r">
-                        <div className="flex items-center gap-2">
+                      <th className="w-24 p-3 text-center font-medium border-r">
+                        <div className="flex items-center justify-center gap-2">
                           <Download className="w-4 h-4" />
                           Export Mode
                         </div>
                       </th>
-                      <th className="w-32 p-3 text-left font-medium">Actions</th>
+                      <th className="w-32 p-3 text-center font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1549,6 +1549,14 @@ export function AsinInventory() {
                              />
                            </div>
                          </td>
+                      <td className="p-3 border-r align-middle">
+                        <div className="flex items-center justify-center gap-1">
+                          <span className={`font-semibold text-sm ${item.quantity === 0 ? 'text-red-500' : item.quantity <= 5 ? 'text-yellow-500' : 'text-green-500'}`}>
+                            {item.quantity}
+                          </span>
+                          {item.quantity <= 5 && <AlertTriangle className="w-3 h-3 text-yellow-500" />}
+                        </div>
+                      </td>
                         <td className="p-3 border-r align-middle">
                           <div className="space-y-1 flex flex-col items-center">
                             <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' || item.status === 'ordered' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'} className="text-xs">
@@ -1561,16 +1569,8 @@ export function AsinInventory() {
                             </div>
                           </div>
                         </td>
-                      <td className="p-3 border-r align-middle">
-                        <div className="flex items-center justify-center gap-1">
-                          <span className={`font-semibold text-sm ${item.quantity === 0 ? 'text-red-500' : item.quantity <= 5 ? 'text-yellow-500' : 'text-green-500'}`}>
-                            {item.quantity}
-                          </span>
-                          {item.quantity <= 5 && <AlertTriangle className="w-3 h-3 text-yellow-500" />}
-                        </div>
-                      </td>
                          <td className="p-3 border-r align-middle">
-                          <div className="space-y-2 flex flex-col items-start">
+                          <div className="space-y-2 flex flex-col items-center">
                             <div className="flex items-center gap-3">
                               <Switch
                                 id={`restock-${item.id}`}
@@ -1582,14 +1582,14 @@ export function AsinInventory() {
                                 Restock <span className="text-xs text-muted-foreground">(Manual)</span>
                               </Label>
                             </div>
-                            <div className="text-xs text-muted-foreground ml-2">
-                              <div className="flex items-center gap-1">
+                            <div className="text-xs text-muted-foreground">
+                              <div className="flex items-center justify-center gap-1">
                                 <Activity className="w-3 h-3" />
                                 <span>Auto: Based on 90-day sales</span>
                               </div>
                             </div>
                             {item.eligible_for_restock && (
-                              <div className="text-xs text-muted-foreground space-y-1 ml-10">
+                              <div className="text-xs text-muted-foreground space-y-1 text-center">
                                 {item.lastRestockDate && (
                                   <div>Last: {new Date(item.lastRestockDate).toLocaleDateString()}</div>
                                 )}
