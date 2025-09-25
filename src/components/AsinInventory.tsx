@@ -1601,21 +1601,29 @@ export function AsinInventory() {
                            </div>
                          </td>
                          <td className="p-3 border-r align-middle">
-                           <div className="flex items-center justify-center gap-2">
-                             <Switch
-                               id={`export-mode-${item.id}`}
-                               checked={exportModes[item.id] === 'local'}
-                               onCheckedChange={(checked) => {
-                                 setExportModes(prev => ({
-                                   ...prev,
-                                   [item.id]: checked ? 'local' : 'global'
-                                 }));
-                               }}
-                               className="border-2 border-muted-foreground/30 data-[state=checked]:border-primary hover:border-primary/60 transition-colors"
-                             />
-                             <Label htmlFor={`export-mode-${item.id}`} className="text-sm font-medium">
-                               {exportModes[item.id] === 'local' ? 'Local' : 'Global'}
-                             </Label>
+                           <div className="flex flex-col items-center gap-2">
+                             <div className="flex items-center gap-2">
+                               <Switch
+                                 id={`export-mode-${item.id}`}
+                                 checked={exportModes[item.id] === 'local'}
+                                 onCheckedChange={(checked) => {
+                                   setExportModes(prev => ({
+                                     ...prev,
+                                     [item.id]: checked ? 'local' : 'global'
+                                   }));
+                                 }}
+                                 className="border-2 border-muted-foreground/30 data-[state=checked]:border-primary hover:border-primary/60 transition-colors"
+                               />
+                               <Label htmlFor={`export-mode-${item.id}`} className="text-sm font-medium">
+                                 {exportModes[item.id] === 'local' ? 'Local' : 'Global'}
+                               </Label>
+                             </div>
+                             <div className="text-xs text-center text-muted-foreground">
+                               {exportModes[item.id] === 'local' ? 
+                                 'Export mode is Local (fixed qty: 100)' : 
+                                 'Export mode is Global (uses stock qty)'
+                               }
+                             </div>
                            </div>
                          </td>
                           <td className="p-3 align-middle">
