@@ -1037,7 +1037,11 @@ export function AsinInventory() {
                           </Button>
                           
                         <div className="transition-all duration-200 hover:scale-105">
-                          <StockHistoryDialog itemId={item.asin} />
+                          <StockHistoryDialog 
+                            inventoryId={item.id}
+                            itemIdentifier={item.asin}
+                            inventoryType="asin"
+                          />
                         </div>
                           
                           <Button
@@ -1089,7 +1093,11 @@ export function AsinInventory() {
                       <Button size="sm" variant="outline" onClick={() => handlePrintItem([item])}>
                         <Printer className="h-3 w-3" />
                       </Button>
-                      <StockHistoryDialog itemId={item.asin} />
+                      <StockHistoryDialog 
+                        inventoryId={item.id}
+                        itemIdentifier={item.asin}
+                        inventoryType="asin"
+                      />
                     </div>
                   </div>
                   
