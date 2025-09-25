@@ -1597,35 +1597,19 @@ export function AsinInventory() {
                            </div>
                          </td>
                          <td className="p-3 border-r">
-                           <div className="flex items-center gap-2">
-                             <Select 
-                               value={exportModes[item.id] || 'global'} 
-                               onValueChange={(value: 'global' | 'local') => {
-                                 setExportModes(prev => ({
-                                   ...prev,
-                                   [item.id]: value
-                                 }));
-                               }}
-                             >
-                               <SelectTrigger className="w-20 h-8 text-xs">
-                                 <SelectValue />
-                               </SelectTrigger>
-                               <SelectContent>
-                                 <SelectItem value="global">
-                                   <div className="flex items-center gap-1">
-                                     <span>Global</span>
-                                     <span className="text-xs text-muted-foreground">({item.quantity})</span>
-                                   </div>
-                                 </SelectItem>
-                                 <SelectItem value="local">
-                                   <div className="flex items-center gap-1">
-                                     <span>Local</span>
-                                     <span className="text-xs text-muted-foreground">(100)</span>
-                                   </div>
-                                 </SelectItem>
-                               </SelectContent>
-                             </Select>
-                           </div>
+                           <Button
+                             variant={exportModes[item.id] === 'local' ? 'default' : 'outline'}
+                             size="sm"
+                             className="h-8 px-3 text-xs"
+                             onClick={() => {
+                               setExportModes(prev => ({
+                                 ...prev,
+                                 [item.id]: exportModes[item.id] === 'local' ? 'global' : 'local'
+                               }));
+                             }}
+                           >
+                             {exportModes[item.id] === 'local' ? 'Local' : 'Global'}
+                           </Button>
                          </td>
                           <td className="p-3">
                             <div className="flex gap-2">
