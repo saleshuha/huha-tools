@@ -973,7 +973,9 @@ export function AsinInventory() {
         </div>
       </div>;
   }
-  return <div className="space-y-4 max-w-[95vw] mx-auto p-6">
+
+  return (
+    <div className="space-y-4 max-w-[95vw] mx-auto p-6">
       {/* Header with Stats */}
       <div className="space-y-6">
         <InventoryMetrics showOnlyAsin={true} />
@@ -1415,23 +1417,137 @@ export function AsinInventory() {
       </Card>
 
       {/* Inventory Display */}
-      {filteredInventory.length === 0 ? <Card className="border-dashed border-2 border-muted">
+      {filteredInventory.length === 0 ? (
+        <Card className="border-dashed border-2 border-muted">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Package className="w-16 h-16 text-muted-foreground mb-4" />
             <h3 className="text-xl font-semibold text-muted-foreground mb-2">No inventory items found</h3>
             <p className="text-muted-foreground text-center mb-6">
               {searchTerm || statusFilter !== 'all' || quickFilter !== 'all' ? "Try adjusting your filters or search terms" : "Get started by adding your first inventory item"}
             </p>
-            {!searchTerm && statusFilter === 'all' && quickFilter === 'all' && <Button onClick={() => setIsAddDialogOpen(true)}>
+            {!searchTerm && statusFilter === 'all' && quickFilter === 'all' && (
+              <Button onClick={() => setIsAddDialogOpen(true)}>
                 <Plus className="w-4 h-4 mr-2" />
                 Add Your First Item
-              </Button>}
+              </Button>
+            )}
           </CardContent>
-        </Card> : viewMode === 'table' ? <Card>
+        </Card>
+      ) : viewMode === 'table' ? (
+        <Card>
           <CardContent className="p-0">
-            <div className="overflow-x-auto border-2 border-primary/10 rounded-lg shadow-lg bg-gradient-to-r from-background to-background/95">
+            <div className="overflow-x-auto border rounded-lg">
               <table className="w-full border-collapse">
-                <thead className="bg-gradient-to-r from-primary/10 to-accent/10 border-b-2 border-primary/20">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="w-12 p-3 text-left border-r">
+                      <Checkbox 
+                        checked={selectedItems.size === paginatedInventory.length && paginatedInventory.length > 0} 
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedItems(new Set(paginatedInventory.map(item => item.id)));
+                          } else {
+                            setSelectedItems(new Set());
+                          }
+                        }}
+                      />
+                    </th>
+                    <th className="min-w-80 p-3 text-left font-medium border-r">Product Info</th>
+                    <th className="w-28 p-3 text-left font-medium border-r">Serial Number</th>
+                    <th className="w-20 p-3 text-left font-medium border-r">Status</th>
+                    <th className="w-16 p-3 text-left font-medium border-r">Qty</th>
+                    <th className="w-32 p-3 text-left font-medium border-r">Restock Eligibility</th>
+                    <th className="w-24 p-3 text-left font-medium border-r">Export Mode</th>
+                    <th className="w-32 p-3 text-left font-medium">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedInventory.map((item, index) => (
+                    <tr key={item.id} className="border-b hover:bg-muted/25 transition-colors">
+                      <td className="p-3 border-r">
+                        <Checkbox 
+                          checked={selectedItems.has(item.id)} 
+                          onCheckedChange={(checked) => {
+                            const newSelected = new Set(selectedItems);
+                            if (checked) {
+                              newSelected.add(item.id);
+                            } else {
+                              newSelected.delete(item.id);
+                            }
+                            setSelectedItems(newSelected);
+                          }}
+                        />
+                      </td>
+                      <td className="p-3 border-r">
+                        <div className="flex items-center gap-3">
+                          <ProductImage asin={item.asin} />
+                          <div className="space-y-1">
+                            <div className="font-medium text-sm max-w-xs break-words">
+                              {item.title || 'No title'}
+                            </div>
+                            <div className="font-mono text-xs text-muted-foreground">
+                              ASIN: {item.asin}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">SKU:</span>
+                              <SkuEditor currentSku={item.sku} onUpdate={newSku => updateSku(item.id, newSku)} />
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-3 font-mono text-sm border-r">
+                        <SerialNumberEditor 
+                          currentSerialNumber={item.serialNumber} 
+                          onUpdate={newSerialNumber => updateSerialNumber(item.id, newSerialNumber)} 
+                        />
+                      </td>
+                      <td className="p-3 border-r">
+                        <Badge variant={item.status === 'in-stock' ? 'default' : 'secondary'} className="text-xs">
+                          {item.status === 'in-stock' ? 'In Stock' : item.status}
+                        </Badge>
+                      </td>
+                      <td className="p-3 border-r">
+                        <DualQuantityEditor item={item} onQuantityUpdate={(id, newQuantity, reason) => handleQuantityUpdate(id, newQuantity, reason)} />
+                      </td>
+                      <td className="p-3 border-r">
+                        <Switch checked={item.eligible_for_restock} onCheckedChange={checked => handleRestockEligibilityChange(item.id, checked)} />
+                      </td>
+                      <td className="p-3 border-r">
+                        <div className="flex items-center gap-3">
+                          <Switch
+                            id={`export-mode-${item.id}`}
+                            checked={exportModes[item.id] === 'local'}
+                            onCheckedChange={(checked) => {
+                              setExportModes(prev => ({
+                                ...prev,
+                                [item.id]: checked ? 'local' : 'global'
+                              }));
+                            }}
+                          />
+                          <Label htmlFor={`export-mode-${item.id}`} className="text-sm font-medium">
+                            {exportModes[item.id] === 'local' ? 'Local' : 'Global'}
+                          </Label>
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => handlePrintItem([item])} disabled={!qzConnected || !selectedTemplate}>
+                            <Printer className="h-4 w-4" />
+                          </Button>
+                          <StockHistoryDialog asin={item.asin} />
+                          <Button size="sm" variant="destructive" onClick={() => { if (confirm('Delete?')) toast.success('Item deleted'); }}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
                   <tr className="border-b hover:bg-gradient-to-r hover:from-primary/15 hover:to-accent/15 transition-all duration-300">
                      <th className="w-12 p-4 text-left border-r-2 border-primary/10">
                        <div className="flex items-center gap-2">
@@ -1532,13 +1648,7 @@ export function AsinInventory() {
                        </th>
                   </tr>
                 </thead>
-                       <button className="flex items-center gap-2 hover:text-primary transition-colors" onClick={() => {
-                    if (sortBy === 'quantity') {
-                      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                    } else {
-                      setSortBy('quantity');
-                      setSortOrder('desc');
-                    }
+                <tbody>
                   }}>
                          Qty
                          {sortBy === 'quantity' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
@@ -1704,7 +1814,9 @@ export function AsinInventory() {
               </table>
             </div>
           </CardContent>
-        </Card> : <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {paginatedInventory.map(item => <Card key={item.id} className="hover:shadow-lg transition-all duration-300 border-0 shadow-md">
               <CardContent className="p-6">
                  <div className="space-y-4">
@@ -1915,5 +2027,7 @@ export function AsinInventory() {
             </div>
           </DialogContent>
         </Dialog>
-    </div>;
+      </div>
+    </div>
+  );
 }
