@@ -1429,59 +1429,109 @@ export function AsinInventory() {
           </CardContent>
         </Card> : viewMode === 'table' ? <Card>
           <CardContent className="p-0">
-            <div className="overflow-x-auto border rounded-lg">
+            <div className="overflow-x-auto border-2 border-primary/10 rounded-lg shadow-lg bg-gradient-to-r from-background to-background/95">
               <table className="w-full border-collapse">
-                <thead className="bg-muted/50">
-                  <tr className="border-b">
-                     <th className="w-12 p-3 text-left border-r">
-                       <Checkbox checked={selectedItems.size === paginatedInventory.length && paginatedInventory.length > 0} onCheckedChange={checked => {
-                    if (checked) {
-                      setSelectedItems(new Set(paginatedInventory.map(item => item.id)));
-                    } else {
-                      setSelectedItems(new Set());
-                    }
-                  }} />
+                <thead className="bg-gradient-to-r from-primary/10 to-accent/10 border-b-2 border-primary/20">
+                  <tr className="border-b hover:bg-gradient-to-r hover:from-primary/15 hover:to-accent/15 transition-all duration-300">
+                     <th className="w-12 p-4 text-left border-r-2 border-primary/10">
+                       <div className="flex items-center gap-2">
+                         <div className="w-2 h-2 rounded-full bg-primary"></div>
+                         <Checkbox 
+                           checked={selectedItems.size === paginatedInventory.length && paginatedInventory.length > 0} 
+                           onCheckedChange={checked => {
+                             if (checked) {
+                               setSelectedItems(new Set(paginatedInventory.map(item => item.id)));
+                             } else {
+                               setSelectedItems(new Set());
+                             }
+                           }}
+                           className="border-2 border-primary/30"
+                         />
+                       </div>
                      </th>
-                      <th className="min-w-80 p-3 text-left font-medium border-r">
-                        <button className="flex items-center gap-2 hover:text-primary transition-colors" onClick={() => {
-                    if (sortBy === 'title') {
-                      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                    } else {
-                      setSortBy('title');
-                      setSortOrder('asc');
-                    }
-                  }}>
+                      <th className="min-w-80 p-4 text-left font-semibold border-r-2 border-primary/10">
+                        <button className="flex items-center gap-2 hover:text-primary transition-all duration-200 hover:bg-primary/20 rounded-md p-2" onClick={() => {
+                          if (sortBy === 'title') {
+                            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                          } else {
+                            setSortBy('title');
+                            setSortOrder('asc');
+                          }
+                        }}>
+                          <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                          <Package className="h-4 w-4" />
                           Product Info
                           {sortBy === 'title' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
                         </button>
                       </th>
-                      <th className="w-28 p-3 text-left font-medium border-r">
-                        <button className="flex items-center gap-2 hover:text-primary transition-colors" onClick={() => {
-                    if (sortBy === 'serialNumber') {
-                      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                    } else {
-                      setSortBy('serialNumber');
-                      setSortOrder('asc');
-                    }
-                  }}>
+                      <th className="w-28 p-4 text-left font-semibold border-r-2 border-primary/10">
+                        <button className="flex items-center gap-2 hover:text-primary transition-all duration-200 hover:bg-primary/20 rounded-md p-2" onClick={() => {
+                          if (sortBy === 'serialNumber') {
+                            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                          } else {
+                            setSortBy('serialNumber');
+                            setSortOrder('asc');
+                          }
+                        }}>
+                          <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                          <Database className="h-4 w-4" />
                           Serial Number
                           {sortBy === 'serialNumber' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
                         </button>
                       </th>
-                      <th className="w-20 p-3 text-left font-medium border-r">
-                        <button className="flex items-center gap-2 hover:text-primary transition-colors" onClick={() => {
-                    if (sortBy === 'status') {
-                      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                    } else {
-                      setSortBy('status');
-                      setSortOrder('asc');
-                    }
-                  }}>
+                      <th className="w-20 p-4 text-left font-semibold border-r-2 border-primary/10">
+                        <button className="flex items-center gap-2 hover:text-primary transition-all duration-200 hover:bg-primary/20 rounded-md p-2" onClick={() => {
+                          if (sortBy === 'status') {
+                            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                          } else {
+                            setSortBy('status');
+                            setSortOrder('asc');
+                          }
+                        }}>
+                          <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                          <Activity className="h-4 w-4" />
                           Status
                           {sortBy === 'status' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
                         </button>
                       </th>
-                     <th className="w-16 p-3 text-left font-medium border-r">
+                     <th className="w-16 p-4 text-left font-semibold border-r-2 border-primary/10">
+                       <button className="flex items-center gap-2 hover:text-primary transition-all duration-200 hover:bg-primary/20 rounded-md p-2" onClick={() => {
+                         if (sortBy === 'quantity') {
+                           setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                         } else {
+                           setSortBy('quantity');
+                           setSortOrder('desc');
+                         }
+                       }}>
+                         <div className="w-2 h-2 rounded-full bg-orange-500"></div>
+                         <BarChart3 className="h-4 w-4" />
+                         Qty
+                         {sortBy === 'quantity' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
+                       </button>
+                     </th>
+                      <th className="w-32 p-4 text-left font-semibold border-r-2 border-primary/10">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-teal-500"></div>
+                          <Star className="w-4 h-4" />
+                          Restock Eligibility
+                        </div>
+                      </th>
+                      <th className="w-24 p-4 text-left font-semibold border-r-2 border-primary/10">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-cyan-500"></div>
+                          <Download className="w-4 h-4" />
+                          Export Mode
+                        </div>
+                      </th>
+                      <th className="w-32 p-4 text-left font-semibold">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                          <Settings className="w-4 h-4" />
+                          Actions
+                        </div>
+                       </th>
+                  </tr>
+                </thead>
                        <button className="flex items-center gap-2 hover:text-primary transition-colors" onClick={() => {
                     if (sortBy === 'quantity') {
                       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -1510,40 +1560,51 @@ export function AsinInventory() {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedInventory.map(item => <tr key={item.id} className="border-b hover:bg-muted/25 transition-colors">
-                       <td className="p-3 border-r">
-                         <Checkbox checked={selectedItems.has(item.id)} onCheckedChange={checked => {
-                    const newSelected = new Set(selectedItems);
-                    if (checked) {
-                      newSelected.add(item.id);
-                    } else {
-                      newSelected.delete(item.id);
-                    }
-                    setSelectedItems(newSelected);
-                  }} />
+                  {paginatedInventory.map((item, index) => <tr key={item.id} className={cn(
+                    "border-b-2 border-primary/5 transition-all duration-300 hover:bg-gradient-to-r hover:from-primary/10 hover:to-accent/10 hover:shadow-md",
+                    index % 2 === 0 ? "bg-background" : "bg-muted/30"
+                  )}>
+                       <td className="p-4 border-r-2 border-primary/5">
+                         <Checkbox 
+                           checked={selectedItems.has(item.id)} 
+                           onCheckedChange={checked => {
+                             const newSelected = new Set(selectedItems);
+                             if (checked) {
+                               newSelected.add(item.id);
+                             } else {
+                               newSelected.delete(item.id);
+                             }
+                             setSelectedItems(newSelected);
+                           }}
+                           className="border-2 border-primary/30 hover:border-primary/50 transition-colors"
+                         />
                        </td>
-                         <td className="p-3 border-r">
+                         <td className="p-4 border-r-2 border-primary/5">
                            <div className="flex items-center gap-3">
-                             <ProductImage asin={item.asin} />
+                             <div className="transition-transform duration-200 hover:scale-105">
+                               <ProductImage asin={item.asin} />
+                             </div>
                              <div className="space-y-1">
-                               <div className="font-medium text-sm max-w-xs break-words">
+                               <div className="font-medium text-sm max-w-xs break-words bg-gradient-to-r from-blue-100 to-blue-50 dark:from-blue-900/20 dark:to-blue-800/20 px-3 py-2 rounded-md border border-blue-200 dark:border-blue-800">
                                  {item.title || 'No title'}
                                </div>
-                               <div className="font-mono text-xs text-muted-foreground">
+                               <div className="font-mono text-xs text-muted-foreground bg-gradient-to-r from-green-100 to-green-50 dark:from-green-900/20 dark:to-green-800/20 px-2 py-1 rounded border border-green-200 dark:border-green-800">
                                  ASIN: {item.asin}
                                </div>
-                               <div className="flex items-center gap-2">
-                                 <span className="text-xs text-muted-foreground">SKU:</span>
+                               <div className="flex items-center gap-2 bg-gradient-to-r from-yellow-100 to-yellow-50 dark:from-yellow-900/20 dark:to-yellow-800/20 px-2 py-1 rounded border border-yellow-200 dark:border-yellow-800">
+                                 <span className="text-xs text-muted-foreground font-medium">SKU:</span>
                                  <SkuEditor currentSku={item.sku} onUpdate={newSku => updateSku(item.id, newSku)} />
                                </div>
                              </div>
                            </div>
                          </td>
-                         <td className="p-3 font-mono text-sm border-r">
-                           <SerialNumberEditor 
-                             currentSerialNumber={item.serialNumber} 
-                             onUpdate={newSerialNumber => updateSerialNumber(item.id, newSerialNumber)} 
-                           />
+                         <td className="p-4 font-mono text-sm border-r-2 border-primary/5">
+                           <div className="bg-gradient-to-r from-purple-100 to-purple-50 dark:from-purple-900/20 dark:to-purple-800/20 p-3 rounded-md border border-purple-200 dark:border-purple-800">
+                             <SerialNumberEditor 
+                               currentSerialNumber={item.serialNumber} 
+                               onUpdate={newSerialNumber => updateSerialNumber(item.id, newSerialNumber)} 
+                             />
+                           </div>
                          </td>
                         <td className="p-3 border-r">
                           <div className="space-y-1">
@@ -1596,22 +1657,30 @@ export function AsinInventory() {
                             )}
                            </div>
                          </td>
-                         <td className="p-3 border-r">
-                           <div className="flex items-center gap-2">
-                             <Switch
-                               id={`export-mode-${item.id}`}
-                               checked={exportModes[item.id] === 'local'}
-                               onCheckedChange={(checked) => {
-                                 setExportModes(prev => ({
-                                   ...prev,
-                                   [item.id]: checked ? 'local' : 'global'
-                                 }));
-                               }}
-                               className="border-2 border-muted-foreground/30 data-[state=checked]:border-primary hover:border-primary/60 transition-colors"
-                             />
-                             <Label htmlFor={`export-mode-${item.id}`} className="text-sm font-medium">
-                               {exportModes[item.id] === 'local' ? 'Local' : 'Global'}
-                             </Label>
+                         <td className="p-4 border-r-2 border-primary/5">
+                           <div className="bg-gradient-to-r from-cyan-100 to-cyan-50 dark:from-cyan-900/20 dark:to-cyan-800/20 p-3 rounded-md border border-cyan-200 dark:border-cyan-800">
+                             <div className="flex items-center gap-3">
+                               <Switch
+                                 id={`export-mode-${item.id}`}
+                                 checked={exportModes[item.id] === 'local'}
+                                 onCheckedChange={(checked) => {
+                                   setExportModes(prev => ({
+                                     ...prev,
+                                     [item.id]: checked ? 'local' : 'global'
+                                   }));
+                                 }}
+                                 className="border-2 border-primary/30 data-[state=checked]:border-primary hover:border-primary/60 transition-all duration-200"
+                               />
+                               <Label htmlFor={`export-mode-${item.id}`} className="text-sm font-semibold">
+                                 <div className="flex items-center gap-2">
+                                   <div className={cn(
+                                     "w-2 h-2 rounded-full transition-colors",
+                                     exportModes[item.id] === 'local' ? "bg-green-500" : "bg-blue-500"
+                                   )}></div>
+                                   {exportModes[item.id] === 'local' ? 'Local' : 'Global'}
+                                 </div>
+                               </Label>
+                             </div>
                            </div>
                          </td>
                           <td className="p-3">
