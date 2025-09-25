@@ -42,6 +42,7 @@ import { PrintService } from '@/services/print-service';
 import { LabelDoc, LabelDataset, LabelElement, PrintSettings } from '@/types/label';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+
 export function AsinInventory() {
   const {
     inventory,
@@ -61,13 +62,10 @@ export function AsinInventory() {
     calculateAutoRestockEligibility,
     refetch
   } = useAsinInventory();
-  const {
-    user
-  } = useUserProfile();
-  const {
-    runTitleFetch
-  } = useBackgroundTasks();
+  const { user } = useUserProfile();
+  const { runTitleFetch } = useBackgroundTasks();
   const { getImageByAsin, isLoading: imagesLoading, productImages, refreshImages } = useProductImages();
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [searchMethod, setSearchMethod] = useState<'all' | 'asin' | 'sku' | 'serial' | 'title' | 'notes'>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -79,7 +77,7 @@ export function AsinInventory() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   
   // Export mode settings - global (use stock qty) or local (use default 100)
-  const [exportModes, setExportModes] = useState<Record<string, 'global' | 'local'>>({}); 
+  const [exportModes, setExportModes] = useState<Record<string, 'global' | 'local'>>({});
   
   // Modern printing state
   const [qzConnected, setQzConnected] = useState(false);
@@ -114,11 +112,10 @@ export function AsinInventory() {
     setIsPreviewDialogOpen(true);
   };
 
-  // Component for displaying product images - v3.0 with proper loading handling
+  // Component for displaying product images
   const ProductImage = ({ asin }: { asin: string }) => {
     const productImage = getImageByAsin(asin);
     
-    // Always show loading state when images are still being fetched
     if (imagesLoading) {
       return (
         <div className="w-20 h-20 min-w-[5rem] min-h-[5rem] bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-border flex-shrink-0 animate-pulse">
@@ -127,27 +124,10 @@ export function AsinInventory() {
       );
     }
     
-    // Specific debug for problematic ASIN - only when not loading
-    if (asin === 'B0FPBNTD3P') {
-      console.log('🖼️ ProductImage DEBUG B0FPBNTD3P v3.0:', {
-        asin,
-        hasProductImage: !!productImage,
-        imageUrl: productImage?.image_url,
-        imagesLoading,
-        totalImages: productImages?.length || 0,
-        productImagesType: typeof productImages,
-        productImagesArray: Array.isArray(productImages)
-      });
-    }
-    
     if (!productImage) {
       return (
-        <div className="w-20 h-20 min-w-[5rem] min-h-[5rem] bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-border flex-shrink-0 relative">
+        <div className="w-20 h-20 min-w-[5rem] min-h-[5rem] bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-border flex-shrink-0">
           <Eye className="w-6 h-6 text-muted-foreground" />
-          {/* Debug info */}
-          <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 text-xs text-red-500 whitespace-nowrap text-center bg-white px-1 rounded shadow-sm">
-            {asin ? asin.substring(0,8) : 'No ASIN'}
-          </div>
         </div>
       );
     }
@@ -155,9 +135,7 @@ export function AsinInventory() {
     return (
       <Popover>
         <PopoverTrigger asChild>
-          <div 
-            className="w-20 h-20 min-w-[5rem] min-h-[5rem] rounded-lg overflow-hidden border-2 border-border cursor-pointer hover:border-primary transition-colors flex-shrink-0"
-          >
+          <div className="w-20 h-20 min-w-[5rem] min-h-[5rem] rounded-lg overflow-hidden border-2 border-border cursor-pointer hover:border-primary transition-colors flex-shrink-0">
             <img 
               src={productImage.image_url} 
               alt={`Product image for ${asin}`}
@@ -183,9 +161,7 @@ export function AsinInventory() {
   };
   
   // Use warehouse management from hook
-  const {
-    selectedWarehouse
-  } = useWarehouseManager();
+  const { selectedWarehouse } = useWarehouseManager();
   const { toast } = useToast();
   const { printSettings, setPrintSettings, getPrintSettings } = useLabelPrintSettings();
   const [newItem, setNewItem] = useState<{
@@ -208,16 +184,7 @@ export function AsinInventory() {
   const [bulkText, setBulkText] = useState('');
 
   const filteredInventory = useMemo(() => {
-    console.log('🔄 FILTERING INVENTORY - START:', {
-      inventoryLength: inventory.length,
-      searchTerm,
-      searchMethod,
-      loading
-    });
-
-    // If still loading, return empty array
     if (loading) {
-      console.log('⏳ Still loading inventory, returning empty array');
       return [];
     }
 
@@ -233,136 +200,43 @@ export function AsinInventory() {
       }
     });
     filtered = Array.from(uniqueMap.values());
-    console.log('🔧 DEDUPLICATION COMPLETE:', {
-      originalCount: inventory.length,
-      uniqueCount: filtered.length,
-      duplicatesRemoved: inventory.length - filtered.length
-    });
 
     // Apply search filter
     if (searchTerm) {
       const searchTerms = searchTerm.toLowerCase().split(' ').filter(term => term.length > 0);
       
-      console.log('🔍 SEARCH DEBUG:', {
-        searchTerm,
-        searchTerms,
-        searchMethod,
-        totalItems: inventory.length,
-        inventoryLoaded: !loading
+      filtered = filtered.filter(item => {
+        if (searchMethod === 'all') {
+          return searchTerms.some(term => {
+            const termLower = term.toLowerCase().trim();
+            const asinMatch = item.asin.toLowerCase().includes(termLower);
+            const serialMatch = item.serialNumber && item.serialNumber.toLowerCase().includes(termLower);
+            const skuMatch = item.sku && item.sku.toLowerCase().includes(termLower);
+            const titleMatch = item.title && item.title.toLowerCase().includes(termLower);
+            const notesMatch = item.notes && item.notes.toLowerCase().includes(termLower);
+            
+            return asinMatch || serialMatch || skuMatch || titleMatch || notesMatch;
+          });
+        } else if (searchMethod === 'asin') {
+          return searchTerms.some(term => item.asin.toLowerCase().includes(term.toLowerCase().trim()));
+        } else if (searchMethod === 'sku') {
+          return item.sku && searchTerms.some(term => item.sku.toLowerCase().includes(term.toLowerCase().trim()));
+        } else if (searchMethod === 'serial') {
+          return searchTerms.some(term => {
+            return item.serialNumber && item.serialNumber.toLowerCase().includes(term.toLowerCase().trim());
+          });
+        } else if (searchMethod === 'title') {
+          return item.title && searchTerms.some(term => item.title.toLowerCase().includes(term.toLowerCase().trim()));
+        } else if (searchMethod === 'notes') {
+          return item.notes && searchTerms.some(term => item.notes.toLowerCase().includes(term.toLowerCase().trim()));
+        }
+        return false;
       });
-      
-      // Show sample of inventory data for debugging
-      const sampleItems = inventory.slice(0, 5).map(item => ({
-        asin: item.asin,
-        serialNumber: item.serialNumber,
-        sku: item.sku,
-        title: item.title?.substring(0, 30)
-      }));
-      console.log('📋 SAMPLE INVENTORY ITEMS:', sampleItems);
-      
-      // Show ALL serial numbers in a compact format
-      const allSerials = inventory.map(item => item.serialNumber).filter(Boolean);
-      console.log('🔢 ALL SERIAL NUMBERS:', allSerials.length, 'total:', allSerials);
-      
-      // Test specific search terms
-      searchTerms.forEach(term => {
-        const asinMatches = inventory.filter(item => 
-          item.asin.toLowerCase().includes(term.toLowerCase())
-        );
-        const serialMatches = inventory.filter(item => 
-          item.serialNumber && item.serialNumber.toLowerCase().includes(term.toLowerCase())
-        );
-        const skuMatches = inventory.filter(item => 
-          item.sku && item.sku.toLowerCase().includes(term.toLowerCase())
-        );
-        
-        console.log(`🎯 MATCHES for "${term}":`, {
-          asinMatches: asinMatches.length,
-          serialMatches: serialMatches.length,
-          skuMatches: skuMatches.length,
-          serialMatchDetails: serialMatches.map(item => ({
-            serial: item.serialNumber,
-            asin: item.asin
-          }))
-        });
-      });
-       
-       // IMPROVED SEARCH LOGIC - more flexible matching
-       filtered = filtered.filter(item => {
-         if (searchMethod === 'all') {
-           return searchTerms.some(term => { // Changed from every to some for more flexible matching
-             const termLower = term.toLowerCase().trim();
-             const asinMatch = item.asin.toLowerCase().includes(termLower);
-             const serialMatch = item.serialNumber && item.serialNumber.toLowerCase().includes(termLower);
-             const skuMatch = item.sku && item.sku.toLowerCase().includes(termLower);
-             const titleMatch = item.title && item.title.toLowerCase().includes(termLower);
-             const notesMatch = item.notes && item.notes.toLowerCase().includes(termLower);
-             
-             const found = asinMatch || serialMatch || skuMatch || titleMatch || notesMatch;
-             
-             // Debug specific items
-             if (found && (termLower.includes('02001') || termLower.includes('02004'))) {
-               console.log(`✅ FOUND MATCH for "${term}":`, {
-                 item: {
-                   asin: item.asin,
-                   serial: item.serialNumber,
-                   sku: item.sku
-                 },
-                 matches: { asinMatch, serialMatch, skuMatch, titleMatch, notesMatch }
-               });
-             }
-             
-             return found;
-           });
-         } else if (searchMethod === 'asin') {
-           return searchTerms.some(term => item.asin.toLowerCase().includes(term.toLowerCase().trim()));
-         } else if (searchMethod === 'sku') {
-           return item.sku && searchTerms.some(term => item.sku.toLowerCase().includes(term.toLowerCase().trim()));
-         } else if (searchMethod === 'serial') {
-           return searchTerms.some(term => {
-             const match = item.serialNumber && item.serialNumber.toLowerCase().includes(term.toLowerCase().trim());
-             if (match && (term.includes('02001') || term.includes('02004'))) {
-               console.log(`🎯 SERIAL MATCH for "${term}":`, {
-                 searchTerm: term,
-                 itemSerial: item.serialNumber,
-                 itemAsin: item.asin
-               });
-             }
-             return match;
-           });
-         } else if (searchMethod === 'title') {
-           return item.title && searchTerms.some(term => item.title.toLowerCase().includes(term.toLowerCase().trim()));
-         } else if (searchMethod === 'notes') {
-           return item.notes && searchTerms.some(term => item.notes.toLowerCase().includes(term.toLowerCase().trim()));
-         }
-         return false;
-       });
-      console.log('✅ FINAL FILTERED RESULTS:', {
-        searchTerm,
-        originalCount: inventory.length,
-        filteredCount: filtered.length,
-        resultItems: filtered.map(item => ({
-          asin: item.asin,
-          serial: item.serialNumber,
-          sku: item.sku
-        }))
-      });
-      
-      // Show what was found or not found
-      if (filtered.length === 0) {
-        console.log('❌ NO MATCHES FOUND for search term:', searchTerm);
-        console.log('💡 Available serials containing "020":', 
-          inventory
-            .filter(item => item.serialNumber && item.serialNumber.includes('020'))
-            .map(item => ({ serial: item.serialNumber, asin: item.asin }))
-        );
-      }
     }
 
     // Apply status filter
     if (statusFilter !== 'all') {
       filtered = filtered.filter(item => {
-        // Treat 'ordered' items as 'sold'
         const effectiveStatus = item.status === 'ordered' ? 'sold' : item.status;
         return effectiveStatus === statusFilter;
       });
@@ -413,565 +287,150 @@ export function AsinInventory() {
         aValue = aValue.toLowerCase();
         bValue = bValue.toLowerCase();
       }
+      
       if (sortOrder === 'asc') {
-        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+        return aValue > bValue ? 1 : -1;
       } else {
-        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+        return aValue < bValue ? 1 : -1;
       }
-    });
-    console.log('🔄 FILTERING INVENTORY - END:', {
-      finalResultCount: filtered.length,
-      searchActive: !!searchTerm
     });
 
     return filtered;
-  }, [inventory, searchTerm, statusFilter, sortBy, sortOrder, quickFilter, dateFilterFrom, dateFilterTo, loading]);
+  }, [inventory, searchTerm, searchMethod, statusFilter, sortBy, sortOrder, quickFilter, dateFilterFrom, dateFilterTo, loading]);
+
+  const handleAddItem = async () => {
+    if (!newItem.asin.trim()) {
+      toast({ title: "Error", description: "ASIN is required", variant: "destructive" });
+      return;
+    }
+
+    try {
+      await addItem({
+        ...newItem,
+        asin: newItem.asin.trim().toUpperCase(),
+        serialNumber: newItem.serialNumber.trim(),
+        sku: newItem.sku.trim(),
+        title: newItem.title.trim(),
+        notes: newItem.notes.trim(),
+        dateAdded: new Date().toISOString()
+      });
+      
+      setNewItem({
+        asin: '',
+        serialNumber: '',
+        sku: '',
+        title: '',
+        status: 'in-stock',
+        quantity: 1,
+        notes: ''
+      });
+      setIsAddDialogOpen(false);
+      toast({ title: "Success", description: "Item added successfully" });
+    } catch (error) {
+      console.error('Error adding item:', error);
+      toast({ title: "Error", description: "Failed to add item", variant: "destructive" });
+    }
+  };
+
+  const handleBulkAdd = async () => {
+    if (!bulkText.trim()) {
+      toast({ title: "Error", description: "Please enter some data", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const lines = bulkText.trim().split('\n').filter(line => line.trim());
+      const items = lines.map(line => {
+        const parts = line.split('\t').map(part => part?.trim() || '');
+        const [asin, serialNumber = '', sku = '', status = 'in-stock', quantity = '1', notes = ''] = parts;
+        
+        const parsedQuantity = parseInt(quantity) || 1;
+        let finalStatus = status as AsinInventoryItem['status'];
+        
+        if (parsedQuantity === 0) {
+          finalStatus = 'sold';
+        }
+        
+        return {
+          asin: asin.toUpperCase(),
+          serialNumber,
+          sku,
+          title: '',
+          status: finalStatus,
+          quantity: parsedQuantity,
+          notes,
+          dateAdded: new Date().toISOString()
+        };
+      });
+
+      await bulkAdd(items);
+      setBulkText('');
+      setIsBulkDialogOpen(false);
+      toast({ title: "Success", description: `Added ${items.length} items successfully` });
+    } catch (error) {
+      console.error('Error bulk adding items:', error);
+      toast({ title: "Error", description: "Failed to add items", variant: "destructive" });
+    }
+  };
+
+  const handleQuantityUpdate = async (id: string, newQuantity: number, reason?: string) => {
+    try {
+      await updateQuantity(id, newQuantity, reason);
+      toast({ title: "Success", description: "Quantity updated successfully" });
+    } catch (error) {
+      console.error('Error updating quantity:', error);
+      toast({ title: "Error", description: "Failed to update quantity", variant: "destructive" });
+    }
+  };
+
+  const handleRestockEligibilityChange = async (itemId: string, eligible: boolean) => {
+    try {
+      await updateRestockEligibility(itemId, eligible);
+      toast({ title: "Success", description: `Restock eligibility ${eligible ? 'enabled' : 'disabled'}` });
+    } catch (error) {
+      console.error('Error updating restock eligibility:', error);
+      toast({ title: "Error", description: "Failed to update restock eligibility", variant: "destructive" });
+    }
+  };
+
+  const handleSort = (field: typeof sortBy) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const getSortIcon = () => {
+    return sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />;
+  };
+
+  // Pagination
   const totalPages = Math.ceil(filteredInventory.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedInventory = filteredInventory.slice(startIndex, startIndex + itemsPerPage);
-  const handleAddItem = async () => {
-    if (!newItem.asin.trim() || !newItem.serialNumber.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "ASIN and Serial Number are required",
-        variant: "destructive"
-      });
-      return;
-    }
 
-    // Check for duplicate SKU in current inventory (if SKU is provided)
-    if (newItem.sku && newItem.sku.trim()) {
-      const duplicateSku = inventory.find(item => item.sku && item.sku.toLowerCase() === newItem.sku.toLowerCase().trim());
-      if (duplicateSku) {
-        toast({
-          title: "Duplicate SKU",
-          description: `SKU "${newItem.sku}" already exists in inventory. Each SKU must be unique.`,
-          variant: "destructive"
-        });
-        return;
-      }
-    }
-    await addItem({
-      ...newItem,
-      dateAdded: new Date().toISOString()
-    });
-    setIsAddDialogOpen(false);
-    setNewItem({
-      asin: '',
-      serialNumber: '',
-      sku: '',
-      title: '',
-      status: 'in-stock',
-      quantity: 1,
-      notes: ''
-    });
-  };
-  const handleBulkAdd = async () => {
-    if (!bulkText.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Please enter some data to import",
-        variant: "destructive"
-      });
-      return;
-    }
-    const lines = bulkText.trim().split('\n');
-    const items = [];
-    for (const line of lines) {
-      const parts = line.split('\t');
-      if (parts.length >= 1 && parts[0].trim()) { // Only ASIN is mandatory
-        const quantity = parseInt(parts[4]) || 0; // Allow 0 quantity
-        const status = quantity === 0 ? 'sold' : (parts[3]?.trim() as AsinInventoryItem['status'] || 'in-stock');
-        
-        items.push({
-          asin: parts[0].trim(), // Mandatory ASIN
-          serialNumber: parts[1]?.trim() || '', // Optional
-          sku: parts[2]?.trim() || '', // Optional
-          status: status, // Auto-set to 'sold' if quantity is 0
-          quantity: quantity,
-          notes: parts[5]?.trim() || '', // Optional
-          dateAdded: new Date().toISOString()
-        });
-      }
-    }
-    if (items.length === 0) {
-      toast({
-        title: "No Valid Data",
-        description: "No valid items found in the input",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Validate for duplicates
-    const validationErrors = [];
-    const seenSkus = new Set();
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-
-      // Check for duplicate SKU (if provided)
-      if (item.sku && item.sku.trim()) {
-        const duplicateSku = inventory.find(existing => existing.sku && existing.sku.toLowerCase() === item.sku.toLowerCase());
-        if (duplicateSku) {
-          validationErrors.push(`Row ${i + 1}: SKU "${item.sku}" already exists in inventory`);
-          continue;
-        }
-
-        // Check for duplicate SKU within bulk data
-        if (seenSkus.has(item.sku.toLowerCase())) {
-          validationErrors.push(`Row ${i + 1}: SKU "${item.sku}" appears multiple times in bulk data`);
-          continue;
-        }
-        seenSkus.add(item.sku.toLowerCase());
-      }
-    }
-    if (validationErrors.length > 0) {
-      toast({
-        title: "Validation Errors",
-        description: `Found ${validationErrors.length} duplicate(s): ${validationErrors.slice(0, 3).join(', ')}${validationErrors.length > 3 ? '...' : ''}`,
-        variant: "destructive"
-      });
-      return;
-    }
-    await bulkAdd(items);
-    setBulkText('');
-    setIsBulkDialogOpen(false);
-    toast({
-      title: "Success",
-      description: `Added ${items.length} items to inventory`
-    });
-  };
-  const exportInventory = () => {
-    const csvData = [['SKU', 'UPC', 'ASIN', 'Title', 'Warehouse', 'Warehouse name', 'Available units', 'Status'], 
-      ...filteredInventory.map(item => {
-        // Get the export mode for this item (default to 'global')
-        const exportMode = exportModes[item.id] || 'global';
-        
-        // Set quantity based on export mode:
-        // Global: use stock quantity
-        // Local: use default quantity (100)
-        const exportQuantity = exportMode === 'local' ? 100 : item.quantity;
-        
-        return [
-          item.sku || '', // SKU
-          '', // UPC (blank)
-          item.asin, // ASIN
-          item.title || '', // Title
-          selectedWarehouse?.code || '', // Warehouse
-          selectedWarehouse?.name || '', // Warehouse name
-          exportQuantity.toString(), // Available units
-          'active' // Status (active for all)
-        ];
-      })];
-    const csvContent = csvData.map(row => row.map(field => `"${field}"`).join(',')).join('\n');
-    const blob = new Blob([csvContent], {
-      type: 'text/csv;charset=utf-8;'
-    });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `asin-inventory-${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast({
-      title: "Export Complete",
-      description: "Inventory data exported to CSV file"
-    });
-  };
-  const emailInventory = async () => {
-    try {
-      const {
-        data,
-        error
-      } = await supabase.functions.invoke('send-inventory-email', {
-        body: {
-          inventory: filteredInventory,
-          userEmail: user?.email
-        }
-      });
-      if (error) throw error;
-      toast({
-        title: "Email Sent",
-        description: "Inventory report sent to your email"
-      });
-    } catch (error) {
-      toast({
-        title: "Email Failed",
-        description: "Could not send email report",
-        variant: "destructive"
-      });
-    }
-  };
-  // Enhanced updateQuantity that handles merged ASINs
-  const handleQuantityUpdate = async (mergedItem: any, newTotalQuantity: number, reason?: string) => {
-    if (!mergedItem.individualItems || mergedItem.individualItems.length === 1) {
-      // Single item, use normal update
-      await updateQuantity(mergedItem.id, newTotalQuantity, reason);
-    } else {
-      // Multiple items merged, distribute the quantity change
-      const currentTotalQuantity = mergedItem.quantity;
-      const quantityChange = newTotalQuantity - currentTotalQuantity;
-
-      // Sort individual items by quantity (descending) to handle reductions better
-      const sortedItems = [...mergedItem.individualItems].sort((a, b) => b.quantity - a.quantity);
-      let remainingChange = quantityChange;
-      for (const item of sortedItems) {
-        if (remainingChange === 0) break;
-        if (remainingChange > 0) {
-          // Adding stock - add to the first item
-          if (item === sortedItems[0]) {
-            await updateQuantity(item.id, item.quantity + remainingChange, reason);
-            remainingChange = 0;
-          }
-        } else {
-          // Reducing stock - reduce from items with stock
-          const canReduce = Math.min(item.quantity, Math.abs(remainingChange));
-          if (canReduce > 0) {
-            await updateQuantity(item.id, item.quantity - canReduce, reason);
-            remainingChange += canReduce;
-          }
-        }
-      }
-    }
-  };
-  const handleRefresh = () => {
-    refetch();
-    toast({
-      title: "Refreshed",
-      description: "Inventory data refreshed"
-    });
-  };
-  const handleFetchTitlesFromSunsky = async () => {
-    // Get items with SKU Numbers but missing titles
-    const itemsNeedingTitles = inventory.filter(item => item.sku && item.sku.trim() && !item.title);
-    if (itemsNeedingTitles.length === 0) {
-      toast({
-        title: "No Items to Update",
-        description: "All items either have titles or are missing SKU numbers"
-      });
-      return;
-    }
-
-    // Start background task for title fetching
-    await runTitleFetch(itemsNeedingTitles, async titleUpdates => {
-      // The background task will handle the API calls
-      // When updates are ready, save them to the database
-      if (titleUpdates.length > 0) {
-        await bulkUpdateTitles(titleUpdates);
-      }
-    });
+  const updateBin = async (id: string, binLocation: string) => {
+    // Implementation for updating bin location
+    console.log('Updating bin location for item:', id, 'to:', binLocation);
   };
 
-  // Initialize QZ Tray and templates
-  useEffect(() => {
-    initializeQZ();
-    loadTemplates();
-  }, []);
-
-  const initializeQZ = async () => {
-    try {
-      const connected = await qzConnectionManager.connect();
-      if (connected) {
-        setQzConnected(true);
-        const printers = await qzConnectionManager.getPrinters();
-        setAvailablePrinters(printers);
-        
-        // Set default printer
-        const savedDefaultPrinter = localStorage.getItem('qz-default-printer');
-        const defaultPrinter = savedDefaultPrinter || (await qzConnectionManager.getDefaultPrinter());
-        if (defaultPrinter) {
-          setSelectedPrinter(defaultPrinter);
-        } else if (printers.length > 0) {
-          setSelectedPrinter(printers[0]);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to connect to QZ Tray:', error);
-    }
-  };
-
-  // Handler to save template selection automatically
-  const handleTemplateSelection = (templateId: string) => {
-    setSelectedTemplate(templateId);
-    localStorage.setItem('savedLabelTemplate', templateId);
-  };
-
-  const loadTemplates = async () => {
-    try {
-      const { data: templates, error } = await supabase
-        .from('label_templates')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setAvailableTemplates(templates || []);
-
-      // Load saved template
-      const savedTemplate = localStorage.getItem('savedLabelTemplate');
-      if (savedTemplate && templates?.some(t => t.id === savedTemplate)) {
-        setSelectedTemplate(savedTemplate);
-      }
-    } catch (error) {
-      console.error('Error loading templates:', error);
-    }
-  };
-
-  // Create dataset from inventory items
-  const createDatasetFromItems = (items: AsinInventoryItem[]): LabelDataset => {
-    return {
-      id: 'inventory-data',
-      name: 'Inventory Data',
-      description: 'ASIN Inventory Items',
-      headers: ['ASIN', 'SKU', 'Title', 'Serial', 'Quantity', 'Status'],
-      data: items.map(item => [
-        item.asin,
-        item.sku || 'No SKU',
-        item.title || `Product ${item.asin}`,
-        item.serialNumber || '',
-        item.quantity.toString(),
-        item.status
-      ]),
-      rowCount: items.length,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-  };
-
-  // Print single item
-  const handlePrintItem = async (item: AsinInventoryItem) => {
-    if (!qzConnected) {
-      toast({
-        title: "QZ Tray Not Connected",
-        description: "Please connect QZ Tray from the status indicator in the header first",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!selectedTemplate) {
-      toast({
-        title: "No Template Selected",
-        description: "Please select a label template first",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      // Get template data
-      const { data: template, error } = await supabase
-        .from('label_templates')
-        .select('*')
-        .eq('id', selectedTemplate)
-        .single();
-
-      if (error) throw error;
-
-      // Create LabelDoc from template
-      const labelDoc: LabelDoc = {
-        id: template.id,
-        name: template.name,
-        size: {
-          width: template.width || 100,
-          height: template.height || 60,
-          unit: 'mm'
-        },
-        elements: (template.canvas_data as any)?.elements || [],
-        createdAt: template.created_at,
-        updatedAt: template.updated_at
-      };
-
-      // Create dataset with single item
-      const dataset = createDatasetFromItems([item]);
-
-      // Validate template elements have data mappings (case-insensitive)
-      const unmappedElements = labelDoc.elements.filter(el => 
-        (el.type === 'text' || el.type === 'multitext' || el.type === 'barcode' || el.type === 'qr') && 
-        (!el.dataColumn || !dataset.headers.some(h => h.toLowerCase() === el.dataColumn?.toLowerCase()))
-      );
-
-      if (unmappedElements.length > 0) {
-        console.warn('Template elements without data mapping:', unmappedElements);
-        toast({
-          title: "Template Info",
-          description: `${unmappedElements.length} element(s) will show sample text. To fix: Edit template and map elements to: ${dataset.headers.join(', ')}`,
-        });
-      }
-
-      console.log('Printing with data:', {
-        headers: dataset.headers,
-        dataRow: dataset.data[0],
-        elements: labelDoc.elements.map(el => ({ type: el.type, dataColumn: el.dataColumn, text: el.text }))
-      });
-
-      // Generate ZPL using PrintService
-      const zplCode = PrintService.generateZPL(labelDoc, dataset, getPrintSettings());
-
-      // Print using QZ Tray
-      await qzConnectionManager.print(zplCode, selectedPrinter);
-
-      toast({
-        title: "Label Printed",
-        description: `Printed label for ${item.asin}`,
-      });
-    } catch (error) {
-      console.error('Error printing item:', error);
-      toast({
-        title: "Print Failed",
-        description: "Could not print label. Please check template and QZ Tray connection.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  // Print selected items
-  const handleBulkPrint = async () => {
-    if (!qzConnected) {
-      toast({
-        title: "QZ Tray Not Connected",
-        description: "Please connect QZ Tray from the status indicator in the header first",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!selectedTemplate) {
-      toast({
-        title: "No Template Selected",
-        description: "Please select a label template first",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (selectedItems.size === 0) {
-      toast({
-        title: "No Items Selected",
-        description: "Please select items to print",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      // Get selected items
-      const selectedInventoryItems = inventory.filter(item => selectedItems.has(item.id));
-
-      // Get template data
-      const { data: template, error } = await supabase
-        .from('label_templates')
-        .select('*')
-        .eq('id', selectedTemplate)
-        .single();
-
-      if (error) throw error;
-
-      // Create LabelDoc from template
-      const labelDoc: LabelDoc = {
-        id: template.id,
-        name: template.name,
-        size: {
-          width: template.width || 100,
-          height: template.height || 60,
-          unit: 'mm'
-        },
-        elements: (template.canvas_data as any)?.elements || [],
-        createdAt: template.created_at,
-        updatedAt: template.updated_at
-      };
-
-      // Create dataset with selected items
-      const dataset = createDatasetFromItems(selectedInventoryItems);
-
-      // Generate ZPL using PrintService
-      const zplCode = PrintService.generateZPL(labelDoc, dataset, getPrintSettings());
-
-      // Print using QZ Tray
-      await qzConnectionManager.print(zplCode, selectedPrinter);
-
-      toast({
-        title: "Labels Printed",
-        description: `Printed ${selectedInventoryItems.length} labels`,
-      });
-
-      // Clear selection
-      setSelectedItems(new Set());
-    } catch (error) {
-      console.error('Error bulk printing:', error);
-      toast({
-        title: "Print Failed",
-        description: "Could not print labels. Please check template and QZ Tray connection.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  
-  // Handle restock eligibility change
-  const handleRestockEligibilityChange = async (itemId: string, eligible: boolean) => {
-    await updateRestockEligibility(itemId, eligible);
-  };
-
-  const handleBulkRestockEligibilityUpdate = async () => {
-    if (selectedItems.size === 0) {
-      toast({
-        title: "No Items Selected",
-        description: "Please select items to update",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      setIsProcessingRestockEligibility(true);
-      setRestockEligibilityProgress(0);
-      
-      const selectedItemsList = Array.from(selectedItems).map(id => 
-        inventory.find(item => item.id === id)
-      ).filter(Boolean) as AsinInventoryItem[];
-
-      const totalItems = selectedItemsList.length;
-
-      for (let i = 0; i < selectedItemsList.length; i++) {
-        const item = selectedItemsList[i];
-        await updateRestockEligibility(item.id, bulkRestockEligibilityValue);
-        
-        // Update progress
-        const progress = Math.round(((i + 1) / totalItems) * 100);
-        setRestockEligibilityProgress(progress);
-        
-        // Small delay to show progress visually
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-
-      toast({
-        title: "Bulk Update Complete",
-        description: `Updated restock eligibility for ${selectedItems.size} items`,
-      });
-
-      setSelectedItems(new Set());
-      setIsBulkRestockEligibilityDialogOpen(false);
-    } catch (error: any) {
-      toast({
-        title: "Update Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessingRestockEligibility(false);
-      setRestockEligibilityProgress(0);
-    }
+  // Simplified print functions for now
+  const handlePrintItem = (items: AsinInventoryItem[]) => {
+    console.log('Print items:', items);
+    toast({ title: "Info", description: "Print functionality not yet implemented" });
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-[400px]">
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
         <div className="flex flex-col items-center gap-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
           <p className="text-muted-foreground animate-pulse">Loading your inventory...</p>
         </div>
-      </div>;
+      </div>
+    );
   }
 
   return (
@@ -979,160 +438,118 @@ export function AsinInventory() {
       {/* Header with Stats */}
       <div className="space-y-6">
         <InventoryMetrics showOnlyAsin={true} />
-        
       </div>
 
-      {/* Prominent Search Bar */}
-      <Card className="border-2 border-input border-l-4 border-l-primary shadow-xl bg-gradient-to-r from-card/80 to-card/60 backdrop-blur-md">
+      {/* Enhanced Search Bar */}
+      <Card>
         <CardContent className="p-6">
           <div className="space-y-4">
-            {/* Modern Search Bar */}
-            <div className="relative">
-              <div className="flex items-stretch gap-0 bg-background rounded-xl border-2 border-green-500 shadow-lg overflow-hidden hover:shadow-xl hover:border-green-600 transition-all duration-300">
-                <Select value={searchMethod} onValueChange={(value: 'all' | 'asin' | 'sku' | 'serial' | 'title' | 'notes') => setSearchMethod(value)}>
-                  <SelectTrigger className="w-52 h-14 border-0 border-r border-border bg-muted/30 hover:bg-muted/50 transition-colors rounded-none focus:ring-0 focus:ring-offset-0">
-                    <div className="flex items-center gap-2 text-sm font-medium whitespace-nowrap">
-                      <Filter className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                      <SelectValue />
-                    </div>
+            <div className="relative group">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5 transition-colors group-hover:text-primary" />
+              <Input
+                placeholder={
+                  searchMethod === 'all' ? "Search by ASIN, Serial, SKU, Title, or Notes..." :
+                  searchMethod === 'asin' ? "Search by ASIN..." :
+                  searchMethod === 'sku' ? "Search by SKU..." :
+                  searchMethod === 'serial' ? "Search by Serial Number..." :
+                  searchMethod === 'title' ? "Search by Title..." :
+                  "Search by Bin Location..."
+                }
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-12 pr-32 h-14 text-lg font-medium border-2 border-primary/20 focus:border-primary/60 bg-gradient-to-r from-background to-background/80 shadow-lg rounded-lg transition-all duration-300 hover:shadow-xl focus:shadow-xl hover:bg-gradient-to-r hover:from-primary/5 hover:to-accent/5"
+              />
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
+                <Select value={searchMethod} onValueChange={(value: any) => setSearchMethod(value)}>
+                  <SelectTrigger className="w-28 h-9 text-xs bg-background/80 border border-primary/20 hover:border-primary/40 transition-colors">
+                    <SelectValue />
                   </SelectTrigger>
-                   <SelectContent className="bg-background border shadow-xl min-w-[208px]">
-                     <SelectItem value="all">
-                       <div className="flex items-center gap-2 whitespace-nowrap">
-                         <Search className="w-4 h-4 flex-shrink-0" />
-                         <span>All Fields</span>
-                       </div>
-                     </SelectItem>
-                     <SelectItem value="asin">
-                       <div className="flex items-center gap-2 whitespace-nowrap">
-                         <Package className="w-4 h-4 flex-shrink-0" />
-                         <span>ASIN</span>
-                       </div>
-                     </SelectItem>
-                     <SelectItem value="sku">
-                       <div className="flex items-center gap-2 whitespace-nowrap">
-                         <Hash className="w-4 h-4 flex-shrink-0" />
-                         <span>SKU</span>
-                       </div>
-                     </SelectItem>
-                     <SelectItem value="serial">
-                       <div className="flex items-center gap-2 whitespace-nowrap">
-                         <Hash className="w-4 h-4 flex-shrink-0" />
-                         <span>Serial Number</span>
-                       </div>
-                     </SelectItem>
-                     <SelectItem value="title">
-                       <div className="flex items-center gap-2 whitespace-nowrap">
-                         <FileText className="w-4 h-4 flex-shrink-0" />
-                         <span>Title</span>
-                       </div>
-                     </SelectItem>
-                     <SelectItem value="notes">
-                       <div className="flex items-center gap-2 whitespace-nowrap">
-                         <Edit3 className="w-4 h-4 flex-shrink-0" />
-                         <span>Notes</span>
-                       </div>
-                     </SelectItem>
-                   </SelectContent>
+                  <SelectContent className="bg-background/95 backdrop-blur-sm border-primary/20">
+                    <SelectItem value="all">All Fields</SelectItem>
+                    <SelectItem value="asin">ASIN</SelectItem>
+                    <SelectItem value="sku">SKU</SelectItem>
+                    <SelectItem value="serial">Serial</SelectItem>
+                    <SelectItem value="title">Title</SelectItem>
+                    <SelectItem value="notes">Bin</SelectItem>
+                  </SelectContent>
                 </Select>
-                <div className="relative flex-1">
-                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5 z-10" />
-                  <Input placeholder={searchMethod === 'all' ? "Search across all fields..." : searchMethod === 'asin' ? "Search by ASIN..." : searchMethod === 'sku' ? "Search by SKU..." : searchMethod === 'serial' ? "Search by Serial Number..." : searchMethod === 'title' ? "Search by Title..." : "Search by Notes..."} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-12 pr-4 h-14 text-base border-0 bg-transparent focus:ring-0 focus:ring-offset-0 rounded-none placeholder:text-muted-foreground/60" />
-                </div>
-                {searchTerm && <button onClick={() => setSearchTerm('')} className="px-3 text-muted-foreground hover:text-foreground transition-colors">
-                    <X className="w-4 h-4" />
-                  </button>}
+                {searchTerm && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSearchTerm('')}
+                    className="h-9 w-9 p-0 hover:bg-destructive/10 hover:text-destructive transition-all duration-200 rounded-full"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             </div>
 
-            {/* Features Toggle */}
+            {/* Action Buttons */}
             <Collapsible open={isFeaturesOpen} onOpenChange={setIsFeaturesOpen}>
-              <CollapsibleTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="w-full mt-4 bg-gradient-to-r from-background to-muted/50 border border-border/60 hover:border-primary/60 hover:bg-gradient-to-r hover:from-primary/10 hover:to-primary/5 hover:shadow-md transition-all duration-300 rounded-lg"
-                >
-                  {isFeaturesOpen ? (
-                    <>
-                      <ChevronUp className="w-4 h-4 mr-2" />
-                      Hide Features
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown className="w-4 h-4 mr-2" />
-                      Show Features
-                    </>
-                  )}
-                </Button>
-              </CollapsibleTrigger>
-
-              <CollapsibleContent className="mt-6">
-                {/* Action Buttons Row - Organized by Usage */}
-                <div className="space-y-6">
-              {/* Primary Actions Section */}
-              <div className="space-y-4">
-                 <div className="flex flex-wrap gap-3">
-                   {/* Test Print Button for Debugging */}
-                   
-
-                   {/* Add New Item */}
+              <div className="flex flex-wrap gap-2">
+                <CollapsibleTrigger asChild>
+                  <Button variant="outline" size="sm" className="border-2 border-primary bg-background hover:bg-primary hover:text-white transition-all">
+                    <Settings className="w-4 h-4 mr-2" />
+                    Advanced Features
+                    {isFeaturesOpen ? <ChevronUp className="w-4 h-4 ml-2" /> : <ChevronDown className="w-4 h-4 ml-2" />}
+                  </Button>
+                </CollapsibleTrigger>
+              </div>
+              <CollapsibleContent className="space-y-4 mt-4">
+                <div className="flex flex-wrap gap-2">
                   <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                     <DialogTrigger asChild>
-                      <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all">
+                      <Button size="sm" className="border-2 border-primary bg-background text-primary hover:bg-primary hover:text-white transition-all">
                         <Plus className="w-4 h-4 mr-2" />
-                        Add New Item
+                        Add Item
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-md">
+                    <DialogContent className="max-w-2xl">
                       <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                          <Plus className="w-5 h-5" />
-                          Add New ASIN Item
-                        </DialogTitle>
+                        <DialogTitle>Add New Inventory Item</DialogTitle>
                       </DialogHeader>
-                      <div className="space-y-4">
-                        <div>
-                          <Label htmlFor="asin">ASIN</Label>
-                          <Input id="asin" value={newItem.asin} onChange={e => setNewItem({
-                          ...newItem,
-                          asin: e.target.value
-                        })} placeholder="Enter ASIN..." />
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="asin">ASIN *</Label>
+                          <Input
+                            id="asin"
+                            value={newItem.asin}
+                            onChange={(e) => setNewItem({ ...newItem, asin: e.target.value })}
+                            placeholder="B123456789"
+                          />
                         </div>
-                        <div>
+                        <div className="space-y-2">
                           <Label htmlFor="serialNumber">Serial Number</Label>
-                          <Input id="serialNumber" value={newItem.serialNumber} onChange={e => setNewItem({
-                          ...newItem,
-                          serialNumber: e.target.value
-                        })} placeholder="Enter Serial Number..." />
+                          <Input
+                            id="serialNumber"
+                            value={newItem.serialNumber}
+                            onChange={(e) => setNewItem({ ...newItem, serialNumber: e.target.value })}
+                            placeholder="Optional"
+                          />
                         </div>
-                         <div>
-                           <Label htmlFor="sku">SKU (Optional)</Label>
-                           <Input id="sku" value={newItem.sku} onChange={e => setNewItem({
-                          ...newItem,
-                          sku: e.target.value
-                        })} placeholder="Enter SKU (optional)" />
-                         </div>
-                         <div>
-                           <Label htmlFor="title">Title (Optional)</Label>
-                           <Input id="title" value={newItem.title} onChange={e => setNewItem({
-                          ...newItem,
-                          title: e.target.value
-                        })} placeholder="Enter title (optional)" />
-                         </div>
-                         <div>
-                           <Label htmlFor="quantity">Quantity</Label>
-                           <Input id="quantity" type="number" min="1" value={newItem.quantity} onChange={e => setNewItem({
-                          ...newItem,
-                          quantity: parseInt(e.target.value) || 1
-                        })} />
-                         </div>
-                        <div>
+                        <div className="space-y-2">
+                          <Label htmlFor="sku">SKU</Label>
+                          <Input
+                            id="sku"
+                            value={newItem.sku}
+                            onChange={(e) => setNewItem({ ...newItem, sku: e.target.value })}
+                            placeholder="Your SKU"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="title">Title</Label>
+                          <Input
+                            id="title"
+                            value={newItem.title}
+                            onChange={(e) => setNewItem({ ...newItem, title: e.target.value })}
+                            placeholder="Product title"
+                          />
+                        </div>
+                        <div className="space-y-2">
                           <Label htmlFor="status">Status</Label>
-                          <Select value={newItem.status} onValueChange={(value: AsinInventoryItem['status']) => setNewItem({
-                          ...newItem,
-                          status: value
-                        })}>
+                          <Select value={newItem.status} onValueChange={(value: AsinInventoryItem['status']) => setNewItem({ ...newItem, status: value })}>
                             <SelectTrigger>
                               <SelectValue />
                             </SelectTrigger>
@@ -1144,12 +561,25 @@ export function AsinInventory() {
                             </SelectContent>
                           </Select>
                         </div>
-                        <div>
-                          <Label htmlFor="notes">Notes (Optional)</Label>
-                          <Textarea id="notes" value={newItem.notes} onChange={e => setNewItem({
-                          ...newItem,
-                          notes: e.target.value
-                        })} placeholder="Add any notes..." rows={2} />
+                        <div className="space-y-2">
+                          <Label htmlFor="quantity">Quantity</Label>
+                          <Input
+                            id="quantity"
+                            type="number"
+                            value={newItem.quantity}
+                            onChange={(e) => setNewItem({ ...newItem, quantity: parseInt(e.target.value) || 0 })}
+                            min="0"
+                          />
+                        </div>
+                        <div className="col-span-2 space-y-2">
+                          <Label htmlFor="notes">Notes</Label>
+                          <Textarea
+                            id="notes"
+                            value={newItem.notes}
+                            onChange={(e) => setNewItem({ ...newItem, notes: e.target.value })}
+                            placeholder="Add any notes..."
+                            rows={2}
+                          />
                         </div>
                       </div>
                       <DialogFooter>
@@ -1161,7 +591,6 @@ export function AsinInventory() {
                     </DialogContent>
                   </Dialog>
 
-                  {/* Bulk Add Items */}
                   <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
                     <DialogTrigger asChild>
                       <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all">
@@ -1174,19 +603,26 @@ export function AsinInventory() {
                         <DialogTitle>Bulk Add ASIN Items</DialogTitle>
                       </DialogHeader>
                       <div className="space-y-4">
-                          <div>
-                            <Label htmlFor="bulkText">
-                              Paste tab-separated data (Only ASIN is required, other fields are optional)
-                            </Label>
-                            <Textarea id="bulkText" value={bulkText} onChange={e => setBulkText(e.target.value)} placeholder="B123456789	SN001	SKU123	in-stock	5	Optional notes&#10;B987654321		SKU456		0	Zero qty item (auto-sold)&#10;B555555555			in-stock	3	Only ASIN and quantity" rows={8} className="font-mono text-sm" />
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            <p><strong>Format:</strong> Each line should contain tab-separated values</p>
-                            <p><strong>Required:</strong> ASIN (first field only)</p>
-                            <p><strong>Optional:</strong> Serial Number → SKU → Status → Quantity → Notes</p>
-                            <p><strong>Note:</strong> Items with 0 quantity are automatically marked as 'sold'</p>
-                            <p><strong>Status options:</strong> in-stock, sold, reserved, damaged</p>
-                          </div>
+                        <div>
+                          <Label htmlFor="bulkText">
+                            Paste tab-separated data (Only ASIN is required, other fields are optional)
+                          </Label>
+                          <Textarea
+                            id="bulkText"
+                            value={bulkText}
+                            onChange={e => setBulkText(e.target.value)}
+                            placeholder="B123456789	SN001	SKU123	in-stock	5	Optional notes&#10;B987654321		SKU456		0	Zero qty item (auto-sold)&#10;B555555555			in-stock	3	Only ASIN and quantity"
+                            rows={8}
+                            className="font-mono text-sm"
+                          />
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          <p><strong>Format:</strong> Each line should contain tab-separated values</p>
+                          <p><strong>Required:</strong> ASIN (first field only)</p>
+                          <p><strong>Optional:</strong> Serial Number → SKU → Status → Quantity → Notes</p>
+                          <p><strong>Note:</strong> Items with 0 quantity are automatically marked as 'sold'</p>
+                          <p><strong>Status options:</strong> in-stock, sold, reserved, damaged</p>
+                        </div>
                       </div>
                       <DialogFooter>
                         <Button variant="outline" onClick={() => setIsBulkDialogOpen(false)}>
@@ -1197,205 +633,171 @@ export function AsinInventory() {
                     </DialogContent>
                   </Dialog>
 
-                  {/* Bulk SKU Update */}
                   <BulkSkuUpload inventory={inventory} onSkuUpdate={bulkUpdateSkus} />
-
-                  {/* Bulk Title Update */}
                   <BulkTitleUpload inventory={inventory} onTitleUpdate={bulkUpdateTitles} />
-                </div>
-              </div>
-
-              {/* Settings Section */}
-              <div className="space-y-4">
-                <Label className="text-base font-semibold flex items-center gap-2">
-                  <Settings className="w-5 h-5" />
-                  Settings:
-                </Label>
-                <div className="flex flex-wrap gap-3">
-                  {/* Fetch Titles from Source */}
-                  <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all" onClick={handleFetchTitlesFromSunsky}>
-                    <Database className="w-4 h-4 mr-2" />
-                    Fetch Titles from Source
-                  </Button>
-
-                  {/* Warehouse Settings */}
                   <SimpleWarehouseManager />
-
-                  {/* Print Settings */}
-                  <div className="flex items-center gap-4 flex-wrap">
-                    <Select value={selectedTemplate || ''} onValueChange={handleTemplateSelection}>
-                      <SelectTrigger className="w-48">
-                        <SelectValue placeholder="Select template" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableTemplates.map((template) => (
-                          <SelectItem key={template.id} value={template.id}>
-                            {template.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    
-                    {/* Darkness Control */}
-                    <div className="flex items-center gap-2">
-                      <label className="text-sm font-medium text-muted-foreground">Darkness:</label>
-                      <Slider
-                        value={[printSettings.darkness]}
-                        onValueChange={(value) => setPrintSettings({...printSettings, darkness: value[0]})}
-                        max={30}
-                        min={0}
-                        step={1}
-                        className="w-20"
-                      />
-                      <span className="text-sm text-muted-foreground w-6">{printSettings.darkness}</span>
-                    </div>
-                    
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      onClick={handleBulkPrint}
-                      disabled={!qzConnected || !selectedTemplate || selectedItems.size === 0}
-                      className="border-2 border-primary bg-background hover:bg-blue-500 hover:text-white hover:border-blue-500 transition-all"
-                    >
-                      <Printer className="h-4 w-4 mr-2" />
-                      Print Selected ({selectedItems.size})
-                    </Button>
-
-                    {/* Bulk Restock Eligibility */}
-                    {selectedItems.size > 0 && (
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        onClick={() => setIsBulkRestockEligibilityDialogOpen(true)}
-                        className="border-2 border-accent bg-background hover:bg-accent hover:text-accent-foreground transition-all"
-                      >
-                        <Archive className="h-4 w-4 mr-2" />
-                        Bulk Restock ({selectedItems.size})
-                      </Button>
-                    )}
-                  </div>
-
-                  {/* Export */}
-                  <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all" onClick={exportInventory}>
-                    <Download className="w-4 h-4 mr-2" />
-                    Export
-                  </Button>
-
-                  {/* Email Export */}
-                  <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all" onClick={emailInventory}>
-                    <Mail className="w-4 h-4 mr-2" />
-                    Email Export
-                  </Button>
-
-                  {/* Refresh Images */}
-                  <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all" onClick={refreshImages}>
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Refresh Images
-                  </Button>
-
-                  {/* Refresh */}
-                  <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all" onClick={handleRefresh}>
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Refresh
-                  </Button>
-                </div>
-              </div>
                 </div>
               </CollapsibleContent>
             </Collapsible>
 
-            {/* Quick Filters Row */}
-            
+            {/* Enhanced Quick Filters */}
+            <div className="flex flex-wrap gap-3 p-4 bg-gradient-to-r from-muted/50 to-muted/30 rounded-lg border border-primary/10">
+              <div className="flex items-center text-sm font-semibold text-muted-foreground mr-2">
+                <Filter className="h-4 w-4 mr-2" />
+                Quick Filters:
+              </div>
+              <Button
+                variant={quickFilter === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setQuickFilter('all')}
+                className="text-xs font-medium transition-all duration-200 hover:scale-105"
+              >
+                <div className="w-2 h-2 rounded-full bg-blue-500 mr-2"></div>
+                All ({filteredInventory.length})
+              </Button>
+              <Button
+                variant={quickFilter === 'low-stock' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setQuickFilter('low-stock')}
+                className="text-xs font-medium transition-all duration-200 hover:scale-105"
+              >
+                <div className="w-2 h-2 rounded-full bg-orange-500 mr-2"></div>
+                <TrendingDown className="h-3 w-3 mr-1" />
+                Low Stock ({filteredInventory.filter(item => item.quantity > 0 && item.quantity <= 5).length})
+              </Button>
+              <Button
+                variant={quickFilter === 'out-of-stock' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setQuickFilter('out-of-stock')}
+                className="text-xs font-medium transition-all duration-200 hover:scale-105"
+              >
+                <div className="w-2 h-2 rounded-full bg-red-500 mr-2"></div>
+                <AlertTriangle className="h-3 w-3 mr-1" />
+                Out of Stock ({filteredInventory.filter(item => item.quantity === 0).length})
+              </Button>
+              <Button
+                variant={quickFilter === 'recent' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setQuickFilter('recent')}
+                className="text-xs font-medium transition-all duration-200 hover:scale-105"
+              >
+                <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
+                <Clock className="h-3 w-3 mr-1" />
+                Recent ({filteredInventory.filter(item => {
+                  const sevenDaysAgo = new Date();
+                  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+                  return new Date(item.dateAdded) >= sevenDaysAgo;
+                }).length})
+              </Button>
+            </div>
 
-            {/* Date Filter Section - Only show when out-of-stock filter is active */}
-            {quickFilter === 'out-of-stock' && <div className="flex flex-wrap items-center gap-4 p-4 bg-muted/30 rounded-lg border">
-                <Label className="text-base font-semibold flex items-center gap-2">
-                  <CalendarIcon className="w-5 h-5" />
-                  Date Filter:
-                </Label>
-                <div className="flex flex-wrap items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Label className="text-sm font-medium whitespace-nowrap">From:</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className={cn("w-[160px] justify-start text-left font-normal", !dateFilterFrom && "text-muted-foreground")}>
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {dateFilterFrom ? format(dateFilterFrom, "PPP") : <span>Pick a date</span>}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar mode="single" selected={dateFilterFrom} onSelect={setDateFilterFrom} initialFocus className="p-3 pointer-events-auto" />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <Label className="text-sm font-medium whitespace-nowrap">To:</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className={cn("w-[160px] justify-start text-left font-normal", !dateFilterTo && "text-muted-foreground")}>
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {dateFilterTo ? format(dateFilterTo, "PPP") : <span>Pick a date</span>}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar mode="single" selected={dateFilterTo} onSelect={setDateFilterTo} initialFocus className="p-3 pointer-events-auto" />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  
-                  <Button variant="outline" size="sm" onClick={() => {
-                setDateFilterFrom(undefined);
-                setDateFilterTo(undefined);
-              }} className="text-muted-foreground hover:text-foreground">
-                    <X className="w-4 h-4 mr-2" />
-                    Clear Dates
-                  </Button>
+            {/* Date Filter for Out of Stock */}
+            {quickFilter === 'out-of-stock' && (
+              <div className="flex flex-wrap gap-4 p-4 bg-muted/30 rounded-lg border">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-medium whitespace-nowrap">Date Added:</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-9 px-3 text-xs">
+                        <CalendarIcon className="w-4 h-4 mr-2" />
+                        {dateFilterFrom ? format(dateFilterFrom, 'MMM dd, yyyy') : 'From date'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={dateFilterFrom}
+                        onSelect={setDateFilterFrom}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <span className="text-muted-foreground">to</span>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-9 px-3 text-xs">
+                        <CalendarIcon className="w-4 h-4 mr-2" />
+                        {dateFilterTo ? format(dateFilterTo, 'MMM dd, yyyy') : 'To date'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={dateFilterTo}
+                        onSelect={setDateFilterTo}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  {(dateFilterFrom || dateFilterTo) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setDateFilterFrom(undefined);
+                        setDateFilterTo(undefined);
+                      }}
+                      className="h-9 px-2 text-xs hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      Clear
+                    </Button>
+                  )}
                 </div>
-              </div>}
+              </div>
+            )}
 
-            {/* Controls Row */}
-            <div className="flex flex-wrap items-center gap-6">
-              {/* Status Filter */}
+            {/* Filters and Controls */}
+            <div className="flex flex-wrap gap-4 items-center">
               <div className="flex items-center gap-3">
                 <Label className="text-sm font-medium whitespace-nowrap">Status:</Label>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-40 bg-background border">
-                    <SelectValue placeholder="Filter by status" />
+                  <SelectTrigger className="w-40 h-9 text-xs">
+                    <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-background border">
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="in-stock">In Stock Only</SelectItem>
-                    <SelectItem value="sold">Sold Only</SelectItem>
-                    <SelectItem value="reserved">Reserved Only</SelectItem>
-                    <SelectItem value="damaged">Damaged Only</SelectItem>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="in-stock">In Stock</SelectItem>
+                    <SelectItem value="sold">Sold</SelectItem>
+                    <SelectItem value="reserved">Reserved</SelectItem>
+                    <SelectItem value="damaged">Damaged</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* View Mode */}
               <div className="flex items-center gap-3">
                 <Label className="text-sm font-medium whitespace-nowrap">View:</Label>
-                <div className="flex border rounded-lg p-1 bg-background">
-                  <Button variant={viewMode === 'table' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('table')} className="h-8">
+                <div className="flex border rounded-lg p-1 bg-muted/30">
+                  <Button
+                    variant={viewMode === 'table' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('table')}
+                    className="h-8 px-3 text-xs"
+                  >
                     <List className="w-4 h-4 mr-1" />
                     Table
                   </Button>
-                  <Button variant={viewMode === 'grid' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('grid')} className="h-8">
+                  <Button
+                    variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('grid')}
+                    className="h-8 px-3 text-xs"
+                  >
                     <Grid3X3 className="w-4 h-4 mr-1" />
                     Grid
                   </Button>
                 </div>
               </div>
 
-              {/* Items per page */}
               <div className="flex items-center gap-3">
-                <Label className="text-sm font-medium whitespace-nowrap">Show:</Label>
-                <Select value={itemsPerPage.toString()} onValueChange={value => setItemsPerPage(Number(value))}>
-                  <SelectTrigger className="w-20 bg-background border">
+                <Label className="text-sm font-medium whitespace-nowrap">Per page:</Label>
+                <Select value={itemsPerPage.toString()} onValueChange={(value) => {
+                  setItemsPerPage(parseInt(value));
+                  setCurrentPage(1);
+                }}>
+                  <SelectTrigger className="w-20 h-9 text-xs">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-background border">
+                  <SelectContent>
                     <SelectItem value="25">25</SelectItem>
                     <SelectItem value="50">50</SelectItem>
                     <SelectItem value="100">100</SelectItem>
@@ -1404,7 +806,6 @@ export function AsinInventory() {
                 </Select>
               </div>
 
-              {/* Results Info */}
               <div className="flex items-center gap-3">
                 <Label className="text-sm font-medium whitespace-nowrap">Results:</Label>
                 <div className="text-sm text-muted-foreground bg-muted/30 rounded-md px-3 py-2">
@@ -1436,35 +837,84 @@ export function AsinInventory() {
       ) : viewMode === 'table' ? (
         <Card>
           <CardContent className="p-0">
-            <div className="overflow-x-auto border rounded-lg">
+            <div className="overflow-x-auto border-2 border-primary/10 rounded-lg shadow-lg bg-gradient-to-r from-background to-background/95">
               <table className="w-full border-collapse">
-                <thead className="bg-muted/50">
+                <thead className="bg-gradient-to-r from-primary/10 to-accent/10 border-b-2 border-primary/20">
                   <tr>
-                    <th className="w-12 p-3 text-left border-r">
-                      <Checkbox 
-                        checked={selectedItems.size === paginatedInventory.length && paginatedInventory.length > 0} 
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setSelectedItems(new Set(paginatedInventory.map(item => item.id)));
-                          } else {
-                            setSelectedItems(new Set());
-                          }
-                        }}
-                      />
+                    <th className="w-12 p-4 text-left border-r-2 border-primary/10">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-primary"></div>
+                        <Checkbox 
+                          checked={selectedItems.size === paginatedInventory.length && paginatedInventory.length > 0} 
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedItems(new Set(paginatedInventory.map(item => item.id)));
+                            } else {
+                              setSelectedItems(new Set());
+                            }
+                          }}
+                          className="border-2 border-primary/30"
+                        />
+                      </div>
                     </th>
-                    <th className="min-w-80 p-3 text-left font-medium border-r">Product Info</th>
-                    <th className="w-28 p-3 text-left font-medium border-r">Serial Number</th>
-                    <th className="w-20 p-3 text-left font-medium border-r">Status</th>
-                    <th className="w-16 p-3 text-left font-medium border-r">Qty</th>
-                    <th className="w-32 p-3 text-left font-medium border-r">Restock Eligibility</th>
-                    <th className="w-24 p-3 text-left font-medium border-r">Export Mode</th>
-                    <th className="w-32 p-3 text-left font-medium">Actions</th>
+                    <th className="min-w-80 p-4 text-left font-semibold border-r-2 border-primary/10">
+                      <div className="flex items-center gap-2 font-semibold text-foreground">
+                        <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                        <Package className="h-4 w-4" />
+                        Product Info
+                      </div>
+                    </th>
+                    <th className="w-28 p-4 text-left font-semibold border-r-2 border-primary/10">
+                      <div className="flex items-center gap-2 font-semibold text-foreground">
+                        <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                        <Database className="h-4 w-4" />
+                        Serial Number
+                      </div>
+                    </th>
+                    <th className="w-20 p-4 text-left font-semibold border-r-2 border-primary/10">
+                      <div className="flex items-center gap-2 font-semibold text-foreground">
+                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                        <Activity className="h-4 w-4" />
+                        Status
+                      </div>
+                    </th>
+                    <th className="w-16 p-4 text-left font-semibold border-r-2 border-primary/10">
+                      <div className="flex items-center gap-2 font-semibold text-foreground">
+                        <div className="w-2 h-2 rounded-full bg-orange-500"></div>
+                        <BarChart3 className="h-4 w-4" />
+                        Qty
+                      </div>
+                    </th>
+                    <th className="w-32 p-4 text-left font-semibold border-r-2 border-primary/10">
+                      <div className="flex items-center gap-2 font-semibold text-foreground">
+                        <div className="w-2 h-2 rounded-full bg-teal-500"></div>
+                        <Star className="w-4 h-4" />
+                        Restock Eligibility
+                      </div>
+                    </th>
+                    <th className="w-24 p-4 text-left font-semibold border-r-2 border-primary/10">
+                      <div className="flex items-center gap-2 font-semibold text-foreground">
+                        <div className="w-2 h-2 rounded-full bg-cyan-500"></div>
+                        <Download className="w-4 w-4" />
+                        Export Mode
+                      </div>
+                    </th>
+                    <th className="w-32 p-4 text-left font-semibold">
+                      <div className="flex items-center gap-2 font-semibold text-foreground">
+                        <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                        <Settings className="w-4 h-4" />
+                        Actions
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedInventory.map((item, index) => (
-                    <tr key={item.id} className="border-b hover:bg-muted/25 transition-colors">
-                      <td className="p-3 border-r">
+                    <tr key={item.id} className={cn(
+                      "border-b-2 border-primary/5 transition-all duration-300 hover:bg-gradient-to-r hover:from-primary/10 hover:to-accent/10 hover:shadow-md",
+                      index % 2 === 0 ? "bg-background" : "bg-muted/30"
+                    )}>
+                      <td className="p-4 border-r-2 border-primary/5">
                         <Checkbox 
                           checked={selectedItems.has(item.id)} 
                           onCheckedChange={(checked) => {
@@ -1476,66 +926,130 @@ export function AsinInventory() {
                             }
                             setSelectedItems(newSelected);
                           }}
+                          className="border-2 border-primary/30 hover:border-primary/50 transition-colors"
                         />
                       </td>
-                      <td className="p-3 border-r">
+                      <td className="p-4 border-r-2 border-primary/5">
                         <div className="flex items-center gap-3">
-                          <ProductImage asin={item.asin} />
+                          <div className="transition-transform duration-200 hover:scale-105">
+                            <ProductImage asin={item.asin} />
+                          </div>
                           <div className="space-y-1">
-                            <div className="font-medium text-sm max-w-xs break-words">
+                            <div className="font-medium text-sm max-w-xs break-words bg-gradient-to-r from-blue-100 to-blue-50 dark:from-blue-900/20 dark:to-blue-800/20 px-3 py-2 rounded-md border border-blue-200 dark:border-blue-800">
                               {item.title || 'No title'}
                             </div>
-                            <div className="font-mono text-xs text-muted-foreground">
+                            <div className="font-mono text-xs text-muted-foreground bg-gradient-to-r from-green-100 to-green-50 dark:from-green-900/20 dark:to-green-800/20 px-2 py-1 rounded border border-green-200 dark:border-green-800">
                               ASIN: {item.asin}
                             </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">SKU:</span>
+                            <div className="flex items-center gap-2 bg-gradient-to-r from-yellow-100 to-yellow-50 dark:from-yellow-900/20 dark:to-yellow-800/20 px-2 py-1 rounded border border-yellow-200 dark:border-yellow-800">
+                              <span className="text-xs text-muted-foreground font-medium">SKU:</span>
                               <SkuEditor currentSku={item.sku} onUpdate={newSku => updateSku(item.id, newSku)} />
                             </div>
                           </div>
                         </div>
                       </td>
-                      <td className="p-3 font-mono text-sm border-r">
-                        <SerialNumberEditor 
-                          currentSerialNumber={item.serialNumber} 
-                          onUpdate={newSerialNumber => updateSerialNumber(item.id, newSerialNumber)} 
-                        />
-                      </td>
-                      <td className="p-3 border-r">
-                        <Badge variant={item.status === 'in-stock' ? 'default' : 'secondary'} className="text-xs">
-                          {item.status === 'in-stock' ? 'In Stock' : item.status}
-                        </Badge>
-                      </td>
-                      <td className="p-3 border-r">
-                        <DualQuantityEditor item={item} onQuantityUpdate={(id, newQuantity, reason) => handleQuantityUpdate(id, newQuantity, reason)} />
-                      </td>
-                      <td className="p-3 border-r">
-                        <Switch checked={item.eligible_for_restock} onCheckedChange={checked => handleRestockEligibilityChange(item.id, checked)} />
-                      </td>
-                      <td className="p-3 border-r">
-                        <div className="flex items-center gap-3">
-                          <Switch
-                            id={`export-mode-${item.id}`}
-                            checked={exportModes[item.id] === 'local'}
-                            onCheckedChange={(checked) => {
-                              setExportModes(prev => ({
-                                ...prev,
-                                [item.id]: checked ? 'local' : 'global'
-                              }));
-                            }}
+                      <td className="p-4 font-mono text-sm border-r-2 border-primary/5">
+                        <div className="bg-gradient-to-r from-purple-100 to-purple-50 dark:from-purple-900/20 dark:to-purple-800/20 p-3 rounded-md border border-purple-200 dark:border-purple-800">
+                          <SerialNumberEditor 
+                            currentSerialNumber={item.serialNumber} 
+                            onUpdate={newSerialNumber => updateSerialNumber(item.id, newSerialNumber)} 
                           />
-                          <Label htmlFor={`export-mode-${item.id}`} className="text-sm font-medium">
-                            {exportModes[item.id] === 'local' ? 'Local' : 'Global'}
-                          </Label>
                         </div>
                       </td>
-                      <td className="p-3">
+                      <td className="p-4 border-r-2 border-primary/5">
+                        <div className="bg-gradient-to-r from-green-100 to-green-50 dark:from-green-900/20 dark:to-green-800/20 p-3 rounded-md border border-green-200 dark:border-green-800">
+                          <Badge variant={item.status === 'in-stock' ? 'default' : 'secondary'} className="text-xs font-medium">
+                            <div className="flex items-center gap-2">
+                              <div className={cn(
+                                "w-2 h-2 rounded-full",
+                                item.status === 'in-stock' ? "bg-green-500" : "bg-blue-500"
+                              )}></div>
+                              {item.status === 'in-stock' ? 'In Stock' : item.status}
+                            </div>
+                          </Badge>
+                        </div>
+                      </td>
+                      <td className="p-4 border-r-2 border-primary/5">
+                        <div className="bg-gradient-to-r from-orange-100 to-orange-50 dark:from-orange-900/20 dark:to-orange-800/20 p-3 rounded-md border border-orange-200 dark:border-orange-800">
+                        <DualQuantityEditor 
+                          currentQuantity={item.quantity}
+                          onUpdate={(newQuantity, reason) => handleQuantityUpdate(item.id, newQuantity, reason)} 
+                        />
+                        </div>
+                      </td>
+                      <td className="p-4 border-r-2 border-primary/5">
+                        <div className="bg-gradient-to-r from-teal-100 to-teal-50 dark:from-teal-900/20 dark:to-teal-800/20 p-3 rounded-md border border-teal-200 dark:border-teal-800">
+                          <div className="flex items-center gap-3">
+                            <Switch 
+                              checked={item.eligible_for_restock} 
+                              onCheckedChange={checked => handleRestockEligibilityChange(item.id, checked)}
+                              className="border-2 border-primary/30 data-[state=checked]:border-primary hover:border-primary/60 transition-all duration-200"
+                            />
+                            <Label className="text-sm font-medium">
+                              <div className="flex items-center gap-2">
+                                <div className={cn(
+                                  "w-2 h-2 rounded-full transition-colors",
+                                  item.eligible_for_restock ? "bg-green-500" : "bg-red-500"
+                                )}></div>
+                                {item.eligible_for_restock ? 'Eligible' : 'Not Eligible'}
+                              </div>
+                            </Label>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-4 border-r-2 border-primary/5">
+                        <div className="bg-gradient-to-r from-cyan-100 to-cyan-50 dark:from-cyan-900/20 dark:to-cyan-800/20 p-3 rounded-md border border-cyan-200 dark:border-cyan-800">
+                          <div className="flex items-center gap-3">
+                            <Switch
+                              id={`export-mode-${item.id}`}
+                              checked={exportModes[item.id] === 'local'}
+                              onCheckedChange={(checked) => {
+                                setExportModes(prev => ({
+                                  ...prev,
+                                  [item.id]: checked ? 'local' : 'global'
+                                }));
+                              }}
+                              className="border-2 border-primary/30 data-[state=checked]:border-primary hover:border-primary/60 transition-all duration-200"
+                            />
+                            <Label htmlFor={`export-mode-${item.id}`} className="text-sm font-semibold">
+                              <div className="flex items-center gap-2">
+                                <div className={cn(
+                                  "w-2 h-2 rounded-full transition-colors",
+                                  exportModes[item.id] === 'local' ? "bg-green-500" : "bg-blue-500"
+                                )}></div>
+                                {exportModes[item.id] === 'local' ? 'Local' : 'Global'}
+                              </div>
+                            </Label>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-4">
                         <div className="flex gap-2">
-                          <Button size="sm" variant="outline" onClick={() => handlePrintItem([item])} disabled={!qzConnected || !selectedTemplate}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handlePrintItem([item])}
+                            disabled={!qzConnected || !selectedTemplate}
+                            title={!qzConnected ? "QZ Tray not connected" : !selectedTemplate ? "No template selected" : "Print label"}
+                            className="transition-all duration-200 hover:scale-105 hover:bg-primary/10 border-primary/30"
+                          >
                             <Printer className="h-4 w-4" />
                           </Button>
-                          <StockHistoryDialog asin={item.asin} />
-                          <Button size="sm" variant="destructive" onClick={() => { if (confirm('Delete?')) toast.success('Item deleted'); }}>
+                          
+                        <div className="transition-all duration-200 hover:scale-105">
+                          <StockHistoryDialog itemId={item.asin} />
+                        </div>
+                          
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => {
+                              if (confirm('Are you sure you want to delete this item?')) {
+                                toast({ title: "Success", description: "Item deleted" });
+                              }
+                            }}
+                            className="transition-all duration-200 hover:scale-105 hover:bg-destructive/20 border-destructive/30"
+                          >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
@@ -1548,486 +1062,166 @@ export function AsinInventory() {
           </CardContent>
         </Card>
       ) : (
-                  <tr className="border-b hover:bg-gradient-to-r hover:from-primary/15 hover:to-accent/15 transition-all duration-300">
-                     <th className="w-12 p-4 text-left border-r-2 border-primary/10">
-                       <div className="flex items-center gap-2">
-                         <div className="w-2 h-2 rounded-full bg-primary"></div>
-                         <Checkbox 
-                           checked={selectedItems.size === paginatedInventory.length && paginatedInventory.length > 0} 
-                           onCheckedChange={checked => {
-                             if (checked) {
-                               setSelectedItems(new Set(paginatedInventory.map(item => item.id)));
-                             } else {
-                               setSelectedItems(new Set());
-                             }
-                           }}
-                           className="border-2 border-primary/30"
-                         />
-                       </div>
-                     </th>
-                      <th className="min-w-80 p-4 text-left font-semibold border-r-2 border-primary/10">
-                        <button className="flex items-center gap-2 hover:text-primary transition-all duration-200 hover:bg-primary/20 rounded-md p-2" onClick={() => {
-                          if (sortBy === 'title') {
-                            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                          } else {
-                            setSortBy('title');
-                            setSortOrder('asc');
-                          }
-                        }}>
-                          <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                          <Package className="h-4 w-4" />
-                          Product Info
-                          {sortBy === 'title' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
-                        </button>
-                      </th>
-                      <th className="w-28 p-4 text-left font-semibold border-r-2 border-primary/10">
-                        <button className="flex items-center gap-2 hover:text-primary transition-all duration-200 hover:bg-primary/20 rounded-md p-2" onClick={() => {
-                          if (sortBy === 'serialNumber') {
-                            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                          } else {
-                            setSortBy('serialNumber');
-                            setSortOrder('asc');
-                          }
-                        }}>
-                          <div className="w-2 h-2 rounded-full bg-purple-500"></div>
-                          <Database className="h-4 w-4" />
-                          Serial Number
-                          {sortBy === 'serialNumber' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
-                        </button>
-                      </th>
-                      <th className="w-20 p-4 text-left font-semibold border-r-2 border-primary/10">
-                        <button className="flex items-center gap-2 hover:text-primary transition-all duration-200 hover:bg-primary/20 rounded-md p-2" onClick={() => {
-                          if (sortBy === 'status') {
-                            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                          } else {
-                            setSortBy('status');
-                            setSortOrder('asc');
-                          }
-                        }}>
-                          <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                          <Activity className="h-4 w-4" />
-                          Status
-                          {sortBy === 'status' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
-                        </button>
-                      </th>
-                     <th className="w-16 p-4 text-left font-semibold border-r-2 border-primary/10">
-                       <button className="flex items-center gap-2 hover:text-primary transition-all duration-200 hover:bg-primary/20 rounded-md p-2" onClick={() => {
-                         if (sortBy === 'quantity') {
-                           setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                         } else {
-                           setSortBy('quantity');
-                           setSortOrder('desc');
-                         }
-                       }}>
-                         <div className="w-2 h-2 rounded-full bg-orange-500"></div>
-                         <BarChart3 className="h-4 w-4" />
-                         Qty
-                         {sortBy === 'quantity' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
-                       </button>
-                     </th>
-                      <th className="w-32 p-4 text-left font-semibold border-r-2 border-primary/10">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-teal-500"></div>
-                          <Star className="w-4 h-4" />
-                          Restock Eligibility
-                        </div>
-                      </th>
-                      <th className="w-24 p-4 text-left font-semibold border-r-2 border-primary/10">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-cyan-500"></div>
-                          <Download className="w-4 h-4" />
-                          Export Mode
-                        </div>
-                      </th>
-                      <th className="w-32 p-4 text-left font-semibold">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                          <Settings className="w-4 h-4" />
-                          Actions
-                        </div>
-                       </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  }}>
-                         Qty
-                         {sortBy === 'quantity' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
-                       </button>
-                     </th>
-                      <th className="w-32 p-3 text-left font-medium border-r">
-                        <div className="flex items-center gap-2">
-                          <Activity className="w-4 h-4" />
-                          Restock Eligibility
-                        </div>
-                      </th>
-                      <th className="w-24 p-3 text-left font-medium border-r">
-                        <div className="flex items-center gap-2">
-                          <Download className="w-4 h-4" />
-                          Export Mode
-                        </div>
-                      </th>
-                      <th className="w-32 p-3 text-left font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedInventory.map((item, index) => <tr key={item.id} className={cn(
-                    "border-b-2 border-primary/5 transition-all duration-300 hover:bg-gradient-to-r hover:from-primary/10 hover:to-accent/10 hover:shadow-md",
-                    index % 2 === 0 ? "bg-background" : "bg-muted/30"
-                  )}>
-                       <td className="p-4 border-r-2 border-primary/5">
-                         <Checkbox 
-                           checked={selectedItems.has(item.id)} 
-                           onCheckedChange={checked => {
-                             const newSelected = new Set(selectedItems);
-                             if (checked) {
-                               newSelected.add(item.id);
-                             } else {
-                               newSelected.delete(item.id);
-                             }
-                             setSelectedItems(newSelected);
-                           }}
-                           className="border-2 border-primary/30 hover:border-primary/50 transition-colors"
-                         />
-                       </td>
-                         <td className="p-4 border-r-2 border-primary/5">
-                           <div className="flex items-center gap-3">
-                             <div className="transition-transform duration-200 hover:scale-105">
-                               <ProductImage asin={item.asin} />
-                             </div>
-                             <div className="space-y-1">
-                               <div className="font-medium text-sm max-w-xs break-words bg-gradient-to-r from-blue-100 to-blue-50 dark:from-blue-900/20 dark:to-blue-800/20 px-3 py-2 rounded-md border border-blue-200 dark:border-blue-800">
-                                 {item.title || 'No title'}
-                               </div>
-                               <div className="font-mono text-xs text-muted-foreground bg-gradient-to-r from-green-100 to-green-50 dark:from-green-900/20 dark:to-green-800/20 px-2 py-1 rounded border border-green-200 dark:border-green-800">
-                                 ASIN: {item.asin}
-                               </div>
-                               <div className="flex items-center gap-2 bg-gradient-to-r from-yellow-100 to-yellow-50 dark:from-yellow-900/20 dark:to-yellow-800/20 px-2 py-1 rounded border border-yellow-200 dark:border-yellow-800">
-                                 <span className="text-xs text-muted-foreground font-medium">SKU:</span>
-                                 <SkuEditor currentSku={item.sku} onUpdate={newSku => updateSku(item.id, newSku)} />
-                               </div>
-                             </div>
-                           </div>
-                         </td>
-                         <td className="p-4 font-mono text-sm border-r-2 border-primary/5">
-                           <div className="bg-gradient-to-r from-purple-100 to-purple-50 dark:from-purple-900/20 dark:to-purple-800/20 p-3 rounded-md border border-purple-200 dark:border-purple-800">
-                             <SerialNumberEditor 
-                               currentSerialNumber={item.serialNumber} 
-                               onUpdate={newSerialNumber => updateSerialNumber(item.id, newSerialNumber)} 
-                             />
-                           </div>
-                         </td>
-                        <td className="p-3 border-r">
-                          <div className="space-y-1">
-                            <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' || item.status === 'ordered' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'} className="text-xs">
-                              {item.status === 'in-stock' ? 'In Stock' : item.status === 'sold' || item.status === 'ordered' ? 'Sold' : item.status === 'reserved' ? 'Reserved' : 'Damaged'}
-                            </Badge>
-                            <div className="text-xs">
-                               <span className={item.eligible_for_restock ? 'text-green-600' : 'text-red-600'}>
-                                 {item.eligible_for_restock ? 'Restock Eligible' : 'Restock Not Eligible'}
-                               </span>
-                            </div>
-                          </div>
-                        </td>
-                      <td className="p-3 border-r">
-                        <div className="flex items-center gap-1">
-                          <span className={`font-semibold text-sm ${item.quantity === 0 ? 'text-red-500' : item.quantity <= 5 ? 'text-yellow-500' : 'text-green-500'}`}>
-                            {item.quantity}
-                          </span>
-                          {item.quantity <= 5 && <AlertTriangle className="w-3 h-3 text-yellow-500" />}
-                        </div>
-                      </td>
-                         <td className="p-3 border-r">
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-3">
-                              <Switch
-                                id={`restock-${item.id}`}
-                                checked={item.eligible_for_restock || false}
-                                onCheckedChange={(checked) => handleRestockEligibilityChange(item.id, checked)}
-                                className="border-2 border-muted-foreground/30 data-[state=checked]:border-primary hover:border-primary/60 transition-colors"
-                              />
-                              <Label htmlFor={`restock-${item.id}`} className="text-sm font-medium">
-                                Restock <span className="text-xs text-muted-foreground">(Manual)</span>
-                              </Label>
-                            </div>
-                            <div className="text-xs text-muted-foreground ml-2">
-                              <div className="flex items-center gap-1">
-                                <Activity className="w-3 h-3" />
-                                <span>Auto: Based on 90-day sales</span>
-                              </div>
-                            </div>
-                            {item.eligible_for_restock && (
-                              <div className="text-xs text-muted-foreground space-y-1 ml-10">
-                                {item.lastRestockDate && (
-                                  <div>Last: {new Date(item.lastRestockDate).toLocaleDateString()}</div>
-                                )}
-                                {item.restockQuantity && (
-                                  <div>Qty: {item.restockQuantity}</div>
-                                )}
-                              </div>
-                            )}
-                           </div>
-                         </td>
-                         <td className="p-4 border-r-2 border-primary/5">
-                           <div className="bg-gradient-to-r from-cyan-100 to-cyan-50 dark:from-cyan-900/20 dark:to-cyan-800/20 p-3 rounded-md border border-cyan-200 dark:border-cyan-800">
-                             <div className="flex items-center gap-3">
-                               <Switch
-                                 id={`export-mode-${item.id}`}
-                                 checked={exportModes[item.id] === 'local'}
-                                 onCheckedChange={(checked) => {
-                                   setExportModes(prev => ({
-                                     ...prev,
-                                     [item.id]: checked ? 'local' : 'global'
-                                   }));
-                                 }}
-                                 className="border-2 border-primary/30 data-[state=checked]:border-primary hover:border-primary/60 transition-all duration-200"
-                               />
-                               <Label htmlFor={`export-mode-${item.id}`} className="text-sm font-semibold">
-                                 <div className="flex items-center gap-2">
-                                   <div className={cn(
-                                     "w-2 h-2 rounded-full transition-colors",
-                                     exportModes[item.id] === 'local' ? "bg-green-500" : "bg-blue-500"
-                                   )}></div>
-                                   {exportModes[item.id] === 'local' ? 'Local' : 'Global'}
-                                 </div>
-                               </Label>
-                             </div>
-                           </div>
-                         </td>
-                          <td className="p-3">
-                            <div className="flex gap-2">
-                              <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
-                              <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="w-8 h-8 p-0" 
-                                onClick={() => handlePrintItem(item)} 
-                                title="Print Label"
-                                disabled={!qzConnected || !selectedTemplate}
-                              >
-                                <Printer className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </td>
-                    </tr>)}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {paginatedInventory.map(item => <Card key={item.id} className="hover:shadow-lg transition-all duration-300 border-0 shadow-md">
+          {paginatedInventory.map(item => (
+            <Card key={item.id} className="hover:shadow-lg transition-all duration-300 border-0 shadow-md">
               <CardContent className="p-6">
-                 <div className="space-y-4">
-                   <div className="flex items-start justify-between">
-                     <div className="flex items-center gap-2">
-                       <Checkbox checked={selectedItems.has(item.id)} onCheckedChange={checked => {
-                  const newSelected = new Set(selectedItems);
-                  if (checked) {
-                    newSelected.add(item.id);
-                  } else {
-                    newSelected.delete(item.id);
-                  }
-                  setSelectedItems(newSelected);
-                }} />
-                        <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' || item.status === 'ordered' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'}>
-                          {item.status === 'ordered' ? 'SOLD' : item.status.replace('-', ' ').toUpperCase()}
-                        </Badge>
-                     </div>
-                     <ProductImage asin={item.asin} />
-                   </div>
-                  <div className="space-y-2">
-                    <div>
-                      <Label className="text-xs text-muted-foreground">ASIN</Label>
-                      <p className="font-mono text-sm">{item.asin}</p>
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <Checkbox 
+                        checked={selectedItems.has(item.id)} 
+                        onCheckedChange={(checked) => {
+                          const newSelected = new Set(selectedItems);
+                          if (checked) {
+                            newSelected.add(item.id);
+                          } else {
+                            newSelected.delete(item.id);
+                          }
+                          setSelectedItems(newSelected);
+                        }} 
+                      />
+                      <Badge variant={item.status === 'in-stock' ? 'default' : 'secondary'} className="text-xs">
+                        {item.status === 'in-stock' ? 'In Stock' : item.status}
+                      </Badge>
                     </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Serial Number</Label>
+                    <div className="flex gap-1">
+                      <Button size="sm" variant="outline" onClick={() => handlePrintItem([item])}>
+                        <Printer className="h-3 w-3" />
+                      </Button>
+                      <StockHistoryDialog itemId={item.asin} />
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    <ProductImage asin={item.asin} />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm truncate">
+                        {item.title || 'No title'}
+                      </div>
+                      <div className="font-mono text-xs text-muted-foreground">
+                        {item.asin}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-muted-foreground">SKU:</span>
+                      <div className="font-mono">
+                        <SkuEditor currentSku={item.sku} onUpdate={newSku => updateSku(item.id, newSku)} />
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Serial:</span>
+                      <div className="font-mono">
                         <SerialNumberEditor 
                           currentSerialNumber={item.serialNumber} 
                           onUpdate={newSerialNumber => updateSerialNumber(item.id, newSerialNumber)} 
                         />
                       </div>
-                     <div>
-                       <Label className="text-xs text-muted-foreground">SKU</Label>
-                       <SkuEditor currentSku={item.sku} onUpdate={newSku => updateSku(item.id, newSku)} />
-                     </div>
+                    </div>
                     <div>
-                      <Label className="text-xs text-muted-foreground">Quantity</Label>
-                      <div className="flex items-center gap-2">
-                        <span className={`font-semibold ${item.quantity === 0 ? 'text-red-500' : item.quantity <= 5 ? 'text-yellow-500' : 'text-green-500'}`}>
-                          {item.quantity}
-                        </span>
-                        {item.quantity <= 5 && <AlertTriangle className="w-4 h-4 text-yellow-500" />}
+                      <span className="text-muted-foreground">Quantity:</span>
+                      <div>
+                        <DualQuantityEditor 
+                          currentQuantity={item.quantity}
+                          onUpdate={(newQuantity, reason) => handleQuantityUpdate(item.id, newQuantity, reason)} 
+                        />
                       </div>
                     </div>
-                     <div>
-                       <Label className="text-xs text-muted-foreground">Restock Eligibility</Label>
-                       <div className="space-y-1">
-                         <div className="flex items-center gap-2">
-                           <Checkbox
-                             checked={item.eligible_for_restock || false}
-                             onCheckedChange={(checked) => handleRestockEligibilityChange(item.id, checked as boolean)}
-                           />
-                           <span className="text-sm font-medium">
-                             {item.eligible_for_restock ? 'Eligible' : 'Not Eligible'}
-                           </span>
-                         </div>
-                         {item.eligible_for_restock && (
-                           <div className="text-xs text-muted-foreground space-y-1">
-                             {item.lastRestockDate && (
-                               <div>Last: {new Date(item.lastRestockDate).toLocaleDateString()}</div>
-                             )}
-                             {item.restockQuantity && (
-                               <div>Qty: {item.restockQuantity}</div>
-                             )}
-                           </div>
-                         )}
-                       </div>
-                     </div>
-                  </div>
-                   <div className="flex items-center gap-2">
-                      <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
-                      <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
+                    <div>
+                      <span className="text-muted-foreground">Restock:</span>
+                      <div className="mt-1">
+                        <Switch 
+                          checked={item.eligible_for_restock} 
+                          onCheckedChange={checked => handleRestockEligibilityChange(item.id, checked)}
+                          className="scale-75"
+                        />
+                      </div>
                     </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id={`export-mode-grid-${item.id}`}
+                        checked={exportModes[item.id] === 'local'}
+                        onCheckedChange={(checked) => {
+                          setExportModes(prev => ({
+                            ...prev,
+                            [item.id]: checked ? 'local' : 'global'
+                          }));
+                        }}
+                        className="scale-75"
+                      />
+                      <Label htmlFor={`export-mode-grid-${item.id}`} className="text-xs">
+                        {exportModes[item.id] === 'local' ? 'Local' : 'Global'}
+                      </Label>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
-            </Card>)}
-        </div>}
-        
-        {/* Pagination */}
-        {filteredInventory.length > itemsPerPage && <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
-              Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredInventory.length)} of {filteredInventory.length} items
-            </div>
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious onClick={() => setCurrentPage(p => Math.max(1, p - 1))} className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"} />
-                </PaginationItem>
-                
-                {Array.from({
-            length: Math.min(5, totalPages)
-          }, (_, i) => {
-            let pageNum = i + 1;
-            if (totalPages > 5) {
-              if (currentPage <= 3) {
-                pageNum = i + 1;
-              } else if (currentPage >= totalPages - 2) {
-                pageNum = totalPages - 4 + i;
-              } else {
-                pageNum = currentPage - 2 + i;
-              }
-            }
-            return <PaginationItem key={pageNum}>
-                      <PaginationLink onClick={() => setCurrentPage(pageNum)} isActive={currentPage === pageNum} className="cursor-pointer">
-                        {pageNum}
-                      </PaginationLink>
-                    </PaginationItem>;
-          })}
-                
-                {totalPages > 5 && currentPage < totalPages - 2 && <PaginationItem>
-                    <PaginationEllipsis />
-                  </PaginationItem>}
-                
-                <PaginationItem>
-                  <PaginationNext onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"} />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-            
-            <Select value={itemsPerPage.toString()} onValueChange={value => {
-        setItemsPerPage(Number(value));
-        setCurrentPage(1);
-      }}>
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="25">25 per page</SelectItem>
-                <SelectItem value="50">50 per page</SelectItem>
-                <SelectItem value="100">100 per page</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>}
-        
-        {/* Bulk Restock Eligibility Dialog */}
-        <Dialog open={isBulkRestockEligibilityDialogOpen} onOpenChange={setIsBulkRestockEligibilityDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Bulk Update Restock Eligibility</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="bulk-restock-eligibility"
-                  checked={bulkRestockEligibilityValue}
-                  onCheckedChange={setBulkRestockEligibilityValue}
-                />
-                <Label htmlFor="bulk-restock-eligibility">
-                  {bulkRestockEligibilityValue ? 'Enable' : 'Disable'} restock eligibility
-                </Label>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                This will {bulkRestockEligibilityValue ? 'enable' : 'disable'} restock eligibility for {selectedItems.size} selected items.
-                {bulkRestockEligibilityValue 
-                  ? ' Items will appear in replenishment tracking and analytics.' 
-                  : ' Items will be excluded from replenishment tracking and analytics.'
-                }
-              </p>
-              
-              {/* Progress Bar */}
-              {isProcessingRestockEligibility && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Processing items...</span>
-                    <span>{restockEligibilityProgress}%</span>
-                  </div>
-                  <Progress value={restockEligibilityProgress} className="w-full" />
-                </div>
-              )}
-            </div>
-            <DialogFooter>
-              <Button 
-                variant="outline" 
-                onClick={() => setIsBulkRestockEligibilityDialogOpen(false)}
-                disabled={isProcessingRestockEligibility}
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleBulkRestockEligibilityUpdate}
-                disabled={isProcessingRestockEligibility}
-              >
-                {isProcessingRestockEligibility ? 'Processing...' : `Update ${selectedItems.size} Items`}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </Card>
+          ))}
+        </div>
+      )}
 
-        {/* Image Preview Dialog */}
-        <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
-          <DialogContent className="max-w-4xl">
-            <DialogHeader>
-              <DialogTitle>Product Image Preview</DialogTitle>
-            </DialogHeader>
-            <div className="flex items-center justify-center p-4">
-              {previewImage && (
-                <img 
-                  src={previewImage} 
-                  alt="Product preview"
-                  className="max-w-full max-h-[70vh] object-contain rounded-lg"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                    e.currentTarget.parentElement!.innerHTML = '<div class="text-center text-muted-foreground">Failed to load image</div>';
-                  }}
-                />
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex justify-center mt-6">
+          <Pagination>
+            <PaginationContent>
+              {currentPage > 1 && (
+                <PaginationItem>
+                  <PaginationPrevious onClick={() => setCurrentPage(prev => prev - 1)} />
+                </PaginationItem>
               )}
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+              
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const page = currentPage <= 3 ? i + 1 : 
+                           currentPage >= totalPages - 2 ? totalPages - 4 + i : 
+                           currentPage - 2 + i;
+                return page > 0 && page <= totalPages ? (
+                  <PaginationItem key={page}>
+                    <PaginationLink 
+                      onClick={() => setCurrentPage(page)}
+                      isActive={currentPage === page}
+                    >
+                      {page}
+                    </PaginationLink>
+                  </PaginationItem>
+                ) : null;
+              })}
+              
+              {currentPage < totalPages && (
+                <PaginationItem>
+                  <PaginationNext onClick={() => setCurrentPage(prev => prev + 1)} />
+                </PaginationItem>
+              )}
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
+
+      {/* Image Preview Dialog */}
+      <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-2">
+          <div className="flex items-center justify-center">
+            {previewImage && (
+              <img 
+                src={previewImage} 
+                alt="Product preview"
+                className="max-w-full max-h-[70vh] object-contain rounded-lg"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.parentElement!.innerHTML = '<div class="text-center text-muted-foreground">Failed to load image</div>';
+                }}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
