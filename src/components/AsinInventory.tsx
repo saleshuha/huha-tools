@@ -77,6 +77,10 @@ export function AsinInventory() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  
+  // Export mode settings - global (use stock qty) or local (use default 100)
+  const [exportModes, setExportModes] = useState<Record<string, 'global' | 'local'>>({}); 
+  
   // Modern printing state
   const [qzConnected, setQzConnected] = useState(false);
   const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
@@ -538,22 +542,27 @@ export function AsinInventory() {
     });
   };
   const exportInventory = () => {
-    const csvData = [['SKU', 'UPC', 'ASIN', 'Title', 'Warehouse', 'Warehouse name', 'Available units', 'Status'], ...filteredInventory.map(item => [item.sku || '',
-    // SKU
-    '',
-    // UPC (blank)
-    item.asin,
-    // ASIN
-    item.title || '',
-    // Title
-    selectedWarehouse?.code || '',
-    // Warehouse
-    selectedWarehouse?.name || '',
-    // Warehouse name
-    item.quantity.toString(),
-    // Available units
-    'active' // Status (active for all)
-    ])];
+    const csvData = [['SKU', 'UPC', 'ASIN', 'Title', 'Warehouse', 'Warehouse name', 'Available units', 'Status'], 
+      ...filteredInventory.map(item => {
+        // Get the export mode for this item (default to 'global')
+        const exportMode = exportModes[item.id] || 'global';
+        
+        // Set quantity based on export mode:
+        // Global: use stock quantity
+        // Local: use default quantity (100)
+        const exportQuantity = exportMode === 'local' ? 100 : item.quantity;
+        
+        return [
+          item.sku || '', // SKU
+          '', // UPC (blank)
+          item.asin, // ASIN
+          item.title || '', // Title
+          selectedWarehouse?.code || '', // Warehouse
+          selectedWarehouse?.name || '', // Warehouse name
+          exportQuantity.toString(), // Available units
+          'active' // Status (active for all)
+        ];
+      })];
     const csvContent = csvData.map(row => row.map(field => `"${field}"`).join(',')).join('\n');
     const blob = new Blob([csvContent], {
       type: 'text/csv;charset=utf-8;'
@@ -1485,13 +1494,19 @@ export function AsinInventory() {
                          {sortBy === 'quantity' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
                        </button>
                      </th>
-                     <th className="w-32 p-3 text-left font-medium border-r">
-                       <div className="flex items-center gap-2">
-                         <Activity className="w-4 h-4" />
-                         Restock Eligibility
-                       </div>
-                     </th>
-                     <th className="w-32 p-3 text-left font-medium">Actions</th>
+                      <th className="w-32 p-3 text-left font-medium border-r">
+                        <div className="flex items-center gap-2">
+                          <Activity className="w-4 h-4" />
+                          Restock Eligibility
+                        </div>
+                      </th>
+                      <th className="w-24 p-3 text-left font-medium border-r">
+                        <div className="flex items-center gap-2">
+                          <Download className="w-4 h-4" />
+                          Export Mode
+                        </div>
+                      </th>
+                      <th className="w-32 p-3 text-left font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1579,24 +1594,55 @@ export function AsinInventory() {
                                 )}
                               </div>
                             )}
-                          </div>
-                        </td>
-                         <td className="p-3">
-                           <div className="flex gap-2">
-                             <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
-                             <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
-                             <Button 
-                               variant="outline" 
-                               size="sm" 
-                               className="w-8 h-8 p-0" 
-                               onClick={() => handlePrintItem(item)} 
-                               title="Print Label"
-                               disabled={!qzConnected || !selectedTemplate}
-                             >
-                               <Printer className="w-4 h-4" />
-                             </Button>
                            </div>
                          </td>
+                         <td className="p-3 border-r">
+                           <div className="flex items-center gap-2">
+                             <Select 
+                               value={exportModes[item.id] || 'global'} 
+                               onValueChange={(value: 'global' | 'local') => {
+                                 setExportModes(prev => ({
+                                   ...prev,
+                                   [item.id]: value
+                                 }));
+                               }}
+                             >
+                               <SelectTrigger className="w-20 h-8 text-xs">
+                                 <SelectValue />
+                               </SelectTrigger>
+                               <SelectContent>
+                                 <SelectItem value="global">
+                                   <div className="flex items-center gap-1">
+                                     <span>Global</span>
+                                     <span className="text-xs text-muted-foreground">({item.quantity})</span>
+                                   </div>
+                                 </SelectItem>
+                                 <SelectItem value="local">
+                                   <div className="flex items-center gap-1">
+                                     <span>Local</span>
+                                     <span className="text-xs text-muted-foreground">(100)</span>
+                                   </div>
+                                 </SelectItem>
+                               </SelectContent>
+                             </Select>
+                           </div>
+                         </td>
+                          <td className="p-3">
+                            <div className="flex gap-2">
+                              <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
+                              <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="w-8 h-8 p-0" 
+                                onClick={() => handlePrintItem(item)} 
+                                title="Print Label"
+                                disabled={!qzConnected || !selectedTemplate}
+                              >
+                                <Printer className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </td>
                     </tr>)}
                 </tbody>
               </table>
