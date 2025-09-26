@@ -1682,17 +1682,17 @@ export function AsinInventory() {
                          <td className="p-3 border-r align-middle">
                            <div className="flex flex-col items-center gap-2">
                              <div className="flex items-center gap-2">
-                               <Switch
-                                 id={`export-mode-${item.id}`}
-                                 checked={exportModes[item.id] === 'local'}
-                                 onCheckedChange={(checked) => {
-                                   setExportModes(prev => ({
-                                     ...prev,
-                                     [item.id]: checked ? 'local' : 'global'
-                                   }));
-                                 }}
-                                 className="border-2 border-muted-foreground/30 data-[state=checked]:border-primary hover:border-primary/60 transition-colors"
-                               />
+                                <Switch
+                                  id={`export-mode-${item.id}`}
+                                  checked={exportModes[item.id] === 'local'}
+                                  onCheckedChange={(checked) => {
+                                    setExportModes(prev => ({
+                                      ...prev,
+                                      [item.id]: checked ? 'local' : 'global'
+                                    }));
+                                  }}
+                                  className="border-2 border-primary/60 data-[state=checked]:border-primary data-[state=unchecked]:border-secondary hover:border-primary transition-colors"
+                                />
                                <Label htmlFor={`export-mode-${item.id}`} className="text-sm font-medium">
                                  {exportModes[item.id] === 'local' ? 'Local' : 'Global'}
                                </Label>
