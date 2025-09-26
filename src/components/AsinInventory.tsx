@@ -68,6 +68,48 @@ export function AsinInventory() {
     runTitleFetch
   } = useBackgroundTasks();
   const { getImageByAsin, isLoading: imagesLoading, productImages, refreshImages } = useProductImages();
+  
+  // Missing serial numbers calculation
+  const missingSerialNumbers = useMemo(() => {
+    if (loading || inventory.length === 0) return [];
+    
+    // Extract all serial numbers and convert to numbers
+    const serialNumbers = inventory
+      .map(item => item.serialNumber)
+      .filter(serial => serial && /^\d{5}$/.test(serial)) // Only 5-digit numbers
+      .map(serial => parseInt(serial, 10))
+      .sort((a, b) => a - b);
+    
+    if (serialNumbers.length === 0) return [];
+    
+    const missing: number[] = [];
+    const maxSerial = Math.max(...serialNumbers);
+    
+    // Find missing numbers from 1 to max
+    for (let i = 1; i <= maxSerial; i++) {
+      if (!serialNumbers.includes(i)) {
+        missing.push(i);
+      }
+    }
+    
+    return missing;
+  }, [inventory, loading]);
+  
+  // Get next available serial number (either missing or next in sequence)
+  const getNextSerialNumber = () => {
+    if (missingSerialNumbers.length > 0) {
+      return missingSerialNumbers[0].toString().padStart(5, '0');
+    }
+    
+    // Find the highest existing serial number and add 1
+    const serialNumbers = inventory
+      .map(item => item.serialNumber)
+      .filter(serial => serial && /^\d{5}$/.test(serial))
+      .map(serial => parseInt(serial, 10));
+    
+    const maxSerial = serialNumbers.length > 0 ? Math.max(...serialNumbers) : 0;
+    return (maxSerial + 1).toString().padStart(5, '0');
+  };
   const [searchTerm, setSearchTerm] = useState('');
   const [searchMethod, setSearchMethod] = useState<'all' | 'asin' | 'sku' | 'serial' | 'title' | 'notes'>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -77,6 +119,7 @@ export function AsinInventory() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [isMissingNumbersDialogOpen, setIsMissingNumbersDialogOpen] = useState(false);
   
   // Export mode settings - global (use stock qty) or local (use default 100)
   const [exportModes, setExportModes] = useState<Record<string, 'global' | 'local'>>({}); 
@@ -458,13 +501,19 @@ export function AsinInventory() {
     setIsAddDialogOpen(false);
     setNewItem({
       asin: '',
-      serialNumber: '',
+      serialNumber: getNextSerialNumber(), // Auto-fill next available serial
       sku: '',
       title: '',
       status: 'in-stock',
       quantity: 1,
       notes: ''
     });
+  };
+  
+  const handleUseSerialNumber = (serialNumber: string) => {
+    setNewItem(prev => ({ ...prev, serialNumber }));
+    setIsMissingNumbersDialogOpen(false);
+    setIsAddDialogOpen(true);
   };
   const handleBulkAdd = async () => {
     if (!bulkText.trim()) {
@@ -1075,13 +1124,25 @@ export function AsinInventory() {
                    
 
                    {/* Add New Item */}
-                  <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all">
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add New Item
-                      </Button>
-                    </DialogTrigger>
+                   <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                     <DialogTrigger asChild>
+                       <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all">
+                         <Plus className="w-4 h-4 mr-2" />
+                         Add New Item
+                       </Button>
+                     </DialogTrigger>
+                     
+                   {missingSerialNumbers.length > 0 && (
+                     <Button 
+                       size="sm"
+                       variant="outline" 
+                       onClick={() => setIsMissingNumbersDialogOpen(true)}
+                       className="border-2 border-orange-500 bg-background hover:bg-orange-500 hover:text-white hover:border-orange-500 transition-all"
+                     >
+                       <Hash className="w-4 h-4 mr-2" />
+                       Missing Numbers ({missingSerialNumbers.length})
+                     </Button>
+                   )}
                     <DialogContent className="max-w-md">
                       <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
@@ -1097,13 +1158,30 @@ export function AsinInventory() {
                           asin: e.target.value
                         })} placeholder="Enter ASIN..." />
                         </div>
-                        <div>
-                          <Label htmlFor="serialNumber">Serial Number</Label>
-                          <Input id="serialNumber" value={newItem.serialNumber} onChange={e => setNewItem({
-                          ...newItem,
-                          serialNumber: e.target.value
-                        })} placeholder="Enter Serial Number..." />
-                        </div>
+                         <div>
+                           <Label htmlFor="serialNumber">Serial Number</Label>
+                           <div className="flex gap-2">
+                             <Input 
+                               id="serialNumber" 
+                               value={newItem.serialNumber} 
+                               onChange={e => setNewItem({
+                                 ...newItem,
+                                 serialNumber: e.target.value
+                               })} 
+                               placeholder="Enter Serial Number..." 
+                               className="flex-1"
+                             />
+                             <Button
+                               type="button"
+                               variant="outline"
+                               size="sm"
+                               onClick={() => setNewItem(prev => ({ ...prev, serialNumber: getNextSerialNumber() }))}
+                               title="Use next available serial number"
+                             >
+                               <Hash className="w-4 h-4" />
+                             </Button>
+                           </div>
+                         </div>
                          <div>
                            <Label htmlFor="sku">SKU (Optional)</Label>
                            <Input id="sku" value={newItem.sku} onChange={e => setNewItem({
@@ -1856,6 +1934,57 @@ export function AsinInventory() {
                 />
               )}
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Missing Serial Numbers Dialog */}
+        <Dialog open={isMissingNumbersDialogOpen} onOpenChange={setIsMissingNumbersDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[80vh]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Hash className="w-5 h-5" />
+                Missing Serial Numbers ({missingSerialNumbers.length})
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground">
+                These serial numbers are missing from your sequence. You can reuse them to maintain continuity:
+              </div>
+              
+              <div className="max-h-96 overflow-y-auto border rounded-lg p-4">
+                <div className="grid grid-cols-5 gap-2">
+                  {missingSerialNumbers.map((num) => (
+                    <Button
+                      key={num}
+                      variant="outline"
+                      size="sm"
+                      className="font-mono text-xs h-8"
+                      onClick={() => handleUseSerialNumber(num.toString().padStart(5, '0'))}
+                    >
+                      {num.toString().padStart(5, '0')}
+                    </Button>
+                  ))}
+                </div>
+                
+                {missingSerialNumbers.length === 0 && (
+                  <div className="text-center text-muted-foreground py-8">
+                    <Hash className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                    No missing serial numbers found. Your sequence is continuous!
+                  </div>
+                )}
+              </div>
+              
+              <div className="text-xs text-muted-foreground">
+                Click any number to use it for a new item. The next available number will be: <span className="font-mono font-semibold">{getNextSerialNumber()}</span>
+              </div>
+            </div>
+            
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsMissingNumbersDialogOpen(false)}>
+                Close
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
     </div>;
