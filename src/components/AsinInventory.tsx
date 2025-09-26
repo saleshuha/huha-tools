@@ -1620,12 +1620,13 @@ export function AsinInventory() {
                            </div>
                          </td>
                          <td className="p-3 font-mono text-sm border-r align-middle">
-                           <div className="flex items-center justify-center">
-                             <SerialNumberEditor 
-                               currentSerialNumber={item.serialNumber} 
-                               onUpdate={newSerialNumber => updateSerialNumber(item.id, newSerialNumber)} 
-                             />
-                           </div>
+                            <div className="flex items-center justify-center">
+                              <SerialNumberEditor 
+                                currentSerialNumber={item.serialNumber} 
+                                onUpdate={newSerialNumber => updateSerialNumber(item.id, newSerialNumber)}
+                                getNextSerial={getNextSerialNumber}
+                              />
+                            </div>
                          </td>
                       <td className="p-3 border-r align-middle">
                         <div className="flex items-center justify-center gap-1">
@@ -1755,7 +1756,8 @@ export function AsinInventory() {
                         <Label className="text-xs text-muted-foreground">Serial Number</Label>
                         <SerialNumberEditor 
                           currentSerialNumber={item.serialNumber} 
-                          onUpdate={newSerialNumber => updateSerialNumber(item.id, newSerialNumber)} 
+                          onUpdate={newSerialNumber => updateSerialNumber(item.id, newSerialNumber)}
+                          getNextSerial={getNextSerialNumber}
                         />
                       </div>
                      <div>
