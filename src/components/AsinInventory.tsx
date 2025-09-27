@@ -1694,21 +1694,28 @@ export function AsinInventory() {
                          <td className="p-3 border-r align-middle">
                            <div className="flex flex-col items-center gap-2">
                               <div className="flex items-center gap-2">
-                                <Switch
-                                  id={`export-mode-${item.id}`}
-                                  checked={exportModes[item.id] === 'local'}
-                                  onCheckedChange={(checked) => {
-                                    setExportModes(prev => ({
-                                      ...prev,
-                                      [item.id]: checked ? 'local' : 'global'
-                                    }));
-                                  }}
-                                  className="border-2 border-muted-foreground/30 data-[state=checked]:border-primary hover:border-primary/60 transition-colors"
-                                />
-                                <Label htmlFor={`export-mode-${item.id}`} className="text-sm font-medium">
-                                  <span className={exportModes[item.id] === 'local' ? 'text-blue-600' : 'text-green-600'}>
-                                    {exportModes[item.id] === 'local' ? 'Local' : 'Global'}
+                                <div className="relative">
+                                  <Switch
+                                    id={`export-mode-${item.id}`}
+                                    checked={exportModes[item.id] === 'local'}
+                                    onCheckedChange={(checked) => {
+                                      setExportModes(prev => ({
+                                        ...prev,
+                                        [item.id]: checked ? 'local' : 'global'
+                                      }));
+                                    }}
+                                    className={`border-2 border-muted-foreground/30 hover:border-primary/60 transition-colors ${
+                                      exportModes[item.id] === 'local' 
+                                        ? 'data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500' 
+                                        : 'data-[state=unchecked]:bg-green-500 data-[state=unchecked]:border-green-500'
+                                    }`}
+                                  />
+                                  <span className="absolute inset-0 flex items-center justify-center text-[10px] font-medium text-white pointer-events-none">
+                                    {exportModes[item.id] === 'local' ? 'L' : 'G'}
                                   </span>
+                                </div>
+                                <Label htmlFor={`export-mode-${item.id}`} className="text-sm font-medium">
+                                  {exportModes[item.id] === 'local' ? 'Local' : 'Global'}
                                 </Label>
                               </div>
                              <div className="text-xs text-center text-muted-foreground">
