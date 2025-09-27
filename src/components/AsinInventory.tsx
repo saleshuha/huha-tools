@@ -121,8 +121,20 @@ export function AsinInventory() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [isMissingNumbersDialogOpen, setIsMissingNumbersDialogOpen] = useState(false);
   
-  // Export mode settings - global (use stock qty) or local (use default 100)
-  const [exportModes, setExportModes] = useState<Record<string, 'global' | 'local'>>({}); 
+  // Export mode settings - global (use stock qty) or local (use default 100) - with persistence
+  const [exportModes, setExportModes] = useState<Record<string, 'global' | 'local'>>(() => {
+    try {
+      const saved = localStorage.getItem('asin-inventory-export-modes');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // Persist export modes to localStorage
+  useEffect(() => {
+    localStorage.setItem('asin-inventory-export-modes', JSON.stringify(exportModes));
+  }, [exportModes]);
   
   // Modern printing state
   const [qzConnected, setQzConnected] = useState(false);
@@ -1682,17 +1694,17 @@ export function AsinInventory() {
                          <td className="p-3 border-r align-middle">
                            <div className="flex flex-col items-center gap-2">
                              <div className="flex items-center gap-2">
-                                <Switch
-                                  id={`export-mode-${item.id}`}
-                                  checked={exportModes[item.id] === 'local'}
-                                  onCheckedChange={(checked) => {
-                                    setExportModes(prev => ({
-                                      ...prev,
-                                      [item.id]: checked ? 'local' : 'global'
-                                    }));
-                                  }}
-                                  className="border-2 border-primary/60 data-[state=checked]:border-primary data-[state=unchecked]:border-secondary hover:border-primary transition-colors"
-                                />
+                                 <Switch
+                                   id={`export-mode-${item.id}`}
+                                   checked={exportModes[item.id] === 'local'}
+                                   onCheckedChange={(checked) => {
+                                     setExportModes(prev => ({
+                                       ...prev,
+                                       [item.id]: checked ? 'local' : 'global'
+                                     }));
+                                   }}
+                                   className="border-2 data-[state=checked]:border-primary data-[state=checked]:bg-primary/10 data-[state=unchecked]:border-secondary data-[state=unchecked]:bg-secondary/10 hover:border-primary transition-all duration-200"
+                                 />
                                <Label htmlFor={`export-mode-${item.id}`} className="text-sm font-medium">
                                  {exportModes[item.id] === 'local' ? 'Local' : 'Global'}
                                </Label>
