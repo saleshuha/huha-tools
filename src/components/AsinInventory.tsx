@@ -1600,125 +1600,144 @@ export function AsinInventory() {
                   </tr>
                 </thead>
                 <tbody>
-                    {paginatedInventory.map(item => <tr key={item.id} className="border-b hover:bg-muted/25 transition-colors h-20">
-                        <td className="p-3 border-r align-middle h-20">
-                          <div className="flex justify-center h-full items-center">
-                            <Checkbox checked={selectedItems.has(item.id)} onCheckedChange={checked => {
-                     const newSelected = new Set(selectedItems);
-                     if (checked) {
-                       newSelected.add(item.id);
-                     } else {
-                       newSelected.delete(item.id);
-                     }
-                     setSelectedItems(newSelected);
-                   }} />
-                          </div>
-                        </td>
-                          <td className="p-3 border-r align-middle h-20">
-                            <div className="flex items-center gap-3 h-full">
-                              <ProductImage asin={item.asin} />
-                              <div className="space-y-1 min-w-0 flex-1 overflow-hidden">
-                                <div className="font-medium text-sm max-w-xs truncate">
-                                  {item.title || 'No title'}
-                                </div>
-                                <div className="font-mono text-xs text-muted-foreground truncate">
-                                  ASIN: {item.asin}
-                                </div>
-                                <div className="flex items-center gap-2 max-w-xs">
-                                  <span className="text-xs text-muted-foreground">SKU:</span>
-                                  <div className="flex-1 min-w-0">
-                                    <SkuEditor currentSku={item.sku} onUpdate={newSku => updateSku(item.id, newSku)} />
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-3 font-mono text-sm border-r align-middle h-20">
-                             <div className="flex items-center justify-center h-full">
-                               <SerialNumberEditor 
-                                 currentSerialNumber={item.serialNumber} 
-                                 onUpdate={newSerialNumber => updateSerialNumber(item.id, newSerialNumber)}
-                                 getNextSerial={getNextSerialNumber}
-                               />
-                             </div>
-                          </td>
-                       <td className="p-3 border-r align-middle h-20">
-                         <div className="flex items-center justify-center gap-1 h-full">
-                           <span className={`font-semibold text-sm ${item.quantity === 0 ? 'text-red-500' : item.quantity <= 5 ? 'text-yellow-500' : 'text-green-500'}`}>
-                             {item.quantity}
-                           </span>
-                           {item.quantity <= 5 && <AlertTriangle className="w-3 h-3 text-yellow-500" />}
+                   {paginatedInventory.map(item => <tr key={item.id} className="border-b hover:bg-muted/25 transition-colors">
+                       <td className="p-3 border-r align-middle">
+                         <div className="flex justify-center">
+                           <Checkbox checked={selectedItems.has(item.id)} onCheckedChange={checked => {
+                    const newSelected = new Set(selectedItems);
+                    if (checked) {
+                      newSelected.add(item.id);
+                    } else {
+                      newSelected.delete(item.id);
+                    }
+                    setSelectedItems(newSelected);
+                  }} />
                          </div>
                        </td>
-                         <td className="p-3 border-r align-middle h-20">
-                           <div className="flex flex-col items-center justify-center h-full">
-                             <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' || item.status === 'ordered' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'} className="text-xs mb-1">
-                               {item.status === 'in-stock' ? 'In Stock' : item.status === 'sold' || item.status === 'ordered' ? 'Sold' : item.status === 'reserved' ? 'Reserved' : 'Damaged'}
-                             </Badge>
+                         <td className="p-3 border-r align-middle">
+                           <div className="flex items-center gap-3">
+                             <ProductImage asin={item.asin} />
+                             <div className="space-y-1 min-w-0 flex-1">
+                               <div className="font-medium text-sm max-w-xs break-words">
+                                 {item.title || 'No title'}
+                               </div>
+                               <div className="font-mono text-xs text-muted-foreground">
+                                 ASIN: {item.asin}
+                               </div>
+                               <div className="flex items-center gap-2">
+                                 <span className="text-xs text-muted-foreground">SKU:</span>
+                                 <SkuEditor currentSku={item.sku} onUpdate={newSku => updateSku(item.id, newSku)} />
+                               </div>
+                             </div>
                            </div>
                          </td>
-                          <td className="p-3 border-r align-middle h-20">
-                           <div className="flex flex-col items-center justify-center h-full gap-1">
-                             <div className="flex items-center gap-2">
-                               <Switch
-                                 id={`restock-${item.id}`}
-                                 checked={item.eligible_for_restock || false}
-                                 onCheckedChange={(checked) => handleRestockEligibilityChange(item.id, checked)}
-                                 className="border-2 border-muted-foreground/30 data-[state=checked]:border-primary hover:border-primary/60 transition-colors"
-                               />
-                               <Label htmlFor={`restock-${item.id}`} className="text-xs font-medium">
-                                 Restock
-                               </Label>
-                             </div>
-                             <div className="text-xs text-muted-foreground text-center">
-                               Auto: 90-day sales
-                             </div>
+                         <td className="p-3 font-mono text-sm border-r align-middle">
+                            <div className="flex items-center justify-center">
+                              <SerialNumberEditor 
+                                currentSerialNumber={item.serialNumber} 
+                                onUpdate={newSerialNumber => updateSerialNumber(item.id, newSerialNumber)}
+                                getNextSerial={getNextSerialNumber}
+                              />
                             </div>
-                          </td>
-                          <td className="p-3 border-r align-middle h-20">
-                            <div className="flex flex-col items-center justify-center h-full gap-1">
-                               <div className="flex items-center gap-2">
-                                 <Switch
-                                   id={`export-mode-${item.id}`}
-                                   checked={exportModes[item.id] === 'local'}
-                                   onCheckedChange={(checked) => {
-                                     setExportModes(prev => ({
-                                       ...prev,
-                                       [item.id]: checked ? 'local' : 'global'
-                                     }));
-                                   }}
-                                   className={`border-2 border-muted-foreground/30 hover:border-primary/60 transition-colors ${
-                                     exportModes[item.id] === 'local' 
-                                       ? 'data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500' 
-                                       : 'data-[state=unchecked]:bg-green-500 data-[state=unchecked]:border-green-500'
-                                   }`}
-                                 />
-                                 <Label htmlFor={`export-mode-${item.id}`} className="text-xs font-medium">
-                                   {exportModes[item.id] === 'local' ? 'Local' : 'Global'}
-                                 </Label>
-                               </div>
-                              <div className="text-xs text-center text-muted-foreground">
-                                {exportModes[item.id] === 'local' ? 'Fixed: 100' : 'Uses stock'}
+                         </td>
+                      <td className="p-3 border-r align-middle">
+                        <div className="flex items-center justify-center gap-1">
+                          <span className={`font-semibold text-sm ${item.quantity === 0 ? 'text-red-500' : item.quantity <= 5 ? 'text-yellow-500' : 'text-green-500'}`}>
+                            {item.quantity}
+                          </span>
+                          {item.quantity <= 5 && <AlertTriangle className="w-3 h-3 text-yellow-500" />}
+                        </div>
+                      </td>
+                        <td className="p-3 border-r align-middle">
+                          <div className="space-y-1 flex flex-col items-center">
+                            <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' || item.status === 'ordered' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'} className="text-xs">
+                              {item.status === 'in-stock' ? 'In Stock' : item.status === 'sold' || item.status === 'ordered' ? 'Sold' : item.status === 'reserved' ? 'Reserved' : 'Damaged'}
+                            </Badge>
+                            <div className="text-xs text-center">
+                               <span className={item.eligible_for_restock ? 'text-green-600' : 'text-red-600'}>
+                                 {item.eligible_for_restock ? 'Restock Eligible' : 'Restock Not Eligible'}
+                               </span>
+                            </div>
+                          </div>
+                        </td>
+                         <td className="p-3 border-r align-middle">
+                          <div className="space-y-2 flex flex-col items-center">
+                            <div className="flex items-center gap-3">
+                              <Switch
+                                id={`restock-${item.id}`}
+                                checked={item.eligible_for_restock || false}
+                                onCheckedChange={(checked) => handleRestockEligibilityChange(item.id, checked)}
+                                className="border-2 border-muted-foreground/30 data-[state=checked]:border-primary hover:border-primary/60 transition-colors"
+                              />
+                              <Label htmlFor={`restock-${item.id}`} className="text-sm font-medium">
+                                Restock <span className="text-xs text-muted-foreground">(Manual)</span>
+                              </Label>
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              <div className="flex items-center justify-center gap-1">
+                                <Activity className="w-3 h-3" />
+                                <span>Auto: Based on 90-day sales</span>
                               </div>
                             </div>
-                          </td>
-                           <td className="p-3 align-middle h-20">
-                             <div className="flex items-center justify-center gap-2 h-full">
-                               <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
-                               <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
-                               <Button 
-                                 variant="outline" 
-                                 size="sm" 
-                                 className="w-8 h-8 p-0" 
-                                 onClick={() => handlePrintItem(item)} 
-                                 title="Print Label"
-                                 disabled={!qzConnected || !selectedTemplate}
-                               >
-                                 <Printer className="w-4 h-4" />
-                               </Button>
+                            {item.eligible_for_restock && (
+                              <div className="text-xs text-muted-foreground space-y-1 text-center">
+                                {item.lastRestockDate && (
+                                  <div>Last: {new Date(item.lastRestockDate).toLocaleDateString()}</div>
+                                )}
+                                {item.restockQuantity && (
+                                  <div>Qty: {item.restockQuantity}</div>
+                                )}
+                              </div>
+                            )}
+                           </div>
+                         </td>
+                         <td className="p-3 border-r align-middle">
+                           <div className="flex flex-col items-center gap-2">
+                              <div className="flex items-center gap-2">
+                                <Switch
+                                  id={`export-mode-${item.id}`}
+                                  checked={exportModes[item.id] === 'local'}
+                                  onCheckedChange={(checked) => {
+                                    setExportModes(prev => ({
+                                      ...prev,
+                                      [item.id]: checked ? 'local' : 'global'
+                                    }));
+                                  }}
+                                  className={`border-2 border-muted-foreground/30 hover:border-primary/60 transition-colors ${
+                                    exportModes[item.id] === 'local' 
+                                      ? 'data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500' 
+                                      : 'data-[state=unchecked]:bg-green-500 data-[state=unchecked]:border-green-500'
+                                  }`}
+                                />
+                                <Label htmlFor={`export-mode-${item.id}`} className="text-sm font-medium">
+                                  {exportModes[item.id] === 'local' ? 'Local' : 'Global'}
+                                </Label>
+                              </div>
+                             <div className="text-xs text-center text-muted-foreground">
+                               {exportModes[item.id] === 'local' ? 
+                                 'Export mode is Local (fixed qty: 100)' : 
+                                 'Export mode is Global (uses stock qty)'
+                               }
                              </div>
-                           </td>
-                     </tr>)}
+                           </div>
+                         </td>
+                          <td className="p-3 align-middle">
+                            <div className="flex items-center justify-center gap-2">
+                              <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
+                              <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="w-8 h-8 p-0" 
+                                onClick={() => handlePrintItem(item)} 
+                                title="Print Label"
+                                disabled={!qzConnected || !selectedTemplate}
+                              >
+                                <Printer className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </td>
+                    </tr>)}
                 </tbody>
               </table>
             </div>
