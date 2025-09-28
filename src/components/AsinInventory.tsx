@@ -121,32 +121,79 @@ export function AsinInventory() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [isMissingNumbersDialogOpen, setIsMissingNumbersDialogOpen] = useState(false);
   
-  // Export mode settings - global (use stock qty) or local (use default 100) - with persistence
-  const [exportModes, setExportModes] = useState<Record<string, 'global' | 'local'>>(() => {
-    try {
-      const saved = localStorage.getItem('asin-inventory-export-modes');
-      const parsed = saved ? JSON.parse(saved) : {};
-      console.log('🔧 Loading export modes from localStorage:', parsed);
-      return parsed;
-    } catch (error) {
-      console.warn('⚠️ Failed to load export modes from localStorage:', error);
-      return {};
-    }
-  });
+  // Export mode settings - stored in database for persistence across devices
+  const [exportModes, setExportModes] = useState<Record<string, 'global' | 'local'>>({});
+  const [exportModesLoaded, setExportModesLoaded] = useState(false);
 
-  // Persist export modes to localStorage with better error handling
+  // Load export modes from database
   useEffect(() => {
+    const loadExportModes = async () => {
+      if (!user?.id) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('export_mode_preferences')
+          .select('item_id, export_mode')
+          .eq('user_id', user.id)
+          .eq('item_type', 'asin_inventory');
+
+        if (error) {
+          console.error('❌ Failed to load export modes from database:', error);
+          return;
+        }
+
+        const modesMap: Record<string, 'global' | 'local'> = {};
+        data?.forEach(pref => {
+          modesMap[pref.item_id] = pref.export_mode as 'global' | 'local';
+        });
+
+        console.log('🔧 Loading export modes from database:', modesMap);
+        setExportModes(modesMap);
+        setExportModesLoaded(true);
+      } catch (error) {
+        console.error('❌ Error loading export modes:', error);
+        setExportModesLoaded(true);
+      }
+    };
+
+    loadExportModes();
+  }, [user?.id]);
+
+  // Save export mode to database
+  const saveExportMode = async (itemId: string, mode: 'global' | 'local') => {
+    if (!user?.id) return;
+
     try {
-      console.log('💾 Saving export modes to localStorage:', exportModes);
-      localStorage.setItem('asin-inventory-export-modes', JSON.stringify(exportModes));
+      const { error } = await supabase
+        .from('export_mode_preferences')
+        .upsert({
+          user_id: user.id,
+          item_id: itemId,
+          item_type: 'asin_inventory',
+          export_mode: mode
+        }, {
+          onConflict: 'user_id,item_id,item_type'
+        });
+
+      if (error) {
+        console.error('❌ Failed to save export mode:', error);
+        toast({
+          title: "Error",
+          description: "Failed to save export mode preference",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      console.log('💾 Saved export mode to database:', { itemId, mode });
     } catch (error) {
-      console.error('❌ Failed to save export modes to localStorage:', error);
+      console.error('❌ Error saving export mode:', error);
     }
-  }, [exportModes]);
+  };
 
   // Debug: Monitor when inventory loads and export modes relationship
   useEffect(() => {
-    if (inventory.length > 0) {
+    if (inventory.length > 0 && exportModesLoaded) {
       console.log('📦 Inventory loaded with export modes relationship:', {
         inventoryCount: inventory.length,
         exportModesCount: Object.keys(exportModes).length,
@@ -158,7 +205,7 @@ export function AsinInventory() {
       const itemsWithModes = inventory.filter(item => exportModes[item.id]);
       console.log('🎯 Items with export modes set:', itemsWithModes.length, '/', inventory.length);
     }
-  }, [inventory, exportModes]);
+  }, [inventory, exportModes, exportModesLoaded]);
   
   // Modern printing state
   const [qzConnected, setQzConnected] = useState(false);
@@ -1724,42 +1771,49 @@ export function AsinInventory() {
                             )}
                            </div>
                          </td>
-                         <td className="p-3 border-r align-middle">
-                           <div className="flex flex-col items-center gap-2">
-                              <div className="flex items-center gap-2">
-                                <Switch
-                                  id={`export-mode-${item.id}`}
-                                  checked={exportModes[item.id] === 'local'}
-                                  onCheckedChange={(checked) => {
+                          <td className="p-3 border-r align-middle">
+                            <div className="flex flex-col items-center gap-2">
+                               <div className="flex items-center gap-2">
+                                 <Switch
+                                   id={`export-mode-${item.id}`}
+                                   checked={exportModes[item.id] === 'local'}
+                                   disabled={!exportModesLoaded}
+                                   onCheckedChange={async (checked) => {
+                                    const newMode = checked ? 'local' : 'global';
                                     console.log('🔄 Export mode change:', {
                                       itemId: item.id,
                                       asin: item.asin,
                                       currentMode: exportModes[item.id],
-                                      newMode: checked ? 'local' : 'global'
+                                      newMode
                                     });
+                                    
+                                    // Update local state immediately for better UX
                                     setExportModes(prev => ({
                                       ...prev,
-                                      [item.id]: checked ? 'local' : 'global'
+                                      [item.id]: newMode
                                     }));
+                                    
+                                    // Save to database
+                                    await saveExportMode(item.id, newMode);
                                   }}
-                                  className={`border-2 border-muted-foreground/30 hover:border-primary/60 transition-colors ${
-                                    exportModes[item.id] === 'local' 
-                                      ? 'data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500' 
-                                      : 'data-[state=unchecked]:bg-green-500 data-[state=unchecked]:border-green-500'
-                                  }`}
-                                />
-                                <Label htmlFor={`export-mode-${item.id}`} className="text-sm font-medium">
-                                  {exportModes[item.id] === 'local' ? 'Local' : 'Global'}
-                                </Label>
+                                   className={`border-2 border-muted-foreground/30 hover:border-primary/60 transition-colors ${
+                                     exportModes[item.id] === 'local' 
+                                       ? 'data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500' 
+                                       : 'data-[state=unchecked]:bg-green-500 data-[state=unchecked]:border-green-500'
+                                   }`}
+                                 />
+                                 <Label htmlFor={`export-mode-${item.id}`} className="text-sm font-medium">
+                                   {exportModes[item.id] === 'local' ? 'Local' : 'Global'}
+                                 </Label>
+                               </div>
+                              <div className="text-xs text-center text-muted-foreground">
+                                {exportModes[item.id] === 'local' ? 
+                                  'Export mode is Local (fixed qty: 100)' : 
+                                  'Export mode is Global (uses stock qty)'
+                                }
                               </div>
-                             <div className="text-xs text-center text-muted-foreground">
-                               {exportModes[item.id] === 'local' ? 
-                                 'Export mode is Local (fixed qty: 100)' : 
-                                 'Export mode is Global (uses stock qty)'
-                               }
-                             </div>
-                           </div>
-                         </td>
+                            </div>
+                          </td>
                           <td className="p-3 align-middle">
                             <div className="flex items-center justify-center gap-2">
                               <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
