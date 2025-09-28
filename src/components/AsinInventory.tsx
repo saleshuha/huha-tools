@@ -386,7 +386,16 @@ export function AsinInventory() {
              return match;
            });
           } else if (searchMethod === 'title') {
-            return item.title && searchTerms.every(term => item.title.toLowerCase().includes(term.toLowerCase().trim()));
+            if (!item.title) return false;
+            const titleLower = item.title.toLowerCase();
+            
+            // For multi-word searches, check if all terms appear as whole words
+            return searchTerms.every(term => {
+              const termLower = term.toLowerCase().trim();
+              // Use word boundary regex for more precise matching
+              const wordBoundaryRegex = new RegExp(`\\b${termLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`);
+              return wordBoundaryRegex.test(titleLower);
+            });
          } else if (searchMethod === 'notes') {
            return item.notes && searchTerms.some(term => item.notes.toLowerCase().includes(term.toLowerCase().trim()));
          }
