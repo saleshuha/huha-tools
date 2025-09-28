@@ -125,16 +125,40 @@ export function AsinInventory() {
   const [exportModes, setExportModes] = useState<Record<string, 'global' | 'local'>>(() => {
     try {
       const saved = localStorage.getItem('asin-inventory-export-modes');
-      return saved ? JSON.parse(saved) : {};
-    } catch {
+      const parsed = saved ? JSON.parse(saved) : {};
+      console.log('🔧 Loading export modes from localStorage:', parsed);
+      return parsed;
+    } catch (error) {
+      console.warn('⚠️ Failed to load export modes from localStorage:', error);
       return {};
     }
   });
 
-  // Persist export modes to localStorage
+  // Persist export modes to localStorage with better error handling
   useEffect(() => {
-    localStorage.setItem('asin-inventory-export-modes', JSON.stringify(exportModes));
+    try {
+      console.log('💾 Saving export modes to localStorage:', exportModes);
+      localStorage.setItem('asin-inventory-export-modes', JSON.stringify(exportModes));
+    } catch (error) {
+      console.error('❌ Failed to save export modes to localStorage:', error);
+    }
   }, [exportModes]);
+
+  // Debug: Monitor when inventory loads and export modes relationship
+  useEffect(() => {
+    if (inventory.length > 0) {
+      console.log('📦 Inventory loaded with export modes relationship:', {
+        inventoryCount: inventory.length,
+        exportModesCount: Object.keys(exportModes).length,
+        sampleInventoryIds: inventory.slice(0, 3).map(item => ({ id: item.id, asin: item.asin })),
+        sampleExportModes: Object.entries(exportModes).slice(0, 3)
+      });
+      
+      // Check if any inventory items have export modes set
+      const itemsWithModes = inventory.filter(item => exportModes[item.id]);
+      console.log('🎯 Items with export modes set:', itemsWithModes.length, '/', inventory.length);
+    }
+  }, [inventory, exportModes]);
   
   // Modern printing state
   const [qzConnected, setQzConnected] = useState(false);
@@ -1707,6 +1731,12 @@ export function AsinInventory() {
                                   id={`export-mode-${item.id}`}
                                   checked={exportModes[item.id] === 'local'}
                                   onCheckedChange={(checked) => {
+                                    console.log('🔄 Export mode change:', {
+                                      itemId: item.id,
+                                      asin: item.asin,
+                                      currentMode: exportModes[item.id],
+                                      newMode: checked ? 'local' : 'global'
+                                    });
                                     setExportModes(prev => ({
                                       ...prev,
                                       [item.id]: checked ? 'local' : 'global'
