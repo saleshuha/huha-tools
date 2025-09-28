@@ -385,8 +385,8 @@ export function AsinInventory() {
              }
              return match;
            });
-         } else if (searchMethod === 'title') {
-           return item.title && searchTerms.some(term => item.title.toLowerCase().includes(term.toLowerCase().trim()));
+          } else if (searchMethod === 'title') {
+            return item.title && searchTerms.every(term => item.title.toLowerCase().includes(term.toLowerCase().trim()));
          } else if (searchMethod === 'notes') {
            return item.notes && searchTerms.some(term => item.notes.toLowerCase().includes(term.toLowerCase().trim()));
          }
