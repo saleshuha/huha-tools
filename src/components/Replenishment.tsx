@@ -16,8 +16,10 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCountry } from '@/contexts/CountryContext';
 import { useInventoryAnalytics } from '@/hooks/useInventoryAnalytics';
+import { useEnhancedRestockManagement } from '@/hooks/useEnhancedRestockManagement';
 import { InventoryAnalytics } from './InventoryAnalytics';
 import { VelocityDashboard } from './VelocityDashboard';
+import { EnhancedRestockCard } from './replenishment/EnhancedRestockCard';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
 import { cn } from '@/lib/utils';
@@ -169,6 +171,21 @@ export function Replenishment() {
     loading: analyticsLoading,
     loadAnalytics
   } = useInventoryAnalytics();
+  
+  const {
+    items: enhancedRestockItems,
+    loading: restockLoading,
+    getCriticalItems,
+    getHighPriorityItems,
+    getMediumPriorityItems,
+    getLowPriorityItems,
+    getOutOfStockItems,
+    getReplenishmentItems,
+    getTotalRecommendedQuantity,
+    prepareForSunskyOrder,
+    markItemsAsOrdered,
+    loadReplenishmentItems
+  } = useEnhancedRestockManagement();
   const {
     toast
   } = useToast();
@@ -187,6 +204,7 @@ export function Replenishment() {
   const [filteredItems, setFilteredItems] = useState<AllInventoryItem[]>([]);
   const [salesData, setSalesData] = useState<SalesData[]>([]);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [selectedRestockItems, setSelectedRestockItems] = useState<Set<string>>(new Set());
   const [outOfStockItems, setOutOfStockItems] = useState<RestockItem[]>([]);
   
   
@@ -194,6 +212,56 @@ export function Replenishment() {
   // Sunsky order dialog state
   const [sunskyDialogOpen, setSunskyDialogOpen] = useState(false);
   const [sunskyOrderItems, setSunskyOrderItems] = useState<any[]>([]);
+  
+  // Enhanced restock handlers
+  const handleToggleRestockItem = (itemId: string) => {
+    setSelectedRestockItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
+      return newSet;
+    });
+  };
+
+  const handlePlaceOrderFromSunsky = async () => {
+    if (selectedRestockItems.size === 0) {
+      toast({
+        title: "No items selected",
+        description: "Please select items to order from Sunsky",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const orderItems = prepareForSunskyOrder(Array.from(selectedRestockItems));
+      setSunskyOrderItems(orderItems);
+      setSunskyDialogOpen(true);
+    } catch (error: any) {
+      toast({
+        title: "Error preparing order",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSunskyOrderSuccess = async () => {
+    try {
+      await markItemsAsOrdered(Array.from(selectedRestockItems));
+      setSelectedRestockItems(new Set());
+      setSunskyDialogOpen(false);
+    } catch (error: any) {
+      toast({
+        title: "Error updating order status",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
   
   // Sorting and filtering state
   const [sortConfig, setSortConfig] = useState<{key: keyof AllInventoryItem | null, direction: 'asc' | 'desc'}>({
@@ -986,128 +1054,6 @@ export function Replenishment() {
     }
   };
 
-  // Sunsky order handlers
-  const handlePlaceOrderFromSunsky = async () => {
-    if (selectedItems.size === 0) {
-      toast({
-        title: "No Items Selected",
-        description: "Please select items to place an order.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Convert selected restock items to the format expected by SunskyOrderDialog
-    const selectedRestockItems = pendingItems.filter(item => selectedItems.has(item.id));
-    
-    // Calculate quantities based on units sold after last restock
-    const orderItems = await Promise.all(selectedRestockItems.map(async item => {
-      console.log('Processing item for Sunsky order:', item.identifier);
-      
-      const extractedSku = extractSkuFromIdentifier(item.identifier);
-      const extractedModel = extractModelFromIdentifier(item.identifier);
-      const sunskySku = extractedSku || extractedModel;
-      
-      console.log('Extracted values:', { 
-        identifier: item.identifier, 
-        extractedSku, 
-        extractedModel, 
-        sunskySku 
-      });
-      
-      // If no SKU is found, skip this item
-      if (!sunskySku) {
-        console.log('No valid SKU found for item:', item.identifier);
-        return null;
-      }
-      
-      // Calculate quantity based on sales after last restock
-      let calculatedQty = 1; // Default minimum quantity
-      
-      try {
-        // Query stock changes to calculate units sold since last restock
-        let stockChangesQuery;
-        
-        if (item.table_name === 'asin_inventory') {
-          stockChangesQuery = supabase
-            .from('stock_changes')
-            .select('change_amount, created_at')
-            .eq('inventory_id', item.id)
-            .eq('inventory_type', 'asin')
-            .lt('change_amount', 0); // Only negative changes (sales)
-        } else {
-          stockChangesQuery = supabase
-            .from('stock_changes')
-            .select('change_amount, created_at')
-            .eq('inventory_id', item.id)
-            .eq('inventory_type', 'sku')
-            .lt('change_amount', 0); // Only negative changes (sales)
-        }
-
-        // If there's a last restock date, only count sales after that date
-        if (item.days_since_last_restock !== null) {
-          const lastRestockDate = new Date(Date.now() - (item.days_since_last_restock * 24 * 60 * 60 * 1000));
-          stockChangesQuery = stockChangesQuery.gte('created_at', lastRestockDate.toISOString());
-        }
-
-        const { data: stockChanges } = await stockChangesQuery;
-        
-        if (stockChanges && stockChanges.length > 0) {
-          // Sum all negative changes (units sold)
-          const unitsSold = stockChanges.reduce((sum, change) => sum + Math.abs(change.change_amount), 0);
-          // Calculate quantity as half of units sold after last restock, minimum 1
-          calculatedQty = Math.max(1, Math.ceil(unitsSold / 2));
-        }
-        
-        // Ensure minimum quantity of 1
-        calculatedQty = Math.max(1, calculatedQty);
-      } catch (error) {
-        console.error('Error calculating quantity for item:', item.id, error);
-        // Fall back to default quantity of 1
-      }
-      
-      return {
-        id: item.id,
-        po_number: `RESTOCK-${Date.now()}`, // Generate a unique PO number for restocking
-        sku_code: extractedSku,
-        asin: '', // Don't use ASIN for Sunsky search
-        quantity: calculatedQty,
-        status: 'pending',
-        model_number: extractedModel,
-        title: `Restock for ${item.identifier}`,
-        notes: sunskySku ? 
-          `Replenishment order - Qty: ${calculatedQty} (based on sales after last restock) - Search by ${extractedSku ? 'SKU' : 'Model'}: ${sunskySku}` :
-          `Replenishment order for out of stock item - No valid Sunsky SKU found (contains Amazon ASIN)`,
-        sunsky_sku: sunskySku, // Use valid SKU/model, avoiding Amazon ASINs
-        itemNo: sunskySku, // Add itemNo field for SunskyOrderDialog compatibility
-        qty: calculatedQty
-      };
-    }));
-    
-    // Filter out null items (items without valid SKUs)
-    const validOrderItems = orderItems.filter(item => item !== null);
-
-    if (validOrderItems.length === 0) {
-      toast({
-        title: "No Valid SKUs Found",
-        description: "The selected items contain only Amazon ASINs which are not compatible with Sunsky. Please select items with valid SKU or model numbers.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (validOrderItems.length < selectedRestockItems.length) {
-      toast({
-        title: `${selectedRestockItems.length - validOrderItems.length} Items Skipped`,
-        description: "Some items were skipped because they only contain Amazon ASINs. Only items with valid SKUs will be processed.",
-        variant: "default",
-      });
-    }
-
-    setSunskyOrderItems(validOrderItems);
-    setSunskyDialogOpen(true);
-  };
-
   // Handle unavailable items from Sunsky
   const handleItemsUnavailable = async (unavailableItems: any[]) => {
     console.log('Moving unavailable items to out of stock tab:', unavailableItems);
@@ -1161,49 +1107,6 @@ export function Replenishment() {
     }
   };
 
-  const handleSunskyOrderSuccess = async (orderNumber: string, selectedOrderIds: string[]) => {
-    try {
-      // Mark the original inventory items as ordered
-      const updatePromises = Array.from(selectedItems).map(async itemId => {
-        const item = restockItems.find(i => i.id === itemId);
-        if (!item) return;
-        
-        return supabase.from('asin_inventory').update({
-          status: 'ordered'
-        }).eq('id', itemId);
-      });
-
-      await Promise.all(updatePromises);
-
-      toast({
-        title: "Sunsky Order Placed Successfully",
-        description: `Order ${orderNumber} has been placed. Selected items marked as ordered. The order may take a few minutes to appear in Sunsky Order Tracking.`,
-      });
-
-      setSelectedItems(new Set());
-      setSunskyDialogOpen(false);
-      loadRestockItems(); // Refresh data
-      
-      // Try to trigger sync after a short delay to give Sunsky time to process
-      setTimeout(async () => {
-        try {
-          console.log('Attempting to sync Sunsky orders after placement...');
-          // Note: We could call a sync function here if available
-          // For now, just log that manual sync is recommended
-        } catch (error) {
-          console.log('Auto-sync failed, manual sync may be needed');
-        }
-      }, 30000); // Wait 30 seconds before attempting sync
-      
-    } catch (error) {
-      console.error('Error updating items after Sunsky order:', error);
-      toast({
-        title: "Order Placed but Update Failed",
-        description: `Order ${orderNumber} was placed successfully, but failed to update item status.`,
-        variant: "destructive",
-      });
-    }
-  };
 
   // Helper functions to extract identifiers
   const isAmazonAsin = (text: string): boolean => {
@@ -1898,96 +1801,124 @@ export function Replenishment() {
 
                 {/* Ready to Order Tab */}
                 <TabsContent value="critical" className="space-y-4 mt-6">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                      <Input placeholder="Search ASINs, SKUs, or serials... (use spaces for multiple)" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10" />
+                  <div className="flex items-center justify-between gap-4 mb-4">
+                    <div className="text-sm text-muted-foreground">
+                      Enhanced Restock Management - Items needing replenishment based on sales and stock levels
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-sm whitespace-nowrap bg-green-50 text-green-700 border-green-200">
-                        {pendingItems.length} ready to order
-                      </Badge>
                       <Badge variant="outline" className="text-sm whitespace-nowrap bg-red-50 text-red-700 border-red-200">
-                        {outOfStockItems.length} cannot order
+                        {getCriticalItems().length} Critical
+                      </Badge>
+                      <Badge variant="outline" className="text-sm whitespace-nowrap bg-orange-50 text-orange-700 border-orange-200">
+                        {getReplenishmentItems().length} Needs Replenishment
+                      </Badge>
+                      <Badge variant="outline" className="text-sm whitespace-nowrap bg-blue-50 text-blue-700 border-blue-200">
+                        Total Recommended: {getTotalRecommendedQuantity()} units
                       </Badge>
                     </div>
                   </div>
 
-                  {/* Bulk Actions for Critical Items */}
-                  {pendingItems.length > 0 && <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                  {/* Bulk Actions for Enhanced Restock Items */}
+                  {enhancedRestockItems.length > 0 && (
+                    <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                       <div className="flex items-center gap-4">
-                         <div className="flex items-center space-x-2">
-                           <Checkbox id="select-all" checked={selectedItems.size === pendingItems.length && pendingItems.length > 0} onCheckedChange={handleSelectAll} />
-                           <label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
-                             Select All ({pendingItems.length})
-                           </label>
-                         </div>
-                         {selectedItems.size > 0 && <Badge variant="secondary" className="text-xs">
-                             {selectedItems.size} selected
-                           </Badge>}
-                       </div>
-                       <div className="flex items-center gap-2">
-                         <Button onClick={handlePlaceOrderFromSunsky} disabled={selectedItems.size === 0} size="sm" className="gap-2" variant="secondary">
-                           <Package className="w-4 h-4" />
-                           Order from Sunsky ({selectedItems.size || 'Selected'})
-                         </Button>
-                         <Button onClick={handleBulkMarkAsOrdered} disabled={selectedItems.size === 0} size="sm" className="gap-2">
-                           <ShoppingCart className="w-4 h-4" />
-                           Mark {selectedItems.size || 'Selected'} as Ordered
-                         </Button>
-                       </div>
-                    </div>}
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="select-all-enhanced"
+                            checked={selectedRestockItems.size === enhancedRestockItems.length && enhancedRestockItems.length > 0}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedRestockItems(new Set(enhancedRestockItems.map(item => item.item_id)));
+                              } else {
+                                setSelectedRestockItems(new Set());
+                              }
+                            }}
+                            className="h-4 w-4 rounded border-border"
+                          />
+                          <label htmlFor="select-all-enhanced" className="text-sm font-medium cursor-pointer">
+                            Select All ({enhancedRestockItems.length})
+                          </label>
+                        </div>
+                        {selectedRestockItems.size > 0 && (
+                          <Badge variant="secondary" className="text-xs">
+                            {selectedRestockItems.size} selected
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          onClick={handlePlaceOrderFromSunsky} 
+                          disabled={selectedRestockItems.size === 0} 
+                          size="sm" 
+                          className="gap-2" 
+                          variant="secondary"
+                        >
+                          <Package className="w-4 h-4" />
+                          Order from Sunsky ({selectedRestockItems.size})
+                        </Button>
+                      </div>
+                    </div>
+                  )}
 
-                  {searchTerm.trim() && <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded-lg">
-                      <strong>Search Active:</strong> {searchTerm.split(' ').map(term => term.trim()).filter(Boolean).join(', ')}
-                    </div>}
+                  {/* Critical Items Section */}
+                  {getCriticalItems().length > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="text-lg font-semibold flex items-center gap-2 text-red-600">
+                        <AlertTriangle className="h-5 w-5" />
+                        Critical - Completely Out of Stock ({getCriticalItems().length})
+                      </h3>
+                      <div className="grid gap-3">
+                        {getCriticalItems().map(item => (
+                          <EnhancedRestockCard
+                            key={item.item_id}
+                            item={item}
+                            isSelected={selectedRestockItems.has(item.item_id)}
+                            onToggleSelect={handleToggleRestockItem}
+                            onMarkAsOrdered={markItemsAsOrdered}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-                   <div className="space-y-2 max-h-96 overflow-y-auto">
-                     {pendingItems.length > 0 ? pendingItems.map(item => {
-                        // Check if item has valid SKU for Sunsky ordering
-                        const extractedSku = extractSkuFromIdentifier(item.identifier);
-                        const extractedModel = extractModelFromIdentifier(item.identifier);
-                        const hasSunskySku = !!(extractedSku || extractedModel);
-                        
-                        return <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg bg-green-50/50 hover:bg-green-100/50 transition-colors border-green-200">
-                           <div className="flex items-center gap-4">
-                             <Checkbox id={`item-${item.id}`} checked={selectedItems.has(item.id)} onCheckedChange={checked => handleSelectItem(item.id, checked as boolean)} />
-                             <div className="p-2 rounded-lg bg-green-500/20">
-                               {item.table_name === 'asin_inventory' ? <Package className="w-4 h-4 text-green-700" /> : <Database className="w-4 h-4 text-green-700" />}
-                             </div>
-                             <div className="flex-1">
-                               <p className="font-medium text-foreground">{item.identifier}</p>
-                               <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                 <span>Qty: {item.current_quantity}</span>
-                                 <span>Last Restock: {item.days_since_last_restock ? `${item.days_since_last_restock}d ago` : 'Never'}</span>
-                                 <Badge variant="secondary" className="text-xs bg-green-500/20 text-green-700 border-green-300">
-                                   Ready to Order
-                                 </Badge>
-                                 <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-700">
-                                   Sunsky SKU: {extractedSku || extractedModel}
-                                 </Badge>
-                               </div>
-                             </div>
-                           </div>
-                           <Button onClick={() => markAsOrdered(item.id)} size="sm" variant="outline" className="gap-2">
-                             <ShoppingCart className="w-4 h-4" />
-                             Mark as Ordered
-                           </Button>
-                         </div>
-                       }) : <div className="text-center py-8 text-muted-foreground">
-                        <ShoppingCart className="w-12 h-12 mx-auto mb-4 opacity-50 text-green-500" />
-                        <p className="text-lg font-medium">No items ready to order</p>
-                        <p className="text-sm">All critical items need SKU mapping or are already ordered!</p>
-                      </div>}
-                  </div>
+                  {/* Replenishment Items Section */}
+                  {getReplenishmentItems().length > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="text-lg font-semibold flex items-center gap-2 text-orange-600">
+                        <TrendingUp className="h-5 w-5" />
+                        Needs Replenishment - Sold Units ({getReplenishmentItems().length})
+                      </h3>
+                      <div className="grid gap-3">
+                        {getReplenishmentItems().map(item => (
+                          <EnhancedRestockCard
+                            key={item.item_id}
+                            item={item}
+                            isSelected={selectedRestockItems.has(item.item_id)}
+                            onToggleSelect={handleToggleRestockItem}
+                            onMarkAsOrdered={markItemsAsOrdered}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-                   {/* Export button for ready-to-order items */}
-                   {pendingItems.length > 0 && <div className="pt-4 border-t">
-                       <Button onClick={exportRestockData} variant="outline" size="sm" className="gap-2">
-                         <Download className="w-4 h-4" />
-                         Export Ready to Order Items
-                       </Button>
-                     </div>}
+                  {/* No Items Message */}
+                  {enhancedRestockItems.length === 0 && !restockLoading && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <ShoppingCart className="w-12 h-12 mx-auto mb-4 opacity-50 text-green-500" />
+                      <p className="text-lg font-medium">No items need replenishment</p>
+                      <p className="text-sm">All items are well-stocked or already ordered!</p>
+                    </div>
+                  )}
+
+                  {/* Loading State */}
+                  {restockLoading && (
+                    <div className="text-center py-8">
+                      <RefreshCw className="w-8 h-8 mx-auto mb-4 animate-spin text-blue-500" />
+                      <p className="text-sm text-muted-foreground">Loading replenishment data...</p>
+                    </div>
+                  )}
                 </TabsContent>
 
                 {/* Out of Stock Tab */}
