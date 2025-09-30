@@ -160,7 +160,7 @@ export function InventoryMetrics({
             .eq('country', selectedCountry)
             .or('title.is.null,title.eq.'),
             
-          // Restock eligible count - items with proper addition → sale sequence
+          // Restock eligible count - batch query for performance
           (async () => {
             const { data: allSold } = await supabase
               .from('asin_inventory')
@@ -168,18 +168,30 @@ export function InventoryMetrics({
               .eq('country', selectedCountry)
               .eq('status', 'sold');
             
-            console.log('🔍 Checking restock eligibility for', allSold?.length || 0, 'sold items');
+            if (!allSold || allSold.length === 0) return { count: 0 };
             
-            if (!allSold) return { count: 0 };
+            const soldIds = allSold.map(item => item.id);
             
+            // Get ALL stock_changes for sold items in ONE query
+            const { data: allChanges } = await supabase
+              .from('stock_changes')
+              .select('inventory_id, change_amount, created_at')
+              .in('inventory_id', soldIds)
+              .order('created_at', { ascending: true });
+            
+            // Group changes by inventory_id
+            const changesByItem = new Map();
+            (allChanges || []).forEach(change => {
+              if (!changesByItem.has(change.inventory_id)) {
+                changesByItem.set(change.inventory_id, []);
+              }
+              changesByItem.get(change.inventory_id).push(change);
+            });
+            
+            // Count items with proper addition → sale sequence
             let validCount = 0;
             for (const item of allSold) {
-              const { data: changes } = await supabase
-                .from('stock_changes')
-                .select('change_amount, created_at')
-                .eq('inventory_id', item.id)
-                .order('created_at', { ascending: true });
-              
+              const changes = changesByItem.get(item.id);
               if (!changes || changes.length === 0) continue;
               
               const firstAddition = changes.find(c => c.change_amount > 0);
@@ -192,7 +204,7 @@ export function InventoryMetrics({
               if (hasReduction) validCount++;
             }
             
-            console.log('✅ Restock eligible items (with proper sequence):', validCount, 'out of', allSold.length);
+            console.log('✅ Restock eligible:', validCount, 'out of', allSold.length, 'sold items');
             return { count: validCount };
           })(),
             
@@ -429,28 +441,33 @@ export function InventoryMetrics({
         } else if (metric === 'outofstock') {
           allItems = allItems.filter(item => item.quantity === 0);
         } else if (metric === 'restock-eligible') {
-          // Filter items with proper stock addition → sale sequence
-          const itemsWithChanges = await Promise.all(
-            allItems.map(async (item) => {
-              const { data: changes } = await supabase
-                .from('stock_changes')
-                .select('change_amount, created_at')
-                .eq('inventory_id', item.id)
-                .order('created_at', { ascending: true });
-              
-              if (!changes || changes.length === 0) return null;
-              
-              const firstAddition = changes.find(c => c.change_amount > 0);
-              if (!firstAddition) return null;
-              
-              const hasReduction = changes.some(
-                c => c.change_amount < 0 && new Date(c.created_at) > new Date(firstAddition.created_at)
-              );
-              
-              return hasReduction ? item : null;
-            })
-          );
-          allItems = itemsWithChanges.filter(item => item !== null) as any[];
+          // Batch query for stock_changes
+          const itemIds = allItems.map(item => item.id);
+          const { data: allChanges } = await supabase
+            .from('stock_changes')
+            .select('inventory_id, change_amount, created_at')
+            .in('inventory_id', itemIds)
+            .order('created_at', { ascending: true });
+          
+          const changesByItem = new Map();
+          (allChanges || []).forEach(change => {
+            if (!changesByItem.has(change.inventory_id)) {
+              changesByItem.set(change.inventory_id, []);
+            }
+            changesByItem.get(change.inventory_id).push(change);
+          });
+          
+          allItems = allItems.filter(item => {
+            const changes = changesByItem.get(item.id);
+            if (!changes || changes.length === 0) return false;
+            
+            const firstAddition = changes.find(c => c.change_amount > 0);
+            if (!firstAddition) return false;
+            
+            return changes.some(
+              c => c.change_amount < 0 && new Date(c.created_at) > new Date(firstAddition.created_at)
+            );
+          });
         } else if (metric === 'non-restock-eligible') {
           allItems = allItems.filter(item => item.eligible_for_restock === false || item.eligible_for_restock === null);
         }
@@ -496,29 +513,35 @@ export function InventoryMetrics({
         } else if (metric === 'outofstock') {
           allItems = allItems.filter(item => item.quantity === 0);
         } else if (metric === 'restock-eligible') {
-          // Filter items with proper stock addition → sale sequence
+          // Batch query for ASIN items only
           const asinItems = allItems.filter(item => item.type === 'asin');
-          const itemsWithChanges = await Promise.all(
-            asinItems.map(async (item) => {
-              const { data: changes } = await supabase
-                .from('stock_changes')
-                .select('change_amount, created_at')
-                .eq('inventory_id', item.id)
-                .order('created_at', { ascending: true });
-              
-              if (!changes || changes.length === 0) return null;
-              
-              const firstAddition = changes.find(c => c.change_amount > 0);
-              if (!firstAddition) return null;
-              
-              const hasReduction = changes.some(
-                c => c.change_amount < 0 && new Date(c.created_at) > new Date(firstAddition.created_at)
-              );
-              
-              return hasReduction ? item : null;
-            })
-          );
-          allItems = itemsWithChanges.filter(item => item !== null) as any[];
+          const itemIds = asinItems.map(item => item.id);
+          
+          const { data: allChanges } = await supabase
+            .from('stock_changes')
+            .select('inventory_id, change_amount, created_at')
+            .in('inventory_id', itemIds)
+            .order('created_at', { ascending: true });
+          
+          const changesByItem = new Map();
+          (allChanges || []).forEach(change => {
+            if (!changesByItem.has(change.inventory_id)) {
+              changesByItem.set(change.inventory_id, []);
+            }
+            changesByItem.get(change.inventory_id).push(change);
+          });
+          
+          allItems = asinItems.filter(item => {
+            const changes = changesByItem.get(item.id);
+            if (!changes || changes.length === 0) return false;
+            
+            const firstAddition = changes.find(c => c.change_amount > 0);
+            if (!firstAddition) return false;
+            
+            return changes.some(
+              c => c.change_amount < 0 && new Date(c.created_at) > new Date(firstAddition.created_at)
+            );
+          });
         } else if (metric === 'non-restock-eligible') {
           allItems = allItems.filter(item => item.type === 'asin' && (item.eligible_for_restock === false || item.eligible_for_restock === null));
         }
