@@ -268,11 +268,10 @@ export function Replenishment() {
       today.setHours(0, 0, 0, 0);
       const todayISO = today.toISOString();
       
-      // Get ASIN inventory items that are out of stock OR have been sold since last restock
+      // Get ASIN inventory items that are eligible for restock OR sold today
       const asinQuery = supabase.from('asin_inventory')
         .select('id, asin, serial_number, quantity, status, sku, last_restock_date, restock_quantity, date_sold, date_added')
         .eq('country', selectedCountry)
-        .eq('eligible_for_restock', true)
         .neq('status', 'ordered');
          
       const [asinResult] = await Promise.all([asinQuery]);
@@ -314,10 +313,11 @@ export function Replenishment() {
           const unitsSold = Math.abs(salesSinceRestock.reduce((sum, change) => sum + change.change_amount, 0));
           
           // Include item if:
-          // 1. Out of stock (quantity = 0), OR
-          // 2. Has sold units since last restock, OR
-          // 3. Sold today (prioritize)
-          if (item.quantity === 0 || unitsSold > 0 || soldToday) {
+          // 1. Sold today (highest priority - show regardless of stock), OR
+          // 2. Out of stock (quantity = 0) AND eligible for restock, OR
+          // 3. Has sold units since last restock AND eligible for restock
+          const isEligible = item.quantity === 0 || unitsSold > 0;
+          if (soldToday || isEligible) {
             // Calculate recommended order quantity: 2x last restock qty or 2x units sold
             const baseQuantity = item.restock_quantity || unitsSold || 1;
             const recommendedQty = Math.max(baseQuantity * 2, 1);
