@@ -35,6 +35,8 @@ interface RestockItem {
   date_sold?: string | null;
   last_restock_date?: string | null;
   restock_quantity?: number | null;
+  units_sold_since_restock?: number; // Track units sold for replenishment
+  replenishment_reason?: string; // Why this item needs replenishment
   // Enhanced velocity fields
   sales_velocity?: number;
   velocity_category?: 'Fast Moving' | 'Medium Moving' | 'Slow Moving' | 'No Sales';
@@ -260,11 +262,10 @@ export function Replenishment() {
     try {
       console.log('Loading restock items for country:', selectedCountry);
       
-      // Get ASIN inventory items that need restocking (quantity = 0, not ordered, and eligible for restock)
+      // Get ASIN inventory items that are out of stock OR have been sold since last restock
       const asinQuery = supabase.from('asin_inventory')
-        .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added')
+        .select('id, asin, serial_number, quantity, status, sku, last_restock_date, restock_quantity, date_sold, date_added')
         .eq('country', selectedCountry)
-        .eq('quantity', 0)
         .eq('eligible_for_restock', true)
         .neq('status', 'ordered');
          
@@ -272,21 +273,70 @@ export function Replenishment() {
       
       if (asinResult.error) throw asinResult.error;
       
-      // Process ASIN items only
-      const asinItems = (asinResult.data || []).map(item => ({
-        id: item.id,
-        identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
-        current_quantity: item.quantity,
-        table_name: 'asin_inventory',
-        status: item.status,
-        date_sold: item.date_sold,
-        last_restock_date: item.last_restock_date,
-        days_since_last_restock: item.last_restock_date ? 
-          Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
-      }));
+      // Get stock changes to calculate sold units since last restock
+      const itemsWithSales = await Promise.all(
+        (asinResult.data || []).map(async (item) => {
+          // Query stock_changes for this item to find sales (negative changes)
+          const { data: stockChanges, error } = await supabase
+            .from('stock_changes')
+            .select('change_amount, created_at')
+            .eq('inventory_id', item.id)
+            .lt('change_amount', 0); // Negative = sold
+            
+          if (error) {
+            console.error('Error fetching stock changes for item:', item.id, error);
+            return null;
+          }
+          
+          // Filter changes since last restock
+          const salesSinceRestock = stockChanges?.filter(change => {
+            if (!item.last_restock_date) return true; // Include all if never restocked
+            return new Date(change.created_at) > new Date(item.last_restock_date);
+          }) || [];
+          
+          const unitsSold = Math.abs(salesSinceRestock.reduce((sum, change) => sum + change.change_amount, 0));
+          
+          // Include item if:
+          // 1. Out of stock (quantity = 0), OR
+          // 2. Has sold units since last restock
+          if (item.quantity === 0 || unitsSold > 0) {
+            // Calculate recommended order quantity: 2x last restock qty or 2x units sold
+            const baseQuantity = item.restock_quantity || unitsSold || 1;
+            const recommendedQty = Math.max(baseQuantity * 2, 1);
+            
+            return {
+              id: item.id,
+              identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
+              current_quantity: item.quantity,
+              table_name: 'asin_inventory',
+              status: item.status,
+              date_sold: item.date_sold,
+              last_restock_date: item.last_restock_date,
+              restock_quantity: item.restock_quantity,
+              units_sold_since_restock: unitsSold,
+              recommended_reorder_quantity: recommendedQty,
+              replenishment_reason: item.quantity === 0 ? 'Out of Stock' : `Sold ${unitsSold} units - Needs Replenishment`,
+              days_since_last_restock: item.last_restock_date ? 
+                Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
+            };
+          }
+          
+          return null;
+        })
+      );
       
-      const allItems = [...asinItems];
-      console.log('Processed restock items:', allItems);
+      // Filter out nulls and sort by urgency
+      const allItems = itemsWithSales
+        .filter((item): item is NonNullable<typeof item> => item !== null)
+        .sort((a, b) => {
+          // Out of stock items first
+          if (a.current_quantity === 0 && b.current_quantity > 0) return -1;
+          if (a.current_quantity > 0 && b.current_quantity === 0) return 1;
+          // Then by units sold
+          return (b.units_sold_since_restock || 0) - (a.units_sold_since_restock || 0);
+        });
+      
+      console.log('Processed restock items with sales tracking:', allItems);
       setRestockItems(allItems);
       console.log('Set restock items for', selectedCountry, ':', allItems.length, 'items');
     } catch (error: any) {
@@ -1897,7 +1947,7 @@ export function Replenishment() {
                 </TabsList>
 
                 {/* Ready to Order Tab */}
-                <TabsContent value="critical" className="space-y-4 mt-6">
+                  <TabsContent value="critical" className="space-y-4 mt-6">
                   <div className="flex items-center justify-between gap-4">
                     <div className="relative flex-1">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
@@ -1905,7 +1955,10 @@ export function Replenishment() {
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className="text-sm whitespace-nowrap bg-green-50 text-green-700 border-green-200">
-                        {pendingItems.length} ready to order
+                        {pendingItems.filter(item => item.current_quantity === 0).length} out of stock
+                      </Badge>
+                      <Badge variant="outline" className="text-sm whitespace-nowrap bg-blue-50 text-blue-700 border-blue-200">
+                        {pendingItems.filter(item => item.current_quantity > 0).length} needs refill
                       </Badge>
                       <Badge variant="outline" className="text-sm whitespace-nowrap bg-red-50 text-red-700 border-red-200">
                         {outOfStockItems.length} cannot order
@@ -1948,24 +2001,42 @@ export function Replenishment() {
                         const extractedSku = extractSkuFromIdentifier(item.identifier);
                         const extractedModel = extractModelFromIdentifier(item.identifier);
                         const hasSunskySku = !!(extractedSku || extractedModel);
+                        const isOutOfStock = item.current_quantity === 0;
                         
-                        return <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg bg-green-50/50 hover:bg-green-100/50 transition-colors border-green-200">
+                        return <div key={item.id} className={cn(
+                          "flex items-center justify-between p-4 border rounded-lg transition-colors",
+                          isOutOfStock ? "bg-red-50/50 hover:bg-red-100/50 border-red-200" : "bg-blue-50/50 hover:bg-blue-100/50 border-blue-200"
+                        )}>
                            <div className="flex items-center gap-4">
                              <Checkbox id={`item-${item.id}`} checked={selectedItems.has(item.id)} onCheckedChange={checked => handleSelectItem(item.id, checked as boolean)} />
-                             <div className="p-2 rounded-lg bg-green-500/20">
-                               {item.table_name === 'asin_inventory' ? <Package className="w-4 h-4 text-green-700" /> : <Database className="w-4 h-4 text-green-700" />}
+                             <div className={cn(
+                               "p-2 rounded-lg",
+                               isOutOfStock ? "bg-red-500/20" : "bg-blue-500/20"
+                             )}>
+                               <Package className={cn("w-4 h-4", isOutOfStock ? "text-red-700" : "text-blue-700")} />
                              </div>
                              <div className="flex-1">
                                <p className="font-medium text-foreground">{item.identifier}</p>
-                               <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                 <span>Qty: {item.current_quantity}</span>
+                               <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
+                                 <span>Current: {item.current_quantity}</span>
+                                 {item.units_sold_since_restock > 0 && (
+                                   <span className="text-blue-600 font-medium">Sold: {item.units_sold_since_restock}</span>
+                                 )}
+                                 {item.recommended_reorder_quantity && (
+                                   <span className="text-green-600 font-medium">Order Qty: {item.recommended_reorder_quantity}</span>
+                                 )}
                                  <span>Last Restock: {item.days_since_last_restock ? `${item.days_since_last_restock}d ago` : 'Never'}</span>
-                                 <Badge variant="secondary" className="text-xs bg-green-500/20 text-green-700 border-green-300">
-                                   Ready to Order
+                                 <Badge variant="secondary" className={cn(
+                                   "text-xs",
+                                   isOutOfStock ? "bg-red-500/20 text-red-700 border-red-300" : "bg-blue-500/20 text-blue-700 border-blue-300"
+                                 )}>
+                                   {item.replenishment_reason}
                                  </Badge>
-                                 <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-700">
-                                   Sunsky SKU: {extractedSku || extractedModel}
-                                 </Badge>
+                                 {hasSunskySku && (
+                                   <Badge variant="secondary" className="text-xs bg-green-500/20 text-green-700">
+                                     SKU: {extractedSku || extractedModel}
+                                   </Badge>
+                                 )}
                                </div>
                              </div>
                            </div>
@@ -1977,7 +2048,7 @@ export function Replenishment() {
                        }) : <div className="text-center py-8 text-muted-foreground">
                         <ShoppingCart className="w-12 h-12 mx-auto mb-4 opacity-50 text-green-500" />
                         <p className="text-lg font-medium">No items ready to order</p>
-                        <p className="text-sm">All critical items need SKU mapping or are already ordered!</p>
+                        <p className="text-sm">All items are either fully stocked or already ordered!</p>
                       </div>}
                   </div>
 
