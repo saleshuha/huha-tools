@@ -161,12 +161,40 @@ export function InventoryMetrics({
             .or('title.is.null,title.eq.'),
             
           // Restock eligible count - items with proper addition → sale sequence
-          supabase
-            .from('asin_inventory')
-            .select('id', { count: 'exact', head: true })
-            .eq('country', selectedCountry)
-            .eq('status', 'sold')
-            .not('id', 'is', null),
+          (async () => {
+            const { data: allSold } = await supabase
+              .from('asin_inventory')
+              .select('id')
+              .eq('country', selectedCountry)
+              .eq('status', 'sold');
+            
+            console.log('🔍 Checking restock eligibility for', allSold?.length || 0, 'sold items');
+            
+            if (!allSold) return { count: 0 };
+            
+            let validCount = 0;
+            for (const item of allSold) {
+              const { data: changes } = await supabase
+                .from('stock_changes')
+                .select('change_amount, created_at')
+                .eq('inventory_id', item.id)
+                .order('created_at', { ascending: true });
+              
+              if (!changes || changes.length === 0) continue;
+              
+              const firstAddition = changes.find(c => c.change_amount > 0);
+              if (!firstAddition) continue;
+              
+              const hasReduction = changes.some(
+                c => c.change_amount < 0 && new Date(c.created_at) > new Date(firstAddition.created_at)
+              );
+              
+              if (hasReduction) validCount++;
+            }
+            
+            console.log('✅ Restock eligible items (with proper sequence):', validCount, 'out of', allSold.length);
+            return { count: validCount };
+          })(),
             
           // Non-restock eligible count
           supabase
