@@ -272,15 +272,12 @@ export function Replenishment() {
     try {
       console.log('Loading restock items for country:', selectedCountry);
       
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      // Get ASIN inventory items that need restocking (quantity = 0, not ordered, and eligible for restock OR sold today)
+      // Get ASIN inventory items that need restocking (quantity = 0, not ordered, and either eligible_for_restock=true OR has been sold)
       const asinQuery = supabase.from('asin_inventory')
         .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added')
         .eq('country', selectedCountry)
         .eq('quantity', 0)
-        .or(`eligible_for_restock.eq.true,date_sold.gte.${today.toISOString()}`)
+        .or('eligible_for_restock.eq.true,date_sold.not.is.null')
         .neq('status', 'ordered');
          
       const [asinResult] = await Promise.all([asinQuery]);
@@ -319,14 +316,11 @@ export function Replenishment() {
     try {
       console.log('Starting loadAllInventoryItems for country:', selectedCountry);
       
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
       const [asinAll] = await Promise.all([
         supabase.from('asin_inventory')
           .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added, notes, eligible_for_restock')
           .eq('country', selectedCountry)
-          .or(`eligible_for_restock.eq.true,date_sold.gte.${today.toISOString()}`)
+          .or('eligible_for_restock.eq.true,date_sold.not.is.null')
       ]);
       
       if (asinAll.error) {
