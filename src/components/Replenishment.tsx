@@ -315,20 +315,40 @@ export function Replenishment() {
       
       if (asinResult.error) throw asinResult.error;
       
+      // Get last sale dates from stock_changes
+      const inventoryIds = (asinResult.data || []).map(item => item.id);
+      const { data: stockChanges } = await supabase
+        .from('stock_changes')
+        .select('inventory_id, created_at')
+        .in('inventory_id', inventoryIds)
+        .lt('change_amount', 0)
+        .order('created_at', { ascending: false });
+      
+      // Create a map of inventory_id to last sale date
+      const lastSaleDates = new Map();
+      (stockChanges || []).forEach(change => {
+        if (!lastSaleDates.has(change.inventory_id)) {
+          lastSaleDates.set(change.inventory_id, change.created_at);
+        }
+      });
+      
       // Process ASIN items only (excluding non-source items)
       const asinItems = (asinResult.data || [])
         .filter(item => !nonSourceIdentifiers.has(`${item.asin}-${item.serial_number}`))
-        .map(item => ({
-        id: item.id,
-        identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
-        current_quantity: item.quantity,
-        table_name: 'asin_inventory',
-        status: item.status,
-        date_sold: item.date_sold,
-        last_restock_date: item.last_restock_date,
-        days_since_last_restock: item.last_restock_date ? 
-          Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
-      }));
+        .map(item => {
+          const lastSaleDate = lastSaleDates.get(item.id) || item.date_sold;
+          return {
+            id: item.id,
+            identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
+            current_quantity: item.quantity,
+            table_name: 'asin_inventory',
+            status: item.status,
+            date_sold: lastSaleDate,
+            last_restock_date: item.last_restock_date,
+            days_since_last_restock: item.last_restock_date ? 
+              Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
+          };
+        });
       
       const allItems = [...asinItems];
       console.log('Processed restock items:', allItems);
