@@ -1597,7 +1597,7 @@ export function AsinInventory() {
                            Restock
                          </div>
                        </th>
-                       <th className="w-24 p-3 text-center font-medium border-r">
+                       <th className="w-20 p-3 text-center font-medium border-r">
                          <div className="flex items-center justify-center gap-2">
                            <Download className="w-4 h-4" />
                            Export Mode
@@ -1738,10 +1738,10 @@ export function AsinInventory() {
                                </div>
                               <div className="text-xs text-center text-muted-foreground">
                                 {item.status === 'no-stock' 
-                                  ? 'No-stock items excluded' 
+                                  ? 'No-stock items excluded from restock' 
                                   : item.eligible_for_restock 
-                                    ? 'Marked for replenishment' 
-                                    : 'Not marked for restock'
+                                    ? 'Auto-enabled: sold in last 90 days' 
+                                    : 'No sales in last 90 days'
                                 }
                               </div>
                             </div>
