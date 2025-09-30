@@ -4605,6 +4605,14 @@ export type Database = {
           updated_count: number
         }[]
       }
+      update_no_stock_statuses: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          no_stock_count: number
+          still_sold_count: number
+          updated_count: number
+        }[]
+      }
       update_print_eligible_items_by_order_skus: {
         Args: { user_id_param: string }
         Returns: {
