@@ -160,12 +160,12 @@ export function InventoryMetrics({
             .eq('country', selectedCountry)
             .or('title.is.null,title.eq.'),
             
-          // Restock eligible count
+          // Restock eligible count - items sold within last 90 days OR eligible_for_restock=true
           supabase
             .from('asin_inventory')
             .select('*', { count: 'exact', head: true })
             .eq('country', selectedCountry)
-            .eq('eligible_for_restock', true),
+            .or(`eligible_for_restock.eq.true,date_sold.gte.${new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()}`),
             
           // Non-restock eligible count
           supabase
@@ -307,8 +307,12 @@ export function InventoryMetrics({
         const skuTotalUnits = skuItems.reduce((sum, item) => sum + item.quantity, 0);
         const skuSoldUnits = skuItems.filter(item => item.status === 'sold').reduce((sum, item) => sum + item.quantity, 0);
         
-        // Calculate restock eligibility (only ASIN items have this field)
-        const restockEligible = asinItems.filter(item => item.eligible_for_restock === true).length;
+        // Calculate restock eligibility (items sold in last 90 days OR eligible_for_restock=true)
+        const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+        const restockEligible = asinItems.filter(item => 
+          item.eligible_for_restock === true || 
+          (item.date_sold && new Date(item.date_sold) >= ninetyDaysAgo)
+        ).length;
         const nonRestockEligible = asinItems.filter(item => item.eligible_for_restock === false || item.eligible_for_restock === null).length;
         
         // Calculate items with missing SKU (only for ASIN)
@@ -400,7 +404,11 @@ export function InventoryMetrics({
         } else if (metric === 'outofstock') {
           allItems = allItems.filter(item => item.quantity === 0);
         } else if (metric === 'restock-eligible') {
-          allItems = allItems.filter(item => item.eligible_for_restock === true);
+          const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+          allItems = allItems.filter(item => 
+            item.eligible_for_restock === true || 
+            (item.date_sold && new Date(item.date_sold) >= ninetyDaysAgo)
+          );
         } else if (metric === 'non-restock-eligible') {
           allItems = allItems.filter(item => item.eligible_for_restock === false || item.eligible_for_restock === null);
         }
@@ -446,7 +454,13 @@ export function InventoryMetrics({
         } else if (metric === 'outofstock') {
           allItems = allItems.filter(item => item.quantity === 0);
         } else if (metric === 'restock-eligible') {
-          allItems = allItems.filter(item => item.type === 'asin' && item.eligible_for_restock === true);
+          const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+          allItems = allItems.filter(item => 
+            item.type === 'asin' && (
+              item.eligible_for_restock === true || 
+              (item.date_sold && new Date(item.date_sold) >= ninetyDaysAgo)
+            )
+          );
         } else if (metric === 'non-restock-eligible') {
           allItems = allItems.filter(item => item.type === 'asin' && (item.eligible_for_restock === false || item.eligible_for_restock === null));
         }
