@@ -1692,34 +1692,58 @@ export function AsinInventory() {
                           </div>
                          </td>
                           <td className="p-3 border-r align-middle">
-                            <div className="flex items-center justify-center">
-                              <Checkbox 
-                                checked={item.eligible_for_restock && item.status !== 'no-stock'}
-                                disabled={item.status === 'no-stock'}
-                                onCheckedChange={async (checked) => {
-                                  try {
-                                    const { error } = await supabase
-                                      .from('asin_inventory')
-                                      .update({ eligible_for_restock: !!checked })
-                                      .eq('id', item.id);
-                                    
-                                    if (error) throw error;
-                                    
-                                    await refetch();
-                                    toast({
-                                      title: checked ? "Enabled for restock" : "Disabled for restock",
-                                      description: `${item.asin} (${item.serialNumber})`,
-                                    });
-                                  } catch (error) {
-                                    console.error('Failed to update restock eligibility:', error);
-                                    toast({
-                                      title: "Update failed",
-                                      description: "Could not update restock eligibility",
-                                      variant: "destructive"
-                                    });
-                                  }
-                                }}
-                              />
+                            <div className="flex flex-col items-center gap-2">
+                               <div className="flex items-center gap-2">
+                                 <Switch
+                                   id={`restock-${item.id}`}
+                                   checked={item.eligible_for_restock && item.status !== 'no-stock'}
+                                   disabled={item.status === 'no-stock'}
+                                   onCheckedChange={async (checked) => {
+                                    try {
+                                      const { error } = await supabase
+                                        .from('asin_inventory')
+                                        .update({ eligible_for_restock: !!checked })
+                                        .eq('id', item.id);
+                                      
+                                      if (error) throw error;
+                                      
+                                      await refetch();
+                                      toast({
+                                        title: checked ? "Enabled for restock" : "Disabled for restock",
+                                        description: `${item.asin} (${item.serialNumber})`,
+                                      });
+                                    } catch (error) {
+                                      console.error('Failed to update restock eligibility:', error);
+                                      toast({
+                                        title: "Update failed",
+                                        description: "Could not update restock eligibility",
+                                        variant: "destructive"
+                                      });
+                                    }
+                                  }}
+                                   className={`border-2 border-muted-foreground/30 hover:border-primary/60 transition-colors ${
+                                     item.eligible_for_restock && item.status !== 'no-stock'
+                                       ? 'data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500' 
+                                       : 'data-[state=unchecked]:bg-muted data-[state=unchecked]:border-muted'
+                                   }`}
+                                 />
+                                 <Label htmlFor={`restock-${item.id}`} className="text-sm font-medium">
+                                   {item.status === 'no-stock' 
+                                     ? 'N/A' 
+                                     : item.eligible_for_restock 
+                                       ? 'Eligible' 
+                                       : 'Not Eligible'
+                                   }
+                                 </Label>
+                               </div>
+                              <div className="text-xs text-center text-muted-foreground">
+                                {item.status === 'no-stock' 
+                                  ? 'No-stock items excluded' 
+                                  : item.eligible_for_restock 
+                                    ? 'Marked for replenishment' 
+                                    : 'Not marked for restock'
+                                }
+                              </div>
                             </div>
                           </td>
                           <td className="p-3 border-r align-middle">
