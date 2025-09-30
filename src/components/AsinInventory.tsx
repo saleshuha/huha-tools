@@ -616,13 +616,13 @@ export function AsinInventory() {
       const parts = line.split('\t');
       if (parts.length >= 1 && parts[0].trim()) { // Only ASIN is mandatory
         const quantity = parseInt(parts[4]) || 0; // Allow 0 quantity
-        const status = quantity === 0 ? 'sold' : (parts[3]?.trim() as AsinInventoryItem['status'] || 'in-stock');
+        const status = quantity === 0 ? 'no-stock' : (parts[3]?.trim() as AsinInventoryItem['status'] || 'in-stock');
         
         items.push({
           asin: parts[0].trim(), // Mandatory ASIN
           serialNumber: parts[1]?.trim() || '', // Optional
           sku: parts[2]?.trim() || '', // Optional
-          status: status, // Auto-set to 'sold' if quantity is 0
+          status: status, // Auto-set to 'no-stock' if quantity is 0
           quantity: quantity,
           notes: parts[5]?.trim() || '', // Optional
           dateAdded: new Date().toISOString()
@@ -1243,8 +1243,9 @@ export function AsinInventory() {
                             <SelectTrigger>
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent>
+                             <SelectContent>
                               <SelectItem value="in-stock">In Stock</SelectItem>
+                              <SelectItem value="no-stock">No Stock</SelectItem>
                               <SelectItem value="sold">Sold</SelectItem>
                               <SelectItem value="reserved">Reserved</SelectItem>
                               <SelectItem value="damaged">Damaged</SelectItem>
@@ -1291,8 +1292,8 @@ export function AsinInventory() {
                             <p><strong>Format:</strong> Each line should contain tab-separated values</p>
                             <p><strong>Required:</strong> ASIN (first field only)</p>
                             <p><strong>Optional:</strong> Serial Number → SKU → Status → Quantity → Notes</p>
-                            <p><strong>Note:</strong> Items with 0 quantity are automatically marked as 'sold'</p>
-                            <p><strong>Status options:</strong> in-stock, sold, reserved, damaged</p>
+                            <p><strong>Note:</strong> Items with 0 quantity are automatically marked as 'no-stock'</p>
+                            <p><strong>Status options:</strong> in-stock, sold, reserved, damaged, no-stock</p>
                           </div>
                       </div>
                       <DialogFooter>

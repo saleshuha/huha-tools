@@ -93,6 +93,16 @@ export function useAsinInventory() {
         eligible_for_restock: item.eligible_for_restock || false,
       }));
 
+      // Log status distribution for debugging
+      const statusCounts = formattedData.reduce((acc, item) => {
+        acc[item.status] = (acc[item.status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      console.log('📊 Inventory status distribution:', statusCounts);
+      console.log('📊 Items with quantity=0 and no-stock status:', 
+        formattedData.filter(item => item.quantity === 0 && item.status === 'no-stock').length
+      );
+
       setInventory(formattedData);
       
       // Auto-calculate restock eligibility after loading inventory
