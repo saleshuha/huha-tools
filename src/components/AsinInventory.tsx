@@ -1724,7 +1724,7 @@ export function AsinInventory() {
                                    className={`border-2 border-muted-foreground/30 hover:border-primary/60 transition-colors ${
                                      item.eligible_for_restock && item.status !== 'no-stock'
                                        ? 'data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500' 
-                                       : 'data-[state=unchecked]:bg-muted data-[state=unchecked]:border-muted'
+                                       : 'data-[state=unchecked]:bg-red-500 data-[state=unchecked]:border-red-500'
                                    }`}
                                  />
                                  <Label htmlFor={`restock-${item.id}`} className="text-sm font-medium">
