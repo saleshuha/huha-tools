@@ -2084,9 +2084,10 @@ export function Replenishment() {
                              </div>
                              <div className="flex-1">
                                <p className="font-medium text-foreground">{item.identifier}</p>
-                               <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                 <span>Qty: {item.current_quantity}</span>
-                                 <span>Last Restock: {item.days_since_last_restock ? `${item.days_since_last_restock}d ago` : 'Never'}</span>
+                                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                  <span>Qty: {item.current_quantity}</span>
+                                  <span>Last Restock: {item.days_since_last_restock ? `${item.days_since_last_restock}d ago` : 'Never'}</span>
+                                  <span>Last Sold: {item.date_sold ? `${Math.floor((Date.now() - new Date(item.date_sold).getTime()) / (1000 * 60 * 60 * 24))}d ago` : 'Never'}</span>
                                  <Badge variant="secondary" className="text-xs bg-green-500/20 text-green-700 border-green-300">
                                    Ready to Order
                                  </Badge>
