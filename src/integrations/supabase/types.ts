@@ -4241,24 +4241,6 @@ export type Database = {
           velocity_category: string
         }[]
       }
-      get_items_needing_replenishment: {
-        Args: { country_filter?: string; lookback_days?: number }
-        Returns: {
-          asin: string
-          current_quantity: number
-          days_since_last_restock: number
-          identifier: string
-          item_id: string
-          last_restock_quantity: number
-          recommended_order_quantity: number
-          replenishment_reason: string
-          sku: string
-          status: string
-          table_name: string
-          units_sold_since_restock: number
-          urgency_level: string
-        }[]
-      }
       get_items_needing_restock: {
         Args: Record<PropertyKey, never> | { country_filter?: string }
         Returns: {
