@@ -260,11 +260,12 @@ export function Replenishment() {
     try {
       console.log('Loading restock items for country:', selectedCountry);
       
-      // Get ASIN inventory items that need restocking (all out of stock items)
+      // Get ASIN inventory items that are eligible for restock
       const asinQuery = supabase.from('asin_inventory')
-        .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added')
+        .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added, eligible_for_restock')
         .eq('country', selectedCountry)
-        .eq('quantity', 0)
+        .eq('eligible_for_restock', true)
+        .neq('status', 'no-stock')
         .neq('status', 'ordered');
          
       const [asinResult] = await Promise.all([asinQuery]);
@@ -305,8 +306,10 @@ export function Replenishment() {
       
       const [asinAll] = await Promise.all([
         supabase.from('asin_inventory')
-          .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added, notes')
+          .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added, notes, eligible_for_restock')
           .eq('country', selectedCountry)
+          .eq('eligible_for_restock', true)
+          .neq('status', 'no-stock')
       ]);
       
       if (asinAll.error) {
@@ -337,11 +340,11 @@ export function Replenishment() {
       console.log('Processed inventory items:', allInventoryItems);
       console.log('Total items count:', allInventoryItems.length);
       
-      // Separate items based on status for the existing logic (convert to RestockItem format)
-      const allOutOfStockItems = allInventoryItems.filter(item => item.quantity === 0 && item.status !== 'ordered');
+      // Separate items based on eligibility for restocking
+      const allEligibleItems = allInventoryItems.filter(item => item.status !== 'ordered' && item.status !== 'no-stock');
       
-      // Separate out of stock items into those that can be ordered and those that cannot
-      const restockNeeded = allOutOfStockItems
+      // Separate eligible items into those that can be ordered and those that cannot
+      const restockNeeded = allEligibleItems
         .filter(item => {
           // Check if item has valid SKU for ordering
           const identifier = item.item_type === 'ASIN' 
@@ -362,8 +365,8 @@ export function Replenishment() {
           days_since_last_restock: item.days_since_ordered
         }));
 
-      // Items that are out of stock but cannot be ordered (no valid SKU)
-      const outOfStockOnly = allOutOfStockItems
+      // Items that are eligible but cannot be ordered (no valid SKU)
+      const outOfStockOnly = allEligibleItems
         .filter(item => {
           const identifier = item.item_type === 'ASIN' 
             ? `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}` 
@@ -384,7 +387,7 @@ export function Replenishment() {
         }));
       
       const orderedItemsData = allInventoryItems
-        .filter(item => item.status === 'ordered' && item.quantity === 0)
+        .filter(item => item.status === 'ordered')
         .map(item => ({
           id: item.id,
         identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
