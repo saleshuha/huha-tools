@@ -36,6 +36,8 @@ interface RestockItem {
   last_restock_date?: string | null;
   restock_quantity?: number | null;
   units_sold_since_restock?: number; // Track units sold for replenishment
+  last_sale_date?: string | null; // Last time any unit was sold
+  sold_today?: boolean; // Flag for items sold today
   replenishment_reason?: string; // Why this item needs replenishment
   // Enhanced velocity fields
   sales_velocity?: number;
@@ -262,6 +264,10 @@ export function Replenishment() {
     try {
       console.log('Loading restock items for country:', selectedCountry);
       
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayISO = today.toISOString();
+      
       // Get ASIN inventory items that are out of stock OR have been sold since last restock
       const asinQuery = supabase.from('asin_inventory')
         .select('id, asin, serial_number, quantity, status, sku, last_restock_date, restock_quantity, date_sold, date_added')
@@ -281,12 +287,23 @@ export function Replenishment() {
             .from('stock_changes')
             .select('change_amount, created_at')
             .eq('inventory_id', item.id)
-            .lt('change_amount', 0); // Negative = sold
+            .lt('change_amount', 0) // Negative = sold
+            .order('created_at', { ascending: false });
             
           if (error) {
             console.error('Error fetching stock changes for item:', item.id, error);
             return null;
           }
+          
+          // Get last sale date
+          const lastSaleDate = stockChanges && stockChanges.length > 0 ? stockChanges[0].created_at : null;
+          
+          // Check if sold today
+          const soldToday = stockChanges?.some(change => {
+            const changeDate = new Date(change.created_at);
+            changeDate.setHours(0, 0, 0, 0);
+            return changeDate.getTime() === today.getTime();
+          }) || false;
           
           // Filter changes since last restock
           const salesSinceRestock = stockChanges?.filter(change => {
@@ -298,11 +315,21 @@ export function Replenishment() {
           
           // Include item if:
           // 1. Out of stock (quantity = 0), OR
-          // 2. Has sold units since last restock
-          if (item.quantity === 0 || unitsSold > 0) {
+          // 2. Has sold units since last restock, OR
+          // 3. Sold today (prioritize)
+          if (item.quantity === 0 || unitsSold > 0 || soldToday) {
             // Calculate recommended order quantity: 2x last restock qty or 2x units sold
             const baseQuantity = item.restock_quantity || unitsSold || 1;
             const recommendedQty = Math.max(baseQuantity * 2, 1);
+            
+            let reason = 'Needs Replenishment';
+            if (soldToday) {
+              reason = item.quantity === 0 ? '🔥 Sold Today - Out of Stock' : `🔥 Sold Today (${unitsSold} units)`;
+            } else if (item.quantity === 0) {
+              reason = 'Out of Stock';
+            } else if (unitsSold > 0) {
+              reason = `Sold ${unitsSold} units`;
+            }
             
             return {
               id: item.id,
@@ -314,8 +341,10 @@ export function Replenishment() {
               last_restock_date: item.last_restock_date,
               restock_quantity: item.restock_quantity,
               units_sold_since_restock: unitsSold,
+              last_sale_date: lastSaleDate,
+              sold_today: soldToday,
               recommended_reorder_quantity: recommendedQty,
-              replenishment_reason: item.quantity === 0 ? 'Out of Stock' : `Sold ${unitsSold} units - Needs Replenishment`,
+              replenishment_reason: reason,
               days_since_last_restock: item.last_restock_date ? 
                 Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
             };
@@ -325,11 +354,14 @@ export function Replenishment() {
         })
       );
       
-      // Filter out nulls and sort by urgency
+      // Filter out nulls and sort by urgency (sold today first)
       const allItems = itemsWithSales
         .filter((item): item is NonNullable<typeof item> => item !== null)
         .sort((a, b) => {
-          // Out of stock items first
+          // Sold today items first (highest priority)
+          if (a.sold_today && !b.sold_today) return -1;
+          if (!a.sold_today && b.sold_today) return 1;
+          // Out of stock items next
           if (a.current_quantity === 0 && b.current_quantity > 0) return -1;
           if (a.current_quantity > 0 && b.current_quantity === 0) return 1;
           // Then by units sold
@@ -1954,11 +1986,14 @@ export function Replenishment() {
                       <Input placeholder="Search ASINs, SKUs, or serials... (use spaces for multiple)" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10" />
                     </div>
                     <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-sm whitespace-nowrap bg-orange-50 text-orange-700 border-orange-200 font-semibold">
+                        🔥 {pendingItems.filter(item => item.sold_today).length} sold today
+                      </Badge>
                       <Badge variant="outline" className="text-sm whitespace-nowrap bg-green-50 text-green-700 border-green-200">
                         {pendingItems.filter(item => item.current_quantity === 0).length} out of stock
                       </Badge>
                       <Badge variant="outline" className="text-sm whitespace-nowrap bg-blue-50 text-blue-700 border-blue-200">
-                        {pendingItems.filter(item => item.current_quantity > 0).length} needs refill
+                        {pendingItems.filter(item => item.current_quantity > 0 && !item.sold_today).length} needs refill
                       </Badge>
                       <Badge variant="outline" className="text-sm whitespace-nowrap bg-red-50 text-red-700 border-red-200">
                         {outOfStockItems.length} cannot order
@@ -2002,33 +2037,53 @@ export function Replenishment() {
                         const extractedModel = extractModelFromIdentifier(item.identifier);
                         const hasSunskySku = !!(extractedSku || extractedModel);
                         const isOutOfStock = item.current_quantity === 0;
+                        const isSoldToday = item.sold_today;
+                        
+                        // Format last sale date
+                        const lastSaleFormatted = item.last_sale_date 
+                          ? format(new Date(item.last_sale_date), 'MMM dd, yyyy HH:mm')
+                          : 'Never';
                         
                         return <div key={item.id} className={cn(
                           "flex items-center justify-between p-4 border rounded-lg transition-colors",
-                          isOutOfStock ? "bg-red-50/50 hover:bg-red-100/50 border-red-200" : "bg-blue-50/50 hover:bg-blue-100/50 border-blue-200"
+                          isSoldToday ? "bg-orange-50/80 hover:bg-orange-100/80 border-orange-300 shadow-md" :
+                          isOutOfStock ? "bg-red-50/50 hover:bg-red-100/50 border-red-200" : 
+                          "bg-blue-50/50 hover:bg-blue-100/50 border-blue-200"
                         )}>
                            <div className="flex items-center gap-4">
                              <Checkbox id={`item-${item.id}`} checked={selectedItems.has(item.id)} onCheckedChange={checked => handleSelectItem(item.id, checked as boolean)} />
                              <div className={cn(
                                "p-2 rounded-lg",
+                               isSoldToday ? "bg-orange-500/30" :
                                isOutOfStock ? "bg-red-500/20" : "bg-blue-500/20"
                              )}>
-                               <Package className={cn("w-4 h-4", isOutOfStock ? "text-red-700" : "text-blue-700")} />
+                               <Package className={cn(
+                                 "w-4 h-4", 
+                                 isSoldToday ? "text-orange-700" :
+                                 isOutOfStock ? "text-red-700" : "text-blue-700"
+                               )} />
                              </div>
                              <div className="flex-1">
                                <p className="font-medium text-foreground">{item.identifier}</p>
-                               <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
-                                 <span>Current: {item.current_quantity}</span>
+                               <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap mt-1">
+                                 <span className="font-medium">Stock: {item.current_quantity}</span>
                                  {item.units_sold_since_restock > 0 && (
-                                   <span className="text-blue-600 font-medium">Sold: {item.units_sold_since_restock}</span>
+                                   <span className="text-blue-600 font-medium">Sold: {item.units_sold_since_restock} units</span>
+                                 )}
+                                 {item.last_sale_date && (
+                                   <span className="text-purple-600 font-medium flex items-center gap-1">
+                                     <Clock className="w-3 h-3" />
+                                     Last Sale: {lastSaleFormatted}
+                                   </span>
                                  )}
                                  {item.recommended_reorder_quantity && (
-                                   <span className="text-green-600 font-medium">Order Qty: {item.recommended_reorder_quantity}</span>
+                                   <span className="text-green-600 font-semibold">→ Order: {item.recommended_reorder_quantity}</span>
                                  )}
-                                 <span>Last Restock: {item.days_since_last_restock ? `${item.days_since_last_restock}d ago` : 'Never'}</span>
                                  <Badge variant="secondary" className={cn(
-                                   "text-xs",
-                                   isOutOfStock ? "bg-red-500/20 text-red-700 border-red-300" : "bg-blue-500/20 text-blue-700 border-blue-300"
+                                   "text-xs font-medium",
+                                   isSoldToday ? "bg-orange-500/30 text-orange-800 border-orange-400" :
+                                   isOutOfStock ? "bg-red-500/20 text-red-700 border-red-300" : 
+                                   "bg-blue-500/20 text-blue-700 border-blue-300"
                                  )}>
                                    {item.replenishment_reason}
                                  </Badge>
