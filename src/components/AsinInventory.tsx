@@ -1647,17 +1647,12 @@ export function AsinInventory() {
                           </span>
                           {item.quantity <= 5 && <AlertTriangle className="w-3 h-3 text-yellow-500" />}
                         </div>
-                      </td>
+                       </td>
                         <td className="p-3 border-r align-middle">
-                          <div className="space-y-1 flex flex-col items-center">
+                          <div className="flex items-center justify-center">
                             <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' || item.status === 'ordered' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'} className="text-xs">
                               {item.status === 'in-stock' ? 'In Stock' : item.status === 'sold' || item.status === 'ordered' ? 'Sold' : item.status === 'reserved' ? 'Reserved' : 'Damaged'}
                             </Badge>
-                            <div className="text-xs text-center">
-                               <span className={item.eligible_for_restock ? 'text-green-600' : 'text-red-600'}>
-                                 {item.eligible_for_restock ? 'Restock Eligible' : 'Restock Not Eligible'}
-                               </span>
-                            </div>
                           </div>
                          </td>
                           <td className="p-3 border-r align-middle">
