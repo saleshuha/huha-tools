@@ -160,53 +160,12 @@ export function InventoryMetrics({
             .eq('country', selectedCountry)
             .or('title.is.null,title.eq.'),
             
-          // Restock eligible count - batch query for performance
-          (async () => {
-            const { data: allSold } = await supabase
-              .from('asin_inventory')
-              .select('id')
-              .eq('country', selectedCountry)
-              .eq('status', 'sold');
-            
-            if (!allSold || allSold.length === 0) return { count: 0 };
-            
-            const soldIds = allSold.map(item => item.id);
-            
-            // Get ALL stock_changes for sold items in ONE query
-            const { data: allChanges } = await supabase
-              .from('stock_changes')
-              .select('inventory_id, change_amount, created_at')
-              .in('inventory_id', soldIds)
-              .order('created_at', { ascending: true });
-            
-            // Group changes by inventory_id
-            const changesByItem = new Map();
-            (allChanges || []).forEach(change => {
-              if (!changesByItem.has(change.inventory_id)) {
-                changesByItem.set(change.inventory_id, []);
-              }
-              changesByItem.get(change.inventory_id).push(change);
-            });
-            
-            // Count items with proper addition → sale sequence
-            let validCount = 0;
-            for (const item of allSold) {
-              const changes = changesByItem.get(item.id);
-              if (!changes || changes.length === 0) continue;
-              
-              const firstAddition = changes.find(c => c.change_amount > 0);
-              if (!firstAddition) continue;
-              
-              const hasReduction = changes.some(
-                c => c.change_amount < 0 && new Date(c.created_at) > new Date(firstAddition.created_at)
-              );
-              
-              if (hasReduction) validCount++;
-            }
-            
-            console.log('✅ Restock eligible:', validCount, 'out of', allSold.length, 'sold items');
-            return { count: validCount };
-          })(),
+          // Restock eligible count
+          supabase
+            .from('asin_inventory')
+            .select('*', { count: 'exact', head: true })
+            .eq('country', selectedCountry)
+            .eq('eligible_for_restock', true),
             
           // Non-restock eligible count
           supabase
@@ -441,33 +400,7 @@ export function InventoryMetrics({
         } else if (metric === 'outofstock') {
           allItems = allItems.filter(item => item.quantity === 0);
         } else if (metric === 'restock-eligible') {
-          // Batch query for stock_changes
-          const itemIds = allItems.map(item => item.id);
-          const { data: allChanges } = await supabase
-            .from('stock_changes')
-            .select('inventory_id, change_amount, created_at')
-            .in('inventory_id', itemIds)
-            .order('created_at', { ascending: true });
-          
-          const changesByItem = new Map();
-          (allChanges || []).forEach(change => {
-            if (!changesByItem.has(change.inventory_id)) {
-              changesByItem.set(change.inventory_id, []);
-            }
-            changesByItem.get(change.inventory_id).push(change);
-          });
-          
-          allItems = allItems.filter(item => {
-            const changes = changesByItem.get(item.id);
-            if (!changes || changes.length === 0) return false;
-            
-            const firstAddition = changes.find(c => c.change_amount > 0);
-            if (!firstAddition) return false;
-            
-            return changes.some(
-              c => c.change_amount < 0 && new Date(c.created_at) > new Date(firstAddition.created_at)
-            );
-          });
+          allItems = allItems.filter(item => item.eligible_for_restock === true);
         } else if (metric === 'non-restock-eligible') {
           allItems = allItems.filter(item => item.eligible_for_restock === false || item.eligible_for_restock === null);
         }
@@ -513,35 +446,7 @@ export function InventoryMetrics({
         } else if (metric === 'outofstock') {
           allItems = allItems.filter(item => item.quantity === 0);
         } else if (metric === 'restock-eligible') {
-          // Batch query for ASIN items only
-          const asinItems = allItems.filter(item => item.type === 'asin');
-          const itemIds = asinItems.map(item => item.id);
-          
-          const { data: allChanges } = await supabase
-            .from('stock_changes')
-            .select('inventory_id, change_amount, created_at')
-            .in('inventory_id', itemIds)
-            .order('created_at', { ascending: true });
-          
-          const changesByItem = new Map();
-          (allChanges || []).forEach(change => {
-            if (!changesByItem.has(change.inventory_id)) {
-              changesByItem.set(change.inventory_id, []);
-            }
-            changesByItem.get(change.inventory_id).push(change);
-          });
-          
-          allItems = asinItems.filter(item => {
-            const changes = changesByItem.get(item.id);
-            if (!changes || changes.length === 0) return false;
-            
-            const firstAddition = changes.find(c => c.change_amount > 0);
-            if (!firstAddition) return false;
-            
-            return changes.some(
-              c => c.change_amount < 0 && new Date(c.created_at) > new Date(firstAddition.created_at)
-            );
-          });
+          allItems = allItems.filter(item => item.type === 'asin' && item.eligible_for_restock === true);
         } else if (metric === 'non-restock-eligible') {
           allItems = allItems.filter(item => item.type === 'asin' && (item.eligible_for_restock === false || item.eligible_for_restock === null));
         }
