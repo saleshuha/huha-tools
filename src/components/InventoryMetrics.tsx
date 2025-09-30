@@ -163,8 +163,9 @@ export function InventoryMetrics({
           // Restock eligible - need to fetch data to calculate (items sold within 90 days of date_added)
           supabase
             .from('asin_inventory')
-            .select('date_sold, date_added')
+            .select('date_sold, date_added, status')
             .eq('country', selectedCountry)
+            .eq('status', 'sold')
             .not('date_sold', 'is', null),
             
           // Non-restock eligible count
@@ -206,8 +207,8 @@ export function InventoryMetrics({
         
         // Calculate restock eligible count - items actually sold within 90 days of date_added
         const restockEligibleCount = (restockEligibleData || []).filter(item => {
-          // Must have both date_sold and date_added to be eligible
-          if (!item.date_sold || !item.date_added) return false;
+          // Must have status 'sold', date_sold, and date_added to be eligible
+          if (item.status !== 'sold' || !item.date_sold || !item.date_added) return false;
           const dateAdded = new Date(item.date_added);
           const dateSold = new Date(item.date_sold);
           const daysBetween = Math.ceil((dateSold.getTime() - dateAdded.getTime()) / (1000 * 60 * 60 * 24));
@@ -320,8 +321,8 @@ export function InventoryMetrics({
         
         // Calculate restock eligibility (items actually sold within 90 days of date_added)
         const restockEligible = asinItems.filter(item => {
-          // Must have both date_sold and date_added
-          if (!item.date_sold || !item.date_added) return false;
+          // Must have status 'sold', date_sold, and date_added
+          if (item.status !== 'sold' || !item.date_sold || !item.date_added) return false;
           const dateAdded = new Date(item.date_added);
           const dateSold = new Date(item.date_sold);
           const daysBetween = Math.ceil((dateSold.getTime() - dateAdded.getTime()) / (1000 * 60 * 60 * 24));
@@ -420,8 +421,8 @@ export function InventoryMetrics({
           allItems = allItems.filter(item => item.quantity === 0);
         } else if (metric === 'restock-eligible') {
           allItems = allItems.filter(item => {
-            // Must have both date_sold and date_added
-            if (!item.date_sold || !item.date_added) return false;
+            // Must have status 'sold', date_sold, and date_added
+            if (item.status !== 'sold' || !item.date_sold || !item.date_added) return false;
             const dateAdded = new Date(item.date_added);
             const dateSold = new Date(item.date_sold);
             const daysBetween = Math.ceil((dateSold.getTime() - dateAdded.getTime()) / (1000 * 60 * 60 * 24));
@@ -474,8 +475,8 @@ export function InventoryMetrics({
           allItems = allItems.filter(item => item.quantity === 0);
         } else if (metric === 'restock-eligible') {
           allItems = allItems.filter(item => {
-            // Must be ASIN type and have both date_sold and date_added
-            if (item.type !== 'asin' || !item.date_sold || !item.date_added) return false;
+            // Must be ASIN type, have status 'sold', and have both date_sold and date_added
+            if (item.type !== 'asin' || item.status !== 'sold' || !item.date_sold || !item.date_added) return false;
             const dateAdded = new Date(item.date_added);
             const dateSold = new Date(item.date_sold);
             const daysBetween = Math.ceil((dateSold.getTime() - dateAdded.getTime()) / (1000 * 60 * 60 * 24));
