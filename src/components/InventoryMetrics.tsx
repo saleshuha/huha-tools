@@ -204,13 +204,15 @@ export function InventoryMetrics({
         }
         const asinSoldUnits = filteredSoldItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
         
-        // Calculate restock eligible count - items sold within 90 days of date_added
+        // Calculate restock eligible count - items actually sold within 90 days of date_added
         const restockEligibleCount = (restockEligibleData || []).filter(item => {
+          // Must have both date_sold and date_added to be eligible
           if (!item.date_sold || !item.date_added) return false;
           const dateAdded = new Date(item.date_added);
           const dateSold = new Date(item.date_sold);
           const daysBetween = Math.ceil((dateSold.getTime() - dateAdded.getTime()) / (1000 * 60 * 60 * 24));
-          return daysBetween <= 90;
+          // Only count if actually sold within 90 days
+          return daysBetween >= 0 && daysBetween <= 90;
         }).length;
         
         // Calculate missing images
@@ -316,13 +318,15 @@ export function InventoryMetrics({
         const skuTotalUnits = skuItems.reduce((sum, item) => sum + item.quantity, 0);
         const skuSoldUnits = skuItems.filter(item => item.status === 'sold').reduce((sum, item) => sum + item.quantity, 0);
         
-        // Calculate restock eligibility (items sold within 90 days of date_added)
+        // Calculate restock eligibility (items actually sold within 90 days of date_added)
         const restockEligible = asinItems.filter(item => {
+          // Must have both date_sold and date_added
           if (!item.date_sold || !item.date_added) return false;
           const dateAdded = new Date(item.date_added);
           const dateSold = new Date(item.date_sold);
           const daysBetween = Math.ceil((dateSold.getTime() - dateAdded.getTime()) / (1000 * 60 * 60 * 24));
-          return daysBetween <= 90;
+          // Only items actually sold within 90 days
+          return daysBetween >= 0 && daysBetween <= 90;
         }).length;
         const nonRestockEligible = asinItems.filter(item => item.eligible_for_restock === false || item.eligible_for_restock === null).length;
         
@@ -416,11 +420,13 @@ export function InventoryMetrics({
           allItems = allItems.filter(item => item.quantity === 0);
         } else if (metric === 'restock-eligible') {
           allItems = allItems.filter(item => {
+            // Must have both date_sold and date_added
             if (!item.date_sold || !item.date_added) return false;
             const dateAdded = new Date(item.date_added);
             const dateSold = new Date(item.date_sold);
             const daysBetween = Math.ceil((dateSold.getTime() - dateAdded.getTime()) / (1000 * 60 * 60 * 24));
-            return daysBetween <= 90;
+            // Only items actually sold within 90 days
+            return daysBetween >= 0 && daysBetween <= 90;
           });
         } else if (metric === 'non-restock-eligible') {
           allItems = allItems.filter(item => item.eligible_for_restock === false || item.eligible_for_restock === null);
@@ -468,11 +474,13 @@ export function InventoryMetrics({
           allItems = allItems.filter(item => item.quantity === 0);
         } else if (metric === 'restock-eligible') {
           allItems = allItems.filter(item => {
+            // Must be ASIN type and have both date_sold and date_added
             if (item.type !== 'asin' || !item.date_sold || !item.date_added) return false;
             const dateAdded = new Date(item.date_added);
             const dateSold = new Date(item.date_sold);
             const daysBetween = Math.ceil((dateSold.getTime() - dateAdded.getTime()) / (1000 * 60 * 60 * 24));
-            return daysBetween <= 90;
+            // Only items actually sold within 90 days
+            return daysBetween >= 0 && daysBetween <= 90;
           });
         } else if (metric === 'non-restock-eligible') {
           allItems = allItems.filter(item => item.type === 'asin' && (item.eligible_for_restock === false || item.eligible_for_restock === null));
