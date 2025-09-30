@@ -1654,8 +1654,8 @@ export function AsinInventory() {
                               variant={
                                 item.quantity > 0 
                                   ? 'default' 
-                                  : item.status === 'sold' 
-                                    ? 'secondary' 
+                                  : item.status === 'sold' || item.status === 'out-of-stock'
+                                    ? 'destructive' 
                                     : item.status === 'ordered' 
                                       ? 'secondary'
                                       : item.status === 'reserved' 
@@ -1668,8 +1668,8 @@ export function AsinInventory() {
                             >
                               {item.quantity > 0 
                                 ? 'In Stock' 
-                                : item.status === 'sold' 
-                                  ? 'Sold' 
+                                : item.status === 'sold' || item.status === 'out-of-stock'
+                                  ? 'Out of Stock (Sold)' 
                                   : item.status === 'ordered'
                                     ? 'Ordered'
                                     : item.status === 'reserved' 
@@ -1763,8 +1763,8 @@ export function AsinInventory() {
                           variant={
                             item.quantity > 0 
                               ? 'default' 
-                              : item.status === 'sold' 
-                                ? 'secondary' 
+                              : item.status === 'sold' || item.status === 'out-of-stock'
+                                ? 'destructive' 
                                 : item.status === 'ordered' 
                                   ? 'secondary'
                                   : item.status === 'reserved' 
@@ -1776,8 +1776,8 @@ export function AsinInventory() {
                         >
                           {item.quantity > 0 
                             ? 'IN STOCK' 
-                            : item.status === 'sold' 
-                              ? 'SOLD' 
+                            : item.status === 'sold' || item.status === 'out-of-stock'
+                              ? 'OUT OF STOCK (SOLD)' 
                               : item.status === 'ordered'
                                 ? 'ORDERED'
                                 : item.status === 'reserved' 
