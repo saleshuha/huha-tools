@@ -57,8 +57,6 @@ export function AsinInventory() {
     bulkUpdateSkus,
     bulkUpdateTitles,
     fetchTitlesFromSunsky,
-    updateRestockEligibility,
-    calculateAutoRestockEligibility,
     refetch
   } = useAsinInventory();
   const {
@@ -219,10 +217,6 @@ export function AsinInventory() {
   const [bulkStatusValue, setBulkStatusValue] = useState<AsinInventoryItem['status']>('in-stock');
   const [bulkQuantityValue, setBulkQuantityValue] = useState(1);
   const [bulkQuantityReason, setBulkQuantityReason] = useState('');
-  const [isBulkRestockEligibilityDialogOpen, setIsBulkRestockEligibilityDialogOpen] = useState(false);
-  const [bulkRestockEligibilityValue, setBulkRestockEligibilityValue] = useState(true);
-  const [isProcessingRestockEligibility, setIsProcessingRestockEligibility] = useState(false);
-  const [restockEligibilityProgress, setRestockEligibilityProgress] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const [quickFilter, setQuickFilter] = useState<'all' | 'low-stock' | 'out-of-stock' | 'recent'>('all');
@@ -1051,61 +1045,6 @@ export function AsinInventory() {
 
   
   // Handle restock eligibility change
-  const handleRestockEligibilityChange = async (itemId: string, eligible: boolean) => {
-    await updateRestockEligibility(itemId, eligible);
-  };
-
-  const handleBulkRestockEligibilityUpdate = async () => {
-    if (selectedItems.size === 0) {
-      toast({
-        title: "No Items Selected",
-        description: "Please select items to update",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      setIsProcessingRestockEligibility(true);
-      setRestockEligibilityProgress(0);
-      
-      const selectedItemsList = Array.from(selectedItems).map(id => 
-        inventory.find(item => item.id === id)
-      ).filter(Boolean) as AsinInventoryItem[];
-
-      const totalItems = selectedItemsList.length;
-
-      for (let i = 0; i < selectedItemsList.length; i++) {
-        const item = selectedItemsList[i];
-        await updateRestockEligibility(item.id, bulkRestockEligibilityValue);
-        
-        // Update progress
-        const progress = Math.round(((i + 1) / totalItems) * 100);
-        setRestockEligibilityProgress(progress);
-        
-        // Small delay to show progress visually
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-
-      toast({
-        title: "Bulk Update Complete",
-        description: `Updated restock eligibility for ${selectedItems.size} items`,
-      });
-
-      setSelectedItems(new Set());
-      setIsBulkRestockEligibilityDialogOpen(false);
-    } catch (error: any) {
-      toast({
-        title: "Update Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessingRestockEligibility(false);
-      setRestockEligibilityProgress(0);
-    }
-  };
-
   if (loading) {
     return <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-4">
@@ -1428,19 +1367,6 @@ export function AsinInventory() {
                       <Printer className="h-4 w-4 mr-2" />
                       Print Selected ({selectedItems.size})
                     </Button>
-
-                    {/* Bulk Restock Eligibility */}
-                    {selectedItems.size > 0 && (
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        onClick={() => setIsBulkRestockEligibilityDialogOpen(true)}
-                        className="border-2 border-accent bg-background hover:bg-accent hover:text-accent-foreground transition-all"
-                      >
-                        <Archive className="h-4 w-4 mr-2" />
-                        Bulk Restock ({selectedItems.size})
-                      </Button>
-                    )}
                   </div>
 
                   {/* Export */}
@@ -1664,19 +1590,13 @@ export function AsinInventory() {
                           {sortBy === 'status' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
                         </button>
                       </th>
-                      <th className="w-32 p-3 text-center font-medium border-r">
-                        <div className="flex items-center justify-center gap-2">
-                          <Activity className="w-4 h-4" />
-                          Restock Eligibility
-                        </div>
-                      </th>
-                      <th className="w-24 p-3 text-center font-medium border-r">
-                        <div className="flex items-center justify-center gap-2">
-                          <Download className="w-4 h-4" />
-                          Export Mode
-                        </div>
-                      </th>
-                      <th className="w-32 p-3 text-center font-medium">Actions</th>
+                       <th className="w-24 p-3 text-center font-medium border-r">
+                         <div className="flex items-center justify-center gap-2">
+                           <Download className="w-4 h-4" />
+                           Export Mode
+                         </div>
+                       </th>
+                       <th className="w-32 p-3 text-center font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1739,37 +1659,6 @@ export function AsinInventory() {
                                </span>
                             </div>
                           </div>
-                        </td>
-                         <td className="p-3 border-r align-middle">
-                          <div className="space-y-2 flex flex-col items-center">
-                            <div className="flex items-center gap-3">
-                              <Switch
-                                id={`restock-${item.id}`}
-                                checked={item.eligible_for_restock || false}
-                                onCheckedChange={(checked) => handleRestockEligibilityChange(item.id, checked)}
-                                className="border-2 border-muted-foreground/30 data-[state=checked]:border-primary hover:border-primary/60 transition-colors"
-                              />
-                              <Label htmlFor={`restock-${item.id}`} className="text-sm font-medium">
-                                Restock <span className="text-xs text-muted-foreground">(Manual)</span>
-                              </Label>
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              <div className="flex items-center justify-center gap-1">
-                                <Activity className="w-3 h-3" />
-                                <span>Auto: Based on 90-day sales</span>
-                              </div>
-                            </div>
-                            {item.eligible_for_restock && (
-                              <div className="text-xs text-muted-foreground space-y-1 text-center">
-                                {item.lastRestockDate && (
-                                  <div>Last: {new Date(item.lastRestockDate).toLocaleDateString()}</div>
-                                )}
-                                {item.restockQuantity && (
-                                  <div>Qty: {item.restockQuantity}</div>
-                                )}
-                              </div>
-                            )}
-                           </div>
                          </td>
                           <td className="p-3 border-r align-middle">
                             <div className="flex flex-col items-center gap-2">
@@ -1882,32 +1771,8 @@ export function AsinInventory() {
                         {item.quantity <= 5 && <AlertTriangle className="w-4 h-4 text-yellow-500" />}
                       </div>
                     </div>
-                     <div>
-                       <Label className="text-xs text-muted-foreground">Restock Eligibility</Label>
-                       <div className="space-y-1">
-                         <div className="flex items-center gap-2">
-                           <Checkbox
-                             checked={item.eligible_for_restock || false}
-                             onCheckedChange={(checked) => handleRestockEligibilityChange(item.id, checked as boolean)}
-                           />
-                           <span className="text-sm font-medium">
-                             {item.eligible_for_restock ? 'Eligible' : 'Not Eligible'}
-                           </span>
-                         </div>
-                         {item.eligible_for_restock && (
-                           <div className="text-xs text-muted-foreground space-y-1">
-                             {item.lastRestockDate && (
-                               <div>Last: {new Date(item.lastRestockDate).toLocaleDateString()}</div>
-                             )}
-                             {item.restockQuantity && (
-                               <div>Qty: {item.restockQuantity}</div>
-                             )}
-                           </div>
-                         )}
-                       </div>
-                     </div>
-                  </div>
-                   <div className="flex items-center gap-2">
+                   </div>
+                    <div className="flex items-center gap-2">
                       <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
                       <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
                     </div>
@@ -1972,60 +1837,6 @@ export function AsinInventory() {
             </Select>
           </div>}
         
-        {/* Bulk Restock Eligibility Dialog */}
-        <Dialog open={isBulkRestockEligibilityDialogOpen} onOpenChange={setIsBulkRestockEligibilityDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Bulk Update Restock Eligibility</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="bulk-restock-eligibility"
-                  checked={bulkRestockEligibilityValue}
-                  onCheckedChange={setBulkRestockEligibilityValue}
-                />
-                <Label htmlFor="bulk-restock-eligibility">
-                  {bulkRestockEligibilityValue ? 'Enable' : 'Disable'} restock eligibility
-                </Label>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                This will {bulkRestockEligibilityValue ? 'enable' : 'disable'} restock eligibility for {selectedItems.size} selected items.
-                {bulkRestockEligibilityValue 
-                  ? ' Items will appear in replenishment tracking and analytics.' 
-                  : ' Items will be excluded from replenishment tracking and analytics.'
-                }
-              </p>
-              
-              {/* Progress Bar */}
-              {isProcessingRestockEligibility && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Processing items...</span>
-                    <span>{restockEligibilityProgress}%</span>
-                  </div>
-                  <Progress value={restockEligibilityProgress} className="w-full" />
-                </div>
-              )}
-            </div>
-            <DialogFooter>
-              <Button 
-                variant="outline" 
-                onClick={() => setIsBulkRestockEligibilityDialogOpen(false)}
-                disabled={isProcessingRestockEligibility}
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleBulkRestockEligibilityUpdate}
-                disabled={isProcessingRestockEligibility}
-              >
-                {isProcessingRestockEligibility ? 'Processing...' : `Update ${selectedItems.size} Items`}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
         {/* Image Preview Dialog */}
         <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
           <DialogContent className="max-w-4xl">
