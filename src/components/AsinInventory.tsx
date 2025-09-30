@@ -1647,11 +1647,36 @@ export function AsinInventory() {
                           </span>
                           {item.quantity <= 5 && <AlertTriangle className="w-3 h-3 text-yellow-500" />}
                         </div>
-                       </td>
-                        <td className="p-3 border-r align-middle">
+                        </td>
+                         <td className="p-3 border-r align-middle">
                           <div className="flex items-center justify-center">
-                            <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' || item.status === 'ordered' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'} className="text-xs">
-                              {item.status === 'in-stock' ? 'In Stock' : item.status === 'sold' || item.status === 'ordered' ? 'Sold' : item.status === 'reserved' ? 'Reserved' : 'Damaged'}
+                            <Badge 
+                              variant={
+                                item.quantity > 0 
+                                  ? 'default' 
+                                  : item.status === 'sold' 
+                                    ? 'secondary' 
+                                    : item.status === 'ordered' 
+                                      ? 'secondary'
+                                      : item.status === 'reserved' 
+                                        ? 'outline'
+                                        : item.status === 'damaged'
+                                          ? 'destructive'
+                                          : 'secondary'
+                              } 
+                              className="text-xs"
+                            >
+                              {item.quantity > 0 
+                                ? 'In Stock' 
+                                : item.status === 'sold' 
+                                  ? 'Sold' 
+                                  : item.status === 'ordered'
+                                    ? 'Ordered'
+                                    : item.status === 'reserved' 
+                                      ? 'Reserved' 
+                                      : item.status === 'damaged'
+                                        ? 'Damaged'
+                                        : 'No Stock'}
                             </Badge>
                           </div>
                          </td>
@@ -1734,8 +1759,32 @@ export function AsinInventory() {
                   }
                   setSelectedItems(newSelected);
                 }} />
-                        <Badge variant={item.status === 'in-stock' ? 'default' : item.status === 'sold' || item.status === 'ordered' ? 'secondary' : item.status === 'reserved' ? 'outline' : 'destructive'}>
-                          {item.status === 'ordered' ? 'SOLD' : item.status.replace('-', ' ').toUpperCase()}
+                        <Badge 
+                          variant={
+                            item.quantity > 0 
+                              ? 'default' 
+                              : item.status === 'sold' 
+                                ? 'secondary' 
+                                : item.status === 'ordered' 
+                                  ? 'secondary'
+                                  : item.status === 'reserved' 
+                                    ? 'outline'
+                                    : item.status === 'damaged'
+                                      ? 'destructive'
+                                      : 'secondary'
+                          }
+                        >
+                          {item.quantity > 0 
+                            ? 'IN STOCK' 
+                            : item.status === 'sold' 
+                              ? 'SOLD' 
+                              : item.status === 'ordered'
+                                ? 'ORDERED'
+                                : item.status === 'reserved' 
+                                  ? 'RESERVED' 
+                                  : item.status === 'damaged'
+                                    ? 'DAMAGED'
+                                    : 'NO STOCK'}
                         </Badge>
                      </div>
                      <ProductImage asin={item.asin} />

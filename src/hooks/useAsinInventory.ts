@@ -10,7 +10,7 @@ export interface AsinInventoryItem {
   serialNumber: string;
   sku?: string;
   title?: string;
-  status: 'in-stock' | 'sold' | 'reserved' | 'damaged' | 'ordered';
+  status: 'in-stock' | 'sold' | 'reserved' | 'damaged' | 'ordered' | 'no-stock' | 'out-of-stock';
   dateAdded: string;
   dateSold?: string;
   notes?: string;

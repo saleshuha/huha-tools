@@ -170,15 +170,18 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
             </div>
           ) : stockChanges.length === 0 ? (
             <div className="text-center py-12">
-              <History className="w-16 h-16 mx-auto mb-4 opacity-30 text-muted-foreground" />
-              <p className="text-muted-foreground font-medium">No stock changes recorded yet</p>
+              <Package className="w-16 h-16 mx-auto mb-4 opacity-30 text-amber-500" />
+              <p className="text-muted-foreground font-medium text-lg">No Stock History</p>
               <p className="text-sm text-muted-foreground/70 mt-1">
-                Stock changes will appear here when inventory quantities are updated
+                This item was added to inventory but no stock has been added yet
               </p>
               {itemDetails && (
-                <div className="mt-6 p-4 bg-muted/50 rounded-lg max-w-sm mx-auto">
-                  <div className="text-sm text-muted-foreground mb-2">Original Stock Information</div>
-                  <div className="space-y-2">
+                <div className="mt-6 p-4 bg-amber-50 dark:bg-amber-950/20 border-2 border-amber-200 dark:border-amber-800 rounded-lg max-w-sm mx-auto">
+                  <div className="flex items-center justify-center gap-2 mb-3">
+                    <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-500" />
+                    <div className="text-sm font-semibold text-amber-900 dark:text-amber-400">Item Status: No Stock</div>
+                  </div>
+                  <div className="space-y-2 text-left">
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">Date Added:</span>
                       <span className="text-sm font-medium">
@@ -187,10 +190,17 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">Current Quantity:</span>
-                      <span className="text-sm font-medium">{itemDetails.quantity}</span>
+                      <Badge variant="secondary" className="text-sm">
+                        {itemDetails.quantity} {itemDetails.quantity === 0 && '(No Stock)'}
+                      </Badge>
                     </div>
-                    <div className="text-xs text-muted-foreground/70 mt-2">
+                    <div className="text-xs text-muted-foreground/70 mt-2 text-center">
                       Added {formatDistanceToNow(new Date(itemDetails.dateAdded), { addSuffix: true })}
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-amber-200 dark:border-amber-800">
+                      <p className="text-xs text-muted-foreground text-center">
+                        Stock changes will appear here once inventory quantities are updated
+                      </p>
                     </div>
                   </div>
                 </div>
