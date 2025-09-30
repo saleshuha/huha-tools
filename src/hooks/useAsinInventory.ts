@@ -138,7 +138,7 @@ export function useAsinInventory() {
           serial_number: item.serialNumber,
           sku: item.sku || null,
           title: item.title || null,
-          status: item.status,
+          status: item.status as any, // Type will be updated after types regenerate
           date_added: item.dateAdded,
           date_sold: item.dateSold || null,
           notes: item.notes || null,
@@ -260,7 +260,7 @@ export function useAsinInventory() {
 
       const { data, error } = await supabase
         .from('asin_inventory')
-        .insert(insertData)
+        .insert(insertData as any) // Type will be updated after types regenerate
         .select();
 
       if (error) throw error;

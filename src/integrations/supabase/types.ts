@@ -716,6 +716,48 @@ export type Database = {
         }
         Relationships: []
       }
+      non_source_items: {
+        Row: {
+          asin: string | null
+          country: string
+          created_at: string
+          id: string
+          marked_at: string
+          reason: string | null
+          serial_number: string | null
+          sku: string | null
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          asin?: string | null
+          country?: string
+          created_at?: string
+          id?: string
+          marked_at?: string
+          reason?: string | null
+          serial_number?: string | null
+          sku?: string | null
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          asin?: string | null
+          country?: string
+          created_at?: string
+          id?: string
+          marked_at?: string
+          reason?: string | null
+          serial_number?: string | null
+          sku?: string | null
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       noon_credit_data: {
         Row: {
           business_unit: string | null
@@ -3975,6 +4017,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: number
       }
+      count_restock_eligible_items: {
+        Args: { country_filter: string }
+        Returns: number
+      }
       get_active_po_metrics: {
         Args: { user_id_param: string }
         Returns: {
@@ -4241,6 +4287,24 @@ export type Database = {
           velocity_category: string
         }[]
       }
+      get_items_needing_replenishment: {
+        Args: { country_filter?: string; lookback_days?: number }
+        Returns: {
+          asin: string
+          current_quantity: number
+          days_since_last_restock: number
+          identifier: string
+          item_id: string
+          last_restock_quantity: number
+          recommended_order_quantity: number
+          replenishment_reason: string
+          sku: string
+          status: string
+          table_name: string
+          units_sold_since_restock: number
+          urgency_level: string
+        }[]
+      }
       get_items_needing_restock: {
         Args: Record<PropertyKey, never> | { country_filter?: string }
         Returns: {
@@ -4437,6 +4501,12 @@ export type Database = {
           tracking_number: string
         }[]
       }
+      get_restock_eligible_item_ids: {
+        Args: { country_filter: string }
+        Returns: {
+          id: string
+        }[]
+      }
       get_sales_analytics: {
         Args: { end_date?: string; start_date?: string }
         Returns: {
@@ -4547,7 +4617,14 @@ export type Database = {
     Enums: {
       country_code: "UAE" | "KSA"
       financial_record_type: "loan" | "expense" | "debt" | "other"
-      inventory_status: "in-stock" | "sold" | "reserved" | "damaged" | "ordered"
+      inventory_status:
+        | "in-stock"
+        | "sold"
+        | "reserved"
+        | "damaged"
+        | "ordered"
+        | "no-stock"
+        | "out-of-stock"
       listing_status: "pending" | "listed" | "failed" | "delisted"
       payment_status: "pending" | "partial" | "paid" | "overdue"
       sunsky_order_status:
@@ -4690,7 +4767,15 @@ export const Constants = {
     Enums: {
       country_code: ["UAE", "KSA"],
       financial_record_type: ["loan", "expense", "debt", "other"],
-      inventory_status: ["in-stock", "sold", "reserved", "damaged", "ordered"],
+      inventory_status: [
+        "in-stock",
+        "sold",
+        "reserved",
+        "damaged",
+        "ordered",
+        "no-stock",
+        "out-of-stock",
+      ],
       listing_status: ["pending", "listed", "failed", "delisted"],
       payment_status: ["pending", "partial", "paid", "overdue"],
       sunsky_order_status: [
