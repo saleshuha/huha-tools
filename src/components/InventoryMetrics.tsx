@@ -142,7 +142,7 @@ export function InventoryMetrics({
         const [
           { count: missingSkuCount },
           { count: missingTitlesCount },
-          { data: restockEligibleData },
+          { count: restockEligibleCount },
           { count: nonRestockEligibleCount },
           { data: totalUnitsData }
         ] = await Promise.all([
@@ -160,13 +160,12 @@ export function InventoryMetrics({
             .eq('country', selectedCountry)
             .or('title.is.null,title.eq.'),
             
-          // Restock eligible - fetch sold items with restock data
+          // Restock eligible count
           supabase
             .from('asin_inventory')
-            .select('id, date_sold, date_added, status, restock_quantity, last_restock_date')
+            .select('*', { count: 'exact', head: true })
             .eq('country', selectedCountry)
-            .eq('status', 'sold')
-            .not('date_sold', 'is', null),
+            .eq('eligible_for_restock', true),
             
           // Non-restock eligible count
           supabase
@@ -205,38 +204,6 @@ export function InventoryMetrics({
         }
         const asinSoldUnits = filteredSoldItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
         
-        // Calculate restock eligible count - items that had stock added (restock_quantity > 0 OR last_restock_date exists)
-        // and then were sold (status = 'sold' with date_sold)
-        const restockEligibleCount = (restockEligibleData || []).filter(item => {
-          // Must be sold with dates
-          if (item.status !== 'sold' || !item.date_sold || !item.date_added) return false;
-          
-          // Must have evidence of stock being added at some point
-          // Either through restock_quantity being positive OR having a last_restock_date
-          const hadStockAdded = (item.restock_quantity && item.restock_quantity > 0) || item.last_restock_date;
-          if (!hadStockAdded) {
-            console.log('Item skipped - no stock addition:', item.id);
-            return false;
-          }
-          
-          // Check if sold within 90 days of date_added
-          const dateAdded = new Date(item.date_added);
-          const dateSold = new Date(item.date_sold);
-          const daysBetween = Math.ceil((dateSold.getTime() - dateAdded.getTime()) / (1000 * 60 * 60 * 24));
-          
-          const isEligible = daysBetween >= 0 && daysBetween <= 90;
-          console.log('Item eligibility check:', {
-            id: item.id,
-            hadStockAdded,
-            daysBetween,
-            isEligible
-          });
-          
-          return isEligible;
-        }).length;
-        
-        console.log('✅ Restock eligible count:', restockEligibleCount, 'out of', restockEligibleData?.length || 0, 'sold items');
-        
         // Calculate missing images
         const existingImageAsins = new Set((productImages || []).map(img => img.asin));
         const uniqueAsins = [...new Set((totalUnitsData || []).map(item => item.asin))];
@@ -251,7 +218,7 @@ export function InventoryMetrics({
           missingSkuCount: missingSkuCount || 0,
           missingTitlesCount: missingTitlesCount || 0,
           missingImages,
-          restockEligibleCount: restockEligibleCount,
+          restockEligibleCount: restockEligibleCount || 0,
           nonRestockEligibleCount: nonRestockEligibleCount || 0
         });
         
@@ -266,7 +233,7 @@ export function InventoryMetrics({
           missingSku: missingSkuCount || 0,
           missingTitles: missingTitlesCount || 0,
           missingImages,
-          restockEligible: restockEligibleCount,
+          restockEligible: restockEligibleCount || 0,
           nonRestockEligible: nonRestockEligibleCount || 0
         });
       } else if (showOnlySku) {
@@ -340,21 +307,8 @@ export function InventoryMetrics({
         const skuTotalUnits = skuItems.reduce((sum, item) => sum + item.quantity, 0);
         const skuSoldUnits = skuItems.filter(item => item.status === 'sold').reduce((sum, item) => sum + item.quantity, 0);
         
-        // Calculate restock eligibility - items with stock added then sold within 90 days
-        const restockEligible = asinItems.filter(item => {
-          if (item.status !== 'sold' || !item.date_sold || !item.date_added) return false;
-          
-          // Must have evidence of stock addition
-          const hadStockAdded = (item.restock_quantity && item.restock_quantity > 0) || item.last_restock_date;
-          if (!hadStockAdded) return false;
-          
-          // Check 90-day window
-          const dateAdded = new Date(item.date_added);
-          const dateSold = new Date(item.date_sold);
-          const daysBetween = Math.ceil((dateSold.getTime() - dateAdded.getTime()) / (1000 * 60 * 60 * 24));
-          
-          return daysBetween >= 0 && daysBetween <= 90;
-        }).length;
+        // Calculate restock eligibility (only ASIN items have this field)
+        const restockEligible = asinItems.filter(item => item.eligible_for_restock === true).length;
         const nonRestockEligible = asinItems.filter(item => item.eligible_for_restock === false || item.eligible_for_restock === null).length;
         
         // Calculate items with missing SKU (only for ASIN)
@@ -446,21 +400,7 @@ export function InventoryMetrics({
         } else if (metric === 'outofstock') {
           allItems = allItems.filter(item => item.quantity === 0);
         } else if (metric === 'restock-eligible') {
-          // Filter items that had stock added then sold
-          allItems = allItems.filter(item => {
-            if (item.status !== 'sold' || !item.date_sold || !item.date_added) return false;
-            
-            // Must have evidence of stock addition
-            const hadStockAdded = (item.restock_quantity && item.restock_quantity > 0) || item.last_restock_date;
-            if (!hadStockAdded) return false;
-            
-            // Check 90-day window
-            const dateAdded = new Date(item.date_added);
-            const dateSold = new Date(item.date_sold);
-            const daysBetween = Math.ceil((dateSold.getTime() - dateAdded.getTime()) / (1000 * 60 * 60 * 24));
-            
-            return daysBetween >= 0 && daysBetween <= 90;
-          });
+          allItems = allItems.filter(item => item.eligible_for_restock === true);
         } else if (metric === 'non-restock-eligible') {
           allItems = allItems.filter(item => item.eligible_for_restock === false || item.eligible_for_restock === null);
         }
@@ -506,16 +446,7 @@ export function InventoryMetrics({
         } else if (metric === 'outofstock') {
           allItems = allItems.filter(item => item.quantity === 0);
         } else if (metric === 'restock-eligible') {
-          allItems = allItems.filter(item => {
-            if (item.type !== 'asin' || item.status !== 'sold' || !item.date_sold || !item.date_added) return false;
-            // Only count if item actually had stock at some point
-            if (!item.last_restock_date && (!item.restock_quantity || item.restock_quantity === 0)) return false;
-            const dateAdded = new Date(item.date_added);
-            const dateSold = new Date(item.date_sold);
-            const daysBetween = Math.ceil((dateSold.getTime() - dateAdded.getTime()) / (1000 * 60 * 60 * 24));
-            // Only items sold within 90 days
-            return daysBetween >= 0 && daysBetween <= 90;
-          });
+          allItems = allItems.filter(item => item.type === 'asin' && item.eligible_for_restock === true);
         } else if (metric === 'non-restock-eligible') {
           allItems = allItems.filter(item => item.type === 'asin' && (item.eligible_for_restock === false || item.eligible_for_restock === null));
         }
