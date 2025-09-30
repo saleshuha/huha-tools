@@ -272,24 +272,32 @@ export function Replenishment() {
     try {
       console.log('Loading restock items for country:', selectedCountry);
       
-      const ninetyDaysAgo = new Date();
-      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-      ninetyDaysAgo.setHours(0, 0, 0, 0);
-      
-      // Get ASIN inventory items that need restocking (quantity = 0, not ordered, and sold within last 90 days OR eligible_for_restock=true with recent sale)
+      // Get ASIN inventory items that need restocking
+      // Logic: quantity = 0, not ordered, and (sold within 90 days of date_added OR eligible_for_restock=true)
       const asinQuery = supabase.from('asin_inventory')
         .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added')
         .eq('country', selectedCountry)
         .eq('quantity', 0)
-        .or(`eligible_for_restock.eq.true,date_sold.gte.${ninetyDaysAgo.toISOString()}`)
+        .not('date_sold', 'is', null)
         .neq('status', 'ordered');
          
       const [asinResult] = await Promise.all([asinQuery]);
       
       if (asinResult.error) throw asinResult.error;
       
+      // Filter items: only include if sold within 90 days of date_added
+      const filteredAsinData = (asinResult.data || []).filter(item => {
+        if (!item.date_sold || !item.date_added) return false;
+        
+        const dateAdded = new Date(item.date_added);
+        const dateSold = new Date(item.date_sold);
+        const daysBetween = Math.ceil((dateSold.getTime() - dateAdded.getTime()) / (1000 * 60 * 60 * 24));
+        
+        return daysBetween <= 90;
+      });
+      
       // Process ASIN items only
-      const asinItems = (asinResult.data || []).map(item => ({
+      const asinItems = filteredAsinData.map(item => ({
         id: item.id,
         identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
         current_quantity: item.quantity,
@@ -320,15 +328,10 @@ export function Replenishment() {
     try {
       console.log('Starting loadAllInventoryItems for country:', selectedCountry);
       
-      const ninetyDaysAgo = new Date();
-      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-      ninetyDaysAgo.setHours(0, 0, 0, 0);
-      
       const [asinAll] = await Promise.all([
         supabase.from('asin_inventory')
           .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added, notes, eligible_for_restock')
           .eq('country', selectedCountry)
-          .or(`eligible_for_restock.eq.true,date_sold.gte.${ninetyDaysAgo.toISOString()}`)
       ]);
       
       if (asinAll.error) {
@@ -338,8 +341,19 @@ export function Replenishment() {
       
       console.log('Raw ASIN data:', asinAll.data);
       
+      // Filter to only show items sold within 90 days of date_added
+      const filteredAllAsinData = (asinAll.data || []).filter(item => {
+        if (!item.date_sold || !item.date_added) return false;
+        
+        const dateAdded = new Date(item.date_added);
+        const dateSold = new Date(item.date_sold);
+        const daysBetween = Math.ceil((dateSold.getTime() - dateAdded.getTime()) / (1000 * 60 * 60 * 24));
+        
+        return daysBetween <= 90;
+      });
+      
       // Process ASIN items into AllInventoryItem format
-      const asinItems: AllInventoryItem[] = (asinAll.data || []).map(item => ({
+      const asinItems: AllInventoryItem[] = filteredAllAsinData.map(item => ({
         id: item.id,
         item_type: 'ASIN' as const,
         asin: item.asin,
