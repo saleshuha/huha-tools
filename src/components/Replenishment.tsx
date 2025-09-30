@@ -183,6 +183,7 @@ export function Replenishment() {
   const [selectedPeriod, setSelectedPeriod] = useState('30d');
   const [restockItems, setRestockItems] = useState<RestockItem[]>([]);
   const [orderedItems, setOrderedItems] = useState<RestockItem[]>([]);
+  const [nonSourceItems, setNonSourceItems] = useState<RestockItem[]>([]);
   const [allInventoryItems, setAllInventoryItems] = useState<AllInventoryItem[]>([]);
   const [filteredItems, setFilteredItems] = useState<AllInventoryItem[]>([]);
   const [salesData, setSalesData] = useState<SalesData[]>([]);
@@ -256,11 +257,53 @@ export function Replenishment() {
   const [forecastLoading, setForecastLoading] = useState(false);
   const [forecastError, setForecastError] = useState<string | null>(null);
 
+  // Load non-source items
+  const loadNonSourceItems = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('non_source_items')
+        .select('*')
+        .eq('country', selectedCountry)
+        .order('marked_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      const nonSourceItemsData = (data || []).map(item => ({
+        id: item.id,
+        identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
+        current_quantity: 0,
+        table_name: 'non_source_items' as const,
+        status: 'non-source',
+        date_sold: null,
+        last_restock_date: null,
+        days_since_last_restock: null
+      }));
+      
+      setNonSourceItems(nonSourceItemsData);
+    } catch (error: any) {
+      console.error('Error loading non-source items:', error);
+      toast({
+        title: "Error loading non-source items",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
   const loadRestockItems = async () => {
     try {
       console.log('Loading restock items for country:', selectedCountry);
       
-      // Get ASIN inventory items that are eligible for restock
+      // Get ASIN inventory items that are eligible for restock (excluding non-source items)
+      const { data: nonSourceData } = await supabase
+        .from('non_source_items')
+        .select('asin, serial_number')
+        .eq('country', selectedCountry);
+      
+      const nonSourceIdentifiers = new Set(
+        (nonSourceData || []).map(item => `${item.asin}-${item.serial_number}`)
+      );
+      
       const asinQuery = supabase.from('asin_inventory')
         .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added, eligible_for_restock')
         .eq('country', selectedCountry)
@@ -272,8 +315,10 @@ export function Replenishment() {
       
       if (asinResult.error) throw asinResult.error;
       
-      // Process ASIN items only
-      const asinItems = (asinResult.data || []).map(item => ({
+      // Process ASIN items only (excluding non-source items)
+      const asinItems = (asinResult.data || [])
+        .filter(item => !nonSourceIdentifiers.has(`${item.asin}-${item.serial_number}`))
+        .map(item => ({
         id: item.id,
         identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
         current_quantity: item.quantity,
@@ -312,6 +357,16 @@ export function Replenishment() {
           .neq('status', 'no-stock')
       ]);
       
+      // Get non-source items to exclude them
+      const { data: nonSourceData } = await supabase
+        .from('non_source_items')
+        .select('asin, serial_number')
+        .eq('country', selectedCountry);
+      
+      const nonSourceIdentifiers = new Set(
+        (nonSourceData || []).map(item => `${item.asin}-${item.serial_number}`)
+      );
+      
       if (asinAll.error) {
         console.error('ASIN query error:', asinAll.error);
         throw asinAll.error;
@@ -319,8 +374,10 @@ export function Replenishment() {
       
       console.log('Raw ASIN data:', asinAll.data);
       
-      // Process ASIN items into AllInventoryItem format
-      const asinItems: AllInventoryItem[] = (asinAll.data || []).map(item => ({
+      // Process ASIN items into AllInventoryItem format (excluding non-source items)
+      const asinItems: AllInventoryItem[] = (asinAll.data || [])
+        .filter(item => !nonSourceIdentifiers.has(`${item.asin}-${item.serial_number}`))
+        .map(item => ({
         id: item.id,
         item_type: 'ASIN' as const,
         asin: item.asin,
@@ -928,6 +985,70 @@ export function Replenishment() {
       toast({
         title: "Error",
         description: "Failed to update some items",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Mark item as non-source (move to non-source items)
+  const markAsNonSource = async (itemId: string) => {
+    const item = restockItems.find(i => i.id === itemId) || outOfStockItems.find(i => i.id === itemId);
+    if (!item) {
+      console.error('Item not found:', itemId);
+      toast({
+        title: "Error",
+        description: "Item not found",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      // Get the full item details from database
+      const { data: inventoryItem, error: fetchError } = await supabase
+        .from('asin_inventory')
+        .select('*')
+        .eq('id', itemId)
+        .single();
+      
+      if (fetchError) throw fetchError;
+      
+      // Insert into non_source_items table
+      const { error: insertError } = await supabase
+        .from('non_source_items')
+        .insert({
+          user_id: inventoryItem.user_id,
+          asin: inventoryItem.asin,
+          sku: inventoryItem.sku,
+          title: inventoryItem.title,
+          serial_number: inventoryItem.serial_number,
+          country: inventoryItem.country,
+          reason: 'Marked as non-source item - not to be restocked'
+        });
+      
+      if (insertError) throw insertError;
+      
+      // Mark as not eligible for restock
+      const { error: updateError } = await supabase
+        .from('asin_inventory')
+        .update({ eligible_for_restock: false })
+        .eq('id', itemId);
+      
+      if (updateError) throw updateError;
+      
+      // Reload data to reflect changes
+      await loadAllInventoryItems();
+      await loadNonSourceItems();
+      
+      toast({
+        title: "Item Moved to Non-Source",
+        description: "Item will no longer appear in restock lists"
+      });
+    } catch (error: any) {
+      console.error('Error marking item as non-source:', error);
+      toast({
+        title: "Error",
+        description: `Failed to mark as non-source: ${error.message}`,
         variant: "destructive"
       });
     }
@@ -1678,6 +1799,7 @@ export function Replenishment() {
       await loadAllData();
       const orderedItemsData = await loadOrderedItems();
       setOrderedItems(orderedItemsData);
+      await loadNonSourceItems();
       // Check for restocked ordered items and clean them up
       await removeRestockedOrderedItems();
     };
@@ -1882,7 +2004,7 @@ export function Replenishment() {
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="critical" className="w-full">
-                <TabsList className="grid w-full grid-cols-3 bg-gradient-subtle rounded-xl shadow-elegant">
+                <TabsList className="grid w-full grid-cols-4 bg-gradient-subtle rounded-xl shadow-elegant">
                   <TabsTrigger value="critical" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                     <ShoppingCart className="w-4 h-4" />
                     Ready to Order ({pendingItems.length})
@@ -1894,6 +2016,10 @@ export function Replenishment() {
                   <TabsTrigger value="out-of-stock" className="flex items-center gap-2 data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground">
                     <AlertTriangle className="w-4 h-4" />
                     Out of Stock ({outOfStockItems.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="non-source" className="flex items-center gap-2 data-[state=active]:bg-orange-600 data-[state=active]:text-white">
+                    <XCircle className="w-4 h-4" />
+                    Non-Source ({nonSourceItems.length})
                   </TabsTrigger>
                 </TabsList>
 
@@ -1970,9 +2096,9 @@ export function Replenishment() {
                                </div>
                              </div>
                            </div>
-                           <Button onClick={() => markAsOrdered(item.id)} size="sm" variant="outline" className="gap-2">
-                             <ShoppingCart className="w-4 h-4" />
-                             Mark as Ordered
+                           <Button onClick={() => markAsNonSource(item.id)} size="sm" variant="outline" className="gap-2">
+                             <XCircle className="w-4 h-4" />
+                             Mark as Non-Source
                            </Button>
                          </div>
                        }) : <div className="text-center py-8 text-muted-foreground">
@@ -2023,12 +2149,12 @@ export function Replenishment() {
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Button onClick={() => markAsOrdered(item.id)} size="sm" variant="outline" className="gap-2">
-                            <ShoppingCart className="w-4 h-4" />
-                            Mark as Manually Ordered
-                          </Button>
-                        </div>
+                         <div className="flex items-center gap-2">
+                           <Button onClick={() => markAsNonSource(item.id)} size="sm" variant="outline" className="gap-2">
+                             <XCircle className="w-4 h-4" />
+                             Mark as Non-Source
+                           </Button>
+                         </div>
                       </div>
                     )) : (
                       <div className="text-center py-8 text-muted-foreground">
@@ -2072,6 +2198,79 @@ export function Replenishment() {
                       >
                         <Download className="w-4 h-4" />
                         Export Out of Stock Items
+                      </Button>
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* Non-Source Items Tab */}
+                <TabsContent value="non-source" className="space-y-4 mt-6">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="text-sm text-muted-foreground">
+                      Items marked as non-source will not appear in restock lists anymore
+                    </div>
+                    <Badge variant="secondary" className="text-sm whitespace-nowrap bg-orange-100 text-orange-700">
+                      {nonSourceItems.length} non-source items
+                    </Badge>
+                  </div>
+
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {nonSourceItems.length > 0 ? nonSourceItems.map(item => (
+                      <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg bg-orange-50/50 hover:bg-orange-100/50 transition-colors border-orange-200">
+                        <div className="flex items-center gap-4">
+                          <div className="p-2 rounded-lg bg-orange-500/20">
+                            <XCircle className="w-4 h-4 text-orange-700" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium text-foreground">{item.identifier}</p>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <Badge variant="secondary" className="text-xs bg-orange-500/20 text-orange-700">
+                                Non-Source Item
+                              </Badge>
+                              <span className="text-xs">Will not restock</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <CheckCircle className="w-12 h-12 mx-auto mb-4 opacity-50 text-green-500" />
+                        <p className="text-lg font-medium">No non-source items</p>
+                        <p className="text-sm">All items are available for restocking!</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Export button for non-source items */}
+                  {nonSourceItems.length > 0 && (
+                    <div className="pt-4 border-t">
+                      <Button 
+                        onClick={() => {
+                          const csvContent = [
+                            ['Item', 'Identifier', 'Marked Date'],
+                            ...nonSourceItems.map(item => [
+                              item.identifier,
+                              item.table_name,
+                              new Date().toLocaleDateString()
+                            ])
+                          ].map(row => row.join(',')).join('\n');
+                          
+                          const blob = new Blob([csvContent], { type: 'text/csv' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `non-source-items-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                        }} 
+                        variant="outline" 
+                        size="sm" 
+                        className="gap-2"
+                      >
+                        <Download className="w-4 h-4" />
+                        Export Non-Source Items
                       </Button>
                     </div>
                   )}
