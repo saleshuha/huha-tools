@@ -161,9 +161,12 @@ export function InventoryMetrics({
             .or('title.is.null,title.eq.'),
             
           // Restock eligible count - items with proper addition → sale sequence
-          supabase.rpc('count_restock_eligible_items', { 
-            country_filter: selectedCountry 
-          }),
+          supabase
+            .from('asin_inventory')
+            .select('id', { count: 'exact', head: true })
+            .eq('country', selectedCountry)
+            .eq('status', 'sold')
+            .not('id', 'is', null),
             
           // Non-restock eligible count
           supabase
@@ -398,12 +401,28 @@ export function InventoryMetrics({
         } else if (metric === 'outofstock') {
           allItems = allItems.filter(item => item.quantity === 0);
         } else if (metric === 'restock-eligible') {
-          // Get items with proper stock addition → sale sequence
-          const { data: restockEligibleIds } = await supabase.rpc('get_restock_eligible_item_ids', {
-            country_filter: selectedCountry
-          });
-          const eligibleIdSet = new Set((restockEligibleIds || []).map((item: any) => item.id));
-          allItems = allItems.filter(item => eligibleIdSet.has(item.id));
+          // Filter items with proper stock addition → sale sequence
+          const itemsWithChanges = await Promise.all(
+            allItems.map(async (item) => {
+              const { data: changes } = await supabase
+                .from('stock_changes')
+                .select('change_amount, created_at')
+                .eq('inventory_id', item.id)
+                .order('created_at', { ascending: true });
+              
+              if (!changes || changes.length === 0) return null;
+              
+              const firstAddition = changes.find(c => c.change_amount > 0);
+              if (!firstAddition) return null;
+              
+              const hasReduction = changes.some(
+                c => c.change_amount < 0 && new Date(c.created_at) > new Date(firstAddition.created_at)
+              );
+              
+              return hasReduction ? item : null;
+            })
+          );
+          allItems = itemsWithChanges.filter(item => item !== null) as any[];
         } else if (metric === 'non-restock-eligible') {
           allItems = allItems.filter(item => item.eligible_for_restock === false || item.eligible_for_restock === null);
         }
@@ -449,12 +468,29 @@ export function InventoryMetrics({
         } else if (metric === 'outofstock') {
           allItems = allItems.filter(item => item.quantity === 0);
         } else if (metric === 'restock-eligible') {
-          // Get items with proper stock addition → sale sequence
-          const { data: restockEligibleIds } = await supabase.rpc('get_restock_eligible_item_ids', {
-            country_filter: selectedCountry
-          });
-          const eligibleIdSet = new Set((restockEligibleIds || []).map((item: any) => item.id));
-          allItems = allItems.filter(item => item.type === 'asin' && eligibleIdSet.has(item.id));
+          // Filter items with proper stock addition → sale sequence
+          const asinItems = allItems.filter(item => item.type === 'asin');
+          const itemsWithChanges = await Promise.all(
+            asinItems.map(async (item) => {
+              const { data: changes } = await supabase
+                .from('stock_changes')
+                .select('change_amount, created_at')
+                .eq('inventory_id', item.id)
+                .order('created_at', { ascending: true });
+              
+              if (!changes || changes.length === 0) return null;
+              
+              const firstAddition = changes.find(c => c.change_amount > 0);
+              if (!firstAddition) return null;
+              
+              const hasReduction = changes.some(
+                c => c.change_amount < 0 && new Date(c.created_at) > new Date(firstAddition.created_at)
+              );
+              
+              return hasReduction ? item : null;
+            })
+          );
+          allItems = itemsWithChanges.filter(item => item !== null) as any[];
         } else if (metric === 'non-restock-eligible') {
           allItems = allItems.filter(item => item.type === 'asin' && (item.eligible_for_restock === false || item.eligible_for_restock === null));
         }
