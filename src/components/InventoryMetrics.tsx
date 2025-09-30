@@ -160,12 +160,10 @@ export function InventoryMetrics({
             .eq('country', selectedCountry)
             .or('title.is.null,title.eq.'),
             
-          // Restock eligible count
-          supabase
-            .from('asin_inventory')
-            .select('*', { count: 'exact', head: true })
-            .eq('country', selectedCountry)
-            .eq('eligible_for_restock', true),
+          // Restock eligible count - items with proper addition → sale sequence
+          supabase.rpc('count_restock_eligible_items', { 
+            country_filter: selectedCountry 
+          }),
             
           // Non-restock eligible count
           supabase
@@ -400,7 +398,12 @@ export function InventoryMetrics({
         } else if (metric === 'outofstock') {
           allItems = allItems.filter(item => item.quantity === 0);
         } else if (metric === 'restock-eligible') {
-          allItems = allItems.filter(item => item.eligible_for_restock === true);
+          // Get items with proper stock addition → sale sequence
+          const { data: restockEligibleIds } = await supabase.rpc('get_restock_eligible_item_ids', {
+            country_filter: selectedCountry
+          });
+          const eligibleIdSet = new Set((restockEligibleIds || []).map((item: any) => item.id));
+          allItems = allItems.filter(item => eligibleIdSet.has(item.id));
         } else if (metric === 'non-restock-eligible') {
           allItems = allItems.filter(item => item.eligible_for_restock === false || item.eligible_for_restock === null);
         }
@@ -446,7 +449,12 @@ export function InventoryMetrics({
         } else if (metric === 'outofstock') {
           allItems = allItems.filter(item => item.quantity === 0);
         } else if (metric === 'restock-eligible') {
-          allItems = allItems.filter(item => item.type === 'asin' && item.eligible_for_restock === true);
+          // Get items with proper stock addition → sale sequence
+          const { data: restockEligibleIds } = await supabase.rpc('get_restock_eligible_item_ids', {
+            country_filter: selectedCountry
+          });
+          const eligibleIdSet = new Set((restockEligibleIds || []).map((item: any) => item.id));
+          allItems = allItems.filter(item => item.type === 'asin' && eligibleIdSet.has(item.id));
         } else if (metric === 'non-restock-eligible') {
           allItems = allItems.filter(item => item.type === 'asin' && (item.eligible_for_restock === false || item.eligible_for_restock === null));
         }
