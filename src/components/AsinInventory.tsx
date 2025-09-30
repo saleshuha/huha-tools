@@ -1654,29 +1654,33 @@ export function AsinInventory() {
                               variant={
                                 item.quantity > 0 
                                   ? 'default' 
-                                  : item.status === 'sold' || item.status === 'out-of-stock'
-                                    ? 'destructive' 
-                                    : item.status === 'ordered' 
-                                      ? 'secondary'
-                                      : item.status === 'reserved' 
-                                        ? 'outline'
-                                        : item.status === 'damaged'
-                                          ? 'destructive'
-                                          : 'secondary'
+                                  : item.status === 'no-stock'
+                                    ? 'secondary'
+                                    : item.status === 'sold' || item.status === 'out-of-stock'
+                                      ? 'destructive' 
+                                      : item.status === 'ordered' 
+                                        ? 'secondary'
+                                        : item.status === 'reserved' 
+                                          ? 'outline'
+                                          : item.status === 'damaged'
+                                            ? 'destructive'
+                                            : 'secondary'
                               } 
                               className="text-xs"
                             >
                               {item.quantity > 0 
                                 ? 'In Stock' 
-                                : item.status === 'sold' || item.status === 'out-of-stock'
-                                  ? 'Out of Stock (Sold)' 
-                                  : item.status === 'ordered'
-                                    ? 'Ordered'
-                                    : item.status === 'reserved' 
-                                      ? 'Reserved' 
-                                      : item.status === 'damaged'
-                                        ? 'Damaged'
-                                        : 'No Stock'}
+                                : item.status === 'no-stock'
+                                  ? 'No Stock'
+                                  : item.status === 'sold' || item.status === 'out-of-stock'
+                                    ? 'Out of Stock (Sold)' 
+                                    : item.status === 'ordered'
+                                      ? 'Ordered'
+                                      : item.status === 'reserved' 
+                                        ? 'Reserved' 
+                                        : item.status === 'damaged'
+                                          ? 'Damaged'
+                                          : 'No Stock'}
                             </Badge>
                           </div>
                          </td>
@@ -1763,28 +1767,32 @@ export function AsinInventory() {
                           variant={
                             item.quantity > 0 
                               ? 'default' 
-                              : item.status === 'sold' || item.status === 'out-of-stock'
-                                ? 'destructive' 
-                                : item.status === 'ordered' 
-                                  ? 'secondary'
-                                  : item.status === 'reserved' 
-                                    ? 'outline'
-                                    : item.status === 'damaged'
-                                      ? 'destructive'
-                                      : 'secondary'
+                              : item.status === 'no-stock'
+                                ? 'secondary'
+                                : item.status === 'sold' || item.status === 'out-of-stock'
+                                  ? 'destructive' 
+                                  : item.status === 'ordered' 
+                                    ? 'secondary'
+                                    : item.status === 'reserved' 
+                                      ? 'outline'
+                                      : item.status === 'damaged'
+                                        ? 'destructive'
+                                        : 'secondary'
                           }
                         >
                           {item.quantity > 0 
                             ? 'IN STOCK' 
-                            : item.status === 'sold' || item.status === 'out-of-stock'
-                              ? 'OUT OF STOCK (SOLD)' 
-                              : item.status === 'ordered'
-                                ? 'ORDERED'
-                                : item.status === 'reserved' 
-                                  ? 'RESERVED' 
-                                  : item.status === 'damaged'
-                                    ? 'DAMAGED'
-                                    : 'NO STOCK'}
+                            : item.status === 'no-stock'
+                              ? 'NO STOCK'
+                              : item.status === 'sold' || item.status === 'out-of-stock'
+                                ? 'OUT OF STOCK (SOLD)' 
+                                : item.status === 'ordered'
+                                  ? 'ORDERED'
+                                  : item.status === 'reserved' 
+                                    ? 'RESERVED' 
+                                    : item.status === 'damaged'
+                                      ? 'DAMAGED'
+                                      : 'NO STOCK'}
                         </Badge>
                      </div>
                      <ProductImage asin={item.asin} />
