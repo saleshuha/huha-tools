@@ -716,6 +716,48 @@ export type Database = {
         }
         Relationships: []
       }
+      non_source_items: {
+        Row: {
+          asin: string | null
+          country: string
+          created_at: string
+          id: string
+          marked_at: string
+          reason: string | null
+          serial_number: string | null
+          sku: string | null
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          asin?: string | null
+          country?: string
+          created_at?: string
+          id?: string
+          marked_at?: string
+          reason?: string | null
+          serial_number?: string | null
+          sku?: string | null
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          asin?: string | null
+          country?: string
+          created_at?: string
+          id?: string
+          marked_at?: string
+          reason?: string | null
+          serial_number?: string | null
+          sku?: string | null
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       noon_credit_data: {
         Row: {
           business_unit: string | null
@@ -4239,6 +4281,24 @@ export type Database = {
           total_sales: number
           urgency_score: number
           velocity_category: string
+        }[]
+      }
+      get_items_needing_replenishment: {
+        Args: { country_filter?: string; lookback_days?: number }
+        Returns: {
+          asin: string
+          current_quantity: number
+          days_since_last_restock: number
+          identifier: string
+          item_id: string
+          last_restock_quantity: number
+          recommended_order_quantity: number
+          replenishment_reason: string
+          sku: string
+          status: string
+          table_name: string
+          units_sold_since_restock: number
+          urgency_level: string
         }[]
       }
       get_items_needing_restock: {

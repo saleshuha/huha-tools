@@ -43,6 +43,17 @@ interface RestockItem {
   stock_days_remaining?: number | null;
   urgency_score?: number;
 }
+
+interface NonSourceItem {
+  id: string;
+  asin?: string;
+  sku?: string;
+  title?: string;
+  serial_number?: string;
+  country: string;
+  reason?: string;
+  marked_at: string;
+}
 interface SalesData {
   period: string;
   asin_sold: number;
@@ -188,6 +199,7 @@ export function Replenishment() {
   const [salesData, setSalesData] = useState<SalesData[]>([]);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [outOfStockItems, setOutOfStockItems] = useState<RestockItem[]>([]);
+  const [nonSourceItems, setNonSourceItems] = useState<NonSourceItem[]>([]);
   
   
   
@@ -837,6 +849,7 @@ export function Replenishment() {
     setLoading(true);
     try {
       await loadAllInventoryItems();
+      await loadNonSourceItems();
 
       // Load analytics data in parallel without blocking the UI
       Promise.all([calculateSalesData(), loadAnalytics(selectedCountry)]).catch(error => {
@@ -927,6 +940,110 @@ export function Replenishment() {
       toast({
         title: "Error",
         description: "Failed to update some items",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Mark item as non-source (not available on Sunsky)
+  const markAsNonSource = async (itemId: string) => {
+    const item = restockItems.find(i => i.id === itemId);
+    if (!item) {
+      toast({
+        title: "Error",
+        description: "Item not found",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      // Get full item details from inventory
+      const { data: inventoryItem, error: fetchError } = await supabase
+        .from('asin_inventory')
+        .select('*')
+        .eq('id', itemId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Insert into non_source_items table
+      const { error: insertError } = await supabase
+        .from('non_source_items')
+        .insert({
+          user_id: (await supabase.auth.getUser()).data.user?.id,
+          asin: inventoryItem.asin,
+          sku: inventoryItem.sku,
+          title: inventoryItem.title,
+          serial_number: inventoryItem.serial_number,
+          country: selectedCountry,
+          reason: 'Not available on Sunsky'
+        });
+
+      if (insertError) throw insertError;
+
+      // Remove from restock items
+      setRestockItems(prev => prev.filter(i => i.id !== itemId));
+      
+      // Reload non-source items
+      await loadNonSourceItems();
+
+      toast({
+        title: "Marked as Non-Source",
+        description: "Item added to non-source list to avoid future searches"
+      });
+    } catch (error: any) {
+      console.error('Error marking as non-source:', error);
+      toast({
+        title: "Error",
+        description: `Failed to mark as non-source: ${error.message}`,
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Load non-source items
+  const loadNonSourceItems = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('non_source_items')
+        .select('*')
+        .eq('country', selectedCountry)
+        .order('marked_at', { ascending: false });
+
+      if (error) throw error;
+      setNonSourceItems(data || []);
+    } catch (error: any) {
+      console.error('Error loading non-source items:', error);
+      toast({
+        title: "Error loading non-source items",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Remove from non-source list
+  const removeFromNonSource = async (itemId: string) => {
+    try {
+      const { error } = await supabase
+        .from('non_source_items')
+        .delete()
+        .eq('id', itemId);
+
+      if (error) throw error;
+
+      setNonSourceItems(prev => prev.filter(i => i.id !== itemId));
+      
+      toast({
+        title: "Removed",
+        description: "Item removed from non-source list"
+      });
+    } catch (error: any) {
+      console.error('Error removing from non-source:', error);
+      toast({
+        title: "Error",
+        description: `Failed to remove: ${error.message}`,
         variant: "destructive"
       });
     }
@@ -1881,7 +1998,7 @@ export function Replenishment() {
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="critical" className="w-full">
-                <TabsList className="grid w-full grid-cols-3 bg-gradient-subtle rounded-xl shadow-elegant">
+                <TabsList className="grid w-full grid-cols-4 bg-gradient-subtle rounded-xl shadow-elegant">
                   <TabsTrigger value="critical" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                     <ShoppingCart className="w-4 h-4" />
                     Ready to Order ({pendingItems.length})
@@ -1889,6 +2006,10 @@ export function Replenishment() {
                   <TabsTrigger value="ordered" className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
                     <Truck className="w-4 h-4" />
                     Ordered ({orderedItems.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="non-source" className="flex items-center gap-2 data-[state=active]:bg-orange-600 data-[state=active]:text-white">
+                    <XCircle className="w-4 h-4" />
+                    Non-Source ({nonSourceItems.length})
                   </TabsTrigger>
                   <TabsTrigger value="out-of-stock" className="flex items-center gap-2 data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground">
                     <AlertTriangle className="w-4 h-4" />
@@ -1969,10 +2090,10 @@ export function Replenishment() {
                                </div>
                              </div>
                            </div>
-                           <Button onClick={() => markAsOrdered(item.id)} size="sm" variant="outline" className="gap-2">
-                             <ShoppingCart className="w-4 h-4" />
-                             Mark as Ordered
-                           </Button>
+                            <Button onClick={() => markAsNonSource(item.id)} size="sm" variant="outline" className="gap-2 border-orange-500 text-orange-600 hover:bg-orange-50">
+                              <XCircle className="w-4 h-4" />
+                              Non-Source Item
+                            </Button>
                          </div>
                        }) : <div className="text-center py-8 text-muted-foreground">
                         <ShoppingCart className="w-12 h-12 mx-auto mb-4 opacity-50 text-green-500" />
@@ -2071,6 +2192,99 @@ export function Replenishment() {
                       >
                         <Download className="w-4 h-4" />
                         Export Out of Stock Items
+                      </Button>
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* Non-Source Items Tab */}
+                <TabsContent value="non-source" className="space-y-4 mt-6">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="text-sm text-muted-foreground">
+                      Items that are not available on Sunsky - saved here to avoid repeated searches
+                    </div>
+                    <Badge className="text-sm whitespace-nowrap bg-orange-600 text-white">
+                      {nonSourceItems.length} non-source items
+                    </Badge>
+                  </div>
+
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {nonSourceItems.length > 0 ? nonSourceItems.map(item => (
+                      <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg bg-orange-50/50 hover:bg-orange-100/50 transition-colors border-orange-200">
+                        <div className="flex items-center gap-4 flex-1">
+                          <div className="p-2 rounded-lg bg-orange-500/20">
+                            <XCircle className="w-4 h-4 text-orange-700" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium text-foreground">
+                              {item.asin && `ASIN: ${item.asin}`}
+                              {item.serial_number && ` (${item.serial_number})`}
+                              {item.sku && ` | SKU: ${item.sku}`}
+                            </p>
+                            {item.title && <p className="text-sm text-muted-foreground">{item.title}</p>}
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
+                              <span>Marked: {format(new Date(item.marked_at), 'MMM d, yyyy HH:mm')}</span>
+                              {item.reason && (
+                                <Badge variant="outline" className="text-xs border-orange-500 text-orange-600 bg-orange-50">
+                                  {item.reason}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <Button 
+                          onClick={() => removeFromNonSource(item.id)} 
+                          size="sm" 
+                          variant="outline" 
+                          className="gap-2 border-red-500 text-red-600 hover:bg-red-50"
+                        >
+                          <X className="w-4 h-4" />
+                          Remove
+                        </Button>
+                      </div>
+                    )) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <CheckCircle className="w-12 h-12 mx-auto mb-4 opacity-50 text-green-500" />
+                        <p className="text-lg font-medium">No non-source items</p>
+                        <p className="text-sm">Items marked as non-source will appear here</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Export button for non-source items */}
+                  {nonSourceItems.length > 0 && (
+                    <div className="pt-4 border-t">
+                      <Button 
+                        onClick={() => {
+                          const csvContent = [
+                            ['ASIN', 'SKU', 'Serial Number', 'Title', 'Reason', 'Marked At', 'Country'],
+                            ...nonSourceItems.map(item => [
+                              item.asin || '',
+                              item.sku || '',
+                              item.serial_number || '',
+                              item.title || '',
+                              item.reason || '',
+                              format(new Date(item.marked_at), 'yyyy-MM-dd HH:mm:ss'),
+                              item.country
+                            ])
+                          ].map(row => row.join(',')).join('\n');
+                          
+                          const blob = new Blob([csvContent], { type: 'text/csv' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `non-source-items-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                        }} 
+                        variant="outline" 
+                        size="sm" 
+                        className="gap-2"
+                      >
+                        <Download className="w-4 h-4" />
+                        Export Non-Source Items
                       </Button>
                     </div>
                   )}
