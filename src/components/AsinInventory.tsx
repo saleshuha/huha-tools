@@ -1591,6 +1591,12 @@ export function AsinInventory() {
                           {sortBy === 'status' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
                         </button>
                       </th>
+                       <th className="w-20 p-3 text-center font-medium border-r">
+                         <div className="flex items-center justify-center gap-2">
+                           <RefreshCw className="w-4 h-4" />
+                           Restock
+                         </div>
+                       </th>
                        <th className="w-24 p-3 text-center font-medium border-r">
                          <div className="flex items-center justify-center gap-2">
                            <Download className="w-4 h-4" />
@@ -1685,6 +1691,37 @@ export function AsinInventory() {
                             </Badge>
                           </div>
                          </td>
+                          <td className="p-3 border-r align-middle">
+                            <div className="flex items-center justify-center">
+                              <Checkbox 
+                                checked={item.eligible_for_restock && item.status !== 'no-stock'}
+                                disabled={item.status === 'no-stock'}
+                                onCheckedChange={async (checked) => {
+                                  try {
+                                    const { error } = await supabase
+                                      .from('asin_inventory')
+                                      .update({ eligible_for_restock: !!checked })
+                                      .eq('id', item.id);
+                                    
+                                    if (error) throw error;
+                                    
+                                    await refetch();
+                                    toast({
+                                      title: checked ? "Enabled for restock" : "Disabled for restock",
+                                      description: `${item.asin} (${item.serialNumber})`,
+                                    });
+                                  } catch (error) {
+                                    console.error('Failed to update restock eligibility:', error);
+                                    toast({
+                                      title: "Update failed",
+                                      description: "Could not update restock eligibility",
+                                      variant: "destructive"
+                                    });
+                                  }
+                                }}
+                              />
+                            </div>
+                          </td>
                           <td className="p-3 border-r align-middle">
                             <div className="flex flex-col items-center gap-2">
                                <div className="flex items-center gap-2">
