@@ -206,14 +206,16 @@ export function InventoryMetrics({
         const asinSoldUnits = filteredSoldItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
         
         // Calculate restock eligible count - items actually sold within 90 days of date_added
+        // Exclude items marked as sold immediately (within 1 minute of being added)
         const restockEligibleCount = (restockEligibleData || []).filter(item => {
           // Must have status 'sold', date_sold, and date_added to be eligible
           if (item.status !== 'sold' || !item.date_sold || !item.date_added) return false;
           const dateAdded = new Date(item.date_added);
           const dateSold = new Date(item.date_sold);
           const daysBetween = Math.ceil((dateSold.getTime() - dateAdded.getTime()) / (1000 * 60 * 60 * 24));
-          // Only count if actually sold within 90 days
-          return daysBetween >= 0 && daysBetween <= 90;
+          const minutesBetween = (dateSold.getTime() - dateAdded.getTime()) / (1000 * 60);
+          // Only count if actually sold within 90 days AND was in stock for at least 1 minute
+          return daysBetween >= 0 && daysBetween <= 90 && minutesBetween >= 1;
         }).length;
         
         // Calculate missing images
@@ -326,8 +328,9 @@ export function InventoryMetrics({
           const dateAdded = new Date(item.date_added);
           const dateSold = new Date(item.date_sold);
           const daysBetween = Math.ceil((dateSold.getTime() - dateAdded.getTime()) / (1000 * 60 * 60 * 24));
-          // Only items actually sold within 90 days
-          return daysBetween >= 0 && daysBetween <= 90;
+          const minutesBetween = (dateSold.getTime() - dateAdded.getTime()) / (1000 * 60);
+          // Only items actually sold within 90 days AND in stock for at least 1 minute
+          return daysBetween >= 0 && daysBetween <= 90 && minutesBetween >= 1;
         }).length;
         const nonRestockEligible = asinItems.filter(item => item.eligible_for_restock === false || item.eligible_for_restock === null).length;
         
@@ -426,8 +429,9 @@ export function InventoryMetrics({
             const dateAdded = new Date(item.date_added);
             const dateSold = new Date(item.date_sold);
             const daysBetween = Math.ceil((dateSold.getTime() - dateAdded.getTime()) / (1000 * 60 * 60 * 24));
-            // Only items actually sold within 90 days
-            return daysBetween >= 0 && daysBetween <= 90;
+            const minutesBetween = (dateSold.getTime() - dateAdded.getTime()) / (1000 * 60);
+            // Only items actually sold within 90 days AND in stock for at least 1 minute
+            return daysBetween >= 0 && daysBetween <= 90 && minutesBetween >= 1;
           });
         } else if (metric === 'non-restock-eligible') {
           allItems = allItems.filter(item => item.eligible_for_restock === false || item.eligible_for_restock === null);
@@ -480,8 +484,9 @@ export function InventoryMetrics({
             const dateAdded = new Date(item.date_added);
             const dateSold = new Date(item.date_sold);
             const daysBetween = Math.ceil((dateSold.getTime() - dateAdded.getTime()) / (1000 * 60 * 60 * 24));
-            // Only items actually sold within 90 days
-            return daysBetween >= 0 && daysBetween <= 90;
+            const minutesBetween = (dateSold.getTime() - dateAdded.getTime()) / (1000 * 60);
+            // Only items actually sold within 90 days AND in stock for at least 1 minute
+            return daysBetween >= 0 && daysBetween <= 90 && minutesBetween >= 1;
           });
         } else if (metric === 'non-restock-eligible') {
           allItems = allItems.filter(item => item.type === 'asin' && (item.eligible_for_restock === false || item.eligible_for_restock === null));
