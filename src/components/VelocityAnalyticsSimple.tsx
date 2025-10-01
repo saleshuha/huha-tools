@@ -227,11 +227,17 @@ export function VelocityAnalyticsSimple() {
   const handleSunskyOrderSuccess = async (orderNumber: string, selectedOrderIds: string[]) => {
     try {
       // Mark the selected inventory items as ordered
-      const updatePromises = Array.from(selectedItems).map(async itemId => {
-        return supabase
+      const itemsToUpdate = sortedFilteredItems.filter(item => selectedItems.has(item.asin_id));
+      
+      const updatePromises = itemsToUpdate.map(async item => {
+        // Update asin_inventory status
+        await supabase
           .from('asin_inventory')
           .update({ status: 'ordered' })
-          .eq('id', itemId);
+          .eq('id', item.asin_id);
+        
+        // Set manual_override to 0 to move to ordered tab
+        await saveManualOverride(item.asin_id, 0, item.recommended_quantity, true);
       });
       
       await Promise.all(updatePromises);
