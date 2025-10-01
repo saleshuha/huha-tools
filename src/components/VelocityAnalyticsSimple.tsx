@@ -7,7 +7,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Package, ShoppingCart, Filter, RotateCcw, Truck } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Search, Package, ShoppingCart, Filter, RotateCcw, Truck, Percent } from "lucide-react";
 import { useProductImages } from "@/hooks/useProductImages";
 import { useToast } from "@/hooks/use-toast";
 import { VelocityItemCard } from "@/components/replenishment/VelocityItemCard";
@@ -37,6 +39,9 @@ export function VelocityAnalyticsSimple() {
   const [sortBy, setSortBy] = useState<"velocity" | "stock" | "recommended">("recommended");
   const [sunskyDialogOpen, setSunskyDialogOpen] = useState(false);
   const [sunskyOrderItems, setSunskyOrderItems] = useState<any[]>([]);
+  const [adjustDialogOpen, setAdjustDialogOpen] = useState(false);
+  const [adjustmentPercentage, setAdjustmentPercentage] = useState("10");
+  const [isAdjusting, setIsAdjusting] = useState(false);
   
   // Memoized filtering and sorting
   const { readyToOrderItems, orderedItems, sortedFilteredItems } = useMemo(() => {
@@ -283,6 +288,61 @@ export function VelocityAnalyticsSimple() {
     });
   };
 
+  const handleAdjustQuantities = async () => {
+    const percentage = parseFloat(adjustmentPercentage);
+    
+    if (isNaN(percentage) || percentage < 0 || percentage > 100) {
+      toast({
+        title: "Invalid Percentage",
+        description: "Please enter a percentage between 0 and 100",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAdjusting(true);
+    
+    try {
+      const reductionMultiplier = 1 - (percentage / 100);
+      const updates: Promise<any>[] = [];
+      let updatedCount = 0;
+
+      // Apply percentage reduction to all items in "ready to order" tab
+      for (const item of readyToOrderItems) {
+        const currentQty = item.manual_override ?? item.recommended_quantity;
+        const newQty = Math.max(1, Math.round(currentQty * reductionMultiplier));
+        
+        // Only update if quantity actually changes
+        if (newQty !== currentQty) {
+          updates.push(
+            saveManualOverride(item.asin_id, newQty, item.recommended_quantity)
+          );
+          updatedCount++;
+        }
+      }
+
+      await Promise.all(updates);
+      await loadAnalytics();
+
+      toast({
+        title: "Quantities Adjusted",
+        description: `Reduced ${updatedCount} items by ${percentage}%`,
+      });
+
+      setAdjustDialogOpen(false);
+      setAdjustmentPercentage("10");
+    } catch (error) {
+      console.error('Error adjusting quantities:', error);
+      toast({
+        title: "Error",
+        description: "Failed to adjust quantities",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAdjusting(false);
+    }
+  };
+
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
@@ -298,6 +358,15 @@ export function VelocityAnalyticsSimple() {
               Order {selectedItems.size} Items
             </Button>
           )}
+          <Button 
+            onClick={() => setAdjustDialogOpen(true)} 
+            variant="outline" 
+            className="gap-2"
+            disabled={readyToOrderItems.length === 0}
+          >
+            <Percent className="w-4 h-4" />
+            Adjust Quantities
+          </Button>
           <Button onClick={handleSelectAllItems} variant="outline" className="gap-2">
             <Package className="w-4 h-4" />
             Select All Items
@@ -549,6 +618,70 @@ export function VelocityAnalyticsSimple() {
         selectedOrders={sunskyOrderItems}
         onOrderSuccess={handleSunskyOrderSuccess}
       />
+
+      {/* Adjust Quantities Dialog */}
+      <Dialog open={adjustDialogOpen} onOpenChange={setAdjustDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Adjust Recommended Quantities</DialogTitle>
+            <DialogDescription>
+              Reduce all recommended quantities by a percentage. This will apply to all {readyToOrderItems.length} items in the "Ready to Order" tab.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="percentage">Reduction Percentage</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="percentage"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={adjustmentPercentage}
+                  onChange={(e) => setAdjustmentPercentage(e.target.value)}
+                  placeholder="Enter percentage"
+                  className="flex-1"
+                />
+                <span className="text-sm text-muted-foreground">%</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Enter a value between 0-100 to reduce quantities
+              </p>
+            </div>
+
+            {/* Preview */}
+            {adjustmentPercentage && parseFloat(adjustmentPercentage) > 0 && parseFloat(adjustmentPercentage) <= 100 && (
+              <div className="rounded-lg border p-3 bg-muted/50">
+                <p className="text-sm font-medium mb-2">Preview:</p>
+                <div className="space-y-1 text-xs text-muted-foreground">
+                  <p>• Original quantity: 100 → New quantity: {Math.max(1, Math.round(100 * (1 - parseFloat(adjustmentPercentage) / 100)))}</p>
+                  <p>• Original quantity: 50 → New quantity: {Math.max(1, Math.round(50 * (1 - parseFloat(adjustmentPercentage) / 100)))}</p>
+                  <p>• Original quantity: 10 → New quantity: {Math.max(1, Math.round(10 * (1 - parseFloat(adjustmentPercentage) / 100)))}</p>
+                  <p className="text-xs text-orange-600 mt-2">Note: Minimum quantity will be set to 1</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setAdjustDialogOpen(false)}
+              disabled={isAdjusting}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleAdjustQuantities}
+              disabled={isAdjusting || !adjustmentPercentage}
+            >
+              {isAdjusting ? "Adjusting..." : "Apply Adjustment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
