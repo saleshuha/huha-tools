@@ -5,8 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, TrendingUp, Package, ShoppingCart, Edit2, Check, X, RotateCcw } from "lucide-react";
-import { format } from "date-fns";
+import { Search, Package, Edit2, Check, X, RotateCcw } from "lucide-react";
 export function VelocityAnalyticsSimple() {
   const {
     items,
@@ -36,9 +35,6 @@ export function VelocityAnalyticsSimple() {
   const handleCancelEdit = () => {
     setEditingId(null);
     setEditValue("");
-  };
-  const getQuarters = (quarterlyData: Record<string, any>) => {
-    return Object.keys(quarterlyData).sort().reverse().slice(0, 8);
   };
   if (loading) {
     return <div className="space-y-4 p-6">
@@ -78,12 +74,10 @@ export function VelocityAnalyticsSimple() {
                 <th className="px-4 py-3 text-center text-sm font-medium">Current Stock</th>
                 <th className="px-4 py-3 text-center text-sm font-medium">Velocity</th>
                 <th className="px-4 py-3 text-center text-sm font-medium">Recommended Qty</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">Quarterly Breakdown</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {filteredItems.map(item => {
-              const quarters = getQuarters(item.quarterly_data);
               const isEditing = editingId === item.asin_id;
               const displayQty = item.manual_override || item.recommended_quantity;
               const hasOverride = item.manual_override !== undefined;
@@ -138,26 +132,6 @@ export function VelocityAnalyticsSimple() {
                       {hasOverride && <div className="text-xs text-muted-foreground text-center mt-1">
                           System: {item.recommended_quantity}
                         </div>}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="space-y-1 min-w-[400px]">
-                        {quarters.length > 0 ? quarters.map(quarter => {
-                      const data = item.quarterly_data[quarter];
-                      return <div key={quarter} className="flex items-center gap-3 text-xs">
-                                <span className="font-medium w-16">{quarter}:</span>
-                                <span className="text-green-600">+{data.added}</span>
-                                <span className="text-red-600">-{data.sold}</span>
-                                <span className="text-muted-foreground">
-                                  Net: {data.net >= 0 ? '+' : ''}{data.net}
-                                </span>
-                              </div>;
-                    }) : <div className="text-xs text-muted-foreground">
-                            No quarterly data available
-                          </div>}
-                        <div className="text-xs text-muted-foreground pt-1 border-t">
-                          First added: {format(new Date(item.first_added_date), 'MMM dd, yyyy')}
-                        </div>
-                      </div>
                     </td>
                   </tr>;
             })}
