@@ -327,24 +327,42 @@ export function VelocityAnalyticsSimple() {
       let processedCount = 0;
 
       // Process items sequentially to update progress
+      let successCount = 0;
+      let failCount = 0;
+      
       for (const item of itemsToUpdate) {
         const currentQty = item.manual_override ?? item.recommended_quantity;
         const newQty = Math.max(1, Math.round(currentQty * reductionMultiplier));
         
         setCurrentAdjustingItem({ asin: item.asin, oldQty: currentQty, newQty });
         
-        await saveManualOverride(item.asin_id, newQty, item.recommended_quantity);
+        try {
+          await saveManualOverride(item.asin_id, newQty, item.recommended_quantity, true);
+          successCount++;
+        } catch (error) {
+          console.error(`Failed to update ${item.asin}:`, error);
+          failCount++;
+        }
         
         processedCount++;
         setAdjustProgress((processedCount / itemsToUpdate.length) * 100);
       }
 
+      // Reload data from database
       await loadAnalytics();
 
-      toast({
-        title: "Quantities Adjusted",
-        description: `Reduced ${itemsToUpdate.length} items by ${percentage}%`,
-      });
+      if (failCount > 0) {
+        toast({
+          title: "Partial Success",
+          description: `Updated ${successCount} items, ${failCount} failed. Reduced quantities by ${percentage}%`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Quantities Adjusted",
+          description: `Successfully reduced ${successCount} items by ${percentage}%`,
+        });
+      }
 
       setAdjustDialogOpen(false);
       setAdjustmentPercentage("10");

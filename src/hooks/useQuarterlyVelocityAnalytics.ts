@@ -87,20 +87,30 @@ export function useQuarterlyVelocityAnalytics() {
     }
   };
 
-  const saveManualOverride = async (asinId: string, quantity: number, systemRecommendation: number) => {
+  const saveManualOverride = async (asinId: string, quantity: number, systemRecommendation: number, skipToast: boolean = false) => {
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
       const { error } = await supabase
         .from('velocity_quantity_overrides')
         .upsert({
           asin_id: asinId,
-          user_id: (await supabase.auth.getUser()).data.user?.id,
+          user_id: user.id,
           recommended_quantity: quantity,
           system_recommendation: systemRecommendation
         }, {
           onConflict: 'user_id,asin_id'
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        throw error;
+      }
 
       // Update local state
       setItems(prev => prev.map(item => 
@@ -109,17 +119,22 @@ export function useQuarterlyVelocityAnalytics() {
           : item
       ));
 
-      toast({
-        title: "Quantity updated",
-        description: "Manual override saved successfully",
-      });
+      if (!skipToast) {
+        toast({
+          title: "Quantity updated",
+          description: "Manual override saved successfully",
+        });
+      }
     } catch (error: any) {
       console.error('Error saving manual override:', error);
-      toast({
-        title: "Error saving override",
-        description: error.message,
-        variant: "destructive",
-      });
+      if (!skipToast) {
+        toast({
+          title: "Error saving override",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+      throw error; // Re-throw to handle in calling code
     }
   };
 
