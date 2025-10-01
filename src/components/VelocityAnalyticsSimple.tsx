@@ -7,11 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Search, Package, Edit2, Check, X, RotateCcw, ShoppingCart, Eye } from "lucide-react";
+import { Search, Package, Edit2, Check, X, RotateCcw, ShoppingCart } from "lucide-react";
 import { useProductImages } from "@/hooks/useProductImages";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
 export function VelocityAnalyticsSimple() {
   const {
     items,
@@ -25,8 +23,6 @@ export function VelocityAnalyticsSimple() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-  const [previewItem, setPreviewItem] = useState<VelocityAnalyticsItem | null>(null);
-  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const filteredItems = items.filter(item => 
     item.asin.toLowerCase().includes(searchTerm.toLowerCase()) || 
     item.sku.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -81,10 +77,6 @@ export function VelocityAnalyticsSimple() {
     // TODO: Implement bulk ordering logic
   };
 
-  const handlePreview = (item: VelocityAnalyticsItem) => {
-    setPreviewItem(item);
-    setPreviewDialogOpen(true);
-  };
   const handleEditClick = (item: VelocityAnalyticsItem) => {
     setEditingId(item.asin_id);
     setEditValue(String(item.manual_override || item.recommended_quantity));
@@ -283,25 +275,14 @@ export function VelocityAnalyticsSimple() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handlePreview(item)}
-                          className="gap-2"
-                        >
-                          <Eye className="w-4 h-4" />
-                          Preview
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => handleOrderToSource(item)}
-                          className="gap-2"
-                        >
-                          <ShoppingCart className="w-4 h-4" />
-                          Order
-                        </Button>
-                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => handleOrderToSource(item)}
+                        className="gap-2"
+                      >
+                        <ShoppingCart className="w-4 h-4" />
+                        Order
+                      </Button>
                     </TableCell>
                   </TableRow>
                 );
@@ -317,106 +298,5 @@ export function VelocityAnalyticsSimple() {
           )}
         </div>
       </Card>
-
-      {/* Preview Dialog */}
-      <Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Product Preview</DialogTitle>
-            <DialogDescription>
-              Detailed view of velocity analytics for this item
-            </DialogDescription>
-          </DialogHeader>
-          {previewItem && (
-            <div className="space-y-4">
-              <div className="flex gap-4">
-                <div className="flex-shrink-0">
-                  {getImageByAsin(previewItem.asin)?.image_url ? (
-                    <img 
-                      src={getImageByAsin(previewItem.asin)?.image_url} 
-                      alt={previewItem.asin}
-                      className="w-32 h-32 object-contain rounded-md border border-border bg-white p-2"
-                    />
-                  ) : (
-                    <div className="w-32 h-32 bg-muted rounded-md flex items-center justify-center border border-border">
-                      <Package className="w-12 h-12 text-muted-foreground" />
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 space-y-2">
-                  <div>
-                    <div className="text-sm text-muted-foreground">ASIN</div>
-                    <div className="font-mono font-medium">{previewItem.asin}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-muted-foreground">SKU</div>
-                    <div className="font-mono">{previewItem.sku || 'N/A'}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-muted-foreground">Title</div>
-                    <div className="text-sm">{previewItem.title || 'N/A'}</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                <div>
-                  <div className="text-sm text-muted-foreground mb-1">Total Added</div>
-                  <div className="text-2xl font-bold">{previewItem.total_added}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-muted-foreground mb-1">Total Sold</div>
-                  <div className="text-2xl font-bold">{previewItem.total_sold}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-muted-foreground mb-1">Current Stock</div>
-                  <Badge variant={previewItem.current_quantity === 0 ? "destructive" : "default"} className="text-lg px-3 py-1">
-                    {previewItem.current_quantity}
-                  </Badge>
-                </div>
-                <div>
-                  <div className="text-sm text-muted-foreground mb-1">Velocity Score</div>
-                  <Badge variant="outline" className="text-lg px-3 py-1">
-                    {(previewItem.velocity_score || 0).toFixed(2)}/day
-                  </Badge>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t">
-                <div className="text-sm text-muted-foreground mb-2">Recommended Order Quantity</div>
-                <div className="flex items-center gap-3">
-                  <div className="text-3xl font-bold text-primary">
-                    {previewItem.manual_override || previewItem.recommended_quantity}
-                  </div>
-                  {previewItem.manual_override !== undefined && (
-                    <div className="text-sm text-muted-foreground">
-                      (System: {previewItem.recommended_quantity})
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="pt-4 border-t">
-                <div className="text-sm text-muted-foreground mb-2">First Added</div>
-                <div>{format(new Date(previewItem.first_added_date), 'MMMM dd, yyyy')}</div>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPreviewDialogOpen(false)}>
-              Close
-            </Button>
-            {previewItem && (
-              <Button onClick={() => {
-                handleOrderToSource(previewItem);
-                setPreviewDialogOpen(false);
-              }} className="gap-2">
-                <ShoppingCart className="w-4 h-4" />
-                Order to Source
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>;
 }
