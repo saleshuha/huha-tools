@@ -25,15 +25,19 @@ export type Database = {
           id: string
           last_restock_date: string | null
           notes: string | null
+          ordered_at: string | null
+          ordered_quantity: number | null
           quantity: number
           restock_date: string | null
           restock_quantity: number | null
           serial_number: string
           sku: string | null
           status: Database["public"]["Enums"]["inventory_status"]
+          sunsky_order_number: string | null
           title: string | null
           updated_at: string
           user_id: string
+          velocity_order_ref: string | null
         }
         Insert: {
           asin: string
@@ -45,15 +49,19 @@ export type Database = {
           id?: string
           last_restock_date?: string | null
           notes?: string | null
+          ordered_at?: string | null
+          ordered_quantity?: number | null
           quantity?: number
           restock_date?: string | null
           restock_quantity?: number | null
           serial_number: string
           sku?: string | null
           status?: Database["public"]["Enums"]["inventory_status"]
+          sunsky_order_number?: string | null
           title?: string | null
           updated_at?: string
           user_id: string
+          velocity_order_ref?: string | null
         }
         Update: {
           asin?: string
@@ -65,15 +73,19 @@ export type Database = {
           id?: string
           last_restock_date?: string | null
           notes?: string | null
+          ordered_at?: string | null
+          ordered_quantity?: number | null
           quantity?: number
           restock_date?: string | null
           restock_quantity?: number | null
           serial_number?: string
           sku?: string | null
           status?: Database["public"]["Enums"]["inventory_status"]
+          sunsky_order_number?: string | null
           title?: string | null
           updated_at?: string
           user_id?: string
+          velocity_order_ref?: string | null
         }
         Relationships: []
       }

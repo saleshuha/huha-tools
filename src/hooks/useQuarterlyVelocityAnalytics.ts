@@ -25,6 +25,10 @@ export interface VelocityAnalyticsItem {
   manual_override?: number;
   status?: string;
   export_mode?: 'global' | 'local';
+  velocity_order_ref?: string;
+  sunsky_order_number?: string;
+  ordered_quantity?: number;
+  ordered_at?: string;
 }
 
 export function useQuarterlyVelocityAnalytics() {

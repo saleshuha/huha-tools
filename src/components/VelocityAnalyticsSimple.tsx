@@ -305,17 +305,28 @@ export function VelocityAnalyticsSimple() {
         try {
           console.log(`📝 Starting update for ${item.asin} (${item.asin_id})...`);
           
-          // Update asin_inventory status
+          const orderedQty = item.manual_override ?? item.recommended_quantity;
+          
+          // Get velocity order reference from the order items
+          const velocityRef = sunskyOrderItems[0]?.site_number || sunskyOrderItems[0]?.po_number || `VELOCITY-${Date.now()}`;
+          
+          // Update asin_inventory with full tracking info
           const { error: statusError } = await supabase
             .from('asin_inventory')
-            .update({ status: 'ordered' })
+            .update({ 
+              status: 'ordered',
+              velocity_order_ref: velocityRef,
+              sunsky_order_number: orderNumber,
+              ordered_quantity: orderedQty,
+              ordered_at: new Date().toISOString()
+            })
             .eq('id', item.asin_id);
           
           if (statusError) {
             console.error(`❌ Status update failed for ${item.asin}:`, statusError);
             throw statusError;
           }
-          console.log(`✓ Status updated to 'ordered' for ${item.asin}`);
+          console.log(`✓ Tracking info updated for ${item.asin}:`, { velocityRef, orderNumber, orderedQty });
           
           // Set manual_override to 0 to move to ordered tab
           console.log(`📝 Setting manual_override to 0 for ${item.asin}...`);
@@ -767,10 +778,42 @@ export function VelocityAnalyticsSimple() {
                       <div>Stock: <strong className="text-foreground">{item.current_quantity}</strong></div>
                     </div>
 
+                    {/* Order Tracking Info */}
+                    {(item.velocity_order_ref || item.sunsky_order_number || item.ordered_quantity) && (
+                      <div className="mb-3 p-2 rounded-lg bg-primary/5 border border-primary/20">
+                        <div className="text-xs space-y-1">
+                          {item.velocity_order_ref && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Velocity Ref:</span>
+                              <strong className="text-foreground font-mono">{item.velocity_order_ref}</strong>
+                            </div>
+                          )}
+                          {item.sunsky_order_number && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Sunsky Order:</span>
+                              <strong className="text-foreground font-mono">{item.sunsky_order_number}</strong>
+                            </div>
+                          )}
+                          {item.ordered_quantity && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Ordered Qty:</span>
+                              <strong className="text-primary font-semibold">{item.ordered_quantity} units</strong>
+                            </div>
+                          )}
+                          {item.ordered_at && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Ordered:</span>
+                              <strong className="text-foreground">{new Date(item.ordered_at).toLocaleDateString()}</strong>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Actions */}
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground">
-                        Was recommended: <strong className="text-foreground">{item.recommended_quantity}</strong>
+                        System recommended: <strong className="text-foreground">{item.recommended_quantity}</strong>
                       </span>
                       <Button
                         size="sm"
