@@ -44,6 +44,7 @@ export function VelocityAnalyticsSimple() {
   const [adjustmentPercentage, setAdjustmentPercentage] = useState("10");
   const [isAdjusting, setIsAdjusting] = useState(false);
   const [adjustProgress, setAdjustProgress] = useState(0);
+  const [currentAdjustingItem, setCurrentAdjustingItem] = useState<{ asin: string; oldQty: number; newQty: number } | null>(null);
   
   // Memoized filtering and sorting
   const { readyToOrderItems, orderedItems, sortedFilteredItems } = useMemo(() => {
@@ -330,6 +331,8 @@ export function VelocityAnalyticsSimple() {
         const currentQty = item.manual_override ?? item.recommended_quantity;
         const newQty = Math.max(1, Math.round(currentQty * reductionMultiplier));
         
+        setCurrentAdjustingItem({ asin: item.asin, oldQty: currentQty, newQty });
+        
         await saveManualOverride(item.asin_id, newQty, item.recommended_quantity);
         
         processedCount++;
@@ -346,6 +349,7 @@ export function VelocityAnalyticsSimple() {
       setAdjustDialogOpen(false);
       setAdjustmentPercentage("10");
       setAdjustProgress(0);
+      setCurrentAdjustingItem(null);
     } catch (error) {
       console.error('Error adjusting quantities:', error);
       toast({
@@ -688,6 +692,19 @@ export function VelocityAnalyticsSimple() {
                   <span className="font-medium">{Math.round(adjustProgress)}%</span>
                 </div>
                 <Progress value={adjustProgress} className="h-2" />
+                {currentAdjustingItem && (
+                  <div className="rounded-lg border p-3 bg-muted/50">
+                    <p className="text-xs font-medium mb-1">Currently processing:</p>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-mono text-muted-foreground">{currentAdjustingItem.asin}</span>
+                      <span className="text-muted-foreground">
+                        <span className="line-through">{currentAdjustingItem.oldQty}</span>
+                        {" → "}
+                        <span className="font-semibold text-foreground">{currentAdjustingItem.newQty}</span>
+                      </span>
+                    </div>
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground text-center">
                   Please wait while we update all items
                 </p>
