@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Package, ShoppingCart, Filter, RotateCcw } from "lucide-react";
+import { Search, Package, ShoppingCart, Filter, RotateCcw, Truck } from "lucide-react";
 import { useProductImages } from "@/hooks/useProductImages";
 import { useToast } from "@/hooks/use-toast";
 import { VelocityItemCard } from "@/components/replenishment/VelocityItemCard";
@@ -191,63 +191,75 @@ export function VelocityAnalyticsSimple() {
   const allSelected = paginatedItems.length > 0 && 
     paginatedItems.every(item => selectedItems.has(item.asin_id));
 
+  const handleSelectAllItems = () => {
+    const newSelected = new Set<string>();
+    sortedFilteredItems.forEach(item => newSelected.add(item.asin_id));
+    setSelectedItems(newSelected);
+    toast({
+      title: "All items selected",
+      description: `Selected ${sortedFilteredItems.length} items to order`,
+    });
+  };
+
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Velocity Analytics - Restock Management</CardTitle>
-                <CardDescription>
-                  Items eligible for restock based on sales velocity
-                </CardDescription>
-              </div>
-              {selectedItems.size > 0 && (
-                <Button onClick={handleBulkOrderToSource} className="gap-2">
-                  <ShoppingCart className="w-4 h-4" />
-                  Order {selectedItems.size} Items
-                </Button>
-              )}
-            </div>
-            
-            <div className="flex gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                <Input 
-                  placeholder="Search by ASIN, SKU, or Title..." 
-                  value={searchTerm} 
-                  onChange={e => handleSearchChange(e.target.value)} 
-                  className="pl-10" 
-                />
-              </div>
-              <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
-                <SelectTrigger className="w-[180px]">
-                  <Filter className="w-4 h-4 mr-2" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="recommended">Sort by Recommended</SelectItem>
-                  <SelectItem value="velocity">Sort by Velocity</SelectItem>
-                  <SelectItem value="stock">Sort by Stock</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-2xl font-bold">Velocity Analytics</h2>
+          <p className="text-muted-foreground">Items eligible for restock based on sales velocity</p>
+        </div>
+        <div className="flex gap-2">
+          {selectedItems.size > 0 && (
+            <Button onClick={handleBulkOrderToSource} className="gap-2">
+              <ShoppingCart className="w-4 h-4" />
+              Order {selectedItems.size} Items
+            </Button>
+          )}
+          <Button onClick={handleSelectAllItems} variant="outline" className="gap-2">
+            <Package className="w-4 h-4" />
+            Select All Items
+          </Button>
+        </div>
+      </div>
 
-      {/* Tabs */}
+      {/* Tabs with integrated search */}
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="ready">
-            Ready to Order ({readyToOrderItems.length})
-          </TabsTrigger>
-          <TabsTrigger value="ordered">
-            Ordered ({orderedItems.length})
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between mb-4">
+          <TabsList className="grid w-full max-w-md grid-cols-2 h-14 p-2 bg-gradient-subtle rounded-xl shadow-elegant">
+            <TabsTrigger value="ready" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10 flex items-center gap-2">
+              <ShoppingCart className="w-4 h-4" />
+              Ready to Order ({readyToOrderItems.length})
+            </TabsTrigger>
+            <TabsTrigger value="ordered" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10 flex items-center gap-2">
+              <Truck className="w-4 h-4" />
+              Ordered ({orderedItems.length})
+            </TabsTrigger>
+          </TabsList>
+          
+          <div className="flex gap-3 ml-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Input 
+                placeholder="Search by ASIN, SKU, or Title..." 
+                value={searchTerm} 
+                onChange={e => handleSearchChange(e.target.value)} 
+                className="pl-10 w-[300px]" 
+              />
+            </div>
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
+              <SelectTrigger className="w-[180px]">
+                <Filter className="w-4 h-4 mr-2" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="recommended">Sort by Recommended</SelectItem>
+                <SelectItem value="velocity">Sort by Velocity</SelectItem>
+                <SelectItem value="stock">Sort by Stock</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
 
         <TabsContent value="ready" className="mt-6 space-y-4">
           {/* Select All Header */}
