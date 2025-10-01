@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { Search, Package, ShoppingCart, Filter, RotateCcw, Truck, Percent } from "lucide-react";
 import { useProductImages } from "@/hooks/useProductImages";
 import { useToast } from "@/hooks/use-toast";
@@ -42,6 +43,7 @@ export function VelocityAnalyticsSimple() {
   const [adjustDialogOpen, setAdjustDialogOpen] = useState(false);
   const [adjustmentPercentage, setAdjustmentPercentage] = useState("10");
   const [isAdjusting, setIsAdjusting] = useState(false);
+  const [adjustProgress, setAdjustProgress] = useState(0);
   
   // Memoized filtering and sorting
   const { readyToOrderItems, orderedItems, sortedFilteredItems } = useMemo(() => {
@@ -301,36 +303,49 @@ export function VelocityAnalyticsSimple() {
     }
 
     setIsAdjusting(true);
+    setAdjustProgress(0);
     
     try {
       const reductionMultiplier = 1 - (percentage / 100);
-      const updates: Promise<any>[] = [];
-      let updatedCount = 0;
+      const itemsToUpdate = readyToOrderItems.filter(item => {
+        const currentQty = item.manual_override ?? item.recommended_quantity;
+        const newQty = Math.max(1, Math.round(currentQty * reductionMultiplier));
+        return newQty !== currentQty;
+      });
 
-      // Apply percentage reduction to all items in "ready to order" tab
-      for (const item of readyToOrderItems) {
+      if (itemsToUpdate.length === 0) {
+        toast({
+          title: "No Changes",
+          description: "No quantities need to be updated",
+        });
+        setAdjustDialogOpen(false);
+        setIsAdjusting(false);
+        return;
+      }
+
+      let processedCount = 0;
+
+      // Process items sequentially to update progress
+      for (const item of itemsToUpdate) {
         const currentQty = item.manual_override ?? item.recommended_quantity;
         const newQty = Math.max(1, Math.round(currentQty * reductionMultiplier));
         
-        // Only update if quantity actually changes
-        if (newQty !== currentQty) {
-          updates.push(
-            saveManualOverride(item.asin_id, newQty, item.recommended_quantity)
-          );
-          updatedCount++;
-        }
+        await saveManualOverride(item.asin_id, newQty, item.recommended_quantity);
+        
+        processedCount++;
+        setAdjustProgress((processedCount / itemsToUpdate.length) * 100);
       }
 
-      await Promise.all(updates);
       await loadAnalytics();
 
       toast({
         title: "Quantities Adjusted",
-        description: `Reduced ${updatedCount} items by ${percentage}%`,
+        description: `Reduced ${itemsToUpdate.length} items by ${percentage}%`,
       });
 
       setAdjustDialogOpen(false);
       setAdjustmentPercentage("10");
+      setAdjustProgress(0);
     } catch (error) {
       console.error('Error adjusting quantities:', error);
       toast({
@@ -630,37 +645,52 @@ export function VelocityAnalyticsSimple() {
           </DialogHeader>
           
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="percentage">Reduction Percentage</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="percentage"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="1"
-                  value={adjustmentPercentage}
-                  onChange={(e) => setAdjustmentPercentage(e.target.value)}
-                  placeholder="Enter percentage"
-                  className="flex-1"
-                />
-                <span className="text-sm text-muted-foreground">%</span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Enter a value between 0-100 to reduce quantities
-              </p>
-            </div>
-
-            {/* Preview */}
-            {adjustmentPercentage && parseFloat(adjustmentPercentage) > 0 && parseFloat(adjustmentPercentage) <= 100 && (
-              <div className="rounded-lg border p-3 bg-muted/50">
-                <p className="text-sm font-medium mb-2">Preview:</p>
-                <div className="space-y-1 text-xs text-muted-foreground">
-                  <p>• Original quantity: 100 → New quantity: {Math.max(1, Math.round(100 * (1 - parseFloat(adjustmentPercentage) / 100)))}</p>
-                  <p>• Original quantity: 50 → New quantity: {Math.max(1, Math.round(50 * (1 - parseFloat(adjustmentPercentage) / 100)))}</p>
-                  <p>• Original quantity: 10 → New quantity: {Math.max(1, Math.round(10 * (1 - parseFloat(adjustmentPercentage) / 100)))}</p>
-                  <p className="text-xs text-orange-600 mt-2">Note: Minimum quantity will be set to 1</p>
+            {!isAdjusting ? (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="percentage">Reduction Percentage</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="percentage"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={adjustmentPercentage}
+                      onChange={(e) => setAdjustmentPercentage(e.target.value)}
+                      placeholder="Enter percentage"
+                      className="flex-1"
+                    />
+                    <span className="text-sm text-muted-foreground">%</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Enter a value between 0-100 to reduce quantities
+                  </p>
                 </div>
+
+                {/* Preview */}
+                {adjustmentPercentage && parseFloat(adjustmentPercentage) > 0 && parseFloat(adjustmentPercentage) <= 100 && (
+                  <div className="rounded-lg border p-3 bg-muted/50">
+                    <p className="text-sm font-medium mb-2">Preview:</p>
+                    <div className="space-y-1 text-xs text-muted-foreground">
+                      <p>• Original quantity: 100 → New quantity: {Math.max(1, Math.round(100 * (1 - parseFloat(adjustmentPercentage) / 100)))}</p>
+                      <p>• Original quantity: 50 → New quantity: {Math.max(1, Math.round(50 * (1 - parseFloat(adjustmentPercentage) / 100)))}</p>
+                      <p>• Original quantity: 10 → New quantity: {Math.max(1, Math.round(10 * (1 - parseFloat(adjustmentPercentage) / 100)))}</p>
+                      <p className="text-xs text-orange-600 mt-2">Note: Minimum quantity will be set to 1</p>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Adjusting quantities...</span>
+                  <span className="font-medium">{Math.round(adjustProgress)}%</span>
+                </div>
+                <Progress value={adjustProgress} className="h-2" />
+                <p className="text-xs text-muted-foreground text-center">
+                  Please wait while we update all items
+                </p>
               </div>
             )}
           </div>
