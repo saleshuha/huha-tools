@@ -253,11 +253,11 @@ export function VelocityAnalyticsSimple() {
         selectedItemsArray: Array.from(selectedItems)
       });
       
+      // CRITICAL FIX: Search in ALL items, not just filtered/sorted items
       // Use the selectedOrderIds parameter which contains the actual order IDs
-      // These are the IDs from the original orders that were passed to SunskyOrderDialog
       const itemsToUpdate = selectedOrderIds.length > 0 
-        ? sortedFilteredItems.filter(item => selectedOrderIds.includes(item.asin_id))
-        : sortedFilteredItems.filter(item => selectedItems.has(item.asin_id));
+        ? items.filter(item => selectedOrderIds.includes(item.asin_id))
+        : items.filter(item => selectedItems.has(item.asin_id));
       
       console.log('📦 Items to update:', itemsToUpdate.map(i => ({ 
         asin: i.asin, 
