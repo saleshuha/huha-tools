@@ -62,6 +62,7 @@ import NoonOrderTrackingPage from "./pages/NoonOrderTracking";
 import NoonOrderProcessingPage from "./pages/NoonOrderProcessing";
 import PreviewSettings from "./pages/PreviewSettings";
 import QZTrayPage from "./pages/QZTrayPage";
+import { VelocityAnalyticsSimple } from "@/components/VelocityAnalyticsSimple";
 
 import { useState as useReactState } from "react";
 import { useToast } from "@/components/ui/use-toast";
@@ -261,6 +262,7 @@ const App = () => {
                         <Route path="/users" element={<UserManagementPage />} />
                         <Route path="/preview-settings" element={<PreviewSettings />} />
                         <Route path="/replenishment" element={<ReplenishmentPage />} />
+                        <Route path="/velocity-analytics" element={<VelocityAnalyticsSimple />} />
                         <Route path="/po-tracker" element={<POTrackerPage />} />
                         <Route path="/po-details/:poNumber" element={<PODetailsPage />} />
                         <Route path="/add-sku" element={<AddSKUPageWrapper />} />

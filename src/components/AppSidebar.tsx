@@ -101,6 +101,11 @@ const coreItems = [
     url: "/replenishment",
     icon: TrendingUp
   },
+  {
+    title: "Velocity Analytics",
+    url: "/velocity-analytics",
+    icon: BarChart3
+  },
 ]
 
 const paymentReportsItems = [

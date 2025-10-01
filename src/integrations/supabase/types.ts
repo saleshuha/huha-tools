@@ -3758,6 +3758,47 @@ export type Database = {
         }
         Relationships: []
       }
+      velocity_quantity_overrides: {
+        Row: {
+          asin_id: string
+          created_at: string | null
+          id: string
+          notes: string | null
+          recommended_quantity: number
+          system_recommendation: number
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          asin_id: string
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          recommended_quantity: number
+          system_recommendation: number
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          asin_id?: string
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          recommended_quantity?: number
+          system_recommendation?: number
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "velocity_quantity_overrides_asin_id_fkey"
+            columns: ["asin_id"]
+            isOneToOne: false
+            referencedRelation: "asin_inventory"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vendor_feed_logs: {
         Row: {
           acknowledged_at: string | null
@@ -4499,6 +4540,23 @@ export type Database = {
           supplier_order_number: string
           title: string
           tracking_number: string
+        }[]
+      }
+      get_quarterly_velocity_analysis: {
+        Args: { country_filter?: string; lookback_years?: number }
+        Returns: {
+          asin: string
+          asin_id: string
+          current_quantity: number
+          first_added_date: string
+          quarterly_data: Json
+          recommended_quantity: number
+          serial_number: string
+          sku: string
+          title: string
+          total_added: number
+          total_sold: number
+          velocity_score: number
         }[]
       }
       get_restock_eligible_item_ids: {
