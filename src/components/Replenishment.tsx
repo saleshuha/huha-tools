@@ -1738,10 +1738,10 @@ export function Replenishment() {
   const totalRestocks30d = salesData.find(d => d.period === '30d')?.total_restocked || 0;
   return <div className="space-y-6 animate-fade-in w-full max-w-none">
       {/* Header with refresh button */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          
-          
+          <h2 className="text-2xl font-bold">Replenishment Dashboard</h2>
+          <p className="text-muted-foreground">Track inventory levels and manage restocking</p>
         </div>
         <Button onClick={loadAllData} variant="outline" size="sm" className="gap-2">
           <RefreshCw className="w-4 h-4" />
