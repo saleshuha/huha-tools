@@ -174,7 +174,7 @@ export function VelocityAnalyticsSimple() {
                     </td>
                     <td className="px-4 py-3 text-center text-sm">
                       <Badge variant="outline">
-                        {item.velocity_score.toFixed(2)}/day
+                        {(item.velocity_score || 0).toFixed(2)}/day
                       </Badge>
                     </td>
                     <td className="px-4 py-3">
