@@ -170,10 +170,14 @@ export function VelocityAnalyticsSimple() {
       return;
     }
     
+    const velocityOrderId = `VELOCITY-${Date.now()}`;
+    console.log('🛒 Preparing single item for Sunsky order:', { velocityOrderId, asin: item.asin, sku: item.sku });
+    
     // Prepare order item for Sunsky dialog
     const orderItem = {
       id: item.asin_id,
-      po_number: `VELOCITY-${Date.now()}`,
+      po_number: velocityOrderId,
+      site_number: velocityOrderId, // CRITICAL: This is what Sunsky uses
       sku_code: item.sku,
       asin: item.asin,
       quantity: item.manual_override ?? item.recommended_quantity,
@@ -186,6 +190,7 @@ export function VelocityAnalyticsSimple() {
       qty: item.manual_override ?? item.recommended_quantity
     };
     
+    console.log('📦 Order item prepared:', orderItem);
     setSunskyOrderItems([orderItem]);
     setSunskyDialogOpen(true);
   };
@@ -224,10 +229,14 @@ export function VelocityAnalyticsSimple() {
     // Get selected items with their details
     const itemsToOrder = sortedFilteredItems.filter(item => selectedItems.has(item.asin_id));
     
+    const velocityOrderId = `VELOCITY-${Date.now()}`;
+    console.log('🛒 Preparing bulk order for Sunsky:', { velocityOrderId, itemCount: itemsToOrder.length });
+    
     // Prepare order items for Sunsky dialog
     const orderItems = itemsToOrder.map(item => ({
       id: item.asin_id,
-      po_number: `VELOCITY-${Date.now()}`,
+      po_number: velocityOrderId,
+      site_number: velocityOrderId, // CRITICAL: This is what Sunsky uses
       sku_code: item.sku,
       asin: item.asin,
       quantity: item.manual_override ?? item.recommended_quantity,
@@ -240,37 +249,48 @@ export function VelocityAnalyticsSimple() {
       qty: item.manual_override ?? item.recommended_quantity
     }));
     
+    console.log('📦 Bulk order items prepared:', orderItems.length);
     setSunskyOrderItems(orderItems);
     setSunskyDialogOpen(true);
   };
 
   const handleSunskyOrderSuccess = async (orderNumber: string, selectedOrderIds: string[]) => {
+    console.log('🎯🎯🎯 handleSunskyOrderSuccess START', { 
+      orderNumber, 
+      selectedOrderIds,
+      selectedOrderIdsType: typeof selectedOrderIds,
+      selectedOrderIdsLength: selectedOrderIds?.length,
+      selectedItemsCount: selectedItems.size,
+      totalItemsInState: items.length
+    });
+    
     try {
-      console.log('🎯 handleSunskyOrderSuccess called', { 
-        orderNumber, 
-        selectedOrderIds, 
-        selectedItemsCount: selectedItems.size,
-        selectedItemsArray: Array.from(selectedItems)
-      });
-      
       // CRITICAL FIX: Search in ALL items, not just filtered/sorted items
-      // Use the selectedOrderIds parameter which contains the actual order IDs
-      const itemsToUpdate = selectedOrderIds.length > 0 
+      const itemsToUpdate = selectedOrderIds?.length > 0 
         ? items.filter(item => selectedOrderIds.includes(item.asin_id))
         : items.filter(item => selectedItems.has(item.asin_id));
       
-      console.log('📦 Items to update:', itemsToUpdate.map(i => ({ 
-        asin: i.asin, 
-        asin_id: i.asin_id,
-        sku: i.sku,
-        recommended_qty: i.recommended_quantity 
-      })));
+      console.log('📦 Items found to update:', {
+        count: itemsToUpdate.length,
+        items: itemsToUpdate.map(i => ({ 
+          asin: i.asin, 
+          asin_id: i.asin_id,
+          sku: i.sku,
+          current_override: i.manual_override,
+          recommended_qty: i.recommended_quantity 
+        }))
+      });
       
       if (itemsToUpdate.length === 0) {
-        console.warn('⚠️ No items found to update!');
+        console.error('❌❌❌ NO ITEMS FOUND TO UPDATE!', {
+          selectedOrderIds,
+          allItemIds: items.slice(0, 5).map(i => i.asin_id),
+          selectedItemsSet: Array.from(selectedItems)
+        });
+        
         toast({
-          title: "Warning",
-          description: "Order placed but no items were found to update. Please refresh the page.",
+          title: "Error: No items found",
+          description: `Order ${orderNumber} placed but no items matched for update. Check console logs.`,
           variant: "destructive",
         });
         return;
@@ -279,10 +299,11 @@ export function VelocityAnalyticsSimple() {
       // Update each item
       let successCount = 0;
       let failCount = 0;
+      const errors: string[] = [];
       
       for (const item of itemsToUpdate) {
         try {
-          console.log(`📝 Updating item ${item.asin} (${item.asin_id})`);
+          console.log(`📝 Starting update for ${item.asin} (${item.asin_id})...`);
           
           // Update asin_inventory status
           const { error: statusError } = await supabase
@@ -291,40 +312,58 @@ export function VelocityAnalyticsSimple() {
             .eq('id', item.asin_id);
           
           if (statusError) {
-            console.error('❌ Status update error:', statusError);
+            console.error(`❌ Status update failed for ${item.asin}:`, statusError);
             throw statusError;
           }
+          console.log(`✓ Status updated to 'ordered' for ${item.asin}`);
           
           // Set manual_override to 0 to move to ordered tab
+          console.log(`📝 Setting manual_override to 0 for ${item.asin}...`);
           await saveManualOverride(item.asin_id, 0, item.recommended_quantity, true);
-          console.log(`✅ Successfully updated ${item.asin}`);
+          console.log(`✅ Successfully completed all updates for ${item.asin}`);
           successCount++;
-        } catch (itemError) {
+        } catch (itemError: any) {
           console.error(`❌ Failed to update ${item.asin}:`, itemError);
+          errors.push(`${item.asin}: ${itemError.message}`);
           failCount++;
         }
       }
       
-      console.log(`📊 Update summary: ${successCount} success, ${failCount} failed`);
       
-      toast({
-        title: "Sunsky Order Placed Successfully",
-        description: `Order ${orderNumber} placed. ${successCount} items marked as ordered${failCount > 0 ? `, ${failCount} failed` : ''}.`,
-      });
+      console.log(`📊 Update complete:`, { successCount, failCount, errors });
       
+      if (errors.length > 0) {
+        console.error('❌ Errors encountered:', errors);
+      }
+      
+      // Show appropriate toast
+      if (failCount > 0) {
+        toast({
+          title: "Partial Success",
+          description: `Order ${orderNumber} placed. ${successCount} items updated, ${failCount} failed. Check console for details.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: `Order ${orderNumber} placed. ${successCount} items marked as ordered.`,
+        });
+      }
+      
+      // Clear selections
       setSelectedItems(new Set());
       setSunskyDialogOpen(false);
       
       // Reload analytics data
       console.log('🔄 Reloading analytics data...');
       await loadAnalytics();
-      console.log('✅ Analytics reloaded');
+      console.log('✅ Analytics reload complete');
       
-    } catch (error) {
-      console.error('❌ Error in handleSunskyOrderSuccess:', error);
+    } catch (error: any) {
+      console.error('❌❌❌ CRITICAL ERROR in handleSunskyOrderSuccess:', error);
       toast({
-        title: "Order Placed but Update Failed",
-        description: `Order ${orderNumber} was placed successfully, but failed to update item status.`,
+        title: "Error",
+        description: `Order ${orderNumber} placed but failed to update items: ${error.message}`,
         variant: "destructive",
       });
     }
@@ -784,7 +823,10 @@ export function VelocityAnalyticsSimple() {
         open={sunskyDialogOpen}
         onOpenChange={setSunskyDialogOpen}
         selectedOrders={sunskyOrderItems}
-        onOrderSuccess={handleSunskyOrderSuccess}
+        onOrderSuccess={(orderNumber, selectedOrderIds) => {
+          console.log('🔔 SunskyOrderDialog callback triggered!', { orderNumber, selectedOrderIds });
+          handleSunskyOrderSuccess(orderNumber, selectedOrderIds);
+        }}
       />
 
       {/* Adjust Quantities Dialog */}
