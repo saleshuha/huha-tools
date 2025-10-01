@@ -226,34 +226,78 @@ export function VelocityAnalyticsSimple() {
 
   const handleSunskyOrderSuccess = async (orderNumber: string, selectedOrderIds: string[]) => {
     try {
-      // Mark the selected inventory items as ordered
-      const itemsToUpdate = sortedFilteredItems.filter(item => selectedItems.has(item.asin_id));
-      
-      const updatePromises = itemsToUpdate.map(async item => {
-        // Update asin_inventory status
-        await supabase
-          .from('asin_inventory')
-          .update({ status: 'ordered' })
-          .eq('id', item.asin_id);
-        
-        // Set manual_override to 0 to move to ordered tab
-        await saveManualOverride(item.asin_id, 0, item.recommended_quantity, true);
+      console.log('🎯 handleSunskyOrderSuccess called', { 
+        orderNumber, 
+        selectedOrderIds, 
+        selectedItemsCount: selectedItems.size,
+        selectedItemsArray: Array.from(selectedItems)
       });
       
-      await Promise.all(updatePromises);
+      // Get items to update
+      const itemsToUpdate = sortedFilteredItems.filter(item => selectedItems.has(item.asin_id));
+      console.log('📦 Items to update:', itemsToUpdate.map(i => ({ 
+        asin: i.asin, 
+        asin_id: i.asin_id,
+        sku: i.sku,
+        recommended_qty: i.recommended_quantity 
+      })));
+      
+      if (itemsToUpdate.length === 0) {
+        console.warn('⚠️ No items found to update!');
+        toast({
+          title: "Warning",
+          description: "Order placed but no items were found to update. Please refresh the page.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Update each item
+      let successCount = 0;
+      let failCount = 0;
+      
+      for (const item of itemsToUpdate) {
+        try {
+          console.log(`📝 Updating item ${item.asin} (${item.asin_id})`);
+          
+          // Update asin_inventory status
+          const { error: statusError } = await supabase
+            .from('asin_inventory')
+            .update({ status: 'ordered' })
+            .eq('id', item.asin_id);
+          
+          if (statusError) {
+            console.error('❌ Status update error:', statusError);
+            throw statusError;
+          }
+          
+          // Set manual_override to 0 to move to ordered tab
+          await saveManualOverride(item.asin_id, 0, item.recommended_quantity, true);
+          console.log(`✅ Successfully updated ${item.asin}`);
+          successCount++;
+        } catch (itemError) {
+          console.error(`❌ Failed to update ${item.asin}:`, itemError);
+          failCount++;
+        }
+      }
+      
+      console.log(`📊 Update summary: ${successCount} success, ${failCount} failed`);
       
       toast({
         title: "Sunsky Order Placed Successfully",
-        description: `Order ${orderNumber} has been placed. ${selectedItems.size} items marked as ordered.`,
+        description: `Order ${orderNumber} placed. ${successCount} items marked as ordered${failCount > 0 ? `, ${failCount} failed` : ''}.`,
       });
       
       setSelectedItems(new Set());
       setSunskyDialogOpen(false);
       
       // Reload analytics data
-      loadAnalytics();
+      console.log('🔄 Reloading analytics data...');
+      await loadAnalytics();
+      console.log('✅ Analytics reloaded');
+      
     } catch (error) {
-      console.error('Error updating items after Sunsky order:', error);
+      console.error('❌ Error in handleSunskyOrderSuccess:', error);
       toast({
         title: "Order Placed but Update Failed",
         description: `Order ${orderNumber} was placed successfully, but failed to update item status.`,
@@ -425,6 +469,20 @@ export function VelocityAnalyticsSimple() {
             </Button>
           )}
           <Button 
+            onClick={async () => {
+              await loadAnalytics();
+              toast({
+                title: "Data Refreshed",
+                description: "Analytics data has been reloaded",
+              });
+            }}
+            variant="outline" 
+            className="gap-2"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Refresh Data
+          </Button>
+          <Button
             onClick={async () => {
               const itemsWithOverrides = readyToOrderItems.filter(item => item.manual_override !== undefined && item.manual_override !== null);
               if (itemsWithOverrides.length === 0) {
