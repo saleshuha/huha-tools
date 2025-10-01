@@ -49,6 +49,17 @@ export function VelocityAnalyticsSimple() {
   
   // Memoized filtering and sorting
   const { readyToOrderItems, orderedItems, sortedFilteredItems } = useMemo(() => {
+    console.log('🔍 Filtering items:', {
+      totalItems: items.length,
+      itemsWithOverrides: items.filter(i => i.manual_override !== undefined && i.manual_override !== null).length,
+      itemsWithZeroOverride: items.filter(i => i.manual_override === 0).length,
+      sampleItems: items.slice(0, 3).map(i => ({
+        asin: i.asin,
+        manual_override: i.manual_override,
+        recommended_quantity: i.recommended_quantity
+      }))
+    });
+    
     // Apply search filter (local items already filtered at database level)
     const searchFiltered = items.filter(item => {
       const searchLower = searchTerm.toLowerCase();
@@ -67,6 +78,15 @@ export function VelocityAnalyticsSimple() {
     const ordered = searchFiltered.filter(item => 
       item.manual_override === 0
     );
+    
+    console.log('📊 Filter results:', {
+      readyCount: ready.length,
+      orderedCount: ordered.length,
+      orderedSample: ordered.slice(0, 3).map(i => ({
+        asin: i.asin,
+        manual_override: i.manual_override
+      }))
+    });
     
     // Get current tab items
     const currentItems = activeTab === "ready" ? ready : ordered;
@@ -233,8 +253,12 @@ export function VelocityAnalyticsSimple() {
         selectedItemsArray: Array.from(selectedItems)
       });
       
-      // Get items to update
-      const itemsToUpdate = sortedFilteredItems.filter(item => selectedItems.has(item.asin_id));
+      // Use the selectedOrderIds parameter which contains the actual order IDs
+      // These are the IDs from the original orders that were passed to SunskyOrderDialog
+      const itemsToUpdate = selectedOrderIds.length > 0 
+        ? sortedFilteredItems.filter(item => selectedOrderIds.includes(item.asin_id))
+        : sortedFilteredItems.filter(item => selectedItems.has(item.asin_id));
+      
       console.log('📦 Items to update:', itemsToUpdate.map(i => ({ 
         asin: i.asin, 
         asin_id: i.asin_id,
