@@ -4549,15 +4549,14 @@ export type Database = {
           asin_id: string
           current_quantity: number
           first_added_date: string
-          growth_rate: number
           quarterly_data: Json
           recommended_quantity: number
           serial_number: string
           sku: string
+          status: string
           title: string
           total_added: number
           total_sold: number
-          trend_pattern: string
           velocity_score: number
         }[]
       }

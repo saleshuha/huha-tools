@@ -22,8 +22,6 @@ export interface VelocityAnalyticsItem {
   quarterly_data: Record<string, QuarterlyData>;
   recommended_quantity: number;
   velocity_score: number;
-  trend_pattern?: string;
-  growth_rate?: number;
   manual_override?: number;
   status?: string;
   export_mode?: 'global' | 'local';
