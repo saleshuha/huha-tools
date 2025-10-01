@@ -51,13 +51,13 @@ export function ReplenishmentItemCard({
             <img 
               src={imageUrl} 
               alt={item.identifier}
-              className="w-24 h-24 object-cover rounded-md border border-border"
+              className="w-20 h-20 object-contain rounded-md border border-border bg-white p-1"
               onError={(e) => {
-                (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="96" height="96" fill="none"%3E%3Crect width="96" height="96" fill="%23f3f4f6"/%3E%3Cpath d="M48 44a4 4 0 100-8 4 4 0 000 8zM32 56l8-8 8 8 16-16v24H32V56z" fill="%239ca3af"/%3E%3C/svg%3E';
+                (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="80" height="80" fill="none"%3E%3Crect width="80" height="80" fill="%23f3f4f6"/%3E%3Cpath d="M40 38a4 4 0 100-8 4 4 0 000 8zM28 48l8-8 8 8 12-12v20H28V48z" fill="%239ca3af"/%3E%3C/svg%3E';
               }}
             />
           ) : (
-            <div className="w-24 h-24 bg-muted rounded-md flex items-center justify-center">
+            <div className="w-20 h-20 bg-muted rounded-md flex items-center justify-center border border-border">
               <Package className="w-8 h-8 text-muted-foreground" />
             </div>
           )}
