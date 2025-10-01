@@ -318,7 +318,14 @@ export function VelocityAnalyticsSimple() {
     
     try {
       const reductionMultiplier = 1 - (percentage / 100);
-      const itemsToUpdate = readyToOrderItems.filter(item => {
+      
+      // If triggered from bulk order, only adjust selected items
+      // Otherwise, adjust all ready to order items
+      const itemsToConsider = proceedToOrder 
+        ? sortedFilteredItems.filter(item => selectedItems.has(item.asin_id))
+        : readyToOrderItems;
+      
+      const itemsToUpdate = itemsToConsider.filter(item => {
         const currentQty = item.manual_override ?? item.recommended_quantity;
         const newQty = Math.max(1, Math.round(currentQty * reductionMultiplier));
         return newQty !== currentQty;
