@@ -1,0 +1,202 @@
+-- Fix total_added calculation to include initial inventory quantity
+DROP FUNCTION IF EXISTS public.get_quarterly_velocity_analysis(text, integer);
+
+CREATE OR REPLACE FUNCTION public.get_quarterly_velocity_analysis(
+  country_filter text DEFAULT NULL,
+  lookback_years integer DEFAULT 2
+)
+RETURNS TABLE(
+  asin_id uuid,
+  asin text,
+  sku text,
+  title text,
+  serial_number text,
+  current_quantity integer,
+  total_added bigint,
+  total_sold bigint,
+  first_added_date timestamp with time zone,
+  quarterly_data jsonb,
+  recommended_quantity integer,
+  velocity_score numeric,
+  status text
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  lookback_date timestamp with time zone;
+BEGIN
+  lookback_date := now() - make_interval(years => lookback_years);
+  
+  RETURN QUERY
+  WITH inventory_items AS (
+    -- Get eligible items (exclude sold, damaged items)
+    SELECT 
+      ai.id,
+      ai.asin,
+      ai.sku,
+      ai.title,
+      ai.serial_number,
+      ai.quantity,
+      ai.date_added,
+      ai.status::text,
+      ai.user_id
+    FROM public.asin_inventory ai
+    WHERE ai.user_id = auth.uid()
+      AND (country_filter IS NULL OR ai.country = country_filter)
+      AND ai.status NOT IN ('sold', 'damaged')
+      AND ai.eligible_for_restock = true
+  ),
+  initial_quantities AS (
+    -- Calculate initial quantity: sum of all positive changes + current quantity
+    SELECT 
+      ii.id as inventory_id,
+      ii.quantity + COALESCE(ABS(SUM(CASE WHEN sc.change_amount < 0 THEN sc.change_amount ELSE 0 END)), 0) as initial_qty
+    FROM inventory_items ii
+    LEFT JOIN public.stock_changes sc ON sc.inventory_id = ii.id
+    GROUP BY ii.id, ii.quantity
+  ),
+  stock_movements AS (
+    SELECT 
+      ii.id as inventory_id,
+      ii.asin,
+      ii.sku,
+      ii.title,
+      ii.serial_number,
+      ii.quantity as current_quantity,
+      ii.date_added,
+      ii.status,
+      sc.change_amount,
+      sc.change_reason,
+      sc.created_at as change_date,
+      DATE_TRUNC('quarter', sc.created_at) as quarter
+    FROM inventory_items ii
+    LEFT JOIN public.stock_changes sc ON sc.inventory_id = ii.id
+    WHERE sc.created_at >= lookback_date OR sc.created_at IS NULL
+  ),
+  quarterly_aggregates AS (
+    SELECT 
+      inventory_id,
+      quarter,
+      SUM(CASE WHEN change_amount > 0 THEN change_amount ELSE 0 END) as added,
+      ABS(SUM(CASE WHEN change_amount < 0 THEN change_amount ELSE 0 END)) as sold,
+      SUM(change_amount) as net
+    FROM stock_movements
+    WHERE quarter IS NOT NULL
+    GROUP BY inventory_id, quarter
+  ),
+  item_analytics AS (
+    SELECT 
+      sm.inventory_id,
+      sm.asin,
+      sm.sku,
+      sm.title,
+      sm.serial_number,
+      sm.current_quantity,
+      sm.status,
+      MIN(sm.date_added) as first_added_date,
+      
+      -- Total added: sum of positive stock changes + initial quantity
+      GREATEST(
+        COALESCE(iq.initial_qty, 0) + COALESCE(SUM(CASE WHEN sm.change_amount > 0 THEN sm.change_amount ELSE 0 END), 0),
+        0
+      )::bigint as total_added,
+      
+      COALESCE(ABS(SUM(CASE WHEN sm.change_amount < 0 THEN sm.change_amount ELSE 0 END)), 0)::bigint as total_sold,
+      
+      jsonb_object_agg(
+        COALESCE(qa.quarter::text, 'unknown'),
+        jsonb_build_object(
+          'added', COALESCE(qa.added, 0),
+          'sold', COALESCE(qa.sold, 0),
+          'net', COALESCE(qa.net, 0)
+        )
+      ) FILTER (WHERE qa.quarter IS NOT NULL) as quarterly_data,
+      
+      CASE 
+        WHEN EXTRACT(days FROM now() - MIN(sm.date_added)) > 0 THEN
+          (ABS(SUM(CASE WHEN sm.change_amount < 0 THEN sm.change_amount ELSE 0 END)) / 
+           NULLIF(EXTRACT(days FROM now() - MIN(sm.date_added)), 0)) * 30
+        ELSE 0
+      END as velocity_score
+      
+    FROM stock_movements sm
+    LEFT JOIN quarterly_aggregates qa ON qa.inventory_id = sm.inventory_id
+    LEFT JOIN initial_quantities iq ON iq.inventory_id = sm.inventory_id
+    GROUP BY sm.inventory_id, sm.asin, sm.sku, sm.title, sm.serial_number, sm.current_quantity, sm.status, iq.initial_qty
+  ),
+  restock_analysis AS (
+    SELECT 
+      sm.inventory_id,
+      jsonb_agg(
+        jsonb_build_object(
+          'date', sm.change_date,
+          'amount', sm.change_amount
+        ) ORDER BY sm.change_date
+      ) FILTER (WHERE sm.change_amount > 0) as restock_events,
+      
+      CASE 
+        WHEN COUNT(*) FILTER (WHERE sm.change_amount > 0) > 1 THEN
+          EXTRACT(days FROM 
+            (MAX(sm.change_date) FILTER (WHERE sm.change_amount > 0) - 
+             MIN(sm.change_date) FILTER (WHERE sm.change_amount > 0))
+          ) / NULLIF(COUNT(*) FILTER (WHERE sm.change_amount > 0) - 1, 0)
+        ELSE NULL
+      END as avg_days_between_restocks,
+      
+      AVG(sm.change_amount) FILTER (WHERE sm.change_amount > 0) as avg_restock_qty,
+      
+      CASE 
+        WHEN EXTRACT(days FROM now() - MIN(sm.change_date)) > 0 THEN
+          ABS(SUM(CASE WHEN sm.change_amount < 0 THEN sm.change_amount ELSE 0 END)) / 
+          NULLIF(EXTRACT(days FROM now() - MIN(sm.change_date)), 0)
+        ELSE 0
+      END as daily_sales_velocity
+      
+    FROM stock_movements sm
+    GROUP BY sm.inventory_id
+  )
+  SELECT 
+    ia.inventory_id as asin_id,
+    ia.asin,
+    ia.sku,
+    ia.title,
+    ia.serial_number,
+    ia.current_quantity::integer,
+    ia.total_added,
+    ia.total_sold,
+    ia.first_added_date,
+    COALESCE(ia.quarterly_data, '{}'::jsonb) as quarterly_data,
+    
+    CASE
+      WHEN ra.avg_restock_qty IS NOT NULL AND ra.daily_sales_velocity > 0 THEN
+        GREATEST(
+          CEIL(ra.avg_restock_qty)::integer,
+          CEIL(ra.daily_sales_velocity * COALESCE(ra.avg_days_between_restocks, 30))::integer
+        )
+      
+      WHEN ra.daily_sales_velocity > 0 THEN
+        GREATEST(
+          CEIL(ra.daily_sales_velocity * 30)::integer,
+          5
+        )
+      
+      WHEN ia.total_sold > 0 THEN
+        GREATEST(
+          CEIL(ia.total_sold / GREATEST(EXTRACT(days FROM now() - ia.first_added_date) / 30, 1))::integer,
+          3
+        )
+      
+      ELSE 0
+    END::integer as recommended_quantity,
+    
+    ia.velocity_score,
+    ia.status
+    
+  FROM item_analytics ia
+  LEFT JOIN restock_analysis ra ON ra.inventory_id = ia.inventory_id
+  WHERE ia.sku IS NOT NULL AND ia.sku != ''
+  ORDER BY ia.velocity_score DESC, ia.total_sold DESC;
+END;
+$$;
