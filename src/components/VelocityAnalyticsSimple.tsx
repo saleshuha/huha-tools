@@ -136,9 +136,7 @@ export function VelocityAnalyticsSimple() {
           <table className="w-full">
             <thead className="border-b bg-muted/50">
               <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium">ASIN</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">SKU</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">Title</th>
+                <th className="px-4 py-3 text-left text-sm font-medium">Product Details</th>
                 <th className="px-4 py-3 text-center text-sm font-medium">Total Added</th>
                 <th className="px-4 py-3 text-center text-sm font-medium">Total Sold</th>
                 <th className="px-4 py-3 text-center text-sm font-medium">Current Stock</th>
@@ -156,10 +154,14 @@ export function VelocityAnalyticsSimple() {
 
                 return (
                   <tr key={item.asin_id} className="hover:bg-muted/30 transition-colors">
-                    <td className="px-4 py-3 text-sm font-mono">{item.asin}</td>
-                    <td className="px-4 py-3 text-sm font-mono">{item.sku}</td>
-                    <td className="px-4 py-3 text-sm max-w-xs truncate" title={item.title}>
-                      {item.title || 'N/A'}
+                    <td className="px-4 py-3 text-sm">
+                      <div className="space-y-1">
+                        <div className="font-mono font-medium">{item.asin}</div>
+                        <div className="text-xs text-muted-foreground font-mono">SKU: {item.sku || 'N/A'}</div>
+                        <div className="text-xs max-w-xs truncate" title={item.title}>
+                          {item.title || 'N/A'}
+                        </div>
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-center text-sm font-medium">
                       {item.total_added}
