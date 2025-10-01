@@ -45,6 +45,7 @@ export function VelocityAnalyticsSimple() {
   const [isAdjusting, setIsAdjusting] = useState(false);
   const [adjustProgress, setAdjustProgress] = useState(0);
   const [currentAdjustingItem, setCurrentAdjustingItem] = useState<{ asin: string; oldQty: number; newQty: number } | null>(null);
+  const [proceedToOrder, setProceedToOrder] = useState(false);
   
   // Memoized filtering and sorting
   const { readyToOrderItems, orderedItems, sortedFilteredItems } = useMemo(() => {
@@ -193,6 +194,15 @@ export function VelocityAnalyticsSimple() {
       });
       return;
     }
+    
+    // First show adjust dialog, then proceed to order
+    setProceedToOrder(true);
+    setAdjustDialogOpen(true);
+  };
+
+  const proceedWithOrder = () => {
+    // Get selected items with their details
+    const itemsToOrder = sortedFilteredItems.filter(item => selectedItems.has(item.asin_id));
     
     // Prepare order items for Sunsky dialog
     const orderItems = itemsToOrder.map(item => ({
@@ -368,6 +378,12 @@ export function VelocityAnalyticsSimple() {
       setAdjustmentPercentage("10");
       setAdjustProgress(0);
       setCurrentAdjustingItem(null);
+
+      // If this was triggered from bulk order, proceed to order dialog
+      if (proceedToOrder) {
+        setProceedToOrder(false);
+        proceedWithOrder();
+      }
     } catch (error) {
       console.error('Error adjusting quantities:', error);
       toast({
@@ -395,15 +411,6 @@ export function VelocityAnalyticsSimple() {
               Order {selectedItems.size} Items
             </Button>
           )}
-          <Button 
-            onClick={() => setAdjustDialogOpen(true)} 
-            variant="outline" 
-            className="gap-2"
-            disabled={readyToOrderItems.length === 0}
-          >
-            <Percent className="w-4 h-4" />
-            Adjust Quantities
-          </Button>
           <Button onClick={handleSelectAllItems} variant="outline" className="gap-2">
             <Package className="w-4 h-4" />
             Select All Items
@@ -657,12 +664,20 @@ export function VelocityAnalyticsSimple() {
       />
 
       {/* Adjust Quantities Dialog */}
-      <Dialog open={adjustDialogOpen} onOpenChange={setAdjustDialogOpen}>
+      <Dialog open={adjustDialogOpen} onOpenChange={(open) => {
+        setAdjustDialogOpen(open);
+        if (!open) {
+          setProceedToOrder(false);
+        }
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Adjust Recommended Quantities</DialogTitle>
             <DialogDescription>
-              Reduce all recommended quantities by a percentage. This will apply to all {readyToOrderItems.length} items in the "Ready to Order" tab.
+              {proceedToOrder 
+                ? `Adjust quantities before placing order for ${selectedItems.size} selected items.`
+                : `Reduce all recommended quantities by a percentage. This will apply to all ${readyToOrderItems.length} items in the "Ready to Order" tab.`
+              }
             </DialogDescription>
           </DialogHeader>
           
@@ -733,16 +748,32 @@ export function VelocityAnalyticsSimple() {
           <DialogFooter>
             <Button 
               variant="outline" 
-              onClick={() => setAdjustDialogOpen(false)}
+              onClick={() => {
+                setAdjustDialogOpen(false);
+                setProceedToOrder(false);
+              }}
               disabled={isAdjusting}
             >
               Cancel
             </Button>
+            {proceedToOrder && (
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  setAdjustDialogOpen(false);
+                  setProceedToOrder(false);
+                  proceedWithOrder();
+                }}
+                disabled={isAdjusting}
+              >
+                Skip & Order
+              </Button>
+            )}
             <Button 
               onClick={handleAdjustQuantities}
               disabled={isAdjusting || !adjustmentPercentage}
             >
-              {isAdjusting ? "Adjusting..." : "Apply Adjustment"}
+              {isAdjusting ? "Adjusting..." : proceedToOrder ? "Adjust & Continue" : "Apply Adjustment"}
             </Button>
           </DialogFooter>
         </DialogContent>
