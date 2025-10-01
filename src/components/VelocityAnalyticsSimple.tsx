@@ -223,28 +223,29 @@ export function VelocityAnalyticsSimple() {
         </div>
       </div>
 
-      {/* Tabs with integrated search */}
+      {/* Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <div className="flex items-center justify-between mb-4">
-          <TabsList className="grid w-full max-w-md grid-cols-2 h-14 p-2 bg-gradient-subtle rounded-xl shadow-elegant">
-            <TabsTrigger value="ready" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10 flex items-center gap-2">
-              <ShoppingCart className="w-4 h-4" />
-              Ready to Order ({readyToOrderItems.length})
-            </TabsTrigger>
-            <TabsTrigger value="ordered" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10 flex items-center gap-2">
-              <Truck className="w-4 h-4" />
-              Ordered ({orderedItems.length})
-            </TabsTrigger>
-          </TabsList>
-          
-          <div className="flex gap-3 ml-4">
-            <div className="relative">
+        <TabsList className="grid w-full max-w-md grid-cols-2 h-14 p-2 bg-gradient-subtle rounded-xl shadow-elegant">
+          <TabsTrigger value="ready" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10 flex items-center gap-2">
+            <ShoppingCart className="w-4 h-4" />
+            Ready to Order ({readyToOrderItems.length})
+          </TabsTrigger>
+          <TabsTrigger value="ordered" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10 flex items-center gap-2">
+            <Truck className="w-4 h-4" />
+            Ordered ({orderedItems.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="ready" className="mt-6 space-y-4">
+          {/* Search and Filter Bar */}
+          <div className="flex gap-3">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input 
                 placeholder="Search by ASIN, SKU, or Title..." 
                 value={searchTerm} 
                 onChange={e => handleSearchChange(e.target.value)} 
-                className="pl-10 w-[300px]" 
+                className="pl-10" 
               />
             </div>
             <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
@@ -259,9 +260,7 @@ export function VelocityAnalyticsSimple() {
               </SelectContent>
             </Select>
           </div>
-        </div>
 
-        <TabsContent value="ready" className="mt-6 space-y-4">
           {/* Select All Header */}
           {paginatedItems.length > 0 && (
             <div className="flex items-center gap-2 px-2">
@@ -320,6 +319,30 @@ export function VelocityAnalyticsSimple() {
         </TabsContent>
 
         <TabsContent value="ordered" className="mt-6 space-y-4">
+          {/* Search and Filter Bar */}
+          <div className="flex gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Input 
+                placeholder="Search by ASIN, SKU, or Title..." 
+                value={searchTerm} 
+                onChange={e => handleSearchChange(e.target.value)} 
+                className="pl-10" 
+              />
+            </div>
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
+              <SelectTrigger className="w-[180px]">
+                <Filter className="w-4 h-4 mr-2" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="recommended">Sort by Recommended</SelectItem>
+                <SelectItem value="velocity">Sort by Velocity</SelectItem>
+                <SelectItem value="stock">Sort by Stock</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Select All Header */}
           {paginatedItems.length > 0 && (
             <div className="flex items-center gap-2 px-2">
