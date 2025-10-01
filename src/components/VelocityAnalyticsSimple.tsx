@@ -12,11 +12,14 @@ import { useProductImages } from "@/hooks/useProductImages";
 import { useToast } from "@/hooks/use-toast";
 import { VelocityItemCard } from "@/components/replenishment/VelocityItemCard";
 import { ReplenishmentPagination } from "@/components/replenishment/ReplenishmentPagination";
+import { SunskyOrderDialog } from "@/components/SunskyOrderDialog";
+import { supabase } from "@/integrations/supabase/client";
 
 export function VelocityAnalyticsSimple() {
   const {
     items,
     loading,
+    loadAnalytics,
     saveManualOverride,
     clearManualOverride
   } = useQuarterlyVelocityAnalytics();
@@ -32,6 +35,8 @@ export function VelocityAnalyticsSimple() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const [sortBy, setSortBy] = useState<"velocity" | "stock" | "recommended">("recommended");
+  const [sunskyDialogOpen, setSunskyDialogOpen] = useState(false);
+  const [sunskyOrderItems, setSunskyOrderItems] = useState<any[]>([]);
   
   // Memoized filtering and sorting
   const { readyToOrderItems, orderedItems, sortedFilteredItems } = useMemo(() => {
@@ -133,7 +138,7 @@ export function VelocityAnalyticsSimple() {
     // TODO: Implement actual ordering logic
   };
 
-  const handleBulkOrderToSource = () => {
+  const handleBulkOrderToSource = async () => {
     if (selectedItems.size === 0) {
       toast({
         title: "No items selected",
@@ -143,17 +148,71 @@ export function VelocityAnalyticsSimple() {
       return;
     }
     
-    const selectedCount = selectedItems.size;
-    const totalQty = sortedFilteredItems
-      .filter(item => selectedItems.has(item.asin_id))
-      .reduce((sum, item) => sum + (item.manual_override ?? item.recommended_quantity), 0);
+    // Get selected items with their details
+    const itemsToOrder = sortedFilteredItems.filter(item => selectedItems.has(item.asin_id));
     
-    toast({
-      title: "Bulk Order to Source",
-      description: `Ordering ${selectedCount} items (${totalQty} total units)`,
-    });
-    setSelectedItems(new Set());
-    // TODO: Implement bulk ordering logic
+    // Check if all items have SKUs (required for Sunsky)
+    const itemsWithoutSku = itemsToOrder.filter(item => !item.sku || item.sku.trim() === '');
+    
+    if (itemsWithoutSku.length > 0) {
+      toast({
+        title: "Missing SKUs",
+        description: `${itemsWithoutSku.length} items don't have SKUs. Only items with SKUs can be ordered from Sunsky.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Prepare order items for Sunsky dialog
+    const orderItems = itemsToOrder.map(item => ({
+      id: item.asin_id,
+      po_number: `VELOCITY-${Date.now()}`,
+      sku_code: item.sku,
+      asin: item.asin,
+      quantity: item.manual_override ?? item.recommended_quantity,
+      status: 'pending',
+      model_number: item.sku,
+      title: item.title || `Velocity restock for ${item.asin}`,
+      notes: `Velocity-based replenishment - Velocity Score: ${item.velocity_score || 0}, Recommended: ${item.manual_override ?? item.recommended_quantity}`,
+      sunsky_sku: item.sku,
+      itemNo: item.sku,
+      qty: item.manual_override ?? item.recommended_quantity
+    }));
+    
+    setSunskyOrderItems(orderItems);
+    setSunskyDialogOpen(true);
+  };
+
+  const handleSunskyOrderSuccess = async (orderNumber: string, selectedOrderIds: string[]) => {
+    try {
+      // Mark the selected inventory items as ordered
+      const updatePromises = Array.from(selectedItems).map(async itemId => {
+        return supabase
+          .from('asin_inventory')
+          .update({ status: 'ordered' })
+          .eq('id', itemId);
+      });
+      
+      await Promise.all(updatePromises);
+      
+      toast({
+        title: "Sunsky Order Placed Successfully",
+        description: `Order ${orderNumber} has been placed. ${selectedItems.size} items marked as ordered.`,
+      });
+      
+      setSelectedItems(new Set());
+      setSunskyDialogOpen(false);
+      
+      // Reload analytics data
+      loadAnalytics();
+    } catch (error) {
+      console.error('Error updating items after Sunsky order:', error);
+      toast({
+        title: "Order Placed but Update Failed",
+        description: `Order ${orderNumber} was placed successfully, but failed to update item status.`,
+        variant: "destructive",
+      });
+    }
   };
 
   const handleEditClick = (item: VelocityAnalyticsItem) => {
@@ -459,6 +518,14 @@ export function VelocityAnalyticsSimple() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Sunsky Order Dialog */}
+      <SunskyOrderDialog
+        open={sunskyDialogOpen}
+        onOpenChange={setSunskyDialogOpen}
+        selectedOrders={sunskyOrderItems}
+        onOrderSuccess={handleSunskyOrderSuccess}
+      />
     </div>
   );
 }
