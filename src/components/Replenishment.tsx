@@ -18,7 +18,7 @@ import { useCountry } from '@/contexts/CountryContext';
 import { useInventoryAnalytics } from '@/hooks/useInventoryAnalytics';
 import { useProductImages } from '@/hooks/useProductImages';
 import { InventoryAnalytics } from './InventoryAnalytics';
-import { VelocityDashboard } from './VelocityDashboard';
+import { VelocityAnalyticsSimple } from './VelocityAnalyticsSimple';
 import { ReplenishmentItemCard } from './replenishment/ReplenishmentItemCard';
 import { ReplenishmentSearchBar } from './replenishment/ReplenishmentSearchBar';
 import { ReplenishmentPagination } from './replenishment/ReplenishmentPagination';
@@ -2512,7 +2512,7 @@ export function Replenishment() {
             </div>
           </div>
           
-          <VelocityDashboard />
+          <VelocityAnalyticsSimple />
         </TabsContent>
 
       </Tabs>
