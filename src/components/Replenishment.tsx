@@ -71,7 +71,6 @@ interface TrendsItem {
   days_since_last_restock: number | null;
   sell_rate: number;
 }
-
 interface AllInventoryItem {
   id: string;
   item_type: 'ASIN' | 'SKU';
@@ -86,7 +85,6 @@ interface AllInventoryItem {
   date_added: string;
   notes?: string;
 }
-
 interface InventoryMetrics {
   velocityScore: number;
   urgencyLevel: 'low' | 'medium' | 'high' | 'critical';
@@ -96,41 +94,49 @@ interface InventoryMetrics {
 }
 export function Replenishment() {
   // Product Images
-  const { productImages, getImageByAsin, isLoading: imagesLoading } = useProductImages();
-  
+  const {
+    productImages,
+    getImageByAsin,
+    isLoading: imagesLoading
+  } = useProductImages();
+
   // Search states for each tab
   const [readyToOrderSearch, setReadyToOrderSearch] = useState('');
   const [orderedSearch, setOrderedSearch] = useState('');
   const [outOfStockSearch, setOutOfStockSearch] = useState('');
   const [nonSourceSearch, setNonSourceSearch] = useState('');
-  
+
   // Pagination states for each tab
   const [readyToOrderPage, setReadyToOrderPage] = useState(1);
   const [orderedPage, setOrderedPage] = useState(1);
   const [outOfStockPage, setOutOfStockPage] = useState(1);
   const [nonSourcePage, setNonSourcePage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
-  
+
   // Pagination state (legacy, kept for other features)
   const [currentPage, setCurrentPage] = useState(1);
 
   // Header filter functions
   const updateHeaderFilter = (field: string, value: string) => {
-    setHeaderFilters(prev => ({ ...prev, [field]: value }));
+    setHeaderFilters(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
-
   const updateHeaderRangeFilter = (field: string, type: 'min' | 'max', value: string) => {
     setHeaderFilters(prev => {
       if (field === 'quantity' || field === 'daysSince') {
         return {
           ...prev,
-          [field]: { ...prev[field], [type]: value }
+          [field]: {
+            ...prev[field],
+            [type]: value
+          }
         };
       }
       return prev;
     });
   };
-
   const clearHeaderFilters = () => {
     setHeaderFilters({
       type: 'all',
@@ -138,40 +144,34 @@ export function Replenishment() {
       sku: '',
       serial: '',
       status: 'all',
-      quantity: { min: '', max: '' },
-      daysSince: { min: '', max: '' }
+      quantity: {
+        min: '',
+        max: ''
+      },
+      daysSince: {
+        min: '',
+        max: ''
+      }
     });
   };
 
   // Calculate item metrics
   const calculateItemMetrics = (item: AllInventoryItem): InventoryMetrics => {
-    const daysSinceSold = item.last_sold_date ? 
-      Math.floor((Date.now() - new Date(item.last_sold_date).getTime()) / (1000 * 60 * 60 * 24)) : null;
-    
+    const daysSinceSold = item.last_sold_date ? Math.floor((Date.now() - new Date(item.last_sold_date).getTime()) / (1000 * 60 * 60 * 24)) : null;
     let velocityScore = 0;
     if (daysSinceSold !== null && daysSinceSold > 0) {
-      velocityScore = Math.max(0, 100 - (daysSinceSold / 30) * 100);
+      velocityScore = Math.max(0, 100 - daysSinceSold / 30 * 100);
     }
-    
     let urgencyLevel: 'low' | 'medium' | 'high' | 'critical' = 'low';
-    if (item.quantity === 0) urgencyLevel = 'critical';
-    else if (item.quantity <= 2) urgencyLevel = 'high';
-    else if (item.quantity <= 5) urgencyLevel = 'medium';
-    
+    if (item.quantity === 0) urgencyLevel = 'critical';else if (item.quantity <= 2) urgencyLevel = 'high';else if (item.quantity <= 5) urgencyLevel = 'medium';
     let stockDaysRemaining: number | null = null;
     if (velocityScore > 0 && item.quantity > 0) {
       stockDaysRemaining = Math.floor(item.quantity / Math.max(velocityScore / 100, 0.1));
     }
-    
     const daysSinceAdded = Math.floor((Date.now() - new Date(item.date_added).getTime()) / (1000 * 60 * 60 * 24));
-    const turnoverRate = daysSinceAdded > 0 ? (velocityScore / daysSinceAdded) * 365 : 0;
-    
+    const turnoverRate = daysSinceAdded > 0 ? velocityScore / daysSinceAdded * 365 : 0;
     let performanceRating = 2.5;
-    if (item.quantity > 0 && velocityScore > 70) performanceRating = 5;
-    else if (item.quantity > 0 && velocityScore > 50) performanceRating = 4;
-    else if (item.quantity > 0 && velocityScore > 30) performanceRating = 3;
-    else if (item.quantity === 0) performanceRating = 1;
-    
+    if (item.quantity > 0 && velocityScore > 70) performanceRating = 5;else if (item.quantity > 0 && velocityScore > 50) performanceRating = 4;else if (item.quantity > 0 && velocityScore > 30) performanceRating = 3;else if (item.quantity === 0) performanceRating = 1;
     return {
       velocityScore,
       urgencyLevel,
@@ -208,15 +208,16 @@ export function Replenishment() {
   const [salesData, setSalesData] = useState<SalesData[]>([]);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [outOfStockItems, setOutOfStockItems] = useState<RestockItem[]>([]);
-  
-  
-  
+
   // Sunsky order dialog state
   const [sunskyDialogOpen, setSunskyDialogOpen] = useState(false);
   const [sunskyOrderItems, setSunskyOrderItems] = useState<any[]>([]);
-  
+
   // Sorting and filtering state
-  const [sortConfig, setSortConfig] = useState<{key: keyof AllInventoryItem | null, direction: 'asc' | 'desc'}>({
+  const [sortConfig, setSortConfig] = useState<{
+    key: keyof AllInventoryItem | null;
+    direction: 'asc' | 'desc';
+  }>({
     key: null,
     direction: 'asc'
   });
@@ -229,15 +230,15 @@ export function Replenishment() {
       lastSoldFrom: null as Date | null,
       lastSoldTo: null as Date | null,
       lastOrderFrom: null as Date | null,
-      lastOrderTo: null as Date | null,
+      lastOrderTo: null as Date | null
     },
     stockRange: {
       min: null as number | null,
-      max: null as number | null,
+      max: null as number | null
     },
     daysSinceOrderRange: {
       min: null as number | null,
-      max: null as number | null,
+      max: null as number | null
     }
   });
 
@@ -248,8 +249,14 @@ export function Replenishment() {
     sku: '',
     serial: '',
     status: 'all',
-    quantity: { min: '', max: '' },
-    daysSince: { min: '', max: '' }
+    quantity: {
+      min: '',
+      max: ''
+    },
+    daysSince: {
+      min: '',
+      max: ''
+    }
   });
 
   // Trends state
@@ -259,7 +266,7 @@ export function Replenishment() {
   const [trendsSortBy, setTrendsSortBy] = useState('sold_desc');
   const [trendsItems, setTrendsItems] = useState<any[]>([]);
   const [trendsLoading, setTrendsLoading] = useState(false);
-  
+
   // Pagination state for trends
   const [trendsCurrentPage, setTrendsCurrentPage] = useState(1);
 
@@ -279,14 +286,13 @@ export function Replenishment() {
   // Load non-source items
   const loadNonSourceItems = async () => {
     try {
-      const { data, error } = await supabase
-        .from('non_source_items')
-        .select('*')
-        .eq('country', selectedCountry)
-        .order('marked_at', { ascending: false });
-      
+      const {
+        data,
+        error
+      } = await supabase.from('non_source_items').select('*').eq('country', selectedCountry).order('marked_at', {
+        ascending: false
+      });
       if (error) throw error;
-      
       const nonSourceItemsData = (data || []).map(item => ({
         id: item.id,
         identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
@@ -297,7 +303,6 @@ export function Replenishment() {
         last_restock_date: null,
         days_since_last_restock: null
       }));
-      
       setNonSourceItems(nonSourceItemsData);
     } catch (error: any) {
       console.error('Error loading non-source items:', error);
@@ -308,42 +313,27 @@ export function Replenishment() {
       });
     }
   };
-
   const loadRestockItems = async () => {
     try {
       console.log('Loading restock items for country:', selectedCountry);
-      
+
       // Get ASIN inventory items that are eligible for restock (excluding non-source items)
-      const { data: nonSourceData } = await supabase
-        .from('non_source_items')
-        .select('asin, serial_number')
-        .eq('country', selectedCountry);
-      
-      const nonSourceIdentifiers = new Set(
-        (nonSourceData || []).map(item => `${item.asin}-${item.serial_number}`)
-      );
-      
-      const asinQuery = supabase.from('asin_inventory')
-        .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added, eligible_for_restock')
-        .eq('country', selectedCountry)
-        .eq('eligible_for_restock', true)
-        .eq('quantity', 0)
-        .neq('status', 'no-stock')
-        .neq('status', 'ordered');
-         
+      const {
+        data: nonSourceData
+      } = await supabase.from('non_source_items').select('asin, serial_number').eq('country', selectedCountry);
+      const nonSourceIdentifiers = new Set((nonSourceData || []).map(item => `${item.asin}-${item.serial_number}`));
+      const asinQuery = supabase.from('asin_inventory').select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added, eligible_for_restock').eq('country', selectedCountry).eq('eligible_for_restock', true).eq('quantity', 0).neq('status', 'no-stock').neq('status', 'ordered');
       const [asinResult] = await Promise.all([asinQuery]);
-      
       if (asinResult.error) throw asinResult.error;
-      
+
       // Get last sale dates from stock_changes
       const inventoryIds = (asinResult.data || []).map(item => item.id);
-      const { data: stockChanges } = await supabase
-        .from('stock_changes')
-        .select('inventory_id, created_at')
-        .in('inventory_id', inventoryIds)
-        .lt('change_amount', 0)
-        .order('created_at', { ascending: false });
-      
+      const {
+        data: stockChanges
+      } = await supabase.from('stock_changes').select('inventory_id, created_at').in('inventory_id', inventoryIds).lt('change_amount', 0).order('created_at', {
+        ascending: false
+      });
+
       // Create a map of inventory_id to last sale date
       const lastSaleDates = new Map();
       (stockChanges || []).forEach(change => {
@@ -351,25 +341,21 @@ export function Replenishment() {
           lastSaleDates.set(change.inventory_id, change.created_at);
         }
       });
-      
+
       // Process ASIN items only (excluding non-source items)
-      const asinItems = (asinResult.data || [])
-        .filter(item => !nonSourceIdentifiers.has(`${item.asin}-${item.serial_number}`))
-        .map(item => {
-          const lastSaleDate = lastSaleDates.get(item.id) || item.date_sold;
-          return {
-            id: item.id,
-            identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
-            current_quantity: item.quantity,
-            table_name: 'asin_inventory',
-            status: item.status,
-            date_sold: lastSaleDate,
-            last_restock_date: item.last_restock_date,
-            days_since_last_restock: item.last_restock_date ? 
-              Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
-          };
-        });
-      
+      const asinItems = (asinResult.data || []).filter(item => !nonSourceIdentifiers.has(`${item.asin}-${item.serial_number}`)).map(item => {
+        const lastSaleDate = lastSaleDates.get(item.id) || item.date_sold;
+        return {
+          id: item.id,
+          identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
+          current_quantity: item.quantity,
+          table_name: 'asin_inventory',
+          status: item.status,
+          date_sold: lastSaleDate,
+          last_restock_date: item.last_restock_date,
+          days_since_last_restock: item.last_restock_date ? Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
+        };
+      });
       const allItems = [...asinItems];
       console.log('Processed restock items:', allItems);
       setRestockItems(allItems);
@@ -388,37 +374,21 @@ export function Replenishment() {
   const loadAllInventoryItems = async () => {
     try {
       console.log('Starting loadAllInventoryItems for country:', selectedCountry);
-      
-      const [asinAll] = await Promise.all([
-        supabase.from('asin_inventory')
-          .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added, notes, eligible_for_restock')
-          .eq('country', selectedCountry)
-          .eq('eligible_for_restock', true)
-          .eq('quantity', 0)
-          .neq('status', 'no-stock')
-      ]);
-      
+      const [asinAll] = await Promise.all([supabase.from('asin_inventory').select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added, notes, eligible_for_restock').eq('country', selectedCountry).eq('eligible_for_restock', true).eq('quantity', 0).neq('status', 'no-stock')]);
+
       // Get non-source items to exclude them
-      const { data: nonSourceData } = await supabase
-        .from('non_source_items')
-        .select('asin, serial_number')
-        .eq('country', selectedCountry);
-      
-      const nonSourceIdentifiers = new Set(
-        (nonSourceData || []).map(item => `${item.asin}-${item.serial_number}`)
-      );
-      
+      const {
+        data: nonSourceData
+      } = await supabase.from('non_source_items').select('asin, serial_number').eq('country', selectedCountry);
+      const nonSourceIdentifiers = new Set((nonSourceData || []).map(item => `${item.asin}-${item.serial_number}`));
       if (asinAll.error) {
         console.error('ASIN query error:', asinAll.error);
         throw asinAll.error;
       }
-      
       console.log('Raw ASIN data:', asinAll.data);
-      
+
       // Process ASIN items into AllInventoryItem format (excluding non-source items)
-      const asinItems: AllInventoryItem[] = (asinAll.data || [])
-        .filter(item => !nonSourceIdentifiers.has(`${item.asin}-${item.serial_number}`))
-        .map(item => ({
+      const asinItems: AllInventoryItem[] = (asinAll.data || []).filter(item => !nonSourceIdentifiers.has(`${item.asin}-${item.serial_number}`)).map(item => ({
         id: item.id,
         item_type: 'ASIN' as const,
         asin: item.asin,
@@ -428,81 +398,66 @@ export function Replenishment() {
         status: item.status,
         last_sold_date: item.date_sold,
         last_order_date: item.last_restock_date,
-        days_since_ordered: item.last_restock_date ? 
-          Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null,
+        days_since_ordered: item.last_restock_date ? Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null,
         date_added: item.date_added,
         notes: item.notes
       }));
-
       const allInventoryItems = [...asinItems];
       console.log('Processed inventory items:', allInventoryItems);
       console.log('Total items count:', allInventoryItems.length);
-      
+
       // Separate items based on eligibility for restocking
       const allEligibleItems = allInventoryItems.filter(item => item.status !== 'ordered' && item.status !== 'no-stock');
-      
+
       // Separate eligible items into those that can be ordered and those that cannot
-      const restockNeeded = allEligibleItems
-        .filter(item => {
-          // Check if item has valid SKU for ordering
-          const identifier = item.item_type === 'ASIN' 
-            ? `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}` 
-            : `SKU: ${item.sku} (${item.serial_number})`;
-          const extractedSku = extractSkuFromIdentifier(identifier);
-          const extractedModel = extractModelFromIdentifier(identifier);
-          return !!(extractedSku || extractedModel); // Only include items that can be ordered
-        })
-        .map(item => ({
-          id: item.id,
+      const restockNeeded = allEligibleItems.filter(item => {
+        // Check if item has valid SKU for ordering
+        const identifier = item.item_type === 'ASIN' ? `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}` : `SKU: ${item.sku} (${item.serial_number})`;
+        const extractedSku = extractSkuFromIdentifier(identifier);
+        const extractedModel = extractModelFromIdentifier(identifier);
+        return !!(extractedSku || extractedModel); // Only include items that can be ordered
+      }).map(item => ({
+        id: item.id,
         identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
         current_quantity: item.quantity,
         table_name: 'asin_inventory',
-          status: item.status,
-          date_sold: item.last_sold_date,
-          last_restock_date: item.last_order_date,
-          days_since_last_restock: item.days_since_ordered
-        }));
+        status: item.status,
+        date_sold: item.last_sold_date,
+        last_restock_date: item.last_order_date,
+        days_since_last_restock: item.days_since_ordered
+      }));
 
       // Items that are eligible but cannot be ordered (no valid SKU)
-      const outOfStockOnly = allEligibleItems
-        .filter(item => {
-          const identifier = item.item_type === 'ASIN' 
-            ? `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}` 
-            : `SKU: ${item.sku} (${item.serial_number})`;
-          const extractedSku = extractSkuFromIdentifier(identifier);
-          const extractedModel = extractModelFromIdentifier(identifier);
-          return !(extractedSku || extractedModel); // Only include items that cannot be ordered
-        })
-        .map(item => ({
-          id: item.id,
+      const outOfStockOnly = allEligibleItems.filter(item => {
+        const identifier = item.item_type === 'ASIN' ? `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}` : `SKU: ${item.sku} (${item.serial_number})`;
+        const extractedSku = extractSkuFromIdentifier(identifier);
+        const extractedModel = extractModelFromIdentifier(identifier);
+        return !(extractedSku || extractedModel); // Only include items that cannot be ordered
+      }).map(item => ({
+        id: item.id,
         identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
         current_quantity: item.quantity,
         table_name: 'asin_inventory',
-          status: item.status,
-          date_sold: item.last_sold_date,
-          last_restock_date: item.last_order_date,
-          days_since_last_restock: item.days_since_ordered
-        }));
-      
-      const orderedItemsData = allInventoryItems
-        .filter(item => item.status === 'ordered')
-        .map(item => ({
-          id: item.id,
+        status: item.status,
+        date_sold: item.last_sold_date,
+        last_restock_date: item.last_order_date,
+        days_since_last_restock: item.days_since_ordered
+      }));
+      const orderedItemsData = allInventoryItems.filter(item => item.status === 'ordered').map(item => ({
+        id: item.id,
         identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
         current_quantity: item.quantity,
         table_name: 'asin_inventory',
-          status: item.status,
-          date_sold: item.last_sold_date,
-          last_restock_date: item.last_order_date,
-          days_since_last_restock: item.days_since_ordered
-        }));
-      
+        status: item.status,
+        date_sold: item.last_sold_date,
+        last_restock_date: item.last_order_date,
+        days_since_last_restock: item.days_since_ordered
+      }));
       console.log('Setting allInventoryItems state with:', allInventoryItems.length, 'items');
       setAllInventoryItems(allInventoryItems);
       setRestockItems(restockNeeded);
       setOrderedItems(orderedItemsData);
       setOutOfStockItems(outOfStockOnly);
-      
       console.log('State updated - allInventoryItems length:', allInventoryItems.length);
       console.log('Items needing restock (can be ordered):', restockNeeded.length);
       console.log('Items out of stock (cannot be ordered):', outOfStockOnly.length);
@@ -522,52 +477,32 @@ export function Replenishment() {
     console.log('Filtering effect triggered. allInventoryItems length:', allInventoryItems.length);
     console.log('Current filters:', filters);
     console.log('Header filters:', headerFilters);
-    
     let filtered = [...allInventoryItems];
     console.log('Starting with items:', filtered.length);
 
     // Search filter (main search)
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
-      filtered = filtered.filter(item => 
-        item.asin?.toLowerCase().includes(searchLower) ||
-        item.sku?.toLowerCase().includes(searchLower) ||
-        item.serial_number?.toLowerCase().includes(searchLower)
-      );
+      filtered = filtered.filter(item => item.asin?.toLowerCase().includes(searchLower) || item.sku?.toLowerCase().includes(searchLower) || item.serial_number?.toLowerCase().includes(searchLower));
       console.log('After search filter:', filtered.length);
     }
 
     // Header filters
     if (headerFilters.type && headerFilters.type !== 'all') {
-      filtered = filtered.filter(item => 
-        item.item_type.toLowerCase().includes(headerFilters.type.toLowerCase())
-      );
+      filtered = filtered.filter(item => item.item_type.toLowerCase().includes(headerFilters.type.toLowerCase()));
     }
-    
     if (headerFilters.asin) {
-      filtered = filtered.filter(item => 
-        item.asin?.toLowerCase().includes(headerFilters.asin.toLowerCase())
-      );
+      filtered = filtered.filter(item => item.asin?.toLowerCase().includes(headerFilters.asin.toLowerCase()));
     }
-    
     if (headerFilters.sku) {
-      filtered = filtered.filter(item => 
-        item.sku?.toLowerCase().includes(headerFilters.sku.toLowerCase())
-      );
+      filtered = filtered.filter(item => item.sku?.toLowerCase().includes(headerFilters.sku.toLowerCase()));
     }
-    
     if (headerFilters.serial) {
-      filtered = filtered.filter(item => 
-        item.serial_number?.toLowerCase().includes(headerFilters.serial.toLowerCase())
-      );
+      filtered = filtered.filter(item => item.serial_number?.toLowerCase().includes(headerFilters.serial.toLowerCase()));
     }
-    
     if (headerFilters.status && headerFilters.status !== 'all') {
-      filtered = filtered.filter(item => 
-        item.status.toLowerCase().includes(headerFilters.status.toLowerCase())
-      );
+      filtered = filtered.filter(item => item.status.toLowerCase().includes(headerFilters.status.toLowerCase()));
     }
-    
     if (headerFilters.quantity.min || headerFilters.quantity.max) {
       filtered = filtered.filter(item => {
         const min = headerFilters.quantity.min ? parseInt(headerFilters.quantity.min) : null;
@@ -577,7 +512,6 @@ export function Replenishment() {
         return true;
       });
     }
-    
     if (headerFilters.daysSince.min || headerFilters.daysSince.max) {
       filtered = filtered.filter(item => {
         if (item.days_since_ordered === null) return false;
@@ -599,9 +533,12 @@ export function Replenishment() {
     if (filters.stockStatus !== 'all') {
       filtered = filtered.filter(item => {
         switch (filters.stockStatus) {
-          case 'in-stock': return item.quantity > 0;
-          case 'sold': return item.status === 'sold' || item.quantity === 0;
-          default: return true;
+          case 'in-stock':
+            return item.quantity > 0;
+          case 'sold':
+            return item.status === 'sold' || item.quantity === 0;
+          default:
+            return true;
         }
       });
       console.log('After stock status filter:', filtered.length);
@@ -612,10 +549,14 @@ export function Replenishment() {
       filtered = filtered.filter(item => {
         const daysSinceOrder = item.days_since_ordered;
         switch (filters.orderStatus) {
-          case 'ordered': return daysSinceOrder !== null && daysSinceOrder >= 0;
-          case 'not-ordered': return daysSinceOrder === null;
-          case 'overdue': return daysSinceOrder !== null && daysSinceOrder > 30;
-          default: return true;
+          case 'ordered':
+            return daysSinceOrder !== null && daysSinceOrder >= 0;
+          case 'not-ordered':
+            return daysSinceOrder === null;
+          case 'overdue':
+            return daysSinceOrder !== null && daysSinceOrder > 30;
+          default:
+            return true;
         }
       });
       console.log('After order status filter:', filtered.length);
@@ -632,7 +573,6 @@ export function Replenishment() {
       });
       console.log('After last sold date filter:', filtered.length);
     }
-
     if (filters.dateRange.lastOrderFrom || filters.dateRange.lastOrderTo) {
       filtered = filtered.filter(item => {
         if (!item.last_order_date) return false;
@@ -670,28 +610,23 @@ export function Replenishment() {
       filtered.sort((a, b) => {
         const aValue = a[sortConfig.key!];
         const bValue = b[sortConfig.key!];
-        
         if (aValue === null && bValue === null) return 0;
         if (aValue === null) return 1;
         if (bValue === null) return -1;
-        
         let comparison = 0;
         if (typeof aValue === 'string' && typeof bValue === 'string') {
           comparison = aValue.localeCompare(bValue);
         } else if (typeof aValue === 'number' && typeof bValue === 'number') {
           comparison = aValue - bValue;
-        } else if (aValue && bValue && typeof aValue === 'string' && typeof bValue === 'string' && 
-                   (sortConfig.key === 'last_sold_date' || sortConfig.key === 'last_order_date' || sortConfig.key === 'date_added')) {
+        } else if (aValue && bValue && typeof aValue === 'string' && typeof bValue === 'string' && (sortConfig.key === 'last_sold_date' || sortConfig.key === 'last_order_date' || sortConfig.key === 'date_added')) {
           comparison = new Date(aValue).getTime() - new Date(bValue).getTime();
         } else {
           comparison = String(aValue).localeCompare(String(bValue));
         }
-        
         return sortConfig.direction === 'desc' ? -comparison : comparison;
       });
       console.log('After sorting:', filtered.length);
     }
-
     console.log('Final filtered items count:', filtered.length);
     setFilteredItems(filtered);
     setCurrentPage(1); // Reset to first page when filters change
@@ -712,7 +647,6 @@ export function Replenishment() {
       [filterType]: value
     }));
   };
-
   const updateDateRangeFilter = (type: 'lastSoldFrom' | 'lastSoldTo' | 'lastOrderFrom' | 'lastOrderTo', date: Date | null) => {
     setFilters(prev => ({
       ...prev,
@@ -722,7 +656,6 @@ export function Replenishment() {
       }
     }));
   };
-
   const updateRangeFilter = (type: 'stockRange' | 'daysSinceOrderRange', field: 'min' | 'max', value: number | null) => {
     setFilters(prev => ({
       ...prev,
@@ -732,7 +665,6 @@ export function Replenishment() {
       }
     }));
   };
-
   const clearAllFilters = () => {
     setFilters({
       search: '',
@@ -743,20 +675,22 @@ export function Replenishment() {
         lastSoldFrom: null,
         lastSoldTo: null,
         lastOrderFrom: null,
-        lastOrderTo: null,
+        lastOrderTo: null
       },
       stockRange: {
         min: null,
-        max: null,
+        max: null
       },
       daysSinceOrderRange: {
         min: null,
-        max: null,
+        max: null
       }
     });
-    setSortConfig({ key: null, direction: 'asc' });
+    setSortConfig({
+      key: null,
+      direction: 'asc'
+    });
   };
-
   const getActiveFiltersCount = () => {
     let count = 0;
     if (filters.search) count++;
@@ -769,7 +703,6 @@ export function Replenishment() {
     if (filters.daysSinceOrderRange.min !== null || filters.daysSinceOrderRange.max !== null) count++;
     return count;
   };
-
   const exportFilteredData = () => {
     const dataToExport = filteredItems.map(item => ({
       'Item Type': item.item_type,
@@ -784,20 +717,19 @@ export function Replenishment() {
       'Date Added': format(new Date(item.date_added), 'yyyy-MM-dd'),
       'Notes': item.notes || ''
     }));
-
     const csv = Papa.unparse(dataToExport);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([csv], {
+      type: 'text/csv;charset=utf-8;'
+    });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    
     const activeFilters = getActiveFiltersCount();
     const filename = `inventory-${activeFilters > 0 ? 'filtered-' : ''}${format(new Date(), 'yyyy-MM-dd')}.csv`;
     link.download = filename;
     link.click();
-    
     toast({
       title: "Export Complete",
-      description: `Exported ${dataToExport.length} items ${activeFilters > 0 ? '(filtered)' : ''}`,
+      description: `Exported ${dataToExport.length} items ${activeFilters > 0 ? '(filtered)' : ''}`
     });
   };
 
@@ -810,14 +742,7 @@ export function Replenishment() {
   // Load ordered items separately for analytics and display
   const loadOrderedItems = async () => {
     try {
-      const [asinOrdered] = await Promise.all([
-        supabase.from('asin_inventory')
-          .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added')
-          .eq('country', selectedCountry)
-          .eq('status', 'ordered')
-          .eq('quantity', 0)
-          .eq('eligible_for_restock', true)
-      ]);
+      const [asinOrdered] = await Promise.all([supabase.from('asin_inventory').select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added').eq('country', selectedCountry).eq('status', 'ordered').eq('quantity', 0).eq('eligible_for_restock', true)]);
       if (asinOrdered.error) throw asinOrdered.error;
       const orderedItemsData = [...(asinOrdered.data || []).map(item => ({
         id: item.id,
@@ -840,33 +765,17 @@ export function Replenishment() {
   const removeRestockedOrderedItems = async () => {
     try {
       // Get all ordered items that now have quantity > 0
-      const [asinRestocked] = await Promise.all([
-        supabase.from('asin_inventory')
-          .select('id, asin, serial_number, quantity, status')
-          .eq('country', selectedCountry)
-          .eq('status', 'ordered')
-          .gt('quantity', 0)
-      ]);
-
+      const [asinRestocked] = await Promise.all([supabase.from('asin_inventory').select('id, asin, serial_number, quantity, status').eq('country', selectedCountry).eq('status', 'ordered').gt('quantity', 0)]);
       if (asinRestocked.error) throw asinRestocked.error;
-
-      const restockedItems = [
-        ...(asinRestocked.data || [])
-      ];
-
+      const restockedItems = [...(asinRestocked.data || [])];
       if (restockedItems.length > 0) {
         // Update status to 'in-stock' for these items
-        const asinUpdates = asinRestocked.data?.map(item => 
-          supabase.from('asin_inventory')
-            .update({ status: 'in-stock' })
-            .eq('id', item.id)
-        ) || [];
-
-        const skuUpdates = asinRestocked.data?.map(item => 
-          supabase.from('asin_inventory')
-            .update({ status: 'in-stock' })
-            .eq('id', item.id)
-        ) || [];
+        const asinUpdates = asinRestocked.data?.map(item => supabase.from('asin_inventory').update({
+          status: 'in-stock'
+        }).eq('id', item.id)) || [];
+        const skuUpdates = asinRestocked.data?.map(item => supabase.from('asin_inventory').update({
+          status: 'in-stock'
+        }).eq('id', item.id)) || [];
 
         // Execute all updates
         await Promise.all([...skuUpdates]);
@@ -874,11 +783,10 @@ export function Replenishment() {
         // Remove from local ordered items state
         const restockedIds = restockedItems.map(item => item.id);
         setOrderedItems(prev => prev.filter(item => !restockedIds.includes(item.id)));
-
         if (restockedItems.length > 0) {
           toast({
             title: "Items Restocked",
-            description: `${restockedItems.length} ordered items are now back in stock and removed from restock management`,
+            description: `${restockedItems.length} ordered items are now back in stock and removed from restock management`
           });
         }
       }
@@ -898,13 +806,9 @@ export function Replenishment() {
 
         // Query ASIN inventory for sales data
         let asinSalesQuery = supabase.from('asin_inventory').select('*').eq('status', 'sold').eq('country', selectedCountry) // Filter by selected country
-        .eq('eligible_for_restock', true)
-        .gte('date_sold', startDate.toISOString())
-        .limit(100000); // Explicitly set high limit to override default 1000
+        .eq('eligible_for_restock', true).gte('date_sold', startDate.toISOString()).limit(100000); // Explicitly set high limit to override default 1000
         let asinRestockQuery = supabase.from('asin_inventory').select('restock_quantity').eq('country', selectedCountry) // Filter by selected country
-        .eq('eligible_for_restock', true)
-        .not('last_restock_date', 'is', null).gte('last_restock_date', startDate.toISOString())
-        .limit(100000); // Explicitly set high limit to override default 1000
+        .eq('eligible_for_restock', true).not('last_restock_date', 'is', null).gte('last_restock_date', startDate.toISOString()).limit(100000); // Explicitly set high limit to override default 1000
         const [asinSalesData, asinRestockData] = await Promise.all([asinSalesQuery, asinRestockQuery]);
         if (asinSalesData.error) throw asinSalesData.error;
         if (asinRestockData.error) throw asinRestockData.error;
@@ -1043,44 +947,39 @@ export function Replenishment() {
       });
       return;
     }
-    
     try {
       // Get the full item details from database
-      const { data: inventoryItem, error: fetchError } = await supabase
-        .from('asin_inventory')
-        .select('*')
-        .eq('id', itemId)
-        .single();
-      
+      const {
+        data: inventoryItem,
+        error: fetchError
+      } = await supabase.from('asin_inventory').select('*').eq('id', itemId).single();
       if (fetchError) throw fetchError;
-      
+
       // Insert into non_source_items table
-      const { error: insertError } = await supabase
-        .from('non_source_items')
-        .insert({
-          user_id: inventoryItem.user_id,
-          asin: inventoryItem.asin,
-          sku: inventoryItem.sku,
-          title: inventoryItem.title,
-          serial_number: inventoryItem.serial_number,
-          country: inventoryItem.country,
-          reason: 'Marked as non-source item - not to be restocked'
-        });
-      
+      const {
+        error: insertError
+      } = await supabase.from('non_source_items').insert({
+        user_id: inventoryItem.user_id,
+        asin: inventoryItem.asin,
+        sku: inventoryItem.sku,
+        title: inventoryItem.title,
+        serial_number: inventoryItem.serial_number,
+        country: inventoryItem.country,
+        reason: 'Marked as non-source item - not to be restocked'
+      });
       if (insertError) throw insertError;
-      
+
       // Mark as not eligible for restock
-      const { error: updateError } = await supabase
-        .from('asin_inventory')
-        .update({ eligible_for_restock: false })
-        .eq('id', itemId);
-      
+      const {
+        error: updateError
+      } = await supabase.from('asin_inventory').update({
+        eligible_for_restock: false
+      }).eq('id', itemId);
       if (updateError) throw updateError;
-      
+
       // Reload data to reflect changes
       await loadAllInventoryItems();
       await loadNonSourceItems();
-      
       toast({
         title: "Item Moved to Non-Source",
         description: "Item will no longer appear in restock lists"
@@ -1155,118 +1054,103 @@ export function Replenishment() {
       toast({
         title: "No Items Selected",
         description: "Please select items to place an order.",
-        variant: "destructive",
+        variant: "destructive"
       });
       return;
     }
 
     // Convert selected restock items to the format expected by SunskyOrderDialog
     const selectedRestockItems = pendingItems.filter(item => selectedItems.has(item.id));
-    
+
     // Calculate quantities based on units sold after last restock
     const orderItems = await Promise.all(selectedRestockItems.map(async item => {
       console.log('Processing item for Sunsky order:', item.identifier);
-      
       const extractedSku = extractSkuFromIdentifier(item.identifier);
       const extractedModel = extractModelFromIdentifier(item.identifier);
       const sunskySku = extractedSku || extractedModel;
-      
-      console.log('Extracted values:', { 
-        identifier: item.identifier, 
-        extractedSku, 
-        extractedModel, 
-        sunskySku 
+      console.log('Extracted values:', {
+        identifier: item.identifier,
+        extractedSku,
+        extractedModel,
+        sunskySku
       });
-      
+
       // If no SKU is found, skip this item
       if (!sunskySku) {
         console.log('No valid SKU found for item:', item.identifier);
         return null;
       }
-      
+
       // Calculate quantity based on sales after last restock
       let calculatedQty = 1; // Default minimum quantity
-      
+
       try {
         // Query stock changes to calculate units sold since last restock
         let stockChangesQuery;
-        
         if (item.table_name === 'asin_inventory') {
-          stockChangesQuery = supabase
-            .from('stock_changes')
-            .select('change_amount, created_at')
-            .eq('inventory_id', item.id)
-            .eq('inventory_type', 'asin')
-            .lt('change_amount', 0); // Only negative changes (sales)
+          stockChangesQuery = supabase.from('stock_changes').select('change_amount, created_at').eq('inventory_id', item.id).eq('inventory_type', 'asin').lt('change_amount', 0); // Only negative changes (sales)
         } else {
-          stockChangesQuery = supabase
-            .from('stock_changes')
-            .select('change_amount, created_at')
-            .eq('inventory_id', item.id)
-            .eq('inventory_type', 'sku')
-            .lt('change_amount', 0); // Only negative changes (sales)
+          stockChangesQuery = supabase.from('stock_changes').select('change_amount, created_at').eq('inventory_id', item.id).eq('inventory_type', 'sku').lt('change_amount', 0); // Only negative changes (sales)
         }
 
         // If there's a last restock date, only count sales after that date
         if (item.days_since_last_restock !== null) {
-          const lastRestockDate = new Date(Date.now() - (item.days_since_last_restock * 24 * 60 * 60 * 1000));
+          const lastRestockDate = new Date(Date.now() - item.days_since_last_restock * 24 * 60 * 60 * 1000);
           stockChangesQuery = stockChangesQuery.gte('created_at', lastRestockDate.toISOString());
         }
-
-        const { data: stockChanges } = await stockChangesQuery;
-        
+        const {
+          data: stockChanges
+        } = await stockChangesQuery;
         if (stockChanges && stockChanges.length > 0) {
           // Sum all negative changes (units sold)
           const unitsSold = stockChanges.reduce((sum, change) => sum + Math.abs(change.change_amount), 0);
           // Calculate quantity as half of units sold after last restock, minimum 1
           calculatedQty = Math.max(1, Math.ceil(unitsSold / 2));
         }
-        
+
         // Ensure minimum quantity of 1
         calculatedQty = Math.max(1, calculatedQty);
       } catch (error) {
         console.error('Error calculating quantity for item:', item.id, error);
         // Fall back to default quantity of 1
       }
-      
       return {
         id: item.id,
-        po_number: `RESTOCK-${Date.now()}`, // Generate a unique PO number for restocking
+        po_number: `RESTOCK-${Date.now()}`,
+        // Generate a unique PO number for restocking
         sku_code: extractedSku,
-        asin: '', // Don't use ASIN for Sunsky search
+        asin: '',
+        // Don't use ASIN for Sunsky search
         quantity: calculatedQty,
         status: 'pending',
         model_number: extractedModel,
         title: `Restock for ${item.identifier}`,
-        notes: sunskySku ? 
-          `Replenishment order - Qty: ${calculatedQty} (based on sales after last restock) - Search by ${extractedSku ? 'SKU' : 'Model'}: ${sunskySku}` :
-          `Replenishment order for out of stock item - No valid Sunsky SKU found (contains Amazon ASIN)`,
-        sunsky_sku: sunskySku, // Use valid SKU/model, avoiding Amazon ASINs
-        itemNo: sunskySku, // Add itemNo field for SunskyOrderDialog compatibility
+        notes: sunskySku ? `Replenishment order - Qty: ${calculatedQty} (based on sales after last restock) - Search by ${extractedSku ? 'SKU' : 'Model'}: ${sunskySku}` : `Replenishment order for out of stock item - No valid Sunsky SKU found (contains Amazon ASIN)`,
+        sunsky_sku: sunskySku,
+        // Use valid SKU/model, avoiding Amazon ASINs
+        itemNo: sunskySku,
+        // Add itemNo field for SunskyOrderDialog compatibility
         qty: calculatedQty
       };
     }));
-    
+
     // Filter out null items (items without valid SKUs)
     const validOrderItems = orderItems.filter(item => item !== null);
-
     if (validOrderItems.length === 0) {
       toast({
         title: "No Valid SKUs Found",
         description: "The selected items contain only Amazon ASINs which are not compatible with Sunsky. Please select items with valid SKU or model numbers.",
-        variant: "destructive",
+        variant: "destructive"
       });
       return;
     }
-
     if (validOrderItems.length < selectedRestockItems.length) {
       toast({
         title: `${selectedRestockItems.length - validOrderItems.length} Items Skipped`,
         description: "Some items were skipped because they only contain Amazon ASINs. Only items with valid SKUs will be processed.",
-        variant: "default",
+        variant: "default"
       });
     }
-
     setSunskyOrderItems(validOrderItems);
     setSunskyDialogOpen(true);
   };
@@ -1274,11 +1158,9 @@ export function Replenishment() {
   // Handle unavailable items from Sunsky
   const handleItemsUnavailable = async (unavailableItems: any[]) => {
     console.log('Moving unavailable items to out of stock tab:', unavailableItems);
-    
     try {
       // Extract the original restock item IDs from the unavailable Sunsky items
       const unavailableIds = new Set<string>();
-      
       unavailableItems.forEach(unavailableItem => {
         // Find the corresponding restock item by matching the sunsky_sku or itemNo
         const matchingRestockItem = pendingItems.find(item => {
@@ -1287,33 +1169,30 @@ export function Replenishment() {
           const sunskySku = extractedSku || extractedModel;
           return sunskySku === unavailableItem.itemNo || sunskySku === unavailableItem.sunsky_sku;
         });
-        
         if (matchingRestockItem) {
           unavailableIds.add(matchingRestockItem.id);
         }
       });
-      
+
       // Move items from restockItems to outOfStockItems
       const itemsToMove = restockItems.filter(item => unavailableIds.has(item.id));
       const remainingRestockItems = restockItems.filter(item => !unavailableIds.has(item.id));
-      
+
       // Update the state
       setRestockItems(remainingRestockItems);
       setOutOfStockItems(prev => [...prev, ...itemsToMove]);
-      
+
       // Clear selection for moved items
       setSelectedItems(prev => {
         const newSet = new Set(prev);
         unavailableIds.forEach(id => newSet.delete(id));
         return newSet;
       });
-      
       toast({
         title: "Items Moved to Out of Stock",
         description: `${itemsToMove.length} items that don't exist in Sunsky catalog have been moved to the Out of Stock tab`,
         variant: "default"
       });
-      
     } catch (error) {
       console.error('Error moving unavailable items:', error);
       toast({
@@ -1323,30 +1202,25 @@ export function Replenishment() {
       });
     }
   };
-
   const handleSunskyOrderSuccess = async (orderNumber: string, selectedOrderIds: string[]) => {
     try {
       // Mark the original inventory items as ordered
       const updatePromises = Array.from(selectedItems).map(async itemId => {
         const item = restockItems.find(i => i.id === itemId);
         if (!item) return;
-        
         return supabase.from('asin_inventory').update({
           status: 'ordered'
         }).eq('id', itemId);
       });
-
       await Promise.all(updatePromises);
-
       toast({
         title: "Sunsky Order Placed Successfully",
-        description: `Order ${orderNumber} has been placed. Selected items marked as ordered. The order may take a few minutes to appear in Sunsky Order Tracking.`,
+        description: `Order ${orderNumber} has been placed. Selected items marked as ordered. The order may take a few minutes to appear in Sunsky Order Tracking.`
       });
-
       setSelectedItems(new Set());
       setSunskyDialogOpen(false);
       loadRestockItems(); // Refresh data
-      
+
       // Try to trigger sync after a short delay to give Sunsky time to process
       setTimeout(async () => {
         try {
@@ -1357,13 +1231,12 @@ export function Replenishment() {
           console.log('Auto-sync failed, manual sync may be needed');
         }
       }, 30000); // Wait 30 seconds before attempting sync
-      
     } catch (error) {
       console.error('Error updating items after Sunsky order:', error);
       toast({
         title: "Order Placed but Update Failed",
         description: `Order ${orderNumber} was placed successfully, but failed to update item status.`,
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
@@ -1375,10 +1248,9 @@ export function Replenishment() {
     console.log(`isAmazonAsin check: "${text}" -> ${result}`);
     return result;
   };
-
   const extractSkuFromIdentifier = (identifier: string): string => {
     console.log(`extractSkuFromIdentifier input: "${identifier}"`);
-    
+
     // First check for the specific format: "ASIN (serial) | SKU: ACTUAL_SKU"
     const skuMatch = identifier.match(/\|\s*SKU:\s*([^\s|]+)/i);
     if (skuMatch) {
@@ -1386,83 +1258,75 @@ export function Replenishment() {
       console.log(`Found SKU in | SKU: format: "${foundSku}"`);
       return foundSku;
     }
-    
+
     // Extract SKU from identifier like "SKU123 (serial456)"
     const match = identifier.match(/^([^(]+)/);
     const extracted = match ? match[1].trim() : identifier;
-    
     console.log(`Extracted part before parentheses: "${extracted}"`);
-    
+
     // Don't return Amazon ASINs as SKUs
     if (isAmazonAsin(extracted)) {
       console.log(`Extracted part is Amazon ASIN, checking other parts: "${extracted}"`);
-      
+
       // Check if there's a SKU in parentheses or after the ASIN
       const parenthesesMatch = identifier.match(/\(([^)]+)\)/);
       const parenthesesContent = parenthesesMatch ? parenthesesMatch[1].trim() : '';
-      
       console.log(`Parentheses content: "${parenthesesContent}"`);
-      
+
       // Return parentheses content if it's not an ASIN and looks valid
       if (parenthesesContent && !isAmazonAsin(parenthesesContent) && parenthesesContent.length >= 3) {
         console.log(`Using parentheses content as SKU: "${parenthesesContent}"`);
         return parenthesesContent;
       }
-      
       return '';
     }
-    
+
     // If the extracted part is too short or looks like a serial number, try the parentheses
     if (extracted.length < 3 || /^\d+$/.test(extracted)) {
       console.log(`Extracted part too short or all digits, checking parentheses: "${extracted}"`);
       const parenthesesMatch = identifier.match(/\(([^)]+)\)/);
       const parenthesesContent = parenthesesMatch ? parenthesesMatch[1].trim() : '';
-      
       console.log(`Parentheses content: "${parenthesesContent}"`);
-      
+
       // Return parentheses content if it's not an ASIN and looks valid
       if (parenthesesContent && !isAmazonAsin(parenthesesContent) && parenthesesContent.length >= 3) {
         console.log(`Using parentheses content as SKU: "${parenthesesContent}"`);
         return parenthesesContent;
       }
     }
-    
     console.log(`Final SKU result: "${extracted}"`);
     return extracted;
   };
-
   const extractAsinFromIdentifier = (identifier: string): string => {
     // If identifier contains ASIN pattern, extract it
     const asinMatch = identifier.match(/([A-Z0-9]{10})/);
     return asinMatch ? asinMatch[1] : '';
   };
-
   const extractModelFromIdentifier = (identifier: string): string => {
     // Extract model from identifier in parentheses (serial number, model number, etc.)
     const match = identifier.match(/\(([^)]+)\)/);
     const modelCandidate = match ? match[1].trim() : '';
-    
+
     // Don't return Amazon ASINs as model numbers
     if (isAmazonAsin(modelCandidate)) {
       return '';
     }
-    
+
     // If it looks like a model number (contains letters and numbers, not just numbers), return it
     if (modelCandidate && /[A-Za-z]/.test(modelCandidate) && modelCandidate.length > 3) {
       return modelCandidate;
     }
-    
+
     // If no good model found in parentheses, check if the main identifier is a model (not an ASIN)
     const mainPart = identifier.split('(')[0].trim();
     if (mainPart && !isAmazonAsin(mainPart) && /[A-Za-z]/.test(mainPart) && mainPart.length >= 3) {
       return mainPart;
     }
-    
+
     // As a last resort, return the model candidate if it's not purely numeric and has reasonable length
     if (modelCandidate && modelCandidate.length >= 3 && !/^\d+$/.test(modelCandidate)) {
       return modelCandidate;
     }
-    
     return '';
   };
 
@@ -1471,7 +1335,7 @@ export function Replenishment() {
     const csvContent = [['Period', 'ASIN Sold', 'Total Sold', 'ASIN Restocked', 'Total Restocked', 'Daily Sell Rate'], ...salesData.map(item => [item.period, item.asin_sold, item.total_sold, item.asin_restocked, item.total_restocked, item.sell_rate.toFixed(2)])].map(row => row.join(',')).join('\n');
     downloadCSV(csvContent, `sales-data-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`);
   };
-  
+
   // Helper function to search/filter items
   const filterItemsBySearch = (items: RestockItem[], searchTerm: string) => {
     if (!searchTerm.trim()) return items;
@@ -1482,135 +1346,100 @@ export function Replenishment() {
       const asinMatch = identifier.match(/^([a-z0-9]+)/);
       const skuMatch = identifier.match(/sku:\s*([^\s|]+)/i);
       const serialMatch = identifier.match(/\(([^)]+)\)/);
-      
       const asin = asinMatch ? asinMatch[1] : '';
       const sku = skuMatch ? skuMatch[1] : '';
       const serial = serialMatch ? serialMatch[1] : '';
-      
-      return identifier.includes(searchLower) ||
-             asin.includes(searchLower) ||
-             sku.includes(searchLower) ||
-             serial.includes(searchLower);
+      return identifier.includes(searchLower) || asin.includes(searchLower) || sku.includes(searchLower) || serial.includes(searchLower);
     });
   };
-  
+
   // Get paginated items
   const getPaginatedItems = (items: RestockItem[], page: number, perPage: number) => {
     const startIndex = (page - 1) * perPage;
     const endIndex = startIndex + perPage;
     return items.slice(startIndex, endIndex);
   };
-  
+
   // Extract ASIN from identifier for image lookup
   const extractAsinForImage = (identifier: string): string => {
     const asinMatch = identifier.match(/^([A-Z0-9]{10})/);
     return asinMatch ? asinMatch[1] : '';
   };
-  
+
   // Filtered and paginated items for each tab
   const filteredReadyToOrder = filterItemsBySearch(pendingItems, readyToOrderSearch);
   const filteredOrdered = filterItemsBySearch(orderedItems, orderedSearch);
   const filteredOutOfStock = filterItemsBySearch(outOfStockItems, outOfStockSearch);
   const filteredNonSource = filterItemsBySearch(nonSourceItems, nonSourceSearch);
-  
   const paginatedReadyToOrder = getPaginatedItems(filteredReadyToOrder, readyToOrderPage, itemsPerPage);
   const paginatedOrdered = getPaginatedItems(filteredOrdered, orderedPage, itemsPerPage);
   const paginatedOutOfStock = getPaginatedItems(filteredOutOfStock, outOfStockPage, itemsPerPage);
   const paginatedNonSource = getPaginatedItems(filteredNonSource, nonSourcePage, itemsPerPage);
-  
   const exportRestockData = () => {
     // Filter items based on search term - use filteredRestockItems to get proper filtered data
     const itemsToExport = filteredRestockItems.filter(item => item.current_quantity === 0 && item.status !== 'ordered');
-    
-    const csvContent = [
-      ['Type', 'ASIN', 'SKU', 'Serial/Bin', 'Current Quantity', 'Days Since Restock', 'Status'], 
-      ...itemsToExport.map(item => {
-        let asin = '';
-        let sku = '';
-        let serialBin = '';
-        
-        if (item.table_name === 'asin_inventory') {
-          // Parse ASIN format: "ASIN123 (Serial456) | SKU: SKU789" or "ASIN123 (Serial456)"
-          const asinMatch = item.identifier.match(/^([A-Z0-9]+)\s*\(([^)]+)\)/);
-          if (asinMatch) {
-            asin = asinMatch[1];
-            serialBin = asinMatch[2];
-          }
-          
-          // Extract SKU if present
-          const skuMatch = item.identifier.match(/\|\s*SKU:\s*([^\s]+)/);
-          if (skuMatch) {
-            sku = skuMatch[1];
-          }
-        } else {
-          // Parse SKU format: "SKU: SKU123 (Bin456)"
-          const skuMatch = item.identifier.match(/SKU:\s*([^\s]+)\s*\(([^)]+)\)/);
-          if (skuMatch) {
-            sku = skuMatch[1];
-            serialBin = skuMatch[2];
-          }
+    const csvContent = [['Type', 'ASIN', 'SKU', 'Serial/Bin', 'Current Quantity', 'Days Since Restock', 'Status'], ...itemsToExport.map(item => {
+      let asin = '';
+      let sku = '';
+      let serialBin = '';
+      if (item.table_name === 'asin_inventory') {
+        // Parse ASIN format: "ASIN123 (Serial456) | SKU: SKU789" or "ASIN123 (Serial456)"
+        const asinMatch = item.identifier.match(/^([A-Z0-9]+)\s*\(([^)]+)\)/);
+        if (asinMatch) {
+          asin = asinMatch[1];
+          serialBin = asinMatch[2];
         }
-        
-        return [
-          item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU', 
-          asin, 
-          sku,
-          `="${serialBin}"`, // Preserve leading zeros with formula format
-          item.current_quantity, 
-          item.days_since_last_restock || 'Never', 
-          item.status || 'Critical'
-        ];
-      })
-    ].map(row => row.join(',')).join('\n');
-    
+
+        // Extract SKU if present
+        const skuMatch = item.identifier.match(/\|\s*SKU:\s*([^\s]+)/);
+        if (skuMatch) {
+          sku = skuMatch[1];
+        }
+      } else {
+        // Parse SKU format: "SKU: SKU123 (Bin456)"
+        const skuMatch = item.identifier.match(/SKU:\s*([^\s]+)\s*\(([^)]+)\)/);
+        if (skuMatch) {
+          sku = skuMatch[1];
+          serialBin = skuMatch[2];
+        }
+      }
+      return [item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU', asin, sku, `="${serialBin}"`,
+      // Preserve leading zeros with formula format
+      item.current_quantity, item.days_since_last_restock || 'Never', item.status || 'Critical'];
+    })].map(row => row.join(',')).join('\n');
     downloadCSV(csvContent, `restock-items-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`);
   };
-  
   const exportOrderedData = () => {
     const itemsToExport = orderedItems.filter(item => item.status === 'ordered');
-    
-    const csvContent = [
-      ['Type', 'ASIN', 'SKU', 'Serial/Bin', 'Current Quantity', 'Days Since Restock', 'Order Status', 'Date Marked'], 
-      ...itemsToExport.map(item => {
-        let asin = '';
-        let sku = '';
-        let serialBin = '';
-        
-        if (item.table_name === 'asin_inventory') {
-          // Parse ASIN format: "ASIN123 (Serial456) | SKU: SKU789" or "ASIN123 (Serial456)"
-          const asinMatch = item.identifier.match(/^([A-Z0-9]+)\s*\(([^)]+)\)/);
-          if (asinMatch) {
-            asin = asinMatch[1];
-            serialBin = asinMatch[2];
-          }
-          
-          // Extract SKU if present
-          const skuMatch = item.identifier.match(/\|\s*SKU:\s*([^\s]+)/);
-          if (skuMatch) {
-            sku = skuMatch[1];
-          }
-        } else {
-          // Parse SKU format: "SKU: SKU123 (Bin456)"
-          const skuMatch = item.identifier.match(/SKU:\s*([^\s]+)\s*\(([^)]+)\)/);
-          if (skuMatch) {
-            sku = skuMatch[1];
-            serialBin = skuMatch[2];
-          }
+    const csvContent = [['Type', 'ASIN', 'SKU', 'Serial/Bin', 'Current Quantity', 'Days Since Restock', 'Order Status', 'Date Marked'], ...itemsToExport.map(item => {
+      let asin = '';
+      let sku = '';
+      let serialBin = '';
+      if (item.table_name === 'asin_inventory') {
+        // Parse ASIN format: "ASIN123 (Serial456) | SKU: SKU789" or "ASIN123 (Serial456)"
+        const asinMatch = item.identifier.match(/^([A-Z0-9]+)\s*\(([^)]+)\)/);
+        if (asinMatch) {
+          asin = asinMatch[1];
+          serialBin = asinMatch[2];
         }
-        
-        return [
-          item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU', 
-          asin, 
-          sku,
-          `="${serialBin}"`, // Preserve leading zeros with formula format
-          item.current_quantity, 
-          item.days_since_last_restock || 'Never', 
-          item.status, 
-          new Date().toLocaleDateString()
-        ];
-      })
-    ].map(row => row.join(',')).join('\n');
-    
+
+        // Extract SKU if present
+        const skuMatch = item.identifier.match(/\|\s*SKU:\s*([^\s]+)/);
+        if (skuMatch) {
+          sku = skuMatch[1];
+        }
+      } else {
+        // Parse SKU format: "SKU: SKU123 (Bin456)"
+        const skuMatch = item.identifier.match(/SKU:\s*([^\s]+)\s*\(([^)]+)\)/);
+        if (skuMatch) {
+          sku = skuMatch[1];
+          serialBin = skuMatch[2];
+        }
+      }
+      return [item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU', asin, sku, `="${serialBin}"`,
+      // Preserve leading zeros with formula format
+      item.current_quantity, item.days_since_last_restock || 'Never', item.status, new Date().toLocaleDateString()];
+    })].map(row => row.join(',')).join('\n');
     downloadCSV(csvContent, `ordered-items-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`);
   };
   const downloadCSV = (content: string, filename: string) => {
@@ -1640,12 +1469,7 @@ export function Replenishment() {
       startDate.setDate(startDate.getDate() - daysNum);
 
       // Get ASIN data only
-      const asinQuery = supabase.from('asin_inventory')
-        .select('*')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-        .eq('country', selectedCountry)
-        .eq('eligible_for_restock', true);
-
+      const asinQuery = supabase.from('asin_inventory').select('*').eq('user_id', (await supabase.auth.getUser()).data.user?.id).eq('country', selectedCountry).eq('eligible_for_restock', true);
       const [asinResult] = await Promise.all([asinQuery]);
       if (asinResult.error) throw asinResult.error;
 
@@ -1708,50 +1532,35 @@ export function Replenishment() {
 
   // Export trends data
   const exportTrendsData = () => {
-    const csvContent = [
-      ['Type', 'ASIN', 'SKU', 'Serial/Bin', 'Current Stock', 'Sold Quantity', 'Sell Rate/Day', 'Last Sold', 'Days Since Restock', 'Stock Status'], 
-      ...filteredTrendsItems.map(item => {
-        let asin = '';
-        let sku = '';
-        let serialBin = '';
-        
-        if (item.table_name === 'asin_inventory') {
-          // Parse ASIN format: "ASIN123 (Serial456) | SKU: SKU789" or "ASIN123 (Serial456)"
-          const asinMatch = item.identifier.match(/^([A-Z0-9]+)\s*\(([^)]+)\)/);
-          if (asinMatch) {
-            asin = asinMatch[1];
-            serialBin = asinMatch[2];
-          }
-          
-          // Extract SKU if present
-          const skuMatch = item.identifier.match(/\|\s*SKU:\s*([^\s]+)/);
-          if (skuMatch) {
-            sku = skuMatch[1];
-          }
-        } else {
-          // Parse SKU format: "SKU: SKU123 (Bin456)"
-          const skuMatch = item.identifier.match(/SKU:\s*([^\s]+)\s*\(([^)]+)\)/);
-          if (skuMatch) {
-            sku = skuMatch[1];
-            serialBin = skuMatch[2];
-          }
+    const csvContent = [['Type', 'ASIN', 'SKU', 'Serial/Bin', 'Current Stock', 'Sold Quantity', 'Sell Rate/Day', 'Last Sold', 'Days Since Restock', 'Stock Status'], ...filteredTrendsItems.map(item => {
+      let asin = '';
+      let sku = '';
+      let serialBin = '';
+      if (item.table_name === 'asin_inventory') {
+        // Parse ASIN format: "ASIN123 (Serial456) | SKU: SKU789" or "ASIN123 (Serial456)"
+        const asinMatch = item.identifier.match(/^([A-Z0-9]+)\s*\(([^)]+)\)/);
+        if (asinMatch) {
+          asin = asinMatch[1];
+          serialBin = asinMatch[2];
         }
-        
-        return [
-          item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU', 
-          asin, 
-          sku,
-          `="${serialBin}"`, // Preserve leading zeros with formula format
-          item.current_quantity, 
-          item.sold_quantity, 
-          item.sell_rate.toFixed(2), 
-          item.last_sold_date ? new Date(item.last_sold_date).toLocaleDateString() : 'Never', 
-          item.days_since_last_restock || 'Never', 
-          item.current_quantity <= 5 ? 'Critical' : item.current_quantity <= 10 ? 'Low' : 'Good'
-        ];
-      })
-    ].map(row => row.join(',')).join('\n');
-    
+
+        // Extract SKU if present
+        const skuMatch = item.identifier.match(/\|\s*SKU:\s*([^\s]+)/);
+        if (skuMatch) {
+          sku = skuMatch[1];
+        }
+      } else {
+        // Parse SKU format: "SKU: SKU123 (Bin456)"
+        const skuMatch = item.identifier.match(/SKU:\s*([^\s]+)\s*\(([^)]+)\)/);
+        if (skuMatch) {
+          sku = skuMatch[1];
+          serialBin = skuMatch[2];
+        }
+      }
+      return [item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU', asin, sku, `="${serialBin}"`,
+      // Preserve leading zeros with formula format
+      item.current_quantity, item.sold_quantity, item.sell_rate.toFixed(2), item.last_sold_date ? new Date(item.last_sold_date).toLocaleDateString() : 'Never', item.days_since_last_restock || 'Never', item.current_quantity <= 5 ? 'Critical' : item.current_quantity <= 10 ? 'Low' : 'Good'];
+    })].map(row => row.join(',')).join('\n');
     downloadCSV(csvContent, `trends-analysis-${selectedCountry}-${trendsDateRange}-${new Date().toISOString().split('T')[0]}.csv`);
   };
 
@@ -1819,13 +1628,7 @@ export function Replenishment() {
   const openActiveItemsDialog = async () => {
     try {
       // Get all active items from both tables
-      const [asinData] = await Promise.all([
-        supabase.from('asin_inventory')
-          .select('*')
-          .eq('country', selectedCountry)
-          .eq('status', 'in-stock')
-          .eq('eligible_for_restock', true)
-      ]);
+      const [asinData] = await Promise.all([supabase.from('asin_inventory').select('*').eq('country', selectedCountry).eq('status', 'in-stock').eq('eligible_for_restock', true)]);
       if (asinData.error) throw asinData.error;
       const activeItemsData = [...(asinData.data || []).map(item => ({
         id: item.id,
@@ -1937,8 +1740,8 @@ export function Replenishment() {
       {/* Header with refresh button */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">Sales & Replenishment Dashboard</h2>
-          <p className="text-muted-foreground">Real-time analytics for {selectedCountry}</p>
+          
+          
         </div>
         <Button onClick={loadAllData} variant="outline" size="sm" className="gap-2">
           <RefreshCw className="w-4 h-4" />
@@ -1947,113 +1750,7 @@ export function Replenishment() {
       </div>
 
       {/* Advanced Metrics Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-        {/* Critical Stock Items */}
-        <Card className="glass-container hover-scale cursor-pointer transition-all duration-300 hover:shadow-glow border-l-4 border-l-destructive" onClick={openCriticalStockDialog}>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <AlertTriangle className="w-4 h-4 text-destructive" />
-                  <p className="text-xs font-medium text-muted-foreground">Critical Stock</p>
-                </div>
-                <p className="text-2xl font-bold text-foreground">{pendingItems.length}</p>
-                <p className="text-xs text-destructive">Out of stock</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Items Ordered */}
-        <Card className="glass-container hover-scale cursor-pointer transition-all duration-300 hover:shadow-glow border-l-4" style={{
-        borderLeftColor: 'hsl(220, 70%, 50%)'
-      }} onClick={openOrderedItemsDialog}>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <Truck className="w-4 h-4" style={{
-                  color: 'hsl(220, 70%, 50%)'
-                }} />
-                  <p className="text-xs font-medium text-muted-foreground">Ordered</p>
-                </div>
-                <p className="text-2xl font-bold text-foreground">{orderedItems.length}</p>
-                <p className="text-xs" style={{
-                color: 'hsl(220, 70%, 50%)'
-              }}>From supplier</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Total Sales (30 days) */}
-        <Card className="glass-container hover-scale cursor-pointer transition-all duration-300 hover:shadow-glow border-l-4 border-l-primary" onClick={openActiveItemsDialog}>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <TrendingUp className="w-4 h-4 text-primary" />
-                  <p className="text-xs font-medium text-muted-foreground">Sales (30d)</p>
-                </div>
-                <p className="text-2xl font-bold text-foreground">{totalSales30d}</p>
-                <p className="text-xs text-primary">Units sold</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Total Restocks (30 days) */}
-        <Card className="glass-container hover-scale cursor-pointer transition-all duration-300 hover:shadow-glow border-l-4 border-l-secondary">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <Package className="w-4 h-4 text-secondary" />
-                  <p className="text-xs font-medium text-muted-foreground">Restocks (30d)</p>
-                </div>
-                <p className="text-2xl font-bold text-foreground">{totalRestocks30d}</p>
-                <p className="text-xs text-secondary">Units restocked</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Daily Sell Rate */}
-        <Card className="glass-container hover-scale transition-all duration-300 hover:shadow-glow border-l-4 border-l-accent">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <Zap className="w-4 h-4 text-accent" />
-                  <p className="text-xs font-medium text-muted-foreground">Daily Rate</p>
-                </div>
-                <p className="text-2xl font-bold text-foreground">
-                  {salesData.find(d => d.period === '30d')?.sell_rate?.toFixed(1) || '0'}
-                </p>
-                <p className="text-xs text-accent">Units/day</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Stock Ratio */}
-        <Card className="glass-container hover-scale transition-all duration-300 hover:shadow-glow border-l-4 border-l-chart-1">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <Target className="w-4 h-4 text-chart-1" />
-                  <p className="text-xs font-medium text-muted-foreground">Stock Ratio</p>
-                </div>
-                <p className="text-2xl font-bold text-foreground">
-                  {totalRestocks30d > 0 ? (totalSales30d / totalRestocks30d * 100).toFixed(0) : '0'}%
-                </p>
-                <p className="text-xs text-chart-1">Efficiency</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="restock" className="w-full">
@@ -2113,11 +1810,7 @@ export function Replenishment() {
                 {/* Ready to Order Tab */}
                 <TabsContent value="critical" className="space-y-4 mt-6">
                   {/* Search Bar */}
-                  <ReplenishmentSearchBar
-                    value={readyToOrderSearch}
-                    onChange={setReadyToOrderSearch}
-                    placeholder="Search by ASIN, SKU, serial number, or title..."
-                  />
+                  <ReplenishmentSearchBar value={readyToOrderSearch} onChange={setReadyToOrderSearch} placeholder="Search by ASIN, SKU, serial number, or title..." />
                   
                   <div className="flex items-center justify-between gap-4">
                     <Badge variant="outline" className="text-sm whitespace-nowrap bg-green-50 text-green-700 border-green-200">
@@ -2155,21 +1848,12 @@ export function Replenishment() {
 
                    <div className="space-y-3">
                      {paginatedReadyToOrder.length > 0 ? paginatedReadyToOrder.map(item => {
-                        // Check if item has valid SKU for Sunsky ordering
-                        const extractedSku = extractSkuFromIdentifier(item.identifier);
-                        const extractedModel = extractModelFromIdentifier(item.identifier);
-                        const asin = extractAsinForImage(item.identifier);
-                        const imageUrl = asin ? getImageByAsin(asin)?.image_url : undefined;
-                        
-                        return <ReplenishmentItemCard
-                          key={item.id}
-                          item={item}
-                          imageUrl={imageUrl}
-                          selected={selectedItems.has(item.id)}
-                          onSelect={handleSelectItem}
-                          showCheckbox={true}
-                          actions={
-                            <>
+                    // Check if item has valid SKU for Sunsky ordering
+                    const extractedSku = extractSkuFromIdentifier(item.identifier);
+                    const extractedModel = extractModelFromIdentifier(item.identifier);
+                    const asin = extractAsinForImage(item.identifier);
+                    const imageUrl = asin ? getImageByAsin(asin)?.image_url : undefined;
+                    return <ReplenishmentItemCard key={item.id} item={item} imageUrl={imageUrl} selected={selectedItems.has(item.id)} onSelect={handleSelectItem} showCheckbox={true} actions={<>
                               <Badge variant="secondary" className="text-xs bg-green-500/20 text-green-700 border-green-300">
                                 Ready to Order
                               </Badge>
@@ -2180,10 +1864,8 @@ export function Replenishment() {
                                 <XCircle className="w-4 h-4" />
                                 Mark as Non-Source
                               </Button>
-                            </>
-                          }
-                        />
-                       }) : <div className="text-center py-12 text-muted-foreground">
+                            </>} />;
+                  }) : <div className="text-center py-12 text-muted-foreground">
                         <ShoppingCart className="w-16 h-16 mx-auto mb-4 opacity-50 text-green-500" />
                         <p className="text-lg font-medium">No items ready to order</p>
                         <p className="text-sm">
@@ -2193,16 +1875,7 @@ export function Replenishment() {
                   </div>
 
                    {/* Pagination */}
-                   {filteredReadyToOrder.length > 0 && (
-                     <ReplenishmentPagination
-                       currentPage={readyToOrderPage}
-                       totalPages={Math.ceil(filteredReadyToOrder.length / itemsPerPage)}
-                       totalItems={filteredReadyToOrder.length}
-                       itemsPerPage={itemsPerPage}
-                       onPageChange={setReadyToOrderPage}
-                       onItemsPerPageChange={setItemsPerPage}
-                     />
-                   )}
+                   {filteredReadyToOrder.length > 0 && <ReplenishmentPagination currentPage={readyToOrderPage} totalPages={Math.ceil(filteredReadyToOrder.length / itemsPerPage)} totalItems={filteredReadyToOrder.length} itemsPerPage={itemsPerPage} onPageChange={setReadyToOrderPage} onItemsPerPageChange={setItemsPerPage} />}
 
                    {/* Export button for ready-to-order items */}
                    {filteredReadyToOrder.length > 0 && <div className="pt-4 border-t">
@@ -2216,11 +1889,7 @@ export function Replenishment() {
                 {/* Out of Stock Tab */}
                 <TabsContent value="out-of-stock" className="space-y-4 mt-6">
                   {/* Search Bar */}
-                  <ReplenishmentSearchBar
-                    value={outOfStockSearch}
-                    onChange={setOutOfStockSearch}
-                    placeholder="Search out-of-stock items by ASIN, SKU, serial number, or title..."
-                  />
+                  <ReplenishmentSearchBar value={outOfStockSearch} onChange={setOutOfStockSearch} placeholder="Search out-of-stock items by ASIN, SKU, serial number, or title..." />
                   
                   <div className="flex items-center justify-between gap-4">
                     <div className="text-sm text-muted-foreground">
@@ -2233,15 +1902,9 @@ export function Replenishment() {
 
                   <div className="space-y-3">
                     {paginatedOutOfStock.length > 0 ? paginatedOutOfStock.map(item => {
-                      const asin = extractAsinForImage(item.identifier);
-                      const imageUrl = asin ? getImageByAsin(asin)?.image_url : undefined;
-                      
-                      return <ReplenishmentItemCard
-                        key={item.id}
-                        item={item}
-                        imageUrl={imageUrl}
-                        actions={
-                          <>
+                    const asin = extractAsinForImage(item.identifier);
+                    const imageUrl = asin ? getImageByAsin(asin)?.image_url : undefined;
+                    return <ReplenishmentItemCard key={item.id} item={item} imageUrl={imageUrl} actions={<>
                             <Badge variant="destructive" className="text-xs">
                               Out of Stock
                             </Badge>
@@ -2252,90 +1915,51 @@ export function Replenishment() {
                               <XCircle className="w-4 h-4" />
                               Mark as Non-Source
                             </Button>
-                          </>
-                        }
-                      />
-                    }) : (
-                      <div className="text-center py-12 text-muted-foreground">
+                          </>} />;
+                  }) : <div className="text-center py-12 text-muted-foreground">
                         <CheckCircle className="w-16 h-16 mx-auto mb-4 opacity-50 text-green-500" />
                         <p className="text-lg font-medium">No out of stock items</p>
                         <p className="text-sm">
                           {outOfStockSearch ? 'No items match your search.' : 'All out of stock items have valid SKUs and can be ordered!'}
                         </p>
-                      </div>
-                    )}
+                      </div>}
                   </div>
 
                   {/* Pagination */}
-                  {filteredOutOfStock.length > 0 && (
-                    <ReplenishmentPagination
-                      currentPage={outOfStockPage}
-                      totalPages={Math.ceil(filteredOutOfStock.length / itemsPerPage)}
-                      totalItems={filteredOutOfStock.length}
-                      itemsPerPage={itemsPerPage}
-                      onPageChange={setOutOfStockPage}
-                      onItemsPerPageChange={setItemsPerPage}
-                    />
-                  )}
+                  {filteredOutOfStock.length > 0 && <ReplenishmentPagination currentPage={outOfStockPage} totalPages={Math.ceil(filteredOutOfStock.length / itemsPerPage)} totalItems={filteredOutOfStock.length} itemsPerPage={itemsPerPage} onPageChange={setOutOfStockPage} onItemsPerPageChange={setItemsPerPage} />}
 
                   {/* Export button for out of stock items */}
-                  {filteredOutOfStock.length > 0 && (
-                    <div className="pt-4 border-t">
-                      <Button 
-                        onClick={() => {
-                          const csvContent = [
-                            ['Type', 'ASIN', 'SKU', 'Serial/Bin', 'Current Quantity', 'Days Since Restock', 'Status', 'Notes'], 
-                            ...filteredOutOfStock.map(item => {
-                              let asin = '';
-                              let sku = '';
-                              let serialBin = '';
-                              
-                              if (item.table_name === 'asin_inventory') {
-                                const asinMatch = item.identifier.match(/^([A-Z0-9]+)\s*\(([^)]+)\)/);
-                                if (asinMatch) {
-                                  asin = asinMatch[1];
-                                  serialBin = asinMatch[2];
-                                }
-                                const skuMatch = item.identifier.match(/\|\s*SKU:\s*([^\s]+)/);
-                                if (skuMatch) {
-                                  sku = skuMatch[1];
-                                }
-                              }
-                              
-                              return [
-                                'ASIN', 
-                                asin, 
-                                sku,
-                                `="${serialBin}"`,
-                                item.current_quantity, 
-                                item.days_since_last_restock || 'Never', 
-                                'Out of Stock - No Valid SKU', 
-                                'Requires manual ordering or SKU mapping'
-                              ];
-                            })
-                          ].map(row => row.join(',')).join('\n');
-                          
-                          downloadCSV(csvContent, `out-of-stock-items-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`);
-                        }} 
-                        variant="outline" 
-                        size="sm" 
-                        className="gap-2"
-                      >
+                  {filteredOutOfStock.length > 0 && <div className="pt-4 border-t">
+                      <Button onClick={() => {
+                    const csvContent = [['Type', 'ASIN', 'SKU', 'Serial/Bin', 'Current Quantity', 'Days Since Restock', 'Status', 'Notes'], ...filteredOutOfStock.map(item => {
+                      let asin = '';
+                      let sku = '';
+                      let serialBin = '';
+                      if (item.table_name === 'asin_inventory') {
+                        const asinMatch = item.identifier.match(/^([A-Z0-9]+)\s*\(([^)]+)\)/);
+                        if (asinMatch) {
+                          asin = asinMatch[1];
+                          serialBin = asinMatch[2];
+                        }
+                        const skuMatch = item.identifier.match(/\|\s*SKU:\s*([^\s]+)/);
+                        if (skuMatch) {
+                          sku = skuMatch[1];
+                        }
+                      }
+                      return ['ASIN', asin, sku, `="${serialBin}"`, item.current_quantity, item.days_since_last_restock || 'Never', 'Out of Stock - No Valid SKU', 'Requires manual ordering or SKU mapping'];
+                    })].map(row => row.join(',')).join('\n');
+                    downloadCSV(csvContent, `out-of-stock-items-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`);
+                  }} variant="outline" size="sm" className="gap-2">
                         <Download className="w-4 h-4" />
                         Export Out of Stock Items
                       </Button>
-                    </div>
-                  )}
+                    </div>}
                 </TabsContent>
 
                 {/* Ordered Tab */}
                 <TabsContent value="ordered" className="space-y-4 mt-6">
                   {/* Search Bar */}
-                  <ReplenishmentSearchBar
-                    value={orderedSearch}
-                    onChange={setOrderedSearch}
-                    placeholder="Search ordered items by ASIN, SKU, serial number, or title..."
-                  />
+                  <ReplenishmentSearchBar value={orderedSearch} onChange={setOrderedSearch} placeholder="Search ordered items by ASIN, SKU, serial number, or title..." />
                   
                   <div className="flex items-center justify-between gap-4">
                     <div className="text-sm text-muted-foreground">
@@ -2348,61 +1972,36 @@ export function Replenishment() {
 
                   <div className="space-y-3">
                     {paginatedOrdered.length > 0 ? paginatedOrdered.map(item => {
-                      const asin = extractAsinForImage(item.identifier);
-                      const imageUrl = asin ? getImageByAsin(asin)?.image_url : undefined;
-                      
-                      return <ReplenishmentItemCard
-                        key={item.id}
-                        item={item}
-                        imageUrl={imageUrl}
-                        actions={
-                          <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-700 border-blue-300">
+                    const asin = extractAsinForImage(item.identifier);
+                    const imageUrl = asin ? getImageByAsin(asin)?.image_url : undefined;
+                    return <ReplenishmentItemCard key={item.id} item={item} imageUrl={imageUrl} actions={<Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-700 border-blue-300">
                             Ordered - Awaiting Fulfillment
-                          </Badge>
-                        }
-                      />
-                    }) : (
-                      <div className="text-center py-12 text-muted-foreground">
+                          </Badge>} />;
+                  }) : <div className="text-center py-12 text-muted-foreground">
                         <Truck className="w-16 h-16 mx-auto mb-4 opacity-50 text-blue-500" />
                         <p className="text-lg font-medium">No ordered items</p>
                         <p className="text-sm">
                           {orderedSearch ? 'No items match your search.' : 'Items marked as ordered will appear here'}
                         </p>
-                      </div>
-                    )}
+                      </div>}
                   </div>
 
                   {/* Pagination */}
-                  {filteredOrdered.length > 0 && (
-                    <ReplenishmentPagination
-                      currentPage={orderedPage}
-                      totalPages={Math.ceil(filteredOrdered.length / itemsPerPage)}
-                      totalItems={filteredOrdered.length}
-                      itemsPerPage={itemsPerPage}
-                      onPageChange={setOrderedPage}
-                      onItemsPerPageChange={setItemsPerPage}
-                    />
-                  )}
+                  {filteredOrdered.length > 0 && <ReplenishmentPagination currentPage={orderedPage} totalPages={Math.ceil(filteredOrdered.length / itemsPerPage)} totalItems={filteredOrdered.length} itemsPerPage={itemsPerPage} onPageChange={setOrderedPage} onItemsPerPageChange={setItemsPerPage} />}
 
                   {/* Export button */}
-                  {filteredOrdered.length > 0 && (
-                    <div className="pt-4 border-t">
+                  {filteredOrdered.length > 0 && <div className="pt-4 border-t">
                       <Button onClick={exportOrderedData} variant="outline" size="sm" className="gap-2">
                         <Download className="w-4 h-4" />
                         Export Ordered Items
                       </Button>
-                    </div>
-                  )}
+                    </div>}
                 </TabsContent>
 
                 {/* Non-Source Tab */}
                 <TabsContent value="non-source" className="space-y-4 mt-6">
                   {/* Search Bar */}
-                  <ReplenishmentSearchBar
-                    value={nonSourceSearch}
-                    onChange={setNonSourceSearch}
-                    placeholder="Search non-source items by ASIN, SKU, serial number, or title..."
-                  />
+                  <ReplenishmentSearchBar value={nonSourceSearch} onChange={setNonSourceSearch} placeholder="Search non-source items by ASIN, SKU, serial number, or title..." />
                   
                   <div className="flex items-center justify-between gap-4">
                     <div className="text-sm text-muted-foreground">
@@ -2415,86 +2014,47 @@ export function Replenishment() {
 
                   <div className="space-y-3">
                     {paginatedNonSource.length > 0 ? paginatedNonSource.map(item => {
-                      const asin = extractAsinForImage(item.identifier);
-                      const imageUrl = asin ? getImageByAsin(asin)?.image_url : undefined;
-                      
-                      return <ReplenishmentItemCard
-                        key={item.id}
-                        item={item}
-                        imageUrl={imageUrl}
-                        actions={
-                          <Badge variant="outline" className="text-xs border-orange-500 text-orange-600 bg-orange-50">
+                    const asin = extractAsinForImage(item.identifier);
+                    const imageUrl = asin ? getImageByAsin(asin)?.image_url : undefined;
+                    return <ReplenishmentItemCard key={item.id} item={item} imageUrl={imageUrl} actions={<Badge variant="outline" className="text-xs border-orange-500 text-orange-600 bg-orange-50">
                             Non-Source - Do Not Restock
-                          </Badge>
-                        }
-                      />
-                    }) : (
-                      <div className="text-center py-12 text-muted-foreground">
+                          </Badge>} />;
+                  }) : <div className="text-center py-12 text-muted-foreground">
                         <XCircle className="w-16 h-16 mx-auto mb-4 opacity-50 text-orange-500" />
                         <p className="text-lg font-medium">No non-source items</p>
                         <p className="text-sm">
                           {nonSourceSearch ? 'No items match your search.' : 'Items marked as non-source will appear here'}
                         </p>
-                      </div>
-                    )}
+                      </div>}
                   </div>
 
                   {/* Pagination */}
-                  {filteredNonSource.length > 0 && (
-                    <ReplenishmentPagination
-                      currentPage={nonSourcePage}
-                      totalPages={Math.ceil(filteredNonSource.length / itemsPerPage)}
-                      totalItems={filteredNonSource.length}
-                      itemsPerPage={itemsPerPage}
-                      onPageChange={setNonSourcePage}
-                      onItemsPerPageChange={setItemsPerPage}
-                    />
-                  )}
+                  {filteredNonSource.length > 0 && <ReplenishmentPagination currentPage={nonSourcePage} totalPages={Math.ceil(filteredNonSource.length / itemsPerPage)} totalItems={filteredNonSource.length} itemsPerPage={itemsPerPage} onPageChange={setNonSourcePage} onItemsPerPageChange={setItemsPerPage} />}
 
                   {/* Export button */}
-                  {filteredNonSource.length > 0 && (
-                    <div className="pt-4 border-t">
-                      <Button 
-                        onClick={() => {
-                          const csvContent = [
-                            ['Type', 'ASIN', 'SKU', 'Serial/Bin', 'Status', 'Notes'], 
-                            ...filteredNonSource.map(item => {
-                              let asin = '';
-                              let sku = '';
-                              let serialBin = '';
-                              
-                              const asinMatch = item.identifier.match(/^([A-Z0-9]+)\s*\(([^)]+)\)/);
-                              if (asinMatch) {
-                                asin = asinMatch[1];
-                                serialBin = asinMatch[2];
-                              }
-                              const skuMatch = item.identifier.match(/\|\s*SKU:\s*([^\s]+)/);
-                              if (skuMatch) {
-                                sku = skuMatch[1];
-                              }
-                              
-                              return [
-                                'ASIN', 
-                                asin, 
-                                sku,
-                                `="${serialBin}"`,
-                                'Non-Source', 
-                                'Marked as non-source - not to be restocked'
-                              ];
-                            })
-                          ].map(row => row.join(',')).join('\n');
-                          
-                          downloadCSV(csvContent, `non-source-items-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`);
-                        }} 
-                        variant="outline" 
-                        size="sm" 
-                        className="gap-2"
-                      >
+                  {filteredNonSource.length > 0 && <div className="pt-4 border-t">
+                      <Button onClick={() => {
+                    const csvContent = [['Type', 'ASIN', 'SKU', 'Serial/Bin', 'Status', 'Notes'], ...filteredNonSource.map(item => {
+                      let asin = '';
+                      let sku = '';
+                      let serialBin = '';
+                      const asinMatch = item.identifier.match(/^([A-Z0-9]+)\s*\(([^)]+)\)/);
+                      if (asinMatch) {
+                        asin = asinMatch[1];
+                        serialBin = asinMatch[2];
+                      }
+                      const skuMatch = item.identifier.match(/\|\s*SKU:\s*([^\s]+)/);
+                      if (skuMatch) {
+                        sku = skuMatch[1];
+                      }
+                      return ['ASIN', asin, sku, `="${serialBin}"`, 'Non-Source', 'Marked as non-source - not to be restocked'];
+                    })].map(row => row.join(',')).join('\n');
+                    downloadCSV(csvContent, `non-source-items-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`);
+                  }} variant="outline" size="sm" className="gap-2">
                         <Download className="w-4 h-4" />
                         Export Non-Source Items
                       </Button>
-                    </div>
-                  )}
+                    </div>}
                 </TabsContent>
 
 
@@ -2582,12 +2142,6 @@ export function Replenishment() {
       </Dialog>
 
       {/* Sunsky Order Dialog */}
-      <SunskyOrderDialog
-        open={sunskyDialogOpen}
-        onOpenChange={setSunskyDialogOpen}
-        selectedOrders={sunskyOrderItems}
-        onOrderSuccess={handleSunskyOrderSuccess}
-        onItemsUnavailable={handleItemsUnavailable}
-      />
+      <SunskyOrderDialog open={sunskyDialogOpen} onOpenChange={setSunskyDialogOpen} selectedOrders={sunskyOrderItems} onOrderSuccess={handleSunskyOrderSuccess} onItemsUnavailable={handleItemsUnavailable} />
     </div>;
 }
