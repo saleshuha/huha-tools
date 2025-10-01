@@ -1,0 +1,116 @@
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Package, Calendar, Clock, AlertTriangle } from 'lucide-react';
+import { format } from 'date-fns';
+
+interface ReplenishmentItemCardProps {
+  item: {
+    id: string;
+    identifier: string;
+    asin?: string;
+    sku?: string;
+    serial_number?: string;
+    current_quantity: number;
+    status: string;
+    date_sold?: string | null;
+    last_restock_date?: string | null;
+    days_since_last_restock?: number | null;
+  };
+  imageUrl?: string;
+  selected?: boolean;
+  onSelect?: (id: string, checked: boolean) => void;
+  actions?: React.ReactNode;
+  showCheckbox?: boolean;
+}
+
+export function ReplenishmentItemCard({ 
+  item, 
+  imageUrl, 
+  selected = false, 
+  onSelect,
+  actions,
+  showCheckbox = false
+}: ReplenishmentItemCardProps) {
+  return (
+    <Card className="p-4 hover:shadow-md transition-shadow">
+      <div className="flex gap-4">
+        {showCheckbox && onSelect && (
+          <div className="flex items-start pt-1">
+            <Checkbox
+              checked={selected}
+              onCheckedChange={(checked) => onSelect(item.id, checked as boolean)}
+            />
+          </div>
+        )}
+        
+        {/* Image */}
+        <div className="flex-shrink-0">
+          {imageUrl ? (
+            <img 
+              src={imageUrl} 
+              alt={item.identifier}
+              className="w-24 h-24 object-cover rounded-md border border-border"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="96" height="96" fill="none"%3E%3Crect width="96" height="96" fill="%23f3f4f6"/%3E%3Cpath d="M48 44a4 4 0 100-8 4 4 0 000 8zM32 56l8-8 8 8 16-16v24H32V56z" fill="%239ca3af"/%3E%3C/svg%3E';
+              }}
+            />
+          ) : (
+            <div className="w-24 h-24 bg-muted rounded-md flex items-center justify-center">
+              <Package className="w-8 h-8 text-muted-foreground" />
+            </div>
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2 mb-2">
+            <div className="flex-1 min-w-0">
+              <h4 className="font-medium text-sm truncate mb-1">{item.identifier}</h4>
+              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                {item.asin && <span className="font-mono">ASIN: {item.asin}</span>}
+                {item.sku && <span className="font-mono">SKU: {item.sku}</span>}
+                {item.serial_number && <span className="font-mono">SN: {item.serial_number}</span>}
+              </div>
+            </div>
+            <Badge variant={item.status === 'ordered' ? 'secondary' : 'default'}>
+              {item.status}
+            </Badge>
+          </div>
+
+          <div className="flex flex-wrap gap-4 text-xs text-muted-foreground mb-3">
+            <div className="flex items-center gap-1">
+              <Package className="w-3 h-3" />
+              <span>Qty: {item.current_quantity}</span>
+            </div>
+            {item.date_sold && (
+              <div className="flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
+                <span>Sold: {format(new Date(item.date_sold), 'MMM dd, yyyy')}</span>
+              </div>
+            )}
+            {item.last_restock_date && (
+              <div className="flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                <span>Restocked: {format(new Date(item.last_restock_date), 'MMM dd, yyyy')}</span>
+              </div>
+            )}
+            {item.days_since_last_restock !== null && (
+              <div className="flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" />
+                <span>{item.days_since_last_restock} days since restock</span>
+              </div>
+            )}
+          </div>
+
+          {actions && (
+            <div className="flex gap-2">
+              {actions}
+            </div>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}

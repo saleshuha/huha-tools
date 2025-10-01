@@ -16,8 +16,12 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCountry } from '@/contexts/CountryContext';
 import { useInventoryAnalytics } from '@/hooks/useInventoryAnalytics';
+import { useProductImages } from '@/hooks/useProductImages';
 import { InventoryAnalytics } from './InventoryAnalytics';
 import { VelocityDashboard } from './VelocityDashboard';
+import { ReplenishmentItemCard } from './replenishment/ReplenishmentItemCard';
+import { ReplenishmentSearchBar } from './replenishment/ReplenishmentSearchBar';
+import { ReplenishmentPagination } from './replenishment/ReplenishmentPagination';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
 import { cn } from '@/lib/utils';
@@ -91,9 +95,24 @@ interface InventoryMetrics {
   performanceRating: number;
 }
 export function Replenishment() {
-  // Pagination state
+  // Product Images
+  const { productImages, getImageByAsin, isLoading: imagesLoading } = useProductImages();
+  
+  // Search states for each tab
+  const [readyToOrderSearch, setReadyToOrderSearch] = useState('');
+  const [orderedSearch, setOrderedSearch] = useState('');
+  const [outOfStockSearch, setOutOfStockSearch] = useState('');
+  const [nonSourceSearch, setNonSourceSearch] = useState('');
+  
+  // Pagination states for each tab
+  const [readyToOrderPage, setReadyToOrderPage] = useState(1);
+  const [orderedPage, setOrderedPage] = useState(1);
+  const [outOfStockPage, setOutOfStockPage] = useState(1);
+  const [nonSourcePage, setNonSourcePage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+  
+  // Pagination state (legacy, kept for other features)
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(20);
 
   // Header filter functions
   const updateHeaderFilter = (field: string, value: string) => {
@@ -179,7 +198,7 @@ export function Replenishment() {
     type: 'critical'
   });
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(''); // Legacy search for main features
   const [selectedPeriod, setSelectedPeriod] = useState('30d');
   const [restockItems, setRestockItems] = useState<RestockItem[]>([]);
   const [orderedItems, setOrderedItems] = useState<RestockItem[]>([]);
@@ -1453,6 +1472,52 @@ export function Replenishment() {
     downloadCSV(csvContent, `sales-data-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`);
   };
   
+  // Helper function to search/filter items
+  const filterItemsBySearch = (items: RestockItem[], searchTerm: string) => {
+    if (!searchTerm.trim()) return items;
+    const searchLower = searchTerm.toLowerCase();
+    return items.filter(item => {
+      const identifier = item.identifier.toLowerCase();
+      // Extract ASIN, SKU, and serial number from identifier
+      const asinMatch = identifier.match(/^([a-z0-9]+)/);
+      const skuMatch = identifier.match(/sku:\s*([^\s|]+)/i);
+      const serialMatch = identifier.match(/\(([^)]+)\)/);
+      
+      const asin = asinMatch ? asinMatch[1] : '';
+      const sku = skuMatch ? skuMatch[1] : '';
+      const serial = serialMatch ? serialMatch[1] : '';
+      
+      return identifier.includes(searchLower) ||
+             asin.includes(searchLower) ||
+             sku.includes(searchLower) ||
+             serial.includes(searchLower);
+    });
+  };
+  
+  // Get paginated items
+  const getPaginatedItems = (items: RestockItem[], page: number, perPage: number) => {
+    const startIndex = (page - 1) * perPage;
+    const endIndex = startIndex + perPage;
+    return items.slice(startIndex, endIndex);
+  };
+  
+  // Extract ASIN from identifier for image lookup
+  const extractAsinForImage = (identifier: string): string => {
+    const asinMatch = identifier.match(/^([A-Z0-9]{10})/);
+    return asinMatch ? asinMatch[1] : '';
+  };
+  
+  // Filtered and paginated items for each tab
+  const filteredReadyToOrder = filterItemsBySearch(pendingItems, readyToOrderSearch);
+  const filteredOrdered = filterItemsBySearch(orderedItems, orderedSearch);
+  const filteredOutOfStock = filterItemsBySearch(outOfStockItems, outOfStockSearch);
+  const filteredNonSource = filterItemsBySearch(nonSourceItems, nonSourceSearch);
+  
+  const paginatedReadyToOrder = getPaginatedItems(filteredReadyToOrder, readyToOrderPage, itemsPerPage);
+  const paginatedOrdered = getPaginatedItems(filteredOrdered, orderedPage, itemsPerPage);
+  const paginatedOutOfStock = getPaginatedItems(filteredOutOfStock, outOfStockPage, itemsPerPage);
+  const paginatedNonSource = getPaginatedItems(filteredNonSource, nonSourcePage, itemsPerPage);
+  
   const exportRestockData = () => {
     // Filter items based on search term - use filteredRestockItems to get proper filtered data
     const itemsToExport = filteredRestockItems.filter(item => item.current_quantity === 0 && item.status !== 'ordered');
@@ -2047,23 +2112,24 @@ export function Replenishment() {
 
                 {/* Ready to Order Tab */}
                 <TabsContent value="critical" className="space-y-4 mt-6">
+                  {/* Search Bar */}
+                  <ReplenishmentSearchBar
+                    value={readyToOrderSearch}
+                    onChange={setReadyToOrderSearch}
+                    placeholder="Search by ASIN, SKU, serial number, or title..."
+                  />
+                  
                   <div className="flex items-center justify-between gap-4">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                      <Input placeholder="Search ASINs, SKUs, or serials... (use spaces for multiple)" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10" />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-sm whitespace-nowrap bg-green-50 text-green-700 border-green-200">
-                        {pendingItems.length} ready to order
-                      </Badge>
-                      <Badge variant="outline" className="text-sm whitespace-nowrap bg-red-50 text-red-700 border-red-200">
-                        {outOfStockItems.length} cannot order
-                      </Badge>
-                    </div>
+                    <Badge variant="outline" className="text-sm whitespace-nowrap bg-green-50 text-green-700 border-green-200">
+                      {filteredReadyToOrder.length} ready to order
+                    </Badge>
+                    <Badge variant="outline" className="text-sm whitespace-nowrap bg-red-50 text-red-700 border-red-200">
+                      {outOfStockItems.length} cannot order
+                    </Badge>
                   </div>
 
                   {/* Bulk Actions for Critical Items */}
-                  {pendingItems.length > 0 && <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                  {filteredReadyToOrder.length > 0 && <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                       <div className="flex items-center gap-4">
                          <div className="flex items-center space-x-2">
                            <Checkbox id="select-all" checked={selectedItems.size === pendingItems.length && pendingItems.length > 0} onCheckedChange={handleSelectAll} />
@@ -2087,52 +2153,59 @@ export function Replenishment() {
                        </div>
                     </div>}
 
-                  {searchTerm.trim() && <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded-lg">
-                      <strong>Search Active:</strong> {searchTerm.split(' ').map(term => term.trim()).filter(Boolean).join(', ')}
-                    </div>}
-
-                   <div className="space-y-2 max-h-96 overflow-y-auto">
-                     {pendingItems.length > 0 ? pendingItems.map(item => {
+                   <div className="space-y-3">
+                     {paginatedReadyToOrder.length > 0 ? paginatedReadyToOrder.map(item => {
                         // Check if item has valid SKU for Sunsky ordering
                         const extractedSku = extractSkuFromIdentifier(item.identifier);
                         const extractedModel = extractModelFromIdentifier(item.identifier);
-                        const hasSunskySku = !!(extractedSku || extractedModel);
+                        const asin = extractAsinForImage(item.identifier);
+                        const imageUrl = asin ? getImageByAsin(asin)?.image_url : undefined;
                         
-                        return <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg bg-green-50/50 hover:bg-green-100/50 transition-colors border-green-200">
-                           <div className="flex items-center gap-4">
-                             <Checkbox id={`item-${item.id}`} checked={selectedItems.has(item.id)} onCheckedChange={checked => handleSelectItem(item.id, checked as boolean)} />
-                             <div className="p-2 rounded-lg bg-green-500/20">
-                               {item.table_name === 'asin_inventory' ? <Package className="w-4 h-4 text-green-700" /> : <Database className="w-4 h-4 text-green-700" />}
-                             </div>
-                             <div className="flex-1">
-                               <p className="font-medium text-foreground">{item.identifier}</p>
-                                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                  <span>Qty: {item.current_quantity}</span>
-                                  <span>Last Restock: {item.days_since_last_restock ? `${item.days_since_last_restock}d ago` : 'Never'}</span>
-                                  <span>Last Sold: {item.date_sold ? `${Math.floor((Date.now() - new Date(item.date_sold).getTime()) / (1000 * 60 * 60 * 24))}d ago` : 'Never'}</span>
-                                 <Badge variant="secondary" className="text-xs bg-green-500/20 text-green-700 border-green-300">
-                                   Ready to Order
-                                 </Badge>
-                                 <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-700">
-                                   Sunsky SKU: {extractedSku || extractedModel}
-                                 </Badge>
-                               </div>
-                             </div>
-                           </div>
-                           <Button onClick={() => markAsNonSource(item.id)} size="sm" variant="outline" className="gap-2">
-                             <XCircle className="w-4 h-4" />
-                             Mark as Non-Source
-                           </Button>
-                         </div>
-                       }) : <div className="text-center py-8 text-muted-foreground">
-                        <ShoppingCart className="w-12 h-12 mx-auto mb-4 opacity-50 text-green-500" />
+                        return <ReplenishmentItemCard
+                          key={item.id}
+                          item={item}
+                          imageUrl={imageUrl}
+                          selected={selectedItems.has(item.id)}
+                          onSelect={handleSelectItem}
+                          showCheckbox={true}
+                          actions={
+                            <>
+                              <Badge variant="secondary" className="text-xs bg-green-500/20 text-green-700 border-green-300">
+                                Ready to Order
+                              </Badge>
+                              <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-700">
+                                Sunsky SKU: {extractedSku || extractedModel}
+                              </Badge>
+                              <Button onClick={() => markAsNonSource(item.id)} size="sm" variant="outline" className="gap-2">
+                                <XCircle className="w-4 h-4" />
+                                Mark as Non-Source
+                              </Button>
+                            </>
+                          }
+                        />
+                       }) : <div className="text-center py-12 text-muted-foreground">
+                        <ShoppingCart className="w-16 h-16 mx-auto mb-4 opacity-50 text-green-500" />
                         <p className="text-lg font-medium">No items ready to order</p>
-                        <p className="text-sm">All critical items need SKU mapping or are already ordered!</p>
+                        <p className="text-sm">
+                          {readyToOrderSearch ? 'No items match your search.' : 'All critical items need SKU mapping or are already ordered!'}
+                        </p>
                       </div>}
                   </div>
 
+                   {/* Pagination */}
+                   {filteredReadyToOrder.length > 0 && (
+                     <ReplenishmentPagination
+                       currentPage={readyToOrderPage}
+                       totalPages={Math.ceil(filteredReadyToOrder.length / itemsPerPage)}
+                       totalItems={filteredReadyToOrder.length}
+                       itemsPerPage={itemsPerPage}
+                       onPageChange={setReadyToOrderPage}
+                       onItemsPerPageChange={setItemsPerPage}
+                     />
+                   )}
+
                    {/* Export button for ready-to-order items */}
-                   {pendingItems.length > 0 && <div className="pt-4 border-t">
+                   {filteredReadyToOrder.length > 0 && <div className="pt-4 border-t">
                        <Button onClick={exportRestockData} variant="outline" size="sm" className="gap-2">
                          <Download className="w-4 h-4" />
                          Export Ready to Order Items
@@ -2142,78 +2215,107 @@ export function Replenishment() {
 
                 {/* Out of Stock Tab */}
                 <TabsContent value="out-of-stock" className="space-y-4 mt-6">
+                  {/* Search Bar */}
+                  <ReplenishmentSearchBar
+                    value={outOfStockSearch}
+                    onChange={setOutOfStockSearch}
+                    placeholder="Search out-of-stock items by ASIN, SKU, serial number, or title..."
+                  />
+                  
                   <div className="flex items-center justify-between gap-4">
                     <div className="text-sm text-muted-foreground">
                       Items that are out of stock but cannot be automatically ordered due to missing or invalid SKU mapping
                     </div>
                     <Badge variant="destructive" className="text-sm whitespace-nowrap">
-                      {outOfStockItems.length} items need manual attention
+                      {filteredOutOfStock.length} items need manual attention
                     </Badge>
                   </div>
 
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {outOfStockItems.length > 0 ? outOfStockItems.map(item => (
-                      <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg bg-red-50/50 hover:bg-red-100/50 transition-colors border-red-200">
-                        <div className="flex items-center gap-4">
-                          <div className="p-2 rounded-lg bg-red-500/20">
-                            {item.table_name === 'asin_inventory' ? <Package className="w-4 h-4 text-red-700" /> : <Database className="w-4 h-4 text-red-700" />}
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-medium text-foreground">{item.identifier}</p>
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                              <span>Qty: {item.current_quantity}</span>
-                              <span>Last Restock: {item.days_since_last_restock ? `${item.days_since_last_restock}d ago` : 'Never'}</span>
-                              <Badge variant="destructive" className="text-xs">
-                                Out of Stock
-                              </Badge>
-                              <Badge variant="outline" className="text-xs border-orange-500 text-orange-600 bg-orange-50">
-                                No Valid SKU - Manual Order Required
-                              </Badge>
-                            </div>
-                          </div>
-                        </div>
-                         <div className="flex items-center gap-2">
-                           <Button onClick={() => markAsNonSource(item.id)} size="sm" variant="outline" className="gap-2">
-                             <XCircle className="w-4 h-4" />
-                             Mark as Non-Source
-                           </Button>
-                         </div>
-                      </div>
-                    )) : (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <CheckCircle className="w-12 h-12 mx-auto mb-4 opacity-50 text-green-500" />
+                  <div className="space-y-3">
+                    {paginatedOutOfStock.length > 0 ? paginatedOutOfStock.map(item => {
+                      const asin = extractAsinForImage(item.identifier);
+                      const imageUrl = asin ? getImageByAsin(asin)?.image_url : undefined;
+                      
+                      return <ReplenishmentItemCard
+                        key={item.id}
+                        item={item}
+                        imageUrl={imageUrl}
+                        actions={
+                          <>
+                            <Badge variant="destructive" className="text-xs">
+                              Out of Stock
+                            </Badge>
+                            <Badge variant="outline" className="text-xs border-orange-500 text-orange-600 bg-orange-50">
+                              No Valid SKU - Manual Order Required
+                            </Badge>
+                            <Button onClick={() => markAsNonSource(item.id)} size="sm" variant="outline" className="gap-2">
+                              <XCircle className="w-4 h-4" />
+                              Mark as Non-Source
+                            </Button>
+                          </>
+                        }
+                      />
+                    }) : (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <CheckCircle className="w-16 h-16 mx-auto mb-4 opacity-50 text-green-500" />
                         <p className="text-lg font-medium">No out of stock items</p>
-                        <p className="text-sm">All out of stock items have valid SKUs and can be ordered!</p>
+                        <p className="text-sm">
+                          {outOfStockSearch ? 'No items match your search.' : 'All out of stock items have valid SKUs and can be ordered!'}
+                        </p>
                       </div>
                     )}
                   </div>
 
+                  {/* Pagination */}
+                  {filteredOutOfStock.length > 0 && (
+                    <ReplenishmentPagination
+                      currentPage={outOfStockPage}
+                      totalPages={Math.ceil(filteredOutOfStock.length / itemsPerPage)}
+                      totalItems={filteredOutOfStock.length}
+                      itemsPerPage={itemsPerPage}
+                      onPageChange={setOutOfStockPage}
+                      onItemsPerPageChange={setItemsPerPage}
+                    />
+                  )}
+
                   {/* Export button for out of stock items */}
-                  {outOfStockItems.length > 0 && (
+                  {filteredOutOfStock.length > 0 && (
                     <div className="pt-4 border-t">
                       <Button 
                         onClick={() => {
                           const csvContent = [
-                            ['Item', 'Type', 'Current Quantity', 'Days Since Last Restock', 'Status', 'Notes'],
-                            ...outOfStockItems.map(item => [
-                              item.identifier,
-                              item.table_name === 'asin_inventory' ? 'ASIN' : 'SKU',
-                              item.current_quantity.toString(),
-                              item.days_since_last_restock?.toString() || 'Never',
-                              item.status,
-                              'No valid SKU - requires manual ordering'
-                            ])
+                            ['Type', 'ASIN', 'SKU', 'Serial/Bin', 'Current Quantity', 'Days Since Restock', 'Status', 'Notes'], 
+                            ...filteredOutOfStock.map(item => {
+                              let asin = '';
+                              let sku = '';
+                              let serialBin = '';
+                              
+                              if (item.table_name === 'asin_inventory') {
+                                const asinMatch = item.identifier.match(/^([A-Z0-9]+)\s*\(([^)]+)\)/);
+                                if (asinMatch) {
+                                  asin = asinMatch[1];
+                                  serialBin = asinMatch[2];
+                                }
+                                const skuMatch = item.identifier.match(/\|\s*SKU:\s*([^\s]+)/);
+                                if (skuMatch) {
+                                  sku = skuMatch[1];
+                                }
+                              }
+                              
+                              return [
+                                'ASIN', 
+                                asin, 
+                                sku,
+                                `="${serialBin}"`,
+                                item.current_quantity, 
+                                item.days_since_last_restock || 'Never', 
+                                'Out of Stock - No Valid SKU', 
+                                'Requires manual ordering or SKU mapping'
+                              ];
+                            })
                           ].map(row => row.join(',')).join('\n');
                           
-                          const blob = new Blob([csvContent], { type: 'text/csv' });
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement('a');
-                          a.href = url;
-                          a.download = `out-of-stock-items-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`;
-                          document.body.appendChild(a);
-                          a.click();
-                          document.body.removeChild(a);
-                          URL.revokeObjectURL(url);
+                          downloadCSV(csvContent, `out-of-stock-items-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`);
                         }} 
                         variant="outline" 
                         size="sm" 
@@ -2226,67 +2328,163 @@ export function Replenishment() {
                   )}
                 </TabsContent>
 
-                {/* Non-Source Items Tab */}
-                <TabsContent value="non-source" className="space-y-4 mt-6">
+                {/* Ordered Tab */}
+                <TabsContent value="ordered" className="space-y-4 mt-6">
+                  {/* Search Bar */}
+                  <ReplenishmentSearchBar
+                    value={orderedSearch}
+                    onChange={setOrderedSearch}
+                    placeholder="Search ordered items by ASIN, SKU, serial number, or title..."
+                  />
+                  
                   <div className="flex items-center justify-between gap-4">
                     <div className="text-sm text-muted-foreground">
-                      Items marked as non-source will not appear in restock lists anymore
+                      Items that have been ordered from suppliers and are awaiting fulfillment
                     </div>
-                    <Badge variant="secondary" className="text-sm whitespace-nowrap bg-orange-100 text-orange-700">
-                      {nonSourceItems.length} non-source items
+                    <Badge variant="secondary" className="text-sm whitespace-nowrap">
+                      {filteredOrdered.length} items ordered
                     </Badge>
                   </div>
 
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {nonSourceItems.length > 0 ? nonSourceItems.map(item => (
-                      <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg bg-orange-50/50 hover:bg-orange-100/50 transition-colors border-orange-200">
-                        <div className="flex items-center gap-4">
-                          <div className="p-2 rounded-lg bg-orange-500/20">
-                            <XCircle className="w-4 h-4 text-orange-700" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-medium text-foreground">{item.identifier}</p>
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                              <Badge variant="secondary" className="text-xs bg-orange-500/20 text-orange-700">
-                                Non-Source Item
-                              </Badge>
-                              <span className="text-xs">Will not restock</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )) : (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <CheckCircle className="w-12 h-12 mx-auto mb-4 opacity-50 text-green-500" />
-                        <p className="text-lg font-medium">No non-source items</p>
-                        <p className="text-sm">All items are available for restocking!</p>
+                  <div className="space-y-3">
+                    {paginatedOrdered.length > 0 ? paginatedOrdered.map(item => {
+                      const asin = extractAsinForImage(item.identifier);
+                      const imageUrl = asin ? getImageByAsin(asin)?.image_url : undefined;
+                      
+                      return <ReplenishmentItemCard
+                        key={item.id}
+                        item={item}
+                        imageUrl={imageUrl}
+                        actions={
+                          <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-700 border-blue-300">
+                            Ordered - Awaiting Fulfillment
+                          </Badge>
+                        }
+                      />
+                    }) : (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <Truck className="w-16 h-16 mx-auto mb-4 opacity-50 text-blue-500" />
+                        <p className="text-lg font-medium">No ordered items</p>
+                        <p className="text-sm">
+                          {orderedSearch ? 'No items match your search.' : 'Items marked as ordered will appear here'}
+                        </p>
                       </div>
                     )}
                   </div>
 
-                  {/* Export button for non-source items */}
-                  {nonSourceItems.length > 0 && (
+                  {/* Pagination */}
+                  {filteredOrdered.length > 0 && (
+                    <ReplenishmentPagination
+                      currentPage={orderedPage}
+                      totalPages={Math.ceil(filteredOrdered.length / itemsPerPage)}
+                      totalItems={filteredOrdered.length}
+                      itemsPerPage={itemsPerPage}
+                      onPageChange={setOrderedPage}
+                      onItemsPerPageChange={setItemsPerPage}
+                    />
+                  )}
+
+                  {/* Export button */}
+                  {filteredOrdered.length > 0 && (
+                    <div className="pt-4 border-t">
+                      <Button onClick={exportOrderedData} variant="outline" size="sm" className="gap-2">
+                        <Download className="w-4 h-4" />
+                        Export Ordered Items
+                      </Button>
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* Non-Source Tab */}
+                <TabsContent value="non-source" className="space-y-4 mt-6">
+                  {/* Search Bar */}
+                  <ReplenishmentSearchBar
+                    value={nonSourceSearch}
+                    onChange={setNonSourceSearch}
+                    placeholder="Search non-source items by ASIN, SKU, serial number, or title..."
+                  />
+                  
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="text-sm text-muted-foreground">
+                      Items marked as non-source that should not be restocked
+                    </div>
+                    <Badge variant="outline" className="text-sm whitespace-nowrap bg-orange-50 text-orange-700 border-orange-200">
+                      {filteredNonSource.length} non-source items
+                    </Badge>
+                  </div>
+
+                  <div className="space-y-3">
+                    {paginatedNonSource.length > 0 ? paginatedNonSource.map(item => {
+                      const asin = extractAsinForImage(item.identifier);
+                      const imageUrl = asin ? getImageByAsin(asin)?.image_url : undefined;
+                      
+                      return <ReplenishmentItemCard
+                        key={item.id}
+                        item={item}
+                        imageUrl={imageUrl}
+                        actions={
+                          <Badge variant="outline" className="text-xs border-orange-500 text-orange-600 bg-orange-50">
+                            Non-Source - Do Not Restock
+                          </Badge>
+                        }
+                      />
+                    }) : (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <XCircle className="w-16 h-16 mx-auto mb-4 opacity-50 text-orange-500" />
+                        <p className="text-lg font-medium">No non-source items</p>
+                        <p className="text-sm">
+                          {nonSourceSearch ? 'No items match your search.' : 'Items marked as non-source will appear here'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Pagination */}
+                  {filteredNonSource.length > 0 && (
+                    <ReplenishmentPagination
+                      currentPage={nonSourcePage}
+                      totalPages={Math.ceil(filteredNonSource.length / itemsPerPage)}
+                      totalItems={filteredNonSource.length}
+                      itemsPerPage={itemsPerPage}
+                      onPageChange={setNonSourcePage}
+                      onItemsPerPageChange={setItemsPerPage}
+                    />
+                  )}
+
+                  {/* Export button */}
+                  {filteredNonSource.length > 0 && (
                     <div className="pt-4 border-t">
                       <Button 
                         onClick={() => {
                           const csvContent = [
-                            ['Item', 'Identifier', 'Marked Date'],
-                            ...nonSourceItems.map(item => [
-                              item.identifier,
-                              item.table_name,
-                              new Date().toLocaleDateString()
-                            ])
+                            ['Type', 'ASIN', 'SKU', 'Serial/Bin', 'Status', 'Notes'], 
+                            ...filteredNonSource.map(item => {
+                              let asin = '';
+                              let sku = '';
+                              let serialBin = '';
+                              
+                              const asinMatch = item.identifier.match(/^([A-Z0-9]+)\s*\(([^)]+)\)/);
+                              if (asinMatch) {
+                                asin = asinMatch[1];
+                                serialBin = asinMatch[2];
+                              }
+                              const skuMatch = item.identifier.match(/\|\s*SKU:\s*([^\s]+)/);
+                              if (skuMatch) {
+                                sku = skuMatch[1];
+                              }
+                              
+                              return [
+                                'ASIN', 
+                                asin, 
+                                sku,
+                                `="${serialBin}"`,
+                                'Non-Source', 
+                                'Marked as non-source - not to be restocked'
+                              ];
+                            })
                           ].map(row => row.join(',')).join('\n');
                           
-                          const blob = new Blob([csvContent], { type: 'text/csv' });
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement('a');
-                          a.href = url;
-                          a.download = `non-source-items-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`;
-                          document.body.appendChild(a);
-                          a.click();
-                          document.body.removeChild(a);
-                          URL.revokeObjectURL(url);
+                          downloadCSV(csvContent, `non-source-items-${selectedCountry}-${new Date().toISOString().split('T')[0]}.csv`);
                         }} 
                         variant="outline" 
                         size="sm" 
@@ -2297,47 +2495,6 @@ export function Replenishment() {
                       </Button>
                     </div>
                   )}
-                </TabsContent>
-
-                {/* Ordered Items Tab */}
-                <TabsContent value="ordered" className="space-y-4 mt-6">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-muted-foreground">
-                      Items that have been ordered from suppliers
-                    </div>
-                    {orderedItems.length > 0 && <Button onClick={() => exportOrderedData()} size="sm" variant="outline" className="gap-2">
-                        <Download className="w-4 h-4" />
-                        Export Ordered Items
-                      </Button>}
-                  </div>
-
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {orderedItems.length > 0 ? orderedItems.map(item => <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg bg-blue-50/50 opacity-80">
-                          <div className="flex items-center gap-4">
-                            <div className="p-2 rounded-lg bg-blue-500/20">
-                              {item.table_name === 'asin_inventory' ? <Package className="w-4 h-4 text-blue-600" /> : <Database className="w-4 h-4 text-blue-600" />}
-                            </div>
-                            <div>
-                              <p className="font-medium text-foreground">{item.identifier}</p>
-                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                <span>Qty: {item.current_quantity}</span>
-                                <span>Last Restock: {item.days_since_last_restock ? `${item.days_since_last_restock}d ago` : 'Never'}</span>
-                                <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
-                                  Order Placed
-                                </Badge>
-                              </div>
-                            </div>
-                          </div>
-                          <Button size="sm" variant="outline" disabled className="gap-2 opacity-60">
-                            <CheckCircle className="w-4 h-4" />
-                            Ordered
-                          </Button>
-                        </div>) : <div className="text-center py-8 text-muted-foreground">
-                        <Truck className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                        <p className="text-lg font-medium">No ordered items</p>
-                        <p className="text-sm">Items you mark as ordered will appear here</p>
-                      </div>}
-                  </div>
                 </TabsContent>
 
 
