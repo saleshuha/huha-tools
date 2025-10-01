@@ -1,16 +1,18 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuarterlyVelocityAnalytics, type VelocityAnalyticsItem } from "@/hooks/useQuarterlyVelocityAnalytics";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Package, Edit2, Check, X, RotateCcw, ShoppingCart } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search, Package, ShoppingCart, Filter, RotateCcw } from "lucide-react";
 import { useProductImages } from "@/hooks/useProductImages";
 import { useToast } from "@/hooks/use-toast";
+import { VelocityItemCard } from "@/components/replenishment/VelocityItemCard";
+import { ReplenishmentPagination } from "@/components/replenishment/ReplenishmentPagination";
+
 export function VelocityAnalyticsSimple() {
   const {
     items,
@@ -20,30 +22,85 @@ export function VelocityAnalyticsSimple() {
   } = useQuarterlyVelocityAnalytics();
   const { toast } = useToast();
   const { getImageByAsin } = useProductImages();
+  
+  // State
   const [searchTerm, setSearchTerm] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<"ready" | "ordered">("ready");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [sortBy, setSortBy] = useState<"velocity" | "stock" | "recommended">("recommended");
   
-  // Filter for restock-eligible items only
-  const restockEligibleItems = items.filter(item => {
-    const searchMatch = item.asin.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      item.sku.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      item.title?.toLowerCase().includes(searchTerm.toLowerCase());
-    return searchMatch;
-  });
+  // Memoized filtering and sorting
+  const { readyToOrderItems, orderedItems, sortedFilteredItems } = useMemo(() => {
+    // Apply search filter (all items from velocity analytics are eligible)
+    const searchFiltered = items.filter(item => {
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        item.asin.toLowerCase().includes(searchLower) || 
+        (item.sku?.toLowerCase() || "").includes(searchLower) || 
+        (item.title?.toLowerCase() || "").includes(searchLower)
+      );
+    });
+    
+    // Split into ready and ordered
+    const ready = searchFiltered.filter(item => 
+      item.manual_override === undefined || item.manual_override === null || item.manual_override > 0
+    );
+    
+    const ordered = searchFiltered.filter(item => 
+      item.manual_override === 0
+    );
+    
+    // Get current tab items
+    const currentItems = activeTab === "ready" ? ready : ordered;
+    
+    // Sort items
+    const sorted = [...currentItems].sort((a, b) => {
+      switch (sortBy) {
+        case "velocity":
+          return (b.velocity_score || 0) - (a.velocity_score || 0);
+        case "stock":
+          return a.current_quantity - b.current_quantity;
+        case "recommended":
+          return (b.manual_override ?? b.recommended_quantity) - (a.manual_override ?? a.recommended_quantity);
+        default:
+          return 0;
+      }
+    });
+    
+    return {
+      readyToOrderItems: ready,
+      orderedItems: ordered,
+      sortedFilteredItems: sorted
+    };
+  }, [items, searchTerm, activeTab, sortBy]);
   
-  // Split into ready and ordered
-  const readyToOrderItems = restockEligibleItems.filter(item => 
-    !item.manual_override || item.recommended_quantity > 0
-  );
+  // Pagination
+  const totalPages = Math.ceil(sortedFilteredItems.length / itemsPerPage);
+  const paginatedItems = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return sortedFilteredItems.slice(startIndex, startIndex + itemsPerPage);
+  }, [sortedFilteredItems, currentPage, itemsPerPage]);
   
-  const orderedItems = restockEligibleItems.filter(item => 
-    item.manual_override === 0
-  );
+  // Reset to page 1 when tab or search changes
+  const handleTabChange = (value: string) => {
+    setActiveTab(value as "ready" | "ordered");
+    setCurrentPage(1);
+    setSelectedItems(new Set());
+  };
   
-  const filteredItems = activeTab === "ready" ? readyToOrderItems : orderedItems;
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
+  };
+  
+  const handleItemsPerPageChange = (value: number) => {
+    setItemsPerPage(value);
+    setCurrentPage(1);
+  };
 
   const handleSelectItem = (asinId: string, checked: boolean) => {
     const newSelected = new Set(selectedItems);
@@ -57,7 +114,8 @@ export function VelocityAnalyticsSimple() {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedItems(new Set(filteredItems.map(item => item.asin_id)));
+      // Select all items on current page
+      setSelectedItems(new Set(paginatedItems.map(item => item.asin_id)));
     } else {
       setSelectedItems(new Set());
     }
@@ -66,7 +124,7 @@ export function VelocityAnalyticsSimple() {
   const handleOrderToSource = (item: VelocityAnalyticsItem) => {
     toast({
       title: "Order to Source",
-      description: `Ordering ${item.manual_override || item.recommended_quantity} units of ${item.asin}`,
+      description: `Ordering ${item.manual_override ?? item.recommended_quantity} units of ${item.asin}`,
     });
     // TODO: Implement actual ordering logic
   };
@@ -82,75 +140,102 @@ export function VelocityAnalyticsSimple() {
     }
     
     const selectedCount = selectedItems.size;
-    const totalQty = filteredItems
+    const totalQty = sortedFilteredItems
       .filter(item => selectedItems.has(item.asin_id))
-      .reduce((sum, item) => sum + (item.manual_override || item.recommended_quantity), 0);
+      .reduce((sum, item) => sum + (item.manual_override ?? item.recommended_quantity), 0);
     
     toast({
       title: "Bulk Order to Source",
       description: `Ordering ${selectedCount} items (${totalQty} total units)`,
     });
+    setSelectedItems(new Set());
     // TODO: Implement bulk ordering logic
   };
 
   const handleEditClick = (item: VelocityAnalyticsItem) => {
     setEditingId(item.asin_id);
-    setEditValue(String(item.manual_override || item.recommended_quantity));
+    setEditValue(String(item.manual_override ?? item.recommended_quantity));
   };
+  
   const handleSaveEdit = async (item: VelocityAnalyticsItem) => {
     const quantity = parseInt(editValue);
     if (!isNaN(quantity) && quantity >= 0) {
       await saveManualOverride(item.asin_id, quantity, item.recommended_quantity);
+      toast({
+        title: "Quantity updated",
+        description: `Recommended quantity set to ${quantity}`,
+      });
     }
     setEditingId(null);
   };
+  
   const handleCancelEdit = () => {
     setEditingId(null);
     setEditValue("");
   };
+  
   if (loading) {
-    return <div className="space-y-4 p-6">
+    return (
+      <div className="space-y-4 p-6">
         <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-20 w-full" />
         <Skeleton className="h-96 w-full" />
-      </div>;
+      </div>
+    );
   }
 
-  const allSelected = filteredItems.length > 0 && selectedItems.size === filteredItems.length;
+  const allSelected = paginatedItems.length > 0 && 
+    paginatedItems.every(item => selectedItems.has(item.asin_id));
 
-  return <div className="space-y-6 p-6">
+  return (
+    <div className="space-y-6 p-6">
       {/* Header */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Velocity Analytics - Restock Management</CardTitle>
-              <CardDescription>
-                Items eligible for restock based on sales velocity
-              </CardDescription>
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Velocity Analytics - Restock Management</CardTitle>
+                <CardDescription>
+                  Items eligible for restock based on sales velocity
+                </CardDescription>
+              </div>
+              {selectedItems.size > 0 && (
+                <Button onClick={handleBulkOrderToSource} className="gap-2">
+                  <ShoppingCart className="w-4 h-4" />
+                  Order {selectedItems.size} Items
+                </Button>
+              )}
             </div>
-            {selectedItems.size > 0 && (
-              <Button onClick={handleBulkOrderToSource} className="gap-2">
-                <ShoppingCart className="w-4 h-4" />
-                Order {selectedItems.size} Items
-              </Button>
-            )}
+            
+            <div className="flex gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Input 
+                  placeholder="Search by ASIN, SKU, or Title..." 
+                  value={searchTerm} 
+                  onChange={e => handleSearchChange(e.target.value)} 
+                  className="pl-10" 
+                />
+              </div>
+              <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
+                <SelectTrigger className="w-[180px]">
+                  <Filter className="w-4 h-4 mr-2" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="recommended">Sort by Recommended</SelectItem>
+                  <SelectItem value="velocity">Sort by Velocity</SelectItem>
+                  <SelectItem value="stock">Sort by Stock</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-            <Input 
-              placeholder="Search by ASIN, SKU, or Title..." 
-              value={searchTerm} 
-              onChange={e => setSearchTerm(e.target.value)} 
-              className="pl-10" 
-            />
-          </div>
-        </CardContent>
       </Card>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "ready" | "ordered")} className="w-full">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-2">
           <TabsTrigger value="ready">
             Ready to Order ({readyToOrderItems.length})
@@ -160,288 +245,181 @@ export function VelocityAnalyticsSimple() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="ready" className="mt-6">
-          <Card>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">
-                  <Checkbox
-                    checked={allSelected}
-                    onCheckedChange={handleSelectAll}
-                  />
-                </TableHead>
-                <TableHead className="w-20">Image</TableHead>
-                <TableHead>Product Details</TableHead>
-                <TableHead className="text-center">Total Added</TableHead>
-                <TableHead className="text-center">Total Sold</TableHead>
-                <TableHead className="text-center">Current Stock</TableHead>
-                <TableHead className="text-center">Velocity</TableHead>
-                <TableHead className="text-center">Recommended Qty</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredItems.map(item => {
-                const isEditing = editingId === item.asin_id;
-                const displayQty = item.manual_override || item.recommended_quantity;
-                const hasOverride = item.manual_override !== undefined;
-                const imageUrl = getImageByAsin(item.asin)?.image_url;
-                const isSelected = selectedItems.has(item.asin_id);
-
-                return (
-                  <TableRow key={item.asin_id}>
-                    <TableCell>
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={(checked) => handleSelectItem(item.asin_id, checked as boolean)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {imageUrl ? (
-                        <img 
-                          src={imageUrl} 
-                          alt={item.asin}
-                          className="w-16 h-16 object-contain rounded-md border border-border bg-white p-1"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="none"%3E%3Crect width="64" height="64" fill="%23f3f4f6"/%3E%3Cpath d="M32 30a3 3 0 100-6 3 3 0 000 6zM22 38l6-6 6 6 10-10v16H22V38z" fill="%239ca3af"/%3E%3C/svg%3E';
-                          }}
-                        />
-                      ) : (
-                        <div className="w-16 h-16 bg-muted rounded-md flex items-center justify-center border border-border">
-                          <Package className="w-6 h-6 text-muted-foreground" />
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1 min-w-[200px]">
-                        <div className="font-mono font-medium text-sm">{item.asin}</div>
-                        <div className="text-xs text-muted-foreground font-mono">SKU: {item.sku || 'N/A'}</div>
-                        <div className="text-xs text-muted-foreground max-w-xs truncate" title={item.title}>
-                          {item.title || 'N/A'}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center font-medium">
-                      {item.total_added}
-                    </TableCell>
-                    <TableCell className="text-center font-medium">
-                      {item.total_sold}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={item.current_quantity === 0 ? "destructive" : "default"}>
-                        {item.current_quantity}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant="outline">
-                        {(item.velocity_score || 0).toFixed(2)}/day
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {isEditing ? (
-                        <div className="flex items-center justify-center gap-2">
-                          <Input 
-                            type="number" 
-                            value={editValue} 
-                            onChange={e => setEditValue(e.target.value)} 
-                            className="w-20 h-8 text-center" 
-                            min="0" 
-                            autoFocus 
-                          />
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            className="h-8 w-8 p-0" 
-                            onClick={() => handleSaveEdit(item)}
-                          >
-                            <Check className="w-4 h-4 text-green-600" />
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            className="h-8 w-8 p-0" 
-                            onClick={handleCancelEdit}
-                          >
-                            <X className="w-4 h-4 text-red-600" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-center gap-2">
-                            <span className={`font-medium ${hasOverride ? 'text-blue-600' : ''}`}>
-                              {displayQty}
-                            </span>
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
-                              className="h-8 w-8 p-0" 
-                              onClick={() => handleEditClick(item)}
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </Button>
-                            {hasOverride && (
-                              <Button 
-                                size="sm" 
-                                variant="ghost" 
-                                className="h-8 w-8 p-0" 
-                                onClick={() => clearManualOverride(item.asin_id)} 
-                                title="Reset to system recommendation"
-                              >
-                                <RotateCcw className="w-4 h-4" />
-                              </Button>
-                            )}
-                          </div>
-                          {hasOverride && (
-                            <div className="text-xs text-muted-foreground">
-                              System: {item.recommended_quantity}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        onClick={() => handleOrderToSource(item)}
-                        className="gap-2"
-                      >
-                        <ShoppingCart className="w-4 h-4" />
-                        Order
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-
-          {filteredItems.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground">
-              <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>No items found</p>
+        <TabsContent value="ready" className="mt-6 space-y-4">
+          {/* Select All Header */}
+          {paginatedItems.length > 0 && (
+            <div className="flex items-center gap-2 px-2">
+              <Checkbox
+                checked={allSelected}
+                onCheckedChange={handleSelectAll}
+              />
+              <span className="text-sm text-muted-foreground">
+                Select all on this page
+              </span>
             </div>
           )}
-        </div>
-      </Card>
+
+          {/* Items Grid */}
+          <div className="space-y-3">
+            {paginatedItems.map(item => (
+              <VelocityItemCard
+                key={item.asin_id}
+                item={item}
+                imageUrl={getImageByAsin(item.asin)?.image_url}
+                selected={selectedItems.has(item.asin_id)}
+                onSelect={handleSelectItem}
+                isEditing={editingId === item.asin_id}
+                editValue={editValue}
+                onEditClick={() => handleEditClick(item)}
+                onSaveEdit={() => handleSaveEdit(item)}
+                onCancelEdit={handleCancelEdit}
+                onEditValueChange={setEditValue}
+                onClearOverride={() => clearManualOverride(item.asin_id)}
+                onOrderToSource={() => handleOrderToSource(item)}
+              />
+            ))}
+          </div>
+
+          {paginatedItems.length === 0 && (
+            <Card className="p-12">
+              <div className="text-center text-muted-foreground">
+                <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p className="text-lg font-medium mb-1">No items found</p>
+                <p className="text-sm">Try adjusting your search or filters</p>
+              </div>
+            </Card>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <ReplenishmentPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={sortedFilteredItems.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              onItemsPerPageChange={handleItemsPerPageChange}
+            />
+          )}
         </TabsContent>
 
-        <TabsContent value="ordered" className="mt-6">
-          <Card>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">
-                  <Checkbox
-                    checked={allSelected}
-                    onCheckedChange={handleSelectAll}
-                  />
-                </TableHead>
-                <TableHead className="w-20">Image</TableHead>
-                <TableHead>Product Details</TableHead>
-                <TableHead className="text-center">Total Added</TableHead>
-                <TableHead className="text-center">Total Sold</TableHead>
-                <TableHead className="text-center">Current Stock</TableHead>
-                <TableHead className="text-center">Recommended Qty</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredItems.map(item => {
-                const isEditing = editingId === item.asin_id;
-                const displayQty = item.manual_override || item.recommended_quantity;
-                const hasOverride = item.manual_override !== undefined;
-                const imageUrl = getImageByAsin(item.asin)?.image_url;
-                const isSelected = selectedItems.has(item.asin_id);
+        <TabsContent value="ordered" className="mt-6 space-y-4">
+          {/* Select All Header */}
+          {paginatedItems.length > 0 && (
+            <div className="flex items-center gap-2 px-2">
+              <Checkbox
+                checked={allSelected}
+                onCheckedChange={handleSelectAll}
+              />
+              <span className="text-sm text-muted-foreground">
+                Select all on this page
+              </span>
+            </div>
+          )}
 
-                return (
-                  <TableRow key={item.asin_id}>
-                    <TableCell>
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={(checked) => handleSelectItem(item.asin_id, checked as boolean)}
+          {/* Items Grid */}
+          <div className="space-y-3">
+            {paginatedItems.map(item => (
+              <Card key={item.asin_id} className="p-4 hover:shadow-md transition-shadow">
+                <div className="flex gap-4">
+                  <div className="flex items-start pt-1">
+                    <Checkbox
+                      checked={selectedItems.has(item.asin_id)}
+                      onCheckedChange={(checked) => handleSelectItem(item.asin_id, checked as boolean)}
+                    />
+                  </div>
+                  
+                  {/* Image */}
+                  <div className="flex-shrink-0">
+                    {getImageByAsin(item.asin)?.image_url ? (
+                      <img 
+                        src={getImageByAsin(item.asin)?.image_url} 
+                        alt={item.asin}
+                        className="w-20 h-20 object-contain rounded-md border border-border bg-white p-1"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="80" height="80" fill="none"%3E%3Crect width="80" height="80" fill="%23f3f4f6"/%3E%3Cpath d="M40 38a4 4 0 100-8 4 4 0 000 8zM28 48l8-8 8 8 12-12v20H28V48z" fill="%239ca3af"/%3E%3C/svg%3E';
+                        }}
                       />
-                    </TableCell>
-                    <TableCell>
-                      {imageUrl ? (
-                        <img 
-                          src={imageUrl} 
-                          alt={item.asin}
-                          className="w-16 h-16 object-contain rounded-md border border-border bg-white p-1"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="none"%3E%3Crect width="64" height="64" fill="%23f3f4f6"/%3E%3Cpath d="M32 30a3 3 0 100-6 3 3 0 000 6zM22 38l6-6 6 6 10-10v16H22V38z" fill="%239ca3af"/%3E%3C/svg%3E';
-                          }}
-                        />
-                      ) : (
-                        <div className="w-16 h-16 bg-muted rounded-md flex items-center justify-center border border-border">
-                          <Package className="w-6 h-6 text-muted-foreground" />
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1 min-w-[200px]">
-                        <div className="font-mono font-medium text-sm">{item.asin}</div>
-                        <div className="text-xs text-muted-foreground font-mono">SKU: {item.sku || 'N/A'}</div>
-                        <div className="text-xs text-muted-foreground max-w-xs truncate" title={item.title}>
-                          {item.title || 'N/A'}
-                        </div>
+                    ) : (
+                      <div className="w-20 h-20 bg-muted rounded-md flex items-center justify-center border border-border">
+                        <Package className="w-8 h-8 text-muted-foreground" />
                       </div>
-                    </TableCell>
-                    <TableCell className="text-center font-medium">
-                      {item.total_added}
-                    </TableCell>
-                    <TableCell className="text-center font-medium">
-                      {item.total_sold}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={item.current_quantity === 0 ? "destructive" : "default"}>
-                        {item.current_quantity}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-center gap-2">
-                          <span className={`font-medium ${hasOverride ? 'text-blue-600' : ''}`}>
-                            {displayQty}
-                          </span>
+                    )}
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-sm font-mono mb-1">{item.asin}</h4>
+                        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground mb-1">
+                          {item.sku && <span className="font-mono">SKU: {item.sku}</span>}
                         </div>
-                        {hasOverride && (
-                          <div className="text-xs text-muted-foreground">
-                            System: {item.recommended_quantity}
-                          </div>
+                        {item.title && (
+                          <p className="text-xs text-muted-foreground line-clamp-2" title={item.title}>
+                            {item.title}
+                          </p>
                         )}
-                        <Badge variant="secondary" className="text-xs">
-                          Ordered
-                        </Badge>
                       </div>
-                    </TableCell>
-                    <TableCell className="text-right">
+                    </div>
+
+                    {/* Metrics */}
+                    <div className="grid grid-cols-3 gap-2 mb-3 text-xs text-muted-foreground">
+                      <div>Added: <strong className="text-foreground">{item.total_added}</strong></div>
+                      <div>Sold: <strong className="text-foreground">{item.total_sold}</strong></div>
+                      <div>Stock: <strong className="text-foreground">{item.current_quantity}</strong></div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        Was recommended: <strong className="text-foreground">{item.recommended_quantity}</strong>
+                      </span>
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => clearManualOverride(item.asin_id)}
+                        onClick={() => {
+                          clearManualOverride(item.asin_id);
+                          toast({
+                            title: "Item restored",
+                            description: "Item moved back to ready to order",
+                          });
+                        }}
+                        className="gap-1 h-7 text-xs ml-auto"
                       >
-                        <RotateCcw className="w-4 h-4 mr-2" />
+                        <RotateCcw className="w-3 h-3" />
                         Restore
                       </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
 
-          {filteredItems.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground">
-              <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>No ordered items</p>
-            </div>
+          {paginatedItems.length === 0 && (
+            <Card className="p-12">
+              <div className="text-center text-muted-foreground">
+                <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p className="text-lg font-medium mb-1">No ordered items</p>
+                <p className="text-sm">Items marked as ordered will appear here</p>
+              </div>
+            </Card>
           )}
-        </div>
-      </Card>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <ReplenishmentPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={sortedFilteredItems.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              onItemsPerPageChange={handleItemsPerPageChange}
+            />
+          )}
         </TabsContent>
       </Tabs>
-    </div>;
+    </div>
+  );
 }
