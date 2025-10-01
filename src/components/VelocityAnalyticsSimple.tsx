@@ -85,16 +85,17 @@ export function VelocityAnalyticsSimple() {
     return sortedFilteredItems.slice(startIndex, startIndex + itemsPerPage);
   }, [sortedFilteredItems, currentPage, itemsPerPage]);
   
-  // Reset to page 1 when tab or search changes
+  // Reset to page 1 when tab or search changes (keep selections)
   const handleTabChange = (value: string) => {
     setActiveTab(value as "ready" | "ordered");
     setCurrentPage(1);
-    setSelectedItems(new Set());
+    // Don't reset selections when changing tabs
   };
   
   const handleSearchChange = (value: string) => {
     setSearchTerm(value);
     setCurrentPage(1);
+    // Don't reset selections when searching
   };
   
   const handleItemsPerPageChange = (value: number) => {
@@ -113,12 +114,15 @@ export function VelocityAnalyticsSimple() {
   };
 
   const handleSelectAll = (checked: boolean) => {
+    const newSelected = new Set(selectedItems);
     if (checked) {
-      // Select all items on current page
-      setSelectedItems(new Set(paginatedItems.map(item => item.asin_id)));
+      // Add all items on current page to selection
+      paginatedItems.forEach(item => newSelected.add(item.asin_id));
     } else {
-      setSelectedItems(new Set());
+      // Remove all items on current page from selection
+      paginatedItems.forEach(item => newSelected.delete(item.asin_id));
     }
+    setSelectedItems(newSelected);
   };
 
   const handleOrderToSource = (item: VelocityAnalyticsItem) => {
