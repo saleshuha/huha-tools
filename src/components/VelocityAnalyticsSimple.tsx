@@ -131,11 +131,34 @@ export function VelocityAnalyticsSimple() {
   };
 
   const handleOrderToSource = (item: VelocityAnalyticsItem) => {
-    toast({
-      title: "Order to Source",
-      description: `Ordering ${item.manual_override ?? item.recommended_quantity} units of ${item.asin}`,
-    });
-    // TODO: Implement actual ordering logic
+    // Check if item has SKU (required for Sunsky)
+    if (!item.sku || item.sku.trim() === '') {
+      toast({
+        title: "Missing SKU",
+        description: "This item doesn't have a SKU. Only items with SKUs can be ordered from Sunsky.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Prepare order item for Sunsky dialog
+    const orderItem = {
+      id: item.asin_id,
+      po_number: `VELOCITY-${Date.now()}`,
+      sku_code: item.sku,
+      asin: item.asin,
+      quantity: item.manual_override ?? item.recommended_quantity,
+      status: 'pending',
+      model_number: item.sku,
+      title: item.title || `Velocity restock for ${item.asin}`,
+      notes: `Velocity-based replenishment - Velocity Score: ${item.velocity_score || 0}, Recommended: ${item.manual_override ?? item.recommended_quantity}`,
+      sunsky_sku: item.sku,
+      itemNo: item.sku,
+      qty: item.manual_override ?? item.recommended_quantity
+    };
+    
+    setSunskyOrderItems([orderItem]);
+    setSunskyDialogOpen(true);
   };
 
   const handleBulkOrderToSource = async () => {
