@@ -4553,6 +4553,7 @@ export type Database = {
           recommended_quantity: number
           serial_number: string
           sku: string
+          status: string
           title: string
           total_added: number
           total_sold: number
