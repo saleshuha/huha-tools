@@ -418,6 +418,35 @@ export function VelocityAnalyticsSimple() {
               Order {selectedItems.size} Items
             </Button>
           )}
+          <Button 
+            onClick={async () => {
+              const itemsWithOverrides = readyToOrderItems.filter(item => item.manual_override !== undefined && item.manual_override !== null);
+              if (itemsWithOverrides.length === 0) {
+                toast({
+                  title: "No overrides to reset",
+                  description: "All items are using system recommendations",
+                });
+                return;
+              }
+              
+              for (const item of itemsWithOverrides) {
+                await clearManualOverride(item.asin_id);
+              }
+              
+              toast({
+                title: "All overrides reset",
+                description: `Reset ${itemsWithOverrides.length} items to system recommendations`,
+              });
+              
+              loadAnalytics();
+            }}
+            variant="outline" 
+            className="gap-2"
+            disabled={readyToOrderItems.filter(item => item.manual_override !== undefined && item.manual_override !== null).length === 0}
+          >
+            <RotateCcw className="w-4 h-4" />
+            Reset All Quantities
+          </Button>
           <Button onClick={handleSelectAllItems} variant="outline" className="gap-2">
             <Package className="w-4 h-4" />
             Select All Items
