@@ -23,6 +23,7 @@ export interface VelocityAnalyticsItem {
   recommended_quantity: number;
   velocity_score: number;
   manual_override?: number;
+  status?: string;
 }
 
 export function useQuarterlyVelocityAnalytics() {

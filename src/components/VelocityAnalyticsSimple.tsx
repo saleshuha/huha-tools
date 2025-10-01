@@ -35,8 +35,11 @@ export function VelocityAnalyticsSimple() {
   
   // Memoized filtering and sorting
   const { readyToOrderItems, orderedItems, sortedFilteredItems } = useMemo(() => {
-    // Apply search filter (all items from velocity analytics are eligible)
-    const searchFiltered = items.filter(item => {
+    // Filter out local items - only show global status items
+    const globalItems = items.filter(item => item.status !== 'local');
+    
+    // Apply search filter
+    const searchFiltered = globalItems.filter(item => {
       const searchLower = searchTerm.toLowerCase();
       return (
         item.asin.toLowerCase().includes(searchLower) || 
