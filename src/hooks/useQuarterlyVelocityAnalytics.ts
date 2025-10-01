@@ -24,6 +24,7 @@ export interface VelocityAnalyticsItem {
   velocity_score: number;
   manual_override?: number;
   status?: string;
+  export_mode?: 'global' | 'local';
 }
 
 export function useQuarterlyVelocityAnalytics() {
@@ -49,15 +50,28 @@ export function useQuarterlyVelocityAnalytics() {
         .from('velocity_quantity_overrides')
         .select('asin_id, recommended_quantity');
 
+      // Fetch export mode preferences
+      const { data: exportModes } = await supabase
+        .from('export_mode_preferences')
+        .select('item_id, export_mode')
+        .eq('item_type', 'asin_inventory');
+
       const overridesMap = new Map(
         overrides?.map(o => [o.asin_id, o.recommended_quantity]) || []
       );
 
-      // Merge overrides with analytics data
-      const itemsWithOverrides = (data || []).map((item: any) => ({
-        ...item,
-        manual_override: overridesMap.get(item.asin_id)
-      }));
+      const exportModesMap = new Map(
+        exportModes?.map(m => [m.item_id, m.export_mode]) || []
+      );
+
+      // Merge overrides and export modes with analytics data, filter to only global items
+      const itemsWithOverrides = (data || [])
+        .map((item: any) => ({
+          ...item,
+          manual_override: overridesMap.get(item.asin_id),
+          export_mode: exportModesMap.get(item.asin_id) || 'global'
+        }))
+        .filter((item: any) => item.export_mode === 'global');
 
       setItems(itemsWithOverrides);
 
