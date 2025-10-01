@@ -375,6 +375,7 @@ export function Replenishment() {
           .select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added, notes, eligible_for_restock')
           .eq('country', selectedCountry)
           .eq('eligible_for_restock', true)
+          .eq('quantity', 0)
           .neq('status', 'no-stock')
       ]);
       
