@@ -93,7 +93,7 @@ export function VelocityItemCard({
           </div>
 
           {/* Metrics */}
-          <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
+          <div className="grid grid-cols-2 gap-2 mb-2 text-xs">
             <div className="flex items-center gap-1 text-muted-foreground">
               <TrendingUp className="w-3 h-3" />
               <span>Added: <strong className="text-foreground">{item.total_added}</strong></span>
@@ -103,6 +103,25 @@ export function VelocityItemCard({
               <span>Sold: <strong className="text-foreground">{item.total_sold}</strong></span>
             </div>
           </div>
+
+          {/* Pattern & Growth */}
+          {(item.trend_pattern || (item.growth_rate !== undefined && item.growth_rate !== 0)) && (
+            <div className="flex items-center gap-3 mb-3 text-xs">
+              {item.trend_pattern && (
+                <Badge 
+                  variant="outline" 
+                  className="text-xs font-medium"
+                >
+                  {item.trend_pattern}
+                </Badge>
+              )}
+              {item.growth_rate !== undefined && item.growth_rate !== 0 && (
+                <span className={`font-semibold ${item.growth_rate > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {item.growth_rate > 0 ? '▲' : '▼'} {Math.abs(item.growth_rate).toFixed(1)}% growth
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Quantity Editor & Actions */}
           {showActions && (
