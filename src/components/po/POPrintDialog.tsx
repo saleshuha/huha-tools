@@ -380,85 +380,86 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
             )}
             
             <div className="flex-1 overflow-auto p-4">
-              {printFormat === 'document' ? (
-                previewMode === 'document' ? (
-                  <POPrintDocument
-                    ref={printRef}
-                    items={printItems}
-                    includeImages={includeImages}
-                    title={title}
-                  />
-                ) : (
-                  <div className="space-y-4">
-                    <div className="text-lg font-semibold">{title}</div>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-12">#</TableHead>
-                          {includeImages && <TableHead className="w-20">Image</TableHead>}
-                          <TableHead>ASIN</TableHead>
-                          <TableHead>SKU</TableHead>
-                          <TableHead>Title</TableHead>
-                          <TableHead>Model</TableHead>
-                          <TableHead className="w-20">Qty</TableHead>
-                          <TableHead>PO Number(s)</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {printItems.map((item, index) => (
-                          <TableRow key={index}>
-                            <TableCell className="font-medium">{index + 1}</TableCell>
-                            {includeImages && (
-                              <TableCell>
-                                {item.imageUrl ? (
-                                  <img 
-                                    src={item.imageUrl} 
-                                    alt={item.asin}
-                                    className="w-16 h-16 object-cover rounded border"
-                                  />
-                                ) : (
-                                  <div className="w-16 h-16 bg-muted rounded border flex items-center justify-center">
-                                    <Package className="h-6 w-6 text-muted-foreground" />
-                                  </div>
-                                )}
-                              </TableCell>
-                            )}
-                            <TableCell className="font-mono text-sm">{item.asin}</TableCell>
-                            <TableCell className="text-sm">{item.sku_code || '-'}</TableCell>
-                            <TableCell className="max-w-xs truncate">{item.title || 'N/A'}</TableCell>
-                            <TableCell className="text-sm">{item.model_number || '-'}</TableCell>
-                            <TableCell className="text-center font-semibold">{item.quantity}</TableCell>
-                            <TableCell className="text-sm font-mono">{item.poNumbers}</TableCell>
+              <div ref={printRef}>
+                {printFormat === 'document' ? (
+                  previewMode === 'document' ? (
+                    <POPrintDocument
+                      items={printItems}
+                      includeImages={includeImages}
+                      title={title}
+                    />
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="text-lg font-semibold">{title}</div>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-12">#</TableHead>
+                            {includeImages && <TableHead className="w-20">Image</TableHead>}
+                            <TableHead>ASIN</TableHead>
+                            <TableHead>SKU</TableHead>
+                            <TableHead>Title</TableHead>
+                            <TableHead>Model</TableHead>
+                            <TableHead className="w-20">Qty</TableHead>
+                            <TableHead>PO Number(s)</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                    <div className="flex justify-end gap-6 text-sm border-t pt-4">
-                      <div>
-                        <span className="text-muted-foreground">Total Items: </span>
-                        <span className="font-semibold">{printItems.length}</span>
+                        </TableHeader>
+                        <TableBody>
+                          {printItems.map((item, index) => (
+                            <TableRow key={index}>
+                              <TableCell className="font-medium">{index + 1}</TableCell>
+                              {includeImages && (
+                                <TableCell>
+                                  {item.imageUrl ? (
+                                    <img 
+                                      src={item.imageUrl} 
+                                      alt={item.asin}
+                                      className="w-16 h-16 object-cover rounded border"
+                                    />
+                                  ) : (
+                                    <div className="w-16 h-16 bg-muted rounded border flex items-center justify-center">
+                                      <Package className="h-6 w-6 text-muted-foreground" />
+                                    </div>
+                                  )}
+                                </TableCell>
+                              )}
+                              <TableCell className="font-mono text-sm">{item.asin}</TableCell>
+                              <TableCell className="text-sm">{item.sku_code || '-'}</TableCell>
+                              <TableCell className="max-w-xs truncate">{item.title || 'N/A'}</TableCell>
+                              <TableCell className="text-sm">{item.model_number || '-'}</TableCell>
+                              <TableCell className="text-center font-semibold">{item.quantity}</TableCell>
+                              <TableCell className="text-sm font-mono">{item.poNumbers}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                      <div className="flex justify-end gap-6 text-sm border-t pt-4">
+                        <div>
+                          <span className="text-muted-foreground">Total Items: </span>
+                          <span className="font-semibold">{printItems.length}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Total Quantity: </span>
+                          <span className="font-semibold">{totalQuantity}</span>
+                        </div>
                       </div>
-                      <div>
-                        <span className="text-muted-foreground">Total Quantity: </span>
-                        <span className="font-semibold">{totalQuantity}</span>
+                    </div>
+                  )
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
+                    <Tag className="h-16 w-16 text-muted-foreground" />
+                    <div>
+                      <div className="font-semibold text-lg">Label Print Preview</div>
+                      <div className="text-sm text-muted-foreground mt-2">
+                        ZPL labels will be sent directly to your printer
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {printItems.length} label(s) × {copies} {copies > 1 ? 'copies' : 'copy'}
                       </div>
                     </div>
                   </div>
-                )
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
-                  <Tag className="h-16 w-16 text-muted-foreground" />
-                  <div>
-                    <div className="font-semibold text-lg">Label Print Preview</div>
-                    <div className="text-sm text-muted-foreground mt-2">
-                      ZPL labels will be sent directly to your printer
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {printItems.length} label(s) × {copies} {copies > 1 ? 'copies' : 'copy'}
-                    </div>
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </div>
