@@ -1925,15 +1925,15 @@ export function OrderProcessor() {
                                       </div>
                                     </div>
                                   </TableCell>
-                                  <TableCell className="font-semibold text-base">
+                                  <TableCell className="font-semibold text-base text-foreground">
                                     {order.quantity_deducted}
                                   </TableCell>
                                   <TableCell>
-                                    <span className="font-semibold text-base text-muted-foreground">
+                                    <span className="font-semibold text-base text-foreground">
                                       {order.old_quantity}
                                     </span>
-                                    <span className="mx-2 text-muted-foreground">→</span>
-                                    <span className="font-semibold text-base text-success">
+                                    <span className="mx-2 text-foreground/60">→</span>
+                                    <span className="font-semibold text-base text-foreground">
                                       {order.new_quantity}
                                     </span>
                                   </TableCell>
