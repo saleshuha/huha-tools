@@ -1607,12 +1607,11 @@ export const POTracker = () => {
                   </div>
                 )}
 
-                <div className="rounded-lg border-2 border-border">
+                <div className="rounded-lg border-2 border-border overflow-hidden">
                   {viewMode === 'grouped' ? (
-                    <Table>
-                       <TableHeader>
-                         <TableRow>
-                            <TableHead className="w-12">
+                    <div className="grid">
+                       <div className="grid grid-cols-[50px_80px_minmax(150px,1fr)_120px_150px_150px_140px_140px_minmax(200px,1fr)] bg-muted/50 border-b">
+                         <div className="p-3 font-medium text-sm">
                               <input
                                 type="checkbox"
                                 checked={selectedPOsForBulkClose.size > 0 && Array.from(selectedPOsForBulkClose).length === groupedPOOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).length}
@@ -1630,18 +1629,17 @@ export const POTracker = () => {
                                 }}
                                 className="h-4 w-4 rounded border-border"
                               />
-                            </TableHead>
-                            <TableHead className="w-16">Enable</TableHead>
-                            <TableHead>PO Number</TableHead>
-                            <TableHead>Ship To</TableHead>
-                           <TableHead>PO Items</TableHead>
-                           <TableHead>ASN Quantity</TableHead>
-                           <TableHead>Matched %</TableHead>
-                           <TableHead>Pending Items</TableHead>
-                           <TableHead>Actions</TableHead>
-                         </TableRow>
-                       </TableHeader>
-                      <TableBody>
+                         </div>
+                         <div className="p-3 font-medium text-sm">Enable</div>
+                         <div className="p-3 font-medium text-sm">PO Number</div>
+                         <div className="p-3 font-medium text-sm">Ship To</div>
+                         <div className="p-3 font-medium text-sm">PO Items</div>
+                         <div className="p-3 font-medium text-sm">ASN Quantity</div>
+                         <div className="p-3 font-medium text-sm">Matched %</div>
+                         <div className="p-3 font-medium text-sm">Pending Items</div>
+                         <div className="p-3 font-medium text-sm">Actions</div>
+                       </div>
+                      <div>
                          {paginatedPOGroups.map(({ poNumber, orders }) => {
                            const firstOrder = orders[0];
                            const ordersInPO = orders; // Alias for consistency
@@ -1684,9 +1682,10 @@ export const POTracker = () => {
                               const isDisabled = disabledPOs.has(poNumber);
                               
                               return (
-                                <TableRow 
+                                <div 
                                   key={poNumber}
                                   className={`
+                                    grid grid-cols-[50px_80px_minmax(150px,1fr)_120px_150px_150px_140px_140px_minmax(200px,1fr)] border-b
                                     ${isClosedPO 
                                       ? 'opacity-50 bg-muted/40 pointer-events-none cursor-not-allowed' 
                                       : isDisabled
@@ -1697,7 +1696,7 @@ export const POTracker = () => {
                                     }
                                   `}
                                 >
-                                  <TableCell>
+                                  <div className="p-3 flex items-center">
                                     <input
                                       type="checkbox"
                                       checked={selectedPOsForBulkClose.has(poNumber)}
@@ -1714,8 +1713,8 @@ export const POTracker = () => {
                                       disabled={isClosedPO || isDisabled}
                                       className={`h-4 w-4 rounded border-border ${isClosedPO || isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                                     />
-                                  </TableCell>
-                                  <TableCell>
+                                  </div>
+                                  <div className="p-3 flex items-center">
                                     <Switch
                                       checked={!isDisabled}
                                       onCheckedChange={(checked) => {
@@ -1731,8 +1730,8 @@ export const POTracker = () => {
                                       disabled={isClosedPO}
                                       className="scale-75"
                                     />
-                                  </TableCell>
-                                 <TableCell className="font-medium">
+                                  </div>
+                                 <div className="p-3 font-medium flex items-center">
                                    <div className="flex items-center gap-2">
                                      <span className="text-xs opacity-60">{countryPrefix}</span>
                                      <Button 
@@ -1750,8 +1749,8 @@ export const POTracker = () => {
                                        </Badge>
                                      )}
                                   </div>
-                                </TableCell>
-                              <TableCell>
+                                </div>
+                              <div className="p-3 flex items-center">
                                 <div className="text-sm text-muted-foreground">
                                   {(() => {
                                     const uniqueLocations = [...new Set(orders.map(o => o.ship_to_location).filter(Boolean))];
@@ -1760,20 +1759,20 @@ export const POTracker = () => {
                                     return `${uniqueLocations[0]} +${uniqueLocations.length - 1}`;
                                   })()}
                                 </div>
-                              </TableCell>
-                              <TableCell>
+                              </div>
+                              <div className="p-3 flex items-center">
                                 <div className="flex items-center gap-2">
                                   <span className="font-medium">{totalLineItems}</span>
                                   <span className="text-xs text-muted-foreground">distinct SKU lines</span>
                                 </div>
-                              </TableCell>
-                              <TableCell>
+                              </div>
+                              <div className="p-3 flex items-center">
                                 <div className="flex items-center gap-2">
                                   <span className="font-medium">{asnQuantity}</span>
                                   <span className="text-xs text-muted-foreground">active units</span>
                                 </div>
-                              </TableCell>
-                              <TableCell>
+                              </div>
+                              <div className="p-3 flex items-center">
                                 <div className="space-y-1">
                                   <div className="flex items-center gap-2">
                                     <Badge variant={parseInt(matchedPercentage) >= 80 ? "default" : parseInt(matchedPercentage) >= 50 ? "secondary" : "destructive"}>
@@ -1785,8 +1784,8 @@ export const POTracker = () => {
                                     <div>Matched items: {matchedCount}</div>
                                   </div>
                                 </div>
-                              </TableCell>
-                              <TableCell>
+                              </div>
+                              <div className="p-3 flex items-center">
                                 <div className="text-sm font-medium">
                                   {activeOrdersInPO.filter(order => 
                                     order.status === 'pending' && 
@@ -1794,8 +1793,8 @@ export const POTracker = () => {
                                     findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku) !== null
                                   ).length}
                                 </div>
-                              </TableCell>
-                                 <TableCell>
+                              </div>
+                                 <div className="p-3 flex items-center">
                                    <div className="flex items-center gap-2">
                                      <Button 
                                        variant="outline" 
@@ -1834,12 +1833,12 @@ export const POTracker = () => {
                                        </>
                                      )}
                                    </div>
-                                 </TableCell>
-                             </TableRow>
+                                 </div>
+                             </div>
                            );
                          })}
-                       </TableBody>
-                    </Table>
+                       </div>
+                    </div>
                   ) : (
                      <Table>
                        <TableHeader>
