@@ -43,14 +43,19 @@ export const usePOOrders = () => {
 
   // Fetch PO orders using deduplicated function to avoid double counting
   const fetchPOOrders = useCallback(async (useRawData = false) => {
+    console.log('📥 fetchPOOrders called, isLoading:', isLoading);
     setIsLoading(true);
     setLoadingProgress(0);
     setLoadingStatus('Fetching PO orders...');
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      if (!user) {
+        console.error('❌ No authenticated user found');
+        throw new Error('User not authenticated');
+      }
 
+      console.log('✅ Authenticated user:', user.id);
       setLoadingProgress(20);
       setLoadingStatus('Loading PO data with SKU matching...');
 
@@ -60,7 +65,7 @@ export const usePOOrders = () => {
       let page = 0;
       let hasMore = true;
 
-      console.log(`🚀 Starting client-side pagination to fetch ALL PO orders...`);
+      console.log(`🚀 Starting client-side pagination to fetch ALL PO orders for user ${user.id}...`);
 
       while (hasMore) {
         const startRange = page * pageSize;
@@ -100,6 +105,14 @@ export const usePOOrders = () => {
 
       console.log(`📦 TOTAL PO orders fetched via pagination: ${allPOOrders.length}`);
 
+      if (allPOOrders.length === 0) {
+        console.warn('⚠️ No PO orders found for user:', user.id);
+        setPOOrders([]);
+        setLoadingProgress(100);
+        setLoadingStatus('No PO orders found');
+        return;
+      }
+
       // Fetch all sunsky_skus for matching
       setLoadingStatus('Matching orders with Sunsky SKUs...');
       setLoadingProgress(85);
@@ -115,6 +128,7 @@ export const usePOOrders = () => {
 
       // Create a Set of sunsky SKU codes for fast matching
       const sunskySkuSet = new Set(sunskySkus?.map(sku => sku.sku_code) || []);
+      console.log(`📋 Found ${sunskySkuSet.size} Sunsky SKUs for matching`);
       
       // Type the final data and add sunsky_sku matching
       const typedData: POOrder[] = allPOOrders.map((order: any) => {
@@ -128,14 +142,14 @@ export const usePOOrders = () => {
         };
       });
 
-      console.log(`📊 SKU matching stats: ${typedData.filter((o: any) => o.sunsky_sku).length} orders have matching SKUs`);
-      
-      // Debug specific PO
-      const debugPO = '4ID5DFYI';
-      const debugPOOrders = typedData.filter((order: any) => order.po_number === debugPO);
-      console.log(`🔍 DEBUG: PO ${debugPO} has ${debugPOOrders.length} orders with matching SKUs:`, 
-        debugPOOrders.filter((o: any) => o.sunsky_sku).length);
+      console.log(`📊 Final data stats:`, {
+        total: typedData.length,
+        withSunskySku: typedData.filter((o: any) => o.sunsky_sku).length,
+        countries: [...new Set(typedData.map(o => o.country))],
+        statuses: [...new Set(typedData.map(o => o.status))]
+      });
 
+      console.log('🎯 Setting poOrders state with', typedData.length, 'orders');
       setPOOrders(typedData);
       setLoadingProgress(100);
       setLoadingStatus(`Loaded ${typedData.length} orders with SKU matching`);

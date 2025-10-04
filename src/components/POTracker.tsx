@@ -451,7 +451,11 @@ export const POTracker = () => {
 
   useEffect(() => {
     if (profile?.id && selectedCountry) {
-      console.log('🔄 Initial data fetch for profile:', profile.id, 'country:', selectedCountry);
+      console.log('🔄 POTracker: Initial data fetch triggered', { 
+        profileId: profile.id, 
+        country: selectedCountry,
+        currentOrdersLength: poOrders.length 
+      });
       fetchPOOrders();
       initializeQZ();
       
@@ -463,6 +467,15 @@ export const POTracker = () => {
       }
     }
   }, [profile?.id, selectedCountry]); // Removed function dependencies to prevent loops
+
+  useEffect(() => {
+    console.log('📊 POTracker: poOrders updated', { 
+      length: poOrders.length, 
+      isLoading,
+      selectedCountry,
+      sampleOrders: poOrders.slice(0, 2).map(o => ({ po: o.po_number, country: o.country }))
+    });
+  }, [poOrders, isLoading, selectedCountry]);
 
   const initializeQZ = async () => {
     try {
