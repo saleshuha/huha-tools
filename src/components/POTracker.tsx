@@ -2208,7 +2208,32 @@ export const POTracker = () => {
                         </div>
                       </Card>
                     ) : (
-                      filteredPOGroups.map((group) => (
+                      filteredPOGroups.map((group) => {
+                        // Get the primary ship-to location from first selected PO
+                        const selectedShipToLocation = (() => {
+                          if (selectedPOsForLabels.size === 0) return null;
+                          const firstSelectedPO = filteredPOGroups.find(g => selectedPOsForLabels.has(g.poNumber));
+                          if (!firstSelectedPO) return null;
+                          const locations = [...new Set(firstSelectedPO.orders.map(o => o.ship_to_location).filter(Boolean))];
+                          return locations.length > 0 ? locations[0] : null;
+                        })();
+                        
+                        // Get this group's primary ship-to location
+                        const groupShipToLocation = (() => {
+                          const locations = [...new Set(group.orders.map(o => o.ship_to_location).filter(Boolean))];
+                          return locations.length > 0 ? locations[0] : null;
+                        })();
+                        
+                        // Check if this PO should be disabled due to different ship-to location
+                        const isDisabledByLocation = selectedShipToLocation && 
+                          groupShipToLocation && 
+                          selectedShipToLocation !== groupShipToLocation &&
+                          !selectedPOsForLabels.has(group.poNumber);
+                        
+                        const isClosedPO = group.orders.every(order => order.status === 'closed');
+                        const hasClosedItems = group.orders.some(order => order.status === 'closed');
+                        
+                        return (
                          <Card 
                            key={group.poNumber} 
                            className={`cursor-pointer hover:shadow-md transition-all border-l-4 ${
@@ -2216,16 +2241,17 @@ export const POTracker = () => {
                                ? 'border-l-primary bg-primary/5' 
                                : 'border-l-primary/30 hover:border-l-primary'
                            } ${
-                             // Check if PO has any closed orders - if all orders are closed, make it less prominent
-                             group.orders.every(order => order.status === 'closed')
+                             isClosedPO
                                ? 'opacity-50 pointer-events-none cursor-not-allowed'
-                               : group.orders.some(order => order.status === 'closed')
+                               : isDisabledByLocation
+                               ? 'opacity-40 pointer-events-none cursor-not-allowed'
+                               : hasClosedItems 
                                ? 'opacity-75'
                                : ''
                            }`}
                            onClick={() => {
-                             // Prevent interaction if all orders are closed
-                             if (group.orders.every(order => order.status === 'closed')) return;
+                             // Prevent interaction if closed or disabled by location
+                             if (isClosedPO || isDisabledByLocation) return;
                              
                              const newSelected = new Set(selectedPOsForLabels);
                              if (newSelected.has(group.poNumber)) {
@@ -2259,9 +2285,14 @@ export const POTracker = () => {
                                     <Badge variant="secondary" className="text-xs">
                                       {group.orders.length} item{group.orders.length !== 1 ? 's' : ''}
                                     </Badge>
-                                    {group.orders.every(order => order.status === 'closed') && (
+                                    {isClosedPO && (
                                       <Badge variant="destructive" className="text-xs">
                                         CLOSED
+                                      </Badge>
+                                    )}
+                                    {isDisabledByLocation && (
+                                      <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30">
+                                        Different Location
                                       </Badge>
                                     )}
                                   </div>
@@ -2306,23 +2337,24 @@ export const POTracker = () => {
                                  <Button 
                                    variant="outline" 
                                    size="sm"
-                                   disabled={group.orders.every(order => order.status === 'closed')}
+                                   disabled={isClosedPO || isDisabledByLocation}
                                    onClick={(e) => {
                                      e.stopPropagation();
-                                     if (group.orders.every(order => order.status === 'closed')) return;
+                                     if (isClosedPO || isDisabledByLocation) return;
                                      setSelectedPOForLabels(group.poNumber);
                                      setSelectedPOsForLabels(new Set([group.poNumber]));
                                      setLabelsStep('print');
                                    }}
                                  >
                                    <Printer className="h-4 w-4 mr-2" />
-                                   {group.orders.every(order => order.status === 'closed') ? 'Closed' : 'Print Labels'}
+                                   {isClosedPO ? 'Closed' : isDisabledByLocation ? 'Different Location' : 'Print Labels'}
                                  </Button>
                               </div>
                             </div>
                           </CardContent>
                         </Card>
-                      ))
+                      );
+                    })
                     )}
                   </div>
                 </div>
