@@ -1706,18 +1706,32 @@ export const POTracker = () => {
                                        View Details
                                      </Button>
                                      {!isClosedPO && (
-                                       <Button 
-                                         variant="outline" 
-                                         size="sm"
-                                         onClick={() => {
-                                           if (confirm(`Are you sure you want to close PO ${poNumber}? This action cannot be undone.`)) {
-                                             handleClosePO(poNumber);
-                                           }
-                                         }}
-                                         className="text-red-600 hover:text-red-700"
-                                       >
-                                         Close PO
-                                       </Button>
+                                       <>
+                                         <Button 
+                                           variant="outline" 
+                                           size="sm"
+                                           onClick={() => {
+                                             if (confirm(`Are you sure you want to close PO ${poNumber}? This action cannot be undone.`)) {
+                                               handleClosePO(poNumber);
+                                             }
+                                           }}
+                                           className="text-red-600 hover:text-red-700"
+                                         >
+                                           Close PO
+                                         </Button>
+                                         <Button 
+                                           variant="destructive" 
+                                           size="sm"
+                                           onClick={() => {
+                                             if (confirm(`Are you sure you want to DELETE PO ${poNumber}? This will permanently remove all ${activeOrdersInPO.length} items from this PO.\n\nThis action cannot be undone.`)) {
+                                               handleDeletePO(poNumber, activeOrdersInPO);
+                                             }
+                                           }}
+                                         >
+                                           <X className="h-4 w-4 mr-1" />
+                                           Delete
+                                         </Button>
+                                       </>
                                      )}
                                    </div>
                                  </TableCell>
