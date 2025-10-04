@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import { useUserProfile } from "@/hooks/useUserProfile"
+import { useUserPagePermissions } from "@/hooks/useUserPagePermissions"
 import {
   Sidebar,
   SidebarContent,
@@ -153,7 +154,8 @@ export function AppSidebar() {
   const isNative = Capacitor.isNativePlatform()
   
   const { toast } = useToast()
-  const { isAdmin } = useUserProfile()
+  const { isAdmin, profile } = useUserProfile()
+  const { permissions } = useUserPagePermissions(profile?.id)
 
   const isActive = (path: string) => {
     if (path === "/") {
@@ -212,6 +214,18 @@ export function AppSidebar() {
     }
   }
 
+  // Check if user can access a route
+  const canAccessRoute = (route: string) => {
+    // Admins can access everything
+    if (isAdmin) return true;
+    
+    // If no permissions are set, user can access all pages
+    if (permissions.length === 0) return true;
+    
+    // Check if user has permission for this route
+    return permissions.some(p => p.page_route === route);
+  };
+
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border bg-sidebar">
@@ -223,7 +237,7 @@ export function AppSidebar() {
           <SidebarGroupContent className="px-2">
             <SidebarMenu className="space-y-1">
               {/* Navigation items */}
-              {navigationItems.map((item) => (
+              {navigationItems.filter(item => canAccessRoute(item.url)).map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild
@@ -250,7 +264,7 @@ export function AppSidebar() {
               ))}
 
               {/* Instock Inventory */}
-              <SidebarMenuItem>
+              {canAccessRoute('/inventory') && <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
                   className={`group relative w-full rounded-md transition-all duration-200 ${
@@ -272,10 +286,10 @@ export function AppSidebar() {
                     )}
                   </NavLink>
                 </SidebarMenuButton>
-              </SidebarMenuItem>
+              </SidebarMenuItem>}
 
               {/* Sales & Replenishment */}
-              <SidebarMenuItem>
+              {canAccessRoute('/replenishment') && <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
                   className={`group relative w-full rounded-md transition-all duration-200 ${
@@ -297,12 +311,12 @@ export function AppSidebar() {
                     )}
                   </NavLink>
                 </SidebarMenuButton>
-              </SidebarMenuItem>
+              </SidebarMenuItem>}
 
               {/* Removed QZ Tray Setup - moved to between Tools and Data Viewer */}
 
               {/* Amazon Section - only show when not collapsed */}
-              {!isCollapsed && (
+              {!isCollapsed && (canAccessRoute('/order-processing') || canAccessRoute('/po-tracker') || canAccessRoute('/amazon-fulfillment') || canAccessRoute('/amazon-image-uploader') || canAccessRoute('/amazon-vendor-central')) && (
                 <SidebarMenuItem>
                   <Collapsible open={isAmazonOpen} onOpenChange={setIsAmazonOpen}>
                     <CollapsibleTrigger asChild>
@@ -327,7 +341,7 @@ export function AppSidebar() {
                     </CollapsibleTrigger>
                     <CollapsibleContent className="mt-2 space-y-1 pl-3 z-50 relative">
                       {/* DF Order Processing */}
-                      <SidebarMenuButton
+                      {canAccessRoute('/order-processing') && <SidebarMenuButton
                         asChild
                         className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
                           isActive("/order-processing")
@@ -345,10 +359,10 @@ export function AppSidebar() {
                             DF Order Processing
                           </span>
                         </NavLink>
-                      </SidebarMenuButton>
+                      </SidebarMenuButton>}
                       
                       {/* PO - SS Stock Tracker */}
-                      <SidebarMenuButton
+                      {canAccessRoute('/po-tracker') && <SidebarMenuButton
                         asChild
                         className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
                           isActive("/po-tracker")
@@ -366,10 +380,10 @@ export function AppSidebar() {
                             Amazon Retail
                           </span>
                         </NavLink>
-                      </SidebarMenuButton>
+                      </SidebarMenuButton>}
                       
                       {/* Amazon Fulfillment Tracker */}
-                      <SidebarMenuButton
+                      {canAccessRoute('/amazon-fulfillment') && <SidebarMenuButton
                         asChild
                         className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
                           isActive("/amazon-fulfillment")
@@ -387,10 +401,10 @@ export function AppSidebar() {
                             Amazon Fulfillment Tracker
                           </span>
                         </NavLink>
-                      </SidebarMenuButton>
+                      </SidebarMenuButton>}
                       
                       {/* Amazon Image Uploader */}
-                      <SidebarMenuButton
+                      {canAccessRoute('/amazon-image-uploader') && <SidebarMenuButton
                         asChild
                         className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
                           isActive("/amazon-image-uploader")
@@ -408,10 +422,10 @@ export function AppSidebar() {
                             Amazon Image Uploader
                           </span>
                         </NavLink>
-                      </SidebarMenuButton>
+                      </SidebarMenuButton>}
 
                       {/* Amazon Vendor Central - Hide in native app */}
-                      {!isNative && (
+                      {!isNative && canAccessRoute('/amazon-vendor-central') && (
                         <SidebarMenuButton
                           asChild
                           className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
@@ -438,7 +452,7 @@ export function AppSidebar() {
               )}
 
               {/* Noon Section - only show when not collapsed */}
-              {!isCollapsed && (
+              {!isCollapsed && (canAccessRoute('/noon-order-processing') || canAccessRoute('/noon-order-tracking')) && (
                 <SidebarMenuItem>
                   <Collapsible open={isNoonOpen} onOpenChange={setIsNoonOpen}>
                     <CollapsibleTrigger asChild>
@@ -463,7 +477,7 @@ export function AppSidebar() {
                     </CollapsibleTrigger>
                     <CollapsibleContent className="mt-2 space-y-1 pl-3 z-50 relative">
                       {/* Noon Orders Processing */}
-                      <SidebarMenuButton
+                      {canAccessRoute('/noon-order-processing') && <SidebarMenuButton
                         asChild
                         className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
                           isActive("/noon-order-processing")
@@ -481,10 +495,10 @@ export function AppSidebar() {
                             Noon Orders Processing
                           </span>
                         </NavLink>
-                      </SidebarMenuButton>
+                      </SidebarMenuButton>}
                       
                       {/* Noon Orders Tracking */}
-                      <SidebarMenuButton
+                      {canAccessRoute('/noon-order-tracking') && <SidebarMenuButton
                         asChild
                         className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
                           isActive("/noon-order-tracking")
@@ -502,14 +516,14 @@ export function AppSidebar() {
                             Noon Orders Tracking
                           </span>
                         </NavLink>
-                      </SidebarMenuButton>
+                      </SidebarMenuButton>}
                     </CollapsibleContent>
                   </Collapsible>
                 </SidebarMenuItem>
               )}
 
               {/* Source Section - only show when not collapsed */}
-              {!isCollapsed && (
+              {!isCollapsed && (canAccessRoute('/sunsky-importer') || canAccessRoute('/sunsky-order-tracking')) && (
                 <SidebarMenuItem>
                   <Collapsible open={isSourceOpen} onOpenChange={setIsSourceOpen}>
                     <CollapsibleTrigger asChild>
@@ -534,7 +548,7 @@ export function AppSidebar() {
                     </CollapsibleTrigger>
                     <CollapsibleContent className="mt-2 space-y-1 pl-3 z-50 relative">
                       {/* Source Product Importer */}
-                      <SidebarMenuButton
+                      {canAccessRoute('/sunsky-importer') && <SidebarMenuButton
                         asChild
                         className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
                           isActive("/sunsky-importer")
@@ -552,10 +566,10 @@ export function AppSidebar() {
                             Source Product Importer
                           </span>
                         </NavLink>
-                      </SidebarMenuButton>
+                      </SidebarMenuButton>}
                       
                       {/* Source Order Tracking */}
-                      <SidebarMenuButton
+                      {canAccessRoute('/sunsky-order-tracking') && <SidebarMenuButton
                         asChild
                         className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
                           isActive("/sunsky-order-tracking")
@@ -573,14 +587,14 @@ export function AppSidebar() {
                             Source Order Tracking
                           </span>
                         </NavLink>
-                      </SidebarMenuButton>
+                      </SidebarMenuButton>}
                     </CollapsibleContent>
                   </Collapsible>
                 </SidebarMenuItem>
               )}
 
               {/* Label Designer */}
-              <SidebarMenuItem>
+              {canAccessRoute('/label-designer') && <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
                   className={`group relative w-full rounded-md transition-all duration-200 ${
@@ -602,10 +616,10 @@ export function AppSidebar() {
                     )}
                   </NavLink>
                 </SidebarMenuButton>
-              </SidebarMenuItem>
+              </SidebarMenuItem>}
 
               {/* Carrefour Sales Tracker */}
-              <SidebarMenuItem>
+              {canAccessRoute('/carrefour-payments') && <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
                   className={`group relative w-full rounded-md transition-all duration-200 ${
@@ -627,10 +641,10 @@ export function AppSidebar() {
                     )}
                   </NavLink>
                 </SidebarMenuButton>
-              </SidebarMenuItem>
+              </SidebarMenuItem>}
 
               {/* Tools dropdown - only show when not collapsed and not in native app */}
-              {!isCollapsed && !isNative && (
+              {!isCollapsed && !isNative && toolsItems.some(item => canAccessRoute(item.url)) && (
                 <SidebarMenuItem>
                   <Collapsible open={isToolsOpen} onOpenChange={setIsToolsOpen}>
                     <CollapsibleTrigger asChild>
@@ -654,7 +668,7 @@ export function AppSidebar() {
                       </SidebarMenuButton>
                     </CollapsibleTrigger>
                     <CollapsibleContent className="mt-2 space-y-1 pl-3 z-50 relative">
-                      {toolsItems.map((item) => (
+                      {toolsItems.filter(item => canAccessRoute(item.url)).map((item) => (
                         <SidebarMenuButton
                           key={item.title}
                           asChild
@@ -682,7 +696,7 @@ export function AppSidebar() {
                 )}
 
               {/* QZ Tray Setup - positioned between Tools and Data Viewer */}
-              <SidebarMenuItem>
+              {canAccessRoute('/qz-tray') && <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild
                   className={`group relative w-full rounded-md transition-all duration-200 ${
@@ -704,7 +718,7 @@ export function AppSidebar() {
                     )}
                   </NavLink>
                 </SidebarMenuButton>
-              </SidebarMenuItem>
+              </SidebarMenuItem>}
 
               {/* Data Viewer standalone item - Hide in native app */}
               {!isNative && (
@@ -769,27 +783,29 @@ export function AppSidebar() {
         </SidebarMenuButton>
         
         {/* Preview Settings */}
-        <SidebarMenuButton 
-          asChild
-          className={`group relative w-full rounded-md transition-all duration-200 ${
-            isActive("/preview-settings")
-              ? "bg-primary/90 text-primary-foreground shadow-sm" 
-              : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
-          }`}
-        >
-          <NavLink 
-            to="/preview-settings" 
-            end
-            className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
+        {canAccessRoute('/preview-settings') && (
+          <SidebarMenuButton 
+            asChild
+            className={`group relative w-full rounded-md transition-all duration-200 ${
+              isActive("/preview-settings")
+                ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+            }`}
           >
-            <Palette className="h-4 w-4 flex-shrink-0" />
-            {!isCollapsed && (
-              <span className="font-medium text-sm">
-                Preview Settings
-              </span>
-            )}
-          </NavLink>
-        </SidebarMenuButton>
+            <NavLink 
+              to="/preview-settings" 
+              end
+              className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
+            >
+              <Palette className="h-4 w-4 flex-shrink-0" />
+              {!isCollapsed && (
+                <span className="font-medium text-sm">
+                  Preview Settings
+                </span>
+              )}
+            </NavLink>
+          </SidebarMenuButton>
+        )}
         
         <Button 
           onClick={handleLogout}

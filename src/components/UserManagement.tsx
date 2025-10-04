@@ -14,6 +14,8 @@ import { Trash2, UserPlus, Shield, Settings, Users, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useUserProfile } from '@/hooks/useUserProfile';
+import { useUserPagePermissions } from '@/hooks/useUserPagePermissions';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface Profile {
   id: string;
@@ -25,11 +27,40 @@ interface Profile {
   created_at: string;
 }
 
+const AVAILABLE_PAGES = [
+  { route: '/', label: 'Homepage' },
+  { route: '/inventory', label: 'Instock Inventory' },
+  { route: '/replenishment', label: 'Sales & Replenishment' },
+  { route: '/order-processing', label: 'DF Order Processing' },
+  { route: '/po-tracker', label: 'Amazon Retail' },
+  { route: '/amazon-fulfillment', label: 'Amazon Fulfillment Tracker' },
+  { route: '/amazon-image-uploader', label: 'Amazon Image Uploader' },
+  { route: '/amazon-vendor-central', label: 'Amazon Vendor Central' },
+  { route: '/noon-order-processing', label: 'Noon Orders Processing' },
+  { route: '/noon-order-tracking', label: 'Noon Orders Tracking' },
+  { route: '/sunsky-importer', label: 'Source Product Importer' },
+  { route: '/sunsky-order-tracking', label: 'Source Order Tracking' },
+  { route: '/label-designer', label: 'Label Designer' },
+  { route: '/carrefour-payments', label: 'Carrefour Sales Tracker' },
+  { route: '/excel-mapper', label: 'Excel File Mapper' },
+  { route: '/batch', label: 'Batch Processor' },
+  { route: '/asin-sum', label: 'ASIN QTY Sum' },
+  { route: '/zip-splitter', label: 'Zip Splitter' },
+  { route: '/file-merger', label: 'File Merger' },
+  { route: '/excel-editor', label: 'Excel Editor' },
+  { route: '/bulk-column-editor', label: 'Bulk Column Editor' },
+  { route: '/noon-file-cleaner', label: 'Noon File Cleaner' },
+  { route: '/qz-tray', label: 'QZ Tray Setup' },
+  { route: '/preview-settings', label: 'Preview Settings' },
+];
+
 export function UserManagement() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [editingRole, setEditingRole] = useState<string | null>(null);
+  const [editingPermissions, setEditingPermissions] = useState<string | null>(null);
+  const [selectedPages, setSelectedPages] = useState<string[]>([]);
   const [newUser, setNewUser] = useState({
     email: '',
     password: '',
@@ -40,6 +71,7 @@ export function UserManagement() {
 
   const { toast } = useToast();
   const { profile: userProfile } = useUserProfile();
+  const { permissions, updatePermissions, allowedRoutes } = useUserPagePermissions(editingPermissions || undefined);
 
   // Check if current user is admin (backwards compatible)
   const isAdmin = userProfile?.role === 'admin';
@@ -51,6 +83,12 @@ export function UserManagement() {
       setLoading(false);
     }
   }, [isAdmin]);
+
+  useEffect(() => {
+    if (editingPermissions) {
+      setSelectedPages(allowedRoutes);
+    }
+  }, [editingPermissions, allowedRoutes]);
 
   const fetchProfiles = async () => {
     try {
@@ -218,6 +256,22 @@ export function UserManagement() {
     }
   };
 
+  const handleSavePermissions = async () => {
+    if (!editingPermissions) return;
+
+    await updatePermissions(selectedPages);
+    setEditingPermissions(null);
+    setSelectedPages([]);
+  };
+
+  const togglePageSelection = (route: string) => {
+    setSelectedPages(prev => 
+      prev.includes(route) 
+        ? prev.filter(r => r !== route)
+        : [...prev, route]
+    );
+  };
+
   if (!isAdmin) {
     return (
       <Card>
@@ -331,6 +385,7 @@ export function UserManagement() {
                 <TableHead>Full Name</TableHead>
                 <TableHead>Country</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>Pages</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -349,43 +404,113 @@ export function UserManagement() {
                       {profile.is_main_admin && ' (Main)'}
                     </Badge>
                   </TableCell>
+                  <TableCell>
+                    <PagePermissionsCell userId={profile.id} />
+                  </TableCell>
                   <TableCell>{new Date(profile.created_at).toLocaleDateString()}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       {!profile.is_main_admin && (
-                        <Dialog open={editingRole === profile.id} onOpenChange={(open) => setEditingRole(open ? profile.id : null)}>
-                          <DialogTrigger asChild>
-                            <Button variant="outline" size="sm">
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>Edit User Role</DialogTitle>
-                            </DialogHeader>
-                            <div className="space-y-4">
-                              <div>
-                                <Label>User</Label>
-                                <p className="text-sm text-muted-foreground">{profile.email}</p>
+                        <>
+                          <Dialog open={editingRole === profile.id} onOpenChange={(open) => setEditingRole(open ? profile.id : null)}>
+                            <DialogTrigger asChild>
+                              <Button variant="outline" size="sm" title="Edit Role">
+                                <Shield className="h-4 w-4" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Edit User Role</DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-4">
+                                <div>
+                                  <Label>User</Label>
+                                  <p className="text-sm text-muted-foreground">{profile.email}</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="role-select">Role</Label>
+                                  <Select
+                                    defaultValue={profile.role}
+                                    onValueChange={(value) => updateUserRole(profile.id, value as 'admin' | 'user')}
+                                  >
+                                    <SelectTrigger id="role-select">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="user">User</SelectItem>
+                                      <SelectItem value="admin">Admin</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
                               </div>
-                              <div>
-                                <Label htmlFor="role-select">Role</Label>
-                                <Select
-                                  defaultValue={profile.role}
-                                  onValueChange={(value) => updateUserRole(profile.id, value as 'admin' | 'user')}
-                                >
-                                  <SelectTrigger id="role-select">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="user">User</SelectItem>
-                                    <SelectItem value="admin">Admin</SelectItem>
-                                  </SelectContent>
-                                </Select>
+                            </DialogContent>
+                          </Dialog>
+
+                          <Dialog 
+                            open={editingPermissions === profile.id} 
+                            onOpenChange={(open) => {
+                              if (open) {
+                                setEditingPermissions(profile.id);
+                              } else {
+                                setEditingPermissions(null);
+                                setSelectedPages([]);
+                              }
+                            }}
+                          >
+                            <DialogTrigger asChild>
+                              <Button variant="outline" size="sm" title="Assign Pages">
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-2xl">
+                              <DialogHeader>
+                                <DialogTitle>Assign Pages to User</DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-4">
+                                <div>
+                                  <Label>User</Label>
+                                  <p className="text-sm text-muted-foreground">{profile.email}</p>
+                                </div>
+                                <div>
+                                  <Label>Select Pages</Label>
+                                  <ScrollArea className="h-[400px] rounded-md border p-4 mt-2">
+                                    <div className="space-y-2">
+                                      {AVAILABLE_PAGES.map((page) => (
+                                        <div key={page.route} className="flex items-center space-x-2">
+                                          <Checkbox
+                                            id={`page-${page.route}`}
+                                            checked={selectedPages.includes(page.route)}
+                                            onCheckedChange={() => togglePageSelection(page.route)}
+                                          />
+                                          <label
+                                            htmlFor={`page-${page.route}`}
+                                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                          >
+                                            {page.label}
+                                          </label>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </ScrollArea>
+                                </div>
+                                <div className="flex justify-end gap-2">
+                                  <Button 
+                                    variant="outline" 
+                                    onClick={() => {
+                                      setEditingPermissions(null);
+                                      setSelectedPages([]);
+                                    }}
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button onClick={handleSavePermissions}>
+                                    Save Permissions
+                                  </Button>
+                                </div>
                               </div>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
+                            </DialogContent>
+                          </Dialog>
+                        </>
                       )}
 
                       {!profile.is_main_admin && (
@@ -423,5 +548,20 @@ export function UserManagement() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+// Helper component to show page permissions count
+function PagePermissionsCell({ userId }: { userId: string }) {
+  const { permissions } = useUserPagePermissions(userId);
+  
+  if (permissions.length === 0) {
+    return <span className="text-xs text-muted-foreground">All pages</span>;
+  }
+  
+  return (
+    <Badge variant="secondary" className="text-xs">
+      {permissions.length} page{permissions.length !== 1 ? 's' : ''}
+    </Badge>
   );
 }
