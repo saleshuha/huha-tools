@@ -1926,24 +1926,25 @@ export function OrderProcessor() {
                                     </div>
                                   </TableCell>
                                   <TableCell>
-                                    <Badge variant="outline" className="font-semibold bg-success/10">
-                                      {order.quantity_deducted}
-                                    </Badge>
+                                    <div className="flex items-center gap-2">
+                                      <Minus className="w-4 h-4 text-destructive" />
+                                      <Badge variant="destructive" className="font-bold text-sm px-3 py-1">
+                                        {order.quantity_deducted}
+                                      </Badge>
+                                    </div>
                                   </TableCell>
                                   <TableCell>
-                                    <div className="space-y-1">
-                                      <div className="flex items-center gap-2 text-xs">
-                                        <span className="text-muted-foreground">Before:</span>
-                                        <Badge variant="secondary" className="font-semibold">
-                                          {order.old_quantity}
-                                        </Badge>
-                                      </div>
-                                      <div className="flex items-center gap-2 text-xs">
-                                        <span className="text-muted-foreground">After:</span>
-                                        <Badge variant="default" className="font-semibold">
-                                          {order.new_quantity}
-                                        </Badge>
-                                      </div>
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant="secondary" className="font-semibold px-2 py-1">
+                                        {order.old_quantity}
+                                      </Badge>
+                                      <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                                      <Badge 
+                                        variant="default" 
+                                        className="font-semibold px-2 py-1 bg-success/20 text-success dark:text-success-foreground border-success/30"
+                                      >
+                                        {order.new_quantity}
+                                      </Badge>
                                     </div>
                                   </TableCell>
                                   <TableCell>
