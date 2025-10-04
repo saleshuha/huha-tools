@@ -93,17 +93,39 @@ export const usePOOrders = () => {
       console.log('✅ Authenticated user:', user.id);
       setLoadingProgress(20);
       
-      // Query po_orders table directly with proper range to get ALL rows
+      // Query po_orders table with pagination to fetch ALL rows
       setLoadingStatus(loadAllOrders ? 'Loading ALL PO orders...' : 'Loading active PO orders...');
-      console.log(loadAllOrders ? '📚 Loading ALL orders directly from table' : '🎯 Loading ACTIVE orders directly from table');
+      console.log(loadAllOrders ? '📚 Loading ALL orders with pagination' : '🎯 Loading ACTIVE orders with pagination');
       
-      // Fetch all rows using range - Supabase default limit is 1000, so we use range(0, 9999)
-      const { data: allPOOrders, error: fetchError } = await supabase
-        .from('po_orders')
-        .select('*', { count: 'exact' })
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .range(0, 9999); // Fetch up to 10,000 rows
+      // Fetch ALL rows by paginating in chunks of 1000
+      let allPOOrders: any[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const { data: batch, error: batchError } = await supabase
+          .from('po_orders')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .range(from, from + batchSize - 1);
+        
+        if (batchError) {
+          throw batchError;
+        }
+        
+        if (batch && batch.length > 0) {
+          allPOOrders = [...allPOOrders, ...batch];
+          console.log(`📦 Loaded batch: ${batch.length} orders (total so far: ${allPOOrders.length})`);
+          from += batchSize;
+          hasMore = batch.length === batchSize; // Continue if we got a full batch
+        } else {
+          hasMore = false;
+        }
+      }
+      
+      const fetchError = null;
       
       if (fetchError) {
         console.error('❌ Fetch error:', fetchError);
