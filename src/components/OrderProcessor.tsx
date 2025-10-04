@@ -11,7 +11,10 @@ import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, Pagi
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Dialog, DialogContent } from './ui/dialog';
-import { FileSpreadsheet, Search, Minus, Download, Package, AlertTriangle, TrendingUp, Clock, DollarSign, ShoppingCart, Printer, CheckSquare, Square, Tag } from 'lucide-react';
+import { FileSpreadsheet, Search, Minus, Download, Package, AlertTriangle, Clock, Printer, CheckSquare, Square, Tag, FileUp, Zap, ArrowRight } from 'lucide-react';
+import { AnalyticsDashboard } from './order-processing/AnalyticsDashboard';
+import { SearchBar } from './order-processing/SearchBar';
+import { FilterChips } from './order-processing/FilterChips';
 import { useDropzone } from 'react-dropzone';
 import { useAsinInventory, AsinInventoryItem } from '@/hooks/useAsinInventory';
 import { useSkuInventory, SkuInventoryItem } from '@/hooks/useSkuInventory';
@@ -73,11 +76,12 @@ export function OrderProcessor() {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [allOrdersSearchTerm, setAllOrdersSearchTerm] = useState('');
+  const [processedSearchTerm, setProcessedSearchTerm] = useState('');
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
   const [fileName, setFileName] = useState<string>('');
   const [dbResults, setDbResults] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState('process');
+  const [activeTab, setActiveTab] = useState('upload');
   const [processingProgress, setProcessingProgress] = useState(0);
   
   // Pagination state
@@ -382,7 +386,7 @@ export function OrderProcessor() {
       // Show deduction dialog if there are matches
       if (matchedCount > 0) {
         setUploadedMatches(matches.filter(m => m.inventoryMatch));
-        setShowDeductDialog(true);
+        setActiveTab('pending'); // Auto-switch to pending tab
       }
       
       toast({
@@ -943,56 +947,83 @@ export function OrderProcessor() {
     };
   }, [allOrders, matchedOrders, unmatchedOrders, processedOrders]);
 
+  // Filter processed orders
+  const filteredProcessedOrders = useMemo(() => {
+    if (!processedSearchTerm) return processedOrders;
+    
+    const searchLower = processedSearchTerm.toLowerCase();
+    return processedOrders.filter((order: any) => 
+      order.order_number?.toLowerCase().includes(searchLower) ||
+      order.asin?.toLowerCase().includes(searchLower) ||
+      order.sku?.toLowerCase().includes(searchLower) ||
+      order.item_title?.toLowerCase().includes(searchLower)
+    );
+  }, [processedOrders, processedSearchTerm]);
+
+  // Get active filter chips
+  const getActiveFilterChips = () => {
+    const chips: { label: string; value: string; onRemove: () => void }[] = [];
+    if (allOrdersSearchTerm) chips.push({ label: 'Search', value: allOrdersSearchTerm, onRemove: () => setAllOrdersSearchTerm('') });
+    if (orderDateFilter) chips.push({ label: 'Order Date', value: orderDateFilter, onRemove: () => setOrderDateFilter('') });
+    if (uploadDateFilter) chips.push({ label: 'Upload Date', value: uploadDateFilter, onRemove: () => setUploadDateFilter('') });
+    if (orderStatusFilter !== 'all') chips.push({ label: 'Status', value: orderStatusFilter, onRemove: () => setOrderStatusFilter('all') });
+    return chips;
+  };
+
+  const getMatchedFilterChips = () => {
+    const chips: { label: string; value: string; onRemove: () => void }[] = [];
+    if (matchedSearchTerm) chips.push({ label: 'Search', value: matchedSearchTerm, onRemove: () => setMatchedSearchTerm('') });
+    if (matchedOrderDateFilter) chips.push({ label: 'Order Date', value: matchedOrderDateFilter, onRemove: () => setMatchedOrderDateFilter('') });
+    if (matchedUploadDateFilter) chips.push({ label: 'Upload Date', value: matchedUploadDateFilter, onRemove: () => setMatchedUploadDateFilter('') });
+    if (matchedOrderStatusFilter !== 'all') chips.push({ label: 'Order Status', value: matchedOrderStatusFilter, onRemove: () => setMatchedOrderStatusFilter('all') });
+    if (matchedInventoryTypeFilter !== 'all') chips.push({ label: 'Inventory Type', value: matchedInventoryTypeFilter, onRemove: () => setMatchedInventoryTypeFilter('all') });
+    if (matchedMatchTypeFilter !== 'all') chips.push({ label: 'Match Type', value: matchedMatchTypeFilter, onRemove: () => setMatchedMatchTypeFilter('all') });
+    return chips;
+  };
+
   return (
     <div className="space-y-6">
+      {/* Analytics Dashboard */}
+      <AnalyticsDashboard
+        totalOrders={analytics.totalOrders}
+        matchedOrdersCount={analytics.matchedOrdersCount}
+        unmatchedOrdersCount={analytics.unmatchedOrdersCount}
+        processedOrdersCount={analytics.processedOrdersCount}
+        pendingDeductionCount={uploadedMatches.length}
+        currentStep={activeTab as 'upload' | 'pending' | 'matched' | 'processed'}
+        latestOrderDate={analytics.latestOrderDate}
+      />
+
       {/* Enhanced Card with Primary Theme */}
       <Card className="border-primary/20 shadow-glow/10 bg-card/95 backdrop-blur-sm">
         <div className="p-6 space-y-6">
-          {/* Enhanced Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-gradient-primary">
-                <Package className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-foreground">
-                  Order Processing Hub
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  Manage and process customer orders efficiently
-                </p>
-              </div>
-            </div>
-            
-            {/* Analytics Cards */}
-            <div className="flex items-center gap-4 text-sm">
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20">
-                <TrendingUp className="w-4 h-4 text-primary" />
-                <span className="text-primary font-medium">{analytics.totalOrders} Total</span>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-success/10 border border-success/20">
-                <CheckSquare className="w-4 h-4 text-success" />
-                <span className="text-success font-medium">{analytics.processedOrdersCount} Processed</span>
-              </div>
-            </div>
-          </div>
-          
           {/* Enhanced Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-4 bg-muted/50 p-1 rounded-lg">
+            <TabsList className="grid w-full grid-cols-5 bg-muted/50 p-1 rounded-lg">
               <TabsTrigger 
-                value="process"
+                value="upload"
                 className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm font-medium transition-all duration-300"
               >
-                <Package className="w-4 h-4 mr-2" />
-                Process Orders
+                <FileUp className="w-4 h-4 mr-2" />
+                Upload
+              </TabsTrigger>
+              <TabsTrigger 
+                value="pending"
+                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm font-medium transition-all duration-300 relative"
+                disabled={uploadedMatches.length === 0}
+              >
+                <Zap className="w-4 h-4 mr-2" />
+                Pending ({uploadedMatches.length})
+                {uploadedMatches.length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-warning rounded-full animate-pulse" />
+                )}
               </TabsTrigger>
               <TabsTrigger 
                 value="all-orders"
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm font-medium transition-all duration-300 text-xs"
+                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm font-medium transition-all duration-300"
               >
-                <Clock className="w-4 h-4 mr-1" />
-                All Orders ({filteredAllOrders.length})
+                <Clock className="w-4 h-4 mr-2" />
+                All ({filteredAllOrders.length})
               </TabsTrigger>
               <TabsTrigger 
                 value="matched-orders"
@@ -1010,7 +1041,7 @@ export function OrderProcessor() {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="process" className="space-y-4">
+            <TabsContent value="upload" className="space-y-4">
               <div className="space-y-4">
                 <div {...getRootProps()} className={`upload-zone ${isDragActive ? 'drag-over' : ''} bg-gradient-to-br from-primary/5 via-card to-primary/5 border-primary/30 hover:border-primary hover:shadow-glow/20`}>
                   <input {...getInputProps()} />
@@ -1033,9 +1064,12 @@ export function OrderProcessor() {
                           .csv
                         </span>
                       </div>
-                    </div>
-                  </div>
-                </div>
+                     </div>
+                   </div>
+                 </div>
+                 
+                 {/* Filter Chips */}
+                 <FilterChips filters={getActiveFilterChips()} onClearAll={clearFilters} />
 
                 {(loading || processingProgress > 0) && (
                   <div className="space-y-2">
@@ -1053,6 +1087,167 @@ export function OrderProcessor() {
                 )}
 
               </div>
+            </TabsContent>
+
+            {/* Pending Deduction Tab - New intermediate step */}
+            <TabsContent value="pending" className="space-y-4">
+              {uploadedMatches.length > 0 ? (
+                <>
+                  {/* Action Prompt Card */}
+                  <Card className="p-4 bg-gradient-to-r from-warning/10 via-warning/5 to-card border-warning/30">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-warning/20">
+                          <Zap className="w-5 h-5 text-warning" />
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-foreground">Ready for Stock Deduction</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {selectedMatchedItems.size} of {uploadedMatches.length} items selected
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={processUploadedMatches}
+                        disabled={selectedMatchedItems.size === 0 || loading}
+                        className="gap-2 bg-gradient-primary hover:shadow-glow/30"
+                      >
+                        <Zap className="w-4 h-4" />
+                        Deduct Stock ({selectedMatchedItems.size})
+                        <ArrowRight className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </Card>
+
+                  {/* Progress indicator */}
+                  {(loading || processingProgress > 0) && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Deducting stock from inventory...</span>
+                        <span>{processingProgress}%</span>
+                      </div>
+                      <Progress value={processingProgress} className="w-full" />
+                    </div>
+                  )}
+
+                  {/* Pending Items Table */}
+                  <Card className="border-primary/20">
+                    <div className="overflow-hidden rounded-lg">
+                      <Table>
+                        <TableHeader className="bg-muted/50 sticky top-0">
+                          <TableRow>
+                            <TableHead className="w-12">
+                              <Checkbox
+                                checked={selectAllMatched}
+                                onCheckedChange={handleSelectAllUploadedMatches}
+                              />
+                            </TableHead>
+                            <TableHead>Serial #</TableHead>
+                            <TableHead>Order ID</TableHead>
+                            <TableHead>ASIN/SKU</TableHead>
+                            <TableHead>Title</TableHead>
+                            <TableHead>Qty</TableHead>
+                            <TableHead>Current Stock</TableHead>
+                            <TableHead>After Deduction</TableHead>
+                            <TableHead>Match Type</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {uploadedMatches.map((match, index) => {
+                            const isSelected = selectedMatchedItems.has(match.orderItem.orderId);
+                            let inventorySerialNumber = 'N/A';
+                            
+                            if (match.inventoryMatch) {
+                              if (match.inventoryType === 'asin') {
+                                inventorySerialNumber = (match.inventoryMatch as AsinInventoryItem).serialNumber;
+                              } else if (match.inventoryType === 'sku') {
+                                inventorySerialNumber = (match.inventoryMatch as SkuInventoryItem).binSerialNumber;
+                              }
+                            }
+
+                            const currentStock = match.inventoryMatch?.quantity || 0;
+                            const afterDeduction = Math.max(0, currentStock - match.orderItem.itemQuantity);
+                            
+                            return (
+                              <TableRow 
+                                key={`pending-${match.orderItem.orderId}-${index}`}
+                                className={`
+                                  ${isSelected ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/50'}
+                                  ${afterDeduction === 0 ? 'border-l-4 border-l-warning' : ''}
+                                  transition-colors
+                                `}
+                              >
+                                <TableCell>
+                                  <Checkbox
+                                    checked={isSelected}
+                                    onCheckedChange={() => handleMatchedItemSelect(match.orderItem.orderId)}
+                                  />
+                                </TableCell>
+                                <TableCell className="text-xs font-medium text-muted-foreground">
+                                  {inventorySerialNumber}
+                                </TableCell>
+                                <TableCell className="font-mono text-xs">{match.orderItem.orderId}</TableCell>
+                                <TableCell>
+                                  <div className="space-y-1">
+                                    {match.orderItem.asin && (
+                                      <div className="text-xs text-blue-600 dark:text-blue-400">
+                                        ASIN: {match.orderItem.asin}
+                                      </div>
+                                    )}
+                                    {match.orderItem.sku && (
+                                      <div className="text-xs text-green-600 dark:text-green-400">
+                                        SKU: {match.orderItem.sku}
+                                      </div>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="max-w-xs truncate">{match.orderItem.itemTitle}</TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className="text-xs">
+                                    {match.orderItem.itemQuantity}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="secondary" className="text-xs">
+                                    {currentStock}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge 
+                                    variant={afterDeduction === 0 ? 'destructive' : 'default'}
+                                    className="text-xs"
+                                  >
+                                    {afterDeduction}
+                                    {afterDeduction === 0 && (
+                                      <AlertTriangle className="w-3 h-3 ml-1" />
+                                    )}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-1">
+                                    <Badge variant="outline" className="text-xs">
+                                      {match.matchType?.toUpperCase()}
+                                    </Badge>
+                                    <Badge variant="secondary" className="text-xs">
+                                      {match.inventoryType}
+                                    </Badge>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </Card>
+                </>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Zap className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                  <h4 className="text-lg font-semibold mb-2">No Pending Orders</h4>
+                  <p className="text-sm">Upload orders in the "Upload" tab to see them here for bulk deduction.</p>
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="all-orders" className="space-y-4">
@@ -1140,9 +1335,10 @@ export function OrderProcessor() {
               </Card>
 
               {allOrders.length > 0 ? (
-                <div className="rounded-lg border overflow-hidden">
+                <Card className="border-primary/20 overflow-hidden">
+                  <div className="rounded-lg overflow-hidden">
                   <Table>
-                    <TableHeader>
+                    <TableHeader className="bg-muted/50 sticky top-0">
                       <TableRow>
                         <TableHead className="w-16">Serial #</TableHead>
                         <TableHead>Order ID</TableHead>
@@ -1167,7 +1363,13 @@ export function OrderProcessor() {
                         }
                         
                         return (
-                          <TableRow key={`${order.orderId}-${index}`}>
+                          <TableRow 
+                            key={`${order.orderId}-${index}`}
+                            className={`
+                              ${index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}
+                              hover:bg-primary/5 transition-colors
+                            `}
+                          >
                             <TableCell className="text-xs font-medium text-muted-foreground">
                               {inventorySerialNumber}
                             </TableCell>
@@ -1212,11 +1414,12 @@ export function OrderProcessor() {
                     </TableBody>
                   </Table>
                    {filteredAllOrders.length > 50 && (
-                     <div className="p-4 text-center text-sm text-muted-foreground border-t">
-                       Showing first 50 records out of {filteredAllOrders.length} total
+                     <div className="p-4 text-center text-sm text-muted-foreground border-t bg-muted/20">
+                        Showing first 50 records out of {filteredAllOrders.length} total
                      </div>
                    )}
-                </div>
+                  </div>
+                </Card>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
@@ -1343,9 +1546,12 @@ export function OrderProcessor() {
                       <Minus className="w-4 h-4 mr-2" />
                       Clear All Filters
                     </Button>
-                  </div>
-                )}
-              </Card>
+                   </div>
+                 )}
+                 
+                 {/* Filter Chips */}
+                 <FilterChips filters={getMatchedFilterChips()} onClearAll={clearMatchedFilters} />
+               </Card>
 
               {matchedOrders.length > 0 ? (
                 <div className="space-y-4">
@@ -1500,10 +1706,10 @@ export function OrderProcessor() {
                     </div>
                   )}
                   
-                  <div className="text-center text-sm text-muted-foreground">
+                  <div className="p-3 text-center text-sm text-muted-foreground border-t bg-muted/20">
                     Showing {matchedStartIndex + 1}-{Math.min(matchedStartIndex + matchedItemsPerPage, matchedOrders.length)} of {matchedOrders.length} matched orders
                   </div>
-                </div>
+                </Card>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
@@ -1522,10 +1728,28 @@ export function OrderProcessor() {
             </TabsContent>
 
             <TabsContent value="processed" className="space-y-4">
-              {processedOrders.length > 0 ? (
-                <div className="rounded-lg border overflow-hidden">
+              {/* Search Bar for Processed Orders */}
+              <Card className="p-4 bg-gradient-to-r from-success/5 via-card to-success/5 border-success/20">
+                <div className="flex items-center gap-2 mb-4">
+                  <Search className="w-4 h-4 text-success" />
+                  <h4 className="font-semibold text-foreground">Search Processed Orders</h4>
+                  <Badge variant="secondary" className="ml-auto text-xs">
+                    {filteredProcessedOrders.length} results
+                  </Badge>
+                </div>
+                
+                <SearchBar
+                  value={processedSearchTerm}
+                  onChange={setProcessedSearchTerm}
+                  placeholder="Search by Order Number, ASIN, SKU, or Title..."
+                />
+              </Card>
+
+              {filteredProcessedOrders.length > 0 ? (
+                <Card className="border-primary/20 overflow-hidden">
+                  <div className="rounded-lg overflow-hidden">
                   <Table>
-                    <TableHeader>
+                    <TableHeader className="bg-muted/50 sticky top-0">
                       <TableRow>
                         <TableHead className="w-16">Serial #</TableHead>
                         <TableHead>Order Number</TableHead>
@@ -1537,7 +1761,7 @@ export function OrderProcessor() {
                       </TableRow>
                     </TableHeader>
                      <TableBody>
-                      {processedOrders.slice(0, 50).map((order, index) => {
+                      {filteredProcessedOrders.slice(0, 50).map((order, index) => {
                         // Find inventory item by inventory_id if available
                         let inventorySerialNumber = 'N/A';
                         
@@ -1554,7 +1778,13 @@ export function OrderProcessor() {
                         }
                         
                         return (
-                          <TableRow key={`${order.order_number}-${index}`}>
+                          <TableRow 
+                            key={`${order.order_number}-${index}`}
+                            className={`
+                              ${index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}
+                              hover:bg-success/5 transition-colors
+                            `}
+                          >
                             <TableCell className="text-xs font-medium text-muted-foreground">
                               {inventorySerialNumber}
                             </TableCell>
@@ -1594,12 +1824,13 @@ export function OrderProcessor() {
                       })}
                     </TableBody>
                   </Table>
-                  {processedOrders.length > 50 && (
-                    <div className="p-4 text-center text-sm text-muted-foreground border-t">
-                      Showing first 50 records out of {processedOrders.length} total
+                  {filteredProcessedOrders.length > 50 && (
+                    <div className="p-4 text-center text-sm text-muted-foreground border-t bg-muted/20">
+                      Showing first 50 records out of {filteredProcessedOrders.length} total
                     </div>
                   )}
-                </div>
+                  </div>
+                </Card>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
@@ -1610,139 +1841,6 @@ export function OrderProcessor() {
           </Tabs>
         </div>
       </Card>
-
-      {/* Deduct Stock Dialog */}
-      <Dialog open={showDeductDialog} onOpenChange={setShowDeductDialog}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold">Matched Orders - Bulk Deduction</h3>
-                <p className="text-sm text-muted-foreground">
-                  Found {uploadedMatches.length} orders with inventory matches. Select orders to deduct from stock.
-                </p>
-              </div>
-              <Badge variant="secondary" className="text-sm">
-                {selectedMatchedItems.size} selected
-              </Badge>
-            </div>
-
-            {(loading || processingProgress > 0) && (
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Processing orders...</span>
-                  <span>{processingProgress}%</span>
-                </div>
-                <Progress value={processingProgress} className="w-full" />
-              </div>
-            )}
-
-            <div className="flex items-center justify-between py-2 border-b">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  checked={selectAllMatched}
-                  onCheckedChange={handleSelectAllUploadedMatches}
-                />
-                <Label className="text-sm font-medium cursor-pointer" onClick={handleSelectAllUploadedMatches}>
-                  Select All ({uploadedMatches.length})
-                </Label>
-              </div>
-              <Button
-                onClick={processUploadedMatches}
-                disabled={selectedMatchedItems.size === 0 || loading}
-                className="bg-primary hover:bg-primary/90"
-              >
-                <Minus className="w-4 h-4 mr-2" />
-                Deduct Stock ({selectedMatchedItems.size})
-              </Button>
-            </div>
-
-            <div className="rounded-lg border overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">
-                      <Checkbox
-                        checked={selectAllMatched}
-                        onCheckedChange={handleSelectAllUploadedMatches}
-                      />
-                    </TableHead>
-                    <TableHead className="w-16">Serial #</TableHead>
-                    <TableHead>Order ID</TableHead>
-                    <TableHead>ASIN/SKU</TableHead>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Qty</TableHead>
-                    <TableHead>Available Stock</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {uploadedMatches.map((match, index) => {
-                    let inventorySerialNumber = 'N/A';
-                    let availableStock = 0;
-                    
-                    if (match.inventoryMatch) {
-                      availableStock = match.inventoryMatch.quantity;
-                      if (match.inventoryType === 'asin') {
-                        inventorySerialNumber = (match.inventoryMatch as AsinInventoryItem).serialNumber;
-                      } else if (match.inventoryType === 'sku') {
-                        inventorySerialNumber = (match.inventoryMatch as SkuInventoryItem).binSerialNumber;
-                      }
-                    }
-                    
-                    return (
-                      <TableRow key={`${match.orderItem.orderId}-${index}`}>
-                        <TableCell>
-                          <Checkbox
-                            checked={selectedMatchedItems.has(match.orderItem.orderId)}
-                            onCheckedChange={() => handleMatchedItemSelect(match.orderItem.orderId)}
-                          />
-                        </TableCell>
-                        <TableCell className="text-xs font-medium text-muted-foreground">
-                          {inventorySerialNumber}
-                        </TableCell>
-                        <TableCell className="font-mono text-xs">{match.orderItem.orderId}</TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            {match.orderItem.asin && (
-                              <div className="text-xs text-blue-600 dark:text-blue-400">
-                                ASIN: {match.orderItem.asin}
-                              </div>
-                            )}
-                            {match.orderItem.sku && (
-                              <div className="text-xs text-green-600 dark:text-green-400">
-                                SKU: {match.orderItem.sku}
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="max-w-xs truncate text-xs">{match.orderItem.itemTitle}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-xs">
-                            {match.orderItem.itemQuantity}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant={availableStock >= match.orderItem.itemQuantity ? 'default' : 'destructive'} 
-                            className="text-xs"
-                          >
-                            {availableStock}
-                          </Badge>
-                          {availableStock < match.orderItem.itemQuantity && (
-                            <div className="text-xs text-destructive mt-1">
-                              Insufficient!
-                            </div>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
