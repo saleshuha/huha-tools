@@ -133,6 +133,14 @@ export const usePOOrders = () => {
       }
 
       console.log(`📦 TOTAL PO orders fetched via pagination: ${allPOOrders.length}`);
+      
+      // Log country distribution
+      const countryDistribution = allPOOrders.reduce((acc: any, order: any) => {
+        const country = order.country || 'Unknown';
+        acc[country] = (acc[country] || 0) + 1;
+        return acc;
+      }, {});
+      console.log(`🌍 PO orders by country:`, countryDistribution);
 
       if (allPOOrders.length === 0) {
         console.warn('⚠️ No PO orders found for user:', user.id);

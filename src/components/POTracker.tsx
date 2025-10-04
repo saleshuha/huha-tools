@@ -247,7 +247,7 @@ export const POTracker = () => {
     deletePOOrders, 
     updatePrintStatus 
   } = usePOOrders();
-  const { profile } = useUserProfile();
+  const { profile, loading: profileLoading } = useUserProfile();
   const { selectedCountry } = useCountry();
   const { getImageByAsin, productImages, isLoading: imagesLoading, refreshImages } = useProductImages();
   const { toast } = useToast();
@@ -466,8 +466,15 @@ export const POTracker = () => {
   });
 
   useEffect(() => {
+    console.log('🔍 POTracker: Checking initial data fetch conditions', {
+      hasProfile: !!profile,
+      profileId: profile?.id,
+      selectedCountry,
+      profileLoading
+    });
+    
     if (profile?.id && selectedCountry) {
-      console.log('🔄 POTracker: Initial data fetch triggered', { 
+      console.log('✅ POTracker: Conditions met - triggering initial data fetch', { 
         profileId: profile.id, 
         country: selectedCountry,
         currentOrdersLength: poOrders.length 
@@ -481,8 +488,14 @@ export const POTracker = () => {
       } else if (selectedCountry === 'KSA') {
         setItemsPerPage(25); // KSA typically has smaller batches
       }
+    } else {
+      console.warn('⚠️ POTracker: Cannot fetch PO orders -', {
+        missingProfile: !profile?.id,
+        missingCountry: !selectedCountry,
+        profileLoading
+      });
     }
-  }, [profile?.id, selectedCountry]); // Removed function dependencies to prevent loops
+  }, [profile?.id, selectedCountry, profileLoading]); // Added profileLoading to deps
 
   useEffect(() => {
     console.log('📊 POTracker: poOrders updated', { 
