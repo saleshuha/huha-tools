@@ -417,10 +417,8 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
                             <TableHeader className="bg-muted/50 sticky top-0 z-10">
                               <TableRow className="hover:bg-transparent">
                                 <TableHead className="w-16 font-bold text-center">#</TableHead>
-                                {includeImages && <TableHead className="w-32 font-bold">Image</TableHead>}
-                                <TableHead className="min-w-[140px] font-bold">ASIN</TableHead>
-                                <TableHead className="min-w-[140px] font-bold">SKU Code</TableHead>
-                                <TableHead className="min-w-[200px] font-bold">Product Title</TableHead>
+                                {includeImages && <TableHead className="w-40 font-bold">Image</TableHead>}
+                                <TableHead className="min-w-[300px] font-bold">Product Details</TableHead>
                                 <TableHead className="min-w-[120px] font-bold">Model</TableHead>
                                 <TableHead className="w-24 font-bold text-center">Qty</TableHead>
                                 <TableHead className="min-w-[150px] font-bold">PO Number(s)</TableHead>
@@ -438,7 +436,7 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
                                   {includeImages && (
                                     <TableCell className="py-3">
                                       {item.imageUrl ? (
-                                        <div className="relative w-20 h-20 rounded-md overflow-hidden border-2 border-border shadow-sm">
+                                        <div className="relative w-32 h-32 rounded-md overflow-hidden border-2 border-border shadow-sm">
                                           <img 
                                             src={item.imageUrl} 
                                             alt={item.asin}
@@ -446,26 +444,28 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
                                           />
                                         </div>
                                       ) : (
-                                        <div className="w-20 h-20 bg-muted/50 rounded-md border-2 border-dashed border-border flex items-center justify-center">
-                                          <Package className="h-8 w-8 text-muted-foreground/50" />
+                                        <div className="w-32 h-32 bg-muted/50 rounded-md border-2 border-dashed border-border flex items-center justify-center">
+                                          <Package className="h-10 w-10 text-muted-foreground/50" />
                                         </div>
                                       )}
                                     </TableCell>
                                   )}
                                   <TableCell>
-                                    <div className="font-mono text-sm font-semibold text-primary">
-                                      {item.asin}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="text-sm font-medium">
-                                      {item.sku_code || <span className="text-muted-foreground italic">N/A</span>}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="max-w-xs">
+                                    <div className="space-y-2">
                                       <div className="font-medium text-sm line-clamp-2" title={item.title || 'N/A'}>
                                         {item.title || <span className="text-muted-foreground italic">No title available</span>}
+                                      </div>
+                                      <div className="flex flex-col gap-1 text-xs">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-muted-foreground font-medium">ASIN:</span>
+                                          <span className="font-mono font-semibold text-primary">{item.asin}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-muted-foreground font-medium">SKU:</span>
+                                          <span className="font-medium">
+                                            {item.sku_code || <span className="text-muted-foreground italic">N/A</span>}
+                                          </span>
+                                        </div>
                                       </div>
                                     </div>
                                   </TableCell>
