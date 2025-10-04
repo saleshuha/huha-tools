@@ -1925,20 +1925,17 @@ export function OrderProcessor() {
                                       </div>
                                     </div>
                                   </TableCell>
-                                  <TableCell>
-                                    <Badge variant="outline" className="font-semibold bg-success/10">
-                                      {order.quantity_deducted}
-                                    </Badge>
+                                  <TableCell className="font-semibold text-base">
+                                    {order.quantity_deducted}
                                   </TableCell>
                                   <TableCell>
-                                    <div className="flex items-center gap-2">
-                                      <Badge variant="secondary" className="font-semibold">
-                                        {order.old_quantity} → {order.new_quantity}
-                                      </Badge>
-                                      <Badge variant="outline" className="font-semibold text-destructive border-destructive/20 bg-destructive/10">
-                                        -{order.quantity_deducted}
-                                      </Badge>
-                                    </div>
+                                    <span className="font-semibold text-base text-muted-foreground">
+                                      {order.old_quantity}
+                                    </span>
+                                    <span className="mx-2 text-muted-foreground">→</span>
+                                    <span className="font-semibold text-base text-success">
+                                      {order.new_quantity}
+                                    </span>
                                   </TableCell>
                                   <TableCell>
                                     <div className="space-y-1">
