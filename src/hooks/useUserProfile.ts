@@ -20,18 +20,34 @@ export function useUserProfile() {
 
   useEffect(() => {
     console.log('useUserProfile: useEffect triggered');
+    let mounted = true;
+    
     const getUser = async () => {
-      console.log('useUserProfile: Getting user...');
-      const { data: { user } } = await supabase.auth.getUser();
-      console.log('useUserProfile: Current user:', user);
-      setUser(user);
-      
-      if (user) {
-        console.log('useUserProfile: User found, fetching profile for:', user.id);
-        fetchProfile(user.id);
-      } else {
-        console.log('useUserProfile: No user found');
-        setLoading(false);
+      try {
+        console.log('useUserProfile: Getting user...');
+        const { data: { user }, error } = await supabase.auth.getUser();
+        
+        if (!mounted) return;
+        
+        if (error) {
+          console.error('❌ useUserProfile: Auth error:', error);
+          setLoading(false);
+          return;
+        }
+        
+        console.log('useUserProfile: Current user:', user);
+        setUser(user);
+        
+        if (user) {
+          console.log('useUserProfile: User found, fetching profile for:', user.id);
+          await fetchProfile(user.id);
+        } else {
+          console.log('useUserProfile: No user found');
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error('❌ useUserProfile: Exception in getUser:', err);
+        if (mounted) setLoading(false);
       }
     };
 
@@ -39,6 +55,8 @@ export function useUserProfile() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        if (!mounted) return;
+        
         const currentUser = session?.user ?? null;
         setUser(currentUser);
         
@@ -51,7 +69,10 @@ export function useUserProfile() {
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const fetchProfile = async (userId: string) => {
@@ -62,7 +83,7 @@ export function useUserProfile() {
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       console.log('📊 useUserProfile: Profile query completed:', { 
         hasData: !!data, 
