@@ -308,6 +308,49 @@ export const POTracker = () => {
     await deletePOOrders(orderIds);
   };
 
+  // Delete today's uploads for selected country
+  const handleDeleteTodayUploads = async () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const todayOrders = poOrders.filter(order => {
+      const orderDate = new Date(order.created_at);
+      orderDate.setHours(0, 0, 0, 0);
+      return orderDate.getTime() === today.getTime() && order.country === selectedCountry;
+    });
+
+    if (todayOrders.length === 0) {
+      toast({
+        title: "No Orders Found",
+        description: `No PO orders uploaded today for ${selectedCountry}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${todayOrders.length} PO orders uploaded today from ${selectedCountry}?\n\nThis action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const orderIds = todayOrders.map(order => order.id);
+      await deletePOOrders(orderIds);
+      toast({
+        title: "Success",
+        description: `Deleted ${todayOrders.length} PO orders from ${selectedCountry}`,
+      });
+    } catch (error) {
+      console.error('Error deleting today\'s orders:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete today's orders",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Query to fetch available label templates with full data
   const { data: labelTemplates, isLoading: isLoadingTemplates } = useQuery({
     queryKey: ['label-templates'],
@@ -1858,12 +1901,23 @@ export const POTracker = () => {
         <TabsContent value="upload" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Upload Purchase Orders</CardTitle>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  Upload a CSV file containing purchase orders to track.
-                </p>
-              </CardContent>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Upload Purchase Orders</CardTitle>
+                  <p className="text-muted-foreground mt-2">
+                    Upload a CSV file containing purchase orders to track.
+                  </p>
+                </div>
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  onClick={handleDeleteTodayUploads}
+                  className="ml-4"
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Delete Today's {selectedCountry} Uploads
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {/* Progress Bar */}
