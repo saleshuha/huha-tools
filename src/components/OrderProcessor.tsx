@@ -1849,51 +1849,6 @@ export function OrderProcessor() {
 
               {filteredProcessedOrders.length > 0 ? (
                 <div className="space-y-4">
-                  {/* Summary Cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Card className="p-4 bg-gradient-to-br from-destructive/10 to-destructive/5 border-destructive/20">
-                      <div className="flex items-center gap-3">
-                        <div className="p-3 rounded-lg bg-destructive/20">
-                          <Minus className="w-5 h-5 text-destructive" />
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Total Qty Deducted</p>
-                          <p className="text-2xl font-bold text-destructive">
-                            {filteredProcessedOrders.reduce((sum, order) => sum + (order.quantity_deducted || 0), 0)}
-                          </p>
-                        </div>
-                      </div>
-                    </Card>
-
-                    <Card className="p-4 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-                      <div className="flex items-center gap-3">
-                        <div className="p-3 rounded-lg bg-primary/20">
-                          <Package className="w-5 h-5 text-primary" />
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Total Before Stock</p>
-                          <p className="text-2xl font-bold">
-                            {filteredProcessedOrders.reduce((sum, order) => sum + (order.old_quantity || 0), 0)}
-                          </p>
-                        </div>
-                      </div>
-                    </Card>
-
-                    <Card className="p-4 bg-gradient-to-br from-success/10 to-success/5 border-success/20">
-                      <div className="flex items-center gap-3">
-                        <div className="p-3 rounded-lg bg-success/20">
-                          <CheckSquare className="w-5 h-5 text-success" />
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Total After Stock</p>
-                          <p className="text-2xl font-bold text-success">
-                            {filteredProcessedOrders.reduce((sum, order) => sum + (order.new_quantity || 0), 0)}
-                          </p>
-                        </div>
-                      </div>
-                    </Card>
-                  </div>
-
                   {/* Table Controls */}
                   <div className="flex items-center justify-between">
                     <div className="text-sm text-muted-foreground">
