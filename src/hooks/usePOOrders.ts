@@ -93,19 +93,17 @@ export const usePOOrders = () => {
       console.log('✅ Authenticated user:', user.id);
       setLoadingProgress(20);
       
-      // Query po_orders table directly to avoid RPC row limits
+      // Query po_orders table directly with proper range to get ALL rows
       setLoadingStatus(loadAllOrders ? 'Loading ALL PO orders...' : 'Loading active PO orders...');
       console.log(loadAllOrders ? '📚 Loading ALL orders directly from table' : '🎯 Loading ACTIVE orders directly from table');
       
-      // Direct table query with explicit high limit to get all rows
-      let query = supabase
+      // Fetch all rows using range - Supabase default limit is 1000, so we use range(0, 9999)
+      const { data: allPOOrders, error: fetchError } = await supabase
         .from('po_orders')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(50000); // High limit to ensure all orders are fetched
-      
-      const { data: allPOOrders, error: fetchError } = await query;
+        .range(0, 9999); // Fetch up to 10,000 rows
       
       if (fetchError) {
         console.error('❌ Fetch error:', fetchError);
