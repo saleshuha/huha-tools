@@ -1607,195 +1607,239 @@ export const POTracker = () => {
                   </div>
                 )}
 
-                <div>
+                <div className="rounded-lg border-2 border-border">
                   {viewMode === 'grouped' ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {paginatedPOGroups.map(({ poNumber, orders }) => {
-                        const firstOrder = orders[0];
-                        const ordersInPO = orders;
-                        
-                        const dbMetrics = poGroupMetrics?.find(m => m.po_number === poNumber);
-                        const totalLineItems = dbMetrics?.distinct_skus || orders.length;
-                        const asnQuantity = dbMetrics?.asn_quantity || orders.reduce((sum, o) => sum + (o.quantity || 0), 0);
-                        
-                        const activeOrdersInPO = orders.filter((order: any) => 
-                          order.status === 'pending' || order.status === 'placed' || order.status === 'received'
-                        );
-                        const matchedCount = activeOrdersInPO.filter((order: any) => {
-                          const inventoryMatch = findInventoryMatch(
-                            order.asin, 
-                            order.sunsky_sku?.sku_code, 
-                            order.sku_code, 
-                            order.model_number,
-                            order.sunsky_sku
-                          );
-                          return inventoryMatch !== null;
-                        }).length;
-                        const matchedPercentage = activeOrdersInPO.length > 0 ? ((matchedCount / activeOrdersInPO.length) * 100).toFixed(0) : '0';
-                        
-                        const statusCounts = orders.reduce((counts: any, order: any) => {
-                          counts[order.status] = (counts[order.status] || 0) + 1;
-                          return counts;
-                        }, {});
+                    <Table>
+                       <TableHeader>
+                         <TableRow>
+                            <TableHead className="w-12">
+                              <input
+                                type="checkbox"
+                                checked={selectedPOsForBulkClose.size > 0 && Array.from(selectedPOsForBulkClose).length === groupedPOOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).length}
+                                onChange={(e) => {
+                                  const currentPagePOs = groupedPOOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map(group => group.poNumber);
+                                  if (e.target.checked) {
+                                    setSelectedPOsForBulkClose(prev => new Set([...prev, ...currentPagePOs.filter(po => !groupedPOOrders.find(g => g.poNumber === po)?.orders.some(o => o.status === 'closed'))]));
+                                  } else {
+                                    setSelectedPOsForBulkClose(prev => {
+                                      const newSet = new Set(prev);
+                                      currentPagePOs.forEach(po => newSet.delete(po));
+                                      return newSet;
+                                    });
+                                  }
+                                }}
+                                className="h-4 w-4 rounded border-border"
+                              />
+                            </TableHead>
+                            <TableHead className="w-16">Enable</TableHead>
+                            <TableHead>PO Number</TableHead>
+                            <TableHead>Ship To</TableHead>
+                           <TableHead>PO Items</TableHead>
+                           <TableHead>ASN Quantity</TableHead>
+                           <TableHead>Matched %</TableHead>
+                           <TableHead>Pending Items</TableHead>
+                           <TableHead>Actions</TableHead>
+                         </TableRow>
+                       </TableHeader>
+                      <TableBody>
+                         {paginatedPOGroups.map(({ poNumber, orders }) => {
+                           const firstOrder = orders[0];
+                           const ordersInPO = orders; // Alias for consistency
+                           
+                            // Get metrics from database function - includes ALL items
+                            const dbMetrics = poGroupMetrics?.find(m => m.po_number === poNumber);
+                            const totalLineItems = dbMetrics?.distinct_skus || orders.length;
+                            // Use frontend calculation as fallback to ensure accuracy - count ALL items
+                            const asnQuantity = dbMetrics?.asn_quantity || orders.reduce((sum, o) => sum + (o.quantity || 0), 0);
+                           
+                            // Calculate matched percentage for display
+                             const activeOrdersInPO = orders.filter((order: any) => 
+                               order.status === 'pending' || order.status === 'placed' || order.status === 'received'
+                             );
+                             const matchedCount = activeOrdersInPO.filter((order: any) => {
+                               const inventoryMatch = findInventoryMatch(
+                                 order.asin, 
+                                 order.sunsky_sku?.sku_code, 
+                                 order.sku_code, 
+                                 order.model_number,
+                                 order.sunsky_sku
+                               );
+                               return inventoryMatch !== null;
+                             }).length;
+                            const matchedPercentage = activeOrdersInPO.length > 0 ? ((matchedCount / activeOrdersInPO.length) * 100).toFixed(0) : '0';
+                           
+                           const statusCounts = orders.reduce((counts: any, order: any) => {
+                             counts[order.status] = (counts[order.status] || 0) + 1;
+                             return counts;
+                           }, {});
 
-                        const isClosedPO = ordersInPO.every(order => order.status === 'closed');
-                        const hasClosedItems = ordersInPO.some(order => order.status === 'closed');
-                        const countryPrefix = selectedCountry === 'UAE' ? '🇦🇪' : '🇸🇦';
-                        const currencySymbol = selectedCountry === 'UAE' ? 'AED' : 'SAR';
-                        const isDisabled = disabledPOs.has(poNumber);
-                        
-                        const uniqueLocations = [...new Set(orders.map(o => o.ship_to_location).filter(Boolean))];
-                        const locationDisplay = uniqueLocations.length === 0 ? '-' : uniqueLocations.length === 1 ? uniqueLocations[0] : `${uniqueLocations[0]} +${uniqueLocations.length - 1}`;
-                        
-                        const pendingItems = activeOrdersInPO.filter(order => 
-                          order.status === 'pending' && 
-                          !order.supplier_order_number &&
-                          findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku) !== null
-                        ).length;
+                           // Check if PO is closed
+                            const isClosedPO = ordersInPO.every(order => order.status === 'closed');
+                            const hasClosedItems = ordersInPO.some(order => order.status === 'closed');
+                            
+                            // Country-specific PO handling
+                            const countryPrefix = selectedCountry === 'UAE' ? '🇦🇪' : '🇸🇦';
+                            const currencySymbol = selectedCountry === 'UAE' ? 'AED' : 'SAR';
 
-                        return (
-                          <Card 
-                            key={poNumber}
-                            className={`
-                              ${isClosedPO 
-                                ? 'opacity-50 bg-muted/40' 
-                                : isDisabled
-                                ? 'opacity-40 bg-muted/10'
-                                : hasClosedItems 
-                                ? 'opacity-75 bg-muted/20' 
-                                : 'hover:shadow-lg transition-all'
-                              }
-                            `}
-                          >
-                            <CardHeader className="pb-3">
-                              <div className="flex items-start justify-between">
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedPOsForBulkClose.has(poNumber)}
-                                    onChange={(e) => {
-                                      if (isClosedPO || isDisabled) return;
-                                      const newSelected = new Set(selectedPOsForBulkClose);
-                                      if (e.target.checked) {
-                                        newSelected.add(poNumber);
-                                      } else {
-                                        newSelected.delete(poNumber);
-                                      }
-                                      setSelectedPOsForBulkClose(newSelected);
-                                    }}
-                                    disabled={isClosedPO || isDisabled}
-                                    className={`h-4 w-4 rounded border-border ${isClosedPO || isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                                  />
-                                  <Switch
-                                    checked={!isDisabled}
-                                    onCheckedChange={(checked) => {
-                                      if (isClosedPO) return;
-                                      const newDisabled = new Set(disabledPOs);
-                                      if (checked) {
-                                        newDisabled.delete(poNumber);
-                                      } else {
-                                        newDisabled.add(poNumber);
-                                      }
-                                      setDisabledPOs(newDisabled);
-                                    }}
-                                    disabled={isClosedPO}
-                                    className="scale-75"
-                                  />
-                                </div>
-                                <Badge variant={parseInt(matchedPercentage) >= 80 ? "default" : parseInt(matchedPercentage) >= 50 ? "secondary" : "destructive"}>
-                                  {matchedPercentage}% matched
-                                </Badge>
-                              </div>
-                              <div className="flex items-center gap-2 mt-2">
-                                <span className="text-lg">{countryPrefix}</span>
-                                <CardTitle className="text-lg">
-                                  <Button 
-                                    variant="link" 
-                                    className={`p-0 h-auto font-semibold text-lg ${isClosedPO ? 'cursor-not-allowed' : ''}`}
-                                    onClick={isClosedPO ? undefined : () => navigate(`/po-details/${poNumber}`)}
-                                    disabled={isClosedPO}
-                                  >
-                                    {poNumber}
-                                    {!isClosedPO && <ExternalLink className="h-3 w-3 ml-1" />}
-                                  </Button>
-                                </CardTitle>
-                                {isClosedPO && (
-                                  <Badge variant="destructive" className="text-xs">
-                                    CLOSED
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="text-sm text-muted-foreground">
-                                Ship to: {locationDisplay}
-                              </p>
-                            </CardHeader>
-                            <CardContent className="space-y-3">
-                              <div className="grid grid-cols-2 gap-3 text-sm">
-                                <div className="space-y-1">
-                                  <p className="text-muted-foreground text-xs">PO Items</p>
-                                  <p className="font-semibold">{totalLineItems} <span className="text-xs font-normal text-muted-foreground">distinct SKUs</span></p>
-                                </div>
-                                <div className="space-y-1">
-                                  <p className="text-muted-foreground text-xs">ASN Quantity</p>
-                                  <p className="font-semibold">{asnQuantity} <span className="text-xs font-normal text-muted-foreground">active units</span></p>
-                                </div>
-                                <div className="space-y-1">
-                                  <p className="text-muted-foreground text-xs">Total Items</p>
-                                  <p className="font-semibold">{activeOrdersInPO.length}</p>
-                                </div>
-                                <div className="space-y-1">
-                                  <p className="text-muted-foreground text-xs">Matched Items</p>
-                                  <p className="font-semibold">{matchedCount}</p>
-                                </div>
-                                <div className="space-y-1">
-                                  <p className="text-muted-foreground text-xs">Pending Items</p>
-                                  <p className="font-semibold">{pendingItems}</p>
-                                </div>
-                              </div>
+                              const isDisabled = disabledPOs.has(poNumber);
                               
-                              <div className="flex flex-wrap gap-2 pt-2 border-t">
-                                <Button 
-                                  variant="outline" 
-                                  size="sm"
-                                  onClick={() => navigate(`/po-details/${poNumber}`)}
-                                  disabled={isClosedPO}
-                                  className="flex-1"
+                              return (
+                                <TableRow 
+                                  key={poNumber}
+                                  className={`
+                                    ${isClosedPO 
+                                      ? 'opacity-50 bg-muted/40 pointer-events-none cursor-not-allowed' 
+                                      : isDisabled
+                                      ? 'opacity-40 bg-muted/10'
+                                      : hasClosedItems 
+                                      ? 'opacity-75 bg-muted/20' 
+                                      : 'hover:bg-muted/10 transition-colors'
+                                    }
+                                  `}
                                 >
-                                  View Details
-                                </Button>
-                                {!isClosedPO && (
-                                  <>
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm"
-                                      onClick={() => {
-                                        if (confirm(`Are you sure you want to close PO ${poNumber}? This action cannot be undone.`)) {
-                                          handleClosePO(poNumber);
+                                  <TableCell>
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedPOsForBulkClose.has(poNumber)}
+                                      onChange={(e) => {
+                                        if (isClosedPO || isDisabled) return;
+                                        const newSelected = new Set(selectedPOsForBulkClose);
+                                        if (e.target.checked) {
+                                          newSelected.add(poNumber);
+                                        } else {
+                                          newSelected.delete(poNumber);
                                         }
+                                        setSelectedPOsForBulkClose(newSelected);
                                       }}
-                                      className="text-red-600 hover:text-red-700"
-                                    >
-                                      Close PO
-                                    </Button>
-                                    <Button 
-                                      variant="destructive" 
-                                      size="sm"
-                                      onClick={() => {
-                                        if (confirm(`Are you sure you want to DELETE PO ${poNumber}? This will permanently remove all ${activeOrdersInPO.length} items from this PO.\n\nThis action cannot be undone.`)) {
-                                          handleDeletePO(poNumber, activeOrdersInPO);
+                                      disabled={isClosedPO || isDisabled}
+                                      className={`h-4 w-4 rounded border-border ${isClosedPO || isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Switch
+                                      checked={!isDisabled}
+                                      onCheckedChange={(checked) => {
+                                        if (isClosedPO) return;
+                                        const newDisabled = new Set(disabledPOs);
+                                        if (checked) {
+                                          newDisabled.delete(poNumber);
+                                        } else {
+                                          newDisabled.add(poNumber);
                                         }
+                                        setDisabledPOs(newDisabled);
                                       }}
-                                    >
-                                      <X className="h-4 w-4" />
-                                    </Button>
-                                  </>
-                                )}
-                              </div>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                    </div>
+                                      disabled={isClosedPO}
+                                      className="scale-75"
+                                    />
+                                  </TableCell>
+                                 <TableCell className="font-medium">
+                                   <div className="flex items-center gap-2">
+                                     <span className="text-xs opacity-60">{countryPrefix}</span>
+                                     <Button 
+                                       variant="link" 
+                                       className={`p-0 h-auto font-medium text-left justify-start ${isClosedPO ? 'cursor-not-allowed' : ''}`}
+                                       onClick={isClosedPO ? undefined : () => navigate(`/po-details/${poNumber}`)}
+                                       disabled={isClosedPO}
+                                     >
+                                       {poNumber}
+                                       {!isClosedPO && <ExternalLink className="h-3 w-3 ml-1" />}
+                                     </Button>
+                                     {isClosedPO && (
+                                       <Badge variant="destructive" className="text-xs">
+                                         CLOSED
+                                       </Badge>
+                                     )}
+                                  </div>
+                                </TableCell>
+                              <TableCell>
+                                <div className="text-sm text-muted-foreground">
+                                  {(() => {
+                                    const uniqueLocations = [...new Set(orders.map(o => o.ship_to_location).filter(Boolean))];
+                                    if (uniqueLocations.length === 0) return '-';
+                                    if (uniqueLocations.length === 1) return uniqueLocations[0];
+                                    return `${uniqueLocations[0]} +${uniqueLocations.length - 1}`;
+                                  })()}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{totalLineItems}</span>
+                                  <span className="text-xs text-muted-foreground">distinct SKU lines</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{asnQuantity}</span>
+                                  <span className="text-xs text-muted-foreground">active units</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant={parseInt(matchedPercentage) >= 80 ? "default" : parseInt(matchedPercentage) >= 50 ? "secondary" : "destructive"}>
+                                      {matchedPercentage}%
+                                    </Badge>
+                                  </div>
+                                  <div className="text-xs text-muted-foreground space-y-0.5">
+                                    <div>Total items: {activeOrdersInPO.length}</div>
+                                    <div>Matched items: {matchedCount}</div>
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="text-sm font-medium">
+                                  {activeOrdersInPO.filter(order => 
+                                    order.status === 'pending' && 
+                                    !order.supplier_order_number &&
+                                    findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku) !== null
+                                  ).length}
+                                </div>
+                              </TableCell>
+                                 <TableCell>
+                                   <div className="flex items-center gap-2">
+                                     <Button 
+                                       variant="outline" 
+                                       size="sm"
+                                       onClick={() => navigate(`/po-details/${poNumber}`)}
+                                       disabled={isClosedPO}
+                                     >
+                                       View Details
+                                     </Button>
+                                     {!isClosedPO && (
+                                       <>
+                                         <Button 
+                                           variant="outline" 
+                                           size="sm"
+                                           onClick={() => {
+                                             if (confirm(`Are you sure you want to close PO ${poNumber}? This action cannot be undone.`)) {
+                                               handleClosePO(poNumber);
+                                             }
+                                           }}
+                                           className="text-red-600 hover:text-red-700"
+                                         >
+                                           Close PO
+                                         </Button>
+                                         <Button 
+                                           variant="destructive" 
+                                           size="sm"
+                                           onClick={() => {
+                                             if (confirm(`Are you sure you want to DELETE PO ${poNumber}? This will permanently remove all ${activeOrdersInPO.length} items from this PO.\n\nThis action cannot be undone.`)) {
+                                               handleDeletePO(poNumber, activeOrdersInPO);
+                                             }
+                                           }}
+                                         >
+                                           <X className="h-4 w-4 mr-1" />
+                                           Delete
+                                         </Button>
+                                       </>
+                                     )}
+                                   </div>
+                                 </TableCell>
+                             </TableRow>
+                           );
+                         })}
+                       </TableBody>
+                    </Table>
                   ) : (
                      <Table>
                        <TableHeader>
