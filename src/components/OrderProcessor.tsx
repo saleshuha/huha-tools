@@ -702,11 +702,12 @@ export function OrderProcessor() {
   const handleSelectAllMatched = () => {
     if (selectAllMatched) {
       setSelectedMatchedItems(new Set());
+      setSelectAllMatched(false);
     } else {
       const allIds = new Set(paginatedMatchedOrders.map(order => order.orderId));
       setSelectedMatchedItems(allIds);
+      setSelectAllMatched(true);
     }
-    setSelectAllMatched(!selectAllMatched);
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
