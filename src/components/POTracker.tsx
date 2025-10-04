@@ -401,18 +401,18 @@ export const POTracker = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      console.log('🔄 Fetching deduplicated PO metrics for user:', user.id);
+      console.log('🔄 Fetching comprehensive PO metrics for user:', user.id);
 
-      const { data, error } = await supabase.rpc('get_po_dashboard_summary', {
+      const { data, error } = await supabase.rpc('get_po_comprehensive_metrics', {
         user_id_param: user.id
       });
 
       if (error) {
-        console.error('❌ Error fetching deduplicated metrics:', error);
+        console.error('❌ Error fetching comprehensive metrics:', error);
         throw new Error(`Database query failed: ${error.message}`);
       }
 
-      console.log('📊 Deduplicated metrics result:', data);
+      console.log('📊 Comprehensive metrics result:', data);
       return data?.[0] || null;
     },
     enabled: !!profile?.id,
@@ -1334,13 +1334,13 @@ export const POTracker = () => {
                 <div className="text-2xl font-bold">
                   {viewMode === 'grouped' ? 
                     (comprehensiveMetrics?.unique_po_numbers || groupedPOOrders.length) :
-                    (comprehensiveMetrics?.total_active_orders || poOrders.length)
+                    (comprehensiveMetrics?.total_line_items || poOrders.length)
                   }
                 </div>
                 <div className="text-sm text-muted-foreground">
                   {viewMode === 'grouped' ? 
-                    `Line Items: ${comprehensiveMetrics?.total_active_orders || poOrders.length}` :
-                    `Qty: ${comprehensiveMetrics?.total_active_quantity || poOrders.reduce((sum, order) => sum + (order.quantity || 0), 0)}`
+                    `Line Items: ${comprehensiveMetrics?.total_line_items || poOrders.length}` :
+                    `Qty: ${comprehensiveMetrics?.total_quantity || poOrders.reduce((sum, order) => sum + (order.quantity || 0), 0)}`
                   }
                 </div>
                 <p className="text-muted-foreground mt-1">
@@ -1382,10 +1382,10 @@ export const POTracker = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {(comprehensiveMetrics?.ordered_orders || 0) + (comprehensiveMetrics?.shipped_orders || 0)}
+                  {comprehensiveMetrics?.placed_line_items || poOrders.filter(order => ['placed', 'received'].includes(order.status)).length}
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  Qty: {poOrders.filter(order => ['ordered', 'shipped', 'delivered'].includes(order.status)).reduce((sum, order) => sum + (order.quantity || 0), 0)}
+                  Qty: {comprehensiveMetrics?.placed_quantity || poOrders.filter(order => ['placed', 'received'].includes(order.status)).reduce((sum, order) => sum + (order.quantity || 0), 0)}
                 </div>
                 <p className="text-muted-foreground mt-1">Orders placed with supplier</p>
               </CardContent>
@@ -1400,10 +1400,10 @@ export const POTracker = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {comprehensiveMetrics?.pending_orders || poOrders.filter(order => order.status === 'pending' && order.sunsky_sku !== null).length}
+                  {comprehensiveMetrics?.pending_line_items || poOrders.filter(order => order.status === 'pending' && order.sunsky_sku !== null).length}
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  Qty: {poOrders.filter(order => order.status === 'pending' && order.sunsky_sku !== null).reduce((sum, order) => sum + (order.quantity || 0), 0)}
+                  Qty: {comprehensiveMetrics?.pending_quantity || poOrders.filter(order => order.status === 'pending' && order.sunsky_sku !== null).reduce((sum, order) => sum + (order.quantity || 0), 0)}
                 </div>
                 <p className="text-muted-foreground mt-1">Matched items awaiting order placement</p>
               </CardContent>
