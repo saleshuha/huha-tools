@@ -11,7 +11,9 @@ import { Loader2 } from 'lucide-react';
 const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -47,10 +49,58 @@ const Auth = () => {
 
       if (error) {
         toast({
-          title: "Access Denied",
-          description: "Invalid credentials. Please contact your administrator.",
+          title: "Sign In Failed",
+          description: error.message,
           variant: "destructive"
         });
+      } else {
+        toast({
+          title: "Success",
+          description: "Signed in successfully!",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+          data: {
+            full_name: fullName,
+            country: 'UAE',
+            role: 'user'
+          }
+        }
+      });
+
+      if (error) {
+        toast({
+          title: "Sign Up Failed",
+          description: error.message,
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: "Account created successfully! You can now sign in.",
+        });
+        setIsSignUp(false);
+        setPassword('');
       }
     } catch (error) {
       toast({
@@ -85,15 +135,34 @@ const Auth = () => {
             </div>
             <div className="space-y-2">
               <CardTitle className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                HuHa Admin Access
+                {isSignUp ? 'Create Account' : 'HuHa Admin Access'}
               </CardTitle>
               <CardDescription className="text-base text-muted-foreground">
-                Welcome back! Sign in with your authorized credentials
+                {isSignUp 
+                  ? 'Create a new account to get started'
+                  : 'Welcome back! Sign in with your credentials'
+                }
               </CardDescription>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            <form onSubmit={handleSignIn} className="space-y-6">
+            <form onSubmit={isSignUp ? handleSignUp : handleSignIn} className="space-y-6">
+              {isSignUp && (
+                <div className="space-y-3">
+                  <Label htmlFor="fullName" className="text-sm font-semibold text-foreground">
+                    Full Name
+                  </Label>
+                  <Input
+                    id="fullName"
+                    type="text"
+                    placeholder="Enter your full name"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    required
+                    className="h-12 transition-all duration-300 focus:ring-2 focus:ring-primary/20 focus:border-primary hover:border-primary/50"
+                  />
+                </div>
+              )}
               <div className="space-y-3">
                 <Label htmlFor="email" className="text-sm font-semibold text-foreground">
                   Email Address
@@ -130,13 +199,29 @@ const Auth = () => {
                 {loading ? (
                   <div className="flex items-center gap-3">
                     <Loader2 className="h-5 w-5 animate-spin" />
-                    <span>Signing you in...</span>
+                    <span>{isSignUp ? 'Creating account...' : 'Signing you in...'}</span>
                   </div>
                 ) : (
-                  'Sign In to Dashboard'
+                  isSignUp ? 'Create Account' : 'Sign In to Dashboard'
                 )}
               </Button>
             </form>
+            
+            <div className="text-center">
+              <button
+                onClick={() => {
+                  setIsSignUp(!isSignUp);
+                  setPassword('');
+                  setFullName('');
+                }}
+                className="text-sm text-muted-foreground hover:text-primary transition-colors"
+              >
+                {isSignUp 
+                  ? 'Already have an account? Sign in' 
+                  : "Don't have an account? Sign up"
+                }
+              </button>
+            </div>
           </CardContent>
         </Card>
       </div>
