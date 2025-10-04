@@ -1590,12 +1590,11 @@ export const POTracker = () => {
                            const firstOrder = orders[0];
                            const ordersInPO = orders; // Alias for consistency
                            
-                            // Get metrics from database function - excludes closed items
+                            // Get metrics from database function - includes ALL items
                             const dbMetrics = poGroupMetrics?.find(m => m.po_number === poNumber);
-                            const activeOrders = orders.filter(o => o.status !== 'closed');
-                            const totalLineItems = dbMetrics?.distinct_skus || activeOrders.length;
-                            // Use frontend calculation as fallback to ensure accuracy - only count non-closed items
-                            const asnQuantity = dbMetrics?.asn_quantity || activeOrders.reduce((sum, o) => sum + (o.quantity || 0), 0);
+                            const totalLineItems = dbMetrics?.distinct_skus || orders.length;
+                            // Use frontend calculation as fallback to ensure accuracy - count ALL items
+                            const asnQuantity = dbMetrics?.asn_quantity || orders.reduce((sum, o) => sum + (o.quantity || 0), 0);
                            
                             // Calculate matched percentage for display
                              const activeOrdersInPO = orders.filter((order: any) => 
