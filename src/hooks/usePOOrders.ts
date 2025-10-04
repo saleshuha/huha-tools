@@ -295,6 +295,8 @@ export const usePOOrders = () => {
           const currency = selectedCountry === 'KSA' ? 'SAR' : 'AED';
           const newGroup = {
             po_number: po,
+            po_key: poKey, // Include for database duplicate detection
+            item_key: itemKey, // Include for database duplicate detection
             ship_to_location: location || 'Not specified',
             asin: asin || null,
             model_number: model || null,
@@ -312,7 +314,7 @@ export const usePOOrders = () => {
             user_id: user.id
           };
           itemGroups.set(identity, newGroup);
-          console.log(`✨ Row ${rowNum}: Created new group with identity: ${identity}`);
+          console.log(`✨ Row ${rowNum}: Created new group with po_key="${poKey}", item_key="${itemKey}"`);
         }
       }
 
