@@ -77,24 +77,51 @@ export function VelocityItemsTable({
     const multiplier = sortDirection === 'asc' ? 1 : -1;
     
     switch (sortField) {
-      case 'asin':
-        return multiplier * (a.asin || '').localeCompare(b.asin || '');
-      case 'sku':
-        return multiplier * (a.sku || '').localeCompare(b.sku || '');
-      case 'title':
-        return multiplier * (a.title || '').localeCompare(b.title || '');
-      case 'stock':
-        return multiplier * ((a.current_quantity || 0) - (b.current_quantity || 0));
-      case 'added':
-        return multiplier * ((a.total_added || 0) - (b.total_added || 0));
-      case 'sold':
-        return multiplier * ((a.total_sold || 0) - (b.total_sold || 0));
-      case 'recommended':
-        return multiplier * (((a.manual_override ?? a.recommended_quantity) || 0) - ((b.manual_override ?? b.recommended_quantity) || 0));
-      case 'velocity_ref':
-        return multiplier * (a.velocity_order_ref || '').localeCompare(b.velocity_order_ref || '');
-      case 'ordered_qty':
-        return multiplier * ((a.ordered_quantity || 0) - (b.ordered_quantity || 0));
+      case 'asin': {
+        const aVal = (a.asin || '').toLowerCase();
+        const bVal = (b.asin || '').toLowerCase();
+        return multiplier * aVal.localeCompare(bVal);
+      }
+      case 'sku': {
+        const aVal = (a.sku || '').toLowerCase();
+        const bVal = (b.sku || '').toLowerCase();
+        return multiplier * aVal.localeCompare(bVal);
+      }
+      case 'title': {
+        const aVal = (a.title || '').toLowerCase();
+        const bVal = (b.title || '').toLowerCase();
+        return multiplier * aVal.localeCompare(bVal);
+      }
+      case 'stock': {
+        const aVal = a.current_quantity ?? 0;
+        const bVal = b.current_quantity ?? 0;
+        return multiplier * (aVal - bVal);
+      }
+      case 'added': {
+        const aVal = a.total_added ?? 0;
+        const bVal = b.total_added ?? 0;
+        return multiplier * (aVal - bVal);
+      }
+      case 'sold': {
+        const aVal = a.total_sold ?? 0;
+        const bVal = b.total_sold ?? 0;
+        return multiplier * (aVal - bVal);
+      }
+      case 'recommended': {
+        const aVal = (a.manual_override ?? a.recommended_quantity) ?? 0;
+        const bVal = (b.manual_override ?? b.recommended_quantity) ?? 0;
+        return multiplier * (aVal - bVal);
+      }
+      case 'velocity_ref': {
+        const aVal = (a.velocity_order_ref || '').toLowerCase();
+        const bVal = (b.velocity_order_ref || '').toLowerCase();
+        return multiplier * aVal.localeCompare(bVal);
+      }
+      case 'ordered_qty': {
+        const aVal = a.ordered_quantity ?? 0;
+        const bVal = b.ordered_quantity ?? 0;
+        return multiplier * (aVal - bVal);
+      }
       default:
         return 0;
     }
