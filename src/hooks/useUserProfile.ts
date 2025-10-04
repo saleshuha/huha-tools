@@ -55,26 +55,50 @@ export function useUserProfile() {
   }, []);
 
   const fetchProfile = async (userId: string) => {
-    console.log('useUserProfile: fetchProfile called for userId:', userId);
+    console.log('🔍 useUserProfile: fetchProfile called for userId:', userId);
     try {
+      console.log('📡 useUserProfile: Starting profile query...');
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
 
-      console.log('useUserProfile: Profile query result:', { data, error });
+      console.log('📊 useUserProfile: Profile query completed:', { 
+        hasData: !!data, 
+        hasError: !!error,
+        data: data,
+        error: error 
+      });
 
       if (error) {
-        console.error('Error fetching profile:', error);
+        console.error('❌ useUserProfile: Error fetching profile:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        setLoading(false);
         return;
       }
 
-      console.log('useUserProfile: Setting profile:', data);
+      if (!data) {
+        console.warn('⚠️ useUserProfile: No profile found for user:', userId);
+        setLoading(false);
+        return;
+      }
+
+      console.log('✅ useUserProfile: Profile loaded successfully:', {
+        id: data.id,
+        email: data.email,
+        country: data.country,
+        role: data.role
+      });
       setProfile(data as UserProfile);
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      console.error('❌ useUserProfile: Caught exception:', error);
     } finally {
+      console.log('🏁 useUserProfile: fetchProfile completed, loading=false');
       setLoading(false);
     }
   };
