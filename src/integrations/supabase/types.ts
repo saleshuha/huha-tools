@@ -3821,6 +3821,48 @@ export type Database = {
         }
         Relationships: []
       }
+      velocity_history: {
+        Row: {
+          actual_ordered: number | null
+          confidence_score: number | null
+          created_at: string
+          id: string
+          item_id: string
+          item_type: string
+          manual_override: number | null
+          override_reason: string | null
+          system_recommendation: number
+          user_id: string
+          velocity_at_time: number | null
+        }
+        Insert: {
+          actual_ordered?: number | null
+          confidence_score?: number | null
+          created_at?: string
+          id?: string
+          item_id: string
+          item_type?: string
+          manual_override?: number | null
+          override_reason?: string | null
+          system_recommendation: number
+          user_id: string
+          velocity_at_time?: number | null
+        }
+        Update: {
+          actual_ordered?: number | null
+          confidence_score?: number | null
+          created_at?: string
+          id?: string
+          item_id?: string
+          item_type?: string
+          manual_override?: number | null
+          override_reason?: string | null
+          system_recommendation?: number
+          user_id?: string
+          velocity_at_time?: number | null
+        }
+        Relationships: []
+      }
       velocity_quantity_overrides: {
         Row: {
           asin_id: string
@@ -3861,6 +3903,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      velocity_settings: {
+        Row: {
+          country: string
+          created_at: string
+          id: string
+          lead_time_days: number
+          max_order_quantity: number
+          min_order_quantity: number
+          safety_stock_enabled: boolean
+          service_level_factor: number
+          trend_sensitivity: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          country?: string
+          created_at?: string
+          id?: string
+          lead_time_days?: number
+          max_order_quantity?: number
+          min_order_quantity?: number
+          safety_stock_enabled?: boolean
+          service_level_factor?: number
+          trend_sensitivity?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          country?: string
+          created_at?: string
+          id?: string
+          lead_time_days?: number
+          max_order_quantity?: number
+          min_order_quantity?: number
+          safety_stock_enabled?: boolean
+          service_level_factor?: number
+          trend_sensitivity?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       vendor_feed_logs: {
         Row: {
@@ -4675,6 +4759,43 @@ export type Database = {
           order_number: string
           sku_code: string
           title: string
+        }[]
+      }
+      get_unified_velocity_analysis: {
+        Args: { country_filter?: string; lookback_days?: number }
+        Returns: {
+          asin: string
+          average_days_between_sales: number
+          current_quantity: number
+          days_since_last_restock: number
+          days_since_last_sale: number
+          days_until_stockout: number
+          identifier: string
+          item_id: string
+          quarterly_q1_added: number
+          quarterly_q1_sold: number
+          quarterly_q2_added: number
+          quarterly_q2_sold: number
+          quarterly_q3_added: number
+          quarterly_q3_sold: number
+          quarterly_q4_added: number
+          quarterly_q4_sold: number
+          recommendation_confidence: number
+          recommended_reorder_quantity: number
+          reorder_point: number
+          safety_stock: number
+          sales_velocity: number
+          sku: string
+          stock_days_remaining: number
+          table_name: string
+          title: string
+          total_sales: number
+          urgency_score: number
+          velocity_30d: number
+          velocity_60d: number
+          velocity_90d: number
+          velocity_category: string
+          velocity_trend: string
         }[]
       }
       get_user_roles: {
