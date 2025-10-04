@@ -1590,10 +1590,11 @@ export const POTracker = () => {
                            const firstOrder = orders[0];
                            const ordersInPO = orders; // Alias for consistency
                            
-                           // Get metrics from database function
-                           const dbMetrics = poGroupMetrics?.find(m => m.po_number === poNumber);
-                           const totalLineItems = dbMetrics?.distinct_skus || 0;
-                           const asnQuantity = dbMetrics?.asn_quantity || 0;
+                            // Get metrics from database function
+                            const dbMetrics = poGroupMetrics?.find(m => m.po_number === poNumber);
+                            const totalLineItems = dbMetrics?.distinct_skus || orders.length;
+                            // Use frontend calculation as fallback to ensure accuracy
+                            const asnQuantity = dbMetrics?.asn_quantity || orders.reduce((sum, o) => sum + (o.quantity || 0), 0);
                            
                             // Calculate matched percentage for display
                              const activeOrdersInPO = orders.filter((order: any) => 
