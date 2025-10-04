@@ -357,10 +357,16 @@ export function AsinInventory() {
     // Filter by active status first (unless explicitly showing disabled items)
     if (!showDisabledItems) {
       filtered = filtered.filter(item => item.isActive !== false);
-      console.log('🔧 ACTIVE FILTER:', {
+      console.log('🔧 ACTIVE FILTER (hiding disabled):', {
         originalCount: inventory.length,
         activeCount: filtered.length,
         disabledCount: inventory.length - filtered.length
+      });
+    } else {
+      console.log('🔧 SHOWING ALL ITEMS (including disabled):', {
+        totalCount: inventory.length,
+        disabledCount: inventory.filter(item => item.isActive === false).length,
+        activeCount: inventory.filter(item => item.isActive !== false).length
       });
     }
 
@@ -1242,10 +1248,13 @@ export function AsinInventory() {
                      <Switch
                        id="show-disabled"
                        checked={showDisabledItems}
-                       onCheckedChange={setShowDisabledItems}
+                       onCheckedChange={(checked) => {
+                         console.log('🔄 Toggle Show Disabled Items:', checked);
+                         setShowDisabledItems(checked);
+                       }}
                      />
                      <Label htmlFor="show-disabled" className="text-sm cursor-pointer">
-                       Show Disabled Items
+                       Show Disabled Items {showDisabledItems && `(${inventory.filter(item => item.isActive === false).length})`}
                      </Label>
                    </div>
                     <DialogContent className="max-w-md">
