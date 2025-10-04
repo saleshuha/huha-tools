@@ -25,5 +25,52 @@ export function AnalyticsDashboard({
   latestOrderDate
 }: AnalyticsDashboardProps) {
   const [isExpanded, setIsExpanded] = useState(true);
-  return;
+  
+  return (
+    <Card className="p-6 bg-gradient-to-br from-card/95 to-card/80 backdrop-blur border-primary/20">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+          <TrendingUp className="w-5 h-5 text-primary" />
+          Order Analytics
+        </h3>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="h-8 w-8 p-0"
+        >
+          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </Button>
+      </div>
+
+      {isExpanded && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <QuickStatsCard
+            icon={Package}
+            label="Total Orders"
+            value={totalOrders}
+            variant="primary"
+          />
+          <QuickStatsCard
+            icon={CheckSquare}
+            label="Matched Orders"
+            value={matchedOrdersCount}
+            variant="success"
+          />
+          <QuickStatsCard
+            icon={AlertTriangle}
+            label="Unmatched Orders"
+            value={unmatchedOrdersCount}
+            variant="warning"
+          />
+          <QuickStatsCard
+            icon={Zap}
+            label="Processed Orders"
+            value={processedOrdersCount}
+            variant="info"
+          />
+        </div>
+      )}
+    </Card>
+  );
 }
