@@ -93,14 +93,19 @@ export const usePOOrders = () => {
       console.log('✅ Authenticated user:', user.id);
       setLoadingProgress(20);
       
-      // Use database function to fetch ALL orders without limit
+      // Query po_orders table directly to avoid RPC row limits
       setLoadingStatus(loadAllOrders ? 'Loading ALL PO orders...' : 'Loading active PO orders...');
-      console.log(loadAllOrders ? '📚 Loading ALL orders via database function' : '🎯 Loading ACTIVE orders via database function');
+      console.log(loadAllOrders ? '📚 Loading ALL orders directly from table' : '🎯 Loading ACTIVE orders directly from table');
       
-      // Call database function with explicit headers to remove row limits
-      const { data: allPOOrders, error: fetchError, count } = await supabase
-        .rpc('get_all_po_orders_raw', { user_id_param: user.id })
-        .limit(10000); // Set explicit high limit to ensure all rows are fetched
+      // Direct table query with explicit high limit to get all rows
+      let query = supabase
+        .from('po_orders')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50000); // High limit to ensure all orders are fetched
+      
+      const { data: allPOOrders, error: fetchError } = await query;
       
       if (fetchError) {
         console.error('❌ Fetch error:', fetchError);
@@ -122,28 +127,44 @@ export const usePOOrders = () => {
       console.log(`✅ Fetched ${filteredOrders.length} PO orders`);
       setLoadingProgress(60);
       
+      // Fetch all sunsky_skus with full data for matching
       const { data: sunskySkus, error: skuError } = await supabase
         .from('sunsky_skus')
-        .select('sku_code, user_id')
+        .select('*')
         .eq('user_id', user.id);
 
       if (skuError) {
         console.warn('⚠️ Failed to fetch sunsky_skus:', skuError);
       }
 
-      // Create a Set of sunsky SKU codes for fast matching
-      const sunskySkuSet = new Set(sunskySkus?.map(sku => sku.sku_code) || []);
-      console.log(`📋 Found ${sunskySkuSet.size} Sunsky SKUs for matching`);
+      // Create a Map of sunsky SKU codes to full SKU objects for fast matching
+      const sunskySkuMap = new Map();
+      (sunskySkus || []).forEach(sku => {
+        sunskySkuMap.set(sku.sku_code, sku);
+      });
+      console.log(`📋 Found ${sunskySkuMap.size} Sunsky SKUs for matching`);
       
       // Type the final data and add sunsky_sku matching
       const typedData: POOrder[] = filteredOrders.map((order: any) => {
-        const hasSunskySku = sunskySkuSet.has(order.sku_code) || 
-                            (order.model_number && sunskySkuSet.has(order.model_number));
+        // Try to match by sku_code first, then model_number
+        const matchedSku = sunskySkuMap.get(order.sku_code) || 
+                          (order.model_number ? sunskySkuMap.get(order.model_number) : null);
         
         return {
           ...order,
           status: order.status as POOrder['status'],
-          sunsky_sku: order.sunsky_sku || (hasSunskySku ? (order.sku_code || order.model_number) : null)
+          sunsky_sku: matchedSku ? {
+            id: matchedSku.id,
+            user_id: matchedSku.user_id,
+            sku_code: matchedSku.sku_code,
+            title: matchedSku.title,
+            cost: matchedSku.cost,
+            weight: matchedSku.weight,
+            currency: matchedSku.currency,
+            country: matchedSku.country,
+            created_at: matchedSku.created_at,
+            updated_at: matchedSku.updated_at
+          } : null
         };
       });
 
