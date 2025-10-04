@@ -82,17 +82,17 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
             left: 8px;
             background: #000;
             color: white;
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
+            padding: 6px 12px;
+            border-radius: 20px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 16px;
+            font-size: 13px;
             font-weight: bold;
             border: 3px solid white;
             z-index: 10;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            white-space: nowrap;
           }
           
           .print-item-header {
@@ -187,7 +187,7 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
           {items.map((item, index) => (
             <div key={`${item.asin}-${index}`} className="print-item">
               <div className="print-item-number">
-                {index + 1}
+                Item {index + 1}
               </div>
               <div className="print-item-header">
                 {includeImages ? (
