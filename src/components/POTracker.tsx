@@ -684,12 +684,36 @@ export const POTracker = () => {
   const filteredOrders = useMemo(() => {
     let filtered = [...poOrders];
     
+    console.log('🔍 FILTERING START:', {
+      totalOrders: poOrders.length,
+      selectedCountry,
+      searchQuery,
+      statusFilter
+    });
+    
+    // Debug specific PO before any filtering
+    const debugPO = '4BO4YUAQ';
+    const debugPOItems = poOrders.filter(o => o.po_number === debugPO);
+    console.log(`🔍 PO ${debugPO} BEFORE FILTERING:`, {
+      itemsFound: debugPOItems.length,
+      totalQty: debugPOItems.reduce((sum, o) => sum + (o.quantity || 0), 0),
+      statuses: [...new Set(debugPOItems.map(o => o.status))],
+      countries: [...new Set(debugPOItems.map(o => o.country))]
+    });
+    
     // Apply strict country filtering - only show orders from selected country
     if (selectedCountry) {
       const beforeCountryFilter = filtered.length;
       const countryFilteredOrders = filtered.filter(order => 
         order.country === selectedCountry
       );
+      
+      // Debug specific PO after country filter
+      const debugPOAfterCountry = countryFilteredOrders.filter(o => o.po_number === debugPO);
+      console.log(`🔍 PO ${debugPO} AFTER COUNTRY FILTER:`, {
+        itemsRemaining: debugPOAfterCountry.length,
+        totalQty: debugPOAfterCountry.reduce((sum, o) => sum + (o.quantity || 0), 0)
+      });
       
       // Always apply country filter strictly - no fallback
       filtered = countryFilteredOrders;
