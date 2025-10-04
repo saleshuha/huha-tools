@@ -389,98 +389,101 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
                       title={title}
                     />
                   ) : (
-                    <div className="space-y-6 bg-background">
-                      {/* Header */}
-                      <div className="space-y-2 pb-4 border-b-2 border-primary/20">
-                        <h2 className="text-2xl font-bold text-foreground">{title}</h2>
-                        <div className="flex gap-6 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-2">
-                            <Package className="h-4 w-4" />
-                            <span>{printItems.length} Items</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold">Total Quantity:</span>
-                            <span className="text-primary font-bold">{totalQuantity}</span>
-                          </div>
-                          {includeImages && (
-                            <div className="flex items-center gap-2">
-                              <span>{itemsWithImages} with images</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                    <div className="bg-white text-black" style={{ maxWidth: '210mm', margin: '0 auto' }}>
+                      {/* Print Styles */}
+                      <style>{`
+                        @media print {
+                          @page {
+                            size: A4;
+                            margin: 15mm;
+                          }
+                          body {
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                          }
+                          .table-print-view {
+                            width: 100%;
+                          }
+                        }
+                      `}</style>
 
-                      {/* Enhanced Table */}
-                      <div className="border rounded-lg overflow-hidden shadow-sm">
-                        <div className="overflow-x-auto">
+                      <div className="table-print-view p-6">
+                        {/* Document Header - Same as POPrintDocument */}
+                        <div className="text-center mb-8 pb-4 border-b-[3px] border-black">
+                          <h1 className="text-3xl font-bold mb-3">{title}</h1>
+                          <p className="text-sm text-gray-600 mb-1">
+                            Generated: {new Date().toLocaleString()}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            Total Items: {printItems.length} | Total Quantity: {totalQuantity}
+                          </p>
+                        </div>
+
+                        {/* Table */}
+                        <div className="border-2 border-gray-300 rounded overflow-hidden">
                           <Table>
-                            <TableHeader className="bg-muted/50 sticky top-0 z-10">
-                              <TableRow className="hover:bg-transparent">
-                                <TableHead className="w-16 font-bold text-center">#</TableHead>
-                                {includeImages && <TableHead className="w-40 font-bold">Image</TableHead>}
-                                <TableHead className="min-w-[300px] font-bold">Product Details</TableHead>
-                                <TableHead className="min-w-[120px] font-bold">Model</TableHead>
-                                <TableHead className="w-24 font-bold text-center">Qty</TableHead>
-                                <TableHead className="min-w-[150px] font-bold">PO Number(s)</TableHead>
+                            <TableHeader>
+                              <TableRow className="bg-gray-100 hover:bg-gray-100">
+                                <TableHead className="w-12 font-bold text-black text-center border-r border-gray-300">#</TableHead>
+                                {includeImages && <TableHead className="w-32 font-bold text-black border-r border-gray-300">Image</TableHead>}
+                                <TableHead className="font-bold text-black border-r border-gray-300">Product Details</TableHead>
+                                <TableHead className="w-20 font-bold text-black text-center border-r border-gray-300">Qty</TableHead>
+                                <TableHead className="w-32 font-bold text-black border-r border-gray-300">PO Number(s)</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
                               {printItems.map((item, index) => (
                                 <TableRow 
                                   key={index} 
-                                  className="hover:bg-muted/30 transition-colors border-b border-border/50"
+                                  className="hover:bg-gray-50 border-b border-gray-300"
                                 >
-                                  <TableCell className="font-semibold text-center text-muted-foreground">
+                                  <TableCell className="font-semibold text-center border-r border-gray-300">
                                     {index + 1}
                                   </TableCell>
                                   {includeImages && (
-                                    <TableCell className="py-3">
+                                    <TableCell className="py-2 border-r border-gray-300">
                                       {item.imageUrl ? (
-                                        <div className="relative w-32 h-32 rounded-md overflow-hidden border-2 border-border shadow-sm">
+                                        <div className="w-24 h-24 rounded border border-gray-300 overflow-hidden bg-white">
                                           <img 
                                             src={item.imageUrl} 
                                             alt={item.asin}
-                                            className="w-full h-full object-contain bg-white"
+                                            className="w-full h-full object-contain"
                                           />
                                         </div>
                                       ) : (
-                                        <div className="w-32 h-32 bg-muted/50 rounded-md border-2 border-dashed border-border flex items-center justify-center">
-                                          <Package className="h-10 w-10 text-muted-foreground/50" />
+                                        <div className="w-24 h-24 bg-gray-50 rounded border border-dashed border-gray-400 flex items-center justify-center">
+                                          <Package className="h-8 w-8 text-gray-400" />
                                         </div>
                                       )}
                                     </TableCell>
                                   )}
-                                  <TableCell>
-                                    <div className="space-y-2">
-                                      <div className="font-medium text-sm line-clamp-2" title={item.title || 'N/A'}>
-                                        {item.title || <span className="text-muted-foreground italic">No title available</span>}
+                                  <TableCell className="border-r border-gray-300">
+                                    <div className="space-y-1.5">
+                                      <div className="font-bold text-base">
+                                        {item.asin}
                                       </div>
-                                      <div className="flex flex-col gap-1 text-xs">
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-muted-foreground font-medium">ASIN:</span>
-                                          <span className="font-mono font-semibold text-primary">{item.asin}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-muted-foreground font-medium">SKU:</span>
-                                          <span className="font-medium">
-                                            {item.sku_code || <span className="text-muted-foreground italic">N/A</span>}
-                                          </span>
-                                        </div>
+                                      <div className="text-sm line-clamp-2">
+                                        {item.title || 'N/A'}
                                       </div>
+                                      {item.sku_code && (
+                                        <div className="text-xs text-gray-600">
+                                          SKU: {item.sku_code}
+                                        </div>
+                                      )}
+                                      {item.model_number && (
+                                        <div className="text-xs text-gray-600">
+                                          Model: {item.model_number}
+                                        </div>
+                                      )}
                                     </div>
                                   </TableCell>
-                                  <TableCell>
-                                    <div className="text-sm">
-                                      {item.model_number || <span className="text-muted-foreground italic">N/A</span>}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell className="text-center">
-                                    <div className="inline-flex items-center justify-center min-w-[40px] px-3 py-1 rounded-full bg-primary/10 text-primary font-bold text-sm">
+                                  <TableCell className="text-center border-r border-gray-300">
+                                    <div className="text-2xl font-bold">
                                       {item.quantity}
                                     </div>
                                   </TableCell>
-                                  <TableCell>
-                                    <div className="font-mono text-xs font-medium">
+                                  <TableCell className="border-r border-gray-300">
+                                    <div className="text-xs font-bold break-words">
                                       {item.poNumbers}
                                     </div>
                                   </TableCell>
@@ -489,17 +492,12 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
                             </TableBody>
                           </Table>
                         </div>
-                      </div>
 
-                      {/* Summary Footer */}
-                      <div className="border-t-2 border-primary/20 pt-4 flex justify-end gap-8">
-                        <div className="flex items-center gap-3 px-4 py-2 rounded-lg bg-muted/50">
-                          <span className="text-sm font-medium text-muted-foreground">Total Items:</span>
-                          <span className="text-lg font-bold text-foreground">{printItems.length}</span>
-                        </div>
-                        <div className="flex items-center gap-3 px-4 py-2 rounded-lg bg-primary/10">
-                          <span className="text-sm font-medium text-muted-foreground">Total Quantity:</span>
-                          <span className="text-xl font-bold text-primary">{totalQuantity}</span>
+                        {/* Footer - Same as POPrintDocument */}
+                        <div className="mt-8 pt-4 border-t-2 border-black text-center">
+                          <p className="text-xs text-gray-600">
+                            This is a computer-generated document. No signature required.
+                          </p>
                         </div>
                       </div>
                     </div>
