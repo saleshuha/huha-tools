@@ -108,6 +108,11 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
     }
   };
 
+  const selectFilteredResults = () => {
+    const filteredIndices = filteredOrdersWithIndices.map(({ originalIndex }) => originalIndex);
+    setSelectedItems(new Set(filteredIndices));
+  };
+
   const handlePrint = useReactToPrint({
     contentRef: printRef,
   });
@@ -267,14 +272,26 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
               </div>
 
               {/* Search Input */}
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search by ASIN, SKU, Title, PO, or #number..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8"
-                />
+              <div className="space-y-2">
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by ASIN, SKU, Title, PO, or #number..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+                {searchQuery && filteredOrdersWithIndices.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={selectFilteredResults}
+                    className="w-full"
+                  >
+                    Select All Results ({filteredOrdersWithIndices.length})
+                  </Button>
+                )}
               </div>
 
               <ScrollArea className="h-48 border rounded-md p-2">
