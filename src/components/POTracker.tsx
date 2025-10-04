@@ -2267,7 +2267,16 @@ export const POTracker = () => {
                                   </div>
                                    
                                     {/* Summary Info */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-muted-foreground">
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm text-muted-foreground">
+                                      <div>
+                                        <span className="font-medium">Ship To:</span>{' '}
+                                        {(() => {
+                                          const uniqueLocations = [...new Set(group.orders.map(o => o.ship_to_location).filter(Boolean))];
+                                          if (uniqueLocations.length === 0) return '-';
+                                          if (uniqueLocations.length === 1) return uniqueLocations[0];
+                                          return `${uniqueLocations[0]} +${uniqueLocations.length - 1}`;
+                                        })()}
+                                      </div>
                                       <div>
                                         <span className="font-medium">Qty:</span> {group.orders.reduce((sum, order) => sum + order.quantity, 0)}
                                       </div>
