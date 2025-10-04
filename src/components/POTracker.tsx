@@ -473,29 +473,28 @@ export const POTracker = () => {
       profileLoading
     });
     
-    if (profile?.id && selectedCountry) {
-      console.log('✅ POTracker: Conditions met - triggering initial data fetch', { 
-        profileId: profile.id, 
-        country: selectedCountry,
-        currentOrdersLength: poOrders.length 
-      });
-      fetchPOOrders();
-      initializeQZ();
-      
-      // Country-specific settings
-      if (selectedCountry === 'UAE') {
-        setItemsPerPage(50); // UAE typically has larger volumes
-      } else if (selectedCountry === 'KSA') {
-        setItemsPerPage(25); // KSA typically has smaller batches
+    // Always fetch when we have a user, don't wait for profile
+    const fetchData = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && selectedCountry) {
+        console.log('✅ POTracker: Auth confirmed, fetching POs directly', { 
+          userId: user.id, 
+          country: selectedCountry
+        });
+        fetchPOOrders(true); // Load ALL orders by default
+        initializeQZ();
+        
+        // Country-specific settings
+        if (selectedCountry === 'UAE') {
+          setItemsPerPage(50);
+        } else if (selectedCountry === 'KSA') {
+          setItemsPerPage(25);
+        }
       }
-    } else {
-      console.warn('⚠️ POTracker: Cannot fetch PO orders -', {
-        missingProfile: !profile?.id,
-        missingCountry: !selectedCountry,
-        profileLoading
-      });
-    }
-  }, [profile?.id, selectedCountry, profileLoading]); // Added profileLoading to deps
+    };
+    
+    fetchData();
+  }, [selectedCountry]); // Removed profile dependency
 
   useEffect(() => {
     console.log('📊 POTracker: poOrders updated', { 
@@ -1487,12 +1486,13 @@ export const POTracker = () => {
                       size="sm"
                       onClick={async () => {
                         try {
-                          await fetchPOOrders();
+                          console.log('🔄 Refresh button clicked - loading ALL POs');
+                          await fetchPOOrders(true); // Force load ALL orders
                           refetchComprehensiveMetrics();
                           refetchMetrics();
                           toast({
                             title: "Success",
-                            description: "PO data refreshed successfully with latest SKU matches",
+                            description: "All PO data reloaded successfully",
                           });
                         } catch (error) {
                           console.error('Error refreshing PO data:', error);
@@ -1504,13 +1504,16 @@ export const POTracker = () => {
                         }
                       }}
                       disabled={isLoading}
-                      title="Refresh PO data to show newly imported SKU matches"
-                      className="border-2 border-border hover:border-primary"
+                      title="Reload ALL PO orders from database"
+                      className="border-2 border-primary text-primary hover:bg-primary/10"
                     >
                       {isLoading ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        <RefreshCw className="h-4 w-4" />
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-1" />
+                          Reload All
+                        </>
                       )}
                     </Button>
                   </div>
@@ -2025,15 +2028,28 @@ export const POTracker = () => {
                     Upload a CSV file containing purchase orders to track.
                   </p>
                 </div>
-                <Button 
-                  variant="destructive" 
-                  size="sm"
-                  onClick={handleDeleteTodayUploads}
-                  className="ml-4"
-                >
-                  <X className="h-4 w-4 mr-2" />
-                  Delete Today's {selectedCountry} Uploads
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      console.log('🔄 Manual reload ALL POs triggered');
+                      fetchPOOrders(true);
+                    }}
+                    className="border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Load All POs
+                  </Button>
+                  <Button 
+                    variant="destructive" 
+                    size="sm"
+                    onClick={handleDeleteTodayUploads}
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Delete Today's {selectedCountry} Uploads
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
