@@ -155,20 +155,40 @@ export function OrderProcessor() {
       console.log('Loading orders from database...');
       setLoading(true);
       
-      const { data, error } = await supabase
-        .from('order_imports')
-        .select('*', { count: 'exact' })
-        .order('order_place_date', { ascending: false, nullsFirst: false })
-        .order('created_at', { ascending: false })
-        .limit(100000); // Explicitly set high limit to override default 1000
+      // Fetch all orders without limit (paginate if needed)
+      let allData: any[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('order_imports')
+          .select('*', { count: 'exact' })
+          .order('order_place_date', { ascending: false, nullsFirst: false })
+          .order('created_at', { ascending: false })
+          .range(from, from + batchSize - 1);
+
+        if (error) {
+          console.error('Error loading imported orders:', error);
+          setLoading(false);
+          return;
+        }
+
+        if (data && data.length > 0) {
+          allData = [...allData, ...data];
+          from += batchSize;
+          hasMore = data.length === batchSize;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      const data = allData;
       
-      if (error) {
-        console.error('Error loading imported orders:', error);
-        setLoading(false);
-      } else {
-        console.log(`Loaded ${data?.length || 0} orders from database`);
-        console.log('First few orders:', data?.slice(0, 3)); // Debug: show first few orders
-        console.log('Last few orders:', data?.slice(-3)); // Debug: show last few orders
+      console.log(`Loaded ${data?.length || 0} orders from database`);
+      console.log('First few orders:', data?.slice(0, 3)); // Debug: show first few orders
+      console.log('Last few orders:', data?.slice(-3)); // Debug: show last few orders
         const formattedOrders: OrderItem[] = (data || []).map((order: any) => ({
           orderId: order.order_id || '',
           orderStatus: order.order_status || '',
@@ -202,7 +222,6 @@ export function OrderProcessor() {
         setAllOrders(formattedOrders);
         setLoading(false);
         console.log('Orders loading complete');
-      }
     };
     
     loadAllOrders();
@@ -581,16 +600,29 @@ export function OrderProcessor() {
       setSelectAll(false);
       setProcessingProgress(100);
 
-      // Refresh processed orders from database
-      const { data: refreshedProcessed } = await supabase
-        .from('processed_orders')
-        .select('*')
-        .order('processed_at', { ascending: false })
-        .limit(100000); // Explicitly set high limit to avoid default 1000 limit
-      
-      if (refreshedProcessed) {
-        setDbResults(refreshedProcessed);
+      // Refresh processed orders from database (fetch all in batches)
+      let allProcessed: any[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data } = await supabase
+          .from('processed_orders')
+          .select('*')
+          .order('processed_at', { ascending: false })
+          .range(from, from + batchSize - 1);
+
+        if (data && data.length > 0) {
+          allProcessed = [...allProcessed, ...data];
+          from += batchSize;
+          hasMore = data.length === batchSize;
+        } else {
+          hasMore = false;
+        }
       }
+      
+      setDbResults(allProcessed);
 
       toast({
         title: "Orders Processed",
@@ -686,15 +718,29 @@ export function OrderProcessor() {
       setShowDeductDialog(false);
       setUploadedMatches([]);
 
-      const { data: refreshedProcessed } = await supabase
-        .from('processed_orders')
-        .select('*')
-        .order('processed_at', { ascending: false })
-        .limit(100000);
-      
-      if (refreshedProcessed) {
-        setDbResults(refreshedProcessed);
+      // Fetch all processed orders in batches
+      let allProcessed: any[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data } = await supabase
+          .from('processed_orders')
+          .select('*')
+          .order('processed_at', { ascending: false })
+          .range(from, from + batchSize - 1);
+
+        if (data && data.length > 0) {
+          allProcessed = [...allProcessed, ...data];
+          from += batchSize;
+          hasMore = data.length === batchSize;
+        } else {
+          hasMore = false;
+        }
       }
+      
+      setDbResults(allProcessed);
 
       toast({
         title: "Stock Deducted",
