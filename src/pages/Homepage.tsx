@@ -1,381 +1,463 @@
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, CheckCircle, Clock, MapPin, ChevronLeft, ChevronRight } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths, startOfWeek, endOfWeek } from "date-fns";
-import { useTasks } from "@/hooks/useTasks";
-import { useCountry } from "@/contexts/CountryContext";
+import { useEffect, useState } from "react";
 import { HuhaHeader01 } from "@/components/ui/huha-header-01";
+import { QuickStatsCard } from "@/components/order-processing/QuickStatsCard";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { 
+  Package, TrendingUp, AlertTriangle, DollarSign, 
+  ShoppingCart, Clock, CheckCircle, Truck,
+  BarChart3, RefreshCw, ArrowUpRight, ArrowDownRight,
+  Boxes, PackageCheck, Calendar, Activity
+} from "lucide-react";
+import { useCountry } from "@/contexts/CountryContext";
+import { useInventoryAnalytics } from "@/hooks/useInventoryAnalytics";
+import { usePOMetrics } from "@/hooks/usePOMetrics";
+import { useAmazonOrders } from "@/hooks/useAmazonOrders";
+import { useNoonOrders } from "@/hooks/useNoonOrders";
+import { useVelocityAnalytics } from "@/hooks/useVelocityAnalytics";
+import { useTasks } from "@/hooks/useTasks";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
+import { format } from "date-fns";
 
-interface LocalTask {
-  id: string;
-  title: string;
-  description?: string;
-  date: Date;
-  type: 'task' | 'meeting' | 'routine';
-  completed: boolean;
-  priority: 'low' | 'medium' | 'high';
-}
 const Homepage = () => {
   const { selectedCountry } = useCountry();
-  const { tasks: dbTasks, loading, addTask: addDbTask, updateTask, deleteTask: deleteDbTask } = useTasks();
-  const [currentDate, setCurrentDate] = useState<Date>(new Date());
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newTask, setNewTask] = useState({
-    title: '',
-    description: '',
-    type: 'task' as const,
-    priority: 'medium' as const
-  });
+  const [lastRefresh, setLastRefresh] = useState(new Date());
+  
+  // Data hooks
+  const { inventoryMetrics, loading: inventoryLoading, loadAnalytics } = useInventoryAnalytics();
+  const { metrics: poMetrics, isLoading: poLoading, fetchMetrics } = usePOMetrics();
+  const { metrics: amazonMetrics, loading: amazonLoading, refetch: refetchAmazon } = useAmazonOrders();
+  const { orders: noonOrders, loading: noonLoading } = useNoonOrders();
+  const { velocityMetrics, loading: velocityLoading } = useVelocityAnalytics();
+  const { tasks, loading: tasksLoading } = useTasks();
 
-  // Convert DB tasks to local format
-  const tasks: LocalTask[] = dbTasks.map(task => ({
-    id: task.id,
-    title: task.title,
-    description: task.description || '',
-    date: task.due_date ? new Date(task.due_date) : new Date(task.created_at),
-    type: 'task' as const, // Since DB doesn't have type field, default to task
-    completed: task.completed,
-    priority: 'medium' as const // Since DB doesn't have priority field, default to medium
-  }));
-  const addTask = async () => {
-    if (!newTask.title.trim()) return;
-    
-    await addDbTask({
-      title: newTask.title,
-      description: newTask.description || undefined,
-      due_date: format(selectedDate, 'yyyy-MM-dd'),
-      completed: false,
-    });
-    
-    setNewTask({
-      title: '',
-      description: '',
-      type: 'task',
-      priority: 'medium'
-    });
-    setIsDialogOpen(false);
+  useEffect(() => {
+    loadAllData();
+  }, [selectedCountry]);
+
+  const loadAllData = async () => {
+    setLastRefresh(new Date());
+    loadAnalytics(selectedCountry);
+    fetchMetrics();
+    refetchAmazon();
   };
 
-  const toggleTask = async (taskId: string) => {
-    const task = tasks.find(t => t.id === taskId);
-    if (task) {
-      await updateTask(taskId, { completed: !task.completed });
-    }
-  };
+  const isLoading = inventoryLoading || poLoading || amazonLoading || velocityLoading || tasksLoading;
 
-  const handleDeleteTask = async (taskId: string) => {
-    await deleteDbTask(taskId);
-  };
-  const getTasksForDate = (date: Date) => {
-    return tasks.filter(task => isSameDay(task.date, date));
-  };
-  const getTaskTypeIcon = (type: string) => {
-    switch (type) {
-      case 'meeting':
-        return <MapPin className="h-3 w-3" />;
-      case 'routine':
-        return <Clock className="h-3 w-3" />;
-      default:
-        return <CheckCircle className="h-3 w-3" />;
-    }
-  };
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return 'bg-destructive/10 text-destructive border-destructive/20';
-      case 'medium':
-        return 'bg-warning/10 text-warning border-warning/20';
-      default:
-        return 'bg-success/10 text-success border-success/20';
-    }
-  };
+  // Calculate derived metrics
+  const noonUploaded = noonOrders.filter(o => o.order_status === 'uploaded').length;
+  const noonProcessing = noonOrders.filter(o => ['validated', 'ready_for_sunsky'].includes(o.order_status || '')).length;
+  const noonDelivered = noonOrders.filter(o => o.order_status === 'delivered').length;
+  
+  const pendingTasks = tasks.filter(t => !t.completed).length;
+  const todayTasks = tasks.filter(t => {
+    const taskDate = t.due_date ? new Date(t.due_date) : new Date(t.created_at);
+    return format(taskDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+  }).length;
 
-  // Generate calendar days
-  const monthStart = startOfMonth(currentDate);
-  const monthEnd = endOfMonth(currentDate);
-  const calendarStart = startOfWeek(monthStart);
-  const calendarEnd = endOfWeek(monthEnd);
-  const calendarDays = eachDayOfInterval({
-    start: calendarStart,
-    end: calendarEnd
-  });
-  const previousMonth = () => setCurrentDate(subMonths(currentDate, 1));
-  const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
-  return <div className="min-h-screen bg-gradient-surface flex">
-      {/* Reduced spacer for sidebar - calendar now uses more space */}
-      <div className="w-16 flex-shrink-0"></div>
-      
-      {/* Main content - calendar now extends further left */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Country-specific Header */}
-        <HuhaHeader01
-          icon={<span className="text-2xl">{selectedCountry === 'UAE' ? '🇦🇪' : '🇸🇦'}</span>}
-          title={selectedCountry === 'UAE' ? 'UAE Operations Dashboard' : 'KSA Operations Dashboard'}
-          subtitle={selectedCountry === 'UAE' 
-            ? 'Managing inventory and operations in the United Arab Emirates' 
-            : 'Managing inventory and operations in Saudi Arabia'
-          }
-          className="flex-shrink-0 animate-slide-up"
-        />
+  const criticalStockCount = inventoryMetrics.forecasting.criticalStockItems || 0;
+  const totalInventoryValue = (amazonMetrics?.totalValue || 0).toFixed(0);
+  
+  // Calculate velocity metrics from topPerformers and criticalItems
+  const fastMovingCount = velocityMetrics.fastMovingItems || 0;
+  const mediumMovingCount = velocityMetrics.mediumMovingItems || 0;
+  const urgentReorderCount = velocityMetrics.totalUrgentItems || 0;
 
-        {/* Enhanced Selected Date Tasks */}
-        {selectedDate && getTasksForDate(selectedDate).length > 0 && <div className="glass-container p-6 mx-6 mb-2 flex-shrink-0 animate-slide-up">
-            <h3 className="text-lg font-semibold mb-4 text-card-foreground">
-              Tasks for {format(selectedDate, 'EEEE, MMMM d, yyyy')}
-            </h3>
-            <div className="flex flex-wrap gap-3">
-              {getTasksForDate(selectedDate).map(task => <div key={task.id} className={`
-                    px-4 py-2 rounded-lg text-sm transition-all duration-300 
-                    hover:scale-105 hover:shadow-medium flex items-center gap-2 relative group/task
-                    ${task.completed ? 'line-through opacity-60' : 'shadow-soft'}
-                    ${getPriorityColor(task.priority)}
-                  `}>
-                  <div onClick={() => toggleTask(task.id)} className="flex items-center gap-2 cursor-pointer flex-1">
-                    {getTaskTypeIcon(task.type)}
-                    <span className="font-medium">{task.title}</span>
-                  </div>
-                  {/* Delete button for tasks in header */}
-                  <button onClick={() => handleDeleteTask(task.id)} className="w-5 h-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover/task:opacity-100 transition-opacity duration-200 hover:scale-110 ml-2" title="Delete task">
-                    ×
-                  </button>
-                </div>)}
-            </div>
-          </div>}
+  return (
+    <div className="min-h-screen bg-gradient-surface">
+      {/* Enhanced Background Effects */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,hsl(var(--primary)/0.12),transparent_60%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,hsl(var(--primary-light)/0.08),transparent_50%)]" />
+        <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-primary via-primary-light to-primary-dark shadow-glow" />
+      </div>
 
-        {/* Enhanced Calendar */}
-        <div className="flex-1 p-4 overflow-hidden">
-          {/* Calendar Header */}
-          <div className="glass-container p-4 mb-4 bg-card animate-fade-in mx-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-card-foreground bg-gradient-primary bg-clip-text text-transparent">
-                {format(currentDate, 'MMMM yyyy')}
-              </h2>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={previousMonth} className="hover:bg-primary hover:text-primary-foreground transition-all duration-300 hover:scale-105">
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="sm" onClick={nextMonth} className="hover:bg-primary hover:text-primary-foreground transition-all duration-300 hover:scale-105">
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Enhanced Calendar Grid with proper height */}
-          <div className="glass-container overflow-hidden flex flex-col animate-fade-in-scale" style={{
-            height: 'calc(100vh - 300px)',
-            minHeight: '700px'
-          }}>
-            {/* Enhanced Days of week header */}
-            <div className="grid grid-cols-7 border-b border-border bg-gradient-primary flex-shrink-0">
-              {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, index) => (
-                <div key={day} className="p-3 text-center font-semibold text-primary-foreground">
-                  <div className="hidden sm:block">{day}</div>
-                  <div className="sm:hidden">{day.slice(0, 3)}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* Enhanced Calendar Days with fixed grid structure */}
-            <div className="grid grid-cols-7 flex-1" style={{ 
-              display: 'grid',
-              gridTemplateRows: `repeat(${Math.ceil(calendarDays.length / 7)}, 1fr)`,
-              minHeight: '600px'
-            }}>
-              {calendarDays.map((day, index) => {
-                const dayTasks = getTasksForDate(day);
-                const isCurrentMonth = isSameMonth(day, currentDate);
-                const isToday = isSameDay(day, new Date());
-                const isSelected = isSameDay(day, selectedDate);
-                
-                return (
-                  <div 
-                    key={index} 
-                    onClick={() => {
-                      setSelectedDate(day);
-                      setIsDialogOpen(true);
-                    }} 
-                    className={`
-                      p-2 border-r border-b border-border cursor-pointer transition-all duration-300 
-                      flex flex-col hover:bg-accent/20 hover:scale-[1.01] group relative overflow-hidden
-                      ${!isCurrentMonth ? 'bg-muted/30 text-muted-foreground' : 'bg-card'}
-                      ${isToday ? 'bg-gradient-accent ring-2 ring-accent/30' : ''}
-                      ${isSelected ? 'bg-primary/20 ring-2 ring-primary border-primary' : ''}
-                    `}
-                    style={{ minHeight: '100px' }}
-                  >
-                    {/* Date number */}
-                    <div className={`
-                      w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold mb-1 
-                      flex-shrink-0 transition-all duration-300 group-hover:scale-110
-                      ${isToday ? 'bg-accent text-accent-foreground shadow-medium' : ''}
-                      ${isSelected && !isToday ? 'bg-primary text-primary-foreground shadow-soft' : ''}
-                      ${!isToday && !isSelected ? 'group-hover:bg-muted' : ''}
-                    `}>
-                      {format(day, 'd')}
-                    </div>
-
-                    {/* Tasks for this day */}
-                    <div className="space-y-0.5 flex-1 overflow-hidden">
-                      {dayTasks.slice(0, 2).map((task, taskIndex) => (
-                        <div 
-                          key={task.id} 
-                          className={`
-                            text-xs p-1 rounded border cursor-pointer transition-all duration-300
-                            hover:scale-105 transform group/task relative
-                            ${task.completed ? 'line-through opacity-60' : ''}
-                            ${getPriorityColor(task.priority)}
-                          `}
-                          style={{ animationDelay: `${taskIndex * 100}ms` }}
-                        >
-                          <div 
-                            className="flex items-center gap-1" 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleTask(task.id);
-                            }}
-                          >
-                            {getTaskTypeIcon(task.type)}
-                            <span className="truncate text-xs flex-1 leading-none">{task.title}</span>
-                          </div>
-                          
-                          {/* Delete button */}
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteTask(task.id);
-                            }} 
-                            className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover/task:opacity-100 transition-opacity duration-200 hover:scale-110 text-xs" 
-                            title="Delete task"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                      
-                      {dayTasks.length > 2 && (
-                        <div className="text-xs text-muted-foreground font-medium px-1 py-0.5 rounded bg-muted/50 text-center">
-                          +{dayTasks.length - 2}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+      {/* Main Content */}
+      <div className="relative z-10 p-8 space-y-6 animate-fade-in">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <HuhaHeader01
+            icon={<span className="text-3xl">{selectedCountry === 'UAE' ? '🇦🇪' : '🇸🇦'}</span>}
+            title={`${selectedCountry} Operations Dashboard`}
+            subtitle={`Real-time business intelligence and analytics • Last updated: ${format(lastRefresh, 'HH:mm:ss')}`}
+            className="flex-1"
+          />
+          <Button onClick={loadAllData} disabled={isLoading} className="gap-2">
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh Data
+          </Button>
         </div>
 
-        {/* Enhanced Task Creation Dialog */}
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="sm:max-w-[500px] glass-container">
-            <DialogHeader className="text-center pb-4">
-              <DialogTitle className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                Add New Task
-              </DialogTitle>
-              <DialogDescription className="text-muted-foreground text-base">
-                Create a new task for {format(selectedDate, 'EEEE, MMMM d, yyyy')}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-6 py-4">
-              <div className="grid gap-3">
-                <Label htmlFor="title" className="text-sm font-semibold text-foreground">Title</Label>
-                <Input id="title" value={newTask.title} onChange={e => setNewTask({
-                ...newTask,
-                title: e.target.value
-              })} placeholder="What needs to be done?" className="transition-all duration-300 focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+        {/* Hero KPI Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+          <QuickStatsCard
+            icon={DollarSign}
+            label="Inventory Value"
+            value={`$${totalInventoryValue}`}
+            variant="primary"
+          />
+          <QuickStatsCard
+            icon={ShoppingCart}
+            label="Active POs"
+            value={poMetrics.totalActiveOrders}
+            variant="info"
+          />
+          <QuickStatsCard
+            icon={AlertTriangle}
+            label="Overdue Payments"
+            value={amazonMetrics?.overduePayments || 0}
+            variant="warning"
+          />
+          <QuickStatsCard
+            icon={Package}
+            label="Critical Stock"
+            value={criticalStockCount}
+            variant="warning"
+          />
+          <QuickStatsCard
+            icon={TrendingUp}
+            label="Fast Moving"
+            value={fastMovingCount}
+            variant="success"
+          />
+          <QuickStatsCard
+            icon={Clock}
+            label="Pending Tasks"
+            value={pendingTasks}
+            variant="neutral"
+          />
+        </div>
+
+        {/* Operations Overview - 3 Columns */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Inventory Health */}
+          <Card className="glass-container border-primary/20">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Boxes className="h-5 w-5 text-primary" />
+                  Inventory Health
+                </CardTitle>
+                <Activity className="h-4 w-4 text-muted-foreground" />
               </div>
-              <div className="grid gap-3">
-                <Label htmlFor="description" className="text-sm font-semibold text-foreground">Description</Label>
-                <Textarea id="description" value={newTask.description} onChange={e => setNewTask({
-                ...newTask,
-                description: e.target.value
-              })} placeholder="Add more details about your task..." rows={3} className="transition-all duration-300 focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none" />
+              <CardDescription>Stock levels and movement</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {isLoading ? (
+                <>
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Total Active Items</span>
+                    <Badge variant="outline" className="font-bold">
+                      {inventoryMetrics.forecasting.totalActiveItems}
+                    </Badge>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Stock Status</span>
+                      <span className="font-medium">
+                        {((inventoryMetrics.forecasting.totalActiveItems - criticalStockCount) / 
+                          Math.max(inventoryMetrics.forecasting.totalActiveItems, 1) * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                    <Progress 
+                      value={((inventoryMetrics.forecasting.totalActiveItems - criticalStockCount) / 
+                        Math.max(inventoryMetrics.forecasting.totalActiveItems, 1)) * 100} 
+                      className="h-2"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 rounded-lg bg-success/10 border border-success/20">
+                      <div className="text-2xl font-bold text-success">{fastMovingCount}</div>
+                      <div className="text-xs text-muted-foreground">Fast Moving</div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-warning/10 border border-warning/20">
+                      <div className="text-2xl font-bold text-warning">{mediumMovingCount}</div>
+                      <div className="text-xs text-muted-foreground">Medium Moving</div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-destructive">Critical Stock Alert</div>
+                      <div className="text-xs text-muted-foreground">{criticalStockCount} items need restocking</div>
+                    </div>
+                  </div>
+
+                  <Button variant="outline" className="w-full" size="sm">
+                    View Restock Report
+                    <ArrowUpRight className="h-3 w-3 ml-2" />
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Order Management */}
+          <Card className="glass-container border-primary/20">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <PackageCheck className="h-5 w-5 text-primary" />
+                  Order Management
+                </CardTitle>
+                <Truck className="h-4 w-4 text-muted-foreground" />
               </div>
-              <div className="grid grid-cols-2 gap-6">
-                <div className="grid gap-3">
-                  <Label htmlFor="type" className="text-sm font-semibold text-foreground">Type</Label>
-                  <Select value={newTask.type} onValueChange={(value: any) => setNewTask({
-                  ...newTask,
-                  type: value
-                })}>
-                    <SelectTrigger className="transition-all duration-300 hover:border-primary">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="task" className="cursor-pointer hover:bg-accent">
+              <CardDescription>Purchase orders and fulfillment</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {isLoading ? (
+                <>
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                </>
+              ) : (
+                <>
+                  {/* PO Status */}
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium">Purchase Orders</span>
+                      <Badge>{poMetrics.uniquePONumbers} POs</Badge>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="p-2 rounded bg-warning/10 border border-warning/20 text-center">
+                        <div className="text-lg font-bold text-warning">{poMetrics.pendingOrders}</div>
+                        <div className="text-xs text-muted-foreground">Pending</div>
+                      </div>
+                      <div className="p-2 rounded bg-info/10 border border-info/20 text-center">
+                        <div className="text-lg font-bold text-info">{poMetrics.orderedOrders}</div>
+                        <div className="text-xs text-muted-foreground">Ordered</div>
+                      </div>
+                      <div className="p-2 rounded bg-primary/10 border border-primary/20 text-center">
+                        <div className="text-lg font-bold text-primary">{poMetrics.shippedOrders}</div>
+                        <div className="text-xs text-muted-foreground">Shipped</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Noon Orders */}
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium">Noon Orders</span>
+                      <Badge variant="outline">{noonOrders.length} total</Badge>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground">Uploaded</span>
+                        <span className="font-medium">{noonUploaded}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground">Processing</span>
+                        <span className="font-medium">{noonProcessing}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground">Delivered</span>
+                        <span className="font-medium text-success">{noonDelivered}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button variant="outline" className="w-full" size="sm">
+                    View All Orders
+                    <ArrowUpRight className="h-3 w-3 ml-2" />
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Performance Metrics */}
+          <Card className="glass-container border-primary/20">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-primary" />
+                  Performance Metrics
+                </CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <CardDescription>Financial and operational KPIs</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {isLoading ? (
+                <>
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                </>
+              ) : (
+                <>
+                  {/* Amazon Payments */}
+                  <div>
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-sm font-medium">Amazon Payments</span>
+                      <Badge variant="outline">{amazonMetrics?.totalOrders || 0} orders</Badge>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center p-2 rounded bg-success/10 border border-success/20">
                         <div className="flex items-center gap-2">
-                          <CheckCircle className="h-4 w-4" />
-                          Task
+                          <CheckCircle className="h-3 w-3 text-success" />
+                          <span className="text-sm text-muted-foreground">Paid</span>
                         </div>
-                      </SelectItem>
-                      <SelectItem value="meeting" className="cursor-pointer hover:bg-accent">
+                        <div className="text-right">
+                          <div className="text-sm font-bold text-success">{amazonMetrics?.paidPayments || 0}</div>
+                          <div className="text-xs text-muted-foreground">${(amazonMetrics?.paidValue || 0).toFixed(0)}</div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex justify-between items-center p-2 rounded bg-warning/10 border border-warning/20">
                         <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4" />
-                          Meeting
+                          <Clock className="h-3 w-3 text-warning" />
+                          <span className="text-sm text-muted-foreground">Pending</span>
                         </div>
-                      </SelectItem>
-                      <SelectItem value="routine" className="cursor-pointer hover:bg-accent">
+                        <div className="text-right">
+                          <div className="text-sm font-bold text-warning">{amazonMetrics?.pendingPayments || 0}</div>
+                          <div className="text-xs text-muted-foreground">${(amazonMetrics?.pendingValue || 0).toFixed(0)}</div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex justify-between items-center p-2 rounded bg-destructive/10 border border-destructive/20">
                         <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4" />
-                          Routine
+                          <AlertTriangle className="h-3 w-3 text-destructive" />
+                          <span className="text-sm text-muted-foreground">Overdue</span>
                         </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-3">
-                  <Label htmlFor="priority" className="text-sm font-semibold text-foreground">Priority</Label>
-                  <Select value={newTask.priority} onValueChange={(value: any) => setNewTask({
-                  ...newTask,
-                  priority: value
-                })}>
-                    <SelectTrigger className="transition-all duration-300 hover:border-primary">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low" className="cursor-pointer hover:bg-accent">
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full bg-success"></div>
-                          Low Priority
+                        <div className="text-right">
+                          <div className="text-sm font-bold text-destructive">{amazonMetrics?.overduePayments || 0}</div>
+                          <div className="text-xs text-muted-foreground">${(amazonMetrics?.overdueValue || 0).toFixed(0)}</div>
                         </div>
-                      </SelectItem>
-                      <SelectItem value="medium" className="cursor-pointer hover:bg-accent">
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full bg-warning"></div>
-                          Medium Priority
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="high" className="cursor-pointer hover:bg-accent">
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full bg-destructive"></div>
-                          High Priority
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Velocity Insights */}
+                  <div className="p-3 rounded-lg bg-gradient-primary text-primary-foreground">
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingUp className="h-4 w-4" />
+                      <span className="text-sm font-medium">Velocity Insights</span>
+                    </div>
+                    <div className="text-2xl font-bold">{urgentReorderCount}</div>
+                    <div className="text-xs opacity-90">Items need urgent reorder</div>
+                  </div>
+
+                  <Button variant="outline" className="w-full" size="sm">
+                    View Analytics
+                    <ArrowUpRight className="h-3 w-3 ml-2" />
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Tasks & Alerts Section */}
+        <Card className="glass-container border-primary/20">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-primary" />
+                  Tasks & Alerts
+                </CardTitle>
+                <CardDescription>Today's priorities and action items</CardDescription>
+              </div>
+              <div className="flex gap-2">
+                <Badge variant="outline">{todayTasks} today</Badge>
+                <Badge variant={pendingTasks > 0 ? "destructive" : "secondary"}>
+                  {pendingTasks} pending
+                </Badge>
               </div>
             </div>
-            <div className="flex justify-end gap-3 pt-4 border-t border-border">
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="transition-all duration-300 hover:scale-105">
-                Cancel
+          </CardHeader>
+          <CardContent>
+            {tasksLoading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </div>
+            ) : tasks.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <CheckCircle className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>No pending tasks. You're all caught up!</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {tasks.slice(0, 6).map((task) => (
+                  <div
+                    key={task.id}
+                    className={`p-3 rounded-lg border transition-all hover:scale-105 ${
+                      task.completed
+                        ? 'bg-muted/50 border-muted opacity-60'
+                        : 'bg-card border-primary/20'
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                        task.completed ? 'bg-success border-success' : 'border-muted-foreground'
+                      }`}>
+                        {task.completed && <CheckCircle className="h-3 w-3 text-success-foreground" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className={`font-medium text-sm ${task.completed ? 'line-through' : ''}`}>
+                          {task.title}
+                        </div>
+                        {task.description && (
+                          <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                            {task.description}
+                          </div>
+                        )}
+                        {task.due_date && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Due: {format(new Date(task.due_date), 'MMM d, yyyy')}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {tasks.length > 6 && (
+              <Button variant="ghost" className="w-full mt-4">
+                View All Tasks ({tasks.length})
               </Button>
-              <Button onClick={addTask} className="bg-gradient-primary hover:shadow-medium transition-all duration-300 hover:scale-105">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Task
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Quick Actions */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Button variant="outline" className="h-auto flex-col gap-2 py-4">
+            <Package className="h-6 w-6" />
+            <span className="text-sm">Add Inventory</span>
+          </Button>
+          <Button variant="outline" className="h-auto flex-col gap-2 py-4">
+            <ShoppingCart className="h-6 w-6" />
+            <span className="text-sm">Create PO</span>
+          </Button>
+          <Button variant="outline" className="h-auto flex-col gap-2 py-4">
+            <BarChart3 className="h-6 w-6" />
+            <span className="text-sm">View Reports</span>
+          </Button>
+          <Button variant="outline" className="h-auto flex-col gap-2 py-4">
+            <Calendar className="h-6 w-6" />
+            <span className="text-sm">Add Task</span>
+          </Button>
+        </div>
       </div>
-    </div>;
+    </div>
+  );
 };
+
 export default Homepage;
