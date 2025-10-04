@@ -581,7 +581,7 @@ export const usePOOrders = () => {
     }
   }, [toast]);
 
-  // Delete PO orders
+  // Delete PO orders with batching support for large datasets
   const deletePOOrders = useCallback(async (orderIds?: string[]) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -593,20 +593,48 @@ export const usePOOrders = () => {
         orderIds: orderIds?.slice(0, 5)
       });
 
-      let query = supabase.from('po_orders').delete().eq('user_id', user.id);
-      
       if (orderIds && orderIds.length > 0) {
-        query = query.in('id', orderIds);
+        // Batch delete in chunks of 100 to avoid URL length issues
+        const BATCH_SIZE = 100;
+        const totalBatches = Math.ceil(orderIds.length / BATCH_SIZE);
+        
+        console.log(`🗑️ Deleting ${orderIds.length} orders in ${totalBatches} batches...`);
+        
+        for (let i = 0; i < totalBatches; i++) {
+          const start = i * BATCH_SIZE;
+          const end = Math.min(start + BATCH_SIZE, orderIds.length);
+          const batch = orderIds.slice(start, end);
+          
+          console.log(`🗑️ Batch ${i + 1}/${totalBatches}: Deleting ${batch.length} orders...`);
+          
+          const { error } = await supabase
+            .from('po_orders')
+            .delete()
+            .eq('user_id', user.id)
+            .in('id', batch);
+
+          if (error) {
+            console.error(`❌ Delete error in batch ${i + 1}:`, error);
+            throw error;
+          }
+          
+          console.log(`✅ Batch ${i + 1}/${totalBatches} deleted successfully`);
+        }
+        
+        console.log('✅ All batches deleted successfully, refreshing data...');
+      } else {
+        // Delete all orders for user (no ID filter)
+        const { error } = await supabase
+          .from('po_orders')
+          .delete()
+          .eq('user_id', user.id);
+
+        if (error) {
+          console.error('❌ Delete error:', error);
+          throw error;
+        }
       }
 
-      const { error, data } = await query;
-
-      if (error) {
-        console.error('❌ Delete error:', error);
-        throw error;
-      }
-
-      console.log('✅ Delete successful, refreshing data...');
       await fetchPOOrders();
       
       toast({
