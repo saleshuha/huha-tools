@@ -18,43 +18,45 @@ export function useUserProfile() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
 
-  const fetchProfile = async (userId: string) => {
-    console.log('🔍 useUserProfile: fetchProfile START for userId:', userId);
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (error) {
-        console.error('❌ useUserProfile: Profile error:', error);
-        setLoading(false);
-        return;
-      }
-
-      if (data) {
-        console.log('✅ useUserProfile: Profile loaded:', data.id, data.country);
-        setProfile(data as UserProfile);
-      } else {
-        console.warn('⚠️ useUserProfile: No profile for user:', userId);
-      }
-      setLoading(false);
-    } catch (error) {
-      console.error('❌ useUserProfile: Exception:', error);
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
     console.log('useUserProfile: Initializing...');
     let mounted = true;
 
-    // Set up auth listener first
+    const fetchProfile = async (userId: string) => {
+      console.log('🔍 fetchProfile START for:', userId);
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
+
+        if (!mounted) return;
+
+        if (error) {
+          console.error('❌ Profile error:', error);
+          setLoading(false);
+          return;
+        }
+
+        if (data) {
+          console.log('✅ Profile loaded:', data.country);
+          setProfile(data as UserProfile);
+        } else {
+          console.warn('⚠️ No profile found');
+        }
+        setLoading(false);
+      } catch (error) {
+        console.error('❌ Profile exception:', error);
+        if (mounted) setLoading(false);
+      }
+    };
+
+    // Set up auth listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (!mounted) return;
-        console.log('useUserProfile: Auth state changed:', event);
+        console.log('useUserProfile: Auth changed:', event);
         
         const currentUser = session?.user ?? null;
         setUser(currentUser);
@@ -68,18 +70,18 @@ export function useUserProfile() {
       }
     );
 
-    // Then check current session
+    // Check current session
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (!mounted) return;
       
       if (error) {
-        console.error('❌ useUserProfile: Session error:', error);
+        console.error('❌ Session error:', error);
         setLoading(false);
         return;
       }
       
       const currentUser = session?.user ?? null;
-      console.log('useUserProfile: Initial session user:', currentUser?.id);
+      console.log('useUserProfile: Initial user:', currentUser?.id);
       setUser(currentUser);
       
       if (currentUser) {

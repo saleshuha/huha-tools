@@ -70,9 +70,9 @@ export const usePOOrders = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch PO orders using deduplicated function to avoid double counting
-  const fetchPOOrders = useCallback(async (useRawData = false) => {
-    console.log('📥 fetchPOOrders called, isLoading:', isLoading);
+  // Fetch PO orders - optimized to load only active orders by default
+  const fetchPOOrders = useCallback(async (loadAllOrders = false) => {
+    console.log('📥 fetchPOOrders called, loadAllOrders:', loadAllOrders);
     setIsLoading(true);
     setLoadingProgress(0);
     setLoadingStatus('Fetching PO orders...');
@@ -92,110 +92,34 @@ export const usePOOrders = () => {
 
       console.log('✅ Authenticated user:', user.id);
       setLoadingProgress(20);
-      setLoadingStatus('Loading PO data...');
-
-      // First, do a quick count to see how many records we're dealing with
-      const { count, error: countError } = await supabase
+      
+      // Build the query - only active orders by default for faster loading
+      let query = supabase
         .from('po_orders')
-        .select('*', { count: 'exact', head: true })
+        .select('*')
         .eq('user_id', user.id);
       
-      if (countError) {
-        console.error('❌ Count error:', countError);
-        throw countError;
+      if (!loadAllOrders) {
+        // Only fetch active orders (much faster - typically <500 records)
+        query = query.in('status', ['pending', 'ordered', 'shipped']);
+        setLoadingStatus('Loading active PO orders...');
+        console.log('🎯 Loading ACTIVE orders only (pending, ordered, shipped)');
+      } else {
+        setLoadingStatus('Loading ALL PO orders...');
+        console.log('📚 Loading ALL orders (this may take longer)');
       }
       
-      console.log(`📊 Total PO orders in database: ${count}`);
+      query = query.order('created_at', { ascending: false });
 
-      // Use client-side pagination to fetch ALL PO orders
-      const pageSize = 500; // Reduced from 1000 to avoid timeouts
-      let allPOOrders: any[] = [];
-      let page = 0;
-      let hasMore = true;
-      const maxPages = Math.ceil((count || 0) / pageSize);
-
-      console.log(`🚀 Starting pagination to fetch ${count} PO orders (${maxPages} pages)...`);
-
-      while (hasMore && page < maxPages) {
-        const startRange = page * pageSize;
-        const endRange = startRange + pageSize - 1;
-        
-        console.log(`📄 Fetching page ${page + 1}/${maxPages} (rows ${startRange}-${endRange})...`);
-        setLoadingStatus(`Loading PO orders... ${page + 1}/${maxPages} pages (${allPOOrders.length}/${count} loaded)`);
-        setLoadingProgress(Math.min(20 + ((page / maxPages) * 60), 80));
-        
-        try {
-          // Fetch with a 10 second timeout per page
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 10000);
-          
-          const { data: pageData, error: fetchError } = await supabase
-            .from('po_orders')
-            .select('*')
-            .eq('user_id', user.id)
-            .range(startRange, endRange)
-            .order('created_at', { ascending: false })
-            .abortSignal(controller.signal);
-          
-          clearTimeout(timeoutId);
-          
-          if (fetchError) {
-            console.error(`❌ Error fetching page ${page + 1}:`, fetchError);
-            throw fetchError;
-          }
-
-        if (pageData && pageData.length > 0) {
-          allPOOrders = [...allPOOrders, ...pageData];
-          console.log(`✅ Page ${page + 1}: fetched ${pageData.length} records (total: ${allPOOrders.length})`);
-          
-          // Continue if this page was full
-          hasMore = pageData.length === pageSize;
-          page++;
-        } else {
-          hasMore = false;
-        }
-        
-        } catch (pageError: any) {
-          console.error(`❌ Error on page ${page + 1}:`, pageError);
-          if (pageError.name === 'AbortError') {
-            toast({
-              title: "Loading timeout",
-              description: `Page ${page + 1} took too long. Loaded ${allPOOrders.length} orders so far.`,
-              variant: "destructive",
-            });
-            break; // Stop pagination on timeout but keep what we have
-          }
-          throw pageError;
-        }
-
-        // Safety limit to prevent infinite loops
-        if (page > 100) {
-          console.warn(`⚠️ Reached safety limit of 100 pages (${allPOOrders.length} records)`);
-          break;
-        }
-      }
-
-      console.log(`📦 TOTAL PO orders fetched via pagination: ${allPOOrders.length}`);
+      const { data: allPOOrders, error: fetchError, count } = await query;
       
-      // Log country distribution
-      const countryDistribution = allPOOrders.reduce((acc: any, order: any) => {
-        const country = order.country || 'Unknown';
-        acc[country] = (acc[country] || 0) + 1;
-        return acc;
-      }, {});
-      console.log(`🌍 PO orders by country:`, countryDistribution);
-
-      if (allPOOrders.length === 0) {
-        console.warn('⚠️ No PO orders found for user:', user.id);
-        setPOOrders([]);
-        setLoadingProgress(100);
-        setLoadingStatus('No PO orders found');
-        return;
+      if (fetchError) {
+        console.error('❌ Fetch error:', fetchError);
+        throw fetchError;
       }
 
-      // Fetch all sunsky_skus for matching
-      setLoadingStatus('Matching orders with Sunsky SKUs...');
-      setLoadingProgress(85);
+      console.log(`✅ Fetched ${allPOOrders?.length || 0} PO orders`);
+      setLoadingProgress(60);
       
       const { data: sunskySkus, error: skuError } = await supabase
         .from('sunsky_skus')
