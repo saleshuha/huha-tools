@@ -1849,45 +1849,6 @@ export function OrderProcessor() {
 
               {filteredProcessedOrders.length > 0 ? (
                 <div className="space-y-4">
-                  {/* Summary Cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Card className="p-4 bg-gradient-to-br from-destructive/10 to-destructive/5 border-destructive/20">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Total Qty Deducted</p>
-                          <p className="text-3xl font-bold text-destructive mt-1">
-                            {filteredProcessedOrders.reduce((sum, order) => sum + (order.quantity_deducted || 0), 0)}
-                          </p>
-                        </div>
-                        <Minus className="w-10 h-10 text-destructive opacity-30" />
-                      </div>
-                    </Card>
-
-                    <Card className="p-4 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Total Before Stock</p>
-                          <p className="text-3xl font-bold text-primary mt-1">
-                            {filteredProcessedOrders.reduce((sum, order) => sum + (order.old_quantity || 0), 0)}
-                          </p>
-                        </div>
-                        <Package className="w-10 h-10 text-primary opacity-30" />
-                      </div>
-                    </Card>
-
-                    <Card className="p-4 bg-gradient-to-br from-success/10 to-success/5 border-success/20">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Total After Stock</p>
-                          <p className="text-3xl font-bold text-success mt-1">
-                            {filteredProcessedOrders.reduce((sum, order) => sum + (order.new_quantity || 0), 0)}
-                          </p>
-                        </div>
-                        <CheckSquare className="w-10 h-10 text-success opacity-30" />
-                      </div>
-                    </Card>
-                  </div>
-
                   {/* Table Controls */}
                   <div className="flex items-center justify-between">
                     <div className="text-sm text-muted-foreground">
@@ -1965,25 +1926,24 @@ export function OrderProcessor() {
                                     </div>
                                   </TableCell>
                                   <TableCell>
-                                    <div className="flex items-center gap-2">
-                                      <Minus className="w-4 h-4 text-destructive" />
-                                      <Badge variant="destructive" className="font-bold text-sm px-3 py-1">
-                                        {order.quantity_deducted}
-                                      </Badge>
-                                    </div>
+                                    <Badge variant="outline" className="font-semibold bg-success/10">
+                                      {order.quantity_deducted}
+                                    </Badge>
                                   </TableCell>
                                   <TableCell>
-                                    <div className="flex items-center gap-2">
-                                      <Badge variant="secondary" className="font-semibold px-2 py-1">
-                                        {order.old_quantity}
-                                      </Badge>
-                                      <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                                      <Badge 
-                                        variant="default" 
-                                        className="font-semibold px-2 py-1 bg-success/20 text-success dark:text-success-foreground border-success/30"
-                                      >
-                                        {order.new_quantity}
-                                      </Badge>
+                                    <div className="space-y-1">
+                                      <div className="flex items-center gap-2 text-xs">
+                                        <span className="text-muted-foreground">Before:</span>
+                                        <Badge variant="secondary" className="font-semibold">
+                                          {order.old_quantity}
+                                        </Badge>
+                                      </div>
+                                      <div className="flex items-center gap-2 text-xs">
+                                        <span className="text-muted-foreground">After:</span>
+                                        <Badge variant="default" className="font-semibold">
+                                          {order.new_quantity}
+                                        </Badge>
+                                      </div>
                                     </div>
                                   </TableCell>
                                   <TableCell>
