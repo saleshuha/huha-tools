@@ -611,6 +611,10 @@ export default function CarrefourSalesTracker() {
                 <p className="text-xs text-orange-700 font-medium">Total Profit</p>
                 <div className="text-xl font-bold text-orange-900">{formatCurrency(metrics.totalPendingProfit)}</div>
               </div>
+              <div className="pt-2 border-t border-orange-300">
+                <p className="text-xs text-orange-800 font-semibold">Total Pending</p>
+                <div className="text-2xl font-bold text-orange-950">{formatCurrency(metrics.totalPendingCost + metrics.totalPendingProfit)}</div>
+              </div>
             </div>
             <div className="flex items-center gap-2 text-xs mt-2">
               <TrendingUp className="h-3 w-3 text-orange-600" />
