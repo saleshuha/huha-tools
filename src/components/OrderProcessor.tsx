@@ -10,6 +10,7 @@ import { Checkbox } from './ui/checkbox';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from './ui/pagination';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Dialog, DialogContent } from './ui/dialog';
 import { FileSpreadsheet, Search, Minus, Download, Package, AlertTriangle, TrendingUp, Clock, DollarSign, ShoppingCart, Printer, CheckSquare, Square, Tag } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { useAsinInventory, AsinInventoryItem } from '@/hooks/useAsinInventory';
@@ -103,6 +104,8 @@ export function OrderProcessor() {
   // Selection for matched orders
   const [selectedMatchedItems, setSelectedMatchedItems] = useState<Set<string>>(new Set());
   const [selectAllMatched, setSelectAllMatched] = useState(false);
+  const [showDeductDialog, setShowDeductDialog] = useState(false);
+  const [uploadedMatches, setUploadedMatches] = useState<MatchedItem[]>([]);
 
   const {
     inventory: asinInventory,
@@ -375,6 +378,13 @@ export function OrderProcessor() {
       const matches = await matchOrdersWithInventory(formattedOrders);
 
       const matchedCount = matches.filter(m => m.inventoryMatch).length;
+      
+      // Show deduction dialog if there are matches
+      if (matchedCount > 0) {
+        setUploadedMatches(matches.filter(m => m.inventoryMatch));
+        setShowDeductDialog(true);
+      }
+      
       toast({
         title: "Orders Upload Complete",
         description: saveResult 
@@ -584,7 +594,7 @@ export function OrderProcessor() {
     }
   };
 
-  const processMatchedOrders = async () => {
+  const processUploadedMatches = async () => {
     if (selectedMatchedItems.size === 0) {
       toast({
         title: "No Items Selected",
@@ -598,10 +608,9 @@ export function OrderProcessor() {
     setProcessingProgress(0);
     
     try {
-      const itemsToProcess = matchedOrders
-        .filter(order => selectedMatchedItems.has(order.orderId))
-        .map(order => order.matchedItem)
-        .filter((item): item is MatchedItem => item !== undefined && item.inventoryMatch !== undefined);
+      const itemsToProcess = uploadedMatches.filter(match => 
+        selectedMatchedItems.has(match.orderItem.orderId)
+      );
       
       const processed: ProcessedItem[] = [];
       const total = itemsToProcess.length;
@@ -620,9 +629,9 @@ export function OrderProcessor() {
         const newQuantity = Math.max(0, previousQuantity + quantityChange);
         
         if (match.inventoryType === 'asin') {
-          await updateAsinQuantity(match.inventoryMatch.id, newQuantity, `Matched order deduction: Removed ${Math.abs(quantityChange)} units`);
+          await updateAsinQuantity(match.inventoryMatch.id, newQuantity, `Order upload deduction: Removed ${Math.abs(quantityChange)} units`);
         } else {
-          await updateSkuQuantity(match.inventoryMatch.id, newQuantity, `Matched order deduction: Removed ${Math.abs(quantityChange)} units`);
+          await updateSkuQuantity(match.inventoryMatch.id, newQuantity, `Order upload deduction: Removed ${Math.abs(quantityChange)} units`);
         }
 
         if (user) {
@@ -635,7 +644,7 @@ export function OrderProcessor() {
             inventory_type: match.inventoryType,
             match_type: match.matchType || 'unknown',
             quantity_processed: match.orderItem.itemQuantity,
-            source_file: 'Matched Orders',
+            source_file: fileName,
             previous_stock: previousQuantity,
             new_stock: newQuantity,
             inventory_id: match.inventoryMatch.id,
@@ -659,6 +668,8 @@ export function OrderProcessor() {
       setSelectedMatchedItems(new Set());
       setSelectAllMatched(false);
       setProcessingProgress(100);
+      setShowDeductDialog(false);
+      setUploadedMatches([]);
 
       const { data: refreshedProcessed } = await supabase
         .from('processed_orders')
@@ -699,12 +710,12 @@ export function OrderProcessor() {
     });
   };
 
-  const handleSelectAllMatched = () => {
+  const handleSelectAllUploadedMatches = () => {
     if (selectAllMatched) {
       setSelectedMatchedItems(new Set());
       setSelectAllMatched(false);
     } else {
-      const allIds = new Set(paginatedMatchedOrders.map(order => order.orderId));
+      const allIds = new Set(uploadedMatches.map(match => match.orderItem.orderId));
       setSelectedMatchedItems(allIds);
       setSelectAllMatched(true);
     }
@@ -1338,46 +1349,10 @@ export function OrderProcessor() {
 
               {matchedOrders.length > 0 ? (
                 <div className="space-y-4">
-                  {/* Action Bar */}
-                  <Card className="p-4 bg-gradient-to-r from-primary/5 to-accent/5 border-primary/20">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                          <Checkbox
-                            checked={selectAllMatched}
-                            onCheckedChange={handleSelectAllMatched}
-                          />
-                          <Label className="text-sm font-medium cursor-pointer" onClick={handleSelectAllMatched}>
-                            Select All ({paginatedMatchedOrders.length})
-                          </Label>
-                        </div>
-                        {selectedMatchedItems.size > 0 && (
-                          <Badge variant="secondary" className="text-sm">
-                            {selectedMatchedItems.size} selected
-                          </Badge>
-                        )}
-                      </div>
-                      <Button
-                        onClick={processMatchedOrders}
-                        disabled={selectedMatchedItems.size === 0 || loading}
-                        className="bg-primary hover:bg-primary/90"
-                      >
-                        <Minus className="w-4 h-4 mr-2" />
-                        Deduct Stock ({selectedMatchedItems.size})
-                      </Button>
-                    </div>
-                  </Card>
-                  
                   <div className="rounded-lg border overflow-hidden">
                     <Table>
                        <TableHeader>
                          <TableRow>
-                           <TableHead className="w-12">
-                             <Checkbox
-                               checked={selectAllMatched}
-                               onCheckedChange={handleSelectAllMatched}
-                             />
-                           </TableHead>
                            <TableHead className="w-16">Serial #</TableHead>
                            <TableHead>Order ID</TableHead>
                            <TableHead>Order Date</TableHead>
@@ -1406,12 +1381,6 @@ export function OrderProcessor() {
                             
                             return (
                               <TableRow key={`${order.orderId}-${index}`}>
-                                <TableCell>
-                                  <Checkbox
-                                    checked={selectedMatchedItems.has(order.orderId)}
-                                    onCheckedChange={() => handleMatchedItemSelect(order.orderId)}
-                                  />
-                                </TableCell>
                                 <TableCell className="text-xs font-medium text-muted-foreground">
                                   {inventorySerialNumber}
                                 </TableCell>
@@ -1641,6 +1610,139 @@ export function OrderProcessor() {
           </Tabs>
         </div>
       </Card>
+
+      {/* Deduct Stock Dialog */}
+      <Dialog open={showDeductDialog} onOpenChange={setShowDeductDialog}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold">Matched Orders - Bulk Deduction</h3>
+                <p className="text-sm text-muted-foreground">
+                  Found {uploadedMatches.length} orders with inventory matches. Select orders to deduct from stock.
+                </p>
+              </div>
+              <Badge variant="secondary" className="text-sm">
+                {selectedMatchedItems.size} selected
+              </Badge>
+            </div>
+
+            {(loading || processingProgress > 0) && (
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Processing orders...</span>
+                  <span>{processingProgress}%</span>
+                </div>
+                <Progress value={processingProgress} className="w-full" />
+              </div>
+            )}
+
+            <div className="flex items-center justify-between py-2 border-b">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={selectAllMatched}
+                  onCheckedChange={handleSelectAllUploadedMatches}
+                />
+                <Label className="text-sm font-medium cursor-pointer" onClick={handleSelectAllUploadedMatches}>
+                  Select All ({uploadedMatches.length})
+                </Label>
+              </div>
+              <Button
+                onClick={processUploadedMatches}
+                disabled={selectedMatchedItems.size === 0 || loading}
+                className="bg-primary hover:bg-primary/90"
+              >
+                <Minus className="w-4 h-4 mr-2" />
+                Deduct Stock ({selectedMatchedItems.size})
+              </Button>
+            </div>
+
+            <div className="rounded-lg border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={selectAllMatched}
+                        onCheckedChange={handleSelectAllUploadedMatches}
+                      />
+                    </TableHead>
+                    <TableHead className="w-16">Serial #</TableHead>
+                    <TableHead>Order ID</TableHead>
+                    <TableHead>ASIN/SKU</TableHead>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Qty</TableHead>
+                    <TableHead>Available Stock</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {uploadedMatches.map((match, index) => {
+                    let inventorySerialNumber = 'N/A';
+                    let availableStock = 0;
+                    
+                    if (match.inventoryMatch) {
+                      availableStock = match.inventoryMatch.quantity;
+                      if (match.inventoryType === 'asin') {
+                        inventorySerialNumber = (match.inventoryMatch as AsinInventoryItem).serialNumber;
+                      } else if (match.inventoryType === 'sku') {
+                        inventorySerialNumber = (match.inventoryMatch as SkuInventoryItem).binSerialNumber;
+                      }
+                    }
+                    
+                    return (
+                      <TableRow key={`${match.orderItem.orderId}-${index}`}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedMatchedItems.has(match.orderItem.orderId)}
+                            onCheckedChange={() => handleMatchedItemSelect(match.orderItem.orderId)}
+                          />
+                        </TableCell>
+                        <TableCell className="text-xs font-medium text-muted-foreground">
+                          {inventorySerialNumber}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">{match.orderItem.orderId}</TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            {match.orderItem.asin && (
+                              <div className="text-xs text-blue-600 dark:text-blue-400">
+                                ASIN: {match.orderItem.asin}
+                              </div>
+                            )}
+                            {match.orderItem.sku && (
+                              <div className="text-xs text-green-600 dark:text-green-400">
+                                SKU: {match.orderItem.sku}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-xs truncate text-xs">{match.orderItem.itemTitle}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs">
+                            {match.orderItem.itemQuantity}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={availableStock >= match.orderItem.itemQuantity ? 'default' : 'destructive'} 
+                            className="text-xs"
+                          >
+                            {availableStock}
+                          </Badge>
+                          {availableStock < match.orderItem.itemQuantity && (
+                            <div className="text-xs text-destructive mt-1">
+                              Insufficient!
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
