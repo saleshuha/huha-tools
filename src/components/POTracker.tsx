@@ -1610,8 +1610,8 @@ export const POTracker = () => {
                 <div className="rounded-lg border-2 border-border overflow-hidden">
                   {viewMode === 'grouped' ? (
                     <div className="grid">
-                       <div className="grid grid-cols-[50px_80px_minmax(150px,1fr)_120px_150px_150px_140px_140px_minmax(200px,1fr)] bg-muted/50 border-b">
-                         <div className="p-3 font-medium text-sm">
+                       <div className="grid grid-cols-[45px_70px_minmax(140px,1fr)_100px_110px_110px_100px_90px_200px] bg-muted/50 border-b">
+                         <div className="p-2 font-medium text-sm">
                               <input
                                 type="checkbox"
                                 checked={selectedPOsForBulkClose.size > 0 && Array.from(selectedPOsForBulkClose).length === groupedPOOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).length}
@@ -1630,14 +1630,14 @@ export const POTracker = () => {
                                 className="h-4 w-4 rounded border-border"
                               />
                          </div>
-                         <div className="p-3 font-medium text-sm">Enable</div>
-                         <div className="p-3 font-medium text-sm">PO Number</div>
-                         <div className="p-3 font-medium text-sm">Ship To</div>
-                         <div className="p-3 font-medium text-sm">PO Items</div>
-                         <div className="p-3 font-medium text-sm">ASN Quantity</div>
-                         <div className="p-3 font-medium text-sm">Matched %</div>
-                         <div className="p-3 font-medium text-sm">Pending Items</div>
-                         <div className="p-3 font-medium text-sm">Actions</div>
+                         <div className="p-2 font-medium text-sm">Enable</div>
+                         <div className="p-2 font-medium text-sm">PO Number</div>
+                         <div className="p-2 font-medium text-sm">Ship To</div>
+                         <div className="p-2 font-medium text-sm">PO Items</div>
+                         <div className="p-2 font-medium text-sm">ASN Qty</div>
+                         <div className="p-2 font-medium text-sm">Matched</div>
+                         <div className="p-2 font-medium text-sm">Pending</div>
+                         <div className="p-2 font-medium text-sm">Actions</div>
                        </div>
                       <div>
                          {paginatedPOGroups.map(({ poNumber, orders }) => {
@@ -1685,7 +1685,7 @@ export const POTracker = () => {
                                 <div 
                                   key={poNumber}
                                   className={`
-                                    grid grid-cols-[50px_80px_minmax(150px,1fr)_120px_150px_150px_140px_140px_minmax(200px,1fr)] border-b
+                                    grid grid-cols-[45px_70px_minmax(140px,1fr)_100px_110px_110px_100px_90px_200px] border-b
                                     ${isClosedPO 
                                       ? 'opacity-50 bg-muted/40 pointer-events-none cursor-not-allowed' 
                                       : isDisabled
@@ -1696,7 +1696,7 @@ export const POTracker = () => {
                                     }
                                   `}
                                 >
-                                  <div className="p-3 flex items-center">
+                                  <div className="p-2 flex items-center">
                                     <input
                                       type="checkbox"
                                       checked={selectedPOsForBulkClose.has(poNumber)}
@@ -1714,7 +1714,7 @@ export const POTracker = () => {
                                       className={`h-4 w-4 rounded border-border ${isClosedPO || isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                                     />
                                   </div>
-                                  <div className="p-3 flex items-center">
+                                  <div className="p-2 flex items-center">
                                     <Switch
                                       checked={!isDisabled}
                                       onCheckedChange={(checked) => {
@@ -1731,7 +1731,7 @@ export const POTracker = () => {
                                       className="scale-75"
                                     />
                                   </div>
-                                 <div className="p-3 font-medium flex items-center">
+                                 <div className="p-2 font-medium flex items-center">
                                    <div className="flex items-center gap-2">
                                      <span className="text-xs opacity-60">{countryPrefix}</span>
                                      <Button 
@@ -1750,8 +1750,8 @@ export const POTracker = () => {
                                      )}
                                   </div>
                                 </div>
-                              <div className="p-3 flex items-center">
-                                <div className="text-sm text-muted-foreground">
+                              <div className="p-2 flex items-center">
+                                <div className="text-xs text-muted-foreground truncate">
                                   {(() => {
                                     const uniqueLocations = [...new Set(orders.map(o => o.ship_to_location).filter(Boolean))];
                                     if (uniqueLocations.length === 0) return '-';
@@ -1760,32 +1760,24 @@ export const POTracker = () => {
                                   })()}
                                 </div>
                               </div>
-                              <div className="p-3 flex items-center">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium">{totalLineItems}</span>
-                                  <span className="text-xs text-muted-foreground">distinct SKU lines</span>
+                              <div className="p-2 flex items-center">
+                                <div className="flex flex-col">
+                                  <span className="font-medium text-sm">{totalLineItems}</span>
+                                  <span className="text-xs text-muted-foreground">SKUs</span>
                                 </div>
                               </div>
-                              <div className="p-3 flex items-center">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium">{asnQuantity}</span>
-                                  <span className="text-xs text-muted-foreground">active units</span>
+                              <div className="p-2 flex items-center">
+                                <div className="flex flex-col">
+                                  <span className="font-medium text-sm">{asnQuantity}</span>
+                                  <span className="text-xs text-muted-foreground">units</span>
                                 </div>
                               </div>
-                              <div className="p-3 flex items-center">
-                                <div className="space-y-1">
-                                  <div className="flex items-center gap-2">
-                                    <Badge variant={parseInt(matchedPercentage) >= 80 ? "default" : parseInt(matchedPercentage) >= 50 ? "secondary" : "destructive"}>
-                                      {matchedPercentage}%
-                                    </Badge>
-                                  </div>
-                                  <div className="text-xs text-muted-foreground space-y-0.5">
-                                    <div>Total items: {activeOrdersInPO.length}</div>
-                                    <div>Matched items: {matchedCount}</div>
-                                  </div>
-                                </div>
+                              <div className="p-2 flex items-center">
+                                <Badge variant={parseInt(matchedPercentage) >= 80 ? "default" : parseInt(matchedPercentage) >= 50 ? "secondary" : "destructive"} className="text-xs">
+                                  {matchedPercentage}%
+                                </Badge>
                               </div>
-                              <div className="p-3 flex items-center">
+                              <div className="p-2 flex items-center justify-center">
                                 <div className="text-sm font-medium">
                                   {activeOrdersInPO.filter(order => 
                                     order.status === 'pending' && 
@@ -1794,15 +1786,16 @@ export const POTracker = () => {
                                   ).length}
                                 </div>
                               </div>
-                                 <div className="p-3 flex items-center">
-                                   <div className="flex items-center gap-2">
+                                 <div className="p-2 flex items-center">
+                                   <div className="flex items-center gap-1">
                                      <Button 
                                        variant="outline" 
                                        size="sm"
                                        onClick={() => navigate(`/po-details/${poNumber}`)}
                                        disabled={isClosedPO}
+                                       className="text-xs px-2 py-1 h-7"
                                      >
-                                       View Details
+                                       View
                                      </Button>
                                      {!isClosedPO && (
                                        <>
@@ -1814,9 +1807,9 @@ export const POTracker = () => {
                                                handleClosePO(poNumber);
                                              }
                                            }}
-                                           className="text-red-600 hover:text-red-700"
+                                           className="text-red-600 hover:text-red-700 text-xs px-2 py-1 h-7"
                                          >
-                                           Close PO
+                                           Close
                                          </Button>
                                          <Button 
                                            variant="destructive" 
@@ -1826,9 +1819,9 @@ export const POTracker = () => {
                                                handleDeletePO(poNumber, activeOrdersInPO);
                                              }
                                            }}
+                                           className="text-xs px-2 py-1 h-7"
                                          >
-                                           <X className="h-4 w-4 mr-1" />
-                                           Delete
+                                           <X className="h-3 w-3" />
                                          </Button>
                                        </>
                                      )}
