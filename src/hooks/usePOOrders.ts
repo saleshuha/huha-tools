@@ -184,12 +184,12 @@ export const usePOOrders = () => {
       console.log(`🚀 STARTING PO PROCESSING: ${mappedData.length} rows from file`);
 
       setLoadingProgress(10);
-      setLoadingStatus('Loading existing PO identities for duplicate detection...');
+      setLoadingStatus('Loading existing PO data for update comparison...');
 
-      // Fetch existing PO identities for duplicate detection
+      // Fetch ALL existing PO data for comparison and updates
       const { data: existingOrders, error: fetchError } = await supabase
         .from('po_orders')
-        .select('po_key, item_key, po_number, model_number, asin, sku_code')
+        .select('*')
         .eq('user_id', user.id);
 
       if (fetchError) {
@@ -199,34 +199,33 @@ export const usePOOrders = () => {
       console.log(`📊 EXISTING DATA: Found ${existingOrders?.length || 0} existing PO orders`);
 
       setLoadingProgress(20);
-      setLoadingStatus('Building identity-based duplicate detection...');
+      setLoadingStatus('Building identity-based change detection...');
 
-      // Create identity-based duplicate detection
-      const existingIdentities = new Set();
+      // Create map of existing orders by identity for quick lookup and comparison
+      const existingOrdersMap = new Map();
       
       (existingOrders || []).forEach(order => {
         if (order.po_key && order.item_key) {
           const identity = `${order.po_key}|${order.item_key}`;
-          existingIdentities.add(identity);
-          console.log(`🔎 DB Identity: "${identity}" from PO="${order.po_number}", Model="${order.model_number}", ASIN="${order.asin}", SKU="${order.sku_code}"`);
+          existingOrdersMap.set(identity, order);
         }
       });
 
-      console.log(`🔍 DUPLICATE DETECTION: Created ${existingIdentities.size} identity keys from existing data`);
-      console.log(`📋 All existing identities:`, Array.from(existingIdentities).slice(0, 10));
+      console.log(`🔍 CHANGE DETECTION: Created map of ${existingOrdersMap.size} existing orders`);
 
       setLoadingProgress(30);
-      setLoadingStatus('Processing and grouping incoming data by identity...');
+      setLoadingStatus('Processing and comparing incoming data...');
 
-      // Group items by identity and sum quantities within the file
+      // Group items by identity and detect changes
       const itemGroups = new Map();
       const results = {
         processed: 0,
         inserted: 0,
-        duplicates: 0,
+        updated: 0,
+        unchanged: 0,
         invalid: 0,
         errors: [] as string[],
-        skipped: [] as string[]
+        changes: [] as string[]
       };
 
       // First pass: validate and group by identity
@@ -287,85 +286,118 @@ export const usePOOrders = () => {
         const itemKey = primarySku.toLowerCase().trim();
         const identity = `${poKey}|${itemKey}`;
 
-        console.log(`🔍 Row ${rowNum}: Identity="${identity}", Qty=${qty}, Title="${title.substring(0, 30)}...", PoKey="${poKey}", ItemKey="${itemKey}"`);
+        console.log(`🔍 Row ${rowNum}: Identity="${identity}", Qty=${qty}, Title="${title.substring(0, 30)}..."`);
 
-        // Check if already exists in database using the exact keys
-        if (existingIdentities.has(identity)) {
-          const skip = `Row ${rowNum}: Duplicate in database - "${title}" (Identity: ${identity})`;
-          results.duplicates++;
-          results.skipped.push(skip);
-          console.log(`⚠️ DUPLICATE (DB): ${skip}`);
-          continue;
-        }
+        // Create new order data
+        const currency = selectedCountry === 'KSA' ? 'SAR' : 'AED';
+        const newOrderData = {
+          po_number: po,
+          ship_to_location: location || 'Not specified',
+          asin: asin || null,
+          model_number: model || null,
+          title: title,
+          quantity: qty,
+          sku_code: primarySku,
+          external_id: item.external_id?.trim() || null,
+          external_id_type: item.external_id_type?.trim() || null,
+          status: 'pending',
+          file_name: item.file_name || 'uploaded-file.csv',
+          unit_cost: item.unit_cost ? Number(item.unit_cost) : null,
+          country: selectedCountry,
+          currency: currency,
+          sku_user_id: user.id,
+          user_id: user.id
+        };
 
-        // Group by identity within file
-        if (itemGroups.has(identity)) {
-          // Add to existing group
-          const existingGroup = itemGroups.get(identity);
-          existingGroup.quantity += qty;
-          console.log(`📎 Row ${rowNum}: Added to existing group, new total qty: ${existingGroup.quantity}`);
+        // Check if exists in database
+        const existingOrder = existingOrdersMap.get(identity);
+        
+        if (existingOrder) {
+          // Compare data to detect changes
+          const hasChanges = 
+            existingOrder.quantity !== newOrderData.quantity ||
+            existingOrder.title !== newOrderData.title ||
+            existingOrder.ship_to_location !== newOrderData.ship_to_location ||
+            existingOrder.unit_cost !== newOrderData.unit_cost ||
+            existingOrder.asin !== newOrderData.asin ||
+            existingOrder.model_number !== newOrderData.model_number ||
+            existingOrder.external_id !== newOrderData.external_id;
+
+          if (hasChanges) {
+            // Add to update list with existing ID to preserve the record
+            const changeDetails = [];
+            if (existingOrder.quantity !== newOrderData.quantity) {
+              changeDetails.push(`qty: ${existingOrder.quantity}→${newOrderData.quantity}`);
+            }
+            if (existingOrder.unit_cost !== newOrderData.unit_cost) {
+              changeDetails.push(`cost: ${existingOrder.unit_cost}→${newOrderData.unit_cost}`);
+            }
+            
+            console.log(`🔄 UPDATE: ${identity} - Changes: ${changeDetails.join(', ')}`);
+            results.changes.push(`${po}/${primarySku}: ${changeDetails.join(', ')}`);
+            
+            // Keep existing ID and update fields
+            itemGroups.set(identity, {
+              ...newOrderData,
+              id: existingOrder.id, // Preserve ID for update
+              created_at: existingOrder.created_at, // Preserve creation date
+              status: existingOrder.status // Keep existing status unless closed
+            });
+            results.updated++;
+          } else {
+            console.log(`✓ UNCHANGED: ${identity}`);
+            results.unchanged++;
+          }
         } else {
-          // Create new group with selected country and currency
-          // NOTE: po_key and item_key are GENERATED columns - database computes them automatically
-          const currency = selectedCountry === 'KSA' ? 'SAR' : 'AED';
-          const newGroup = {
-            po_number: po,
-            ship_to_location: location || 'Not specified',
-            asin: asin || null,
-            model_number: model || null,
-            title: title,
-            quantity: qty,
-            sku_code: primarySku,
-            external_id: item.external_id?.trim() || null,
-            external_id_type: item.external_id_type?.trim() || null,
-            status: 'pending',
-            file_name: item.file_name || 'uploaded-file.csv',
-            unit_cost: item.unit_cost ? Number(item.unit_cost) : null,
-            country: selectedCountry,
-            currency: currency,
-            sku_user_id: user.id,
-            user_id: user.id
-          };
-          itemGroups.set(identity, newGroup);
-          console.log(`✨ Row ${rowNum}: Created new group - DB will auto-generate po_key and item_key for duplicate detection`);
+          // New item - add to insert list
+          if (itemGroups.has(identity)) {
+            // Merge quantities within file
+            const existingGroup = itemGroups.get(identity);
+            existingGroup.quantity += qty;
+            console.log(`📎 Row ${rowNum}: Merged in file, new total qty: ${existingGroup.quantity}`);
+          } else {
+            itemGroups.set(identity, newOrderData);
+            console.log(`✨ NEW: ${identity}`);
+          }
         }
       }
 
-      console.log(`\n📊 GROUPING SUMMARY:`);
+      console.log(`\n📊 PROCESSING SUMMARY:`);
       console.log(`📥 Rows processed: ${results.processed}`);
-      console.log(`📦 Unique identities: ${itemGroups.size}`);
-      console.log(`⚠️ DB duplicates skipped: ${results.duplicates}`);
+      console.log(`✨ New items: ${itemGroups.size - results.updated}`);
+      console.log(`🔄 Items to update: ${results.updated}`);
+      console.log(`✓ Unchanged: ${results.unchanged}`);
       console.log(`❌ Invalid rows: ${results.invalid}`);
 
-      // === BULK INSERT ===
+      // === BULK UPSERT (INSERT + UPDATE) ===
       setLoadingProgress(70);
-      setLoadingStatus(`Inserting ${itemGroups.size} unique items...`);
+      const totalToProcess = itemGroups.size;
+      setLoadingStatus(`Upserting ${totalToProcess} items (new + updated)...`);
 
-      const validOrdersToInsert = Array.from(itemGroups.values());
+      const ordersToUpsert = Array.from(itemGroups.values());
 
-      if (validOrdersToInsert.length > 0) {
-        console.log(`🚀 About to insert ${validOrdersToInsert.length} items. Sample data:`, validOrdersToInsert.slice(0, 2));
+      if (ordersToUpsert.length > 0) {
+        console.log(`🚀 About to upsert ${ordersToUpsert.length} items (${ordersToUpsert.filter(o => o.id).length} updates, ${ordersToUpsert.filter(o => !o.id).length} inserts)`);
         
-        const { error: insertError } = await supabase
+        const { error: upsertError } = await supabase
           .from('po_orders')
-          .upsert(validOrdersToInsert, {
+          .upsert(ordersToUpsert, {
             onConflict: 'user_id,po_key,item_key',
-            ignoreDuplicates: true
+            ignoreDuplicates: false // Allow updates!
           });
 
-        if (insertError) {
-          console.error('❌ Upsert error details:', insertError);
-          throw new Error(`Bulk upsert failed: ${insertError.message}`);
+        if (upsertError) {
+          console.error('❌ Upsert error details:', upsertError);
+          throw new Error(`Bulk upsert failed: ${upsertError.message}`);
         }
 
-        results.inserted = validOrdersToInsert.length;
-        console.log(`✅ Successfully upserted ${results.inserted} unique orders into database`);
+        results.inserted = ordersToUpsert.filter(o => !o.id).length;
+        console.log(`✅ Successfully processed ${ordersToUpsert.length} orders (${results.inserted} new, ${results.updated} updated)`);
 
-        // Log first 5 inserted items for debugging
-        const sampleItems = validOrdersToInsert.slice(0, 5).map(order => 
-          `${order.po_number}/${order.model_number || order.asin || order.sku_code}`
-        );
-        console.log(`🔎 First 5 inserted items:`, sampleItems);
+        // Log sample changes
+        if (results.changes.length > 0) {
+          console.log(`🔎 Sample changes:`, results.changes.slice(0, 5));
+        }
       }
 
       setLoadingProgress(95);
@@ -376,17 +408,18 @@ export const usePOOrders = () => {
       // === FINAL RESULTS ===
       console.log(`\n🏁 FINAL RESULTS:`);
       console.log(`📊 Total rows in file: ${mappedData.length}`);
-      console.log(`✅ Successfully inserted: ${results.inserted} unique items`);
-      console.log(`⚠️ Duplicates skipped: ${results.duplicates}`);
+      console.log(`✨ New items inserted: ${results.inserted}`);
+      console.log(`🔄 Items updated: ${results.updated}`);
+      console.log(`✓ Unchanged items: ${results.unchanged}`);
       console.log(`❌ Invalid/Errors: ${results.invalid}`);
-      console.log(`🎯 Database enforces uniqueness on (user_id, po_key, item_key)`);
 
       // Show user-friendly results
       let message = `Processed ${results.processed} rows: `;
       let details = [];
       
-      if (results.inserted > 0) details.push(`${results.inserted} unique items inserted`);
-      if (results.duplicates > 0) details.push(`${results.duplicates} duplicates skipped`);
+      if (results.inserted > 0) details.push(`${results.inserted} new`);
+      if (results.updated > 0) details.push(`${results.updated} updated`);
+      if (results.unchanged > 0) details.push(`${results.unchanged} unchanged`);
       if (results.invalid > 0) details.push(`${results.invalid} invalid`);
       
       message += details.join(', ');
@@ -396,9 +429,9 @@ export const usePOOrders = () => {
       }
 
       toast({
-        title: results.inserted > 0 ? "PO Upload Complete" : "Upload Issues Found",
+        title: (results.inserted > 0 || results.updated > 0) ? "PO Upload Complete" : "No Changes Found",
         description: message,
-        variant: results.inserted > 0 ? "default" : "destructive"
+        variant: (results.inserted > 0 || results.updated > 0) ? "default" : "default"
       });
 
     } catch (error) {
