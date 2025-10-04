@@ -99,6 +99,10 @@ export function OrderProcessor() {
   // Matched orders pagination
   const [matchedCurrentPage, setMatchedCurrentPage] = useState(1);
   const [matchedItemsPerPage] = useState(100);
+  
+  // Selection for matched orders
+  const [selectedMatchedItems, setSelectedMatchedItems] = useState<Set<string>>(new Set());
+  const [selectAllMatched, setSelectAllMatched] = useState(false);
 
   const {
     inventory: asinInventory,
@@ -578,6 +582,131 @@ export function OrderProcessor() {
       setLoading(false);
       setTimeout(() => setProcessingProgress(0), 2000);
     }
+  };
+
+  const processMatchedOrders = async () => {
+    if (selectedMatchedItems.size === 0) {
+      toast({
+        title: "No Items Selected",
+        description: "Please select orders to deduct from inventory.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setLoading(true);
+    setProcessingProgress(0);
+    
+    try {
+      const itemsToProcess = matchedOrders
+        .filter(order => selectedMatchedItems.has(order.orderId))
+        .map(order => order.matchedItem)
+        .filter((item): item is MatchedItem => item !== undefined && item.inventoryMatch !== undefined);
+      
+      const processed: ProcessedItem[] = [];
+      const total = itemsToProcess.length;
+
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      for (let i = 0; i < itemsToProcess.length; i++) {
+        const match = itemsToProcess[i];
+        if (!match.inventoryMatch || !match.inventoryType) continue;
+        
+        const progress = Math.floor(((i + 1) / total) * 100);  
+        setProcessingProgress(progress);
+        
+        const previousQuantity = match.inventoryMatch.quantity;
+        const quantityChange = -match.orderItem.itemQuantity;
+        const newQuantity = Math.max(0, previousQuantity + quantityChange);
+        
+        if (match.inventoryType === 'asin') {
+          await updateAsinQuantity(match.inventoryMatch.id, newQuantity, `Matched order deduction: Removed ${Math.abs(quantityChange)} units`);
+        } else {
+          await updateSkuQuantity(match.inventoryMatch.id, newQuantity, `Matched order deduction: Removed ${Math.abs(quantityChange)} units`);
+        }
+
+        if (user) {
+          await supabase.from('processed_orders').insert({
+            user_id: user.id,
+            order_number: match.orderItem.orderId,
+            asin: match.orderItem.asin,
+            sku: match.orderItem.sku,
+            item_title: match.orderItem.itemTitle,
+            inventory_type: match.inventoryType,
+            match_type: match.matchType || 'unknown',
+            quantity_processed: match.orderItem.itemQuantity,
+            source_file: 'Matched Orders',
+            previous_stock: previousQuantity,
+            new_stock: newQuantity,
+            inventory_id: match.inventoryMatch.id,
+            processed_at: new Date().toISOString()
+          });
+        }
+
+        const processedItem: ProcessedItem = {
+          ...match,
+          processedAt: new Date().toISOString(),
+          action: 'subtract',
+          quantityChanged: Math.abs(quantityChange),
+          previousQuantity,
+          newQuantity
+        };
+
+        processed.push(processedItem);
+      }
+
+      setProcessedItems(prev => [...prev, ...processed]);
+      setSelectedMatchedItems(new Set());
+      setSelectAllMatched(false);
+      setProcessingProgress(100);
+
+      const { data: refreshedProcessed } = await supabase
+        .from('processed_orders')
+        .select('*')
+        .order('processed_at', { ascending: false })
+        .limit(100000);
+      
+      if (refreshedProcessed) {
+        setDbResults(refreshedProcessed);
+      }
+
+      toast({
+        title: "Stock Deducted",
+        description: `Successfully deducted stock for ${processed.length} orders from inventory.`
+      });
+    } catch (error) {
+      console.error('Error deducting stock:', error);
+      toast({
+        title: "Deduction Error",
+        description: "Failed to deduct stock from inventory.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+      setTimeout(() => setProcessingProgress(0), 2000);
+    }
+  };
+
+  const handleMatchedItemSelect = (orderId: string) => {
+    setSelectedMatchedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(orderId)) {
+        newSet.delete(orderId);
+      } else {
+        newSet.add(orderId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAllMatched = () => {
+    if (selectAllMatched) {
+      setSelectedMatchedItems(new Set());
+    } else {
+      const allIds = new Set(paginatedMatchedOrders.map(order => order.orderId));
+      setSelectedMatchedItems(allIds);
+    }
+    setSelectAllMatched(!selectAllMatched);
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -1208,10 +1337,46 @@ export function OrderProcessor() {
 
               {matchedOrders.length > 0 ? (
                 <div className="space-y-4">
+                  {/* Action Bar */}
+                  <Card className="p-4 bg-gradient-to-r from-primary/5 to-accent/5 border-primary/20">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            checked={selectAllMatched}
+                            onCheckedChange={handleSelectAllMatched}
+                          />
+                          <Label className="text-sm font-medium cursor-pointer" onClick={handleSelectAllMatched}>
+                            Select All ({paginatedMatchedOrders.length})
+                          </Label>
+                        </div>
+                        {selectedMatchedItems.size > 0 && (
+                          <Badge variant="secondary" className="text-sm">
+                            {selectedMatchedItems.size} selected
+                          </Badge>
+                        )}
+                      </div>
+                      <Button
+                        onClick={processMatchedOrders}
+                        disabled={selectedMatchedItems.size === 0 || loading}
+                        className="bg-primary hover:bg-primary/90"
+                      >
+                        <Minus className="w-4 h-4 mr-2" />
+                        Deduct Stock ({selectedMatchedItems.size})
+                      </Button>
+                    </div>
+                  </Card>
+                  
                   <div className="rounded-lg border overflow-hidden">
                     <Table>
                        <TableHeader>
                          <TableRow>
+                           <TableHead className="w-12">
+                             <Checkbox
+                               checked={selectAllMatched}
+                               onCheckedChange={handleSelectAllMatched}
+                             />
+                           </TableHead>
                            <TableHead className="w-16">Serial #</TableHead>
                            <TableHead>Order ID</TableHead>
                            <TableHead>Order Date</TableHead>
@@ -1240,6 +1405,12 @@ export function OrderProcessor() {
                             
                             return (
                               <TableRow key={`${order.orderId}-${index}`}>
+                                <TableCell>
+                                  <Checkbox
+                                    checked={selectedMatchedItems.has(order.orderId)}
+                                    onCheckedChange={() => handleMatchedItemSelect(order.orderId)}
+                                  />
+                                </TableCell>
                                 <TableCell className="text-xs font-medium text-muted-foreground">
                                   {inventorySerialNumber}
                                 </TableCell>
