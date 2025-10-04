@@ -24,12 +24,22 @@ export function useUserProfile() {
 
     const fetchProfile = async (userId: string) => {
       console.log('🔍 fetchProfile START for:', userId);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+        console.error('⏱️ Profile query timed out after 10 seconds');
+      }, 10000);
+
       try {
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', userId)
+          .abortSignal(controller.signal)
           .maybeSingle();
+
+        clearTimeout(timeoutId);
 
         if (!mounted) return;
 
@@ -46,8 +56,12 @@ export function useUserProfile() {
           console.warn('⚠️ No profile found');
         }
         setLoading(false);
-      } catch (error) {
+      } catch (error: any) {
+        clearTimeout(timeoutId);
         console.error('❌ Profile exception:', error);
+        if (error.name === 'AbortError') {
+          console.error('Profile query was aborted due to timeout');
+        }
         if (mounted) setLoading(false);
       }
     };
