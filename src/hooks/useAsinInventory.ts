@@ -19,6 +19,7 @@ export interface AsinInventoryItem {
   restockQuantity?: number;
   lastRestockDate?: string;
   eligible_for_restock?: boolean;
+  isActive?: boolean;
 }
 
 export function useAsinInventory() {
@@ -91,6 +92,7 @@ export function useAsinInventory() {
         restockQuantity: item.restock_quantity || undefined,
         lastRestockDate: item.last_restock_date || undefined,
         eligible_for_restock: item.eligible_for_restock || false,
+        isActive: item.is_active ?? true,
       }));
 
       // Log status distribution for debugging
@@ -778,6 +780,39 @@ export function useAsinInventory() {
     }
   };
 
+  // Toggle item active/inactive status
+  const toggleItemActive = async (id: string, isActive: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('asin_inventory')
+        .update({ is_active: isActive })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Update local state
+      setInventory(prev => 
+        prev.map(item => 
+          item.id === id ? { ...item, isActive } : item
+        )
+      );
+
+      toast({
+        title: isActive ? "Item Enabled" : "Item Disabled",
+        description: isActive 
+          ? "Item has been enabled and will appear in all operations"
+          : "Item has been disabled and will be hidden from exports and restock calculations",
+      });
+    } catch (error) {
+      console.error('Error toggling item status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update item status. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return {
     inventory,
     loading,
@@ -796,6 +831,7 @@ export function useAsinInventory() {
     fetchTitlesFromSunsky,
     updateRestockEligibility,
     calculateAutoRestockEligibility,
+    toggleItemActive,
     refetch: loadInventory,
   };
 }

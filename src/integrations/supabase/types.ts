@@ -23,6 +23,7 @@ export type Database = {
           date_sold: string | null
           eligible_for_restock: boolean | null
           id: string
+          is_active: boolean
           last_restock_date: string | null
           notes: string | null
           ordered_at: string | null
@@ -47,6 +48,7 @@ export type Database = {
           date_sold?: string | null
           eligible_for_restock?: boolean | null
           id?: string
+          is_active?: boolean
           last_restock_date?: string | null
           notes?: string | null
           ordered_at?: string | null
@@ -71,6 +73,7 @@ export type Database = {
           date_sold?: string | null
           eligible_for_restock?: boolean | null
           id?: string
+          is_active?: boolean
           last_restock_date?: string | null
           notes?: string | null
           ordered_at?: string | null

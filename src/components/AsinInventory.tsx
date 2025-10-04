@@ -32,6 +32,7 @@ import { InventoryDashboard } from './InventoryDashboard';
 import { BulkSkuUpload } from './BulkSkuUpload';
 import { BulkTitleUpload } from './BulkTitleUpload';
 import { SimpleWarehouseManager } from './SimpleWarehouseManager';
+import { DisableItemsDialog } from './DisableItemsDialog';
 
 import { useWarehouseManager } from '@/hooks/useWarehouseManager';
 import { useBackgroundTasks } from '@/contexts/BackgroundTasksContext';
@@ -57,6 +58,7 @@ export function AsinInventory() {
     bulkUpdateSkus,
     bulkUpdateTitles,
     fetchTitlesFromSunsky,
+    toggleItemActive,
     refetch
   } = useAsinInventory();
   const {
@@ -118,6 +120,11 @@ export function AsinInventory() {
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [isMissingNumbersDialogOpen, setIsMissingNumbersDialogOpen] = useState(false);
+  
+  // Disable items feature
+  const [showDisabledItems, setShowDisabledItems] = useState(false);
+  const [itemsToDisable, setItemsToDisable] = useState<AsinInventoryItem[]>([]);
+  const [isDisableDialogOpen, setIsDisableDialogOpen] = useState(false);
   
   // Export mode settings - stored in database for persistence across devices
   const [exportModes, setExportModes] = useState<Record<string, 'global' | 'local'>>({});
@@ -332,7 +339,8 @@ export function AsinInventory() {
       inventoryLength: inventory.length,
       searchTerm,
       searchMethod,
-      loading
+      loading,
+      showDisabledItems
     });
 
     // If still loading, return empty array
@@ -343,7 +351,17 @@ export function AsinInventory() {
 
     let filtered = inventory;
 
-    // Remove duplicates first - keep the most recent record for each ASIN+SKU+Serial combination
+    // Filter by active status first (unless explicitly showing disabled items)
+    if (!showDisabledItems) {
+      filtered = filtered.filter(item => item.isActive !== false);
+      console.log('🔧 ACTIVE FILTER:', {
+        originalCount: inventory.length,
+        activeCount: filtered.length,
+        disabledCount: inventory.length - filtered.length
+      });
+    }
+
+    // Remove duplicates - keep the most recent record for each ASIN+SKU+Serial combination
     const uniqueMap = new Map();
     filtered.forEach(item => {
       const key = `${item.asin}-${item.sku || ''}-${item.serialNumber || ''}`;
@@ -550,11 +568,12 @@ export function AsinInventory() {
     });
     console.log('🔄 FILTERING INVENTORY - END:', {
       finalResultCount: filtered.length,
-      searchActive: !!searchTerm
+      searchActive: !!searchTerm,
+      showDisabledItems
     });
 
     return filtered;
-  }, [inventory, searchTerm, statusFilter, sortBy, sortOrder, quickFilter, dateFilterFrom, dateFilterTo, loading]);
+  }, [inventory, searchTerm, statusFilter, sortBy, sortOrder, quickFilter, dateFilterFrom, dateFilterTo, loading, showDisabledItems]);
   const totalPages = Math.ceil(filteredInventory.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedInventory = filteredInventory.slice(startIndex, startIndex + itemsPerPage);
@@ -676,8 +695,23 @@ export function AsinInventory() {
       description: `Added ${items.length} items to inventory`
     });
   };
+  
+  // Handle disabling items
+  const handleDisableItems = (items: AsinInventoryItem[]) => {
+    setItemsToDisable(items);
+    setIsDisableDialogOpen(true);
+  };
+  
+  const confirmDisableItems = async () => {
+    for (const item of itemsToDisable) {
+      await toggleItemActive(item.id, false);
+    }
+    setItemsToDisable([]);
+    setSelectedItems(new Set()); // Clear selection
+  };
+  
   const exportInventory = () => {
-    const csvData = [['SKU', 'UPC', 'ASIN', 'Title', 'Warehouse', 'Warehouse name', 'Available units', 'Status'], 
+    const csvData = [['SKU', 'UPC', 'ASIN', 'Title', 'Warehouse', 'Warehouse name', 'Available units', 'Status'],
       ...filteredInventory.map(item => {
         // Get the export mode for this item (default to 'global')
         const exportMode = exportModes[item.id] || 'global';
@@ -1054,6 +1088,12 @@ export function AsinInventory() {
       </div>;
   }
   return <div className="space-y-4 max-w-[95vw] mx-auto p-6">
+      <DisableItemsDialog
+        open={isDisableDialogOpen}
+        onOpenChange={setIsDisableDialogOpen}
+        items={itemsToDisable}
+        onConfirm={confirmDisableItems}
+      />
       {/* Header with Stats */}
       <div className="space-y-6">
         <InventoryMetrics showOnlyAsin={true} />
@@ -1174,6 +1214,31 @@ export function AsinInventory() {
                        Missing Numbers ({missingSerialNumbers.length})
                      </Button>
                    )}
+                   
+                   {/* Disable Selected Items */}
+                   {selectedItems.size > 0 && (
+                     <Button 
+                       size="sm"
+                       variant="outline" 
+                       onClick={() => handleDisableItems(filteredInventory.filter(item => selectedItems.has(item.id)))}
+                       className="border-2 border-destructive bg-background hover:bg-destructive hover:text-white hover:border-destructive transition-all"
+                     >
+                       <X className="w-4 h-4 mr-2" />
+                       Disable Selected ({selectedItems.size})
+                     </Button>
+                   )}
+                   
+                   {/* Show/Hide Disabled Items Toggle */}
+                   <div className="flex items-center gap-2 ml-auto">
+                     <Switch
+                       id="show-disabled"
+                       checked={showDisabledItems}
+                       onCheckedChange={setShowDisabledItems}
+                     />
+                     <Label htmlFor="show-disabled" className="text-sm cursor-pointer">
+                       Show Disabled Items
+                     </Label>
+                   </div>
                     <DialogContent className="max-w-md">
                       <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
@@ -1530,15 +1595,18 @@ export function AsinInventory() {
               <table className="w-full border-collapse">
                 <thead className="bg-muted/50">
                    <tr className="border-b">
-                     <th className="w-12 p-3 text-left border-r">
-                       <Checkbox checked={selectedItems.size === paginatedInventory.length && paginatedInventory.length > 0} onCheckedChange={checked => {
+                       <th className="w-12 p-3 text-left border-r">
+                        <Checkbox checked={selectedItems.size === paginatedInventory.length && paginatedInventory.length > 0} onCheckedChange={checked => {
                     if (checked) {
                       setSelectedItems(new Set(paginatedInventory.map(item => item.id)));
                     } else {
                       setSelectedItems(new Set());
                     }
                   }} />
-                     </th>
+                      </th>
+                      <th className="w-16 p-3 text-center font-medium border-r">
+                        <X className="w-4 h-4 mx-auto" />
+                      </th>
                       <th className="min-w-80 p-3 text-left font-medium border-r">
                         <button className="flex items-center gap-2 hover:text-primary transition-colors" onClick={() => {
                     if (sortBy === 'title') {
@@ -1607,7 +1675,10 @@ export function AsinInventory() {
                   </tr>
                 </thead>
                 <tbody>
-                   {paginatedInventory.map(item => <tr key={item.id} className="border-b hover:bg-muted/25 transition-colors">
+                   {paginatedInventory.map(item => <tr key={item.id} className={cn(
+                     "border-b hover:bg-muted/25 transition-colors",
+                     item.isActive === false && "opacity-50 bg-muted/10"
+                   )}>
                        <td className="p-3 border-r align-middle">
                          <div className="flex justify-center">
                            <Checkbox checked={selectedItems.has(item.id)} onCheckedChange={checked => {
@@ -1621,23 +1692,39 @@ export function AsinInventory() {
                   }} />
                          </div>
                        </td>
-                         <td className="p-3 border-r align-middle">
-                           <div className="flex items-center gap-3">
-                             <ProductImage asin={item.asin} />
-                             <div className="space-y-1 min-w-0 flex-1">
-                               <div className="font-medium text-sm max-w-xs break-words">
-                                 {item.title || 'No title'}
-                               </div>
-                               <div className="font-mono text-xs text-muted-foreground">
-                                 ASIN: {item.asin}
-                               </div>
-                               <div className="flex items-center gap-2">
-                                 <span className="text-xs text-muted-foreground">SKU:</span>
-                                 <SkuEditor currentSku={item.sku} onUpdate={newSku => updateSku(item.id, newSku)} />
-                               </div>
-                             </div>
-                           </div>
-                         </td>
+                       <td className="p-3 border-r align-middle">
+                         <div className="flex justify-center">
+                           <Button
+                             size="sm"
+                             variant={item.isActive === false ? "default" : "destructive"}
+                             onClick={() => toggleItemActive(item.id, !item.isActive)}
+                           >
+                             {item.isActive === false ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
+                           </Button>
+                         </div>
+                       </td>
+                          <td className="p-3 border-r align-middle">
+                            <div className="flex items-center gap-3">
+                              <ProductImage asin={item.asin} />
+                              <div className="space-y-1 min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <div className="font-medium text-sm max-w-xs break-words">
+                                    {item.title || 'No title'}
+                                  </div>
+                                  {item.isActive === false && (
+                                    <Badge variant="destructive" className="text-xs">DISABLED</Badge>
+                                  )}
+                                </div>
+                                <div className="font-mono text-xs text-muted-foreground">
+                                  ASIN: {item.asin}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-muted-foreground">SKU:</span>
+                                  <SkuEditor currentSku={item.sku} onUpdate={newSku => updateSku(item.id, newSku)} />
+                                </div>
+                              </div>
+                            </div>
+                          </td>
                          <td className="p-3 font-mono text-sm border-r align-middle">
                             <div className="flex items-center justify-center">
                               <SerialNumberEditor 
