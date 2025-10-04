@@ -354,16 +354,18 @@ export function AsinInventory() {
 
     let filtered = inventory;
 
-    // Filter by active status first (unless explicitly showing disabled items)
-    if (!showDisabledItems) {
-      filtered = filtered.filter(item => item.isActive !== false);
-      console.log('🔧 ACTIVE FILTER (hiding disabled):', {
+    // Filter by active status
+    if (showDisabledItems) {
+      // When toggle is active, show ONLY disabled items
+      filtered = filtered.filter(item => item.isActive === false);
+      console.log('🔧 DISABLED FILTER (showing only disabled):', {
         originalCount: inventory.length,
-        activeCount: filtered.length,
-        disabledCount: inventory.length - filtered.length
+        disabledCount: filtered.length,
+        activeCount: inventory.length - filtered.length
       });
     } else {
-      console.log('🔧 SHOWING ALL ITEMS (including disabled):', {
+      // When toggle is inactive, show ALL items
+      console.log('🔧 SHOWING ALL ITEMS:', {
         totalCount: inventory.length,
         disabledCount: inventory.filter(item => item.isActive === false).length,
         activeCount: inventory.filter(item => item.isActive !== false).length
@@ -1253,9 +1255,9 @@ export function AsinInventory() {
                          setShowDisabledItems(checked);
                        }}
                      />
-                     <Label htmlFor="show-disabled" className="text-sm cursor-pointer">
-                       Show Disabled Items {showDisabledItems && `(${inventory.filter(item => item.isActive === false).length})`}
-                     </Label>
+                      <Label htmlFor="show-disabled" className="text-sm cursor-pointer">
+                        Show Only Disabled Items {showDisabledItems && `(${inventory.filter(item => item.isActive === false).length})`}
+                      </Label>
                    </div>
                     <DialogContent className="max-w-md">
                       <DialogHeader>
