@@ -290,7 +290,10 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
                           onCheckedChange={() => toggleItem(originalIndex)}
                         />
                         <div className="flex-1 text-sm">
-                          <div className="font-medium">{order.asin || order.sku_code || 'N/A'}</div>
+                          <div className="font-medium">{order.asin || 'N/A'}</div>
+                          {order.sku_code && (
+                            <div className="text-xs text-muted-foreground">SKU: {order.sku_code}</div>
+                          )}
                           <div className="text-xs text-muted-foreground truncate">{order.title || 'No title'}</div>
                           <div className="text-xs text-muted-foreground">Qty: {order.quantity} | PO: {order.po_number}</div>
                         </div>
