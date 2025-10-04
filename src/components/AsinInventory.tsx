@@ -1692,12 +1692,15 @@ export function AsinInventory() {
                 <tbody>
                    {paginatedInventory.map(item => <tr key={item.id} className={cn(
                      "border-b hover:bg-muted/25 transition-colors",
-                     item.isActive === false && "opacity-50 bg-muted/10"
+                     item.isActive === false && "bg-destructive/10 border-l-4 border-l-destructive"
                    )}>
                        <td className="p-3 border-r align-middle">
                          <div className="flex justify-center">
                            <Checkbox 
                              checked={item.isActive === false}
+                             className={cn(
+                               item.isActive === false && "data-[state=checked]:bg-destructive data-[state=checked]:border-destructive"
+                             )}
                              onCheckedChange={checked => {
                                if (checked) {
                                  // User is trying to check (disable the item)
@@ -1715,14 +1718,22 @@ export function AsinInventory() {
                               <ProductImage asin={item.asin} />
                               <div className="space-y-1 min-w-0 flex-1">
                                 <div className="flex items-center gap-2">
-                                  <div className="font-medium text-sm max-w-xs break-words">
+                                  <div className={cn(
+                                    "font-medium text-sm max-w-xs break-words",
+                                    item.isActive === false && "line-through opacity-60"
+                                  )}>
                                     {item.title || 'No title'}
                                   </div>
                                   {item.isActive === false && (
-                                    <Badge variant="destructive" className="text-xs">DISABLED</Badge>
+                                    <Badge variant="destructive" className="text-xs font-bold animate-pulse">
+                                      DISABLED
+                                    </Badge>
                                   )}
                                 </div>
-                                <div className="font-mono text-xs text-muted-foreground">
+                                <div className={cn(
+                                  "font-mono text-xs text-muted-foreground",
+                                  item.isActive === false && "opacity-60"
+                                )}>
                                   ASIN: {item.asin}
                                 </div>
                                 <div className="flex items-center gap-2">
