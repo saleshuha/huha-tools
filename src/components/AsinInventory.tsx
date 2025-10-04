@@ -1256,7 +1256,7 @@ export function AsinInventory() {
                        }}
                      />
                       <Label htmlFor="show-disabled" className="text-sm cursor-pointer">
-                        Show Only Disabled Items {showDisabledItems && `(${inventory.filter(item => item.isActive === false).length})`}
+                        Show Only Disabled Items {showDisabledItems && `(${filteredInventory.length})`}
                       </Label>
                    </div>
                     <DialogContent className="max-w-md">
