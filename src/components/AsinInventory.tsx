@@ -1215,19 +1215,6 @@ export function AsinInventory() {
                      </Button>
                    )}
                    
-                   {/* Disable Selected Items */}
-                   {selectedItems.size > 0 && (
-                     <Button 
-                       size="sm"
-                       variant="outline" 
-                       onClick={() => handleDisableItems(filteredInventory.filter(item => selectedItems.has(item.id)))}
-                       className="border-2 border-destructive bg-background hover:bg-destructive hover:text-white hover:border-destructive transition-all"
-                     >
-                       <X className="w-4 h-4 mr-2" />
-                       Disable Selected ({selectedItems.size})
-                     </Button>
-                   )}
-                   
                    {/* Show/Hide Disabled Items Toggle */}
                    <div className="flex items-center gap-2 ml-auto">
                      <Switch
@@ -1595,7 +1582,7 @@ export function AsinInventory() {
               <table className="w-full border-collapse">
                 <thead className="bg-muted/50">
                    <tr className="border-b">
-                       <th className="w-12 p-3 text-left border-r">
+                     <th className="w-12 p-3 text-left border-r">
                         <Checkbox checked={selectedItems.size === paginatedInventory.length && paginatedInventory.length > 0} onCheckedChange={checked => {
                     if (checked) {
                       setSelectedItems(new Set(paginatedInventory.map(item => item.id)));
@@ -1603,9 +1590,6 @@ export function AsinInventory() {
                       setSelectedItems(new Set());
                     }
                   }} />
-                      </th>
-                      <th className="w-16 p-3 text-center font-medium border-r">
-                        <X className="w-4 h-4 mx-auto" />
                       </th>
                       <th className="min-w-80 p-3 text-left font-medium border-r">
                         <button className="flex items-center gap-2 hover:text-primary transition-colors" onClick={() => {
@@ -1681,26 +1665,27 @@ export function AsinInventory() {
                    )}>
                        <td className="p-3 border-r align-middle">
                          <div className="flex justify-center">
-                           <Checkbox checked={selectedItems.has(item.id)} onCheckedChange={checked => {
-                    const newSelected = new Set(selectedItems);
-                    if (checked) {
-                      newSelected.add(item.id);
-                    } else {
-                      newSelected.delete(item.id);
-                    }
-                    setSelectedItems(newSelected);
-                  }} />
-                         </div>
-                       </td>
-                       <td className="p-3 border-r align-middle">
-                         <div className="flex justify-center">
-                           <Button
-                             size="sm"
-                             variant={item.isActive === false ? "default" : "destructive"}
-                             onClick={() => toggleItemActive(item.id, !item.isActive)}
-                           >
-                             {item.isActive === false ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
-                           </Button>
+                           <Checkbox 
+                             checked={selectedItems.has(item.id)} 
+                             onCheckedChange={checked => {
+                               if (!checked && item.isActive !== false) {
+                                 // Trying to uncheck an active item - show disable dialog
+                                 handleDisableItems([item]);
+                               } else if (checked && item.isActive === false) {
+                                 // Re-enabling a disabled item
+                                 toggleItemActive(item.id, true);
+                               } else {
+                                 // Normal selection toggle for active items
+                                 const newSelected = new Set(selectedItems);
+                                 if (checked) {
+                                   newSelected.add(item.id);
+                                 } else {
+                                   newSelected.delete(item.id);
+                                 }
+                                 setSelectedItems(newSelected);
+                               }
+                             }} 
+                           />
                          </div>
                        </td>
                           <td className="p-3 border-r align-middle">
