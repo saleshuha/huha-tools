@@ -137,8 +137,11 @@ export default function CarrefourSalesTracker() {
     const totalRevenue = dateFilteredOrders.reduce((sum, o) => sum + o.sale_value, 0);
     const totalCosts = dateFilteredOrders.reduce((sum, o) => sum + o.cost, 0);
     const totalProfit = dateFilteredOrders.reduce((sum, o) => sum + o.profit, 0);
-    const totalPendingPayments = dateFilteredOrders.filter(o => o.payment_status === 'Pending').length;
-    const totalPendingAmount = dateFilteredOrders.filter(o => o.payment_status === 'Pending').reduce((sum, o) => sum + o.sale_value, 0);
+    const pendingOrders = dateFilteredOrders.filter(o => o.payment_status === 'Pending');
+    const totalPendingPayments = pendingOrders.length;
+    const totalPendingAmount = pendingOrders.reduce((sum, o) => sum + o.sale_value, 0);
+    const totalPendingCost = pendingOrders.reduce((sum, o) => sum + o.cost, 0);
+    const totalPendingProfit = pendingOrders.reduce((sum, o) => sum + o.profit, 0);
     const totalFees = dateFilteredOrders.reduce((sum, o) => sum + o.seller_fees, 0);
     const profitMargin = totalRevenue > 0 ? totalProfit / totalRevenue * 100 : 0;
 
@@ -157,6 +160,8 @@ export default function CarrefourSalesTracker() {
       revenueMinusFees: totalRevenue - totalFees,
       totalPendingAmount,
       totalPendingPayments,
+      totalPendingCost,
+      totalPendingProfit,
       totalPaidAmount: dateFilteredOrders.filter(o => o.payment_status === 'Received').reduce((sum, o) => sum + o.sale_value, 0),
       totalPaidPayments: dateFilteredOrders.filter(o => o.payment_status === 'Received').length,
       totalFees,
@@ -593,18 +598,24 @@ export default function CarrefourSalesTracker() {
         <Card className="shadow-md border-0 bg-gradient-to-br from-orange-50 to-orange-100 relative overflow-hidden cursor-pointer hover:shadow-lg transition-all" onClick={() => handleCardClick('pending', 'Pending Payments')}>
           <div className="absolute top-0 right-0 w-16 h-16 bg-orange-600/10 rounded-full -translate-y-8 translate-x-8"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-            <CardTitle className="text-xs font-medium text-orange-900">Pending Payments</CardTitle>
+            <CardTitle className="text-xs font-medium text-orange-900">Pending to Receive</CardTitle>
             <Calculator className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent className="pb-2">
-            <div className="text-2xl font-bold text-orange-900 mb-1">{formatCurrency(metrics.totalPendingAmount)}</div>
-            <div className="flex items-center gap-2 text-xs">
-              <TrendingUp className="h-3 w-3 text-orange-600" />
-              <span className="text-orange-700">{metrics.totalPendingPayments} orders</span>
+            <div className="space-y-2">
+              <div>
+                <p className="text-xs text-orange-700 font-medium">Total Cost</p>
+                <div className="text-xl font-bold text-orange-900">{formatCurrency(metrics.totalPendingCost)}</div>
+              </div>
+              <div>
+                <p className="text-xs text-orange-700 font-medium">Total Profit</p>
+                <div className="text-xl font-bold text-orange-900">{formatCurrency(metrics.totalPendingProfit)}</div>
+              </div>
             </div>
-            <p className="text-xs text-orange-600 mt-1">
-              Awaiting payment processing
-            </p>
+            <div className="flex items-center gap-2 text-xs mt-2">
+              <TrendingUp className="h-3 w-3 text-orange-600" />
+              <span className="text-orange-700">{metrics.totalPendingPayments} orders pending</span>
+            </div>
           </CardContent>
         </Card>
 
