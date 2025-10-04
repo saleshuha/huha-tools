@@ -18,44 +18,43 @@ export function useUserProfile() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
 
-  useEffect(() => {
-    console.log('useUserProfile: useEffect triggered');
-    let mounted = true;
-    
-    const getUser = async () => {
-      try {
-        console.log('useUserProfile: Getting user...');
-        const { data: { user }, error } = await supabase.auth.getUser();
-        
-        if (!mounted) return;
-        
-        if (error) {
-          console.error('❌ useUserProfile: Auth error:', error);
-          setLoading(false);
-          return;
-        }
-        
-        console.log('useUserProfile: Current user:', user);
-        setUser(user);
-        
-        if (user) {
-          console.log('useUserProfile: User found, fetching profile for:', user.id);
-          await fetchProfile(user.id);
-        } else {
-          console.log('useUserProfile: No user found');
-          setLoading(false);
-        }
-      } catch (err) {
-        console.error('❌ useUserProfile: Exception in getUser:', err);
-        if (mounted) setLoading(false);
+  const fetchProfile = async (userId: string) => {
+    console.log('🔍 useUserProfile: fetchProfile START for userId:', userId);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (error) {
+        console.error('❌ useUserProfile: Profile error:', error);
+        setLoading(false);
+        return;
       }
-    };
 
-    getUser();
+      if (data) {
+        console.log('✅ useUserProfile: Profile loaded:', data.id, data.country);
+        setProfile(data as UserProfile);
+      } else {
+        console.warn('⚠️ useUserProfile: No profile for user:', userId);
+      }
+      setLoading(false);
+    } catch (error) {
+      console.error('❌ useUserProfile: Exception:', error);
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
+    console.log('useUserProfile: Initializing...');
+    let mounted = true;
+
+    // Set up auth listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (!mounted) return;
+        console.log('useUserProfile: Auth state changed:', event);
         
         const currentUser = session?.user ?? null;
         setUser(currentUser);
@@ -69,60 +68,32 @@ export function useUserProfile() {
       }
     );
 
+    // Then check current session
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (!mounted) return;
+      
+      if (error) {
+        console.error('❌ useUserProfile: Session error:', error);
+        setLoading(false);
+        return;
+      }
+      
+      const currentUser = session?.user ?? null;
+      console.log('useUserProfile: Initial session user:', currentUser?.id);
+      setUser(currentUser);
+      
+      if (currentUser) {
+        fetchProfile(currentUser.id);
+      } else {
+        setLoading(false);
+      }
+    });
+
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
   }, []);
-
-  const fetchProfile = async (userId: string) => {
-    console.log('🔍 useUserProfile: fetchProfile called for userId:', userId);
-    try {
-      console.log('📡 useUserProfile: Starting profile query...');
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-
-      console.log('📊 useUserProfile: Profile query completed:', { 
-        hasData: !!data, 
-        hasError: !!error,
-        data: data,
-        error: error 
-      });
-
-      if (error) {
-        console.error('❌ useUserProfile: Error fetching profile:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-        setLoading(false);
-        return;
-      }
-
-      if (!data) {
-        console.warn('⚠️ useUserProfile: No profile found for user:', userId);
-        setLoading(false);
-        return;
-      }
-
-      console.log('✅ useUserProfile: Profile loaded successfully:', {
-        id: data.id,
-        email: data.email,
-        country: data.country,
-        role: data.role
-      });
-      setProfile(data as UserProfile);
-    } catch (error) {
-      console.error('❌ useUserProfile: Caught exception:', error);
-    } finally {
-      console.log('🏁 useUserProfile: fetchProfile completed, loading=false');
-      setLoading(false);
-    }
-  };
 
   return {
     profile,
