@@ -78,7 +78,13 @@ export const usePOOrders = () => {
     setLoadingStatus('Fetching PO orders...');
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError) {
+        console.error('❌ Auth error:', authError);
+        throw new Error(`Authentication failed: ${authError.message}`);
+      }
+      
       if (!user) {
         console.error('❌ No authenticated user found');
         throw new Error('User not authenticated');
@@ -86,33 +92,57 @@ export const usePOOrders = () => {
 
       console.log('✅ Authenticated user:', user.id);
       setLoadingProgress(20);
-      setLoadingStatus('Loading PO data with SKU matching...');
+      setLoadingStatus('Loading PO data...');
 
-      // Use client-side pagination to fetch ALL PO orders (bypass PostgREST 1000-row limit)
-      const pageSize = 1000;
+      // First, do a quick count to see how many records we're dealing with
+      const { count, error: countError } = await supabase
+        .from('po_orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+      
+      if (countError) {
+        console.error('❌ Count error:', countError);
+        throw countError;
+      }
+      
+      console.log(`📊 Total PO orders in database: ${count}`);
+
+      // Use client-side pagination to fetch ALL PO orders
+      const pageSize = 500; // Reduced from 1000 to avoid timeouts
       let allPOOrders: any[] = [];
       let page = 0;
       let hasMore = true;
+      const maxPages = Math.ceil((count || 0) / pageSize);
 
-      console.log(`🚀 Starting client-side pagination to fetch ALL PO orders for user ${user.id}...`);
+      console.log(`🚀 Starting pagination to fetch ${count} PO orders (${maxPages} pages)...`);
 
-      while (hasMore) {
+      while (hasMore && page < maxPages) {
         const startRange = page * pageSize;
         const endRange = startRange + pageSize - 1;
         
-        console.log(`📄 Fetching page ${page + 1} (rows ${startRange}-${endRange})...`);
-        setLoadingStatus(`Loading PO orders... Page ${page + 1} (${allPOOrders.length} loaded)`);
-        setLoadingProgress(Math.min(20 + (page * 10), 80));
+        console.log(`📄 Fetching page ${page + 1}/${maxPages} (rows ${startRange}-${endRange})...`);
+        setLoadingStatus(`Loading PO orders... ${page + 1}/${maxPages} pages (${allPOOrders.length}/${count} loaded)`);
+        setLoadingProgress(Math.min(20 + ((page / maxPages) * 60), 80));
         
-        // Fetch PO orders for this page
-        const { data: pageData, error: fetchError } = await supabase
-          .from('po_orders')
-          .select('*')
-          .eq('user_id', user.id)
-          .range(startRange, endRange)
-          .order('created_at', { ascending: false });
-        
-        if (fetchError) throw fetchError;
+        try {
+          // Fetch with a 10 second timeout per page
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000);
+          
+          const { data: pageData, error: fetchError } = await supabase
+            .from('po_orders')
+            .select('*')
+            .eq('user_id', user.id)
+            .range(startRange, endRange)
+            .order('created_at', { ascending: false })
+            .abortSignal(controller.signal);
+          
+          clearTimeout(timeoutId);
+          
+          if (fetchError) {
+            console.error(`❌ Error fetching page ${page + 1}:`, fetchError);
+            throw fetchError;
+          }
 
         if (pageData && pageData.length > 0) {
           allPOOrders = [...allPOOrders, ...pageData];
@@ -123,6 +153,19 @@ export const usePOOrders = () => {
           page++;
         } else {
           hasMore = false;
+        }
+        
+        } catch (pageError: any) {
+          console.error(`❌ Error on page ${page + 1}:`, pageError);
+          if (pageError.name === 'AbortError') {
+            toast({
+              title: "Loading timeout",
+              description: `Page ${page + 1} took too long. Loaded ${allPOOrders.length} orders so far.`,
+              variant: "destructive",
+            });
+            break; // Stop pagination on timeout but keep what we have
+          }
+          throw pageError;
         }
 
         // Safety limit to prevent infinite loops
