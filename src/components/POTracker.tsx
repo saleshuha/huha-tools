@@ -1840,22 +1840,22 @@ export const POTracker = () => {
                        </div>
                     </div>
                   ) : (
-                     <Table>
-                       <TableHeader>
-                         <TableRow>
-                           <TableHead>Image</TableHead>
-                           <TableHead>PO Number</TableHead>
-                           <TableHead>ASIN</TableHead>
-                           <TableHead>Model/SKU</TableHead>
-                           <TableHead>Title</TableHead>
-                           <TableHead>Ship To</TableHead>
-                           <TableHead>Quantity</TableHead>
-                           <TableHead>Status</TableHead>
-                           <TableHead>Matched</TableHead>
-                           <TableHead>Cost</TableHead>
-                           <TableHead>Actions</TableHead>
-                         </TableRow>
-                       </TableHeader>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Image</TableHead>
+                            <TableHead>PO Number</TableHead>
+                            <TableHead>Ship To</TableHead>
+                            <TableHead>ASIN</TableHead>
+                            <TableHead>Model/SKU</TableHead>
+                            <TableHead>Title</TableHead>
+                            <TableHead>Quantity</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Matched</TableHead>
+                            <TableHead>Cost</TableHead>
+                            <TableHead>Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
                        <TableBody>
                           {paginatedDetailedOrders.map((order) => {
                             const isClosedOrder = order.status === 'closed';
@@ -1898,29 +1898,29 @@ export const POTracker = () => {
                                     )}
                                   </div>
                              </TableCell>
-                            <TableCell>
-                              <span className="text-sm">{order.asin || '-'}</span>
-                            </TableCell>
-                            <TableCell>
-                              <div className="space-y-1">
-                                {order.model_number && (
-                                  <div className="text-sm font-medium">{order.model_number}</div>
-                                )}
-                                {order.sku_code && order.sku_code !== order.model_number && (
-                                  <div className="text-xs text-muted-foreground">{order.sku_code}</div>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="max-w-[200px] truncate text-sm" title={order.title}>
-                                {order.title || '-'}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-sm text-muted-foreground">
-                                {order.ship_to_location || '-'}
-                              </div>
-                            </TableCell>
+                             <TableCell>
+                               <div className="text-sm text-muted-foreground">
+                                 {order.ship_to_location || '-'}
+                               </div>
+                             </TableCell>
+                             <TableCell>
+                               <span className="text-sm">{order.asin || '-'}</span>
+                             </TableCell>
+                             <TableCell>
+                               <div className="space-y-1">
+                                 {order.model_number && (
+                                   <div className="text-sm font-medium">{order.model_number}</div>
+                                 )}
+                                 {order.sku_code && order.sku_code !== order.model_number && (
+                                   <div className="text-xs text-muted-foreground">{order.sku_code}</div>
+                                 )}
+                               </div>
+                             </TableCell>
+                             <TableCell>
+                               <div className="max-w-[200px] truncate text-sm" title={order.title}>
+                                 {order.title || '-'}
+                               </div>
+                             </TableCell>
                             <TableCell>
                               <Badge variant="secondary" className="font-mono">
                                 {order.quantity}
