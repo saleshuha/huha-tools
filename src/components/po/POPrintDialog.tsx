@@ -14,9 +14,10 @@ import { POPrintDocument } from './POPrintDocument';
 import { generateBulkPOLabelsZPL } from '@/utils/po-label-printer';
 import { useProductImages } from '@/hooks/useProductImages';
 import { useToast } from '@/hooks/use-toast';
-import { Printer, Download, FileText, Tag, Loader2, Package, Search } from 'lucide-react';
+import { Printer, Download, FileText, Tag, Loader2, Package, Search, TableIcon } from 'lucide-react';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { useReactToPrint } from 'react-to-print';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface POPrintDialogProps {
   open: boolean;
@@ -34,6 +35,7 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
   title = 'Print Purchase Order Items'
 }) => {
   const [printFormat, setPrintFormat] = useState<'document' | 'label'>('document');
+  const [previewMode, setPreviewMode] = useState<'document' | 'table'>('document');
   const [includeImages, setIncludeImages] = useState(true);
   const [bulkAggregate, setBulkAggregate] = useState(true);
   const [copies, setCopies] = useState(1);
@@ -352,15 +354,97 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
           </div>
 
           {/* Right Panel - Preview */}
-          <div className="flex-1 border rounded-lg overflow-hidden bg-muted/20">
-            <div className="h-full overflow-auto p-4">
+          <div className="flex-1 border rounded-lg overflow-hidden bg-muted/20 flex flex-col">
+            {/* View Mode Toggle for Document Format */}
+            {printFormat === 'document' && (
+              <div className="flex items-center gap-2 p-3 border-b bg-card">
+                <Button
+                  variant={previewMode === 'document' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setPreviewMode('document')}
+                  className="gap-2"
+                >
+                  <FileText className="h-4 w-4" />
+                  Document
+                </Button>
+                <Button
+                  variant={previewMode === 'table' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setPreviewMode('table')}
+                  className="gap-2"
+                >
+                  <TableIcon className="h-4 w-4" />
+                  Table
+                </Button>
+              </div>
+            )}
+            
+            <div className="flex-1 overflow-auto p-4">
               {printFormat === 'document' ? (
-                <POPrintDocument
-                  ref={printRef}
-                  items={printItems}
-                  includeImages={includeImages}
-                  title={title}
-                />
+                previewMode === 'document' ? (
+                  <POPrintDocument
+                    ref={printRef}
+                    items={printItems}
+                    includeImages={includeImages}
+                    title={title}
+                  />
+                ) : (
+                  <div className="space-y-4">
+                    <div className="text-lg font-semibold">{title}</div>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-12">#</TableHead>
+                          {includeImages && <TableHead className="w-20">Image</TableHead>}
+                          <TableHead>ASIN</TableHead>
+                          <TableHead>SKU</TableHead>
+                          <TableHead>Title</TableHead>
+                          <TableHead>Model</TableHead>
+                          <TableHead className="w-20">Qty</TableHead>
+                          <TableHead>PO Number(s)</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {printItems.map((item, index) => (
+                          <TableRow key={index}>
+                            <TableCell className="font-medium">{index + 1}</TableCell>
+                            {includeImages && (
+                              <TableCell>
+                                {item.imageUrl ? (
+                                  <img 
+                                    src={item.imageUrl} 
+                                    alt={item.asin}
+                                    className="w-16 h-16 object-cover rounded border"
+                                  />
+                                ) : (
+                                  <div className="w-16 h-16 bg-muted rounded border flex items-center justify-center">
+                                    <Package className="h-6 w-6 text-muted-foreground" />
+                                  </div>
+                                )}
+                              </TableCell>
+                            )}
+                            <TableCell className="font-mono text-sm">{item.asin}</TableCell>
+                            <TableCell className="text-sm">{item.sku_code || '-'}</TableCell>
+                            <TableCell className="max-w-xs truncate">{item.title || 'N/A'}</TableCell>
+                            <TableCell className="text-sm">{item.model_number || '-'}</TableCell>
+                            <TableCell className="text-center font-semibold">{item.quantity}</TableCell>
+                            <TableCell className="text-sm font-mono">{item.poNumbers}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    <div className="flex justify-end gap-6 text-sm border-t pt-4">
+                      <div>
+                        <span className="text-muted-foreground">Total Items: </span>
+                        <span className="font-semibold">{printItems.length}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Total Quantity: </span>
+                        <span className="font-semibold">{totalQuantity}</span>
+                      </div>
+                    </div>
+                  </div>
+                )
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
                   <Tag className="h-16 w-16 text-muted-foreground" />
