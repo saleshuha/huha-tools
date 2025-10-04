@@ -78,19 +78,21 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
           
           .print-item-number {
             position: absolute;
-            top: -12px;
-            left: 15px;
+            top: 8px;
+            left: 8px;
             background: #000;
             color: white;
-            width: 28px;
-            height: 28px;
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 14px;
+            font-size: 16px;
             font-weight: bold;
             border: 3px solid white;
+            z-index: 10;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
           }
           
           .print-item-header {

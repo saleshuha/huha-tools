@@ -14,7 +14,7 @@ import { POPrintDocument } from './POPrintDocument';
 import { generateBulkPOLabelsZPL } from '@/utils/po-label-printer';
 import { useProductImages } from '@/hooks/useProductImages';
 import { useToast } from '@/hooks/use-toast';
-import { Printer, Download, FileText, Tag, Loader2, Package } from 'lucide-react';
+import { Printer, Download, FileText, Tag, Loader2, Package, Search } from 'lucide-react';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { useReactToPrint } from 'react-to-print';
 
@@ -39,10 +39,38 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
   const [copies, setCopies] = useState(1);
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set(Array.from({ length: orders.length }, (_, i) => i)));
   const [isPrinting, setIsPrinting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   
   const printRef = useRef<HTMLDivElement>(null);
   const { getImageByAsin } = useProductImages();
   const { toast } = useToast();
+
+  // Filter orders based on search query
+  const filteredOrders = React.useMemo(() => {
+    if (!searchQuery.trim()) return orders;
+    
+    const query = searchQuery.toLowerCase();
+    return orders.filter((order, index) => {
+      const searchText = [
+        order.asin,
+        order.sku_code,
+        order.title,
+        order.po_number,
+        order.model_number,
+        `#${index + 1}` // Allow searching by serial number
+      ].filter(Boolean).join(' ').toLowerCase();
+      
+      return searchText.includes(query);
+    });
+  }, [orders, searchQuery]);
+
+  // Map filtered orders back to their original indices for selection
+  const filteredOrdersWithIndices = React.useMemo(() => {
+    return filteredOrders.map(order => ({
+      order,
+      originalIndex: orders.findIndex(o => o.id === order.id)
+    }));
+  }, [filteredOrders, orders]);
 
   // Prepare print items based on selection and aggregation
   const printItems = React.useMemo(() => {
@@ -228,7 +256,7 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
             {/* Item Selection */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label>Items to Print</Label>
+                <Label>Items to Print ({filteredOrders.length})</Label>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -238,25 +266,44 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
                 </Button>
               </div>
 
+              {/* Search Input */}
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by ASIN, SKU, Title, PO, or #number..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
+
               <ScrollArea className="h-48 border rounded-md p-2">
-                <div className="space-y-2">
-                  {orders.map((order, index) => (
-                    <div key={order.id} className="flex items-start gap-2 p-2 hover:bg-muted rounded">
-                      <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold flex-shrink-0">
-                        {index + 1}
+                {filteredOrdersWithIndices.length > 0 ? (
+                  <div className="space-y-2">
+                    {filteredOrdersWithIndices.map(({ order, originalIndex }) => (
+                      <div key={order.id} className="flex items-start gap-2 p-2 hover:bg-muted rounded">
+                        <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold flex-shrink-0">
+                          {originalIndex + 1}
+                        </div>
+                        <Checkbox
+                          checked={selectedItems.has(originalIndex)}
+                          onCheckedChange={() => toggleItem(originalIndex)}
+                        />
+                        <div className="flex-1 text-sm">
+                          <div className="font-medium">{order.asin || order.sku_code || 'N/A'}</div>
+                          <div className="text-xs text-muted-foreground truncate">{order.title || 'No title'}</div>
+                          <div className="text-xs text-muted-foreground">Qty: {order.quantity} | PO: {order.po_number}</div>
+                        </div>
                       </div>
-                      <Checkbox
-                        checked={selectedItems.has(index)}
-                        onCheckedChange={() => toggleItem(index)}
-                      />
-                      <div className="flex-1 text-sm">
-                        <div className="font-medium">{order.asin || order.sku_code || 'N/A'}</div>
-                        <div className="text-xs text-muted-foreground truncate">{order.title || 'No title'}</div>
-                        <div className="text-xs text-muted-foreground">Qty: {order.quantity} | PO: {order.po_number}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-center p-4">
+                    <Package className="h-8 w-8 text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground">No items found</p>
+                    <p className="text-xs text-muted-foreground">Try a different search term</p>
+                  </div>
+                )}
               </ScrollArea>
             </div>
 
