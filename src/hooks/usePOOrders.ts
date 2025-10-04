@@ -97,19 +97,24 @@ export const usePOOrders = () => {
       setLoadingStatus(loadAllOrders ? 'Loading ALL PO orders...' : 'Loading active PO orders...');
       console.log(loadAllOrders ? '📚 Loading ALL orders via database function' : '🎯 Loading ACTIVE orders via database function');
       
-      const { data: allPOOrders, error: fetchError } = await supabase
-        .rpc('get_all_po_orders_raw', { user_id_param: user.id });
+      // Call database function with explicit headers to remove row limits
+      const { data: allPOOrders, error: fetchError, count } = await supabase
+        .rpc('get_all_po_orders_raw', { user_id_param: user.id })
+        .limit(10000); // Set explicit high limit to ensure all rows are fetched
       
       if (fetchError) {
         console.error('❌ Fetch error:', fetchError);
         throw fetchError;
       }
 
+      console.log(`📊 Database returned ${allPOOrders?.length || 0} total orders`);
+
       // Filter to active orders if not loading all
       let filteredOrders = allPOOrders || [];
       if (!loadAllOrders) {
+        // Include 'placed' status in active orders filter
         filteredOrders = filteredOrders.filter((order: any) => 
-          ['pending', 'ordered', 'shipped'].includes(order.status)
+          ['pending', 'ordered', 'shipped', 'placed'].includes(order.status)
         );
         console.log(`🎯 Filtered to ${filteredOrders.length} active orders (from ${allPOOrders?.length || 0} total)`);
       }
