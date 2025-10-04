@@ -34,11 +34,38 @@ export interface POOrder {
   sunsky_sku?: any;
 }
 
+export interface POUploadStats {
+  totalRows: number;
+  processed: number;
+  inserted: number;
+  updated: number;
+  unchanged: number;
+  invalid: number;
+}
+
+export interface POProgressItem {
+  poNumber: string;
+  status: 'pending' | 'processing' | 'completed' | 'error';
+  itemsProcessed: number;
+  totalItems: number;
+}
+
 export const usePOOrders = () => {
   const [poOrders, setPOOrders] = useState<POOrder[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingStatus, setLoadingStatus] = useState('');
+  const [currentPO, setCurrentPO] = useState<string>('');
+  const [currentItem, setCurrentItem] = useState<string>('');
+  const [uploadStats, setUploadStats] = useState<POUploadStats>({
+    totalRows: 0,
+    processed: 0,
+    inserted: 0,
+    updated: 0,
+    unchanged: 0,
+    invalid: 0
+  });
+  const [poProgress, setPOProgress] = useState<POProgressItem[]>([]);
   const { toast } = useToast();
 
   // Fetch PO orders using deduplicated function to avoid double counting
@@ -172,10 +199,23 @@ export const usePOOrders = () => {
   }, [toast]);
 
   // Process PO files with identity-based duplicate detection
+  // Process PO files with identity-based duplicate detection
   const processPOFiles = useCallback(async (mappedData: any[], sunskySKUs: any[], selectedCountry: string = 'UAE') => {
     setIsLoading(true);
     setLoadingProgress(0);
     setLoadingStatus('Processing PO files...');
+    setCurrentPO('');
+    setCurrentItem('');
+    
+    // Initialize stats
+    setUploadStats({
+      totalRows: mappedData.length,
+      processed: 0,
+      inserted: 0,
+      updated: 0,
+      unchanged: 0,
+      invalid: 0
+    });
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -183,7 +223,7 @@ export const usePOOrders = () => {
 
       console.log(`🚀 STARTING PO PROCESSING: ${mappedData.length} rows from file`);
 
-      setLoadingProgress(10);
+      setLoadingProgress(5);
       setLoadingStatus('Loading existing PO data for update comparison...');
 
       // Fetch ALL existing PO data for comparison and updates
@@ -198,7 +238,7 @@ export const usePOOrders = () => {
 
       console.log(`📊 EXISTING DATA: Found ${existingOrders?.length || 0} existing PO orders`);
 
-      setLoadingProgress(20);
+      setLoadingProgress(10);
       setLoadingStatus('Building identity-based change detection...');
 
       // Create map of existing orders by identity for quick lookup and comparison
@@ -213,8 +253,29 @@ export const usePOOrders = () => {
 
       console.log(`🔍 CHANGE DETECTION: Created map of ${existingOrdersMap.size} existing orders`);
 
-      setLoadingProgress(30);
-      setLoadingStatus('Processing and comparing incoming data...');
+      // Group by PO number first to track per-PO progress
+      const poGroups = new Map<string, any[]>();
+      mappedData.forEach(item => {
+        const po = item.po_number?.trim();
+        if (po) {
+          if (!poGroups.has(po)) {
+            poGroups.set(po, []);
+          }
+          poGroups.get(po)!.push(item);
+        }
+      });
+
+      // Initialize PO progress tracking
+      const initialPOProgress: POProgressItem[] = Array.from(poGroups.keys()).map(poNumber => ({
+        poNumber,
+        status: 'pending' as const,
+        itemsProcessed: 0,
+        totalItems: poGroups.get(poNumber)?.length || 0
+      }));
+      setPOProgress(initialPOProgress);
+
+      setLoadingProgress(15);
+      setLoadingStatus(`Processing ${poGroups.size} unique POs with ${mappedData.length} items...`);
 
       // Group items by identity and detect changes
       const itemGroups = new Map();
@@ -228,138 +289,178 @@ export const usePOOrders = () => {
         changes: [] as string[]
       };
 
-      // First pass: validate and group by identity
-      for (let i = 0; i < mappedData.length; i++) {
-        const item = mappedData[i];
-        const rowNum = i + 1;
+      let currentPOIndex = 0;
+      const totalPOs = poGroups.size;
+
+      // Process each PO group
+      for (const [poNumber, items] of poGroups.entries()) {
+        currentPOIndex++;
+        setCurrentPO(poNumber);
         
-        setLoadingProgress(30 + (i / mappedData.length) * 30);
-        setLoadingStatus(`Processing row ${rowNum}/${mappedData.length}...`);
+        // Update PO status to processing
+        setPOProgress(prev => prev.map(po => 
+          po.poNumber === poNumber ? { ...po, status: 'processing' as const } : po
+        ));
 
-        results.processed++;
-
-        // === BASIC VALIDATION ===
-        const po = item.po_number?.trim();
-        const model = item.model_number?.trim();
-        const asin = item.asin?.trim(); 
-        const title = item.title?.trim() || 'Unknown Product';
-        const qty = parseInt(item.quantity) || 0;
-        const location = item.ship_to_location?.trim();
-
-        // Validate required fields
-        if (!po) {
-          const error = `Row ${rowNum}: Missing PO number - "${title}"`;
-          results.invalid++;
-          results.errors.push(error);
-          console.log(`❌ INVALID: ${error}`);
-          continue;
-        }
-
-        if (qty <= 0) {
-          const error = `Row ${rowNum}: Invalid quantity (${item.quantity}) - PO: ${po}, Product: "${title}"`;
-          results.invalid++;
-          results.errors.push(error);
-          console.log(`❌ INVALID: ${error}`);
-          continue;
-        }
-
-        if (!model && !asin) {
-          const error = `Row ${rowNum}: Missing both Model Number and ASIN - PO: ${po}, Product: "${title}"`;
-          results.invalid++;
-          results.errors.push(error);
-          console.log(`❌ INVALID: ${error}`);
-          continue;
-        }
-
-        // === CREATE IDENTITY (must match SQL computed columns exactly) ===
-        const poKey = po.toLowerCase().trim();
+        setLoadingStatus(`Processing PO ${currentPOIndex}/${totalPOs}: ${poNumber} (${items.length} items)`);
         
-        // Match SQL: coalesce(nullif(model_number, ''), nullif(asin, ''), sku_code)
-        let primarySku = '';
-        if (model && model.trim() !== '') {
-          primarySku = model.trim();
-        } else if (asin && asin.trim() !== '') {
-          primarySku = asin.trim();
-        } else {
-          primarySku = item.sku_code?.trim() || '';
-        }
-        const itemKey = primarySku.toLowerCase().trim();
-        const identity = `${poKey}|${itemKey}`;
+        // Process each item in this PO
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          const rowNum = results.processed + 1;
+          
+          // Update progress
+          const overallProgress = 15 + ((results.processed / mappedData.length) * 70);
+          setLoadingProgress(overallProgress);
+          
+          results.processed++;
 
-        console.log(`🔍 Row ${rowNum}: Identity="${identity}", Qty=${qty}, Title="${title.substring(0, 30)}..."`);
+          // Update stats in real-time
+          setUploadStats(prev => ({
+            ...prev,
+            processed: results.processed
+          }));
 
-        // Create new order data
-        const currency = selectedCountry === 'KSA' ? 'SAR' : 'AED';
-        const newOrderData = {
-          po_number: po,
-          ship_to_location: location || 'Not specified',
-          asin: asin || null,
-          model_number: model || null,
-          title: title,
-          quantity: qty,
-          sku_code: primarySku,
-          external_id: item.external_id?.trim() || null,
-          external_id_type: item.external_id_type?.trim() || null,
-          status: 'pending',
-          file_name: item.file_name || 'uploaded-file.csv',
-          unit_cost: item.unit_cost ? Number(item.unit_cost) : null,
-          country: selectedCountry,
-          currency: currency,
-          sku_user_id: user.id,
-          user_id: user.id
-        };
+          // Update PO item progress
+          setPOProgress(prev => prev.map(po => 
+            po.poNumber === poNumber 
+              ? { ...po, itemsProcessed: i + 1 } 
+              : po
+          ));
 
-        // Check if exists in database
-        const existingOrder = existingOrdersMap.get(identity);
-        
-        if (existingOrder) {
-          // Compare data to detect changes
-          const hasChanges = 
-            existingOrder.quantity !== newOrderData.quantity ||
-            existingOrder.title !== newOrderData.title ||
-            existingOrder.ship_to_location !== newOrderData.ship_to_location ||
-            existingOrder.unit_cost !== newOrderData.unit_cost ||
-            existingOrder.asin !== newOrderData.asin ||
-            existingOrder.model_number !== newOrderData.model_number ||
-            existingOrder.external_id !== newOrderData.external_id;
+          // === BASIC VALIDATION ===
+          const po = item.po_number?.trim();
+          const model = item.model_number?.trim();
+          const asin = item.asin?.trim(); 
+          const title = item.title?.trim() || 'Unknown Product';
+          const qty = parseInt(item.quantity) || 0;
+          const location = item.ship_to_location?.trim();
 
-          if (hasChanges) {
-            // Add to update list with existing ID to preserve the record
-            const changeDetails = [];
-            if (existingOrder.quantity !== newOrderData.quantity) {
-              changeDetails.push(`qty: ${existingOrder.quantity}→${newOrderData.quantity}`);
-            }
-            if (existingOrder.unit_cost !== newOrderData.unit_cost) {
-              changeDetails.push(`cost: ${existingOrder.unit_cost}→${newOrderData.unit_cost}`);
-            }
-            
-            console.log(`🔄 UPDATE: ${identity} - Changes: ${changeDetails.join(', ')}`);
-            results.changes.push(`${po}/${primarySku}: ${changeDetails.join(', ')}`);
-            
-            // Keep existing ID and update fields
-            itemGroups.set(identity, {
-              ...newOrderData,
-              id: existingOrder.id, // Preserve ID for update
-              created_at: existingOrder.created_at, // Preserve creation date
-              status: existingOrder.status // Keep existing status unless closed
-            });
-            results.updated++;
-          } else {
-            console.log(`✓ UNCHANGED: ${identity}`);
-            results.unchanged++;
+          setCurrentItem(`${title.substring(0, 40)}... (${model || asin || 'N/A'})`);
+
+          // Validate required fields
+          if (!po) {
+            const error = `Row ${rowNum}: Missing PO number - "${title}"`;
+            results.invalid++;
+            results.errors.push(error);
+            setUploadStats(prev => ({ ...prev, invalid: results.invalid }));
+            console.log(`❌ INVALID: ${error}`);
+            continue;
           }
-        } else {
-          // New item - add to insert list
-          if (itemGroups.has(identity)) {
-            // Merge quantities within file
-            const existingGroup = itemGroups.get(identity);
-            existingGroup.quantity += qty;
-            console.log(`📎 Row ${rowNum}: Merged in file, new total qty: ${existingGroup.quantity}`);
+
+          if (qty <= 0) {
+            const error = `Row ${rowNum}: Invalid quantity (${item.quantity}) - PO: ${po}, Product: "${title}"`;
+            results.invalid++;
+            results.errors.push(error);
+            setUploadStats(prev => ({ ...prev, invalid: results.invalid }));
+            console.log(`❌ INVALID: ${error}`);
+            continue;
+          }
+
+          if (!model && !asin) {
+            const error = `Row ${rowNum}: Missing both Model Number and ASIN - PO: ${po}, Product: "${title}"`;
+            results.invalid++;
+            results.errors.push(error);
+            setUploadStats(prev => ({ ...prev, invalid: results.invalid }));
+            console.log(`❌ INVALID: ${error}`);
+            continue;
+          }
+
+          // === CREATE IDENTITY (must match SQL computed columns exactly) ===
+          const poKey = po.toLowerCase().trim();
+          
+          // Match SQL: coalesce(nullif(model_number, ''), nullif(asin, ''), sku_code)
+          let primarySku = '';
+          if (model && model.trim() !== '') {
+            primarySku = model.trim();
+          } else if (asin && asin.trim() !== '') {
+            primarySku = asin.trim();
           } else {
-            itemGroups.set(identity, newOrderData);
-            console.log(`✨ NEW: ${identity}`);
+            primarySku = item.sku_code?.trim() || '';
+          }
+          const itemKey = primarySku.toLowerCase().trim();
+          const identity = `${poKey}|${itemKey}`;
+
+          // Create new order data
+          const currency = selectedCountry === 'KSA' ? 'SAR' : 'AED';
+          const newOrderData = {
+            po_number: po,
+            ship_to_location: location || 'Not specified',
+            asin: asin || null,
+            model_number: model || null,
+            title: title,
+            quantity: qty,
+            sku_code: primarySku,
+            external_id: item.external_id?.trim() || null,
+            external_id_type: item.external_id_type?.trim() || null,
+            status: 'pending',
+            file_name: item.file_name || 'uploaded-file.csv',
+            unit_cost: item.unit_cost ? Number(item.unit_cost) : null,
+            country: selectedCountry,
+            currency: currency,
+            sku_user_id: user.id,
+            user_id: user.id
+          };
+
+          // Check if exists in database
+          const existingOrder = existingOrdersMap.get(identity);
+          
+          if (existingOrder) {
+            // Compare data to detect changes
+            const hasChanges = 
+              existingOrder.quantity !== newOrderData.quantity ||
+              existingOrder.title !== newOrderData.title ||
+              existingOrder.ship_to_location !== newOrderData.ship_to_location ||
+              existingOrder.unit_cost !== newOrderData.unit_cost ||
+              existingOrder.asin !== newOrderData.asin ||
+              existingOrder.model_number !== newOrderData.model_number ||
+              existingOrder.external_id !== newOrderData.external_id;
+
+            if (hasChanges) {
+              // Add to update list with existing ID to preserve the record
+              const changeDetails = [];
+              if (existingOrder.quantity !== newOrderData.quantity) {
+                changeDetails.push(`qty: ${existingOrder.quantity}→${newOrderData.quantity}`);
+              }
+              if (existingOrder.unit_cost !== newOrderData.unit_cost) {
+                changeDetails.push(`cost: ${existingOrder.unit_cost}→${newOrderData.unit_cost}`);
+              }
+              
+              console.log(`🔄 UPDATE: ${identity} - Changes: ${changeDetails.join(', ')}`);
+              results.changes.push(`${po}/${primarySku}: ${changeDetails.join(', ')}`);
+              
+              // Keep existing ID and update fields
+              itemGroups.set(identity, {
+                ...newOrderData,
+                id: existingOrder.id, // Preserve ID for update
+                created_at: existingOrder.created_at, // Preserve creation date
+                status: existingOrder.status // Keep existing status unless closed
+              });
+              results.updated++;
+              setUploadStats(prev => ({ ...prev, updated: results.updated }));
+            } else {
+              console.log(`✓ UNCHANGED: ${identity}`);
+              results.unchanged++;
+              setUploadStats(prev => ({ ...prev, unchanged: results.unchanged }));
+            }
+          } else {
+            // New item - add to insert list
+            if (itemGroups.has(identity)) {
+              // Merge quantities within file
+              const existingGroup = itemGroups.get(identity);
+              existingGroup.quantity += qty;
+              console.log(`📎 Row ${rowNum}: Merged in file, new total qty: ${existingGroup.quantity}`);
+            } else {
+              itemGroups.set(identity, newOrderData);
+              console.log(`✨ NEW: ${identity}`);
+            }
           }
         }
+
+        // Mark PO as completed
+        setPOProgress(prev => prev.map(po => 
+          po.poNumber === poNumber ? { ...po, status: 'completed' as const } : po
+        ));
       }
 
       console.log(`\n📊 PROCESSING SUMMARY:`);
@@ -370,9 +471,11 @@ export const usePOOrders = () => {
       console.log(`❌ Invalid rows: ${results.invalid}`);
 
       // === BULK UPSERT (INSERT + UPDATE) ===
-      setLoadingProgress(70);
+      setLoadingProgress(85);
       const totalToProcess = itemGroups.size;
-      setLoadingStatus(`Upserting ${totalToProcess} items (new + updated)...`);
+      setLoadingStatus(`Saving ${totalToProcess} items to database...`);
+      setCurrentPO('');
+      setCurrentItem('Saving to database...');
 
       const ordersToUpsert = Array.from(itemGroups.values());
 
@@ -392,6 +495,7 @@ export const usePOOrders = () => {
         }
 
         results.inserted = ordersToUpsert.filter(o => !o.id).length;
+        setUploadStats(prev => ({ ...prev, inserted: results.inserted }));
         console.log(`✅ Successfully processed ${ordersToUpsert.length} orders (${results.inserted} new, ${results.updated} updated)`);
 
         // Log sample changes
@@ -402,8 +506,12 @@ export const usePOOrders = () => {
 
       setLoadingProgress(95);
       setLoadingStatus('Refreshing PO data...');
+      setCurrentItem('');
       
       await fetchPOOrders();
+
+      setLoadingProgress(100);
+      setLoadingStatus('Upload complete!');
 
       // === FINAL RESULTS ===
       console.log(`\n🏁 FINAL RESULTS:`);
@@ -446,7 +554,9 @@ export const usePOOrders = () => {
         setIsLoading(false);
         setLoadingProgress(0);
         setLoadingStatus('');
-      }, 1000);
+        setCurrentPO('');
+        setCurrentItem('');
+      }, 2000);
     }
   }, [fetchPOOrders, toast]);
 
@@ -763,6 +873,10 @@ export const usePOOrders = () => {
     isLoading,
     loadingProgress,
     loadingStatus,
+    currentPO,
+    currentItem,
+    uploadStats,
+    poProgress,
     fetchPOOrders,
     processPOFiles,
     updateOrderStatus,

@@ -6,11 +6,30 @@ import { Progress } from '@/components/ui/progress';
 import { Upload, FileText, X, ArrowRight, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { POColumnMapping } from './POColumnMapping';
+import { POUploadProgress } from './POUploadProgress';
 import Papa from 'papaparse';
 
 interface POFileUploadProps {
   onFilesUpload: (mappedData: any[]) => void;
   isLoading: boolean;
+  loadingProgress?: number;
+  loadingStatus?: string;
+  currentPO?: string;
+  currentItem?: string;
+  uploadStats?: {
+    totalRows: number;
+    processed: number;
+    inserted: number;
+    updated: number;
+    unchanged: number;
+    invalid: number;
+  };
+  poProgress?: Array<{
+    poNumber: string;
+    status: 'pending' | 'processing' | 'completed' | 'error';
+    itemsProcessed: number;
+    totalItems: number;
+  }>;
 }
 
 interface ParsedFile {
@@ -19,7 +38,23 @@ interface ParsedFile {
   data: string[][];
 }
 
-export function POFileUpload({ onFilesUpload, isLoading }: POFileUploadProps) {
+export function POFileUpload({ 
+  onFilesUpload, 
+  isLoading,
+  loadingProgress = 0,
+  loadingStatus = '',
+  currentPO = '',
+  currentItem = '',
+  uploadStats = {
+    totalRows: 0,
+    processed: 0,
+    inserted: 0,
+    updated: 0,
+    unchanged: 0,
+    invalid: 0
+  },
+  poProgress = []
+}: POFileUploadProps) {
   const [parsedFiles, setParsedFiles] = useState<ParsedFile[]>([]);
   const [showMapping, setShowMapping] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -121,8 +156,20 @@ export function POFileUpload({ onFilesUpload, isLoading }: POFileUploadProps) {
 
   return (
     <div className="space-y-4">
+      {/* Show progress if processing */}
+      {isLoading && uploadStats.totalRows > 0 && (
+        <POUploadProgress
+          progress={loadingProgress}
+          status={loadingStatus}
+          currentPO={currentPO}
+          currentItem={currentItem}
+          stats={uploadStats}
+          poProgress={poProgress}
+        />
+      )}
+
       {/* File Upload Area */}
-      <Card 
+      <Card
         {...getRootProps()} 
         className={`border-2 border-dashed cursor-pointer transition-colors ${
           isDragActive 

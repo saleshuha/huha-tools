@@ -233,7 +233,20 @@ export const POTracker = () => {
   };
   
   const navigate = useNavigate();
-  const { poOrders, isLoading, fetchPOOrders, processPOFiles, deletePOOrders, updatePrintStatus } = usePOOrders();
+  const { 
+    poOrders, 
+    isLoading, 
+    loadingProgress, 
+    loadingStatus,
+    currentPO,
+    currentItem,
+    uploadStats,
+    poProgress,
+    fetchPOOrders, 
+    processPOFiles, 
+    deletePOOrders, 
+    updatePrintStatus 
+  } = usePOOrders();
   const { profile } = useUserProfile();
   const { selectedCountry } = useCountry();
   const { getImageByAsin, productImages, isLoading: imagesLoading, refreshImages } = useProductImages();
@@ -2009,74 +2022,83 @@ export const POTracker = () => {
                 </div>
               )}
               
-              <POFileUpload onFilesUpload={(data) => {
-                // Update progress as we start processing
-                setProcessingProgress(30);
-                setProcessingStatus('Mapping and validating data...');
-                
-                // Handle file upload in the uploads section
-                if (!profile) {
-                  toast({
-                    title: "Error",
-                    description: "User profile not loaded",
-                    variant: "destructive"
-                  });
-                  setProcessingProgress(0);
-                  setProcessingStatus('');
-                  return;
-                }
-
-                if (!selectedCountry) {
-                  toast({
-                    title: "Error", 
-                    description: "Please select a country",
-                    variant: "destructive"
-                  });
-                  setProcessingProgress(0);
-                  setProcessingStatus('');
-                  return;
-                }
-
-                setProcessingProgress(60);
-                setProcessingStatus('Processing purchase order data...');
-
-                const mappedData = data.map((item: any) => ({
-                  po_number: item.po_number,
-                  ship_to_location: item.ship_to_location,
-                  asin: item.asin,
-                  model_number: item.model_number,
-                  title: item.title,
-                  quantity: item.quantity,
-                  external_id: item.external_id,
-                  external_id_type: item.external_id_type,
-                  file_name: item.file_name,
-                  country: selectedCountry
-                }));
-
-                setProcessingProgress(90);
-                setProcessingStatus(`Importing to ${selectedCountry} database and matching SKUs...`);
-
-                processPOFiles(mappedData, [], selectedCountry).then(() => {
-                  setProcessingProgress(100);
-                  setProcessingStatus(`Import completed successfully for ${selectedCountry}!`);
+              <POFileUpload 
+                onFilesUpload={(data) => {
+                  // Update progress as we start processing
+                  setProcessingProgress(30);
+                  setProcessingStatus('Mapping and validating data...');
                   
-                  // Country-specific post-processing
-                  toast({
-                    title: `${selectedCountry} PO Import Complete`,
-                    description: `Successfully imported ${mappedData.length} items for ${selectedCountry} operations`,
-                  });
-                  
-                  setTimeout(() => {
+                  // Handle file upload in the uploads section
+                  if (!profile) {
+                    toast({
+                      title: "Error",
+                      description: "User profile not loaded",
+                      variant: "destructive"
+                    });
                     setProcessingProgress(0);
                     setProcessingStatus('');
-                  }, 2000);
-                  fetchPOOrders();
-                }).catch((error) => {
-                  setProcessingProgress(0);
-                  setProcessingStatus('');
-                  console.error('Error processing files:', error);
-                });
-              }} isLoading={isLoading} />
+                    return;
+                  }
+
+                  if (!selectedCountry) {
+                    toast({
+                      title: "Error", 
+                      description: "Please select a country",
+                      variant: "destructive"
+                    });
+                    setProcessingProgress(0);
+                    setProcessingStatus('');
+                    return;
+                  }
+
+                  setProcessingProgress(60);
+                  setProcessingStatus('Processing purchase order data...');
+
+                  const mappedData = data.map((item: any) => ({
+                    po_number: item.po_number,
+                    ship_to_location: item.ship_to_location,
+                    asin: item.asin,
+                    model_number: item.model_number,
+                    title: item.title,
+                    quantity: item.quantity,
+                    external_id: item.external_id,
+                    external_id_type: item.external_id_type,
+                    file_name: item.file_name,
+                    country: selectedCountry
+                  }));
+
+                  setProcessingProgress(90);
+                  setProcessingStatus(`Importing to ${selectedCountry} database and matching SKUs...`);
+
+                  processPOFiles(mappedData, [], selectedCountry).then(() => {
+                    setProcessingProgress(100);
+                    setProcessingStatus(`Import completed successfully for ${selectedCountry}!`);
+                    
+                    // Country-specific post-processing
+                    toast({
+                      title: `${selectedCountry} PO Import Complete`,
+                      description: `Successfully imported ${mappedData.length} items for ${selectedCountry} operations`,
+                    });
+                    
+                    setTimeout(() => {
+                      setProcessingProgress(0);
+                      setProcessingStatus('');
+                    }, 2000);
+                    fetchPOOrders();
+                  }).catch((error) => {
+                    setProcessingProgress(0);
+                    setProcessingStatus('');
+                    console.error('Error processing files:', error);
+                  });
+                }}
+                isLoading={isLoading}
+                loadingProgress={loadingProgress}
+                loadingStatus={loadingStatus}
+                currentPO={currentPO}
+                currentItem={currentItem}
+                uploadStats={uploadStats}
+                poProgress={poProgress}
+              />
             </CardContent>
           </Card>
         </TabsContent>
