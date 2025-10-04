@@ -642,11 +642,11 @@ export const POTracker = () => {
   const filteredOrders = useMemo(() => {
     let filtered = [...poOrders];
     
-    // Apply strict country filtering
+    // Apply strict country filtering - only show orders from selected country
     if (selectedCountry) {
       const beforeCountryFilter = filtered.length;
       const countryFilteredOrders = filtered.filter(order => 
-        !order.country || order.country === selectedCountry
+        order.country === selectedCountry
       );
       
       // Always apply country filter strictly - no fallback
