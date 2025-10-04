@@ -587,17 +587,28 @@ export const usePOOrders = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
+      console.log('🗑️ deletePOOrders called:', {
+        userId: user.id,
+        orderIdsProvided: orderIds?.length || 0,
+        orderIds: orderIds?.slice(0, 5)
+      });
+
       let query = supabase.from('po_orders').delete().eq('user_id', user.id);
       
       if (orderIds && orderIds.length > 0) {
         query = query.in('id', orderIds);
       }
 
-      const { error } = await query;
+      const { error, data } = await query;
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Delete error:', error);
+        throw error;
+      }
 
+      console.log('✅ Delete successful, refreshing data...');
       await fetchPOOrders();
+      
       toast({
         title: "Success",
         description: orderIds ? `Deleted ${orderIds.length} PO orders` : "Deleted all PO orders"

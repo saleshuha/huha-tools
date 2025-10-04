@@ -304,19 +304,38 @@ export const POTracker = () => {
 
   // Delete specific PO orders
   const handleDeletePO = async (poNumber: string, orders: POOrder[]) => {
+    console.log('🗑️ Delete PO:', {
+      poNumber,
+      orderCount: orders.length,
+      orderIds: orders.map(o => o.id)
+    });
+    
     const orderIds = orders.map(order => order.id);
     await deletePOOrders(orderIds);
   };
 
   // Delete today's uploads for selected country
   const handleDeleteTodayUploads = async () => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
     
     const todayOrders = poOrders.filter(order => {
       const orderDate = new Date(order.created_at);
-      orderDate.setHours(0, 0, 0, 0);
-      return orderDate.getTime() === today.getTime() && order.country === selectedCountry;
+      const isToday = orderDate >= todayStart && orderDate <= todayEnd;
+      const isSelectedCountry = order.country === selectedCountry;
+      return isToday && isSelectedCountry;
+    });
+    
+    console.log('🗑️ Delete Today Uploads:', {
+      selectedCountry,
+      todayStart: todayStart.toISOString(),
+      todayEnd: todayEnd.toISOString(),
+      totalOrders: poOrders.length,
+      todayOrdersCount: todayOrders.length,
+      orderIds: todayOrders.map(o => o.id).slice(0, 5)
     });
 
     if (todayOrders.length === 0) {
