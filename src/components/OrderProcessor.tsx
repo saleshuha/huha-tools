@@ -1897,8 +1897,8 @@ export function OrderProcessor() {
                                   key={`${order.order_number}-${index}`}
                                   className={`
                                     ${rowClass}
-                                    ${index % 2 === 0 ? 'bg-background' : 'bg-success/5'}
-                                    hover:bg-success/10 hover:shadow-sm transition-all duration-150
+                                    ${index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}
+                                    hover:bg-muted/50 hover:shadow-sm transition-all duration-150
                                     border-l-4 border-l-success
                                   `}
                                 >
@@ -1925,17 +1925,21 @@ export function OrderProcessor() {
                                       </div>
                                     </div>
                                   </TableCell>
-                                  <TableCell className="font-semibold text-base text-foreground">
-                                    {order.quantity_deducted}
+                                  <TableCell>
+                                    <span className="font-bold text-lg tabular-nums">
+                                      {order.quantity_deducted}
+                                    </span>
                                   </TableCell>
                                   <TableCell>
-                                    <span className="font-semibold text-base text-foreground">
-                                      {order.old_quantity}
-                                    </span>
-                                    <span className="mx-2 text-foreground/60">→</span>
-                                    <span className="font-semibold text-base text-foreground">
-                                      {order.new_quantity}
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-bold text-lg tabular-nums text-gray-600 dark:text-gray-400">
+                                        {order.old_quantity}
+                                      </span>
+                                      <span className="text-muted-foreground">→</span>
+                                      <span className="font-bold text-lg tabular-nums text-success">
+                                        {order.new_quantity}
+                                      </span>
+                                    </div>
                                   </TableCell>
                                   <TableCell>
                                     <div className="space-y-1">
