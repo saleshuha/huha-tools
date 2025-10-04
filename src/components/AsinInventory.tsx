@@ -356,19 +356,17 @@ export function AsinInventory() {
 
     // Filter by active status first (unless explicitly showing disabled items)
     if (!showDisabledItems) {
-      // Hide disabled items - show only active
       filtered = filtered.filter(item => item.isActive !== false);
-      console.log('🔧 ACTIVE FILTER (showing only active items):', {
+      console.log('🔧 ACTIVE FILTER (hiding disabled):', {
         originalCount: inventory.length,
         activeCount: filtered.length,
-        hiddenDisabledCount: inventory.length - filtered.length
+        disabledCount: inventory.length - filtered.length
       });
     } else {
-      // Show ALL items (both active and disabled together)
-      console.log('🔧 SHOWING ALL ITEMS (active + disabled together):', {
+      console.log('🔧 SHOWING ALL ITEMS (including disabled):', {
         totalCount: inventory.length,
-        activeCount: inventory.filter(item => item.isActive !== false).length,
-        disabledCount: inventory.filter(item => item.isActive === false).length
+        disabledCount: inventory.filter(item => item.isActive === false).length,
+        activeCount: inventory.filter(item => item.isActive !== false).length
       });
     }
 
@@ -1246,23 +1244,18 @@ export function AsinInventory() {
                    )}
                    
                    {/* Show/Hide Disabled Items Toggle */}
-                   <div className="flex items-center gap-3 ml-auto border-l pl-4">
-                     <div className="flex items-center gap-2">
-                       <Switch
-                         id="show-disabled"
-                         checked={showDisabledItems}
-                         onCheckedChange={(checked) => {
-                           console.log('🔄 Toggle Include Disabled Items:', checked);
-                           setShowDisabledItems(checked);
-                         }}
-                       />
-                       <Label htmlFor="show-disabled" className="text-sm cursor-pointer font-medium">
-                         Include Disabled {showDisabledItems && `(${inventory.filter(item => item.isActive === false).length} disabled)`}
-                       </Label>
-                     </div>
-                     <div className="text-xs text-muted-foreground">
-                       {showDisabledItems ? '✓ Showing all items' : '○ Showing only active items'}
-                     </div>
+                   <div className="flex items-center gap-2 ml-auto">
+                     <Switch
+                       id="show-disabled"
+                       checked={showDisabledItems}
+                       onCheckedChange={(checked) => {
+                         console.log('🔄 Toggle Show Disabled Items:', checked);
+                         setShowDisabledItems(checked);
+                       }}
+                     />
+                     <Label htmlFor="show-disabled" className="text-sm cursor-pointer">
+                       Show Disabled Items {showDisabledItems && `(${inventory.filter(item => item.isActive === false).length})`}
+                     </Label>
                    </div>
                     <DialogContent className="max-w-md">
                       <DialogHeader>
