@@ -1927,17 +1927,17 @@ export function OrderProcessor() {
                                   </TableCell>
                                   <TableCell>
                                     <span className="font-bold text-lg tabular-nums">
-                                      {order.quantity_deducted}
+                                      {order.quantity_processed}
                                     </span>
                                   </TableCell>
                                   <TableCell>
                                     <div className="flex items-center gap-2">
                                       <span className="font-bold text-lg tabular-nums text-gray-600 dark:text-gray-400">
-                                        {order.old_quantity}
+                                        {order.previous_stock}
                                       </span>
                                       <span className="text-muted-foreground">→</span>
                                       <span className="font-bold text-lg tabular-nums text-success">
-                                        {order.new_quantity}
+                                        {order.new_stock}
                                       </span>
                                     </div>
                                   </TableCell>
