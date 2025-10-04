@@ -93,32 +93,28 @@ export const usePOOrders = () => {
       console.log('✅ Authenticated user:', user.id);
       setLoadingProgress(20);
       
-      // Build the query - only active orders by default for faster loading
-      let query = supabase
-        .from('po_orders')
-        .select('*')
-        .eq('user_id', user.id);
+      // Use database function to fetch ALL orders without limit
+      setLoadingStatus(loadAllOrders ? 'Loading ALL PO orders...' : 'Loading active PO orders...');
+      console.log(loadAllOrders ? '📚 Loading ALL orders via database function' : '🎯 Loading ACTIVE orders via database function');
       
-      if (!loadAllOrders) {
-        // Only fetch active orders (much faster - typically <500 records)
-        query = query.in('status', ['pending', 'ordered', 'shipped']);
-        setLoadingStatus('Loading active PO orders...');
-        console.log('🎯 Loading ACTIVE orders only (pending, ordered, shipped)');
-      } else {
-        setLoadingStatus('Loading ALL PO orders...');
-        console.log('📚 Loading ALL orders (this may take longer)');
-      }
-      
-      query = query.order('created_at', { ascending: false });
-
-      const { data: allPOOrders, error: fetchError, count } = await query;
+      const { data: allPOOrders, error: fetchError } = await supabase
+        .rpc('get_all_po_orders_raw', { user_id_param: user.id });
       
       if (fetchError) {
         console.error('❌ Fetch error:', fetchError);
         throw fetchError;
       }
 
-      console.log(`✅ Fetched ${allPOOrders?.length || 0} PO orders`);
+      // Filter to active orders if not loading all
+      let filteredOrders = allPOOrders || [];
+      if (!loadAllOrders) {
+        filteredOrders = filteredOrders.filter((order: any) => 
+          ['pending', 'ordered', 'shipped'].includes(order.status)
+        );
+        console.log(`🎯 Filtered to ${filteredOrders.length} active orders (from ${allPOOrders?.length || 0} total)`);
+      }
+
+      console.log(`✅ Fetched ${filteredOrders.length} PO orders`);
       setLoadingProgress(60);
       
       const { data: sunskySkus, error: skuError } = await supabase
@@ -135,19 +131,20 @@ export const usePOOrders = () => {
       console.log(`📋 Found ${sunskySkuSet.size} Sunsky SKUs for matching`);
       
       // Type the final data and add sunsky_sku matching
-      const typedData: POOrder[] = allPOOrders.map((order: any) => {
+      const typedData: POOrder[] = filteredOrders.map((order: any) => {
         const hasSunskySku = sunskySkuSet.has(order.sku_code) || 
                             (order.model_number && sunskySkuSet.has(order.model_number));
         
         return {
           ...order,
           status: order.status as POOrder['status'],
-          sunsky_sku: hasSunskySku ? (order.sku_code || order.model_number) : null
+          sunsky_sku: order.sunsky_sku || (hasSunskySku ? (order.sku_code || order.model_number) : null)
         };
       });
 
       console.log(`📊 Final data stats:`, {
         total: typedData.length,
+        totalInDb: allPOOrders?.length || 0,
         withSunskySku: typedData.filter((o: any) => o.sunsky_sku).length,
         countries: [...new Set(typedData.map(o => o.country))],
         statuses: [...new Set(typedData.map(o => o.status))]
