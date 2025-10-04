@@ -429,6 +429,7 @@ export const POTracker = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
+      console.log('🔄 Fetching PO group metrics (includes all items)...');
       const { data, error } = await supabase.rpc('get_po_group_metrics', {
         user_id_param: user.id
       });
@@ -438,6 +439,7 @@ export const POTracker = () => {
         throw error;
       }
 
+      console.log('📊 PO group metrics fetched:', data?.length, 'POs');
       return data as Array<{
         po_number: string;
         distinct_skus: number;
@@ -445,8 +447,9 @@ export const POTracker = () => {
       }>;
     },
     enabled: !!profile?.id,
-    staleTime: 30000, // 30 seconds
-    refetchOnWindowFocus: false
+    staleTime: 0, // Force fresh data
+    refetchOnWindowFocus: true,
+    refetchOnMount: true
   });
 
   useEffect(() => {
