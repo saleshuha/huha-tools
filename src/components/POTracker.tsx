@@ -2280,7 +2280,7 @@ export const POTracker = () => {
                      )}
 
                   {/* PO Groups List */}
-                  <div className="space-y-2">
+                  <div className="rounded-lg border-2 border-border overflow-hidden">
                     {filteredPOGroups.length === 0 ? (
                       <Card className="p-8">
                         <div className="text-center">
@@ -2299,7 +2299,20 @@ export const POTracker = () => {
                         </div>
                       </Card>
                     ) : (
-                      filteredPOGroups.map((group) => {
+                      <div className="grid">
+                        {/* Header */}
+                        <div className="grid grid-cols-[50px_minmax(150px,1fr)_150px_120px_120px_minmax(150px,1fr)] bg-muted/50 border-b">
+                          <div className="p-3 font-medium text-sm">Select</div>
+                          <div className="p-3 font-medium text-sm">PO Number</div>
+                          <div className="p-3 font-medium text-sm">Ship To</div>
+                          <div className="p-3 font-medium text-sm">Items</div>
+                          <div className="p-3 font-medium text-sm">Quantity</div>
+                          <div className="p-3 font-medium text-sm">Actions</div>
+                        </div>
+                        
+                        {/* Body */}
+                        <div>
+                          {filteredPOGroups.map((group) => {
                         // Get the primary ship-to location from first selected PO
                         const selectedShipToLocation = (() => {
                           if (selectedPOsForLabels.size === 0) return null;
@@ -2325,127 +2338,119 @@ export const POTracker = () => {
                         const hasClosedItems = group.orders.some(order => order.status === 'closed');
                         
                         return (
-                         <Card 
-                           key={group.poNumber} 
-                           className={`cursor-pointer hover:shadow-md transition-all border-l-4 ${
-                             selectedPOsForLabels.has(group.poNumber) 
-                               ? 'border-l-primary bg-primary/5' 
-                               : 'border-l-primary/30 hover:border-l-primary'
-                           } ${
-                             isClosedPO
-                               ? 'opacity-50 pointer-events-none cursor-not-allowed'
-                               : isDisabledByLocation
-                               ? 'opacity-40 pointer-events-none cursor-not-allowed'
-                               : hasClosedItems 
-                               ? 'opacity-75'
-                               : ''
-                           }`}
-                           onClick={() => {
-                             // Prevent interaction if closed or disabled by location
-                             if (isClosedPO || isDisabledByLocation) return;
-                             
-                             const newSelected = new Set(selectedPOsForLabels);
-                             if (newSelected.has(group.poNumber)) {
-                               newSelected.delete(group.poNumber);
-                             } else {
-                               newSelected.add(group.poNumber);
-                             }
-                             setSelectedPOsForLabels(newSelected);
-                           }}
-                         >
-                           <CardContent className="p-4">
-                             <div className="flex items-center justify-between">
-                               <div className="flex items-center gap-3">
-                                 {/* Checkbox */}
-                                 <div className="flex items-center">
-                                   {selectedPOsForLabels.has(group.poNumber) ? (
-                                     <CheckSquare className="h-5 w-5 text-primary" />
-                                   ) : (
-                                     <Square className="h-5 w-5 text-muted-foreground" />
-                                   )}
-                                 </div>
-                                 
-                                 <div className="flex-1">
-                                  <div className="flex items-center gap-3 mb-2">
-                                    <span className="text-xs opacity-60">
-                                      {selectedCountry === 'UAE' ? '🇦🇪' : '🇸🇦'}
-                                    </span>
-                                    <h3 className="text-base font-semibold text-primary">
-                                      {group.poNumber}
-                                    </h3>
-                                    <Badge variant="secondary" className="text-xs">
-                                      {group.orders.length} item{group.orders.length !== 1 ? 's' : ''}
-                                    </Badge>
-                                    {isClosedPO && (
-                                      <Badge variant="destructive" className="text-xs">
-                                        CLOSED
-                                      </Badge>
-                                    )}
-                                    {isDisabledByLocation && (
-                                      <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30">
-                                        Different Location
-                                      </Badge>
-                                    )}
-                                  </div>
-                                   
-                                    {/* Summary Info */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm text-muted-foreground">
-                                      <div>
-                                        <span className="font-medium">Ship To:</span>{' '}
-                                        {(() => {
-                                          const uniqueLocations = [...new Set(group.orders.map(o => o.ship_to_location).filter(Boolean))];
-                                          if (uniqueLocations.length === 0) return '-';
-                                          if (uniqueLocations.length === 1) return uniqueLocations[0];
-                                          return `${uniqueLocations[0]} +${uniqueLocations.length - 1}`;
-                                        })()}
-                                      </div>
-                                      <div>
-                                        <span className="font-medium">Qty:</span> {group.orders.reduce((sum, order) => sum + order.quantity, 0)}
-                                      </div>
-                                      <div>
-                                        <span className="font-medium">Labels:</span>{' '}
-                                        <span className="text-xs">
-                                          {group.orders.filter(o => o.is_printed).length}/{group.orders.length} Printed
-                                        </span>
-                                        <Badge 
-                                          variant={
-                                            group.orders.every(o => o.is_printed) ? 'default' :
-                                            group.orders.some(o => o.is_printed) ? 'secondary' :
-                                            'outline'
-                                          }
-                                          className="text-xs ml-2"
-                                        >
-                                          {group.orders.every(o => o.is_printed) ? 'Complete' :
-                                           group.orders.some(o => o.is_printed) ? 'Partial' :
-                                           'Pending'}
-                                        </Badge>
-                                      </div>
-                                    </div>
-                                 </div>
-                               </div>
+                          <div 
+                            key={group.poNumber}
+                            className={`
+                              grid grid-cols-[50px_minmax(150px,1fr)_150px_120px_120px_minmax(150px,1fr)] border-b cursor-pointer
+                              ${isClosedPO
+                                ? 'opacity-50 bg-muted/40 pointer-events-none cursor-not-allowed'
+                                : isDisabledByLocation
+                                ? 'opacity-40 bg-muted/10 pointer-events-none cursor-not-allowed'
+                                : hasClosedItems 
+                                ? 'opacity-75 bg-muted/20'
+                                : selectedPOsForLabels.has(group.poNumber)
+                                ? 'bg-primary/5 hover:bg-primary/10'
+                                : 'hover:bg-muted/10 transition-colors'
+                              }
+                            `}
+                            onClick={() => {
+                              // Prevent interaction if closed or disabled by location
+                              if (isClosedPO || isDisabledByLocation) return;
                               
-                              <div className="flex items-center gap-2 ml-4">
-                                 <Button 
-                                   variant="outline" 
-                                   size="sm"
-                                   disabled={isClosedPO || isDisabledByLocation}
-                                   onClick={(e) => {
-                                     e.stopPropagation();
-                                     if (isClosedPO || isDisabledByLocation) return;
-                                     setSelectedPOForLabels(group.poNumber);
-                                     setSelectedPOsForLabels(new Set([group.poNumber]));
-                                     setLabelsStep('print');
-                                   }}
-                                 >
-                                   <Printer className="h-4 w-4 mr-2" />
-                                   {isClosedPO ? 'Closed' : isDisabledByLocation ? 'Different Location' : 'Print Labels'}
-                                 </Button>
-                              </div>
+                              const newSelected = new Set(selectedPOsForLabels);
+                              if (newSelected.has(group.poNumber)) {
+                                newSelected.delete(group.poNumber);
+                              } else {
+                                newSelected.add(group.poNumber);
+                              }
+                              setSelectedPOsForLabels(newSelected);
+                            }}
+                          >
+                            {/* Checkbox Column */}
+                            <div className="p-3 flex items-center justify-center">
+                              {selectedPOsForLabels.has(group.poNumber) ? (
+                                <CheckSquare className="h-5 w-5 text-primary" />
+                              ) : (
+                                <Square className="h-5 w-5 text-muted-foreground" />
+                              )}
                             </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })
+                            
+                            {/* PO Number Column */}
+                            <div className="p-3 flex items-center gap-2">
+                              <span className="text-xs opacity-60">
+                                {selectedCountry === 'UAE' ? '🇦🇪' : '🇸🇦'}
+                              </span>
+                              <span className="font-semibold text-primary">{group.poNumber}</span>
+                              {isClosedPO && (
+                                <Badge variant="destructive" className="text-xs">CLOSED</Badge>
+                              )}
+                              {isDisabledByLocation && (
+                                <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30">
+                                  Different Location
+                                </Badge>
+                              )}
+                            </div>
+                            
+                            {/* Ship To Column */}
+                            <div className="p-3 flex items-center text-sm text-muted-foreground">
+                              {(() => {
+                                const uniqueLocations = [...new Set(group.orders.map(o => o.ship_to_location).filter(Boolean))];
+                                if (uniqueLocations.length === 0) return '-';
+                                if (uniqueLocations.length === 1) return uniqueLocations[0];
+                                return `${uniqueLocations[0]} +${uniqueLocations.length - 1}`;
+                              })()}
+                            </div>
+                            
+                            {/* Items Column */}
+                            <div className="p-3 flex items-center">
+                              <Badge variant="secondary" className="text-xs">
+                                {group.orders.length} item{group.orders.length !== 1 ? 's' : ''}
+                              </Badge>
+                            </div>
+                            
+                            {/* Quantity Column */}
+                            <div className="p-3 flex items-center">
+                              <span className="font-medium">{group.orders.reduce((sum, order) => sum + order.quantity, 0)}</span>
+                            </div>
+                            
+                            {/* Actions Column */}
+                            <div className="p-3 flex items-center gap-2">
+                              <div className="text-xs text-muted-foreground">
+                                {group.orders.filter(o => o.is_printed).length}/{group.orders.length} Printed
+                              </div>
+                              <Badge 
+                                variant={
+                                  group.orders.every(o => o.is_printed) ? 'default' :
+                                  group.orders.some(o => o.is_printed) ? 'secondary' :
+                                  'outline'
+                                }
+                                className="text-xs"
+                              >
+                                {group.orders.every(o => o.is_printed) ? 'Complete' :
+                                 group.orders.some(o => o.is_printed) ? 'Partial' :
+                                 'Pending'}
+                              </Badge>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                disabled={isClosedPO || isDisabledByLocation}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (isClosedPO || isDisabledByLocation) return;
+                                  setSelectedPOForLabels(group.poNumber);
+                                  setSelectedPOsForLabels(new Set([group.poNumber]));
+                                  setLabelsStep('print');
+                                }}
+                              >
+                                <Printer className="h-4 w-4 mr-2" />
+                                {isClosedPO ? 'Closed' : isDisabledByLocation ? 'Different Location' : 'Print'}
+                              </Button>
+                            </div>
+                          </div>
+                          );
+                        })}
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
