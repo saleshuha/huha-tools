@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 
 export interface POOrder {
   id: string;
@@ -67,6 +68,7 @@ export const usePOOrders = () => {
   });
   const [poProgress, setPOProgress] = useState<POProgressItem[]>([]);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Fetch PO orders using deduplicated function to avoid double counting
   const fetchPOOrders = useCallback(async (useRawData = false) => {
@@ -507,6 +509,10 @@ export const usePOOrders = () => {
       setLoadingProgress(95);
       setLoadingStatus('Refreshing PO data...');
       setCurrentItem('');
+      
+      // Invalidate all PO-related queries to force refresh
+      await queryClient.invalidateQueries({ queryKey: ['po-group-metrics'] });
+      await queryClient.invalidateQueries({ queryKey: ['po-orders'] });
       
       await fetchPOOrders();
 
