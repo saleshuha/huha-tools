@@ -1768,6 +1768,7 @@ export const POTracker = () => {
                            <TableHead>ASIN</TableHead>
                            <TableHead>Model/SKU</TableHead>
                            <TableHead>Title</TableHead>
+                           <TableHead>Ship To</TableHead>
                            <TableHead>Quantity</TableHead>
                            <TableHead>Status</TableHead>
                            <TableHead>Matched</TableHead>
@@ -1833,6 +1834,11 @@ export const POTracker = () => {
                             <TableCell>
                               <div className="max-w-[200px] truncate text-sm" title={order.title}>
                                 {order.title || '-'}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm text-muted-foreground">
+                                {order.ship_to_location || '-'}
                               </div>
                             </TableCell>
                             <TableCell>
@@ -3039,6 +3045,12 @@ export const POTracker = () => {
                               )}
                             </div>
                           </TableHead>
+                          <TableHead className="font-semibold border-r border-border/50 bg-muted/20">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                              <span className="text-foreground">Ship To</span>
+                            </div>
+                          </TableHead>
                           <TableHead 
                             className={`cursor-pointer hover:bg-muted/50 select-none font-semibold transition-colors border-r border-border/50 bg-muted/20 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}
                             onClick={() => !originalOrderPreserved && handleSort('quantity')}
@@ -3257,44 +3269,51 @@ export const POTracker = () => {
                                        return null;
                                      })()}
                                  </div>
-                               </TableCell>
+                                </TableCell>
 
-                                {/* Enhanced Quantity Cell */}
-                                <TableCell className="border-r border-border/50">
-                                 <div className="space-y-2">
-                                    <div className="space-y-2">
-                                      {order.status === 'closed' && order.notes?.includes('Fulfilled from stock:') ? (
-                                        <div className="space-y-2">
-                                          <Badge variant="outline" className="bg-sky/10 text-sky-700 dark:text-sky-300 border-sky/30 font-mono">
-                                             {(() => {
-                                               const fulfilledMatch = order.notes?.match(/Fulfilled from stock:\s*(\d+)/);
-                                               const originalMatch = order.notes?.match(/Original quantity:\s*(\d+)/);
-                                               const fulfilledQty = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
-                                               // If original quantity not in notes, assume fulfilled quantity was the original
-                                               const originalQty = originalMatch ? parseInt(originalMatch[1]) : (fulfilledQty > 0 ? fulfilledQty : 1);
-                                               return `Fulfilled: ${fulfilledQty}/${originalQty}`;
-                                             })()}
-                                          </Badge>
-                                          <div className="flex items-center gap-1">
-                                            <div className="w-1.5 h-1.5 bg-sky rounded-full flex-shrink-0"></div>
-                                            <div className="text-xs text-muted-foreground font-medium">
-                                              From Stock
-                                            </div>
-                                          </div>
-                                        </div>
-                                      ) : (
-                                        <div className="flex items-center gap-2">
-                                          <Badge variant="secondary" className="font-mono bg-emerald/10 text-emerald-700 dark:text-emerald-300 border-emerald/30">
-                                            {order.quantity}
-                                          </Badge>
-                                          <div className="text-xs text-muted-foreground">items</div>
-                                        </div>
-                                      )}
-                                    </div>
-                                 </div>
-                               </TableCell>
+                                 {/* Ship To Location Cell */}
+                                 <TableCell className="border-r border-border/50">
+                                   <div className="text-sm text-muted-foreground">
+                                     {order.ship_to_location || '-'}
+                                   </div>
+                                 </TableCell>
 
-                                 {/* Enhanced Print Qty Cell */}
+                                 {/* Enhanced Quantity Cell */}
+                                 <TableCell className="border-r border-border/50">
+                                  <div className="space-y-2">
+                                     <div className="space-y-2">
+                                       {order.status === 'closed' && order.notes?.includes('Fulfilled from stock:') ? (
+                                         <div className="space-y-2">
+                                           <Badge variant="outline" className="bg-sky/10 text-sky-700 dark:text-sky-300 border-sky/30 font-mono">
+                                              {(() => {
+                                                const fulfilledMatch = order.notes?.match(/Fulfilled from stock:\s*(\d+)/);
+                                                const originalMatch = order.notes?.match(/Original quantity:\s*(\d+)/);
+                                                const fulfilledQty = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
+                                                // If original quantity not in notes, assume fulfilled quantity was the original
+                                                const originalQty = originalMatch ? parseInt(originalMatch[1]) : (fulfilledQty > 0 ? fulfilledQty : 1);
+                                                return `Fulfilled: ${fulfilledQty}/${originalQty}`;
+                                              })()}
+                                           </Badge>
+                                           <div className="flex items-center gap-1">
+                                             <div className="w-1.5 h-1.5 bg-sky rounded-full flex-shrink-0"></div>
+                                             <div className="text-xs text-muted-foreground font-medium">
+                                               From Stock
+                                             </div>
+                                           </div>
+                                         </div>
+                                       ) : (
+                                         <div className="flex items-center gap-2">
+                                           <Badge variant="secondary" className="font-mono bg-emerald/10 text-emerald-700 dark:text-emerald-300 border-emerald/30">
+                                             {order.quantity}
+                                           </Badge>
+                                           <div className="text-xs text-muted-foreground">items</div>
+                                         </div>
+                                       )}
+                                     </div>
+                                  </div>
+                                </TableCell>
+
+                                  {/* Enhanced Print Qty Cell */}
                                  <TableCell className="w-24 border-r border-border/50">
                                    <div className="flex items-center gap-2">
                                      <Input
