@@ -13,11 +13,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
-import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, AlertTriangle } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, AlertTriangle, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { POFileUpload } from '@/components/po/POFileUpload';
 import { POProfitAnalytics } from '@/components/po/POProfitAnalytics';
 import { POReportsSection } from '@/components/po/POReportsSection';
+import { POPrintDialog } from '@/components/po/POPrintDialog';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { usePOOrders } from '@/hooks/usePOOrders';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -160,6 +161,11 @@ export const POTracker = () => {
   const [isPrinting, setIsPrinting] = useState(false);
   const [printingItems, setPrintingItems] = useState<Set<string>>(new Set());
   const [preventTableReorder, setPreventTableReorder] = useState(false);
+  
+  // Print Dialog State
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [printMode, setPrintMode] = useState<'single' | 'bulk'>('single');
+  const [printOrders, setPrintOrders] = useState<POOrder[]>([]);
   
   // Inventory data for matching
   const [inventoryData, setInventoryData] = useState<{
@@ -1790,18 +1796,30 @@ export const POTracker = () => {
                                 )}
                               </div>
                             </TableCell>
-                               <TableCell>
-                                 <div className="flex items-center gap-1">
-                                   <Button 
-                                     variant="outline" 
-                                     size="sm"
-                                     onClick={() => navigate(`/po-details/${order.po_number}`)}
-                                     disabled={isClosedOrder}
-                                   >
-                                     Details
-                                   </Button>
-                                 </div>
-                               </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-1">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm"
+                                      onClick={() => {
+                                        setPrintMode('single');
+                                        setPrintOrders([order]);
+                                        setPrintDialogOpen(true);
+                                      }}
+                                      title="Print this item"
+                                    >
+                                      <Printer className="h-4 w-4" />
+                                    </Button>
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={() => navigate(`/po-details/${order.po_number}`)}
+                                      disabled={isClosedOrder}
+                                    >
+                                      Details
+                                    </Button>
+                                  </div>
+                                </TableCell>
                              </TableRow>
                            );
                          })}
@@ -2004,45 +2022,65 @@ export const POTracker = () => {
                              Clear selection
                            </Button>
                          </div>
-                         <div className="flex items-center gap-2">
-                           <Button 
-                             variant="outline"
-                             disabled={Array.from(selectedPOsForLabels).every(poNumber => {
-                               const poGroup = filteredPOGroups.find(g => g.poNumber === poNumber);
-                               return poGroup?.orders.every(order => order.status === 'closed') || false;
-                             })}
-                             onClick={() => {
-                               console.log('🔍 VIEW ITEMS DEBUG: Selected POs:', Array.from(selectedPOsForLabels));
-                               
-                               // Go directly to print labels interface with selected POs
-                               setSelectedPOForLabels(Array.from(selectedPOsForLabels)[0]); // Set first PO for compatibility
-                               setLabelsStep('print'); // Go directly to print interface
-                               setActiveTab('labels'); // Switch to labels tab
-                               
-                               // Preserve original order for printing - disable sorting
-                               setOriginalOrderPreserved(true);
-                               setSortField('po_number'); // Reset to original order
-                               setSortDirection('asc');
-                               
-                               console.log('🔍 VIEW ITEMS DEBUG: Switched to print labels interface with original order preserved');
-                             }}
-                           >
-                             <Package className="h-4 w-4 mr-2" />
-                             View Items
-                           </Button>
-                           <Button 
-                             disabled={Array.from(selectedPOsForLabels).every(poNumber => {
-                               const poGroup = filteredPOGroups.find(g => g.poNumber === poNumber);
-                               return poGroup?.orders.every(order => order.status === 'closed') || false;
-                             })}
-                             onClick={() => {
-                               setLabelsStep('print');
-                             }}
-                           >
-                             <Printer className="h-4 w-4 mr-2" />
-                             Print Labels
-                           </Button>
-                         </div>
+                          <div className="flex items-center gap-2">
+                            <Button 
+                              variant="outline"
+                              disabled={selectedPOsForLabels.size === 0 || Array.from(selectedPOsForLabels).every(poNumber => {
+                                const poGroup = filteredPOGroups.find(g => g.poNumber === poNumber);
+                                return poGroup?.orders.every(order => order.status === 'closed') || false;
+                              })}
+                              onClick={() => {
+                                // Get all orders from selected POs
+                                const selectedOrders = filteredPOGroups
+                                  .filter(g => selectedPOsForLabels.has(g.poNumber))
+                                  .flatMap(g => g.orders);
+                                
+                                setPrintMode('bulk');
+                                setPrintOrders(selectedOrders);
+                                setPrintDialogOpen(true);
+                              }}
+                            >
+                              <FileText className="h-4 w-4 mr-2" />
+                              Print Preview
+                            </Button>
+                            <Button 
+                              variant="outline"
+                              disabled={Array.from(selectedPOsForLabels).every(poNumber => {
+                                const poGroup = filteredPOGroups.find(g => g.poNumber === poNumber);
+                                return poGroup?.orders.every(order => order.status === 'closed') || false;
+                              })}
+                              onClick={() => {
+                                console.log('🔍 VIEW ITEMS DEBUG: Selected POs:', Array.from(selectedPOsForLabels));
+                                
+                                // Go directly to print labels interface with selected POs
+                                setSelectedPOForLabels(Array.from(selectedPOsForLabels)[0]); // Set first PO for compatibility
+                                setLabelsStep('print'); // Go directly to print interface
+                                setActiveTab('labels'); // Switch to labels tab
+                                
+                                // Preserve original order for printing - disable sorting
+                                setOriginalOrderPreserved(true);
+                                setSortField('po_number'); // Reset to original order
+                                setSortDirection('asc');
+                                
+                                console.log('🔍 VIEW ITEMS DEBUG: Switched to print labels interface with original order preserved');
+                              }}
+                            >
+                              <Package className="h-4 w-4 mr-2" />
+                              View Items
+                            </Button>
+                            <Button 
+                              disabled={Array.from(selectedPOsForLabels).every(poNumber => {
+                                const poGroup = filteredPOGroups.find(g => g.poNumber === poNumber);
+                                return poGroup?.orders.every(order => order.status === 'closed') || false;
+                              })}
+                              onClick={() => {
+                                setLabelsStep('print');
+                              }}
+                            >
+                              <Printer className="h-4 w-4 mr-2" />
+                              Print Labels
+                            </Button>
+                          </div>
                        </div>
                      )}
 
@@ -3623,6 +3661,15 @@ export const POTracker = () => {
         </DialogContent>
       
       </Dialog>
+
+      {/* Print Dialog */}
+      <POPrintDialog
+        open={printDialogOpen}
+        onOpenChange={setPrintDialogOpen}
+        orders={printOrders}
+        mode={printMode}
+        title={printMode === 'single' ? 'Print Item' : 'Print Purchase Order Items'}
+      />
     </div>
   );
 };
