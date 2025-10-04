@@ -33,6 +33,7 @@ import { BulkSkuUpload } from './BulkSkuUpload';
 import { BulkTitleUpload } from './BulkTitleUpload';
 import { SimpleWarehouseManager } from './SimpleWarehouseManager';
 import { DisableItemsDialog } from './DisableItemsDialog';
+import { EnableItemDialog } from './EnableItemDialog';
 
 import { useWarehouseManager } from '@/hooks/useWarehouseManager';
 import { useBackgroundTasks } from '@/contexts/BackgroundTasksContext';
@@ -125,6 +126,8 @@ export function AsinInventory() {
   const [showDisabledItems, setShowDisabledItems] = useState(false);
   const [itemsToDisable, setItemsToDisable] = useState<AsinInventoryItem[]>([]);
   const [isDisableDialogOpen, setIsDisableDialogOpen] = useState(false);
+  const [itemToEnable, setItemToEnable] = useState<AsinInventoryItem | null>(null);
+  const [isEnableDialogOpen, setIsEnableDialogOpen] = useState(false);
   
   // Export mode settings - stored in database for persistence across devices
   const [exportModes, setExportModes] = useState<Record<string, 'global' | 'local'>>({});
@@ -710,6 +713,19 @@ export function AsinInventory() {
     setSelectedItems(new Set()); // Clear selection
   };
   
+  // Handle enabling items
+  const handleEnableItem = (item: AsinInventoryItem) => {
+    setItemToEnable(item);
+    setIsEnableDialogOpen(true);
+  };
+  
+  const confirmEnableItem = async () => {
+    if (itemToEnable) {
+      await toggleItemActive(itemToEnable.id, true);
+      setItemToEnable(null);
+    }
+  };
+  
   const exportInventory = () => {
     const csvData = [['SKU', 'UPC', 'ASIN', 'Title', 'Warehouse', 'Warehouse name', 'Available units', 'Status'],
       ...filteredInventory.map(item => {
@@ -1093,6 +1109,12 @@ export function AsinInventory() {
         onOpenChange={setIsDisableDialogOpen}
         items={itemsToDisable}
         onConfirm={confirmDisableItems}
+      />
+      <EnableItemDialog
+        open={isEnableDialogOpen}
+        onOpenChange={setIsEnableDialogOpen}
+        item={itemToEnable}
+        onConfirm={confirmEnableItem}
       />
       {/* Header with Stats */}
       <div className="space-y-6">
@@ -1666,23 +1688,14 @@ export function AsinInventory() {
                        <td className="p-3 border-r align-middle">
                          <div className="flex justify-center">
                            <Checkbox 
-                             checked={selectedItems.has(item.id)} 
+                             checked={item.isActive === false}
                              onCheckedChange={checked => {
-                               if (!checked && item.isActive !== false) {
-                                 // Trying to uncheck an active item - show disable dialog
+                               if (checked) {
+                                 // User is trying to check (disable the item)
                                  handleDisableItems([item]);
-                               } else if (checked && item.isActive === false) {
-                                 // Re-enabling a disabled item
-                                 toggleItemActive(item.id, true);
                                } else {
-                                 // Normal selection toggle for active items
-                                 const newSelected = new Set(selectedItems);
-                                 if (checked) {
-                                   newSelected.add(item.id);
-                                 } else {
-                                   newSelected.delete(item.id);
-                                 }
-                                 setSelectedItems(newSelected);
+                                 // User is trying to uncheck (enable the item)
+                                 handleEnableItem(item);
                                }
                              }} 
                            />
