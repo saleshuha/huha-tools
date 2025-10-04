@@ -1564,6 +1564,7 @@ export const POTracker = () => {
                             </TableHead>
                             <TableHead className="w-16">Enable</TableHead>
                             <TableHead>PO Number</TableHead>
+                            <TableHead>Ship To</TableHead>
                            <TableHead>PO Items</TableHead>
                            <TableHead>ASN Quantity</TableHead>
                            <TableHead>Matched %</TableHead>
@@ -1680,6 +1681,16 @@ export const POTracker = () => {
                                      )}
                                   </div>
                                 </TableCell>
+                              <TableCell>
+                                <div className="text-sm text-muted-foreground">
+                                  {(() => {
+                                    const uniqueLocations = [...new Set(orders.map(o => o.ship_to_location).filter(Boolean))];
+                                    if (uniqueLocations.length === 0) return '-';
+                                    if (uniqueLocations.length === 1) return uniqueLocations[0];
+                                    return `${uniqueLocations[0]} +${uniqueLocations.length - 1}`;
+                                  })()}
+                                </div>
+                              </TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-2">
                                   <span className="font-medium">{totalLineItems}</span>
