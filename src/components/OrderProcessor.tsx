@@ -1714,7 +1714,6 @@ export function OrderProcessor() {
                     className="bg-gradient-to-r from-primary/10 to-primary/5 sticky top-0 z-10"
                   />
                   <TableHead className="bg-gradient-to-r from-primary/10 to-primary/5 sticky top-0 z-10">Matched With</TableHead>
-                  <TableHead className="bg-gradient-to-r from-primary/10 to-primary/5 sticky top-0 z-10">Inventory Type</TableHead>
                   <TableHead className="bg-gradient-to-r from-primary/10 to-primary/5 sticky top-0 z-10">Available Stock</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1764,18 +1763,6 @@ export function OrderProcessor() {
                       <TableCell>
                         <Badge variant="secondary" className="text-xs bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20">
                           {matchedItem?.matchType?.toUpperCase() || 'N/A'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant="outline" 
-                          className={`text-xs ${
-                            matchedItem?.inventoryType === 'asin' 
-                              ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' 
-                              : 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20'
-                          }`}
-                        >
-                          {matchedItem?.inventoryType === 'asin' ? 'ASIN' : 'SKU'}
                         </Badge>
                       </TableCell>
                       <TableCell>
