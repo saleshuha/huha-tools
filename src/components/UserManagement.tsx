@@ -87,8 +87,10 @@ export function UserManagement() {
   useEffect(() => {
     if (editingPermissions) {
       setSelectedPages(allowedRoutes);
+    } else {
+      setSelectedPages([]);
     }
-  }, [editingPermissions, allowedRoutes]);
+  }, [editingPermissions]); // Removed allowedRoutes dependency to prevent reset on permission changes
 
   const fetchProfiles = async () => {
     try {
