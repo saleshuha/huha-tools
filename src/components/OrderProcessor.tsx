@@ -1709,7 +1709,7 @@ export function OrderProcessor() {
                   <div className="p-3 text-center text-sm text-muted-foreground border-t bg-muted/20">
                     Showing {matchedStartIndex + 1}-{Math.min(matchedStartIndex + matchedItemsPerPage, matchedOrders.length)} of {matchedOrders.length} matched orders
                   </div>
-                </Card>
+                </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
