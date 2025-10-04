@@ -29,6 +29,7 @@ export function UserManagement() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [editingRole, setEditingRole] = useState<string | null>(null);
   const [newUser, setNewUser] = useState({
     email: '',
     password: '',
@@ -135,6 +136,51 @@ export function UserManagement() {
     }
   };
 
+  const updateUserRole = async (userId: string, newRole: 'admin' | 'user') => {
+    if (!isAdmin) {
+      toast({
+        title: "Access Denied",
+        description: "You don't have permission to update user roles",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      // First, remove existing roles
+      await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId);
+
+      // Then insert the new role
+      const { error } = await supabase
+        .from('user_roles')
+        .insert({
+          user_id: userId,
+          role: newRole,
+          assigned_by: userProfile?.id
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "User role updated successfully"
+      });
+
+      setEditingRole(null);
+      fetchProfiles();
+    } catch (error: any) {
+      console.error('Error updating user role:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update user role",
+        variant: "destructive"
+      });
+    }
+  };
+
   const deleteUser = async (userId: string) => {
     if (!isAdmin) {
       toast({
@@ -201,18 +247,6 @@ export function UserManagement() {
         </div>
       </div>
 
-      {/* RBAC Notice */}
-      <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
-            <Shield className="h-4 w-4" />
-            <span className="font-medium">RBAC System Available</span>
-          </div>
-          <p className="text-blue-600 dark:text-blue-400 text-sm mt-1">
-            Role-based access control tables have been created. Role and permission assignment will be available once the database types are updated.
-          </p>
-        </CardContent>
-      </Card>
 
       {/* Create User Card */}
       <Card>
@@ -318,14 +352,41 @@ export function UserManagement() {
                   <TableCell>{new Date(profile.created_at).toLocaleDateString()}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled
-                        title="Role assignment available after DB types update"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
+                      {!profile.is_main_admin && (
+                        <Dialog open={editingRole === profile.id} onOpenChange={(open) => setEditingRole(open ? profile.id : null)}>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Edit User Role</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <div>
+                                <Label>User</Label>
+                                <p className="text-sm text-muted-foreground">{profile.email}</p>
+                              </div>
+                              <div>
+                                <Label htmlFor="role-select">Role</Label>
+                                <Select
+                                  defaultValue={profile.role}
+                                  onValueChange={(value) => updateUserRole(profile.id, value as 'admin' | 'user')}
+                                >
+                                  <SelectTrigger id="role-select">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="user">User</SelectItem>
+                                    <SelectItem value="admin">Admin</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      )}
 
                       {!profile.is_main_admin && (
                         <AlertDialog>

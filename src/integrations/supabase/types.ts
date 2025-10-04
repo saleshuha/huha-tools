@@ -3773,6 +3773,30 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       velocity_quantity_overrides: {
         Row: {
           asin_id: string
@@ -4629,6 +4653,10 @@ export type Database = {
           title: string
         }[]
       }
+      get_user_roles: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"][]
+      }
       get_user_sunsky_credentials_secure: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -4643,6 +4671,13 @@ export type Database = {
           updated_at: string
           user_id: string
         }[]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
       }
       is_user_admin: {
         Args: { user_id: string }
@@ -4698,6 +4733,7 @@ export type Database = {
       }
     }
     Enums: {
+      app_role: "admin" | "user"
       country_code: "UAE" | "KSA"
       financial_record_type: "loan" | "expense" | "debt" | "other"
       inventory_status:
@@ -4848,6 +4884,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "user"],
       country_code: ["UAE", "KSA"],
       financial_record_type: ["loan", "expense", "debt", "other"],
       inventory_status: [
