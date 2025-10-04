@@ -602,24 +602,14 @@ export default function CarrefourSalesTracker() {
             <Calculator className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent className="pb-2">
-            <div className="space-y-2">
-              <div>
-                <p className="text-xs text-orange-700 font-medium">Total Cost</p>
-                <div className="text-xl font-bold text-orange-900">{formatCurrency(metrics.totalPendingCost)}</div>
-              </div>
-              <div>
-                <p className="text-xs text-orange-700 font-medium">Total Profit</p>
-                <div className="text-xl font-bold text-orange-900">{formatCurrency(metrics.totalPendingProfit)}</div>
-              </div>
-              <div className="pt-2 border-t border-orange-300">
-                <p className="text-xs text-orange-800 font-semibold">Total Pending</p>
-                <div className="text-2xl font-bold text-orange-950">{formatCurrency(metrics.totalPendingCost + metrics.totalPendingProfit)}</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 text-xs mt-2">
+            <div className="text-2xl font-bold text-orange-900 mb-1">{formatCurrency(metrics.totalPendingCost + metrics.totalPendingProfit)}</div>
+            <div className="flex items-center gap-2 text-xs">
               <TrendingUp className="h-3 w-3 text-orange-600" />
               <span className="text-orange-700">{metrics.totalPendingPayments} orders pending</span>
             </div>
+            <p className="text-xs text-orange-600 mt-1">
+              Total cost + profit to receive
+            </p>
           </CardContent>
         </Card>
 
