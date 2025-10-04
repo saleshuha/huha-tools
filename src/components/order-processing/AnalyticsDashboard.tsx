@@ -1,6 +1,5 @@
 import { Card } from '@/components/ui/card';
 import { QuickStatsCard } from './QuickStatsCard';
-import { ProcessingPipeline } from './ProcessingPipeline';
 import { 
   TrendingUp, 
   CheckSquare, 
@@ -66,14 +65,6 @@ export function AnalyticsDashboard({
 
         {isExpanded && (
           <div className="p-4 pt-0 space-y-4 animate-fade-in">
-            {/* Processing Pipeline */}
-            <ProcessingPipeline
-              currentStep={currentStep}
-              pendingCount={pendingDeductionCount}
-              matchedCount={matchedOrdersCount}
-              processedCount={processedOrdersCount}
-            />
-
             {/* Stats Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <QuickStatsCard

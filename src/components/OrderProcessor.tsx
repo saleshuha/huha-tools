@@ -15,6 +15,10 @@ import { FileSpreadsheet, Search, Minus, Download, Package, AlertTriangle, Clock
 import { AnalyticsDashboard } from './order-processing/AnalyticsDashboard';
 import { SearchBar } from './order-processing/SearchBar';
 import { FilterChips } from './order-processing/FilterChips';
+import { SortableTableHeader } from './order-processing/SortableTableHeader';
+import { TablePagination } from './order-processing/TablePagination';
+import { BulkActionsToolbar } from './order-processing/BulkActionsToolbar';
+import { TableViewToggle } from './order-processing/TableViewToggle';
 import { useDropzone } from 'react-dropzone';
 import { useAsinInventory, AsinInventoryItem } from '@/hooks/useAsinInventory';
 import { useSkuInventory, SkuInventoryItem } from '@/hooks/useSkuInventory';
@@ -86,7 +90,14 @@ export function OrderProcessor() {
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(50);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
+  
+  // Sort state
+  const [sortColumn, setSortColumn] = useState('');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  
+  // View mode state
+  const [viewMode, setViewMode] = useState<'compact' | 'comfortable'>('comfortable');
   
   // Filter state
   const [orderDateFilter, setOrderDateFilter] = useState('');
@@ -981,6 +992,42 @@ export function OrderProcessor() {
     return chips;
   };
 
+  // Handle sorting
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  // Apply sorting to orders
+  const sortOrders = <T extends OrderItem>(orders: T[]): T[] => {
+    if (!sortColumn) return orders;
+
+    return [...orders].sort((a, b) => {
+      let aVal: any = a[sortColumn as keyof T];
+      let bVal: any = b[sortColumn as keyof T];
+
+      // Handle special cases
+      if (sortColumn === 'orderPlaceDate' || sortColumn === 'uploadDate') {
+        aVal = new Date(aVal || 0).getTime();
+        bVal = new Date(bVal || 0).getTime();
+      } else if (sortColumn === 'itemQuantity') {
+        aVal = Number(aVal) || 0;
+        bVal = Number(bVal) || 0;
+      } else {
+        aVal = String(aVal || '').toLowerCase();
+        bVal = String(bVal || '').toLowerCase();
+      }
+
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Analytics Dashboard */}
@@ -1130,116 +1177,138 @@ export function OrderProcessor() {
                     </div>
                   )}
 
-                  {/* Pending Items Table */}
-                  <Card className="border-primary/20">
-                    <div className="overflow-hidden rounded-lg">
-                      <Table>
-                        <TableHeader className="bg-muted/50 sticky top-0">
-                          <TableRow>
-                            <TableHead className="w-12">
-                              <Checkbox
-                                checked={selectAllMatched}
-                                onCheckedChange={handleSelectAllUploadedMatches}
-                              />
-                            </TableHead>
-                            <TableHead>Serial #</TableHead>
-                            <TableHead>Order ID</TableHead>
-                            <TableHead>ASIN/SKU</TableHead>
-                            <TableHead>Title</TableHead>
-                            <TableHead>Qty</TableHead>
-                            <TableHead>Current Stock</TableHead>
-                            <TableHead>After Deduction</TableHead>
-                            <TableHead>Match Type</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {uploadedMatches.map((match, index) => {
-                            const isSelected = selectedMatchedItems.has(match.orderItem.orderId);
-                            let inventorySerialNumber = 'N/A';
-                            
-                            if (match.inventoryMatch) {
-                              if (match.inventoryType === 'asin') {
-                                inventorySerialNumber = (match.inventoryMatch as AsinInventoryItem).serialNumber;
-                              } else if (match.inventoryType === 'sku') {
-                                inventorySerialNumber = (match.inventoryMatch as SkuInventoryItem).binSerialNumber;
-                              }
-                            }
+                  {/* Pending Items Table with Enhanced UI */}
+                  <div>
+                    <BulkActionsToolbar
+                      selectedCount={selectedMatchedItems.size}
+                      onProcessSelected={processUploadedMatches}
+                      onClearSelection={() => {
+                        setSelectedMatchedItems(new Set());
+                        setSelectAllMatched(false);
+                      }}
+                      isProcessing={loading}
+                    />
 
-                            const currentStock = match.inventoryMatch?.quantity || 0;
-                            const afterDeduction = Math.max(0, currentStock - match.orderItem.itemQuantity);
-                            
-                            return (
-                              <TableRow 
-                                key={`pending-${match.orderItem.orderId}-${index}`}
-                                className={`
-                                  ${isSelected ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/50'}
-                                  ${afterDeduction === 0 ? 'border-l-4 border-l-warning' : ''}
-                                  transition-colors
-                                `}
-                              >
-                                <TableCell>
-                                  <Checkbox
-                                    checked={isSelected}
-                                    onCheckedChange={() => handleMatchedItemSelect(match.orderItem.orderId)}
-                                  />
-                                </TableCell>
-                                <TableCell className="text-xs font-medium text-muted-foreground">
-                                  {inventorySerialNumber}
-                                </TableCell>
-                                <TableCell className="font-mono text-xs">{match.orderItem.orderId}</TableCell>
-                                <TableCell>
-                                  <div className="space-y-1">
-                                    {match.orderItem.asin && (
-                                      <div className="text-xs text-blue-600 dark:text-blue-400">
-                                        ASIN: {match.orderItem.asin}
-                                      </div>
-                                    )}
-                                    {match.orderItem.sku && (
-                                      <div className="text-xs text-green-600 dark:text-green-400">
-                                        SKU: {match.orderItem.sku}
-                                      </div>
-                                    )}
-                                  </div>
-                                </TableCell>
-                                <TableCell className="max-w-xs truncate">{match.orderItem.itemTitle}</TableCell>
-                                <TableCell>
-                                  <Badge variant="outline" className="text-xs">
-                                    {match.orderItem.itemQuantity}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell>
-                                  <Badge variant="secondary" className="text-xs">
-                                    {currentStock}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell>
-                                  <Badge 
-                                    variant={afterDeduction === 0 ? 'destructive' : 'default'}
-                                    className="text-xs"
-                                  >
-                                    {afterDeduction}
-                                    {afterDeduction === 0 && (
-                                      <AlertTriangle className="w-3 h-3 ml-1" />
-                                    )}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex items-center gap-1">
-                                    <Badge variant="outline" className="text-xs">
-                                      {match.matchType?.toUpperCase()}
+                    <div className="border border-primary/20 rounded-lg overflow-hidden shadow-soft bg-card">
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader className="bg-gradient-to-r from-muted/80 to-muted/60 sticky top-0 z-10 border-b-2 border-primary/20">
+                            <TableRow className="hover:bg-transparent">
+                              <TableHead className="w-12 font-semibold">
+                                <Checkbox
+                                  checked={selectAllMatched}
+                                  onCheckedChange={handleSelectAllUploadedMatches}
+                                  className="border-2"
+                                />
+                              </TableHead>
+                              <TableHead className="font-semibold text-foreground">Serial #</TableHead>
+                              <TableHead className="font-semibold text-foreground">Order ID</TableHead>
+                              <TableHead className="font-semibold text-foreground">ASIN/SKU</TableHead>
+                              <TableHead className="font-semibold text-foreground">Title</TableHead>
+                              <TableHead className="font-semibold text-foreground">Qty</TableHead>
+                              <TableHead className="font-semibold text-foreground">Current</TableHead>
+                              <TableHead className="font-semibold text-foreground">After</TableHead>
+                              <TableHead className="font-semibold text-foreground">Match</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {uploadedMatches.map((match, index) => {
+                              const isSelected = selectedMatchedItems.has(match.orderItem.orderId);
+                              let inventorySerialNumber = 'N/A';
+                              
+                              if (match.inventoryMatch) {
+                                if (match.inventoryType === 'asin') {
+                                  inventorySerialNumber = (match.inventoryMatch as AsinInventoryItem).serialNumber;
+                                } else if (match.inventoryType === 'sku') {
+                                  inventorySerialNumber = (match.inventoryMatch as SkuInventoryItem).binSerialNumber;
+                                }
+                              }
+
+                              const currentStock = match.inventoryMatch?.quantity || 0;
+                              const afterDeduction = Math.max(0, currentStock - match.orderItem.itemQuantity);
+                              const rowClass = viewMode === 'compact' ? 'h-10' : 'h-14';
+                              
+                              return (
+                                <TableRow 
+                                  key={`pending-${match.orderItem.orderId}-${index}`}
+                                  className={`
+                                    ${rowClass}
+                                    ${index % 2 === 0 ? 'bg-background' : 'bg-muted/20'}
+                                    ${isSelected ? 'bg-primary/10 hover:bg-primary/15 border-l-4 border-l-primary' : 'hover:bg-muted/40'}
+                                    ${afterDeduction === 0 ? 'border-r-4 border-r-warning' : ''}
+                                    transition-all duration-150 cursor-pointer
+                                  `}
+                                  onClick={() => handleMatchedItemSelect(match.orderItem.orderId)}
+                                >
+                                  <TableCell onClick={(e) => e.stopPropagation()}>
+                                    <Checkbox
+                                      checked={isSelected}
+                                      onCheckedChange={() => handleMatchedItemSelect(match.orderItem.orderId)}
+                                    />
+                                  </TableCell>
+                                  <TableCell className="text-xs font-mono text-muted-foreground font-medium">
+                                    {inventorySerialNumber}
+                                  </TableCell>
+                                  <TableCell className="font-mono text-xs font-semibold">{match.orderItem.orderId}</TableCell>
+                                  <TableCell>
+                                    <div className="space-y-0.5">
+                                      {match.orderItem.asin && (
+                                        <div className="text-xs font-medium text-sky dark:text-sky-light">
+                                          ASIN: {match.orderItem.asin}
+                                        </div>
+                                      )}
+                                      {match.orderItem.sku && (
+                                        <div className="text-xs font-medium text-emerald dark:text-emerald-light">
+                                          SKU: {match.orderItem.sku}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="max-w-xs truncate font-medium">{match.orderItem.itemTitle}</TableCell>
+                                  <TableCell>
+                                    <Badge variant="outline" className="font-semibold">
+                                      {match.orderItem.itemQuantity}
                                     </Badge>
-                                    <Badge variant="secondary" className="text-xs">
-                                      {match.inventoryType}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant="secondary" className="font-semibold">
+                                      {currentStock}
                                     </Badge>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge 
+                                      variant={afterDeduction === 0 ? 'destructive' : 'default'}
+                                      className="font-semibold gap-1"
+                                    >
+                                      {afterDeduction}
+                                      {afterDeduction === 0 && (
+                                        <AlertTriangle className="w-3 h-3" />
+                                      )}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center gap-1">
+                                      <Badge variant="outline" className="text-xs font-medium">
+                                        {match.matchType?.toUpperCase()}
+                                      </Badge>
+                                      <Badge 
+                                        variant="secondary" 
+                                        className={`text-xs font-medium ${
+                                          match.inventoryType === 'asin' ? 'bg-sky/10 text-sky' : 'bg-emerald/10 text-emerald'
+                                        }`}
+                                      >
+                                        {match.inventoryType}
+                                      </Badge>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
                     </div>
-                  </Card>
+                  </div>
                 </>
               ) : (
                 <div className="text-center py-12 text-muted-foreground">
@@ -1334,92 +1403,139 @@ export function OrderProcessor() {
                 </div>
               </Card>
 
+              {/* Filter Chips */}
+              <FilterChips filters={getActiveFilterChips()} onClearAll={clearFilters} />
+
               {allOrders.length > 0 ? (
-                <Card className="border-primary/20 overflow-hidden">
-                  <div className="rounded-lg overflow-hidden">
-                  <Table>
-                    <TableHeader className="bg-muted/50 sticky top-0">
-                      <TableRow>
-                        <TableHead className="w-16">Serial #</TableHead>
-                        <TableHead>Order ID</TableHead>
-                        <TableHead>Order Date</TableHead>
-                        <TableHead>ASIN/SKU</TableHead>
-                        <TableHead>Title</TableHead>
-                        <TableHead>Quantity</TableHead>
-                        <TableHead>Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                     <TableBody>
-                      {filteredAllOrders.slice(0, 50).map((order, index) => {
-                        const matchedItem = matchedItems.find(m => m.orderItem.orderId === order.orderId);
-                        let inventorySerialNumber = 'N/A';
-                        
-                        if (matchedItem?.inventoryMatch) {
-                          if (matchedItem.inventoryType === 'asin') {
-                            inventorySerialNumber = (matchedItem.inventoryMatch as AsinInventoryItem).serialNumber;
-                          } else if (matchedItem.inventoryType === 'sku') {
-                            inventorySerialNumber = (matchedItem.inventoryMatch as SkuInventoryItem).binSerialNumber;
-                          }
-                        }
-                        
-                        return (
-                          <TableRow 
-                            key={`${order.orderId}-${index}`}
-                            className={`
-                              ${index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}
-                              hover:bg-primary/5 transition-colors
-                            `}
-                          >
-                            <TableCell className="text-xs font-medium text-muted-foreground">
-                              {inventorySerialNumber}
-                            </TableCell>
-                          <TableCell className="font-mono text-xs">{order.orderId}</TableCell>
-                          <TableCell className="text-xs">
-                            {order.orderPlaceDate ? (
-                              <div className="text-muted-foreground">
-                                {new Date(order.orderPlaceDate).toLocaleDateString()}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">N/A</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="space-y-1">
-                              {order.asin && (
-                                <div className="text-xs text-blue-600 dark:text-blue-400">
-                                  ASIN: {order.asin}
-                                </div>
-                              )}
-                              {order.sku && (
-                                <div className="text-xs text-green-600 dark:text-green-400">
-                                  SKU: {order.sku}
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="max-w-xs truncate">{order.itemTitle}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="text-xs">
-                              {order.itemQuantity}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="secondary" className="text-xs">
-                              {order.orderStatus}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                   {filteredAllOrders.length > 50 && (
-                     <div className="p-4 text-center text-sm text-muted-foreground border-t bg-muted/20">
-                        Showing first 50 records out of {filteredAllOrders.length} total
-                     </div>
-                   )}
+                <div className="space-y-4">
+                  {/* Table Controls */}
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-muted-foreground">
+                      Showing {sortOrders(filteredAllOrders).length} orders
+                    </div>
+                    <TableViewToggle view={viewMode} onViewChange={setViewMode} />
                   </div>
-                </Card>
+
+                  {/* Enhanced Table */}
+                  <div className="border border-primary/20 rounded-lg overflow-hidden shadow-soft bg-card">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader className="bg-gradient-to-r from-muted/80 to-muted/60 sticky top-0 z-10 border-b-2 border-primary/20">
+                          <TableRow className="hover:bg-transparent">
+                            <TableHead className="font-semibold text-foreground">Serial #</TableHead>
+                            <SortableTableHeader
+                              label="Order ID"
+                              sortKey="orderId"
+                              currentSort={sortColumn}
+                              currentDirection={sortDirection}
+                              onSort={handleSort}
+                            />
+                            <SortableTableHeader
+                              label="Order Date"
+                              sortKey="orderPlaceDate"
+                              currentSort={sortColumn}
+                              currentDirection={sortDirection}
+                              onSort={handleSort}
+                            />
+                            <TableHead className="font-semibold text-foreground">ASIN/SKU</TableHead>
+                            <TableHead className="font-semibold text-foreground">Title</TableHead>
+                            <SortableTableHeader
+                              label="Quantity"
+                              sortKey="itemQuantity"
+                              currentSort={sortColumn}
+                              currentDirection={sortDirection}
+                              onSort={handleSort}
+                            />
+                            <SortableTableHeader
+                              label="Status"
+                              sortKey="orderStatus"
+                              currentSort={sortColumn}
+                              currentDirection={sortDirection}
+                              onSort={handleSort}
+                            />
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {sortOrders(filteredAllOrders)
+                            .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                            .map((order, index) => {
+                              const matchedItem = matchedItems.find(m => m.orderItem.orderId === order.orderId);
+                              let inventorySerialNumber = 'N/A';
+                              
+                              if (matchedItem?.inventoryMatch) {
+                                if (matchedItem.inventoryType === 'asin') {
+                                  inventorySerialNumber = (matchedItem.inventoryMatch as AsinInventoryItem).serialNumber;
+                                } else if (matchedItem.inventoryType === 'sku') {
+                                  inventorySerialNumber = (matchedItem.inventoryMatch as SkuInventoryItem).binSerialNumber;
+                                }
+                              }
+
+                              const rowClass = viewMode === 'compact' ? 'h-10' : 'h-14';
+                              const globalIndex = (currentPage - 1) * itemsPerPage + index;
+                              
+                              return (
+                                <TableRow 
+                                  key={`${order.orderId}-${index}`}
+                                  className={`
+                                    ${rowClass}
+                                    ${globalIndex % 2 === 0 ? 'bg-background' : 'bg-muted/20'}
+                                    hover:bg-primary/5 hover:shadow-sm transition-all duration-150
+                                  `}
+                                >
+                                  <TableCell className="text-xs font-mono text-muted-foreground font-medium">
+                                    {inventorySerialNumber}
+                                  </TableCell>
+                                  <TableCell className="font-mono text-xs font-semibold">{order.orderId}</TableCell>
+                                  <TableCell className="text-xs">
+                                    {order.orderPlaceDate ? (
+                                      <div className="text-muted-foreground font-medium">
+                                        {new Date(order.orderPlaceDate).toLocaleDateString()}
+                                      </div>
+                                    ) : (
+                                      <span className="text-muted-foreground">N/A</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="space-y-0.5">
+                                      {order.asin && (
+                                        <div className="text-xs font-medium text-sky dark:text-sky-light">
+                                          ASIN: {order.asin}
+                                        </div>
+                                      )}
+                                      {order.sku && (
+                                        <div className="text-xs font-medium text-emerald dark:text-emerald-light">
+                                          SKU: {order.sku}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="max-w-xs truncate font-medium">{order.itemTitle}</TableCell>
+                                  <TableCell>
+                                    <Badge variant="outline" className="font-semibold">
+                                      {order.itemQuantity}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant="secondary" className="font-semibold">
+                                      {order.orderStatus}
+                                    </Badge>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    
+                    <TablePagination
+                      currentPage={currentPage}
+                      totalItems={sortOrders(filteredAllOrders).length}
+                      itemsPerPage={itemsPerPage}
+                      onPageChange={setCurrentPage}
+                      onItemsPerPageChange={setItemsPerPage}
+                    />
+                  </div>
+                </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
@@ -1746,91 +1862,126 @@ export function OrderProcessor() {
               </Card>
 
               {filteredProcessedOrders.length > 0 ? (
-                <Card className="border-primary/20 overflow-hidden">
-                  <div className="rounded-lg overflow-hidden">
-                  <Table>
-                    <TableHeader className="bg-muted/50 sticky top-0">
-                      <TableRow>
-                        <TableHead className="w-16">Serial #</TableHead>
-                        <TableHead>Order Number</TableHead>
-                        <TableHead>ASIN/SKU</TableHead>
-                        <TableHead>Title</TableHead>
-                        <TableHead>Quantity Processed</TableHead>
-                        <TableHead>Stock Change</TableHead>
-                        <TableHead>Processed At</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                     <TableBody>
-                      {filteredProcessedOrders.slice(0, 50).map((order, index) => {
-                        // Find inventory item by inventory_id if available
-                        let inventorySerialNumber = 'N/A';
-                        
-                        if (order.inventory_id) {
-                          const asinItem = asinInventory.find(item => item.id === order.inventory_id);
-                          if (asinItem) {
-                            inventorySerialNumber = asinItem.serialNumber;
-                          } else {
-                            const skuItem = skuInventory.find(item => item.id === order.inventory_id);
-                            if (skuItem) {
-                              inventorySerialNumber = skuItem.binSerialNumber;
-                            }
-                          }
-                        }
-                        
-                        return (
-                          <TableRow 
-                            key={`${order.order_number}-${index}`}
-                            className={`
-                              ${index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}
-                              hover:bg-success/5 transition-colors
-                            `}
-                          >
-                            <TableCell className="text-xs font-medium text-muted-foreground">
-                              {inventorySerialNumber}
-                            </TableCell>
-                          <TableCell className="font-mono text-xs">{order.order_number}</TableCell>
-                          <TableCell>
-                            <div className="space-y-1">
-                              {order.asin && (
-                                <div className="text-xs text-blue-600 dark:text-blue-400">
-                                  ASIN: {order.asin}
-                                </div>
-                              )}
-                              {order.sku && (
-                                <div className="text-xs text-green-600 dark:text-green-400">
-                                  SKU: {order.sku}
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="max-w-xs truncate">{order.item_title}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="text-xs">
-                              {order.quantity_processed}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-xs">
-                              {order.previous_stock} → {order.new_stock}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-xs text-muted-foreground">
-                              {new Date(order.processed_at).toLocaleString()}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                  {filteredProcessedOrders.length > 50 && (
-                    <div className="p-4 text-center text-sm text-muted-foreground border-t bg-muted/20">
-                      Showing first 50 records out of {filteredProcessedOrders.length} total
+                <div className="space-y-4">
+                  {/* Table Controls */}
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-muted-foreground">
+                      Showing {filteredProcessedOrders.length} processed orders
                     </div>
-                  )}
+                    <TableViewToggle view={viewMode} onViewChange={setViewMode} />
                   </div>
-                </Card>
+
+                  {/* Enhanced Table */}
+                  <div className="border border-success/20 rounded-lg overflow-hidden shadow-soft bg-card">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader className="bg-gradient-to-r from-success/10 to-success/5 sticky top-0 z-10 border-b-2 border-success/20">
+                          <TableRow className="hover:bg-transparent">
+                            <TableHead className="font-semibold text-foreground">Serial #</TableHead>
+                            <TableHead className="font-semibold text-foreground">Order Number</TableHead>
+                            <TableHead className="font-semibold text-foreground">ASIN/SKU</TableHead>
+                            <TableHead className="font-semibold text-foreground">Title</TableHead>
+                            <TableHead className="font-semibold text-foreground">Qty Processed</TableHead>
+                            <TableHead className="font-semibold text-foreground">Stock Change</TableHead>
+                            <TableHead className="font-semibold text-foreground">Processed At</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredProcessedOrders
+                            .slice(0, itemsPerPage)
+                            .map((order, index) => {
+                              // Find inventory item by inventory_id if available
+                              let inventorySerialNumber = 'N/A';
+                              
+                              if (order.inventory_id) {
+                                const asinItem = asinInventory.find(item => item.id === order.inventory_id);
+                                if (asinItem) {
+                                  inventorySerialNumber = asinItem.serialNumber;
+                                } else {
+                                  const skuItem = skuInventory.find(item => item.id === order.inventory_id);
+                                  if (skuItem) {
+                                    inventorySerialNumber = skuItem.binSerialNumber;
+                                  }
+                                }
+                              }
+
+                              const rowClass = viewMode === 'compact' ? 'h-10' : 'h-14';
+                              
+                              return (
+                                <TableRow 
+                                  key={`${order.order_number}-${index}`}
+                                  className={`
+                                    ${rowClass}
+                                    ${index % 2 === 0 ? 'bg-background' : 'bg-success/5'}
+                                    hover:bg-success/10 hover:shadow-sm transition-all duration-150
+                                    border-l-4 border-l-success
+                                  `}
+                                >
+                                  <TableCell className="text-xs font-mono text-muted-foreground font-medium">
+                                    {inventorySerialNumber}
+                                  </TableCell>
+                                  <TableCell className="font-mono text-xs font-semibold">{order.order_number}</TableCell>
+                                  <TableCell>
+                                    <div className="space-y-0.5">
+                                      {order.asin && (
+                                        <div className="text-xs font-medium text-sky dark:text-sky-light">
+                                          ASIN: {order.asin}
+                                        </div>
+                                      )}
+                                      {order.sku && (
+                                        <div className="text-xs font-medium text-emerald dark:text-emerald-light">
+                                          SKU: {order.sku}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="max-w-xs truncate font-medium">{order.item_title}</TableCell>
+                                  <TableCell>
+                                    <Badge variant="outline" className="font-semibold bg-success/10">
+                                      {order.quantity_deducted}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="space-y-1">
+                                      <div className="flex items-center gap-2 text-xs">
+                                        <span className="text-muted-foreground">Before:</span>
+                                        <Badge variant="secondary" className="font-semibold">
+                                          {order.old_quantity}
+                                        </Badge>
+                                      </div>
+                                      <div className="flex items-center gap-2 text-xs">
+                                        <span className="text-muted-foreground">After:</span>
+                                        <Badge variant="default" className="font-semibold">
+                                          {order.new_quantity}
+                                        </Badge>
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="space-y-1">
+                                      <div className="text-xs font-medium">
+                                        {new Date(order.processed_at).toLocaleString()}
+                                      </div>
+                                      <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/30">
+                                        <CheckSquare className="w-3 h-3 mr-1" />
+                                        Completed
+                                      </Badge>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    
+                    {filteredProcessedOrders.length > itemsPerPage && (
+                      <div className="p-3 text-center text-sm text-muted-foreground border-t bg-success/5">
+                        Showing first {itemsPerPage} records out of {filteredProcessedOrders.length} total
+                      </div>
+                    )}
+                  </div>
+                </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
