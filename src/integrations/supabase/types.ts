@@ -2811,42 +2811,66 @@ export type Database = {
       stock_changes: {
         Row: {
           asin: string | null
+          batch_id: string | null
           change_amount: number
           change_reason: string | null
+          changed_by: string | null
           created_at: string
+          fulfillment_source: string | null
           id: string
           inventory_id: string
           inventory_type: string
+          metadata: Json | null
           new_quantity: number
+          notes: string | null
           previous_quantity: number
+          reference_id: string | null
+          reference_number: string | null
+          reference_type: string | null
           serial_number: string | null
           sku_number: string | null
           user_id: string
         }
         Insert: {
           asin?: string | null
+          batch_id?: string | null
           change_amount: number
           change_reason?: string | null
+          changed_by?: string | null
           created_at?: string
+          fulfillment_source?: string | null
           id?: string
           inventory_id: string
           inventory_type: string
+          metadata?: Json | null
           new_quantity: number
+          notes?: string | null
           previous_quantity: number
+          reference_id?: string | null
+          reference_number?: string | null
+          reference_type?: string | null
           serial_number?: string | null
           sku_number?: string | null
           user_id: string
         }
         Update: {
           asin?: string | null
+          batch_id?: string | null
           change_amount?: number
           change_reason?: string | null
+          changed_by?: string | null
           created_at?: string
+          fulfillment_source?: string | null
           id?: string
           inventory_id?: string
           inventory_type?: string
+          metadata?: Json | null
           new_quantity?: number
+          notes?: string | null
           previous_quantity?: number
+          reference_id?: string | null
+          reference_number?: string | null
+          reference_type?: string | null
           serial_number?: string | null
           sku_number?: string | null
           user_id?: string

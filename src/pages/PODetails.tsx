@@ -1613,6 +1613,105 @@ export default function PODetailsPage() {
         throw new Error(`Failed to update inventory: ${inventoryError.message || 'Unknown error'}`);
       }
 
+      // Record comprehensive stock changes for PO fulfillment
+      if (inventoryMatch.type === 'ASIN') {
+        const { data: asinRecords } = await supabase
+          .from('asin_inventory')
+          .select('*')
+          .eq('asin', inventoryMatch.identifier)
+          .eq('user_id', userId)
+          .gt('quantity', 0);
+        
+        if (asinRecords) {
+          let remainingToRecord = quantityToUse;
+          const stockChangePromises = [];
+          
+          for (const record of asinRecords) {
+            if (remainingToRecord <= 0) break;
+            const deductedQty = Math.min(remainingToRecord, record.quantity + remainingToRecord);
+            const previousQty = record.quantity + deductedQty;
+            
+            stockChangePromises.push(
+              supabase.from('stock_changes').insert({
+                user_id: userId,
+                inventory_type: 'asin',
+                inventory_id: record.id,
+                asin: record.asin,
+                serial_number: record.serial_number,
+                previous_quantity: previousQty,
+                new_quantity: record.quantity,
+                change_amount: -deductedQty,
+                change_reason: 'PO Fulfillment',
+                reference_type: 'po_order',
+                reference_id: order.id,
+                reference_number: order.po_number,
+                fulfillment_source: 'stock',
+                notes: `Fulfilled PO ${order.po_number} - ${deductedQty} units deducted`,
+                metadata: {
+                  asin: order.asin,
+                  sku_code: order.sku_code,
+                  model_number: order.model_number,
+                  title: order.title,
+                  unit_cost: order.unit_cost,
+                  total_cost: order.total_cost,
+                  po_status: 'closed'
+                }
+              })
+            );
+            remainingToRecord -= deductedQty;
+          }
+          
+          await Promise.all(stockChangePromises);
+        }
+      } else {
+        const { data: skuRecords } = await supabase
+          .from('sku_inventory')
+          .select('*')
+          .eq('sku_number', inventoryMatch.identifier)
+          .eq('user_id', userId)
+          .gt('quantity', 0);
+        
+        if (skuRecords) {
+          let remainingToRecord = quantityToUse;
+          const stockChangePromises = [];
+          
+          for (const record of skuRecords) {
+            if (remainingToRecord <= 0) break;
+            const deductedQty = Math.min(remainingToRecord, record.quantity + remainingToRecord);
+            const previousQty = record.quantity + deductedQty;
+            
+            stockChangePromises.push(
+              supabase.from('stock_changes').insert({
+                user_id: userId,
+                inventory_type: 'sku',
+                inventory_id: record.id,
+                sku_number: record.sku_number,
+                previous_quantity: previousQty,
+                new_quantity: record.quantity,
+                change_amount: -deductedQty,
+                change_reason: 'PO Fulfillment',
+                reference_type: 'po_order',
+                reference_id: order.id,
+                reference_number: order.po_number,
+                fulfillment_source: 'stock',
+                notes: `Fulfilled PO ${order.po_number} - ${deductedQty} units deducted`,
+                metadata: {
+                  sku_code: order.sku_code,
+                  model_number: order.model_number,
+                  title: order.title,
+                  unit_cost: order.unit_cost,
+                  total_cost: order.total_cost,
+                  po_status: 'closed'
+                }
+              })
+            );
+            remainingToRecord -= deductedQty;
+          }
+          
+          await Promise.all(stockChangePromises);
+        }
+      }
+
       // Update PO order status to 'closed' (fulfilled from stock) - keep original quantity
       console.log('🔄 Updating PO order:', {
         orderId: order.id,

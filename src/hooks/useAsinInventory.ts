@@ -381,7 +381,7 @@ export function useAsinInventory() {
 
       if (updateError) throw updateError;
 
-      // Record the stock change
+      // Record the stock change with enhanced tracking
       const { data: { user } } = await supabase.auth.getUser();
       const { error: changeError } = await supabase
         .from('stock_changes')
@@ -394,7 +394,14 @@ export function useAsinInventory() {
           previous_quantity: previousQuantity,
           new_quantity: newQuantity,
           change_amount: changeAmount,
-          change_reason: reason || (changeAmount > 0 ? 'Stock increase' : 'Stock decrease')
+          change_reason: reason || (changeAmount > 0 ? 'Stock increase' : 'Stock decrease'),
+          reference_type: changeAmount > 0 ? 'restock' : 'manual',
+          changed_by: user?.id,
+          notes: reason,
+          metadata: {
+            sku: item.sku,
+            title: item.title
+          }
         });
 
       if (changeError) throw changeError;
