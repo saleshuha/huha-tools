@@ -20,6 +20,7 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { DualQuantityEditor } from './DualQuantityEditor';
 import { StockHistoryDialog } from './StockHistoryDialog';
+import { EnhancedStockHistoryDialog } from './EnhancedStockHistoryDialog';
 import { MultiBinEditor } from './MultiBinEditor';
 import { SkuEditor } from './SkuEditor';
 import { TitleEditor } from './TitleEditor';
@@ -957,7 +958,7 @@ export function SSInventory() {
                   </div>
                    <div className="flex items-center gap-2">
                      <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => updateQuantity(item.id, newQuantity, reason)} />
-                     <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.skuNumber} (${item.binSerialNumber})`} inventoryType="sku" />
+                     <EnhancedStockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.skuNumber} (${item.binSerialNumber})`} inventoryType="sku" />
                    </div>
                 </div>
               </CardContent>

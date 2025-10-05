@@ -34,9 +34,10 @@ interface InventoryStats {
   asinSoldUnits: number;
   skuTotalUnits: number;
   skuSoldUnits: number;
-    missingSku: number;
-    missingTitles: number;
-    missingImages: number;
+  missingSku: number;
+  missingTitles: number;
+  missingImages: number;
+  restockEligible: number;
 }
 interface InventoryMetricsProps {
   showOnlyAsin?: boolean;
@@ -62,10 +63,11 @@ export function InventoryMetrics({
     skuSoldUnits: 0,
     missingSku: 0,
     missingTitles: 0,
-    missingImages: 0
+    missingImages: 0,
+    restockEligible: 0
   });
   const [loading, setLoading] = useState(true);
-  const [selectedMetric, setSelectedMetric] = useState<'active' | 'instock' | 'outofstock' | 'sold' | 'missing-sku' | 'missing-titles' | 'missing-images' | null>(null);
+  const [selectedMetric, setSelectedMetric] = useState<'active' | 'instock' | 'outofstock' | 'sold' | 'missing-sku' | 'missing-titles' | 'missing-images' | 'restock-eligible' | null>(null);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [exportLoading, setExportLoading] = useState(false);
@@ -138,6 +140,7 @@ export function InventoryMetrics({
         const [
           { count: missingSkuCount },
           { count: missingTitlesCount },
+          { count: restockEligibleCount },
           { data: totalUnitsData }
         ] = await Promise.all([
           // Missing SKU count
@@ -153,6 +156,13 @@ export function InventoryMetrics({
             .select('*', { count: 'exact', head: true })
             .eq('country', selectedCountry)
             .or('title.is.null,title.eq.'),
+            
+          // Restock eligible count
+          supabase
+            .from('asin_inventory')
+            .select('*', { count: 'exact', head: true })
+            .eq('country', selectedCountry)
+            .eq('eligible_for_restock', true),
             
           // Get all quantities to calculate total units
           supabase
@@ -210,7 +220,8 @@ export function InventoryMetrics({
           skuSoldUnits: 0,
           missingSku: missingSkuCount || 0,
           missingTitles: missingTitlesCount || 0,
-          missingImages
+          missingImages,
+          restockEligible: restockEligibleCount || 0
         });
       } else if (showOnlySku) {
         // Load only SKU data
@@ -249,7 +260,8 @@ export function InventoryMetrics({
           skuSoldUnits,
           missingSku: 0,
           missingTitles: 0,
-          missingImages: 0
+          missingImages: 0,
+          restockEligible: 0
         });
       } else {
         // Load both ASIN and SKU data
@@ -302,7 +314,8 @@ export function InventoryMetrics({
           skuSoldUnits,
           missingSku,
           missingTitles,
-          missingImages
+          missingImages,
+          restockEligible: 0
         });
       }
     } catch (error: any) {
@@ -345,7 +358,7 @@ export function InventoryMetrics({
     }
   };
 
-  const loadDetailedItems = async (metric: 'active' | 'instock' | 'outofstock') => {
+  const loadDetailedItems = async (metric: 'active' | 'instock' | 'outofstock' | 'restock-eligible') => {
     try {
       if (showOnlyAsin) {
         // Load only ASIN data
@@ -363,6 +376,8 @@ export function InventoryMetrics({
           allItems = allItems.filter(item => item.quantity > 0);
         } else if (metric === 'outofstock') {
           allItems = allItems.filter(item => item.quantity === 0);
+        } else if (metric === 'restock-eligible') {
+          allItems = allItems.filter(item => item.eligible_for_restock === true);
         }
         setInventoryItems(allItems);
       } else if (showOnlySku) {
@@ -494,7 +509,7 @@ export function InventoryMetrics({
       });
     }
   };
-  const handleMetricClick = async (metric: 'active' | 'instock' | 'outofstock') => {
+  const handleMetricClick = async (metric: 'active' | 'instock' | 'outofstock' | 'restock-eligible') => {
     setSelectedMetric(metric);
     await loadDetailedItems(metric);
   };
@@ -775,6 +790,27 @@ export function InventoryMetrics({
           </Card>
         )}
 
+        {/* Restock Eligible - Only show when viewing ASIN or combined view */}
+        {(!showOnlySku) && (
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-20 flex flex-col border-l-4 border-l-cyan-500"
+            onClick={() => handleMetricClick('restock-eligible')}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
+              <div className="flex flex-col justify-center min-w-0 flex-1">
+                <CardTitle className="text-xs font-medium text-muted-foreground truncate">Restock Eligible</CardTitle>
+                <div className="text-lg font-bold text-cyan-600 mt-1">{stats.restockEligible}</div>
+              </div>
+              <div className="w-6 h-6 bg-cyan-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+                <TrendingUp className="h-3 w-3 text-cyan-600" />
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0 pb-1 flex-shrink-0">
+              <p className="text-xs text-muted-foreground truncate">Ready to reorder</p>
+            </CardContent>
+          </Card>
+        )}
+
       </div>
 
       {/* Details Modal */}
@@ -789,6 +825,7 @@ export function InventoryMetrics({
               {selectedMetric === 'missing-sku' && 'Items with Missing SKU'}
               {selectedMetric === 'missing-titles' && 'Items with Missing Titles'}
               {selectedMetric === 'missing-images' && 'Items with Missing Images'}
+              {selectedMetric === 'restock-eligible' && 'Restock Eligible Items'}
               <Badge variant="outline" className="ml-2">
                 {filteredItems.length} items
               </Badge>

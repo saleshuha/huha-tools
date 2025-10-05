@@ -252,7 +252,7 @@ export function useSkuInventory() {
 
       if (updateError) throw updateError;
 
-      // Record the stock change
+      // Record the stock change with enhanced tracking
       const { data: { user } } = await supabase.auth.getUser();
       const { error: changeError } = await supabase
         .from('stock_changes')
@@ -265,7 +265,14 @@ export function useSkuInventory() {
           previous_quantity: previousQuantity,
           new_quantity: newQuantity,
           change_amount: changeAmount,
-          change_reason: reason || (changeAmount > 0 ? 'Stock increase' : 'Stock decrease')
+          change_reason: reason || (changeAmount > 0 ? 'Stock increase' : 'Stock decrease'),
+          reference_type: changeAmount > 0 ? 'restock' : 'manual',
+          changed_by: user?.id,
+          notes: reason,
+          metadata: {
+            bin_serial_number: item.binSerialNumber,
+            sku_number: item.skuNumber
+          }
         });
 
       if (changeError) throw changeError;

@@ -24,6 +24,7 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { DualQuantityEditor } from './DualQuantityEditor';
 import { StockHistoryDialog } from './StockHistoryDialog';
+import { EnhancedStockHistoryDialog } from './EnhancedStockHistoryDialog';
 import { SkuEditor } from './SkuEditor';
 import { SerialNumberEditor } from './SerialNumberEditor';
 import { TitleEditor } from './TitleEditor';
@@ -1899,7 +1900,7 @@ export function AsinInventory() {
                           <td className="p-3 align-middle">
                             <div className="flex items-center justify-center gap-2">
                               <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
-                              <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
+                              <EnhancedStockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
                               <Button 
                                 variant="outline" 
                                 size="sm" 
@@ -1995,7 +1996,7 @@ export function AsinInventory() {
                    </div>
                     <div className="flex items-center gap-2">
                       <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
-                      <StockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
+                      <EnhancedStockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
                     </div>
                 </div>
               </CardContent>
