@@ -2231,10 +2231,26 @@ export const POTracker = () => {
                                 return poGroup?.orders.every(order => order.status === 'closed') || false;
                               })}
                               onClick={() => {
-                                // Get all orders from selected POs
-                                const selectedOrders = filteredPOGroups
-                                  .filter(g => selectedPOsForLabels.has(g.poNumber))
-                                  .flatMap(g => g.orders);
+                                // Get ALL orders for selected POs directly from poOrders (not filtered groups)
+                                const selectedPONumbers = Array.from(selectedPOsForLabels);
+                                
+                                console.log('🔍 DEBUG: Starting print flow');
+                                console.log('🔍 DEBUG: Selected PO numbers:', selectedPONumbers);
+                                console.log('🔍 DEBUG: Total poOrders available:', poOrders.length);
+                                
+                                // Get ALL orders for these PO numbers - no aggregation, no filtering except by PO number and country
+                                const selectedOrders = poOrders.filter(order => 
+                                  selectedPONumbers.includes(order.po_number) && 
+                                  order.country === selectedCountry &&
+                                  order.status !== 'cancelled'
+                                );
+                                
+                                console.log('🔍 DEBUG: Orders found for selected POs:', selectedOrders.length);
+                                console.log('🔍 DEBUG: Breakdown by PO:');
+                                selectedPONumbers.forEach(po => {
+                                  const ordersForPO = selectedOrders.filter(o => o.po_number === po);
+                                  console.log(`  - ${po}: ${ordersForPO.length} orders, ${ordersForPO.reduce((sum, o) => sum + o.quantity, 0)} units`);
+                                });
                                 
                                 setPrintMode('bulk');
                                 setPrintOrders(selectedOrders);
