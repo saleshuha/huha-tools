@@ -18,6 +18,10 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { SunskyOrderDialog } from '@/components/SunskyOrderDialog';
 import { SunskyDataViewer } from '@/components/SunskyDataViewer';
+import { POFilterPanel, FilterState } from '@/components/po/POFilterPanel';
+import { POMetricsCards } from '@/components/po/POMetricsCards';
+import { EnhancedPOTable } from '@/components/po/EnhancedPOTable';
+import { POActionPanel } from '@/components/po/POActionPanel';
 
 // Cache busting comment - Fixed poDetails issue - v2
 
@@ -98,6 +102,20 @@ export default function PODetailsPage() {
 
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Filter state
+  const [filters, setFilters] = useState<FilterState>({
+    quickFilter: 'all',
+    status: [],
+    inventoryStatus: 'all',
+    quantityMin: '',
+    quantityMax: '',
+    costMin: '',
+    costMax: '',
+    hasTracking: 'all',
+    hasSunskySku: 'all',
+  });
+  
   console.log('PODetailsPage: Rendering with poNumber:', poNumber);
   console.log('PODetailsPage: poOrders:', poOrders);
   useEffect(() => {
@@ -337,14 +355,55 @@ export default function PODetailsPage() {
     return hasStockB ? hasStockA ? 0 : 1 : hasStockA ? -1 : 0;
   });
 
-  // Filter orders based on search term
+  // Filter orders based on search term and filters
   const filteredOrders = matchedOrders.filter(order => {
-    if (!searchTerm.trim()) return true;
-    const searchLower = searchTerm.toLowerCase();
-    return order.asin?.toLowerCase().includes(searchLower) || order.title?.toLowerCase().includes(searchLower) || order.sku_code?.toLowerCase().includes(searchLower) || order.model_number?.toLowerCase().includes(searchLower) || order.sunsky_sku?.sku_code?.toLowerCase().includes(searchLower);
+    // Search filter
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch = 
+        order.asin?.toLowerCase().includes(searchLower) || 
+        order.title?.toLowerCase().includes(searchLower) || 
+        order.sku_code?.toLowerCase().includes(searchLower) || 
+        order.model_number?.toLowerCase().includes(searchLower) || 
+        order.sunsky_sku?.sku_code?.toLowerCase().includes(searchLower);
+      if (!matchesSearch) return false;
+    }
+
+    // Quick filter
+    const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
+    if (filters.quickFilter === 'in-stock' && (!inventoryMatch || inventoryMatch.quantity === 0)) return false;
+    if (filters.quickFilter === 'out-of-stock' && inventoryMatch && inventoryMatch.quantity > 0) return false;
+    if (filters.quickFilter === 'pending' && order.status !== 'pending') return false;
+    if (filters.quickFilter === 'closed' && order.status !== 'closed') return false;
+    if (filters.quickFilter === 'with-sunsky' && !order.sunsky_sku?.sku_code) return false;
+    if (filters.quickFilter === 'no-tracking' && order.tracking_number) return false;
+
+    // Advanced filters
+    if (filters.inventoryStatus !== 'all') {
+      if (filters.inventoryStatus === 'in-stock' && (!inventoryMatch || inventoryMatch.quantity === 0)) return false;
+      if (filters.inventoryStatus === 'out-of-stock' && inventoryMatch && inventoryMatch.quantity > 0) return false;
+      if (filters.inventoryStatus === 'not-found' && inventoryMatch) return false;
+    }
+
+    if (filters.hasTracking !== 'all') {
+      if (filters.hasTracking === 'yes' && !order.tracking_number) return false;
+      if (filters.hasTracking === 'no' && order.tracking_number) return false;
+    }
+
+    if (filters.hasSunskySku !== 'all') {
+      if (filters.hasSunskySku === 'yes' && !order.sunsky_sku?.sku_code) return false;
+      if (filters.hasSunskySku === 'no' && order.sunsky_sku?.sku_code) return false;
+    }
+
+    if (filters.quantityMin && order.quantity < parseInt(filters.quantityMin)) return false;
+    if (filters.quantityMax && order.quantity > parseInt(filters.quantityMax)) return false;
+    if (filters.costMin && (order.unit_cost || 0) < parseFloat(filters.costMin)) return false;
+    if (filters.costMax && (order.unit_cost || 0) > parseFloat(filters.costMax)) return false;
+
+    return true;
   });
 
-  // Calculate status progress
+  // Calculate status progress and metrics
   const statusProgress: StatusProgress = matchedOrders.reduce((acc, order) => {
     if (order.status === 'pending' || order.status === 'closed') {
       acc[order.status as keyof Omit<StatusProgress, 'total'>]++;
@@ -357,13 +416,43 @@ export default function PODetailsPage() {
     total: 0
   });
 
-  // Calculate progress percentage
-  const progressPercentage = statusProgress.total > 0 ? statusProgress.closed / statusProgress.total * 100 : 0;
-
-  // Get PO summary data
-  const totalCost = matchedOrders.reduce((sum, order) => sum + (order.total_cost || 0), 0);
+  // Calculate comprehensive metrics
+  const totalItems = matchedOrders.length;
+  const pendingUnits = matchedOrders.filter(o => o.status === 'pending').reduce((sum, o) => sum + (o.quantity || 0), 0);
+  const fulfilledUnits = matchedOrders.filter(o => o.status === 'closed').reduce((sum, o) => sum + (o.quantity || 0), 0);
+  const totalValue = matchedOrders.reduce((sum, order) => sum + (order.total_cost || 0), 0);
   const currency = matchedOrders[0]?.currency || 'AED';
   const shipToLocation = matchedOrders[0]?.ship_to_location || 'N/A';
+
+  // Inventory distribution stats
+  const inventoryStats = matchedOrders.reduce(
+    (acc, order) => {
+      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
+      if (!inventoryMatch) {
+        acc.notFound++;
+      } else if (inventoryMatch.quantity > 0) {
+        acc.inStock++;
+      } else {
+        acc.outOfStock++;
+      }
+      return acc;
+    },
+    { inStock: 0, outOfStock: 0, notFound: 0 }
+  );
+
+  // Filter panel stats
+  const filterStats = {
+    total: matchedOrders.length,
+    inStock: inventoryStats.inStock,
+    outOfStock: inventoryStats.outOfStock,
+    pending: statusProgress.pending,
+    closed: statusProgress.closed,
+    withSunsky: matchedOrders.filter(o => o.sunsky_sku?.sku_code).length,
+    noTracking: matchedOrders.filter(o => !o.tracking_number).length,
+  };
+
+  // Calculate progress percentage
+  const progressPercentage = statusProgress.total > 0 ? statusProgress.closed / statusProgress.total * 100 : 0;
 
   // Export functionality
   const handleExportPO = () => {
@@ -1885,150 +1974,174 @@ export default function PODetailsPage() {
   }
   return <div className="min-h-screen bg-gradient-surface">
       <div className="glass-container mx-6 my-4 p-8 animate-fade-in">
-        {/* Header Section */}
-        <div className="flex items-center justify-between mb-8 pb-6 border-b border-gradient">
-          <div className="flex items-center gap-4">
-            <Button variant="outline" onClick={() => navigate('/po-tracker')} className="hover-scale transition-all duration-200 bg-white/50 hover:bg-white/70 border-primary/20">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to PO Tracker
-            </Button>
-            <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              PO {poNumber} Details
-            </h1>
+        {/* Enhanced Header Section - Row 1 */}
+        <div className="mb-6 pb-4 border-b border-border/40">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button 
+                variant="outline" 
+                onClick={() => navigate('/po-tracker')} 
+                className="hover-scale transition-all duration-200"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+              <div>
+                <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+                  PO {poNumber}
+                </h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {totalItems} items • {totalValue.toLocaleString()} {currency}
+                </p>
+              </div>
+            </div>
+            
+            {/* Action Toolbar - Row 1 */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 mr-2 pr-2 border-r border-border/40">
+                <Button
+                  variant="ghost" 
+                  size="sm"
+                  onClick={async () => {
+                    setLoading(true);
+                    try {
+                      await Promise.all([fetchPOOrders(true), fetchInventoryData()]);
+                      toast({
+                        title: "Success",
+                        description: "PO data refreshed"
+                      });
+                    } catch (error) {
+                      console.error('Error refreshing PO data:', error);
+                      toast({
+                        title: "Error",
+                        description: "Failed to refresh PO data",
+                        variant: "destructive"
+                      });
+                    } finally {
+                      setLoading(false);
+                    }
+                  }} 
+                  disabled={loading} 
+                  title="Refresh data"
+                >
+                  <RotateCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
+              
+              <Button onClick={handleExportPO} variant="ghost" size="sm">
+                <Download className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={async () => {
-            setLoading(true);
-            try {
-              await Promise.all([fetchPOOrders(true), fetchInventoryData()]);
-              toast({
-                title: "Success",
-                description: "PO data refreshed with latest SKU matches"
-              });
-            } catch (error) {
-              console.error('Error refreshing PO data:', error);
-              toast({
-                title: "Error",
-                description: "Failed to refresh PO data",
-                variant: "destructive"
-              });
-            } finally {
-              setLoading(false);
-            }
-          }} disabled={loading} className="gap-2 hover-scale transition-all duration-200 bg-white/50 hover:bg-white/70 border-primary/20" title="Refresh to show newly imported SKU matches">
-              <RotateCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-            
-            {/* Print Dialog */}
-            <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" className="gap-2">
-                  <Printer className="h-4 w-4" />
-                  Print
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Print Options</DialogTitle>
-                  <DialogDescription>
-                    Select which columns to include in the printout
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 gap-3">
-                    {[{
-                    key: 'asin',
-                    label: 'ASIN'
-                  }, {
-                    key: 'title',
-                    label: 'Product Title'
-                  }, {
-                    key: 'model_number',
-                    label: 'Model Number'
-                  }, {
-                    key: 'sku_code',
-                    label: 'SKU Code'
-                  }, {
-                    key: 'quantity',
-                    label: 'Quantity'
-                  }, {
-                    key: 'unit_cost',
-                    label: 'Unit Cost'
-                  }, {
-                    key: 'total_cost',
-                    label: 'Total Cost'
-                  }, {
-                    key: 'status',
-                    label: 'Status'
-                  }, {
-                    key: 'tracking_number',
-                    label: 'Tracking Number'
-                  }, {
-                    key: 'supplier_order_number',
-                    label: 'Supplier Order#'
-                  }, {
-                    key: 'inventory_status',
-                    label: 'Inventory Status'
-                  }, {
-                    key: 'expected_delivery',
-                    label: 'Expected Delivery'
-                  }].map(column => <div key={column.key} className="flex items-center space-x-2">
-                        <Checkbox id={column.key} checked={selectedPrintColumns.has(column.key)} onCheckedChange={checked => {
-                      const newColumns = new Set(selectedPrintColumns);
-                      if (checked) {
-                        newColumns.add(column.key);
-                      } else {
-                        newColumns.delete(column.key);
-                      }
-                      setSelectedPrintColumns(newColumns);
-                    }} />
-                        <Label htmlFor={column.key} className="text-sm font-medium">
-                          {column.label}
-                        </Label>
-                      </div>)}
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setPrintDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={() => {
-                  handlePrint();
-                  setPrintDialogOpen(false);
-                }}>
-                    Print
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="outline" className="gap-2" disabled={itemsMarkedFromStock.size === 0}>
-                  <Package className="h-4 w-4" />
-                  {(() => {
-                  const fromStockItems = matchedOrders.filter(order => itemsMarkedFromStock.has(order.id));
-                  const partialFulfillments = fromStockItems.filter(order => order.notes?.includes('Partial fulfillment from stock'));
-                  const completeFulfillments = fromStockItems.filter(order => !order.notes?.includes('Partial fulfillment from stock'));
-                  if (partialFulfillments.length > 0 && completeFulfillments.length > 0) {
-                    return `Preview From Stock (${itemsMarkedFromStock.size}: ${completeFulfillments.length} complete, ${partialFulfillments.length} partial)`;
-                  } else if (partialFulfillments.length > 0) {
-                    return `Preview From Stock (${itemsMarkedFromStock.size} partial fulfillments)`;
-                  } else {
-                    return `Preview From Stock (${itemsMarkedFromStock.size} complete)`;
-                  }
-                })()}
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Items Fulfilled From Stock - All Deductions</DialogTitle>
-                  <DialogDescription>
-                    All items where inventory was deducted from stock (both partial and complete fulfillments)
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
+        </div>
+
+        {/* Metrics Dashboard */}
+        <div className="mb-6">
+          <POMetricsCards
+            totalItems={totalItems}
+            pendingUnits={pendingUnits}
+            fulfilledUnits={fulfilledUnits}
+            totalValue={totalValue}
+            currency={currency}
+            inStockCount={inventoryStats.inStock}
+            outOfStockCount={inventoryStats.outOfStock}
+            notFoundCount={inventoryStats.notFound}
+          />
+        </div>
+
+        {/* Filter Panel */}
+        <div className="mb-6">
+          <POFilterPanel
+            filters={filters}
+            onFilterChange={setFilters}
+            stats={filterStats}
+          />
+        </div>
+
+        {/* Action Control Center */}
+        <div className="mb-6">
+          <POActionPanel
+            selectedCount={selectedItems.size}
+            selectionType={selectionType}
+            isUpdating={isUpdating}
+            onBulkFromStock={() => {
+              // Open confirmation dialog
+              const dialog = document.querySelector('[data-bulk-from-stock-dialog]');
+              if (dialog) dialog.click();
+            }}
+            onBulkMarkFromSupplier={() => {
+              const dialog = document.querySelector('[data-bulk-from-supplier-dialog]');
+              if (dialog) dialog.click();
+            }}
+            onOrderAtSunsky={() => setSunskyOrderDialogOpen(true)}
+            onBulkTrackingUpdate={() => {
+              const dialog = document.querySelector('[data-bulk-tracking-dialog]');
+              if (dialog) dialog.click();
+            }}
+            onBulkUpdateAll={() => {
+              const dialog = document.querySelector('[data-bulk-update-all-dialog]');
+              if (dialog) dialog.click();
+            }}
+            onClearSelection={() => {
+              setSelectedItems(new Set());
+              setSelectionType(null);
+            }}
+            hasSunskyCredentials={hasSunskyCredentials}
+          />
+        </div>
+
+        {/* Search Bar */}
+        <div className="mb-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by ASIN, Title, SKU, or Model Number..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+            {searchTerm && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                onClick={() => setSearchTerm('')}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          {filteredOrders.length < matchedOrders.length && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Showing {filteredOrders.length} of {matchedOrders.length} items
+            </p>
+          )}
+        </div>
+
+        {/* Enhanced Table */}
+        <div className="mb-6">
+          <EnhancedPOTable
+            orders={filteredOrders}
+            selectedItems={selectedItems}
+            onItemSelect={handleItemSelect}
+            onSelectAll={handleSelectAll}
+            onIndividualAction={(order, action) => {
+              if (action === 'edit') {
+                setSelectedOrder(order);
+                setIndividualTrackingData({
+                  supplier_order_number: order.supplier_order_number || '',
+                  tracking_number: order.tracking_number || '',
+                  tracking_url: order.tracking_url || ''
+                });
+              } else if (action === 'stock') {
+                markAsOrderedFromInventory(order.id);
+              }
+            }}
+            findInventoryMatch={findInventoryMatch}
+          />
+        </div>
+
+        {/* All existing dialogs and functionality remain below... */}
                   {(() => {
                   // Show ALL items that are tracked, not just partial fulfillments
                   const fromStockItems = matchedOrders.filter(order => {
@@ -2152,12 +2265,9 @@ export default function PODetailsPage() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-            <Button onClick={handleExportPO} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
-              <Download className="h-4 w-4" />
-              Export PO Details
-            </Button>
           </div>
-         </div>
+
+         {/* Remaining original content continues below */}
 
          {/* Debug & Fix Tools */}
          
