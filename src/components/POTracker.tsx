@@ -2231,10 +2231,18 @@ export const POTracker = () => {
                                 return poGroup?.orders.every(order => order.status === 'closed') || false;
                               })}
                               onClick={() => {
-                                // Get all orders from selected POs
-                                const selectedOrders = filteredPOGroups
-                                  .filter(g => selectedPOsForLabels.has(g.poNumber))
-                                  .flatMap(g => g.orders);
+                                // Get ALL orders from selected POs (not just filtered ones)
+                                const selectedOrders = poOrders
+                                  .filter(order => 
+                                    selectedPOsForLabels.has(order.po_number) &&
+                                    order.status !== 'cancelled'
+                                  );
+                                
+                                console.log('📋 Print Preview - Selected Orders:', {
+                                  poNumbers: Array.from(selectedPOsForLabels),
+                                  totalOrders: selectedOrders.length,
+                                  totalUnits: selectedOrders.reduce((sum, o) => sum + o.quantity, 0)
+                                });
                                 
                                 setPrintMode('bulk');
                                 setPrintOrders(selectedOrders);
