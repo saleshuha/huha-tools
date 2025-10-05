@@ -2238,6 +2238,26 @@ export const POTracker = () => {
                                 console.log('🔍 DEBUG: Selected PO numbers:', selectedPONumbers);
                                 console.log('🔍 DEBUG: Total poOrders available:', poOrders.length);
                                 
+                                // Debug: Check all orders for this PO regardless of filters
+                                selectedPONumbers.forEach(poNum => {
+                                  const allOrdersForPO = poOrders.filter(o => o.po_number === poNum);
+                                  console.log(`🔍 DEBUG: PO ${poNum} - Total orders in poOrders:`, allOrdersForPO.length);
+                                  
+                                  if (allOrdersForPO.length > 0) {
+                                    const countries = [...new Set(allOrdersForPO.map(o => o.country))];
+                                    const statuses = [...new Set(allOrdersForPO.map(o => o.status))];
+                                    console.log(`🔍 DEBUG: PO ${poNum} - Countries:`, countries);
+                                    console.log(`🔍 DEBUG: PO ${poNum} - Statuses:`, statuses);
+                                    console.log(`🔍 DEBUG: PO ${poNum} - Selected Country:`, selectedCountry);
+                                    
+                                    const matchingCountry = allOrdersForPO.filter(o => o.country === selectedCountry);
+                                    console.log(`🔍 DEBUG: PO ${poNum} - Matching country:`, matchingCountry.length);
+                                    
+                                    const notCancelled = matchingCountry.filter(o => o.status !== 'cancelled');
+                                    console.log(`🔍 DEBUG: PO ${poNum} - Not cancelled:`, notCancelled.length);
+                                  }
+                                });
+                                
                                 // Get ALL orders for these PO numbers - no aggregation, no filtering except by PO number and country
                                 const selectedOrders = poOrders.filter(order => 
                                   selectedPONumbers.includes(order.po_number) && 
