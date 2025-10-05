@@ -1975,61 +1975,61 @@ export default function PODetailsPage() {
   return (
     <div className="min-h-screen bg-gradient-surface">
       <div className="glass-container mx-2 my-2 p-4 animate-fade-in max-w-full">
-        {/* Enhanced Header Section - Row 1 */}
-        <div className="mb-6 pb-4 border-b border-border/40">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+        {/* Enhanced Header Section */}
+        <div className="mb-4 pb-3 border-b border-border/40">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
               <Button 
                 variant="outline" 
                 onClick={() => navigate('/po-tracker')} 
-                className="hover-scale transition-all duration-200"
+                className="hover-scale transition-all duration-200 bg-card"
+                size="sm"
               >
-                <ArrowLeft className="h-4 w-4 mr-2" />
+                <ArrowLeft className="h-4 w-4 mr-1" />
                 Back
               </Button>
               <div>
-                <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+                <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
                   PO {poNumber}
                 </h1>
-                <p className="text-sm text-muted-foreground mt-1">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   {totalItems} items • {totalValue.toLocaleString()} {currency}
                 </p>
               </div>
             </div>
             
-            {/* Action Toolbar - Row 1 */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 mr-2 pr-2 border-r border-border/40">
-                <Button
-                  variant="ghost" 
-                  size="sm"
-                  onClick={async () => {
-                    setLoading(true);
-                    try {
-                      await Promise.all([fetchPOOrders(true), fetchInventoryData()]);
-                      toast({
-                        title: "Success",
-                        description: "PO data refreshed"
-                      });
-                    } catch (error) {
-                      console.error('Error refreshing PO data:', error);
-                      toast({
-                        title: "Error",
-                        description: "Failed to refresh PO data",
-                        variant: "destructive"
-                      });
-                    } finally {
-                      setLoading(false);
-                    }
-                  }} 
-                  disabled={loading} 
-                  title="Refresh data"
-                >
-                  <RotateCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                </Button>
-              </div>
+            {/* Action Toolbar */}
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost" 
+                size="sm"
+                onClick={async () => {
+                  setLoading(true);
+                  try {
+                    await Promise.all([fetchPOOrders(true), fetchInventoryData()]);
+                    toast({
+                      title: "Success",
+                      description: "PO data refreshed"
+                    });
+                  } catch (error) {
+                    console.error('Error refreshing PO data:', error);
+                    toast({
+                      title: "Error",
+                      description: "Failed to refresh PO data",
+                      variant: "destructive"
+                    });
+                  } finally {
+                    setLoading(false);
+                  }
+                }} 
+                disabled={loading} 
+                title="Refresh data"
+                className="h-8 w-8 p-0"
+              >
+                <RotateCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              </Button>
               
-              <Button onClick={handleExportPO} variant="ghost" size="sm">
+              <Button onClick={handleExportPO} variant="ghost" size="sm" className="h-8 w-8 p-0" title="Export">
                 <Download className="h-4 w-4" />
               </Button>
             </div>
@@ -2037,7 +2037,7 @@ export default function PODetailsPage() {
         </div>
 
         {/* Metrics Dashboard */}
-        <div className="mb-6">
+        <div className="mb-3">
           <POMetricsCards
             totalItems={totalItems}
             pendingUnits={pendingUnits}
@@ -2051,7 +2051,7 @@ export default function PODetailsPage() {
         </div>
 
         {/* Filter Panel */}
-        <div className="mb-6">
+        <div className="mb-3">
           <POFilterPanel
             filters={filters}
             onFilterChange={setFilters}
@@ -2060,13 +2060,12 @@ export default function PODetailsPage() {
         </div>
 
         {/* Action Control Center */}
-        <div className="mb-6">
+        <div className="mb-3">
           <POActionPanel
             selectedCount={selectedItems.size}
             selectionType={selectionType}
             isUpdating={isUpdating}
             onBulkFromStock={() => {
-              // Open confirmation dialog
               const dialog = document.querySelector('[data-bulk-from-stock-dialog]') as HTMLElement;
               if (dialog) dialog.click();
             }}
@@ -2092,35 +2091,35 @@ export default function PODetailsPage() {
         </div>
 
         {/* Search Bar */}
-        <div className="mb-4">
+        <div className="mb-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by ASIN, Title, SKU, or Model Number..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="pl-10 h-9"
             />
             {searchTerm && (
               <Button
                 variant="ghost"
                 size="sm"
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
                 onClick={() => setSearchTerm('')}
               >
-                <X className="h-4 w-4" />
+                <X className="h-3 w-3" />
               </Button>
             )}
           </div>
           {filteredOrders.length < matchedOrders.length && (
-            <p className="text-xs text-muted-foreground mt-2">
+            <p className="text-xs text-muted-foreground mt-1.5">
               Showing {filteredOrders.length} of {matchedOrders.length} items
             </p>
           )}
         </div>
 
         {/* Enhanced Table */}
-        <div className="mb-6">
+        <div className="mb-4">
           <EnhancedPOTable
             orders={filteredOrders}
             selectedItems={selectedItems}

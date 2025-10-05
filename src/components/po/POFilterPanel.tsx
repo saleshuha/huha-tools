@@ -79,12 +79,12 @@ export function POFilterPanel({ filters, onFilterChange, stats }: POFilterPanelP
     filters.hasSunskySku !== 'all';
 
   return (
-    <Card className="border-border/40">
-      <div className="p-4 space-y-4">
+    <Card className="border-border/40 bg-card">
+      <div className="p-4 space-y-3">
         {/* Quick Filters */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium flex items-center gap-2">
+            <h3 className="text-xs font-medium flex items-center gap-2">
               <Filter className="h-4 w-4" />
               Quick Filters
             </h3>
@@ -93,14 +93,14 @@ export function POFilterPanel({ filters, onFilterChange, stats }: POFilterPanelP
                 variant="ghost"
                 size="sm"
                 onClick={handleClearAllFilters}
-                className="h-8 text-xs"
+                className="h-7 text-xs"
               >
                 <X className="h-3 w-3 mr-1" />
                 Clear All
               </Button>
             )}
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {quickFilters.map((filter) => (
               <Badge
                 key={filter.value}
@@ -131,7 +131,7 @@ export function POFilterPanel({ filters, onFilterChange, stats }: POFilterPanelP
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-4 mt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {/* Inventory Status */}
               <div className="space-y-2">
                 <Label className="text-xs">Inventory Status</Label>

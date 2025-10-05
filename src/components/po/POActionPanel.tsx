@@ -29,20 +29,20 @@ export function POActionPanel({
   hasSunskyCredentials,
 }: POActionPanelProps) {
   return (
-    <Card className="border-border/40 bg-gradient-to-br from-card to-muted/20">
-      <CardContent className="p-6">
-        <div className="space-y-6">
+    <Card className="border-border/40 bg-card">
+      <CardContent className="p-4">
+        <div className="space-y-3">
           {/* Step 1: Selection Status */}
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+                <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
                   1
                 </div>
-                <h3 className="font-semibold text-sm">Selection</h3>
+                <h3 className="font-semibold text-xs">Selection</h3>
               </div>
               {selectedCount > 0 && (
-                <Badge variant="secondary" className="bg-primary/10 text-primary">
+                <Badge variant="secondary" className="bg-primary/10 text-primary text-xs">
                   {selectedCount} item{selectedCount !== 1 ? 's' : ''} selected
                 </Badge>
               )}
@@ -74,15 +74,15 @@ export function POActionPanel({
           </div>
 
           {/* Step 2: Actions */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+              <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
                 2
               </div>
-              <h3 className="font-semibold text-sm">Choose Action</h3>
+              <h3 className="font-semibold text-xs">Choose Action</h3>
             </div>
 
-            <div className="ml-10 space-y-2">
+            <div className="ml-9 space-y-2">
               {/* Primary Actions */}
               <div className="space-y-2">
                 <p className="text-xs text-muted-foreground font-medium">Primary Actions</p>
@@ -156,14 +156,14 @@ export function POActionPanel({
 
           {/* Step 3: Clear Selection */}
           {selectedCount > 0 && (
-            <div className="space-y-2 pt-4 border-t border-border/40">
+            <div className="space-y-1.5 pt-3 border-t border-border/40">
               <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+                <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
                   3
                 </div>
-                <h3 className="font-semibold text-sm">Reset</h3>
+                <h3 className="font-semibold text-xs">Reset</h3>
               </div>
-              <div className="ml-10">
+              <div className="ml-9">
                 <Button
                   variant="ghost"
                   size="sm"
