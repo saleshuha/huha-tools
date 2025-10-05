@@ -3052,11 +3052,13 @@ export const POTracker = () => {
                         
                         <Button 
                           variant="outline" 
-                          size="sm"
-                          onClick={() => {
-                            const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
-                            const poOrders = filteredOrders.filter(order => selectedPOsList.includes(order.po_number));
-                            const currentPageIds = new Set(poOrders.map(order => order.id));
+                           size="sm"
+                           onClick={() => {
+                             const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
+                             const poOrders = labelEligibleOrders
+                               .filter(order => order.country === selectedCountry)
+                               .filter(order => selectedPOsList.includes(order.po_number));
+                             const currentPageIds = new Set(poOrders.map(order => order.id));
                              const allSelected = Array.from(currentPageIds).every(id => selectedForPrint.has(id));
                              
                              if (allSelected) {
@@ -3074,11 +3076,13 @@ export const POTracker = () => {
                              }
                           }}
                           className="hover:bg-primary/10 hover:border-primary/30 transition-colors"
-                        >
-                          {(() => {
-                            const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
-                            const poOrders = filteredOrders.filter(order => selectedPOsList.includes(order.po_number));
-                             const allSelected = poOrders.every(order => selectedForPrint.has(order.id));
+                         >
+                           {(() => {
+                             const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
+                             const poOrders = labelEligibleOrders
+                               .filter(order => order.country === selectedCountry)
+                               .filter(order => selectedPOsList.includes(order.po_number));
+                              const allSelected = poOrders.every(order => selectedForPrint.has(order.id));
                             return allSelected && poOrders.length > 0 ? (
                               <>
                                 <Square className="h-3 w-3 mr-1" />
@@ -3228,13 +3232,23 @@ export const POTracker = () => {
                            </TableHead>
                         </TableRow>
                       </TableHeader>
-                       <TableBody className="divide-y-2 divide-border">
-                          {(() => {
-                             const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
-                             const ordersForSelectedPOs = filteredOrders.filter(order => selectedPOsList.includes(order.po_number));
-                             const startIndex = (labelCurrentPage - 1) * labelItemsPerPage;
-                             const endIndex = startIndex + labelItemsPerPage;
-                             const paginatedOrders = ordersForSelectedPOs.slice(startIndex, endIndex);
+                        <TableBody className="divide-y-2 divide-border">
+                           {(() => {
+                              const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
+                              // Use labelEligibleOrders (excludes only cancelled) and filter by country and selected POs
+                              const ordersForSelectedPOs = labelEligibleOrders
+                                .filter(order => order.country === selectedCountry)
+                                .filter(order => selectedPOsList.includes(order.po_number))
+                                .filter(order => !labelSearchQuery || 
+                                  order.po_number.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
+                                  order.sku_code?.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
+                                  order.asin?.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
+                                  order.model_number?.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
+                                  order.title?.toLowerCase().includes(labelSearchQuery.toLowerCase())
+                                );
+                              const startIndex = (labelCurrentPage - 1) * labelItemsPerPage;
+                              const endIndex = startIndex + labelItemsPerPage;
+                              const paginatedOrders = ordersForSelectedPOs.slice(startIndex, endIndex);
                              
                              return paginatedOrders.map((order, index) => (
                               <TableRow 
@@ -3552,11 +3566,20 @@ export const POTracker = () => {
                      </Table>
                    </div>
                    
-                    {/* Enhanced Pagination Controls */}
-                     {(() => {
-                       const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
-                       const ordersForSelectedPOs = filteredOrders.filter(order => selectedPOsList.includes(order.po_number));
-                       const totalPages = Math.ceil(ordersForSelectedPOs.length / labelItemsPerPage);
+                     {/* Enhanced Pagination Controls */}
+                      {(() => {
+                        const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
+                        const ordersForSelectedPOs = labelEligibleOrders
+                          .filter(order => order.country === selectedCountry)
+                          .filter(order => selectedPOsList.includes(order.po_number))
+                          .filter(order => !labelSearchQuery || 
+                            order.po_number.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
+                            order.sku_code?.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
+                            order.asin?.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
+                            order.model_number?.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
+                            order.title?.toLowerCase().includes(labelSearchQuery.toLowerCase())
+                          );
+                        const totalPages = Math.ceil(ordersForSelectedPOs.length / labelItemsPerPage);
                        
                        if (totalPages <= 1) return null;
                        
