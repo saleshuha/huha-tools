@@ -47,32 +47,40 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
   const { getImageByAsin } = useProductImages();
   const { toast } = useToast();
 
-  // Filter orders based on search query
-  const filteredOrders = React.useMemo(() => {
-    if (!searchQuery.trim()) return orders;
+  // Debug: Log total orders received
+  React.useEffect(() => {
+    console.log('🔍 POPrintDialog received orders:', orders.length);
+    console.log('🔍 Unique ASINs:', new Set(orders.map(o => o.asin)).size);
+    console.log('🔍 Sample order IDs:', orders.slice(0, 5).map(o => o.id));
+  }, [orders]);
+
+  // Filter orders based on search query and maintain proper indices
+  const filteredOrdersWithIndices = React.useMemo(() => {
+    if (!searchQuery.trim()) {
+      return orders.map((order, index) => ({ order, originalIndex: index }));
+    }
     
     const query = searchQuery.toLowerCase();
-    return orders.filter((order, index) => {
-      const searchText = [
-        order.asin,
-        order.sku_code,
-        order.title,
-        order.po_number,
-        order.model_number,
-        `#${index + 1}` // Allow searching by serial number
-      ].filter(Boolean).join(' ').toLowerCase();
-      
-      return searchText.includes(query);
-    });
+    return orders
+      .map((order, index) => ({ order, originalIndex: index }))
+      .filter(({ order, originalIndex }) => {
+        const searchText = [
+          order.asin,
+          order.sku_code,
+          order.title,
+          order.po_number,
+          order.model_number,
+          `#${originalIndex + 1}` // Allow searching by serial number
+        ].filter(Boolean).join(' ').toLowerCase();
+        
+        return searchText.includes(query);
+      });
   }, [orders, searchQuery]);
 
-  // Map filtered orders back to their original indices for selection
-  const filteredOrdersWithIndices = React.useMemo(() => {
-    return filteredOrders.map(order => ({
-      order,
-      originalIndex: orders.findIndex(o => o.id === order.id)
-    }));
-  }, [filteredOrders, orders]);
+  // Extract filtered orders for easier access
+  const filteredOrders = React.useMemo(() => {
+    return filteredOrdersWithIndices.map(({ order }) => order);
+  }, [filteredOrdersWithIndices]);
 
   // Prepare print items based on selection and aggregation
   const printItems = React.useMemo(() => {
