@@ -37,7 +37,7 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
   const [printFormat, setPrintFormat] = useState<'document' | 'label'>('document');
   const [previewMode, setPreviewMode] = useState<'document' | 'table'>('document');
   const [includeImages, setIncludeImages] = useState(true);
-  const [bulkAggregate, setBulkAggregate] = useState(true);
+  const [bulkAggregate, setBulkAggregate] = useState(false); // Changed to false by default
   const [copies, setCopies] = useState(1);
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set(Array.from({ length: orders.length }, (_, i) => i)));
   const [isPrinting, setIsPrinting] = useState(false);
@@ -78,11 +78,27 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
   const printItems = React.useMemo(() => {
     const selectedOrders = orders.filter((_, index) => selectedItems.has(index));
     
+    console.log('🔍 PRINT ITEMS DEBUG:', {
+      totalOrders: orders.length,
+      selectedCount: selectedOrders.length,
+      aggregationMode: bulkAggregate,
+      uniqueAsins: new Set(selectedOrders.map(o => o.asin || o.sku_code || o.model_number)).size,
+      sampleOrders: selectedOrders.slice(0, 5).map(o => ({
+        asin: o.asin,
+        sku: o.sku_code,
+        model: o.model_number,
+        qty: o.quantity,
+        po: o.po_number
+      }))
+    });
+    
     let items: POPrintItem[];
     if (mode === 'bulk' && bulkAggregate) {
       items = aggregatePOItemsByASIN(selectedOrders);
+      console.log('📊 AGGREGATED:', items.length, 'items from', selectedOrders.length, 'orders');
     } else {
       items = convertOrdersToPrintItems(selectedOrders);
+      console.log('📋 NON-AGGREGATED:', items.length, 'items');
     }
 
     // Add images if available
@@ -332,36 +348,30 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
             {/* Summary */}
             <div className="border-2 border-primary/30 rounded-lg p-4 bg-primary/5 space-y-2">
               <div className="flex justify-between items-center">
-                <span className="font-medium">Raw Orders Selected:</span>
-                <span className="text-lg font-bold text-primary">
+                <span className="font-medium">Total Selected Orders:</span>
+                <span className="text-xl font-bold text-primary">
                   {orders.filter((_, index) => selectedItems.has(index)).length}
                 </span>
               </div>
               {mode === 'bulk' && bulkAggregate && (
-                <div className="flex justify-between items-center border-t pt-2">
-                  <span className="font-medium">Aggregated Items:</span>
-                  <span className="text-lg font-bold text-primary">{printItems.length}</span>
-                </div>
-              )}
-              {!bulkAggregate && (
-                <div className="flex justify-between items-center border-t pt-2">
-                  <span className="font-medium">Items to Print:</span>
-                  <span className="text-lg font-bold text-primary">{printItems.length}</span>
-                </div>
+                <>
+                  <div className="flex justify-between items-center border-t pt-2">
+                    <span className="font-medium text-amber-600 dark:text-amber-500">⚡ Grouped to Unique ASINs:</span>
+                    <span className="text-xl font-bold text-amber-600 dark:text-amber-500">{printItems.length}</span>
+                  </div>
+                  <div className="text-xs text-amber-600 dark:text-amber-500 bg-amber-50 dark:bg-amber-950/20 p-2 rounded border border-amber-200 dark:border-amber-800">
+                    ⚠️ <strong>Aggregation Active:</strong> {orders.filter((_, i) => selectedItems.has(i)).length} orders grouped into {printItems.length} unique ASINs. Turn off "Aggregate by ASIN" to see all items individually.
+                  </div>
+                </>
               )}
               <div className="flex justify-between items-center border-t pt-2">
                 <span className="font-medium">Total Units:</span>
-                <span className="text-lg font-bold text-primary">{totalQuantity}</span>
+                <span className="text-xl font-bold text-primary">{totalQuantity}</span>
               </div>
               {includeImages && printFormat === 'document' && (
-                <div className="flex justify-between text-xs text-muted-foreground">
+                <div className="flex justify-between text-sm text-muted-foreground border-t pt-2">
                   <span>With Images:</span>
                   <span>{itemsWithImages}/{printItems.length}</span>
-                </div>
-              )}
-              {mode === 'bulk' && bulkAggregate && (
-                <div className="text-xs text-amber-600 dark:text-amber-500 pt-1 border-t">
-                  ⚠️ Aggregation is ON - Turn off "Aggregate by ASIN" to see all {orders.filter((_, i) => selectedItems.has(i)).length} items individually
                 </div>
               )}
             </div>
