@@ -1738,11 +1738,12 @@ export default function PODetailsPage() {
         throw new Error(`Failed to update inventory: ${inventoryError.message || 'Unknown error'}`);
       }
 
-      // Update PO order quantity to 0 and status to 'closed' (fulfilled from stock)
+      // Update PO order status to 'closed' (fulfilled from stock) - keep original quantity
       console.log('🔄 Updating PO order:', {
         orderId: order.id,
         userId: userId,
         quantityToUse,
+        originalQuantity: order.quantity,
         inventoryType: inventoryMatch.type,
         identifier: inventoryMatch.identifier
       });
@@ -1755,7 +1756,7 @@ export default function PODetailsPage() {
       const { error: poError } = await supabase
         .from('po_orders')
         .update({ 
-          quantity: 0,
+          // Keep original quantity, only change status to closed
           status: 'closed',
           notes: `Fulfilled from stock: ${quantityToUse} units deducted from ${inventoryMatch.type} inventory (${inventoryMatch.identifier}${serialNumbersText})`
         })
@@ -1783,7 +1784,7 @@ export default function PODetailsPage() {
 
       toast({
         title: "Item Marked as Ordered",
-        description: `Order fulfilled from stock: ${quantityToUse} units deducted from inventory. PO quantity set to 0.`
+        description: `Order fulfilled from stock: ${quantityToUse} units deducted from inventory. Status changed to closed.`
       });
 
     } catch (error) {
@@ -3041,45 +3042,45 @@ export default function PODetailsPage() {
                                // Calculate the actual quantity that can be fulfilled from stock
                                const availableFromStock = hasStock ? Math.min(orderQuantity, inventoryMatch.quantity) : 0;
                               
-                               if (order.status !== 'shipped' && order.status !== 'delivered') {
-                                 if (orderQuantity === 0 && order.status === 'closed') {
-                                   // Show disabled button for items that were fulfilled from stock (quantity = 0)
-                                   return (
-                                     <div className="flex flex-col gap-1">
-                                       <Button
-                                         size="sm"
-                                         variant="default"
-                                         disabled
-                                         className="text-xs bg-green-600/50 text-white"
-                                       >
-                                         ✓ Fulfilled from Stock
-                                       </Button>
-                                       <span className="text-xs text-blue-600 font-medium">
-                                         Quantity fulfilled: {orderQuantity === 0 ? 'Complete' : orderQuantity}
-                                       </span>
-                                     </div>
-                                   );
-                                 } else if (availableFromStock > 0) {
-                                   // Show From Stock button only when there's actually stock available to fulfill
-                                   return (
-                                     <Button
-                                       size="sm"
-                                       variant="default"
-                                       onClick={() => markAsOrderedFromInventory(order)}
-                                       className="text-xs bg-green-600 hover:bg-green-700"
-                                     >
-                                       From Stock ({availableFromStock})
-                                     </Button>
-                                   );
-                                 } else {
-                                   // No button for out-of-stock items or completed orders
-                                   return (
-                                     <span className="text-xs text-muted-foreground">
-                                       {orderQuantity === 0 ? 'Complete' : 'No stock available'}
-                                     </span>
-                                   );
-                                 }
-                              }
+                                if (order.status !== 'shipped' && order.status !== 'delivered') {
+                                  if (order.status === 'closed') {
+                                    // Show disabled button for items that were fulfilled from stock
+                                    return (
+                                      <div className="flex flex-col gap-1">
+                                        <Button
+                                          size="sm"
+                                          variant="default"
+                                          disabled
+                                          className="text-xs bg-green-600/50 text-white"
+                                        >
+                                          ✓ Fulfilled from Stock
+                                        </Button>
+                                        <span className="text-xs text-blue-600 font-medium">
+                                          {orderQuantity} unit{orderQuantity !== 1 ? 's' : ''} fulfilled
+                                        </span>
+                                      </div>
+                                    );
+                                  } else if (availableFromStock > 0) {
+                                    // Show From Stock button only when there's actually stock available to fulfill
+                                    return (
+                                      <Button
+                                        size="sm"
+                                        variant="default"
+                                        onClick={() => markAsOrderedFromInventory(order)}
+                                        className="text-xs bg-green-600 hover:bg-green-700"
+                                      >
+                                        From Stock ({availableFromStock})
+                                      </Button>
+                                    );
+                                  } else {
+                                    // No button for out-of-stock items
+                                    return (
+                                      <span className="text-xs text-muted-foreground">
+                                        No stock available
+                                      </span>
+                                    );
+                                  }
+                               }
                               return null;
                             })()}
                          </div>
