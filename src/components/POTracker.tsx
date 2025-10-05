@@ -268,7 +268,7 @@ export const POTracker = () => {
         description: `${poNumbers.length} PO${poNumbers.length !== 1 ? 's' : ''} closed successfully.`,
       });
 
-      fetchPOOrders();
+      fetchPOOrders(true);
     } catch (error) {
       console.error('Error closing POs:', error);
       toast({
@@ -299,7 +299,7 @@ export const POTracker = () => {
         description: `PO ${poNumber} closed successfully.`,
       });
 
-      fetchPOOrders();
+      fetchPOOrders(true);
     } catch (error) {
       console.error('Error closing PO:', error);
       toast({
@@ -1014,7 +1014,7 @@ export const POTracker = () => {
       console.log('🖨️ Database updates completed:', results);
       
       // Force refresh to get updated data and maintain current view state
-      await fetchPOOrders();
+      await fetchPOOrders(true);
       console.log('🖨️ Data refresh completed');
       
       setSelectedForPrint(new Map());
@@ -1299,7 +1299,7 @@ export const POTracker = () => {
 
       console.log('🖨️ Single print: Database update completed, refreshing data...');
       // Force refresh to get updated data
-      await fetchPOOrders();
+      await fetchPOOrders(true);
       console.log('🖨️ Single print: Data refresh completed');
 
     } catch (error) {
@@ -1332,7 +1332,7 @@ export const POTracker = () => {
           <p className="text-muted-foreground">Monitor and manage your purchase orders across all suppliers</p>
         </div>
         <div className="flex items-center space-x-2">
-          <Button variant="outline" size="sm" onClick={() => fetchPOOrders()}>
+          <Button variant="outline" size="sm" onClick={() => fetchPOOrders(true)}>
             <RefreshCw className="h-4 w-4 mr-2 animate-spin" style={{ animationPlayState: isLoading ? 'running' : 'paused' }} />
             Refresh
           </Button>
@@ -2139,7 +2139,7 @@ export const POTracker = () => {
                       setProcessingProgress(0);
                       setProcessingStatus('');
                     }, 2000);
-                    fetchPOOrders();
+                    fetchPOOrders(true);
                   }).catch((error) => {
                     setProcessingProgress(0);
                     setProcessingStatus('');
