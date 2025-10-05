@@ -2231,30 +2231,23 @@ export const POTracker = () => {
                                 return poGroup?.orders.every(order => order.status === 'closed') || false;
                               })}
                               onClick={() => {
-                                // Get ALL orders from selected POs (not just filtered ones)
+                                // Get ALL orders for selected POs directly from poOrders (not filtered groups)
                                 const selectedPONumbers = Array.from(selectedPOsForLabels);
                                 
-                                console.log('🔍 DEBUG: Total poOrders loaded:', poOrders.length);
+                                console.log('🔍 DEBUG: Starting print flow');
                                 console.log('🔍 DEBUG: Selected PO numbers:', selectedPONumbers);
+                                console.log('🔍 DEBUG: Total poOrders available:', poOrders.length);
                                 
-                                // Get ALL orders for selected POs - no status filtering
+                                // Get ALL orders for these PO numbers - no aggregation, no filtering
                                 const selectedOrders = poOrders.filter(order => 
-                                  selectedPOsForLabels.has(order.po_number)
+                                  selectedPONumbers.includes(order.po_number)
                                 );
                                 
-                                // Group by PO to see counts
-                                const poCountMap = new Map();
-                                selectedOrders.forEach(order => {
-                                  const count = poCountMap.get(order.po_number) || 0;
-                                  poCountMap.set(order.po_number, count + 1);
-                                });
-                                
-                                console.log('📋 Print Preview - Selected Orders:', {
-                                  poNumbers: selectedPONumbers,
-                                  totalOrders: selectedOrders.length,
-                                  totalUnits: selectedOrders.reduce((sum, o) => sum + o.quantity, 0),
-                                  ordersPerPO: Object.fromEntries(poCountMap),
-                                  allStatuses: [...new Set(selectedOrders.map(o => o.status))]
+                                console.log('🔍 DEBUG: Orders found for selected POs:', selectedOrders.length);
+                                console.log('🔍 DEBUG: Breakdown by PO:');
+                                selectedPONumbers.forEach(po => {
+                                  const ordersForPO = selectedOrders.filter(o => o.po_number === po);
+                                  console.log(`  - ${po}: ${ordersForPO.length} orders, ${ordersForPO.reduce((sum, o) => sum + o.quantity, 0)} units`);
                                 });
                                 
                                 setPrintMode('bulk');
