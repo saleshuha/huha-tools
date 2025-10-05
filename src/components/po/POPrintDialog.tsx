@@ -296,7 +296,7 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
                 )}
               </div>
 
-              <ScrollArea className="h-48 border rounded-md p-2">
+              <ScrollArea className="h-96 border rounded-md p-2">
                 {filteredOrdersWithIndices.length > 0 ? (
                   <div className="space-y-2">
                     {filteredOrdersWithIndices.map(({ order, originalIndex }) => (
