@@ -1972,7 +1972,8 @@ export default function PODetailsPage() {
         </div>
       </div>;
   }
-  return <div className="min-h-screen bg-gradient-surface">
+  return (
+    <div className="min-h-screen bg-gradient-surface">
       <div className="glass-container mx-6 my-4 p-8 animate-fade-in">
         {/* Enhanced Header Section - Row 1 */}
         <div className="mb-6 pb-4 border-b border-border/40">
@@ -2066,20 +2067,20 @@ export default function PODetailsPage() {
             isUpdating={isUpdating}
             onBulkFromStock={() => {
               // Open confirmation dialog
-              const dialog = document.querySelector('[data-bulk-from-stock-dialog]');
+              const dialog = document.querySelector('[data-bulk-from-stock-dialog]') as HTMLElement;
               if (dialog) dialog.click();
             }}
             onBulkMarkFromSupplier={() => {
-              const dialog = document.querySelector('[data-bulk-from-supplier-dialog]');
+              const dialog = document.querySelector('[data-bulk-from-supplier-dialog]') as HTMLElement;
               if (dialog) dialog.click();
             }}
             onOrderAtSunsky={() => setSunskyOrderDialogOpen(true)}
             onBulkTrackingUpdate={() => {
-              const dialog = document.querySelector('[data-bulk-tracking-dialog]');
+              const dialog = document.querySelector('[data-bulk-tracking-dialog]') as HTMLElement;
               if (dialog) dialog.click();
             }}
             onBulkUpdateAll={() => {
-              const dialog = document.querySelector('[data-bulk-update-all-dialog]');
+              const dialog = document.querySelector('[data-bulk-update-all-dialog]') as HTMLElement;
               if (dialog) dialog.click();
             }}
             onClearSelection={() => {
@@ -2141,14 +2142,26 @@ export default function PODetailsPage() {
           />
         </div>
 
-        {/* All existing dialogs and functionality remain below... */}
-                  {(() => {
-                  // Show ALL items that are tracked, not just partial fulfillments
-                  const fromStockItems = matchedOrders.filter(order => {
-                    const isTracked = itemsMarkedFromStock.has(order.id);
-                    // Show all tracked items, both partial and complete fulfillments
-                    return isTracked;
-                  });
+        {/* Preview From Stock Dialog */}
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="ghost" size="sm" disabled={itemsMarkedFromStock.size === 0} className="hidden">
+              <Eye className="h-4 w-4" />
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Items Fulfilled From Stock</DialogTitle>
+              <DialogDescription>
+                All items where inventory was deducted from stock
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              {(() => {
+                const fromStockItems = matchedOrders.filter(order => {
+                  const isTracked = itemsMarkedFromStock.has(order.id);
+                  return isTracked;
+                });
 
                   // Debug specific ASINs that user mentioned
                   const specificAsins = ['B0DYGGNWP5', 'B0DYG4TT9H'];
@@ -2262,12 +2275,11 @@ export default function PODetailsPage() {
                     <Download className="h-4 w-4" />
                     Export CSV
                   </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
-         {/* Remaining original content continues below */}
+        {/* Rest of existing dialogs and functionality */}
 
          {/* Debug & Fix Tools */}
          
@@ -2789,5 +2801,6 @@ export default function PODetailsPage() {
         });
       }} />
       </div>
-    </div>;
+    </div>
+  );
 }
