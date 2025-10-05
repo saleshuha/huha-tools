@@ -3055,10 +3055,11 @@ export const POTracker = () => {
                            size="sm"
                            onClick={() => {
                              const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
-                             const poOrders = labelEligibleOrders
+                             const allPOOrders = poOrders
                                .filter(order => order.country === selectedCountry)
-                               .filter(order => selectedPOsList.includes(order.po_number));
-                             const currentPageIds = new Set(poOrders.map(order => order.id));
+                               .filter(order => selectedPOsList.includes(order.po_number))
+                               .filter(order => order.status !== 'cancelled');
+                             const currentPageIds = new Set(allPOOrders.map(order => order.id));
                              const allSelected = Array.from(currentPageIds).every(id => selectedForPrint.has(id));
                              
                              if (allSelected) {
@@ -3079,11 +3080,12 @@ export const POTracker = () => {
                          >
                            {(() => {
                              const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
-                             const poOrders = labelEligibleOrders
+                             const allPOOrders = poOrders
                                .filter(order => order.country === selectedCountry)
-                               .filter(order => selectedPOsList.includes(order.po_number));
-                              const allSelected = poOrders.every(order => selectedForPrint.has(order.id));
-                            return allSelected && poOrders.length > 0 ? (
+                               .filter(order => selectedPOsList.includes(order.po_number))
+                               .filter(order => order.status !== 'cancelled');
+                              const allSelected = allPOOrders.every(order => selectedForPrint.has(order.id));
+                            return allSelected && allPOOrders.length > 0 ? (
                               <>
                                 <Square className="h-3 w-3 mr-1" />
                                 Unselect All
@@ -3235,10 +3237,23 @@ export const POTracker = () => {
                         <TableBody className="divide-y-2 divide-border">
                            {(() => {
                               const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
-                              // Use labelEligibleOrders (excludes only cancelled) and filter by country and selected POs
-                              const ordersForSelectedPOs = labelEligibleOrders
-                                .filter(order => order.country === selectedCountry)
-                                .filter(order => selectedPOsList.includes(order.po_number))
+                              
+                              // Debug: Log the filtering steps
+                              console.log('🔍 Print Labels Filtering Debug:', {
+                                selectedPOs: selectedPOsList,
+                                selectedCountry,
+                                labelEligibleOrdersCount: labelEligibleOrders.length,
+                                poOrdersCount: poOrders.length
+                              });
+                              
+                              // Use poOrders directly (all orders including closed) and filter by country and selected POs
+                              const ordersForSelectedPOs = poOrders
+                                .filter(order => {
+                                  const countryMatch = order.country === selectedCountry;
+                                  const poMatch = selectedPOsList.includes(order.po_number);
+                                  const statusMatch = order.status !== 'cancelled'; // Exclude only cancelled
+                                  return countryMatch && poMatch && statusMatch;
+                                })
                                 .filter(order => !labelSearchQuery || 
                                   order.po_number.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
                                   order.sku_code?.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
@@ -3246,6 +3261,13 @@ export const POTracker = () => {
                                   order.model_number?.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
                                   order.title?.toLowerCase().includes(labelSearchQuery.toLowerCase())
                                 );
+                              
+                              console.log('🔍 Print Labels After Filtering:', {
+                                ordersCount: ordersForSelectedPOs.length,
+                                totalQuantity: ordersForSelectedPOs.reduce((sum, o) => sum + (o.quantity || 0), 0),
+                                statuses: [...new Set(ordersForSelectedPOs.map(o => o.status))]
+                              });
+                              
                               const startIndex = (labelCurrentPage - 1) * labelItemsPerPage;
                               const endIndex = startIndex + labelItemsPerPage;
                               const paginatedOrders = ordersForSelectedPOs.slice(startIndex, endIndex);
@@ -3569,9 +3591,10 @@ export const POTracker = () => {
                      {/* Enhanced Pagination Controls */}
                       {(() => {
                         const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
-                        const ordersForSelectedPOs = labelEligibleOrders
+                        const ordersForSelectedPOs = poOrders
                           .filter(order => order.country === selectedCountry)
                           .filter(order => selectedPOsList.includes(order.po_number))
+                          .filter(order => order.status !== 'cancelled')
                           .filter(order => !labelSearchQuery || 
                             order.po_number.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
                             order.sku_code?.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
