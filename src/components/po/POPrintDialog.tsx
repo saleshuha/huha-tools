@@ -330,24 +330,38 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
             </div>
 
             {/* Summary */}
-            <div className="border rounded-lg p-3 bg-muted/50 space-y-1 text-sm">
-              <div className="flex justify-between">
-                <span>Selected Items:</span>
-                <span className="font-semibold">{printItems.length}</span>
+            <div className="border-2 border-primary/30 rounded-lg p-4 bg-primary/5 space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Raw Orders Selected:</span>
+                <span className="text-lg font-bold text-primary">
+                  {orders.filter((_, index) => selectedItems.has(index)).length}
+                </span>
               </div>
-              <div className="flex justify-between">
-                <span>Total Quantity:</span>
-                <span className="font-semibold">{totalQuantity}</span>
+              {mode === 'bulk' && bulkAggregate && (
+                <div className="flex justify-between items-center border-t pt-2">
+                  <span className="font-medium">Aggregated Items:</span>
+                  <span className="text-lg font-bold text-primary">{printItems.length}</span>
+                </div>
+              )}
+              {!bulkAggregate && (
+                <div className="flex justify-between items-center border-t pt-2">
+                  <span className="font-medium">Items to Print:</span>
+                  <span className="text-lg font-bold text-primary">{printItems.length}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center border-t pt-2">
+                <span className="font-medium">Total Units:</span>
+                <span className="text-lg font-bold text-primary">{totalQuantity}</span>
               </div>
               {includeImages && printFormat === 'document' && (
-                <div className="flex justify-between">
+                <div className="flex justify-between text-xs text-muted-foreground">
                   <span>With Images:</span>
-                  <span className="font-semibold">{itemsWithImages}/{printItems.length}</span>
+                  <span>{itemsWithImages}/{printItems.length}</span>
                 </div>
               )}
               {mode === 'bulk' && bulkAggregate && (
-                <div className="text-xs text-muted-foreground pt-1">
-                  Items aggregated by ASIN
+                <div className="text-xs text-amber-600 dark:text-amber-500 pt-1 border-t">
+                  ⚠️ Aggregation is ON - Turn off "Aggregate by ASIN" to see all {orders.filter((_, i) => selectedItems.has(i)).length} items individually
                 </div>
               )}
             </div>
