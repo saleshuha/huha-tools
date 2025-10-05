@@ -34,67 +34,39 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
   mode,
   title = 'Print Purchase Order Items'
 }) => {
-  // Debug: Log what we receive
-  React.useEffect(() => {
-    if (open) {
-      console.log('🔍 POPrintDialog OPENED with:', {
-        ordersReceived: orders.length,
-        mode,
-        title,
-        firstFewOrders: orders.slice(0, 3).map(o => ({
-          id: o.id,
-          po: o.po_number,
-          asin: o.asin,
-          qty: o.quantity,
-          status: o.status
-        })),
-        allStatuses: [...new Set(orders.map(o => o.status))],
-        uniquePOs: [...new Set(orders.map(o => o.po_number))]
-      });
-    }
-  }, [open, orders]);
-
   const [printFormat, setPrintFormat] = useState<'document' | 'label'>('document');
   const [previewMode, setPreviewMode] = useState<'document' | 'table'>('document');
   const [includeImages, setIncludeImages] = useState(true);
-  const [bulkAggregate, setBulkAggregate] = useState(false); // Changed to false by default
+  const [bulkAggregate, setBulkAggregate] = useState(true);
   const [copies, setCopies] = useState(1);
-  const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
+  const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set(Array.from({ length: orders.length }, (_, i) => i)));
   const [isPrinting, setIsPrinting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // Initialize selectedItems when orders change
-  React.useEffect(() => {
-    console.log('🔄 Orders changed, initializing selection:', {
-      ordersLength: orders.length,
-      currentSelectionSize: selectedItems.size
-    });
-    setSelectedItems(new Set(Array.from({ length: orders.length }, (_, i) => i)));
-  }, [orders.length]);
   
   const printRef = useRef<HTMLDivElement>(null);
   const { getImageByAsin } = useProductImages();
   const { toast } = useToast();
 
-  // Filter orders based on search query - show ALL individual orders, not aggregated
+  // Filter orders based on search query
   const filteredOrders = React.useMemo(() => {
     if (!searchQuery.trim()) return orders;
     
     const query = searchQuery.toLowerCase();
-    return orders.filter((order) => {
+    return orders.filter((order, index) => {
       const searchText = [
         order.asin,
         order.sku_code,
         order.title,
         order.po_number,
         order.model_number,
+        `#${index + 1}` // Allow searching by serial number
       ].filter(Boolean).join(' ').toLowerCase();
       
       return searchText.includes(query);
     });
   }, [orders, searchQuery]);
 
-  // Map filtered orders with their original indices for selection
+  // Map filtered orders back to their original indices for selection
   const filteredOrdersWithIndices = React.useMemo(() => {
     return filteredOrders.map(order => ({
       order,
@@ -106,27 +78,11 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
   const printItems = React.useMemo(() => {
     const selectedOrders = orders.filter((_, index) => selectedItems.has(index));
     
-    console.log('🔍 PRINT ITEMS DEBUG:', {
-      totalOrders: orders.length,
-      selectedCount: selectedOrders.length,
-      aggregationMode: bulkAggregate,
-      uniqueAsins: new Set(selectedOrders.map(o => o.asin || o.sku_code || o.model_number)).size,
-      sampleOrders: selectedOrders.slice(0, 5).map(o => ({
-        asin: o.asin,
-        sku: o.sku_code,
-        model: o.model_number,
-        qty: o.quantity,
-        po: o.po_number
-      }))
-    });
-    
     let items: POPrintItem[];
     if (mode === 'bulk' && bulkAggregate) {
       items = aggregatePOItemsByASIN(selectedOrders);
-      console.log('📊 AGGREGATED:', items.length, 'items from', selectedOrders.length, 'orders');
     } else {
       items = convertOrdersToPrintItems(selectedOrders);
-      console.log('📋 NON-AGGREGATED:', items.length, 'items');
     }
 
     // Add images if available
@@ -307,7 +263,7 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
             {/* Item Selection */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-base font-semibold">Individual Orders ({filteredOrders.length})</Label>
+                <Label>Items to Print ({filteredOrders.length})</Label>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -316,9 +272,6 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
                   {selectedItems.size === orders.length ? 'Deselect All' : 'Select All'}
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Each row is one order line. Multiple lines may have the same ASIN.
-              </p>
 
               {/* Search Input */}
               <div className="space-y-2">
@@ -348,25 +301,20 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
                   <div className="space-y-2">
                     {filteredOrdersWithIndices.map(({ order, originalIndex }) => (
                       <div key={order.id} className="flex items-start gap-2 p-2 hover:bg-muted rounded">
+                        <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold flex-shrink-0">
+                          {originalIndex + 1}
+                        </div>
                         <Checkbox
                           checked={selectedItems.has(originalIndex)}
                           onCheckedChange={() => toggleItem(originalIndex)}
                         />
-                        <div className="flex-1 text-sm space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                              #{originalIndex + 1}
-                            </span>
-                            <span className="font-medium">{order.asin || order.model_number || 'N/A'}</span>
-                            <span className="text-xs font-bold bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded">
-                              Qty: {order.quantity}
-                            </span>
-                          </div>
+                        <div className="flex-1 text-sm">
+                          <div className="font-medium">{order.asin || 'N/A'}</div>
                           {order.sku_code && (
                             <div className="text-xs text-muted-foreground">SKU: {order.sku_code}</div>
                           )}
                           <div className="text-xs text-muted-foreground truncate">{order.title || 'No title'}</div>
-                          <div className="text-xs text-muted-foreground">PO: {order.po_number}</div>
+                          <div className="text-xs text-muted-foreground">Qty: {order.quantity} | PO: {order.po_number}</div>
                         </div>
                       </div>
                     ))}
@@ -382,32 +330,24 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
             </div>
 
             {/* Summary */}
-            <div className="border-2 border-primary/30 rounded-lg p-4 bg-primary/5 space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="font-medium">Total Selected Orders:</span>
-                <span className="text-xl font-bold text-primary">
-                  {orders.filter((_, index) => selectedItems.has(index)).length}
-                </span>
+            <div className="border rounded-lg p-3 bg-muted/50 space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span>Selected Items:</span>
+                <span className="font-semibold">{printItems.length}</span>
               </div>
-              {mode === 'bulk' && bulkAggregate && (
-                <>
-                  <div className="flex justify-between items-center border-t pt-2">
-                    <span className="font-medium text-amber-600 dark:text-amber-500">⚡ Grouped to Unique ASINs:</span>
-                    <span className="text-xl font-bold text-amber-600 dark:text-amber-500">{printItems.length}</span>
-                  </div>
-                  <div className="text-xs text-amber-600 dark:text-amber-500 bg-amber-50 dark:bg-amber-950/20 p-2 rounded border border-amber-200 dark:border-amber-800">
-                    ⚠️ <strong>Aggregation Active:</strong> {orders.filter((_, i) => selectedItems.has(i)).length} orders grouped into {printItems.length} unique ASINs. Turn off "Aggregate by ASIN" to see all items individually.
-                  </div>
-                </>
-              )}
-              <div className="flex justify-between items-center border-t pt-2">
-                <span className="font-medium">Total Units:</span>
-                <span className="text-xl font-bold text-primary">{totalQuantity}</span>
+              <div className="flex justify-between">
+                <span>Total Quantity:</span>
+                <span className="font-semibold">{totalQuantity}</span>
               </div>
               {includeImages && printFormat === 'document' && (
-                <div className="flex justify-between text-sm text-muted-foreground border-t pt-2">
+                <div className="flex justify-between">
                   <span>With Images:</span>
-                  <span>{itemsWithImages}/{printItems.length}</span>
+                  <span className="font-semibold">{itemsWithImages}/{printItems.length}</span>
+                </div>
+              )}
+              {mode === 'bulk' && bulkAggregate && (
+                <div className="text-xs text-muted-foreground pt-1">
+                  Items aggregated by ASIN
                 </div>
               )}
             </div>

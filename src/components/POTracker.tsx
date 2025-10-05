@@ -498,25 +498,12 @@ export const POTracker = () => {
 
   useEffect(() => {
     console.log('📊 POTracker: poOrders updated', { 
-      total: poOrders.length,
-      countries: [...new Set(poOrders.map(o => o.country))],
-      statuses: [...new Set(poOrders.map(o => o.status))],
-      uniquePOs: new Set(poOrders.map(o => o.po_number)).size
+      length: poOrders.length, 
+      isLoading,
+      selectedCountry,
+      sampleOrders: poOrders.slice(0, 2).map(o => ({ po: o.po_number, country: o.country }))
     });
-    
-    // Check specific PO
-    const targetPO = '2MS6D3LP';
-    const ordersForTargetPO = poOrders.filter(o => o.po_number === targetPO);
-    if (ordersForTargetPO.length > 0) {
-      console.log(`🎯 PO ${targetPO}:`, {
-        totalOrders: ordersForTargetPO.length,
-        totalUnits: ordersForTargetPO.reduce((sum, o) => sum + o.quantity, 0),
-        countries: [...new Set(ordersForTargetPO.map(o => o.country))],
-        statuses: [...new Set(ordersForTargetPO.map(o => o.status))],
-        sampleASINs: ordersForTargetPO.slice(0, 5).map(o => o.asin || o.model_number)
-      });
-    }
-  }, [poOrders]);
+  }, [poOrders, isLoading, selectedCountry]);
 
   const initializeQZ = async () => {
     try {
@@ -2244,24 +2231,10 @@ export const POTracker = () => {
                                 return poGroup?.orders.every(order => order.status === 'closed') || false;
                               })}
                               onClick={() => {
-                                // Get ALL orders for selected POs directly from poOrders (not filtered groups)
-                                const selectedPONumbers = Array.from(selectedPOsForLabels);
-                                
-                                console.log('🔍 DEBUG: Starting print flow');
-                                console.log('🔍 DEBUG: Selected PO numbers:', selectedPONumbers);
-                                console.log('🔍 DEBUG: Total poOrders available:', poOrders.length);
-                                
-                                // Get ALL orders for these PO numbers - no aggregation, no filtering
-                                const selectedOrders = poOrders.filter(order => 
-                                  selectedPONumbers.includes(order.po_number)
-                                );
-                                
-                                console.log('🔍 DEBUG: Orders found for selected POs:', selectedOrders.length);
-                                console.log('🔍 DEBUG: Breakdown by PO:');
-                                selectedPONumbers.forEach(po => {
-                                  const ordersForPO = selectedOrders.filter(o => o.po_number === po);
-                                  console.log(`  - ${po}: ${ordersForPO.length} orders, ${ordersForPO.reduce((sum, o) => sum + o.quantity, 0)} units`);
-                                });
+                                // Get all orders from selected POs
+                                const selectedOrders = filteredPOGroups
+                                  .filter(g => selectedPOsForLabels.has(g.poNumber))
+                                  .flatMap(g => g.orders);
                                 
                                 setPrintMode('bulk');
                                 setPrintOrders(selectedOrders);
