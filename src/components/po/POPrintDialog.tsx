@@ -34,14 +34,43 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
   mode,
   title = 'Print Purchase Order Items'
 }) => {
+  // Debug: Log what we receive
+  React.useEffect(() => {
+    if (open) {
+      console.log('🔍 POPrintDialog OPENED with:', {
+        ordersReceived: orders.length,
+        mode,
+        title,
+        firstFewOrders: orders.slice(0, 3).map(o => ({
+          id: o.id,
+          po: o.po_number,
+          asin: o.asin,
+          qty: o.quantity,
+          status: o.status
+        })),
+        allStatuses: [...new Set(orders.map(o => o.status))],
+        uniquePOs: [...new Set(orders.map(o => o.po_number))]
+      });
+    }
+  }, [open, orders]);
+
   const [printFormat, setPrintFormat] = useState<'document' | 'label'>('document');
   const [previewMode, setPreviewMode] = useState<'document' | 'table'>('document');
   const [includeImages, setIncludeImages] = useState(true);
   const [bulkAggregate, setBulkAggregate] = useState(false); // Changed to false by default
   const [copies, setCopies] = useState(1);
-  const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set(Array.from({ length: orders.length }, (_, i) => i)));
+  const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   const [isPrinting, setIsPrinting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Initialize selectedItems when orders change
+  React.useEffect(() => {
+    console.log('🔄 Orders changed, initializing selection:', {
+      ordersLength: orders.length,
+      currentSelectionSize: selectedItems.size
+    });
+    setSelectedItems(new Set(Array.from({ length: orders.length }, (_, i) => i)));
+  }, [orders.length]);
   
   const printRef = useRef<HTMLDivElement>(null);
   const { getImageByAsin } = useProductImages();
