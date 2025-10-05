@@ -263,7 +263,12 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
             {/* Item Selection */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label>Items to Print ({filteredOrders.length})</Label>
+                <div className="flex items-center gap-2">
+                  <Label className="text-base font-semibold">Items to Print</Label>
+                  <div className="px-3 py-1 bg-primary text-primary-foreground rounded-full font-bold text-lg">
+                    {filteredOrders.length}
+                  </div>
+                </div>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -330,14 +335,14 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
             </div>
 
             {/* Summary */}
-            <div className="border rounded-lg p-3 bg-muted/50 space-y-1 text-sm">
-              <div className="flex justify-between">
-                <span>Selected Items:</span>
-                <span className="font-semibold">{printItems.length}</span>
+            <div className="border-2 border-primary/30 rounded-lg p-4 bg-primary/5 space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Selected Items:</span>
+                <span className="text-xl font-bold text-primary">{printItems.length}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Total Quantity:</span>
-                <span className="font-semibold">{totalQuantity}</span>
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Total Quantity:</span>
+                <span className="text-xl font-bold text-primary">{totalQuantity}</span>
               </div>
               {includeImages && printFormat === 'document' && (
                 <div className="flex justify-between">
