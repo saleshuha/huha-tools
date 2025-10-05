@@ -841,8 +841,10 @@ export const POTracker = () => {
     
     // Use labelSearchQuery for the labels tab, searchQuery for others
     const query = activeTab === 'labels' ? labelSearchQuery : searchQuery;
-    // Use labelEligibleOrders (excludes closed POs) for labels tab, all orders for others
-    let ordersToFilter = activeTab === 'labels' ? [...labelEligibleOrders] : [...poOrders];
+    // For labels tab, use poOrders directly (excluding only cancelled), for other tabs use all orders
+    let ordersToFilter = activeTab === 'labels' 
+      ? poOrders.filter(order => order.status !== 'cancelled') 
+      : [...poOrders];
     
     // Apply strict country filtering
     if (selectedCountry) {
@@ -854,6 +856,17 @@ export const POTracker = () => {
       // Always apply country filter strictly - no fallback
       ordersToFilter = countryFilteredOrders;
       console.log('🔍 PO GROUPS DEBUG: After country filter:', ordersToFilter.length, 'orders (was', beforeCountryFilter, 'for country', selectedCountry, ')');
+      
+      // Debug specific PO
+      const debugPO = '4LMT8FVZ';
+      const debugOrders = ordersToFilter.filter(o => o.po_number === debugPO);
+      if (debugOrders.length > 0) {
+        console.log(`🔍 PO ${debugPO} in filteredPOGroups:`, {
+          itemCount: debugOrders.length,
+          totalQty: debugOrders.reduce((sum, o) => sum + (o.quantity || 0), 0),
+          statuses: [...new Set(debugOrders.map(o => o.status))]
+        });
+      }
     }
 
     if (query) {
