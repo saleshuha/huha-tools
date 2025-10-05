@@ -2265,7 +2265,10 @@ export const POTracker = () => {
                                 console.log('🔍 DEBUG: Breakdown by PO:');
                                 selectedPONumbers.forEach(po => {
                                   const ordersForPO = selectedOrders.filter(o => o.po_number === po);
-                                  console.log(`  - ${po}: ${ordersForPO.length} orders, ${ordersForPO.reduce((sum, o) => sum + o.quantity, 0)} units`);
+                                  const uniqueASINs = new Set(ordersForPO.map(o => o.asin));
+                                  const uniqueSKUs = new Set(ordersForPO.map(o => o.sku_code));
+                                  console.log(`  - ${po}: ${ordersForPO.length} orders, ${ordersForPO.reduce((sum, o) => sum + o.quantity, 0)} units, ${uniqueASINs.size} unique ASINs, ${uniqueSKUs.size} unique SKUs`);
+                                  console.log(`  - ${po}: Sample IDs:`, ordersForPO.slice(0, 3).map(o => ({ id: o.id, asin: o.asin, sku: o.sku_code })));
                                 });
                                 
                                 setPrintMode('bulk');
