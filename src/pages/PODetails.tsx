@@ -97,7 +97,7 @@ export default function PODetailsPage() {
       console.log('PODetailsPage: Loading data...');
       setLoading(true);
       await Promise.all([
-        fetchPOOrders(),
+        fetchPOOrders(true), // Load ALL orders including closed ones
         fetchInventoryData(),
         checkSunskyCredentials()
       ]);
@@ -1195,11 +1195,11 @@ export default function PODetailsPage() {
 
       // Refresh data immediately to show the new pending order
       console.log('🔄 Refreshing PO data to show new pending order...');
-      await fetchPOOrders();
+      await fetchPOOrders(true);
       
       // Small delay to ensure state updates
       setTimeout(async () => {
-        await fetchPOOrders();
+        await fetchPOOrders(true);
         console.log('🔄 Second data refresh completed');
       }, 500);
 
@@ -1318,7 +1318,7 @@ export default function PODetailsPage() {
       
       if (createdCount > 0) {
         // Refresh data to show new orders
-        await fetchPOOrders();
+        await fetchPOOrders(true);
         
         toast({
           title: "Fixed Partial Fulfillments",
@@ -1405,7 +1405,7 @@ export default function PODetailsPage() {
       setItemsMarkedFromStock(new Set());
       
       // Refresh data
-      await fetchPOOrders();
+      await fetchPOOrders(true);
       
       toast({
         title: "Reset Complete",
@@ -1526,7 +1526,7 @@ export default function PODetailsPage() {
         // Refresh inventory and PO data
         await Promise.all([
           fetchInventoryData(),
-          fetchPOOrders()
+          fetchPOOrders(true)
         ]);
       }
 
@@ -1779,7 +1779,7 @@ export default function PODetailsPage() {
       });
 
       // Refresh data
-      await Promise.all([fetchInventoryData(), fetchPOOrders()]);
+      await Promise.all([fetchInventoryData(), fetchPOOrders(true)]);
 
       toast({
         title: "Item Marked as Ordered",
@@ -2154,7 +2154,7 @@ export default function PODetailsPage() {
                 setLoading(true);
                 try {
                   await Promise.all([
-                    fetchPOOrders(),
+                    fetchPOOrders(true),
                     fetchInventoryData()
                   ]);
                   toast({
