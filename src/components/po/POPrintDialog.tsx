@@ -1,6 +1,6 @@
 // Print dialog for PO items with preview and options
 import React, { useState, useRef } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -198,6 +198,9 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
             <Printer className="h-5 w-5" />
             {title}
           </DialogTitle>
+          <DialogDescription>
+            Select items and configure print settings for your purchase order documents or labels.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex gap-4 flex-1 overflow-hidden">
