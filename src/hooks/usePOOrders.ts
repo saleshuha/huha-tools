@@ -196,6 +196,25 @@ export const usePOOrders = () => {
         statuses: [...new Set(typedData.map(o => o.status))]
       });
 
+      // CRITICAL DEBUG: Check specific PO 2MS6D3LP
+      const po2MS6D3LP_items = typedData.filter(o => o.po_number === '2MS6D3LP');
+      if (po2MS6D3LP_items.length > 0) {
+        console.log('🚨 CRITICAL: PO 2MS6D3LP in typedData BEFORE setState:');
+        console.log('  📊 Total items:', po2MS6D3LP_items.length);
+        console.log('  📊 Unique ASINs:', new Set(po2MS6D3LP_items.map(o => o.asin)).size);
+        console.log('  📊 Total quantity:', po2MS6D3LP_items.reduce((sum, o) => sum + o.quantity, 0));
+        console.log('  📊 Countries:', [...new Set(po2MS6D3LP_items.map(o => o.country))]);
+        console.log('  📊 Statuses:', [...new Set(po2MS6D3LP_items.map(o => o.status))]);
+        console.log('  📊 First 3 IDs:', po2MS6D3LP_items.slice(0, 3).map(o => o.id));
+        
+        if (po2MS6D3LP_items.length !== 287) {
+          console.error('  ❌ CRITICAL: Expected 287 items for PO 2MS6D3LP but found:', po2MS6D3LP_items.length);
+          console.log('  🔍 Checking allPOOrders before filtering...');
+          const rawPO = (allPOOrders || []).filter((o: any) => o.po_number === '2MS6D3LP');
+          console.log('  📊 Raw DB count for 2MS6D3LP:', rawPO.length);
+        }
+      }
+
       console.log('🎯 Setting poOrders state with', typedData.length, 'orders');
       setPOOrders(typedData);
       setLoadingProgress(100);
