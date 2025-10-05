@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
-import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, AlertTriangle, FileText } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, AlertTriangle, FileText, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { POFileUpload } from '@/components/po/POFileUpload';
 import { POProfitAnalytics } from '@/components/po/POProfitAnalytics';
@@ -2483,7 +2483,7 @@ export const POTracker = () => {
                   <div className="flex items-center gap-4">
                      <Button 
                        variant="outline" 
-                       size="sm"
+                       size="lg"
                        onClick={() => {
                          setLabelsStep('list');
                          setSelectedPOForLabels(null);
@@ -2491,8 +2491,10 @@ export const POTracker = () => {
                          setSelectedForPrint(new Map());
                          setOriginalOrderPreserved(false); // Reset order preservation when going back
                        }}
+                       className="font-semibold border-2 hover:bg-accent/50"
                      >
-                       ← Back to PO List
+                       <ArrowLeft className="h-5 w-5 mr-2" />
+                       Back to PO List
                      </Button>
                      <div>
                        <CardTitle className="flex items-center gap-2">
