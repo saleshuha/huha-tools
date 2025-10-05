@@ -338,8 +338,7 @@ export const POTracker = () => {
     const todayOrders = poOrders.filter(order => {
       const orderDate = new Date(order.created_at);
       const isToday = orderDate >= todayStart && orderDate <= todayEnd;
-      const isSelectedCountry = order.country === selectedCountry;
-      return isToday && isSelectedCountry;
+      return isToday;
     });
     
     console.log('🗑️ Delete Today Uploads:', {
@@ -701,11 +700,10 @@ export const POTracker = () => {
     });
     
     // Apply strict country filtering - only show orders from selected country
-    if (selectedCountry) {
+    // Remove country filtering - show all POs regardless of selected country
+    if (false) {
       const beforeCountryFilter = filtered.length;
-      const countryFilteredOrders = filtered.filter(order => 
-        order.country === selectedCountry
-      );
+      const countryFilteredOrders = filtered;
       
       // Debug specific PO after country filter
       const debugPOAfterCountry = countryFilteredOrders.filter(o => o.po_number === debugPO);
@@ -847,13 +845,12 @@ export const POTracker = () => {
       : [...poOrders];
     
     // Apply strict country filtering
-    if (selectedCountry) {
+    // Remove country filtering - show all POs regardless of selected country
+    if (false) {
       const beforeCountryFilter = ordersToFilter.length;
-      const countryFilteredOrders = ordersToFilter.filter(order => 
-        !order.country || order.country === selectedCountry
-      );
+      const countryFilteredOrders = ordersToFilter;
       
-      // Always apply country filter strictly - no fallback
+      // Country filter removed
       ordersToFilter = countryFilteredOrders;
       console.log('🔍 PO GROUPS DEBUG: After country filter:', ordersToFilter.length, 'orders (was', beforeCountryFilter, 'for country', selectedCountry, ')');
       
@@ -2258,10 +2255,9 @@ export const POTracker = () => {
                                   }
                                 });
                                 
-                                // Get ALL orders for these PO numbers - no aggregation, no filtering except by PO number and country
+                                // Get ALL orders for these PO numbers - no aggregation, no filtering except by PO number
                                 const selectedOrders = poOrders.filter(order => 
                                   selectedPONumbers.includes(order.po_number) && 
-                                  order.country === selectedCountry &&
                                   order.status !== 'cancelled'
                                 );
                                 
@@ -3116,13 +3112,12 @@ export const POTracker = () => {
                         <Button 
                           variant="outline" 
                            size="sm"
-                           onClick={() => {
-                             const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
-                             const allPOOrders = poOrders
-                               .filter(order => order.country === selectedCountry)
-                               .filter(order => selectedPOsList.includes(order.po_number))
-                               .filter(order => order.status !== 'cancelled');
-                             const currentPageIds = new Set(allPOOrders.map(order => order.id));
+                            onClick={() => {
+                              const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
+                              const allPOOrders = poOrders
+                                .filter(order => selectedPOsList.includes(order.po_number))
+                                .filter(order => order.status !== 'cancelled');
+                              const currentPageIds = new Set(allPOOrders.map(order => order.id));
                              const allSelected = Array.from(currentPageIds).every(id => selectedForPrint.has(id));
                              
                              if (allSelected) {
@@ -3141,13 +3136,12 @@ export const POTracker = () => {
                           }}
                           className="hover:bg-primary/10 hover:border-primary/30 transition-colors"
                          >
-                           {(() => {
-                             const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
-                             const allPOOrders = poOrders
-                               .filter(order => order.country === selectedCountry)
-                               .filter(order => selectedPOsList.includes(order.po_number))
-                               .filter(order => order.status !== 'cancelled');
-                              const allSelected = allPOOrders.every(order => selectedForPrint.has(order.id));
+                            {(() => {
+                              const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
+                              const allPOOrders = poOrders
+                                .filter(order => selectedPOsList.includes(order.po_number))
+                                .filter(order => order.status !== 'cancelled');
+                               const allSelected = allPOOrders.every(order => selectedForPrint.has(order.id));
                             return allSelected && allPOOrders.length > 0 ? (
                               <>
                                 <Square className="h-3 w-3 mr-1" />
@@ -3309,13 +3303,12 @@ export const POTracker = () => {
                                 poOrdersCount: poOrders.length
                               });
                               
-                              // Use poOrders directly (all orders including closed) and filter by country and selected POs
-                              const ordersForSelectedPOs = poOrders
-                                .filter(order => {
-                                  const countryMatch = order.country === selectedCountry;
-                                  const poMatch = selectedPOsList.includes(order.po_number);
-                                  const statusMatch = order.status !== 'cancelled'; // Exclude only cancelled
-                                  return countryMatch && poMatch && statusMatch;
+                               // Use poOrders directly (all orders including closed) and filter by selected POs
+                               const ordersForSelectedPOs = poOrders
+                                 .filter(order => {
+                                   const poMatch = selectedPOsList.includes(order.po_number);
+                                   const statusMatch = order.status !== 'cancelled'; // Exclude only cancelled
+                                   return poMatch && statusMatch;
                                 })
                                 .filter(order => !labelSearchQuery || 
                                   order.po_number.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
@@ -3652,13 +3645,12 @@ export const POTracker = () => {
                    </div>
                    
                      {/* Enhanced Pagination Controls */}
-                      {(() => {
+                       {(() => {
                         const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : (selectedPOForLabels ? [selectedPOForLabels] : []);
                         const ordersForSelectedPOs = poOrders
-                          .filter(order => order.country === selectedCountry)
                           .filter(order => selectedPOsList.includes(order.po_number))
                           .filter(order => order.status !== 'cancelled')
-                          .filter(order => !labelSearchQuery || 
+                          .filter(order => !labelSearchQuery ||
                             order.po_number.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
                             order.sku_code?.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
                             order.asin?.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
