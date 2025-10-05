@@ -303,7 +303,7 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
                 {filteredOrdersWithIndices.length > 0 ? (
                   <div className="space-y-2">
                     {filteredOrdersWithIndices.map(({ order, originalIndex }) => (
-                      <div key={order.id} className="flex items-start gap-2 p-2 hover:bg-muted rounded">
+                      <div key={originalIndex} className="flex items-start gap-2 p-2 hover:bg-muted rounded">
                         <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold flex-shrink-0">
                           {originalIndex + 1}
                         </div>
