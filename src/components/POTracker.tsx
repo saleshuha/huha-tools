@@ -498,12 +498,25 @@ export const POTracker = () => {
 
   useEffect(() => {
     console.log('📊 POTracker: poOrders updated', { 
-      length: poOrders.length, 
-      isLoading,
-      selectedCountry,
-      sampleOrders: poOrders.slice(0, 2).map(o => ({ po: o.po_number, country: o.country }))
+      total: poOrders.length,
+      countries: [...new Set(poOrders.map(o => o.country))],
+      statuses: [...new Set(poOrders.map(o => o.status))],
+      uniquePOs: new Set(poOrders.map(o => o.po_number)).size
     });
-  }, [poOrders, isLoading, selectedCountry]);
+    
+    // Check specific PO
+    const targetPO = '2MS6D3LP';
+    const ordersForTargetPO = poOrders.filter(o => o.po_number === targetPO);
+    if (ordersForTargetPO.length > 0) {
+      console.log(`🎯 PO ${targetPO}:`, {
+        totalOrders: ordersForTargetPO.length,
+        totalUnits: ordersForTargetPO.reduce((sum, o) => sum + o.quantity, 0),
+        countries: [...new Set(ordersForTargetPO.map(o => o.country))],
+        statuses: [...new Set(ordersForTargetPO.map(o => o.status))],
+        sampleASINs: ordersForTargetPO.slice(0, 5).map(o => o.asin || o.model_number)
+      });
+    }
+  }, [poOrders]);
 
   const initializeQZ = async () => {
     try {
