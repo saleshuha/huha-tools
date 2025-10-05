@@ -37,7 +37,7 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
   const [printFormat, setPrintFormat] = useState<'document' | 'label'>('document');
   const [previewMode, setPreviewMode] = useState<'document' | 'table'>('document');
   const [includeImages, setIncludeImages] = useState(true);
-  const [bulkAggregate, setBulkAggregate] = useState(true);
+  const [bulkAggregate, setBulkAggregate] = useState(false);
   const [copies, setCopies] = useState(1);
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set(Array.from({ length: orders.length }, (_, i) => i)));
   const [isPrinting, setIsPrinting] = useState(false);
