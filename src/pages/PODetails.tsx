@@ -1974,7 +1974,7 @@ export default function PODetailsPage() {
   }
   return (
     <div className="min-h-screen bg-gradient-surface">
-      <div className="glass-container mx-6 my-4 p-8 animate-fade-in">
+      <div className="glass-container mx-2 my-2 p-4 animate-fade-in max-w-full">
         {/* Enhanced Header Section - Row 1 */}
         <div className="mb-6 pb-4 border-b border-border/40">
           <div className="flex items-center justify-between">
