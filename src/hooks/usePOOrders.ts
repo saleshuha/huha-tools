@@ -98,6 +98,8 @@ export const usePOOrders = () => {
       console.log(loadAllOrders ? '📚 Loading ALL orders with pagination' : '🎯 Loading ACTIVE orders with pagination');
       
       // Fetch ALL rows by paginating in chunks of 1000
+      // CRITICAL: Order by both created_at AND id to ensure consistent pagination
+      // when multiple records share the same timestamp (prevents random subsets)
       let allPOOrders: any[] = [];
       let from = 0;
       const batchSize = 1000;
@@ -109,7 +111,7 @@ export const usePOOrders = () => {
           .select('*')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
-          .order('id', { ascending: false })  // CRITICAL FIX: Add secondary sort to handle duplicate timestamps
+          .order('id', { ascending: false })  // Secondary sort ensures consistent ordering
           .range(from, from + batchSize - 1);
         
         if (batchError) {
@@ -118,28 +120,12 @@ export const usePOOrders = () => {
         
         if (batch && batch.length > 0) {
           allPOOrders = [...allPOOrders, ...batch];
-          
-          // CRITICAL DEBUG: Track PO 2MS6D3LP through each batch
-          const po2MS6D3LP_in_batch = batch.filter((o: any) => o.po_number === '2MS6D3LP');
-          if (po2MS6D3LP_in_batch.length > 0) {
-            console.log(`🚨 BATCH ${from}-${from + batchSize}: Found ${po2MS6D3LP_in_batch.length} items for PO 2MS6D3LP`);
-          }
-          
           console.log(`📦 Loaded batch: ${batch.length} orders (total so far: ${allPOOrders.length})`);
           from += batchSize;
           hasMore = batch.length === batchSize; // Continue if we got a full batch
         } else {
           hasMore = false;
         }
-      }
-      
-      // CRITICAL DEBUG: Check PO 2MS6D3LP after all batches loaded
-      const po2MS6D3LP_raw = allPOOrders.filter((o: any) => o.po_number === '2MS6D3LP');
-      console.log('🚨 CRITICAL: PO 2MS6D3LP after ALL batches loaded:', po2MS6D3LP_raw.length, 'items');
-      if (po2MS6D3LP_raw.length > 0) {
-        console.log('  Sample IDs:', po2MS6D3LP_raw.slice(0, 3).map((o: any) => o.id));
-        console.log('  Statuses:', [...new Set(po2MS6D3LP_raw.map((o: any) => o.status))]);
-        console.log('  Countries:', [...new Set(po2MS6D3LP_raw.map((o: any) => o.country))]);
       }
       
       const fetchError = null;
@@ -158,20 +144,10 @@ export const usePOOrders = () => {
         filteredOrders = filteredOrders.filter((order: any) => 
           ['pending', 'ordered', 'shipped', 'placed'].includes(order.status)
         );
-        
-        // CRITICAL DEBUG: Check PO 2MS6D3LP after status filter
-        const po2MS6D3LP_after_status = filteredOrders.filter((o: any) => o.po_number === '2MS6D3LP');
-        console.log('🚨 CRITICAL: PO 2MS6D3LP after STATUS filter:', po2MS6D3LP_after_status.length, 'items');
-        
         console.log(`🎯 Filtered to ${filteredOrders.length} active orders (from ${allPOOrders?.length || 0} total)`);
       }
 
       console.log(`✅ Fetched ${filteredOrders.length} PO orders`);
-      
-      // CRITICAL DEBUG: Count PO 2MS6D3LP before sunsky matching
-      const po2MS6D3LP_before_sunsky = filteredOrders.filter((o: any) => o.po_number === '2MS6D3LP');
-      console.log('🚨 CRITICAL: PO 2MS6D3LP before sunsky matching:', po2MS6D3LP_before_sunsky.length, 'items');
-      
       setLoadingProgress(60);
       
       // Fetch all sunsky_skus with full data for matching
@@ -222,25 +198,6 @@ export const usePOOrders = () => {
         countries: [...new Set(typedData.map(o => o.country))],
         statuses: [...new Set(typedData.map(o => o.status))]
       });
-
-      // CRITICAL DEBUG: Check specific PO 2MS6D3LP
-      const po2MS6D3LP_items = typedData.filter(o => o.po_number === '2MS6D3LP');
-      if (po2MS6D3LP_items.length > 0) {
-        console.log('🚨 CRITICAL: PO 2MS6D3LP in typedData BEFORE setState:');
-        console.log('  📊 Total items:', po2MS6D3LP_items.length);
-        console.log('  📊 Unique ASINs:', new Set(po2MS6D3LP_items.map(o => o.asin)).size);
-        console.log('  📊 Total quantity:', po2MS6D3LP_items.reduce((sum, o) => sum + o.quantity, 0));
-        console.log('  📊 Countries:', [...new Set(po2MS6D3LP_items.map(o => o.country))]);
-        console.log('  📊 Statuses:', [...new Set(po2MS6D3LP_items.map(o => o.status))]);
-        console.log('  📊 First 3 IDs:', po2MS6D3LP_items.slice(0, 3).map(o => o.id));
-        
-        if (po2MS6D3LP_items.length !== 287) {
-          console.error('  ❌ CRITICAL: Expected 287 items for PO 2MS6D3LP but found:', po2MS6D3LP_items.length);
-          console.log('  🔍 Checking allPOOrders before filtering...');
-          const rawPO = (allPOOrders || []).filter((o: any) => o.po_number === '2MS6D3LP');
-          console.log('  📊 Raw DB count for 2MS6D3LP:', rawPO.length);
-        }
-      }
 
       console.log('🎯 Setting poOrders state with', typedData.length, 'orders');
       setPOOrders(typedData);

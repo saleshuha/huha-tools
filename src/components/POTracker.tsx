@@ -2231,40 +2231,8 @@ export const POTracker = () => {
                                 // Get ALL orders for selected POs directly from poOrders (not filtered groups)
                                 const selectedPONumbers = Array.from(selectedPOsForLabels);
                                 
-                                console.log('🔍 DEBUG: Starting print flow');
-                                console.log('🔍 DEBUG: Selected PO numbers:', selectedPONumbers);
-                                console.log('🔍 DEBUG: Total poOrders in state:', poOrders.length);
-                                
-                                // SPECIAL DEBUG for PO 2MS6D3LP
-                                if (selectedPONumbers.includes('2MS6D3LP')) {
-                                  const po2MS6D3LP = poOrders.filter(o => o.po_number === '2MS6D3LP');
-                                  console.log('🚨 CRITICAL DEBUG - PO 2MS6D3LP:');
-                                  console.log('  📊 Total items in poOrders:', po2MS6D3LP.length);
-                                  console.log('  📊 Unique ASINs:', new Set(po2MS6D3LP.map(o => o.asin)).size);
-                                  console.log('  📊 Total quantity:', po2MS6D3LP.reduce((sum, o) => sum + o.quantity, 0));
-                                  console.log('  📊 Countries:', [...new Set(po2MS6D3LP.map(o => o.country))]);
-                                  console.log('  📊 Statuses:', [...new Set(po2MS6D3LP.map(o => o.status))]);
-                                  console.log('  📊 First 5 items:', po2MS6D3LP.slice(0, 5).map(o => ({ 
-                                    id: o.id, 
-                                    asin: o.asin, 
-                                    sku: o.sku_code, 
-                                    qty: o.quantity,
-                                    country: o.country,
-                                    status: o.status
-                                  })));
-                                }
-                                
-                                // Debug: Check all orders for each PO
-                                selectedPONumbers.forEach(poNum => {
-                                  const allOrdersForPO = poOrders.filter(o => o.po_number === poNum);
-                                  console.log(`🔍 DEBUG: PO ${poNum} - Total in poOrders:`, allOrdersForPO.length);
-                                  
-                                  if (allOrdersForPO.length > 0) {
-                                    const countries = [...new Set(allOrdersForPO.map(o => o.country))];
-                                    const statuses = [...new Set(allOrdersForPO.map(o => o.status))];
-                                    console.log(`  Countries:`, countries, `Statuses:`, statuses);
-                                  }
-                                });
+                                console.log('🖨️ Print Preview: Selected POs:', selectedPONumbers.join(', '));
+                                console.log('🖨️ Total poOrders in state:', poOrders.length);
                                 
                                 // Get ALL orders for these PO numbers - no aggregation, no filtering except by PO number and cancelled status
                                 const selectedOrders = poOrders.filter(order => 
@@ -2272,19 +2240,7 @@ export const POTracker = () => {
                                   order.status !== 'cancelled'
                                 );
                                 
-                                console.log('🔍 DEBUG: Orders passed to print dialog:', selectedOrders.length);
-                                
-                                // SPECIAL DEBUG for PO 2MS6D3LP after filtering
-                                if (selectedPONumbers.includes('2MS6D3LP')) {
-                                  const po2MS6D3LP_filtered = selectedOrders.filter(o => o.po_number === '2MS6D3LP');
-                                  console.log('🚨 CRITICAL DEBUG - PO 2MS6D3LP AFTER FILTERING:');
-                                  console.log('  📊 Items passing to print:', po2MS6D3LP_filtered.length);
-                                  console.log('  📊 Unique ASINs:', new Set(po2MS6D3LP_filtered.map(o => o.asin)).size);
-                                  if (po2MS6D3LP_filtered.length !== 287) {
-                                    console.error('  ❌ MISMATCH! Expected 287 items but got:', po2MS6D3LP_filtered.length);
-                                  }
-                                }
-                                
+                                console.log('🖨️ Orders passed to print dialog:', selectedOrders.length);
                                 selectedPONumbers.forEach(po => {
                                   const ordersForPO = selectedOrders.filter(o => o.po_number === po);
                                   const uniqueASINs = new Set(ordersForPO.map(o => o.asin));

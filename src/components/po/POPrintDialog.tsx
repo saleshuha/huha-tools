@@ -49,18 +49,12 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
 
   // Debug: Log total orders received
   React.useEffect(() => {
-    console.log('🔍 POPrintDialog received orders:', orders.length);
-    console.log('🔍 Unique ASINs:', new Set(orders.map(o => o.asin)).size);
-    console.log('🔍 Unique SKUs:', new Set(orders.map(o => o.sku_code)).size);
-    console.log('🔍 Total quantity:', orders.reduce((sum, o) => sum + o.quantity, 0));
-    console.log('🔍 PO Numbers:', [...new Set(orders.map(o => o.po_number))]);
-    console.log('🔍 Sample orders:', orders.slice(0, 3).map(o => ({ 
-      id: o.id, 
-      po: o.po_number, 
-      asin: o.asin, 
-      sku: o.sku_code,
-      qty: o.quantity 
-    })));
+    if (orders.length > 0) {
+      console.log('🖨️ POPrintDialog: Received', orders.length, 'orders');
+      console.log('  Unique ASINs:', new Set(orders.map(o => o.asin)).size);
+      console.log('  Unique POs:', [...new Set(orders.map(o => o.po_number))].join(', '));
+      console.log('  Total quantity:', orders.reduce((sum, o) => sum + o.quantity, 0));
+    }
   }, [orders]);
 
   // Filter orders based on search query and maintain proper indices
