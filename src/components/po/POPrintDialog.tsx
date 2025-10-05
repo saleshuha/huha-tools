@@ -76,26 +76,25 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
   const { getImageByAsin } = useProductImages();
   const { toast } = useToast();
 
-  // Filter orders based on search query
+  // Filter orders based on search query - show ALL individual orders, not aggregated
   const filteredOrders = React.useMemo(() => {
     if (!searchQuery.trim()) return orders;
     
     const query = searchQuery.toLowerCase();
-    return orders.filter((order, index) => {
+    return orders.filter((order) => {
       const searchText = [
         order.asin,
         order.sku_code,
         order.title,
         order.po_number,
         order.model_number,
-        `#${index + 1}` // Allow searching by serial number
       ].filter(Boolean).join(' ').toLowerCase();
       
       return searchText.includes(query);
     });
   }, [orders, searchQuery]);
 
-  // Map filtered orders back to their original indices for selection
+  // Map filtered orders with their original indices for selection
   const filteredOrdersWithIndices = React.useMemo(() => {
     return filteredOrders.map(order => ({
       order,
@@ -308,7 +307,7 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
             {/* Item Selection */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label>Items to Print ({filteredOrders.length})</Label>
+                <Label className="text-base font-semibold">Individual Orders ({filteredOrders.length})</Label>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -317,6 +316,9 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
                   {selectedItems.size === orders.length ? 'Deselect All' : 'Select All'}
                 </Button>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Each row is one order line. Multiple lines may have the same ASIN.
+              </p>
 
               {/* Search Input */}
               <div className="space-y-2">
@@ -346,20 +348,25 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
                   <div className="space-y-2">
                     {filteredOrdersWithIndices.map(({ order, originalIndex }) => (
                       <div key={order.id} className="flex items-start gap-2 p-2 hover:bg-muted rounded">
-                        <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold flex-shrink-0">
-                          {originalIndex + 1}
-                        </div>
                         <Checkbox
                           checked={selectedItems.has(originalIndex)}
                           onCheckedChange={() => toggleItem(originalIndex)}
                         />
-                        <div className="flex-1 text-sm">
-                          <div className="font-medium">{order.asin || 'N/A'}</div>
+                        <div className="flex-1 text-sm space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                              #{originalIndex + 1}
+                            </span>
+                            <span className="font-medium">{order.asin || order.model_number || 'N/A'}</span>
+                            <span className="text-xs font-bold bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded">
+                              Qty: {order.quantity}
+                            </span>
+                          </div>
                           {order.sku_code && (
                             <div className="text-xs text-muted-foreground">SKU: {order.sku_code}</div>
                           )}
                           <div className="text-xs text-muted-foreground truncate">{order.title || 'No title'}</div>
-                          <div className="text-xs text-muted-foreground">Qty: {order.quantity} | PO: {order.po_number}</div>
+                          <div className="text-xs text-muted-foreground">PO: {order.po_number}</div>
                         </div>
                       </div>
                     ))}
