@@ -1764,23 +1764,23 @@ export function AsinInventory() {
                         </td>
                           <td className="p-3 border-r align-middle">
                            <div className="flex items-center justify-center">
-                             <Badge 
-                               variant={
-                                 item.quantity > 0 
-                                   ? 'default' 
-                                   : item.status === 'no-stock'
-                                     ? 'secondary'
-                                     : item.status === 'sold' || item.status === 'out-of-stock'
-                                       ? 'destructive' 
-                                       : item.status === 'ordered' 
-                                         ? 'secondary'
-                                         : item.status === 'reserved' 
-                                           ? 'outline'
-                                           : item.status === 'damaged'
-                                             ? 'destructive'
-                                             : 'secondary'
-                               } 
-                               className={`text-xs ${item.status === 'no-stock' ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20 hover:bg-yellow-500/15' : ''}`}
+                              <Badge 
+                                variant={
+                                  item.quantity > 0 
+                                    ? 'default' 
+                                    : item.status === 'no-stock'
+                                      ? 'secondary'
+                                      : item.status === 'sold' || item.status === 'out-of-stock'
+                                        ? 'destructive' 
+                                        : item.status === 'ordered' 
+                                          ? 'secondary'
+                                          : item.status === 'reserved' 
+                                            ? 'outline'
+                                            : item.status === 'damaged'
+                                              ? 'destructive'
+                                              : 'secondary'
+                                } 
+                                className={`text-xs ${item.quantity === 0 && item.status === 'no-stock' ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20 hover:bg-yellow-500/15' : ''}`}
                             >
                               {item.quantity > 0 
                                 ? 'In Stock' 
