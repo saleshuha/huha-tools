@@ -2409,14 +2409,26 @@ export const POTracker = () => {
                             
                             {/* Items Column */}
                             <div className="p-3 flex items-center">
-                              <Badge variant="secondary" className="text-xs">
-                                {group.orders.length} item{group.orders.length !== 1 ? 's' : ''}
-                              </Badge>
+                              {(() => {
+                                // Get metrics from database function - same as PO Overview
+                                const dbMetrics = poGroupMetrics?.find(m => m.po_number === group.poNumber);
+                                const itemCount = dbMetrics?.distinct_skus || group.orders.length;
+                                return (
+                                  <Badge variant="secondary" className="text-xs">
+                                    {itemCount} item{itemCount !== 1 ? 's' : ''}
+                                  </Badge>
+                                );
+                              })()}
                             </div>
                             
                             {/* Quantity Column */}
                             <div className="p-3 flex items-center">
-                              <span className="font-medium">{group.orders.reduce((sum, order) => sum + order.quantity, 0)}</span>
+                              {(() => {
+                                // Get metrics from database function - same as PO Overview
+                                const dbMetrics = poGroupMetrics?.find(m => m.po_number === group.poNumber);
+                                const totalQty = dbMetrics?.asn_quantity || group.orders.reduce((sum, order) => sum + order.quantity, 0);
+                                return <span className="font-medium">{totalQty}</span>;
+                              })()}
                             </div>
                             
                             {/* Actions Column */}
