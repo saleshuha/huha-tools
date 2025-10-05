@@ -2232,16 +2232,29 @@ export const POTracker = () => {
                               })}
                               onClick={() => {
                                 // Get ALL orders from selected POs (not just filtered ones)
-                                const selectedOrders = poOrders
-                                  .filter(order => 
-                                    selectedPOsForLabels.has(order.po_number) &&
-                                    order.status !== 'cancelled'
-                                  );
+                                const selectedPONumbers = Array.from(selectedPOsForLabels);
+                                
+                                console.log('🔍 DEBUG: Total poOrders loaded:', poOrders.length);
+                                console.log('🔍 DEBUG: Selected PO numbers:', selectedPONumbers);
+                                
+                                // Get ALL orders for selected POs - no status filtering
+                                const selectedOrders = poOrders.filter(order => 
+                                  selectedPOsForLabels.has(order.po_number)
+                                );
+                                
+                                // Group by PO to see counts
+                                const poCountMap = new Map();
+                                selectedOrders.forEach(order => {
+                                  const count = poCountMap.get(order.po_number) || 0;
+                                  poCountMap.set(order.po_number, count + 1);
+                                });
                                 
                                 console.log('📋 Print Preview - Selected Orders:', {
-                                  poNumbers: Array.from(selectedPOsForLabels),
+                                  poNumbers: selectedPONumbers,
                                   totalOrders: selectedOrders.length,
-                                  totalUnits: selectedOrders.reduce((sum, o) => sum + o.quantity, 0)
+                                  totalUnits: selectedOrders.reduce((sum, o) => sum + o.quantity, 0),
+                                  ordersPerPO: Object.fromEntries(poCountMap),
+                                  allStatuses: [...new Set(selectedOrders.map(o => o.status))]
                                 });
                                 
                                 setPrintMode('bulk');
