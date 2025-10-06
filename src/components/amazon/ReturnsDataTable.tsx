@@ -202,7 +202,6 @@ export const ReturnsDataTable: React.FC<ReturnsDataTableProps> = ({
                   <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
-              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -227,10 +226,10 @@ export const ReturnsDataTable: React.FC<ReturnsDataTableProps> = ({
                     />
                   </div>
                 </TableCell>
-                <TableCell>
+                <TableCell className="max-w-2xl">
                   <div className="flex flex-col">
                     <span className="font-mono text-sm font-medium">{item.asin}</span>
-                    <span className="text-sm text-muted-foreground line-clamp-2 max-w-md">
+                    <span className="text-sm text-muted-foreground line-clamp-3">
                       {item.product_title || '-'}
                     </span>
                   </div>
@@ -239,15 +238,6 @@ export const ReturnsDataTable: React.FC<ReturnsDataTableProps> = ({
                 <TableCell>{item.returned_units.toLocaleString()}</TableCell>
                 <TableCell>{getReturnRatioBadge(Number(item.return_ratio))}</TableCell>
                 <TableCell>{new Date(item.upload_date).toLocaleDateString()}</TableCell>
-                <TableCell className="text-right">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeleteClick(item.id)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </TableCell>
               </TableRow>
             ))}
           </TableBody>
