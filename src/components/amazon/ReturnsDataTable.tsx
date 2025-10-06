@@ -216,12 +216,25 @@ export const ReturnsDataTable: React.FC<ReturnsDataTableProps> = ({
                 <TableCell>
                   <div className="w-16 h-16 rounded-md border bg-muted flex items-center justify-center overflow-hidden">
                     <img
-                      src={`https://images-na.ssl-images-amazon.com/images/P/${item.asin}.jpg`}
+                      src={`https://images.amazon.com/images/P/${item.asin}.jpg`}
                       alt={item.product_title || item.asin}
                       className="w-full h-full object-contain"
+                      loading="lazy"
                       onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                        e.currentTarget.parentElement!.innerHTML = '<div class="flex items-center justify-center w-full h-full"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>';
+                        const target = e.currentTarget;
+                        // Try alternative URL formats
+                        if (target.src.includes('images.amazon.com')) {
+                          target.src = `https://m.media-amazon.com/images/I/${item.asin}._SL500_.jpg`;
+                        } else if (target.src.includes('m.media-amazon.com')) {
+                          target.src = `https://images-na.ssl-images-amazon.com/images/P/${item.asin}.jpg`;
+                        } else {
+                          // All URLs failed, show fallback icon
+                          target.style.display = 'none';
+                          const parent = target.parentElement;
+                          if (parent) {
+                            parent.innerHTML = `<div class="flex items-center justify-center w-full h-full text-muted-foreground"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>`;
+                          }
+                        }
                       }}
                     />
                   </div>
