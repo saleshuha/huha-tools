@@ -50,6 +50,7 @@ import ProcessedOrders from "./pages/ProcessedOrders";
 import PODetailsPage from "./pages/PODetails";
 import AmazonFulfillmentTracker from "./pages/AmazonFulfillmentTracker";
 import AmazonImageUploader from "./pages/AmazonImageUploader";
+import AmazonReturnsAnalysis from "./pages/AmazonReturnsAnalysis";
 import AddSKUPage from "./pages/AddSKUPage";
 import BulkColumnEditor from "./pages/BulkColumnEditor";
 import SunskySKUImporterPage from "./pages/SunskySKUImporter";
@@ -281,6 +282,7 @@ const App = () => {
                         {!isNative && (
                           <>
                             <Route path="/amazon-vendor-central" element={<AmazonVendorCentral />} />
+                            <Route path="/amazon-returns-analysis" element={<AmazonReturnsAnalysis />} />
                           </>
                         )}
 

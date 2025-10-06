@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      amazon_returns_data: {
+        Row: {
+          asin: string
+          country: string
+          created_at: string
+          file_name: string | null
+          id: string
+          notes: string | null
+          product_title: string | null
+          return_ratio: number | null
+          returned_units: number
+          shipped_units: number
+          updated_at: string
+          upload_date: string
+          user_id: string
+        }
+        Insert: {
+          asin: string
+          country?: string
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          notes?: string | null
+          product_title?: string | null
+          return_ratio?: number | null
+          returned_units: number
+          shipped_units: number
+          updated_at?: string
+          upload_date?: string
+          user_id: string
+        }
+        Update: {
+          asin?: string
+          country?: string
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          notes?: string | null
+          product_title?: string | null
+          return_ratio?: number | null
+          returned_units?: number
+          shipped_units?: number
+          updated_at?: string
+          upload_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       asin_inventory: {
         Row: {
           asin: string

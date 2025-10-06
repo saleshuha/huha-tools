@@ -1,4 +1,4 @@
-import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart, Globe, ExternalLink, Eye, Trash2, Settings, Tag, FileSpreadsheet, Truck, Palette, ShoppingBag, Printer } from "lucide-react"
+import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, TrendingDown, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart, Globe, ExternalLink, Eye, Trash2, Settings, Tag, FileSpreadsheet, Truck, Palette, ShoppingBag, Printer } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import { Capacitor } from "@capacitor/core"
@@ -177,7 +177,7 @@ export function AppSidebar() {
   }
 
   const isAmazonSectionActive = () => {
-    return isActive("/order-processing") || isActive("/po-tracker") || isActive("/amazon-fulfillment") || isActive("/amazon-vendor-central") || isActive("/amazon-image-uploader")
+    return isActive("/order-processing") || isActive("/po-tracker") || isActive("/amazon-fulfillment") || isActive("/amazon-vendor-central") || isActive("/amazon-image-uploader") || isActive("/amazon-returns-analysis")
   }
 
   const isNoonSectionActive = () => {
@@ -316,7 +316,7 @@ export function AppSidebar() {
               {/* Removed QZ Tray Setup - moved to between Tools and Data Viewer */}
 
               {/* Amazon Section - only show when not collapsed */}
-              {!isCollapsed && (canAccessRoute('/order-processing') || canAccessRoute('/po-tracker') || canAccessRoute('/amazon-fulfillment') || canAccessRoute('/amazon-image-uploader') || canAccessRoute('/amazon-vendor-central')) && (
+              {!isCollapsed && (canAccessRoute('/order-processing') || canAccessRoute('/po-tracker') || canAccessRoute('/amazon-fulfillment') || canAccessRoute('/amazon-image-uploader') || canAccessRoute('/amazon-vendor-central') || canAccessRoute('/amazon-returns-analysis')) && (
                 <SidebarMenuItem>
                   <Collapsible open={isAmazonOpen} onOpenChange={setIsAmazonOpen}>
                     <CollapsibleTrigger asChild>
@@ -442,6 +442,29 @@ export function AppSidebar() {
                             <Settings className="h-4 w-4 flex-shrink-0 opacity-75" />
                             <span className="font-medium text-xs">
                               Amazon Vendor Central
+                            </span>
+                          </NavLink>
+                        </SidebarMenuButton>
+                      )}
+
+                      {/* Amazon Returns Analysis - Hide in native app */}
+                      {!isNative && canAccessRoute('/amazon-returns-analysis') && (
+                        <SidebarMenuButton
+                          asChild
+                          className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
+                            isActive("/amazon-returns-analysis")
+                              ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                              : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                          }`}
+                        >
+                          <NavLink 
+                            to="/amazon-returns-analysis" 
+                            end
+                            className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
+                          >
+                            <TrendingDown className="h-4 w-4 flex-shrink-0 opacity-75" />
+                            <span className="font-medium text-xs">
+                              Amazon Returns Analysis
                             </span>
                           </NavLink>
                         </SidebarMenuButton>
