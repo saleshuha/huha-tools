@@ -1,21 +1,35 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Package, TrendingDown, TrendingUp, BarChart3 } from 'lucide-react';
+import { Package, TrendingDown, TrendingUp, BarChart3, ImageOff } from 'lucide-react';
 import { ReturnsMetrics } from '@/types/amazon-returns';
+import { useProductImages } from '@/hooks/useProductImages';
+import { AmazonReturn } from '@/types/amazon-returns';
 
 interface ReturnsMetricsDashboardProps {
   metrics: ReturnsMetrics | null;
   loading: boolean;
+  returns: AmazonReturn[];
 }
 
 export const ReturnsMetricsDashboard: React.FC<ReturnsMetricsDashboardProps> = ({
   metrics,
   loading,
+  returns,
 }) => {
+  const { productImages } = useProductImages();
+
+  // Count items without images
+  const itemsWithoutImages = React.useMemo(() => {
+    if (!productImages || !returns) return 0;
+    return returns.filter(item => {
+      const hasImage = productImages.some(img => img.asin === item.asin);
+      return !hasImage;
+    }).length;
+  }, [productImages, returns]);
   if (loading || !metrics) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[1, 2, 3, 4].map((i) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        {[1, 2, 3, 4, 5].map((i) => (
           <Card key={i}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Loading...</CardTitle>
@@ -36,7 +50,7 @@ export const ReturnsMetricsDashboard: React.FC<ReturnsMetricsDashboardProps> = (
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total ASINs</CardTitle>
@@ -92,6 +106,19 @@ export const ReturnsMetricsDashboard: React.FC<ReturnsMetricsDashboardProps> = (
           ) : (
             <div className="text-sm text-muted-foreground">No data</div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Missing Images</CardTitle>
+          <ImageOff className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{itemsWithoutImages}</div>
+          <p className="text-xs text-muted-foreground">
+            {returns.length > 0 ? ((itemsWithoutImages / returns.length) * 100).toFixed(1) : 0}% of products
+          </p>
         </CardContent>
       </Card>
     </div>

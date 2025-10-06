@@ -48,7 +48,7 @@ const AmazonReturnsAnalysis = () => {
 
       <div className="container mx-auto px-6 py-8 space-y-8">
         {/* Metrics Dashboard */}
-        <ReturnsMetricsDashboard metrics={metrics} loading={loading} />
+        <ReturnsMetricsDashboard metrics={metrics} loading={loading} returns={returns} />
 
         {/* Filters Panel */}
         <ReturnsFilterPanel filters={filters} onFiltersChange={setFilters} />
