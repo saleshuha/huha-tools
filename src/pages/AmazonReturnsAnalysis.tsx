@@ -50,20 +50,16 @@ const AmazonReturnsAnalysis = () => {
         {/* Metrics Dashboard */}
         <ReturnsMetricsDashboard metrics={metrics} loading={loading} />
 
-        {/* Filters and Data Table */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-1">
-            <ReturnsFilterPanel filters={filters} onFiltersChange={setFilters} />
-          </div>
-          <div className="lg:col-span-3">
-            <ReturnsDataTable
-              returns={returns}
-              loading={loading}
-              onDelete={deleteReturn}
-              onBulkDelete={bulkDelete}
-            />
-          </div>
-        </div>
+        {/* Filters Panel */}
+        <ReturnsFilterPanel filters={filters} onFiltersChange={setFilters} />
+
+        {/* Data Table */}
+        <ReturnsDataTable
+          returns={returns}
+          loading={loading}
+          onDelete={deleteReturn}
+          onBulkDelete={bulkDelete}
+        />
       </div>
 
       {/* Upload Dialog */}

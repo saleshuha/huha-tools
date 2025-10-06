@@ -3,7 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowUpDown, Trash2, Edit } from 'lucide-react';
+import { ArrowUpDown, Trash2, Package } from 'lucide-react';
 import { AmazonReturn } from '@/types/amazon-returns';
 import {
   AlertDialog,
@@ -15,6 +15,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 
 interface ReturnsDataTableProps {
   returns: AmazonReturn[];
@@ -37,6 +46,8 @@ export const ReturnsDataTable: React.FC<ReturnsDataTableProps> = ({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -63,6 +74,17 @@ export const ReturnsDataTable: React.FC<ReturnsDataTableProps> = ({
     if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
     return 0;
   });
+
+  // Pagination logic
+  const totalPages = Math.ceil(sortedReturns.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedReturns = sortedReturns.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [returns.length]);
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -149,13 +171,13 @@ export const ReturnsDataTable: React.FC<ReturnsDataTableProps> = ({
                   onCheckedChange={handleSelectAll}
                 />
               </TableHead>
+              <TableHead className="w-20">Image</TableHead>
               <TableHead>
                 <Button variant="ghost" size="sm" onClick={() => handleSort('asin')}>
-                  ASIN
+                  Product
                   <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
-              <TableHead>Product Title</TableHead>
               <TableHead>
                 <Button variant="ghost" size="sm" onClick={() => handleSort('shipped_units')}>
                   Shipped
@@ -184,7 +206,7 @@ export const ReturnsDataTable: React.FC<ReturnsDataTableProps> = ({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sortedReturns.map((item) => (
+            {paginatedReturns.map((item) => (
               <TableRow key={item.id}>
                 <TableCell>
                   <Checkbox
@@ -192,9 +214,26 @@ export const ReturnsDataTable: React.FC<ReturnsDataTableProps> = ({
                     onCheckedChange={(checked) => handleSelectOne(item.id, checked as boolean)}
                   />
                 </TableCell>
-                <TableCell className="font-mono text-sm">{item.asin}</TableCell>
-                <TableCell className="max-w-xs truncate">
-                  {item.product_title || '-'}
+                <TableCell>
+                  <div className="w-16 h-16 rounded-md border bg-muted flex items-center justify-center overflow-hidden">
+                    <img
+                      src={`https://images-na.ssl-images-amazon.com/images/P/${item.asin}.jpg`}
+                      alt={item.product_title || item.asin}
+                      className="w-full h-full object-contain"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.parentElement!.innerHTML = '<div class="flex items-center justify-center w-full h-full"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>';
+                      }}
+                    />
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-col">
+                    <span className="font-mono text-sm font-medium">{item.asin}</span>
+                    <span className="text-sm text-muted-foreground line-clamp-2 max-w-md">
+                      {item.product_title || '-'}
+                    </span>
+                  </div>
                 </TableCell>
                 <TableCell>{item.shipped_units.toLocaleString()}</TableCell>
                 <TableCell>{item.returned_units.toLocaleString()}</TableCell>
@@ -214,6 +253,54 @@ export const ReturnsDataTable: React.FC<ReturnsDataTableProps> = ({
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+              />
+            </PaginationItem>
+            
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+              if (
+                page === 1 ||
+                page === totalPages ||
+                (page >= currentPage - 1 && page <= currentPage + 1)
+              ) {
+                return (
+                  <PaginationItem key={page}>
+                    <PaginationLink
+                      onClick={() => setCurrentPage(page)}
+                      isActive={currentPage === page}
+                      className="cursor-pointer"
+                    >
+                      {page}
+                    </PaginationLink>
+                  </PaginationItem>
+                );
+              } else if (page === currentPage - 2 || page === currentPage + 2) {
+                return (
+                  <PaginationItem key={page}>
+                    <PaginationEllipsis />
+                  </PaginationItem>
+                );
+              }
+              return null;
+            })}
+
+            <PaginationItem>
+              <PaginationNext
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
