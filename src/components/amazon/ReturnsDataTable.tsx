@@ -216,19 +216,19 @@ export const ReturnsDataTable: React.FC<ReturnsDataTableProps> = ({
                 <TableCell>
                   <div className="w-16 h-16 rounded-md border bg-muted flex items-center justify-center overflow-hidden">
                     <img
-                      src={`https://m.media-amazon.com/images/I/${item.asin}._AC_SL500_.jpg`}
+                      src={`https://images-na.ssl-images-amazon.com/images/I/${item.asin}._AC_UL320_.jpg`}
                       alt={item.product_title || item.asin}
                       className="w-full h-full object-contain"
                       loading="lazy"
                       onError={(e) => {
                         const target = e.currentTarget;
                         // Try alternative URL formats
-                        if (target.src.includes('_AC_SL500_')) {
+                        if (target.src.includes('images-na.ssl-images-amazon.com/images/I/')) {
+                          target.src = `https://m.media-amazon.com/images/I/${item.asin}._AC_UL320_.jpg`;
+                        } else if (target.src.includes('m.media-amazon.com/images/I/')) {
                           target.src = `https://images-na.ssl-images-amazon.com/images/P/${item.asin}.jpg`;
                         } else if (target.src.includes('images-na.ssl-images-amazon.com/images/P/')) {
-                          target.src = `https://images-na.ssl-images-amazon.com/images/I/${item.asin}._AC_UL320_.jpg`;
-                        } else if (target.src.includes('_AC_UL320_')) {
-                          target.src = `https://ws-na.amazon-adsystem.com/widgets/q?_encoding=UTF8&ASIN=${item.asin}&Format=_SL250_&ID=AsinImage&MarketPlace=US&ServiceVersion=20070822&WS=1`;
+                          target.src = `https://images.amazon.com/images/P/${item.asin}.jpg`;
                         } else {
                           // All URLs failed, show fallback icon
                           target.style.display = 'none';
