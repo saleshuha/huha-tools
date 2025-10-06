@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ArrowUpDown, Trash2, Package } from 'lucide-react';
 import { AmazonReturn } from '@/types/amazon-returns';
+import { useProductImages } from '@/hooks/useProductImages';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,6 +42,7 @@ export const ReturnsDataTable: React.FC<ReturnsDataTableProps> = ({
   onDelete,
   onBulkDelete,
 }) => {
+  const { productImages } = useProductImages();
   const [sortField, setSortField] = useState<SortField>('return_ratio');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -48,6 +50,12 @@ export const ReturnsDataTable: React.FC<ReturnsDataTableProps> = ({
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
+
+  // Get image URL for an ASIN
+  const getImageUrl = (asin: string) => {
+    const productImage = productImages?.find(img => img.asin === asin);
+    return productImage?.image_url;
+  };
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -215,30 +223,19 @@ export const ReturnsDataTable: React.FC<ReturnsDataTableProps> = ({
                 </TableCell>
                 <TableCell>
                   <div className="w-16 h-16 rounded-md border bg-muted flex items-center justify-center overflow-hidden">
-                    <img
-                      src={`https://images-na.ssl-images-amazon.com/images/I/${item.asin}._AC_UL320_.jpg`}
-                      alt={item.product_title || item.asin}
-                      className="w-full h-full object-contain"
-                      loading="lazy"
-                      onError={(e) => {
-                        const target = e.currentTarget;
-                        // Try alternative URL formats
-                        if (target.src.includes('images-na.ssl-images-amazon.com/images/I/')) {
-                          target.src = `https://m.media-amazon.com/images/I/${item.asin}._AC_UL320_.jpg`;
-                        } else if (target.src.includes('m.media-amazon.com/images/I/')) {
-                          target.src = `https://images-na.ssl-images-amazon.com/images/P/${item.asin}.jpg`;
-                        } else if (target.src.includes('images-na.ssl-images-amazon.com/images/P/')) {
-                          target.src = `https://images.amazon.com/images/P/${item.asin}.jpg`;
-                        } else {
-                          // All URLs failed, show fallback icon
-                          target.style.display = 'none';
-                          const parent = target.parentElement;
-                          if (parent) {
-                            parent.innerHTML = `<div class="flex items-center justify-center w-full h-full text-muted-foreground"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>`;
-                          }
-                        }
-                      }}
-                    />
+                    {getImageUrl(item.asin) ? (
+                      <img
+                        src={getImageUrl(item.asin)}
+                        alt={item.product_title || item.asin}
+                        className="w-full h-full object-contain"
+                        loading="lazy"
+                        onError={(e) => {
+                          e.currentTarget.src = '/placeholder.svg';
+                        }}
+                      />
+                    ) : (
+                      <Package className="w-8 h-8 text-muted-foreground" />
+                    )}
                   </div>
                 </TableCell>
                 <TableCell className="max-w-2xl">
