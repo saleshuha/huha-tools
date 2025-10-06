@@ -14,49 +14,67 @@ export const useAmazonReturns = (country: string) => {
   const fetchReturns = async () => {
     setLoading(true);
     try {
-      let query = supabase
-        .from('amazon_returns_data')
-        .select('*')
-        .eq('country', country)
-        .order('return_ratio', { ascending: false });
+      // Fetch all records using pagination
+      let allData: AmazonReturn[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      let hasMore = true;
 
-      // Apply filters
-      if (filters.searchQuery) {
-        query = query.or(`asin.ilike.%${filters.searchQuery}%,product_title.ilike.%${filters.searchQuery}%`);
-      }
+      while (hasMore) {
+        let query = supabase
+          .from('amazon_returns_data')
+          .select('*', { count: 'exact' })
+          .eq('country', country)
+          .order('return_ratio', { ascending: false })
+          .range(from, from + pageSize - 1);
 
-      if (filters.dateRange?.from) {
-        query = query.gte('upload_date', filters.dateRange.from.toISOString());
-      }
+        // Apply filters
+        if (filters.searchQuery) {
+          query = query.or(`asin.ilike.%${filters.searchQuery}%,product_title.ilike.%${filters.searchQuery}%`);
+        }
 
-      if (filters.dateRange?.to) {
-        query = query.lte('upload_date', filters.dateRange.to.toISOString());
-      }
+        if (filters.dateRange?.from) {
+          query = query.gte('upload_date', filters.dateRange.from.toISOString());
+        }
 
-      if (filters.returnRatioRange) {
-        query = query
-          .gte('return_ratio', filters.returnRatioRange.min)
-          .lte('return_ratio', filters.returnRatioRange.max);
-      }
+        if (filters.dateRange?.to) {
+          query = query.lte('upload_date', filters.dateRange.to.toISOString());
+        }
 
-      if (filters.quickFilter) {
-        switch (filters.quickFilter) {
-          case 'high':
-            query = query.gt('return_ratio', 20);
-            break;
-          case 'medium':
-            query = query.gte('return_ratio', 10).lte('return_ratio', 20);
-            break;
-          case 'low':
-            query = query.lt('return_ratio', 10);
-            break;
+        if (filters.returnRatioRange) {
+          query = query
+            .gte('return_ratio', filters.returnRatioRange.min)
+            .lte('return_ratio', filters.returnRatioRange.max);
+        }
+
+        if (filters.quickFilter) {
+          switch (filters.quickFilter) {
+            case 'high':
+              query = query.gt('return_ratio', 20);
+              break;
+            case 'medium':
+              query = query.gte('return_ratio', 10).lte('return_ratio', 20);
+              break;
+            case 'low':
+              query = query.lt('return_ratio', 10);
+              break;
+          }
+        }
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          allData = [...allData, ...data];
+          from += pageSize;
+          hasMore = data.length === pageSize;
+        } else {
+          hasMore = false;
         }
       }
 
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setReturns(data || []);
+      setReturns(allData);
     } catch (error: any) {
       toast({
         title: 'Error fetching returns data',
@@ -70,14 +88,31 @@ export const useAmazonReturns = (country: string) => {
 
   const calculateMetrics = async () => {
     try {
-      const { data, error } = await supabase
-        .from('amazon_returns_data')
-        .select('*')
-        .eq('country', country);
+      // Fetch all records for metrics using pagination
+      let allData: AmazonReturn[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      let hasMore = true;
 
-      if (error) throw error;
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('amazon_returns_data')
+          .select('*')
+          .eq('country', country)
+          .range(from, from + pageSize - 1);
 
-      if (!data || data.length === 0) {
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          allData = [...allData, ...data];
+          from += pageSize;
+          hasMore = data.length === pageSize;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      if (!allData || allData.length === 0) {
         setMetrics({
           totalAsins: 0,
           totalShipped: 0,
@@ -87,12 +122,12 @@ export const useAmazonReturns = (country: string) => {
         return;
       }
 
-      const totalAsins = data.length;
-      const totalShipped = data.reduce((sum, item) => sum + item.shipped_units, 0);
-      const totalReturned = data.reduce((sum, item) => sum + item.returned_units, 0);
-      const averageReturnRatio = data.reduce((sum, item) => sum + Number(item.return_ratio), 0) / totalAsins;
+      const totalAsins = allData.length;
+      const totalShipped = allData.reduce((sum, item) => sum + item.shipped_units, 0);
+      const totalReturned = allData.reduce((sum, item) => sum + item.returned_units, 0);
+      const averageReturnRatio = allData.reduce((sum, item) => sum + Number(item.return_ratio), 0) / totalAsins;
 
-      const sortedByRatio = [...data].sort((a, b) => Number(b.return_ratio) - Number(a.return_ratio));
+      const sortedByRatio = [...allData].sort((a, b) => Number(b.return_ratio) - Number(a.return_ratio));
       
       setMetrics({
         totalAsins,
