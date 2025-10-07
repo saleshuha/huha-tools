@@ -1156,12 +1156,12 @@ export const POTracker = () => {
 
       // Create a dataset with PO order data
       console.log('PO Order data for printing:', {
+        po_number: order.po_number,
         sku_code: order.sku_code,
         model_number: order.model_number,
         asin: order.asin,
         title: order.title,
         quantity: order.quantity,
-        po_number: order.po_number,
         status: order.status
       });
 
@@ -1169,7 +1169,7 @@ export const POTracker = () => {
         id: 'po-data',
         name: 'PO Order Data',
         description: 'Purchase Order Data',
-        headers: ['sku', 'title', 'quantity', 'po_number', 'status', 'asin', 'model_number'],
+        headers: ['sku', 'title', 'quantity', 'po_number', 'status', 'asin', 'model_number', 'PO Number'],
         data: [[
           order.sku_code || order.model_number || order.asin || 'N/A',
           order.title || 'No title available',
@@ -1177,14 +1177,19 @@ export const POTracker = () => {
           order.po_number,
           order.status,
           order.asin || 'No ASIN',
-          order.model_number || 'No model'
+          order.model_number || 'No model',
+          order.po_number  // Add duplicate with different case
         ]],
         rowCount: 1,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
 
-      console.log('Dataset created for printing:', dataset);
+      console.log('Dataset for printing:', {
+        headers: dataset.headers,
+        data: dataset.data,
+        po_number_value: dataset.data[0][3]
+      });
 
       // Use PrintService to generate ZPL
       const printSettings = {
