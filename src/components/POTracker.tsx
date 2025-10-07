@@ -3351,19 +3351,62 @@ export const POTracker = () => {
                               });
                               
                                // Use poOrders directly (all orders including closed) and filter by selected POs
-                               const ordersForSelectedPOs = poOrders
-                                 .filter(order => {
-                                   const poMatch = selectedPOsList.includes(order.po_number);
-                                   const statusMatch = order.status !== 'cancelled'; // Exclude only cancelled
-                                   return poMatch && statusMatch;
-                                })
-                                .filter(order => !labelSearchQuery || 
-                                  order.po_number.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
-                                  order.sku_code?.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
-                                  order.asin?.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
-                                  order.model_number?.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
-                                  order.title?.toLowerCase().includes(labelSearchQuery.toLowerCase())
-                                );
+                                let ordersForSelectedPOs = poOrders
+                                  .filter(order => {
+                                    const poMatch = selectedPOsList.includes(order.po_number);
+                                    const statusMatch = order.status !== 'cancelled'; // Exclude only cancelled
+                                    return poMatch && statusMatch;
+                                 })
+                                 .filter(order => !labelSearchQuery || 
+                                   order.po_number.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
+                                   order.sku_code?.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
+                                   order.asin?.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
+                                   order.model_number?.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
+                                   order.title?.toLowerCase().includes(labelSearchQuery.toLowerCase())
+                                 );
+                               
+                               // Apply sorting to labels tab (only if not preserving original order)
+                               if (!originalOrderPreserved) {
+                                 ordersForSelectedPOs.sort((a, b) => {
+                                   let aValue: string | number | undefined;
+                                   let bValue: string | number | undefined;
+                                   
+                                   if (sortField === 'combined_title') {
+                                     aValue = `${a.title || ''} ${a.asin || ''}`.toLowerCase();
+                                     bValue = `${b.title || ''} ${b.asin || ''}`.toLowerCase();
+                                   } else {
+                                     aValue = a[sortField];
+                                     bValue = b[sortField];
+                                   }
+                                   
+                                   // Handle undefined values
+                                   if (aValue === undefined && bValue === undefined) return 0;
+                                   if (aValue === undefined) return sortDirection === 'asc' ? 1 : -1;
+                                   if (bValue === undefined) return sortDirection === 'asc' ? -1 : 1;
+                                   
+                                   // Handle numeric fields
+                                   if (sortField === 'quantity' || sortField === 'unit_cost' || sortField === 'total_cost') {
+                                     const aNum = Number(aValue) || 0;
+                                     const bNum = Number(bValue) || 0;
+                                     return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
+                                   }
+                                   
+                                   // Handle date fields
+                                   if (sortField === 'order_date' || sortField === 'expected_delivery' || sortField === 'created_at' || sortField === 'updated_at') {
+                                     const aDate = new Date(aValue as string).getTime();
+                                     const bDate = new Date(bValue as string).getTime();
+                                     return sortDirection === 'asc' ? aDate - bDate : bDate - aDate;
+                                   }
+                                   
+                                   // Handle string fields
+                                   const aStr = String(aValue).toLowerCase();
+                                   const bStr = String(bValue).toLowerCase();
+                                   
+                                   if (aStr < bStr) return sortDirection === 'asc' ? -1 : 1;
+                                   if (aStr > bStr) return sortDirection === 'asc' ? 1 : -1;
+                                   return 0;
+                                 });
+                               }
                               
                               console.log('🔍 Print Labels After Filtering:', {
                                 ordersCount: ordersForSelectedPOs.length,
