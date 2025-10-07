@@ -58,6 +58,14 @@ export class PrintService {
     dataset: LabelDataset | null,
     settings: PrintSettings
   ): string {
+    console.log('🖨️ PrintService.generateZPL called with:', {
+      documentName: document.name,
+      elementCount: document.elements.length,
+      datasetHeaders: dataset?.headers || [],
+      datasetRowCount: dataset?.data?.length || 0,
+      firstRow: dataset?.data?.[0] || []
+    });
+    
     const isBulk = dataset && dataset.data.length > 0;
     const totalLabels = isBulk ? dataset.data.length * settings.copies : settings.copies;
 
@@ -65,6 +73,11 @@ export class PrintService {
 
     for (let labelIndex = 0; labelIndex < totalLabels; labelIndex++) {
       const dataRow = isBulk ? dataset.data[labelIndex % dataset.data.length] : [];
+      
+      console.log(`🏷️ Generating label ${labelIndex + 1}/${totalLabels}:`, {
+        dataRow,
+        headers: dataset?.headers
+      });
       
       zpl += '^XA\n'; // Start of label
       
