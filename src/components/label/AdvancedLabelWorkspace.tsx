@@ -295,7 +295,14 @@ export const AdvancedLabelWorkspace: React.FC = () => {
         darkness: 10
       };
       
-      const zplCode = PrintService.generateZPL(document, dataset, printSettings);
+      // For label designer, only print a single label with first row of data
+      const singleLabelDataset = dataset ? {
+        ...dataset,
+        data: dataset.data.length > 0 ? [dataset.data[0]] : [],
+        rowCount: dataset.data.length > 0 ? 1 : 0
+      } : null;
+      
+      const zplCode = PrintService.generateZPL(document, singleLabelDataset, printSettings);
       await qzConnectionManager.print(zplCode, selectedPrinter);
       toast.success('Label sent to printer successfully');
     } catch (error) {
