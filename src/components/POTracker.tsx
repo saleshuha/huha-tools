@@ -206,10 +206,13 @@ export const POTracker = () => {
 
   // Sorting handler
   const handleSort = (field: keyof POOrder | 'combined_title') => {
-    console.log('Sorting by field:', field, 'Current direction:', sortDirection);
+    console.log('🔄 SORT: Sorting by field:', field, 'Current field:', sortField, 'Current direction:', sortDirection);
     if (sortField === field) {
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+      const newDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+      console.log('🔄 SORT: Toggling direction to:', newDirection);
+      setSortDirection(newDirection);
     } else {
+      console.log('🔄 SORT: Changing field to:', field, 'Setting direction to: asc');
       setSortField(field);  
       setSortDirection('asc');
     }
@@ -789,6 +792,8 @@ export const POTracker = () => {
     
     // Apply sorting (only if table reordering is not prevented)
     if (!preventTableReorder) {
+      console.log('🔄 SORT: Applying sort - Field:', sortField, 'Direction:', sortDirection, 'Items to sort:', filtered.length);
+      
       filtered.sort((a, b) => {
         let aValue: string | number | undefined;
         let bValue: string | number | undefined;
@@ -810,7 +815,14 @@ export const POTracker = () => {
         if (sortField === 'quantity' || sortField === 'unit_cost' || sortField === 'total_cost') {
           const aNum = Number(aValue) || 0;
           const bNum = Number(bValue) || 0;
-          return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
+          const result = sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
+          
+          // Debug log for quantity sorting
+          if (sortField === 'quantity') {
+            console.log('🔄 SORT QUANTITY: Comparing', aNum, 'vs', bNum, '=> result:', result, 'direction:', sortDirection);
+          }
+          
+          return result;
         }
         
         // Handle date fields
@@ -828,6 +840,13 @@ export const POTracker = () => {
         if (aStr > bStr) return sortDirection === 'asc' ? 1 : -1;
         return 0;
       });
+      
+      // Debug: show first few sorted items
+      if (sortField === 'quantity') {
+        console.log('🔄 SORT QUANTITY: First 5 sorted quantities:', filtered.slice(0, 5).map(o => o.quantity));
+      }
+    } else {
+      console.log('🔄 SORT: Table reordering is prevented');
     }
     
     console.log('🔍 FILTERING DEBUG: Final filtered orders:', filtered.length);
