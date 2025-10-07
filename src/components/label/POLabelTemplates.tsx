@@ -65,7 +65,7 @@ export const POLabelTemplates: React.FC = () => {
         fontWeight: 'bold',
         fontFamily: 'Arial',
         color: '#000000',
-        dataColumn: 'po_number',
+        dataColumn: 'PO Number',
       },
       // Model Number
       {
@@ -267,7 +267,7 @@ export const POLabelTemplates: React.FC = () => {
         fontSize: 8,
         fontFamily: 'Arial',
         color: '#000000',
-        dataColumn: 'po_number',
+        dataColumn: 'PO Number',
       },
       {
         type: 'text',
