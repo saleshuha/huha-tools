@@ -8,16 +8,14 @@ export function resolveMappedContent(
   dataRow: any[] = [],
   headers: string[] = []
 ): string {
-  let content = element.text || 'Sample';
-  
-  // Apply data mapping if available
+  // If dataColumn is specified, prioritize data mapping
   if (element.dataColumn && headers.length > 0 && dataRow.length > 0) {
     // Case-insensitive column matching
     const columnIndex = headers.findIndex(header => 
       header.toLowerCase() === element.dataColumn.toLowerCase()
     );
     if (columnIndex >= 0 && dataRow[columnIndex] !== undefined) {
-      content = String(dataRow[columnIndex]);
+      let content = String(dataRow[columnIndex]);
       
       // Apply transforms
       if (element.dataTransform) {
@@ -27,10 +25,13 @@ export function resolveMappedContent(
         if (transform.uppercase) content = content.toUpperCase();
         if (transform.truncate) content = content.substring(0, transform.truncate);
       }
+      
+      return content;
     }
   }
   
-  return content;
+  // Fall back to element text or 'Sample'
+  return element.text !== undefined && element.text !== '' ? element.text : 'Sample';
 }
 
 /**
