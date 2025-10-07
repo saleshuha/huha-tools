@@ -72,6 +72,7 @@ export const POTracker = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<POOrder['status'] | 'all'>('all');
+  const [printedFilter, setPrintedFilter] = useState<'all' | 'printed' | 'not-printed'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const [viewMode, setViewMode] = useState<'grouped' | 'detailed'>('grouped');
@@ -3222,8 +3223,8 @@ export const POTracker = () => {
                     </div>
                 </CardHeader>
                 <CardContent className="p-6">
-                  {/* Enhanced Search Bar - Always Highlighted */}
-                  <div className="mb-6">
+                  {/* Enhanced Search Bar with Printed Filter */}
+                  <div className="mb-6 space-y-4">
                     <div className="relative group">
                       <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-primary h-4 w-4 transition-colors" />
                          <Input
@@ -3240,6 +3241,33 @@ export const POTracker = () => {
                           onClick={() => setLabelSearchQuery('')}
                         >
                           <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    
+                    {/* Printed Status Filter */}
+                    <div className="flex items-center gap-2">
+                      <Filter className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium text-muted-foreground">Filter by Print Status:</span>
+                      <Select value={printedFilter} onValueChange={(value) => setPrintedFilter(value as 'all' | 'printed' | 'not-printed')}>
+                        <SelectTrigger className="w-[180px] border-2 border-border focus:border-primary">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Items</SelectItem>
+                          <SelectItem value="printed">Printed Only</SelectItem>
+                          <SelectItem value="not-printed">Not Printed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {printedFilter !== 'all' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setPrintedFilter('all')}
+                          className="h-8 px-2 text-xs"
+                        >
+                          <X className="h-3 w-3 mr-1" />
+                          Clear
                         </Button>
                       )}
                     </div>
@@ -3324,20 +3352,13 @@ export const POTracker = () => {
                                <span className="text-foreground">Print Qty</span>
                              </div>
                            </TableHead>
-                           <TableHead 
-                             className={`cursor-pointer hover:bg-muted/50 select-none font-semibold transition-colors border-r border-border/50 bg-muted/20 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}
-                             onClick={() => !originalOrderPreserved && handleSort('status')}
-                           >
+                           <TableHead className="font-semibold border-r border-border/50 bg-muted/20">
                              <div className="flex items-center gap-2">
                                <div className="w-2 h-2 bg-cyan rounded-full"></div>
                                <span className="text-foreground">Status</span>
-                               {sortField === 'status' && !originalOrderPreserved && (
-                                 <div className={`text-xs p-1 rounded bg-cyan/10 text-cyan ${
-                                   sortDirection === 'asc' ? 'rotate-0' : 'rotate-180'
-                                 } transition-transform`}>
-                                   ↑
-                                 </div>
-                               )}
+                               <Badge variant="outline" className="text-xs ml-2">
+                                 Filtered
+                               </Badge>
                              </div>
                            </TableHead>
                            <TableHead className="font-semibold bg-muted/20">
@@ -3373,7 +3394,14 @@ export const POTracker = () => {
                                    order.asin?.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
                                    order.model_number?.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
                                    order.title?.toLowerCase().includes(labelSearchQuery.toLowerCase())
-                                 );
+                                 )
+                                 .filter(order => {
+                                   // Apply printed status filter
+                                   if (printedFilter === 'all') return true;
+                                   if (printedFilter === 'printed') return order.is_printed === true;
+                                   if (printedFilter === 'not-printed') return !order.is_printed;
+                                   return true;
+                                 });
                                
                                // Apply sorting to labels tab (only if not preserving original order)
                                if (!originalOrderPreserved) {
