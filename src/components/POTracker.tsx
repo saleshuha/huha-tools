@@ -3324,10 +3324,20 @@ export const POTracker = () => {
                                <span className="text-foreground">Print Qty</span>
                              </div>
                            </TableHead>
-                           <TableHead className="font-semibold border-r border-border/50 bg-muted/20">
+                           <TableHead 
+                             className={`cursor-pointer hover:bg-muted/50 select-none font-semibold transition-colors border-r border-border/50 bg-muted/20 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`}
+                             onClick={() => !originalOrderPreserved && handleSort('status')}
+                           >
                              <div className="flex items-center gap-2">
                                <div className="w-2 h-2 bg-cyan rounded-full"></div>
                                <span className="text-foreground">Status</span>
+                               {sortField === 'status' && !originalOrderPreserved && (
+                                 <div className={`text-xs p-1 rounded bg-cyan/10 text-cyan ${
+                                   sortDirection === 'asc' ? 'rotate-0' : 'rotate-180'
+                                 } transition-transform`}>
+                                   ↑
+                                 </div>
+                               )}
                              </div>
                            </TableHead>
                            <TableHead className="font-semibold bg-muted/20">
