@@ -10,12 +10,27 @@ export function resolveMappedContent(
 ): string {
   // If dataColumn is specified, ALWAYS prioritize data mapping over text field
   if (element.dataColumn) {
+    console.log('🔍 Data mapping debug:', {
+      dataColumn: element.dataColumn,
+      headers,
+      dataRow,
+      hasHeaders: headers.length > 0,
+      hasData: dataRow.length > 0
+    });
+    
     if (headers.length > 0 && dataRow.length > 0) {
       // Case-insensitive column matching
       const columnIndex = headers.findIndex(header => 
         header.toLowerCase() === element.dataColumn.toLowerCase()
       );
-      if (columnIndex >= 0 && dataRow[columnIndex] !== undefined) {
+      
+      console.log('🔍 Column search:', {
+        searchingFor: element.dataColumn,
+        foundAt: columnIndex,
+        value: columnIndex >= 0 ? dataRow[columnIndex] : 'NOT FOUND'
+      });
+      
+      if (columnIndex >= 0 && dataRow[columnIndex] !== undefined && dataRow[columnIndex] !== null) {
         let content = String(dataRow[columnIndex]);
         
         // Apply transforms
@@ -27,11 +42,13 @@ export function resolveMappedContent(
           if (transform.truncate) content = content.substring(0, transform.truncate);
         }
         
+        console.log('✅ Data mapped successfully:', content);
         return content;
       }
     }
-    // If dataColumn is specified but no data available, return empty or placeholder
-    return `{${element.dataColumn}}`;
+    // If dataColumn is specified but no data found, return empty string
+    console.log('❌ No data found for column:', element.dataColumn);
+    return '';
   }
   
   // Only use element.text if no dataColumn is specified
