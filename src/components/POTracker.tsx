@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
 import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, AlertTriangle, FileText, ArrowLeft } from 'lucide-react';
+import { SortableTableHeader } from '@/components/order-processing/SortableTableHeader';
 import { useToast } from '@/hooks/use-toast';
 import { POFileUpload } from '@/components/po/POFileUpload';
 import { POProfitAnalytics } from '@/components/po/POProfitAnalytics';
@@ -1847,15 +1848,63 @@ export const POTracker = () => {
                         <TableHeader>
                           <TableRow>
                             <TableHead>Image</TableHead>
-                            <TableHead>PO Number</TableHead>
-                            <TableHead>Ship To</TableHead>
-                            <TableHead>ASIN</TableHead>
-                            <TableHead>Model/SKU</TableHead>
-                            <TableHead>Title</TableHead>
-                            <TableHead>Quantity</TableHead>
-                            <TableHead>Status</TableHead>
+                            <SortableTableHeader
+                              label="PO Number"
+                              sortKey="po_number"
+                              currentSort={sortField}
+                              currentDirection={sortDirection}
+                              onSort={handleSort}
+                            />
+                            <SortableTableHeader
+                              label="Ship To"
+                              sortKey="ship_to_location"
+                              currentSort={sortField}
+                              currentDirection={sortDirection}
+                              onSort={handleSort}
+                            />
+                            <SortableTableHeader
+                              label="ASIN"
+                              sortKey="asin"
+                              currentSort={sortField}
+                              currentDirection={sortDirection}
+                              onSort={handleSort}
+                            />
+                            <SortableTableHeader
+                              label="Model/SKU"
+                              sortKey="sku_code"
+                              currentSort={sortField}
+                              currentDirection={sortDirection}
+                              onSort={handleSort}
+                            />
+                            <SortableTableHeader
+                              label="Title"
+                              sortKey="title"
+                              currentSort={sortField}
+                              currentDirection={sortDirection}
+                              onSort={handleSort}
+                            />
+                            <SortableTableHeader
+                              label="Quantity"
+                              sortKey="quantity"
+                              currentSort={sortField}
+                              currentDirection={sortDirection}
+                              onSort={handleSort}
+                            />
+                            <SortableTableHeader
+                              label="Status"
+                              sortKey="status"
+                              currentSort={sortField}
+                              currentDirection={sortDirection}
+                              onSort={handleSort}
+                            />
                             <TableHead>Matched</TableHead>
-                            <TableHead>Cost</TableHead>
+                            <SortableTableHeader
+                              label="Cost"
+                              sortKey="unit_cost"
+                              currentSort={sortField}
+                              currentDirection={sortDirection}
+                              onSort={handleSort}
+                            />
                             <TableHead>Actions</TableHead>
                           </TableRow>
                         </TableHeader>
