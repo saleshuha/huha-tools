@@ -8,29 +8,33 @@ export function resolveMappedContent(
   dataRow: any[] = [],
   headers: string[] = []
 ): string {
-  // If dataColumn is specified, prioritize data mapping
-  if (element.dataColumn && headers.length > 0 && dataRow.length > 0) {
-    // Case-insensitive column matching
-    const columnIndex = headers.findIndex(header => 
-      header.toLowerCase() === element.dataColumn.toLowerCase()
-    );
-    if (columnIndex >= 0 && dataRow[columnIndex] !== undefined) {
-      let content = String(dataRow[columnIndex]);
-      
-      // Apply transforms
-      if (element.dataTransform) {
-        const transform = element.dataTransform;
-        if (transform.prefix) content = transform.prefix + content;
-        if (transform.suffix) content = content + transform.suffix;
-        if (transform.uppercase) content = content.toUpperCase();
-        if (transform.truncate) content = content.substring(0, transform.truncate);
+  // If dataColumn is specified, ALWAYS prioritize data mapping over text field
+  if (element.dataColumn) {
+    if (headers.length > 0 && dataRow.length > 0) {
+      // Case-insensitive column matching
+      const columnIndex = headers.findIndex(header => 
+        header.toLowerCase() === element.dataColumn.toLowerCase()
+      );
+      if (columnIndex >= 0 && dataRow[columnIndex] !== undefined) {
+        let content = String(dataRow[columnIndex]);
+        
+        // Apply transforms
+        if (element.dataTransform) {
+          const transform = element.dataTransform;
+          if (transform.prefix) content = transform.prefix + content;
+          if (transform.suffix) content = content + transform.suffix;
+          if (transform.uppercase) content = content.toUpperCase();
+          if (transform.truncate) content = content.substring(0, transform.truncate);
+        }
+        
+        return content;
       }
-      
-      return content;
     }
+    // If dataColumn is specified but no data available, return empty or placeholder
+    return `{${element.dataColumn}}`;
   }
   
-  // Fall back to element text or 'Sample'
+  // Only use element.text if no dataColumn is specified
   return element.text !== undefined && element.text !== '' ? element.text : 'Sample';
 }
 
