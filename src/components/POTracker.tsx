@@ -3841,10 +3841,10 @@ export const POTracker = () => {
                                          !selectedForPrint.get(order.id) ||
                                          selectedForPrint.get(order.id) <= 0
                                        }
-                                        className={`w-full group-hover:shadow-soft transition-all duration-300 border-2 border-border hover:border-primary ${
+                                        className={`w-full border-2 transition-all duration-300 ${
                                           printingItems.has(order.id) 
                                             ? 'bg-primary/10 border-primary text-primary' 
-                                            : 'hover:bg-primary/5 hover:text-primary'
+                                            : 'border-border hover:border-primary hover:bg-primary/5 hover:text-primary'
                                         }`}
                                     >
                                      {printingItems.has(order.id) ? (
@@ -3854,7 +3854,7 @@ export const POTracker = () => {
                                        </div>
                                      ) : (
                                        <div className="flex items-center gap-2">
-                                         <Printer className="h-3 w-3 group-hover:scale-110 transition-transform" />
+                                         <Printer className="h-3 w-3" />
                                          <span className="text-xs font-medium">Print</span>
                                        </div>
                                      )}
@@ -3873,7 +3873,7 @@ export const POTracker = () => {
                                          !selectedPrinter || 
                                          printingItems.has(order.id)
                                        }
-                                       className="w-full hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-all duration-300"
+                                       className="w-full border-2 border-blue-300 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700 text-blue-600 transition-all duration-300"
                                      >
                                        <div className="flex items-center gap-2">
                                          <RefreshCw className="h-3 w-3" />
@@ -3922,7 +3922,7 @@ export const POTracker = () => {
                                        !selectedForPrint.get(order.id) ||
                                        selectedForPrint.get(order.id) <= 0
                                      }
-                                     className="w-full hover:bg-green-50 hover:border-green-300 hover:text-green-700 transition-all duration-300"
+                                     className="w-full border-2 border-green-300 hover:bg-green-50 hover:border-green-400 hover:text-green-700 text-green-600 transition-all duration-300"
                                    >
                                      <div className="flex items-center gap-2">
                                        <CheckCircle className="h-3 w-3" />
