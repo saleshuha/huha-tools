@@ -549,19 +549,18 @@ export const POTracker = () => {
     }
     
     try {
+      // Fetch ALL inventory without country filter (PO Tracker shows all countries)
       const [asinResult, skuResult] = await Promise.all([
         supabase
           .from('asin_inventory')
           .select('*')
           .eq('user_id', profile.id)
-          .order('created_at', { ascending: false })
-          .range(0, 9999), // Fetch up to 10,000 items
+          .order('created_at', { ascending: false }),
         supabase
           .from('sku_inventory')
           .select('*')
           .eq('user_id', profile.id)
           .order('created_at', { ascending: false })
-          .range(0, 9999) // Fetch up to 10,000 items
       ]);
 
       if (asinResult.error) {
@@ -578,10 +577,14 @@ export const POTracker = () => {
       console.log('📦 Inventory Data Loaded:', {
         asinCount: asinData.length,
         skuCount: skuData.length,
-        sampleAsins: asinData.slice(0, 5).map(item => ({
+        hasB0DYG67SLZ: asinData.some(i => i.asin === 'B0DYG67SLZ'),
+        hasB0DYFRB7S6: asinData.some(i => i.asin === 'B0DYFRB7S6'),
+        countries: [...new Set(asinData.map(i => i.country))],
+        sampleAsins: asinData.slice(0, 10).map(item => ({
           asin: item.asin,
           serial: item.serial_number,
-          qty: item.quantity
+          qty: item.quantity,
+          country: item.country
         }))
       });
       
