@@ -3656,14 +3656,14 @@ export const POTracker = () => {
                                    <div className="text-sm font-medium break-words text-foreground group-hover:text-primary/80 transition-colors" title={order.title}>
                                      {order.title || 'No title available'}
                                    </div>
-                                    {order.asin && (
-                                      <div className="flex items-center gap-2">
-                                        <div className="w-1.5 h-1.5 bg-accent rounded-full flex-shrink-0"></div>
-                                        <div className="text-xs text-foreground font-mono bg-accent/10 px-2 py-1 rounded-md border border-accent/20">
-                                          {order.asin}
-                                        </div>
-                                      </div>
-                                    )}
+                                     {order.asin && (
+                                       <div className="flex items-center gap-2">
+                                         <div className="w-1.5 h-1.5 bg-accent rounded-full flex-shrink-0"></div>
+                                         <div className="text-xs text-foreground font-mono bg-accent/10 px-2 py-1 rounded-md border-2 border-accent/40">
+                                           {order.asin}
+                                         </div>
+                                       </div>
+                                     )}
                                      {(() => {
                                        const inventoryMatch = findInventoryMatch(
                                          order.asin, 
