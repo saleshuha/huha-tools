@@ -3619,6 +3619,14 @@ export const POTracker = () => {
                                          order.sunsky_sku
                                        );
                                        
+                                       // Debug specific ASIN
+                                       if (order.asin === 'B0DYG67SLZ' || order.asin === 'B0DYFRB7S6') {
+                                         console.log('🐛 DEBUG ASIN in render:', order.asin, {
+                                           inventoryMatch,
+                                           hasSerialNumbers: inventoryMatch?.serialNumbers?.length > 0
+                                         });
+                                       }
+                                       
                                        // Show inventory match information with serial numbers
                                        if (inventoryMatch) {
                                          // ASIN inventory matches - show serial numbers prominently
