@@ -90,6 +90,7 @@ export const POTracker = () => {
   const [selectedPOsForLabels, setSelectedPOsForLabels] = useState<Set<string>>(new Set()); // Multi-select
   const [labelSearchQuery, setLabelSearchQuery] = useState('');
   const [debouncedLabelSearch, setDebouncedLabelSearch] = useState('');
+  const [searchType, setSearchType] = useState<'all' | 'asin' | 'sku' | 'serial' | 'title' | 'po_number'>('all');
   const [selectedForPrint, setSelectedForPrint] = useState<Map<string, number>>(new Map());
   const [labelCurrentPage, setLabelCurrentPage] = useState(1);
   const [labelItemsPerPage, setLabelItemsPerPage] = useState(20);
@@ -843,21 +844,82 @@ export const POTracker = () => {
         .split(/\s+/)
         .filter(term => term && term.length > 0); // Ensure we only have non-empty terms
       
-      console.log('🔍 FILTERING DEBUG: Search terms:', searchTerms);
+      console.log('🔍 FILTERING DEBUG: Search terms:', searchTerms, 'Search type:', searchType);
       
       // Only filter if we have valid search terms
       if (searchTerms.length > 0) {
         filtered = filtered.filter(order => {
-          // Check if ANY search term matches ANY field
+          // Check if ANY search term matches based on selected search type
           return searchTerms.some(lowerCaseQuery => {
-            // Basic search fields
+            // Search based on selected type
+            if (searchType === 'asin') {
+              return order.asin?.toLowerCase().includes(lowerCaseQuery);
+            }
+            
+            if (searchType === 'sku') {
+              // Check both order SKU and inventory SKU
+              const basicSkuMatch = order.sku_code?.toLowerCase().includes(lowerCaseQuery) ||
+                order.model_number?.toLowerCase().includes(lowerCaseQuery);
+              
+              const inventoryMatch = findInventoryMatch(
+                order.asin, 
+                order.sunsky_sku?.sku_code, 
+                order.sku_code, 
+                order.model_number,
+                order.sunsky_sku
+              );
+              
+              if (inventoryMatch && inventoryMatch.type === 'SKU' && inventoryMatch.inventoryItem) {
+                const item = inventoryMatch.inventoryItem;
+                return basicSkuMatch || 
+                  item.sku_number?.toLowerCase().includes(lowerCaseQuery) ||
+                  item.asin?.toLowerCase().includes(lowerCaseQuery);
+              }
+              
+              return basicSkuMatch;
+            }
+            
+            if (searchType === 'serial') {
+              // Search serial numbers from inventory
+              const inventoryMatch = findInventoryMatch(
+                order.asin, 
+                order.sunsky_sku?.sku_code, 
+                order.sku_code, 
+                order.model_number,
+                order.sunsky_sku
+              );
+              
+              if (inventoryMatch) {
+                // Check ASIN inventory serial numbers
+                if (inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0) {
+                  return inventoryMatch.serialNumbers.some(serial => 
+                    serial?.toLowerCase().includes(lowerCaseQuery)
+                  );
+                }
+                // Check SKU inventory serial number (bin number)
+                if (inventoryMatch.serialNumber) {
+                  return inventoryMatch.serialNumber.toLowerCase().includes(lowerCaseQuery);
+                }
+              }
+              return false;
+            }
+            
+            if (searchType === 'title') {
+              return order.title?.toLowerCase().includes(lowerCaseQuery);
+            }
+            
+            if (searchType === 'po_number') {
+              return order.po_number.toLowerCase().includes(lowerCaseQuery);
+            }
+            
+            // Default 'all' - search across all fields
             const basicMatch = order.po_number.toLowerCase().includes(lowerCaseQuery) ||
               order.sku_code?.toLowerCase().includes(lowerCaseQuery) ||
               order.asin?.toLowerCase().includes(lowerCaseQuery) ||
               order.model_number?.toLowerCase().includes(lowerCaseQuery) ||
               order.title?.toLowerCase().includes(lowerCaseQuery);
             
-            // Check inventory serial numbers and SKU
+            // Check inventory serial numbers and SKU for 'all' search
             const inventoryMatch = findInventoryMatch(
               order.asin, 
               order.sunsky_sku?.sku_code, 
@@ -982,7 +1044,7 @@ export const POTracker = () => {
     
     console.log('🔍 FILTERING DEBUG: Final filtered orders:', filtered.length);
     return filtered;
-  }, [poOrders, searchQuery, debouncedLabelSearch, statusFilter, sortField, sortDirection, activeTab, viewMode, selectedPOsForLabels, labelEligibleOrders, preventTableReorder, selectedCountry, inventoryData]);
+  }, [poOrders, searchQuery, debouncedLabelSearch, searchType, statusFilter, sortField, sortDirection, activeTab, viewMode, selectedPOsForLabels, labelEligibleOrders, preventTableReorder, selectedCountry, inventoryData]);
 
   // Filtered PO Groups for labels search
   const filteredPOGroups = useMemo(() => {
@@ -3360,24 +3422,49 @@ export const POTracker = () => {
                 <CardContent className="p-6">
                   {/* Enhanced Search Bar with Printed Filter */}
                   <div className="mb-6 space-y-4">
-                    <div className="relative group">
-                      <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-primary h-4 w-4 transition-colors" />
-                         <Input
-                           placeholder="Search by SKU, title, ASIN, serial number..."
-                           value={labelSearchQuery}
-                           onChange={(e) => setLabelSearchQuery(e.target.value)}
-                           className="pl-12 pr-12 h-12 bg-primary/5 border-2 border-primary/30 focus:border-primary hover:border-primary/50 transition-all duration-300 shadow-medium ring-2 ring-primary/10"
-                         />
-                      {labelSearchQuery && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive transition-colors"
-                          onClick={() => setLabelSearchQuery('')}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
+                    <div className="flex gap-2">
+                      {/* Search Type Selector */}
+                      <Select value={searchType} onValueChange={(value: any) => setSearchType(value)}>
+                        <SelectTrigger className="w-[160px] h-12 border-2 border-primary/30 focus:border-primary bg-primary/5">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-popover border shadow-lg z-[100]">
+                          <SelectItem value="all">All Fields</SelectItem>
+                          <SelectItem value="asin">ASIN Only</SelectItem>
+                          <SelectItem value="sku">SKU Only</SelectItem>
+                          <SelectItem value="serial">Serial Number</SelectItem>
+                          <SelectItem value="title">Title Only</SelectItem>
+                          <SelectItem value="po_number">PO Number</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      
+                      {/* Search Input */}
+                      <div className="relative group flex-1">
+                        <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-primary h-4 w-4 transition-colors" />
+                        <Input
+                          placeholder={
+                            searchType === 'all' ? "Search by SKU, title, ASIN, serial number..." :
+                            searchType === 'asin' ? "Search by ASIN..." :
+                            searchType === 'sku' ? "Search by SKU..." :
+                            searchType === 'serial' ? "Search by Serial Number..." :
+                            searchType === 'title' ? "Search by Title..." :
+                            "Search by PO Number..."
+                          }
+                          value={labelSearchQuery}
+                          onChange={(e) => setLabelSearchQuery(e.target.value)}
+                          className="pl-12 pr-12 h-12 bg-primary/5 border-2 border-primary/30 focus:border-primary hover:border-primary/50 transition-all duration-300 shadow-medium ring-2 ring-primary/10"
+                        />
+                        {labelSearchQuery && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive transition-colors"
+                            onClick={() => setLabelSearchQuery('')}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     
                     {/* Printed Status Filter */}
