@@ -550,17 +550,20 @@ export const POTracker = () => {
     
     try {
       // Fetch ALL inventory without country filter (PO Tracker shows all countries)
+      // Use a high limit to ensure we get all inventory items (Supabase defaults to 1000)
       const [asinResult, skuResult] = await Promise.all([
         supabase
           .from('asin_inventory')
           .select('*')
           .eq('user_id', profile.id)
-          .order('created_at', { ascending: false }),
+          .order('created_at', { ascending: false })
+          .limit(50000), // Fetch up to 50,000 items
         supabase
           .from('sku_inventory')
           .select('*')
           .eq('user_id', profile.id)
           .order('created_at', { ascending: false })
+          .limit(50000) // Fetch up to 50,000 items
       ]);
 
       if (asinResult.error) {
