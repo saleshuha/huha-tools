@@ -701,12 +701,13 @@ export const POTracker = () => {
     return null;
   };
 
-  // Fetch inventory data when profile or country changes - stable dependency array
+  // Fetch inventory data when profile loads
   useEffect(() => {
-    if (profile?.id && selectedCountry) {
+    console.log('🚀 Fetching inventory data, profile:', profile?.id);
+    if (profile?.id) {
       fetchInventoryData();
     }
-  }, [profile?.id, selectedCountry, fetchInventoryData]);
+  }, [profile?.id, fetchInventoryData]);
 
   // Filter orders for label printing (exclude truly cancelled orders but keep fulfilled ones)
   const labelEligibleOrders = useMemo(() => {
