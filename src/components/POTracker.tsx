@@ -836,57 +836,66 @@ export const POTracker = () => {
     
     if (currentSearchQuery) {
       // Support multi-item search with space-separated values
-      const searchTerms = currentSearchQuery.toLowerCase().trim().split(/\s+/).filter(Boolean);
+      // Trim and split, filtering out any empty strings from extra spaces
+      const searchTerms = currentSearchQuery
+        .toLowerCase()
+        .trim()
+        .split(/\s+/)
+        .filter(term => term && term.length > 0); // Ensure we only have non-empty terms
+      
       console.log('🔍 FILTERING DEBUG: Search terms:', searchTerms);
       
-      filtered = filtered.filter(order => {
-        // Check if ANY search term matches ANY field
-        return searchTerms.some(lowerCaseQuery => {
-          // Basic search fields
-          const basicMatch = order.po_number.toLowerCase().includes(lowerCaseQuery) ||
-            order.sku_code?.toLowerCase().includes(lowerCaseQuery) ||
-            order.asin?.toLowerCase().includes(lowerCaseQuery) ||
-            order.model_number?.toLowerCase().includes(lowerCaseQuery) ||
-            order.title?.toLowerCase().includes(lowerCaseQuery);
-          
-          // Check inventory serial numbers and SKU
-          const inventoryMatch = findInventoryMatch(
-            order.asin, 
-            order.sunsky_sku?.sku_code, 
-            order.sku_code, 
-            order.model_number,
-            order.sunsky_sku
-          );
-          
-          let inventoryDataMatch = false;
-          if (inventoryMatch) {
-            // Check ASIN inventory serial numbers
-            if (inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0) {
-              inventoryDataMatch = inventoryMatch.serialNumbers.some(serial => 
-                serial?.toLowerCase().includes(lowerCaseQuery)
-              );
+      // Only filter if we have valid search terms
+      if (searchTerms.length > 0) {
+        filtered = filtered.filter(order => {
+          // Check if ANY search term matches ANY field
+          return searchTerms.some(lowerCaseQuery => {
+            // Basic search fields
+            const basicMatch = order.po_number.toLowerCase().includes(lowerCaseQuery) ||
+              order.sku_code?.toLowerCase().includes(lowerCaseQuery) ||
+              order.asin?.toLowerCase().includes(lowerCaseQuery) ||
+              order.model_number?.toLowerCase().includes(lowerCaseQuery) ||
+              order.title?.toLowerCase().includes(lowerCaseQuery);
+            
+            // Check inventory serial numbers and SKU
+            const inventoryMatch = findInventoryMatch(
+              order.asin, 
+              order.sunsky_sku?.sku_code, 
+              order.sku_code, 
+              order.model_number,
+              order.sunsky_sku
+            );
+            
+            let inventoryDataMatch = false;
+            if (inventoryMatch) {
+              // Check ASIN inventory serial numbers
+              if (inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0) {
+                inventoryDataMatch = inventoryMatch.serialNumbers.some(serial => 
+                  serial?.toLowerCase().includes(lowerCaseQuery)
+                );
+              }
+              // Check SKU inventory serial number (bin number)
+              if (inventoryMatch.serialNumber) {
+                inventoryDataMatch = inventoryDataMatch || inventoryMatch.serialNumber.toLowerCase().includes(lowerCaseQuery);
+              }
+              // Also check the identifier from inventory match (includes SKU codes)
+              if (inventoryMatch.identifier) {
+                inventoryDataMatch = inventoryDataMatch || inventoryMatch.identifier.toLowerCase().includes(lowerCaseQuery);
+              }
+              // Check inventory items' SKU numbers for SKU type matches
+              if (inventoryMatch.type === 'SKU' && inventoryMatch.inventoryItem) {
+                const item = inventoryMatch.inventoryItem;
+                inventoryDataMatch = inventoryDataMatch || 
+                  item.sku_number?.toLowerCase().includes(lowerCaseQuery) ||
+                  item.asin?.toLowerCase().includes(lowerCaseQuery);
+              }
             }
-            // Check SKU inventory serial number (bin number)
-            if (inventoryMatch.serialNumber) {
-              inventoryDataMatch = inventoryDataMatch || inventoryMatch.serialNumber.toLowerCase().includes(lowerCaseQuery);
-            }
-            // Also check the identifier from inventory match (includes SKU codes)
-            if (inventoryMatch.identifier) {
-              inventoryDataMatch = inventoryDataMatch || inventoryMatch.identifier.toLowerCase().includes(lowerCaseQuery);
-            }
-            // Check inventory items' SKU numbers for SKU type matches
-            if (inventoryMatch.type === 'SKU' && inventoryMatch.inventoryItem) {
-              const item = inventoryMatch.inventoryItem;
-              inventoryDataMatch = inventoryDataMatch || 
-                item.sku_number?.toLowerCase().includes(lowerCaseQuery) ||
-                item.asin?.toLowerCase().includes(lowerCaseQuery);
-            }
-          }
-          
-          return basicMatch || inventoryDataMatch;
+            
+            return basicMatch || inventoryDataMatch;
+          });
         });
-      });
-      console.log('🔍 FILTERING DEBUG: After search filter:', filtered.length, 'orders');
+        console.log('🔍 FILTERING DEBUG: After search filter:', filtered.length, 'orders');
+      }
     }
     
     // Filter by selected POs when in overview tab and detailed view with selections
