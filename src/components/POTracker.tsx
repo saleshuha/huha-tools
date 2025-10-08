@@ -570,9 +570,22 @@ export const POTracker = () => {
         console.error('Error fetching SKU inventory:', skuResult.error);
       }
 
+      const asinData = asinResult.data || [];
+      const skuData = skuResult.data || [];
+      
+      console.log('📦 Inventory Data Loaded:', {
+        asinCount: asinData.length,
+        skuCount: skuData.length,
+        sampleAsins: asinData.slice(0, 5).map(item => ({
+          asin: item.asin,
+          serial: item.serial_number,
+          qty: item.quantity
+        }))
+      });
+      
       setInventoryData({
-        asinInventory: asinResult.data || [],
-        skuInventory: skuResult.data || []
+        asinInventory: asinData,
+        skuInventory: skuData
       });
     } catch (error) {
       console.error('Error fetching inventory data:', error);
@@ -595,6 +608,16 @@ export const POTracker = () => {
         item.asin && item.asin.trim().toUpperCase() === asin.trim().toUpperCase()
       );
       
+      console.log('🔍 findInventoryMatch for ASIN:', asin, {
+        totalInventoryItems: inventoryData.asinInventory.length,
+        matchesFound: asinMatches.length,
+        matches: asinMatches.map(m => ({
+          asin: m.asin,
+          serial: m.serial_number,
+          qty: m.quantity
+        }))
+      });
+      
       if (asinMatches.length > 0) {
         // Get all serial numbers from matching items (regardless of quantity)
         const serialNumbers = asinMatches
@@ -602,6 +625,12 @@ export const POTracker = () => {
           .map(item => item.serial_number.trim());
         
         const totalQuantity = asinMatches.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0);
+        
+        console.log('📋 Serial numbers extracted:', {
+          asin,
+          serialNumbers,
+          totalQuantity
+        });
         
         // Show serial numbers if they exist, even for items with 0 quantity
         if (serialNumbers.length > 0) {
