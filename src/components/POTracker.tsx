@@ -3658,8 +3658,8 @@ export const POTracker = () => {
                                    </div>
                                      {order.asin && (
                                        <div className="flex items-center gap-2">
-                                         <div className="w-1.5 h-1.5 bg-accent rounded-full flex-shrink-0"></div>
-                                         <div className="text-xs text-foreground font-mono bg-accent/10 px-2 py-1 rounded-md border-2 border-accent/40">
+                                         <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
+                                         <div className="text-xs text-success font-mono bg-success/10 px-2 py-1 rounded-md border-2 border-success/40">
                                            {order.asin}
                                          </div>
                                        </div>
