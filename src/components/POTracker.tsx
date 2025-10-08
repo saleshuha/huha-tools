@@ -703,11 +703,23 @@ export const POTracker = () => {
 
   // Fetch inventory data when profile loads
   useEffect(() => {
-    console.log('🚀 Fetching inventory data, profile:', profile?.id);
+    console.log('🚀 POTracker mounted, profile:', profile?.id);
     if (profile?.id) {
+      console.log('🚀 Calling fetchInventoryData...');
       fetchInventoryData();
     }
-  }, [profile?.id, fetchInventoryData]);
+  }, [profile?.id]);
+
+  // Log inventory data changes
+  useEffect(() => {
+    if (inventoryData) {
+      console.log('📦 Inventory State Updated:', {
+        asinCount: inventoryData.asinInventory?.length || 0,
+        skuCount: inventoryData.skuInventory?.length || 0,
+        hasB0DYG67SLZ: inventoryData.asinInventory?.some(i => i.asin === 'B0DYG67SLZ')
+      });
+    }
+  }, [inventoryData]);
 
   // Filter orders for label printing (exclude truly cancelled orders but keep fulfilled ones)
   const labelEligibleOrders = useMemo(() => {
