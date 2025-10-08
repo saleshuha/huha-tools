@@ -542,9 +542,9 @@ export const POTracker = () => {
     }
   }, [poOrders?.length, isLoading]); // Only depend on length, not the functions
 
-  // Fetch inventory data for matching - Clean and efficient
+  // Fetch inventory data for matching - Fetch ALL inventory across all countries
   const fetchInventoryData = useCallback(async () => {
-    if (!profile?.id || !selectedCountry) {
+    if (!profile?.id) {
       return;
     }
     
@@ -554,13 +554,11 @@ export const POTracker = () => {
           .from('asin_inventory')
           .select('*')
           .eq('user_id', profile.id)
-          .eq('country', selectedCountry)
           .order('created_at', { ascending: false }),
         supabase
           .from('sku_inventory')
           .select('*')
           .eq('user_id', profile.id)
-          .eq('country', selectedCountry)
           .order('created_at', { ascending: false })
       ]);
 
@@ -583,7 +581,7 @@ export const POTracker = () => {
         skuInventory: []
       });
     }
-  }, [profile?.id, selectedCountry]);
+  }, [profile?.id]);
 
   // Function to find inventory match - Show serial numbers even for items with 0 quantity
   const findInventoryMatch = (asin: string, sunskySku?: string, poSku?: string, modelNumber?: string, orderSunskySku?: any) => {
