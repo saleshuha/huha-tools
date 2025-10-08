@@ -553,20 +553,21 @@ export const POTracker = () => {
     console.log('🚀 Starting inventory fetch...');
     try {
       // Fetch ALL inventory without country filter (PO Tracker shows all countries)
-      // Use a high limit to ensure we get all inventory items (Supabase defaults to 1000)
+      // Use range with high upper bound to override Supabase's default 1000 row limit
+      console.log('🔄 Fetching inventory with NO LIMIT...');
       const [asinResult, skuResult] = await Promise.all([
         supabase
           .from('asin_inventory')
-          .select('*')
+          .select('*', { count: 'exact' })
           .eq('user_id', profile.id)
           .order('created_at', { ascending: false })
-          .limit(50000), // Fetch up to 50,000 items
+          .range(0, 99999), // Range 0-99999 to override the default limit
         supabase
           .from('sku_inventory')
-          .select('*')
+          .select('*', { count: 'exact' })
           .eq('user_id', profile.id)
           .order('created_at', { ascending: false })
-          .limit(50000) // Fetch up to 50,000 items
+          .range(0, 99999) // Range 0-99999 to override the default limit
       ]);
 
       if (asinResult.error) {
