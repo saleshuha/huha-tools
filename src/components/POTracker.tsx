@@ -711,7 +711,7 @@ export const POTracker = () => {
       console.log('🚀 Calling fetchInventoryData...');
       fetchInventoryData();
     }
-  }, [profile?.id]);
+  }, [profile?.id, fetchInventoryData]);
 
   // Log inventory data changes
   useEffect(() => {
