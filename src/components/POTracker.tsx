@@ -550,44 +550,70 @@ export const POTracker = () => {
       return;
     }
     
-    console.log('🚀 Starting inventory fetch...');
+    console.log('🚀 Starting inventory fetch WITH PAGINATION...');
     try {
-      // Fetch ALL inventory without country filter (PO Tracker shows all countries)
-      // Use range with high upper bound to override Supabase's default 1000 row limit
-      console.log('🔄 Fetching inventory with NO LIMIT...');
-      const [asinResult, skuResult] = await Promise.all([
-        supabase
+      // Fetch ALL data using pagination to bypass Supabase limits
+      let allAsinData: any[] = [];
+      let allSkuData: any[] = [];
+      let asinPage = 0;
+      let skuPage = 0;
+      const pageSize = 1000;
+      
+      // Fetch all ASIN inventory in batches
+      while (true) {
+        const { data, error } = await supabase
           .from('asin_inventory')
-          .select('*', { count: 'exact' })
+          .select('*')
           .eq('user_id', profile.id)
           .order('created_at', { ascending: false })
-          .range(0, 99999), // Range 0-99999 to override the default limit
-        supabase
-          .from('sku_inventory')
-          .select('*', { count: 'exact' })
-          .eq('user_id', profile.id)
-          .order('created_at', { ascending: false })
-          .range(0, 99999) // Range 0-99999 to override the default limit
-      ]);
-
-      if (asinResult.error) {
-        console.error('❌ Error fetching ASIN inventory:', asinResult.error);
+          .range(asinPage * pageSize, (asinPage + 1) * pageSize - 1);
+        
+        if (error) {
+          console.error('❌ Error fetching ASIN inventory page', asinPage, error);
+          break;
+        }
+        
+        if (!data || data.length === 0) break;
+        allAsinData = [...allAsinData, ...data];
+        console.log(`📦 Loaded ASIN page ${asinPage + 1}, total so far: ${allAsinData.length}`);
+        
+        if (data.length < pageSize) break; // Last page
+        asinPage++;
       }
       
-      if (skuResult.error) {
-        console.error('❌ Error fetching SKU inventory:', skuResult.error);
+      // Fetch all SKU inventory in batches
+      while (true) {
+        const { data, error } = await supabase
+          .from('sku_inventory')
+          .select('*')
+          .eq('user_id', profile.id)
+          .order('created_at', { ascending: false })
+          .range(skuPage * pageSize, (skuPage + 1) * pageSize - 1);
+        
+        if (error) {
+          console.error('❌ Error fetching SKU inventory page', skuPage, error);
+          break;
+        }
+        
+        if (!data || data.length === 0) break;
+        allSkuData = [...allSkuData, ...data];
+        console.log(`📦 Loaded SKU page ${skuPage + 1}, total so far: ${allSkuData.length}`);
+        
+        if (data.length < pageSize) break; // Last page
+        skuPage++;
       }
 
-      const asinData = asinResult.data || [];
-      const skuData = skuResult.data || [];
+      const asinData = allAsinData;
+      const skuData = allSkuData;
       
       const hasTargetAsin = asinData.some(i => i.asin === 'B0DYG67SLZ');
+      const targetAsinDetails = asinData.filter(i => i.asin === 'B0DYG67SLZ');
       
-      console.log('📦 Inventory Data Loaded:', {
+      console.log('✅ ALL Inventory Data Loaded:', {
         asinCount: asinData.length,
         skuCount: skuData.length,
         hasB0DYG67SLZ: hasTargetAsin,
-        B0DYG67SLZ_details: asinData.filter(i => i.asin === 'B0DYG67SLZ'),
+        B0DYG67SLZ_details: targetAsinDetails,
         hasB0DYFRB7S6: asinData.some(i => i.asin === 'B0DYFRB7S6'),
         countries: [...new Set(asinData.map(i => i.country))],
         sampleAsins: asinData.slice(0, 10).map(item => ({
