@@ -554,12 +554,14 @@ export const POTracker = () => {
           .from('asin_inventory')
           .select('*')
           .eq('user_id', profile.id)
-          .order('created_at', { ascending: false }),
+          .order('created_at', { ascending: false })
+          .range(0, 9999), // Fetch up to 10,000 items
         supabase
           .from('sku_inventory')
           .select('*')
           .eq('user_id', profile.id)
           .order('created_at', { ascending: false })
+          .range(0, 9999) // Fetch up to 10,000 items
       ]);
 
       if (asinResult.error) {
