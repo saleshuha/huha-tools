@@ -853,7 +853,20 @@ export const POTracker = () => {
           return searchTerms.some(lowerCaseQuery => {
             // Search based on selected type
             if (searchType === 'asin') {
-              return order.asin?.toLowerCase().includes(lowerCaseQuery);
+              const asinMatch = order.asin?.toLowerCase().includes(lowerCaseQuery);
+              // Debug specific ASIN searches
+              if (lowerCaseQuery.includes('b0dyg3mgnt') || order.asin?.toLowerCase().includes('b0dyg3mgnt')) {
+                console.log('🔍 ASIN SEARCH DEBUG:', {
+                  searchQuery: lowerCaseQuery,
+                  orderAsin: order.asin,
+                  orderAsinLower: order.asin?.toLowerCase(),
+                  matches: asinMatch,
+                  country: order.country,
+                  status: order.status,
+                  poNumber: order.po_number
+                });
+              }
+              return asinMatch;
             }
             
             if (searchType === 'sku') {
