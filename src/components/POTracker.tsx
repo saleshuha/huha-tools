@@ -544,10 +544,13 @@ export const POTracker = () => {
 
   // Fetch inventory data for matching - Fetch ALL inventory across all countries
   const fetchInventoryData = useCallback(async () => {
+    console.log('🔄 fetchInventoryData called, profile:', profile?.id);
     if (!profile?.id) {
+      console.log('⚠️ No profile ID, skipping inventory fetch');
       return;
     }
     
+    console.log('🚀 Starting inventory fetch...');
     try {
       // Fetch ALL inventory without country filter (PO Tracker shows all countries)
       // Use a high limit to ensure we get all inventory items (Supabase defaults to 1000)
@@ -567,20 +570,23 @@ export const POTracker = () => {
       ]);
 
       if (asinResult.error) {
-        console.error('Error fetching ASIN inventory:', asinResult.error);
+        console.error('❌ Error fetching ASIN inventory:', asinResult.error);
       }
       
       if (skuResult.error) {
-        console.error('Error fetching SKU inventory:', skuResult.error);
+        console.error('❌ Error fetching SKU inventory:', skuResult.error);
       }
 
       const asinData = asinResult.data || [];
       const skuData = skuResult.data || [];
       
+      const hasTargetAsin = asinData.some(i => i.asin === 'B0DYG67SLZ');
+      
       console.log('📦 Inventory Data Loaded:', {
         asinCount: asinData.length,
         skuCount: skuData.length,
-        hasB0DYG67SLZ: asinData.some(i => i.asin === 'B0DYG67SLZ'),
+        hasB0DYG67SLZ: hasTargetAsin,
+        B0DYG67SLZ_details: asinData.filter(i => i.asin === 'B0DYG67SLZ'),
         hasB0DYFRB7S6: asinData.some(i => i.asin === 'B0DYFRB7S6'),
         countries: [...new Set(asinData.map(i => i.country))],
         sampleAsins: asinData.slice(0, 10).map(item => ({
