@@ -3824,39 +3824,112 @@ export const POTracker = () => {
 
                                 {/* Enhanced Actions Cell */}
                                 <TableCell>
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm"
-                                    onClick={() => {
-                                      const printQty = selectedForPrint.get(order.id) || 1;
-                                      handleSingleItemPrint(order, printQty);
+                                  <div className="flex flex-col gap-2">
+                                    {/* Main Print Button */}
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={() => {
+                                        const printQty = selectedForPrint.get(order.id) || 1;
+                                        handleSingleItemPrint(order, printQty);
+                                       }}
+                                       disabled={
+                                         !qzConnected || 
+                                         !selectedPrinter || 
+                                         printingItems.has(order.id) ||
+                                         !selectedForPrint.has(order.id) ||
+                                         !selectedForPrint.get(order.id) ||
+                                         selectedForPrint.get(order.id) <= 0
+                                       }
+                                        className={`w-full group-hover:shadow-soft transition-all duration-300 border-2 border-border hover:border-primary ${
+                                          printingItems.has(order.id) 
+                                            ? 'bg-primary/10 border-primary text-primary' 
+                                            : 'hover:bg-primary/5 hover:text-primary'
+                                        }`}
+                                    >
+                                     {printingItems.has(order.id) ? (
+                                       <div className="flex items-center gap-2">
+                                         <Loader2 className="h-3 w-3 animate-spin" />
+                                         <span className="text-xs">Printing...</span>
+                                       </div>
+                                     ) : (
+                                       <div className="flex items-center gap-2">
+                                         <Printer className="h-3 w-3 group-hover:scale-110 transition-transform" />
+                                         <span className="text-xs font-medium">Print</span>
+                                       </div>
+                                     )}
+                                   </Button>
+                                   
+                                   {/* Reprint Already Printed Quantity */}
+                                   {order.printed_quantity > 0 && (
+                                     <Button 
+                                       variant="outline" 
+                                       size="sm"
+                                       onClick={() => {
+                                         handleSingleItemPrint(order, order.printed_quantity);
+                                       }}
+                                       disabled={
+                                         !qzConnected || 
+                                         !selectedPrinter || 
+                                         printingItems.has(order.id)
+                                       }
+                                       className="w-full hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-all duration-300"
+                                     >
+                                       <div className="flex items-center gap-2">
+                                         <RefreshCw className="h-3 w-3" />
+                                         <span className="text-xs font-medium">Reprint ({order.printed_quantity})</span>
+                                       </div>
+                                     </Button>
+                                   )}
+                                   
+                                   {/* Mark as Printed (without printing) */}
+                                   <Button 
+                                     variant="outline" 
+                                     size="sm"
+                                     onClick={async () => {
+                                       const printQty = selectedForPrint.get(order.id) || 1;
+                                       try {
+                                         // Update printed quantity without actual printing
+                                         const newPrintedQty = (order.printed_quantity || 0) + printQty;
+                                         const { error } = await supabase
+                                           .from('po_orders')
+                                           .update({ 
+                                             printed_quantity: newPrintedQty,
+                                             is_printed: true
+                                           })
+                                           .eq('id', order.id);
+                                         
+                                         if (error) throw error;
+                                         
+                                         toast({
+                                           title: "Marked as Printed",
+                                           description: `${printQty} labels marked as printed for ${order.asin || order.sku_code}`,
+                                         });
+                                         
+                                         // Refresh the orders
+                                         fetchPOOrders();
+                                       } catch (error) {
+                                         console.error('Error marking as printed:', error);
+                                         toast({
+                                           title: "Error",
+                                           description: "Failed to mark as printed",
+                                           variant: "destructive"
+                                         });
+                                       }
                                      }}
                                      disabled={
-                                       !qzConnected || 
-                                       !selectedPrinter || 
-                                       printingItems.has(order.id) ||
                                        !selectedForPrint.has(order.id) ||
                                        !selectedForPrint.get(order.id) ||
                                        selectedForPrint.get(order.id) <= 0
                                      }
-                                      className={`w-full group-hover:shadow-soft transition-all duration-300 border-2 border-border hover:border-primary ${
-                                        printingItems.has(order.id) 
-                                          ? 'bg-primary/10 border-primary text-primary' 
-                                          : 'hover:bg-primary/5 hover:text-primary'
-                                      }`}
-                                  >
-                                   {printingItems.has(order.id) ? (
+                                     className="w-full hover:bg-green-50 hover:border-green-300 hover:text-green-700 transition-all duration-300"
+                                   >
                                      <div className="flex items-center gap-2">
-                                       <Loader2 className="h-3 w-3 animate-spin" />
-                                       <span className="text-xs">Printing...</span>
+                                       <CheckCircle className="h-3 w-3" />
+                                       <span className="text-xs font-medium">Mark Printed</span>
                                      </div>
-                                   ) : (
-                                     <div className="flex items-center gap-2">
-                                       <Printer className="h-3 w-3 group-hover:scale-110 transition-transform" />
-                                       <span className="text-xs font-medium">Print</span>
-                                     </div>
-                                   )}
-                                 </Button>
+                                   </Button>
+                                 </div>
                                </TableCell>
                               </TableRow>
                             ));
