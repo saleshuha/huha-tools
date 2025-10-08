@@ -89,6 +89,7 @@ export const POTracker = () => {
   const [selectedPOForLabels, setSelectedPOForLabels] = useState<string | null>(null);
   const [selectedPOsForLabels, setSelectedPOsForLabels] = useState<Set<string>>(new Set()); // Multi-select
   const [labelSearchQuery, setLabelSearchQuery] = useState('');
+  const [debouncedLabelSearch, setDebouncedLabelSearch] = useState('');
   const [selectedForPrint, setSelectedForPrint] = useState<Map<string, number>>(new Map());
   const [labelCurrentPage, setLabelCurrentPage] = useState(1);
   const [labelItemsPerPage, setLabelItemsPerPage] = useState(20);
@@ -204,6 +205,28 @@ export const POTracker = () => {
       qzConnectionManager.removeConnectionListener(handleConnectionChange);
     };
   }, []);
+
+  // Debounce label search for better performance with large datasets
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedLabelSearch(labelSearchQuery);
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [labelSearchQuery]);
+
+  // Auto-add space after 5 seconds of inactivity for single item search
+  useEffect(() => {
+    if (!labelSearchQuery.trim() || labelSearchQuery.includes(' ')) {
+      return; // Don't add space if empty or already has space
+    }
+
+    const timer = setTimeout(() => {
+      setLabelSearchQuery(prev => prev + ' ');
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [labelSearchQuery]);
 
   // Sorting handler
   const handleSort = (field: keyof POOrder | 'combined_title') => {
@@ -808,43 +831,60 @@ export const POTracker = () => {
       }
     }
     
-    // Use appropriate search query based on active tab
-    const currentSearchQuery = activeTab === 'labels' ? labelSearchQuery : searchQuery;
+    // Use debounced search for labels tab to improve performance
+    const currentSearchQuery = activeTab === 'labels' ? debouncedLabelSearch : searchQuery;
     
     if (currentSearchQuery) {
-      const lowerCaseQuery = currentSearchQuery.toLowerCase();
+      // Support multi-item search with space-separated values
+      const searchTerms = currentSearchQuery.toLowerCase().trim().split(/\s+/).filter(Boolean);
+      console.log('🔍 FILTERING DEBUG: Search terms:', searchTerms);
+      
       filtered = filtered.filter(order => {
-        // Basic search fields
-        const basicMatch = order.po_number.toLowerCase().includes(lowerCaseQuery) ||
-          order.sku_code?.toLowerCase().includes(lowerCaseQuery) ||
-          order.asin?.toLowerCase().includes(lowerCaseQuery) ||
-          order.model_number?.toLowerCase().includes(lowerCaseQuery) ||
-          order.title?.toLowerCase().includes(lowerCaseQuery);
-        
-        // Check inventory serial numbers
-        const inventoryMatch = findInventoryMatch(
-          order.asin, 
-          order.sunsky_sku?.sku_code, 
-          order.sku_code, 
-          order.model_number,
-          order.sunsky_sku
-        );
-        
-        let serialMatch = false;
-        if (inventoryMatch) {
-          // Check ASIN inventory serial numbers
-          if (inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0) {
-            serialMatch = inventoryMatch.serialNumbers.some(serial => 
-              serial?.toLowerCase().includes(lowerCaseQuery)
-            );
+        // Check if ANY search term matches ANY field
+        return searchTerms.some(lowerCaseQuery => {
+          // Basic search fields
+          const basicMatch = order.po_number.toLowerCase().includes(lowerCaseQuery) ||
+            order.sku_code?.toLowerCase().includes(lowerCaseQuery) ||
+            order.asin?.toLowerCase().includes(lowerCaseQuery) ||
+            order.model_number?.toLowerCase().includes(lowerCaseQuery) ||
+            order.title?.toLowerCase().includes(lowerCaseQuery);
+          
+          // Check inventory serial numbers and SKU
+          const inventoryMatch = findInventoryMatch(
+            order.asin, 
+            order.sunsky_sku?.sku_code, 
+            order.sku_code, 
+            order.model_number,
+            order.sunsky_sku
+          );
+          
+          let inventoryDataMatch = false;
+          if (inventoryMatch) {
+            // Check ASIN inventory serial numbers
+            if (inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0) {
+              inventoryDataMatch = inventoryMatch.serialNumbers.some(serial => 
+                serial?.toLowerCase().includes(lowerCaseQuery)
+              );
+            }
+            // Check SKU inventory serial number (bin number)
+            if (inventoryMatch.serialNumber) {
+              inventoryDataMatch = inventoryDataMatch || inventoryMatch.serialNumber.toLowerCase().includes(lowerCaseQuery);
+            }
+            // Also check the identifier from inventory match (includes SKU codes)
+            if (inventoryMatch.identifier) {
+              inventoryDataMatch = inventoryDataMatch || inventoryMatch.identifier.toLowerCase().includes(lowerCaseQuery);
+            }
+            // Check inventory items' SKU numbers for SKU type matches
+            if (inventoryMatch.type === 'SKU' && inventoryMatch.inventoryItem) {
+              const item = inventoryMatch.inventoryItem;
+              inventoryDataMatch = inventoryDataMatch || 
+                item.sku_number?.toLowerCase().includes(lowerCaseQuery) ||
+                item.asin?.toLowerCase().includes(lowerCaseQuery);
+            }
           }
-          // Check SKU inventory serial number
-          if (inventoryMatch.serialNumber) {
-            serialMatch = inventoryMatch.serialNumber.toLowerCase().includes(lowerCaseQuery);
-          }
-        }
-        
-        return basicMatch || serialMatch;
+          
+          return basicMatch || inventoryDataMatch;
+        });
       });
       console.log('🔍 FILTERING DEBUG: After search filter:', filtered.length, 'orders');
     }
@@ -933,7 +973,7 @@ export const POTracker = () => {
     
     console.log('🔍 FILTERING DEBUG: Final filtered orders:', filtered.length);
     return filtered;
-  }, [poOrders, searchQuery, labelSearchQuery, statusFilter, sortField, sortDirection, activeTab, viewMode, selectedPOsForLabels, labelEligibleOrders, preventTableReorder, selectedCountry]);
+  }, [poOrders, searchQuery, debouncedLabelSearch, statusFilter, sortField, sortDirection, activeTab, viewMode, selectedPOsForLabels, labelEligibleOrders, preventTableReorder, selectedCountry, inventoryData]);
 
   // Filtered PO Groups for labels search
   const filteredPOGroups = useMemo(() => {
