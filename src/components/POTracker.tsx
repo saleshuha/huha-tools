@@ -833,14 +833,13 @@ export const POTracker = () => {
     }
     
     // Use debounced search for labels tab to improve performance
-    const currentSearchQuery = activeTab === 'labels' ? debouncedLabelSearch : searchQuery;
+    const currentSearchQuery = activeTab === 'labels' ? debouncedLabelSearch.trim() : searchQuery.trim();
     
     if (currentSearchQuery) {
       // Support multi-item search with space-separated values
       // Trim and split, filtering out any empty strings from extra spaces
       const searchTerms = currentSearchQuery
         .toLowerCase()
-        .trim()
         .split(/\s+/)
         .filter(term => term && term.length > 0); // Ensure we only have non-empty terms
       
