@@ -3669,20 +3669,32 @@ export const POTracker = () => {
                                 poOrdersCount: poOrders.length
                               });
                               
-                               // Use poOrders directly (all orders including closed) and filter by selected POs
+                                // Use poOrders directly (all orders including closed) and filter by selected POs
                                 let ordersForSelectedPOs = poOrders
                                   .filter(order => {
                                     const poMatch = selectedPOsList.includes(order.po_number);
                                     const statusMatch = order.status !== 'cancelled'; // Exclude only cancelled
                                     return poMatch && statusMatch;
                                  })
-                                 .filter(order => !labelSearchQuery || 
-                                   order.po_number.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
-                                   order.sku_code?.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
-                                   order.asin?.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
-                                   order.model_number?.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
-                                   order.title?.toLowerCase().includes(labelSearchQuery.toLowerCase())
-                                 )
+                                 .filter(order => {
+                                   // If we have search tags, use them for filtering
+                                   if (searchTags.length === 0 && !labelSearchQuery) return true;
+                                   
+                                   const allSearchTerms = [...searchTags];
+                                   if (labelSearchQuery.trim()) {
+                                     allSearchTerms.push(labelSearchQuery.trim());
+                                   }
+                                   
+                                   // Check if order matches ANY of the search terms
+                                   return allSearchTerms.some(term => {
+                                     const lowerTerm = term.toLowerCase();
+                                     return order.po_number?.toLowerCase().includes(lowerTerm) ||
+                                       order.sku_code?.toLowerCase().includes(lowerTerm) ||
+                                       order.asin?.toLowerCase().includes(lowerTerm) ||
+                                       order.model_number?.toLowerCase().includes(lowerTerm) ||
+                                       order.title?.toLowerCase().includes(lowerTerm);
+                                   });
+                                 })
                                  .filter(order => {
                                    // Apply printed status filter
                                    if (printedFilter === 'all') return true;
