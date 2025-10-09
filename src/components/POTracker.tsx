@@ -44,6 +44,7 @@ export interface POOrder {
   external_id?: string;
   external_id_type?: string;
   sku_code?: string;
+  serial_number?: string;
   status: 'pending' | 'placed' | 'received' | 'cancelled' | 'closed';
   order_date?: string;
   expected_delivery?: string;
@@ -3687,12 +3688,13 @@ export const POTracker = () => {
                                    
                                    // Check if order matches ANY of the search terms
                                    return allSearchTerms.some(term => {
-                                     const lowerTerm = term.toLowerCase();
-                                     return order.po_number?.toLowerCase().includes(lowerTerm) ||
-                                       order.sku_code?.toLowerCase().includes(lowerTerm) ||
-                                       order.asin?.toLowerCase().includes(lowerTerm) ||
-                                       order.model_number?.toLowerCase().includes(lowerTerm) ||
-                                       order.title?.toLowerCase().includes(lowerTerm);
+                                      const lowerTerm = term.toLowerCase();
+                                      return order.po_number?.toLowerCase().includes(lowerTerm) ||
+                                        order.sku_code?.toLowerCase().includes(lowerTerm) ||
+                                        order.asin?.toLowerCase().includes(lowerTerm) ||
+                                        order.model_number?.toLowerCase().includes(lowerTerm) ||
+                                        order.title?.toLowerCase().includes(lowerTerm) ||
+                                        order.serial_number?.toLowerCase().includes(lowerTerm);
                                    });
                                  })
                                  .filter(order => {
