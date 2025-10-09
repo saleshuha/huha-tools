@@ -3480,7 +3480,7 @@ export const POTracker = () => {
                               <Badge 
                                 key={index}
                                 variant="secondary"
-                                className="bg-primary text-primary-foreground px-2 py-1 text-sm flex items-center gap-1 border border-primary/20 shadow-sm"
+                                className="bg-primary text-primary-foreground px-2 py-1 text-sm flex items-center gap-1 border border-primary/20 shadow-sm hover:bg-primary/80 transition-colors"
                               >
                                 {tag}
                                 <button
