@@ -3494,7 +3494,7 @@ export const POTracker = () => {
                               onChange={(e) => setLabelSearchQuery(e.target.value)}
                               onKeyDown={(e) => {
                                 console.log('🔑 Key pressed:', e.key, 'Query:', labelSearchQuery);
-                                if (e.key === ' ' && labelSearchQuery.trim()) {
+                                if (e.key === ',' && labelSearchQuery.trim()) {
                                   console.log('✅ Creating tag from:', labelSearchQuery.trim());
                                   e.preventDefault();
                                   const trimmedQuery = labelSearchQuery.trim();
