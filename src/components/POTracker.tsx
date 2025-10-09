@@ -95,6 +95,9 @@ export const POTracker = () => {
   const [labelCurrentPage, setLabelCurrentPage] = useState(1);
   const [labelItemsPerPage, setLabelItemsPerPage] = useState(20);
   
+  // Multi-tag search state
+  const [searchTags, setSearchTags] = useState<string[]>([]);
+  
   // Load saved print settings from localStorage or use defaults
   const defaultPrintSettings = {
     template: 'default',
@@ -835,13 +838,16 @@ export const POTracker = () => {
     // Use debounced search for labels tab to improve performance
     const currentSearchQuery = activeTab === 'labels' ? debouncedLabelSearch.trim() : searchQuery.trim();
     
+    // Combine search tags and current query for filtering
+    const allSearchTerms = [...searchTags];
     if (currentSearchQuery) {
-      // Support multi-item search with space-separated values
-      // Trim and split, filtering out any empty strings from extra spaces
-      const searchTerms = currentSearchQuery
-        .toLowerCase()
-        .split(/\s+/)
-        .filter(term => term && term.length > 0); // Ensure we only have non-empty terms
+      allSearchTerms.push(currentSearchQuery);
+    }
+    
+    if (allSearchTerms.length > 0) {
+      const searchTerms = allSearchTerms
+        .map(term => term.toLowerCase())
+        .filter(term => term && term.length > 0);
       
       console.log('🔍 FILTERING DEBUG: Search terms:', searchTerms, 'Search type:', searchType);
       
@@ -3450,28 +3456,67 @@ export const POTracker = () => {
                         </SelectContent>
                       </Select>
                       
-                      {/* Search Input */}
+                      {/* Search Input with Tags */}
                       <div className="relative group flex-1">
-                        <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-primary h-4 w-4 transition-colors" />
-                        <Input
-                          placeholder={
-                            searchType === 'all' ? "Search by SKU, title, ASIN, serial number..." :
-                            searchType === 'asin' ? "Search by ASIN..." :
-                            searchType === 'sku' ? "Search by SKU..." :
-                            searchType === 'serial' ? "Search by Serial Number..." :
-                            searchType === 'title' ? "Search by Title..." :
-                            "Search by PO Number..."
-                          }
-                          value={labelSearchQuery}
-                          onChange={(e) => setLabelSearchQuery(e.target.value)}
-                          className="pl-12 pr-12 h-12 bg-primary/5 border-2 border-primary/30 focus:border-primary hover:border-primary/50 transition-all duration-300 shadow-medium ring-2 ring-primary/10"
-                        />
-                        {labelSearchQuery && (
+                        <Search className="absolute left-4 top-3 text-primary h-4 w-4 transition-colors z-10" />
+                        <div className="relative">
+                          <div className="flex flex-wrap items-center gap-1.5 pl-12 pr-12 py-2 min-h-[48px] bg-primary/5 border-2 border-primary/30 focus-within:border-primary hover:border-primary/50 transition-all duration-300 shadow-medium ring-2 ring-primary/10 rounded-md">
+                            {searchTags.map((tag, index) => (
+                              <Badge 
+                                key={index}
+                                variant="secondary"
+                                className="bg-primary text-primary-foreground px-2 py-1 text-sm flex items-center gap-1 border border-primary/20 shadow-sm"
+                              >
+                                {tag}
+                                <button
+                                  onClick={() => {
+                                    setSearchTags(prev => prev.filter((_, i) => i !== index));
+                                  }}
+                                  className="ml-1 hover:bg-primary-foreground/20 rounded-full p-0.5 transition-colors"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </Badge>
+                            ))}
+                            <input
+                              type="text"
+                              placeholder={
+                                searchTags.length === 0 ? (
+                                  searchType === 'all' ? "Search by SKU, title, ASIN, serial number..." :
+                                  searchType === 'asin' ? "Search by ASIN..." :
+                                  searchType === 'sku' ? "Search by SKU..." :
+                                  searchType === 'serial' ? "Search by Serial Number..." :
+                                  searchType === 'title' ? "Search by Title..." :
+                                  "Search by PO Number..."
+                                ) : "Add another search term..."
+                              }
+                              value={labelSearchQuery}
+                              onChange={(e) => setLabelSearchQuery(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === ' ' && labelSearchQuery.trim()) {
+                                  e.preventDefault();
+                                  const trimmedQuery = labelSearchQuery.trim();
+                                  if (trimmedQuery && !searchTags.includes(trimmedQuery)) {
+                                    setSearchTags(prev => [...prev, trimmedQuery]);
+                                  }
+                                  setLabelSearchQuery('');
+                                } else if (e.key === 'Backspace' && !labelSearchQuery && searchTags.length > 0) {
+                                  setSearchTags(prev => prev.slice(0, -1));
+                                }
+                              }}
+                              className="flex-1 min-w-[120px] bg-transparent border-none outline-none text-sm placeholder:text-muted-foreground"
+                            />
+                          </div>
+                        </div>
+                        {(labelSearchQuery || searchTags.length > 0) && (
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive transition-colors"
-                            onClick={() => setLabelSearchQuery('')}
+                            className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive transition-colors z-10"
+                            onClick={() => {
+                              setLabelSearchQuery('');
+                              setSearchTags([]);
+                            }}
                           >
                             <X className="h-4 w-4" />
                           </Button>
