@@ -3493,11 +3493,17 @@ export const POTracker = () => {
                               value={labelSearchQuery}
                               onChange={(e) => setLabelSearchQuery(e.target.value)}
                               onKeyDown={(e) => {
+                                console.log('🔑 Key pressed:', e.key, 'Query:', labelSearchQuery);
                                 if (e.key === ' ' && labelSearchQuery.trim()) {
+                                  console.log('✅ Creating tag from:', labelSearchQuery.trim());
                                   e.preventDefault();
                                   const trimmedQuery = labelSearchQuery.trim();
                                   if (trimmedQuery && !searchTags.includes(trimmedQuery)) {
-                                    setSearchTags(prev => [...prev, trimmedQuery]);
+                                    setSearchTags(prev => {
+                                      const newTags = [...prev, trimmedQuery];
+                                      console.log('🏷️ Tags updated:', newTags);
+                                      return newTags;
+                                    });
                                   }
                                   setLabelSearchQuery('');
                                 } else if (e.key === 'Backspace' && !labelSearchQuery && searchTags.length > 0) {
