@@ -98,6 +98,21 @@ export const POTracker = () => {
   // Multi-tag search state
   const [searchTags, setSearchTags] = useState<string[]>([]);
   
+  // Auto-create chip after 5 seconds of inactivity
+  useEffect(() => {
+    if (!labelSearchQuery.trim()) return;
+    
+    const timer = setTimeout(() => {
+      const trimmedQuery = labelSearchQuery.trim();
+      if (trimmedQuery && !searchTags.includes(trimmedQuery)) {
+        setSearchTags(prev => [...prev, trimmedQuery]);
+        setLabelSearchQuery('');
+      }
+    }, 5000);
+    
+    return () => clearTimeout(timer);
+  }, [labelSearchQuery, searchTags]);
+  
   // Load saved print settings from localStorage or use defaults
   const defaultPrintSettings = {
     template: 'default',
@@ -3493,15 +3508,8 @@ export const POTracker = () => {
                               value={labelSearchQuery}
                               onChange={(e) => setLabelSearchQuery(e.target.value)}
                               onKeyDown={(e) => {
-                                // Create chip on space or comma
-                                if ((e.key === ' ' || e.key === ',') && labelSearchQuery.trim()) {
-                                  e.preventDefault();
-                                  const trimmedQuery = labelSearchQuery.trim();
-                                  if (trimmedQuery && !searchTags.includes(trimmedQuery)) {
-                                    setSearchTags(prev => [...prev, trimmedQuery]);
-                                  }
-                                  setLabelSearchQuery('');
-                                } else if (e.key === 'Backspace' && !labelSearchQuery && searchTags.length > 0) {
+                                // Only handle backspace for deleting tags
+                                if (e.key === 'Backspace' && !labelSearchQuery && searchTags.length > 0) {
                                   setSearchTags(prev => prev.slice(0, -1));
                                 }
                               }}
