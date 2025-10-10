@@ -476,6 +476,184 @@ async function convertCurrency(priceUSD: number, userCountry: string): Promise<n
   return priceUSD * (exchangeRate || 1);
 }
 
+// Handle image download for products
+async function handleImageDownload(body: any, userId: string): Promise<Response> {
+  const { itemNos, size = 800, watermark, apiId } = body;
+
+  if (!itemNos || !Array.isArray(itemNos) || itemNos.length === 0) {
+    return new Response(JSON.stringify({ 
+      result: 'error', 
+      message: 'itemNos array is required and must not be empty' 
+    }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  try {
+    // Get API credentials
+    const credentials = await getApiCredentials(userId, apiId);
+    
+    const results = [];
+    let successCount = 0;
+    let errorCount = 0;
+
+    // Process each item
+    for (const itemNo of itemNos) {
+      try {
+        // Build parameters for image download
+        const params: Record<string, any> = { itemNo };
+        if (size) params.size = size;
+        if (watermark) params.watermark = watermark;
+
+        // Make request to Sunsky API for images
+        const response = await fetch(`https://open.sunsky-online.com/openapi/product!getImages.do`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            ...params,
+            key: credentials.key,
+            signature: await generateSignature(params, credentials.key, credentials.secret)
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        // Get the ZIP file as array buffer
+        const zipData = await response.arrayBuffer();
+        
+        // Extract images from ZIP using JSZip
+        const JSZip = (await import('https://esm.sh/jszip@3.10.1')).default;
+        const zip = await JSZip.loadAsync(zipData);
+        
+        const imageFiles = Object.keys(zip.files).filter(name => 
+          !zip.files[name].dir && /\.(jpg|jpeg|png|gif|webp)$/i.test(name)
+        );
+
+        let imageOrder = 0;
+        for (const fileName of imageFiles) {
+          const file = zip.files[fileName];
+          const imageData = await file.async('base64');
+          const ext = fileName.split('.').pop()?.toLowerCase() || 'jpg';
+          const mimeType = ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : 'image/jpeg';
+          
+          // Upload to Supabase Storage
+          const storagePath = `${userId}/${itemNo}/${imageOrder}_${fileName}`;
+          const { error: uploadError } = await supabase.storage
+            .from('sunsky-images')
+            .upload(storagePath, Buffer.from(imageData, 'base64'), {
+              contentType: mimeType,
+              upsert: true
+            });
+
+          if (uploadError) {
+            console.error('Storage upload error:', uploadError);
+            continue;
+          }
+
+          // Get public URL
+          const { data: { publicUrl } } = supabase.storage
+            .from('sunsky-images')
+            .getPublicUrl(storagePath);
+
+          // Save to database
+          await supabase
+            .from('sunsky_product_images')
+            .upsert({
+              user_id: userId,
+              item_no: itemNo,
+              image_url: publicUrl,
+              image_order: imageOrder,
+              image_type: imageOrder === 0 ? 'main' : 'detail',
+              storage_path: storagePath,
+              download_status: 'completed'
+            }, {
+              onConflict: 'user_id,item_no,image_order'
+            });
+
+          imageOrder++;
+        }
+
+        // Update SKU with image info
+        if (imageOrder > 0) {
+          const { data: { publicUrl: thumbnailUrl } } = supabase.storage
+            .from('sunsky-images')
+            .getPublicUrl(`${userId}/${itemNo}/0_${imageFiles[0]}`);
+
+          await supabase
+            .from('sunsky_skus')
+            .update({
+              images_downloaded: true,
+              images_download_date: new Date().toISOString(),
+              thumbnail_url: thumbnailUrl,
+              image_count: imageOrder
+            })
+            .eq('user_id', userId)
+            .eq('sku_code', itemNo);
+        }
+
+        results.push({
+          itemNo,
+          status: 'success',
+          imageCount: imageOrder
+        });
+        successCount++;
+
+      } catch (error) {
+        console.error(`Error downloading images for ${itemNo}:`, error);
+        
+        // Save error to database
+        await supabase
+          .from('sunsky_product_images')
+          .upsert({
+            user_id: userId,
+            item_no: itemNo,
+            image_url: '',
+            image_order: 0,
+            download_status: 'failed',
+            download_error: error.message
+          }, {
+            onConflict: 'user_id,item_no,image_order'
+          });
+
+        results.push({
+          itemNo,
+          status: 'error',
+          error: error.message
+        });
+        errorCount++;
+      }
+    }
+
+    return new Response(JSON.stringify({
+      result: 'success',
+      data: {
+        total: itemNos.length,
+        success: successCount,
+        errors: errorCount,
+        results
+      }
+    }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    console.error('Image download error:', error);
+    return new Response(JSON.stringify({
+      result: 'error',
+      message: error.message
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+}
+
 // Process a chunk of products (helper function for chunked processing)
 async function processProductChunk(
   products: any[], 

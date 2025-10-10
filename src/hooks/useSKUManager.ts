@@ -15,6 +15,10 @@ export interface SunskySKU {
   product_data?: any;
   created_at: string;
   updated_at: string;
+  images_downloaded?: boolean;
+  images_download_date?: string | null;
+  thumbnail_url?: string | null;
+  image_count?: number;
 }
 
 const CACHE_KEY = 'sunsky_skus_cache';

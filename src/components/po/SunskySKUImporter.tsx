@@ -33,6 +33,7 @@ import { generateExcelFile } from "@/utils/excelExport";
 import { useBackgroundTasks } from "@/contexts/BackgroundTasksContext";
 import { useConcurrentSunskyExport } from "@/hooks/useConcurrentSunskyExport";
 import { usePersistentBackgroundTasks } from "@/hooks/usePersistentBackgroundTasks";
+import { ImageGalleryTab } from "./ImageGalleryTab";
 interface SunskyProduct {
   // Core product fields
   id: number;
