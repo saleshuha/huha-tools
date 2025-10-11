@@ -1180,7 +1180,14 @@ export const SunskySKUImporter: React.FC = () => {
         response,
         error
       });
-      if (error) throw error;
+      
+      if (error) {
+        // Check if this is an edge function connection error
+        if (error.message?.includes('Failed to fetch') || error.message?.includes('Failed to send')) {
+          throw new Error('Edge function unavailable. The Sunsky API service is currently not reachable. Please try again later or contact support if the issue persists.');
+        }
+        throw error;
+      }
 
       // Handle different response structures
       if (response && typeof response === 'object') {
@@ -1200,6 +1207,16 @@ export const SunskySKUImporter: React.FC = () => {
       return response;
     } catch (error) {
       console.error('Sunsky API error:', error);
+      
+      // Provide user-friendly error message
+      if (error instanceof Error && error.message.includes('Edge function unavailable')) {
+        toast({
+          title: "Service Unavailable",
+          description: "The Sunsky API service is currently not reachable. Your credentials are valid but the service cannot be accessed at this time.",
+          variant: "destructive",
+        });
+      }
+      
       throw error;
     }
   };
