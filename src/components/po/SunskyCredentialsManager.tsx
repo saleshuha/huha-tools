@@ -45,20 +45,41 @@ export const SunskyCredentialsManager: React.FC<SunskyCredentialsManagerProps> =
   const loadApiKeys = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('sunsky-api', {
-        body: { action: 'listApiKeys' }
-      });
+      // Try edge function first
+      try {
+        const { data, error } = await supabase.functions.invoke('sunsky-api', {
+          body: { action: 'listApiKeys' }
+        });
 
-      if (error) throw error;
-
-      if (data.result === 'success') {
-        setApiKeys(data.apiKeys || []);
+        if (!error && data.result === 'success') {
+          setApiKeys(data.apiKeys || []);
+          setLoading(false);
+          return;
+        }
+      } catch (edgeFunctionError) {
+        console.warn('Edge function unavailable, falling back to RPC:', edgeFunctionError);
       }
+
+      // Fallback to direct RPC call
+      const { data: credentials, error: rpcError } = await supabase.rpc('get_user_sunsky_credentials_secure');
+
+      if (rpcError) throw rpcError;
+
+      const formattedKeys: ApiKeyEntry[] = credentials?.map(key => ({
+        id: key.id,
+        name: key.name || 'Unnamed API Key',
+        maskedKey: key.key_last4 ? `****${key.key_last4}` : '****',
+        isActive: key.is_active || false,
+        status: 'unknown' as const,
+        lastTested: key.last_tested ? new Date(key.last_tested) : undefined
+      })) || [];
+
+      setApiKeys(formattedKeys);
     } catch (error) {
       console.error('Error loading API keys:', error);
       toast({
         title: "Error",
-        description: "Failed to load API keys",
+        description: "Failed to load API keys. Please check your connection and try again.",
         variant: "destructive",
       });
     } finally {
