@@ -139,43 +139,74 @@ export const SunskyCredentialsManager: React.FC<SunskyCredentialsManagerProps> =
   const testApiKey = async (apiKeyId: string) => {
     setTesting(apiKeyId);
     try {
-      const { data, error } = await supabase.functions.invoke('sunsky-api', {
-        body: { 
-          action: 'testCredentials',
-          apiId: apiKeyId
+      // Try edge function first
+      try {
+        const { data, error } = await supabase.functions.invoke('sunsky-api', {
+          body: { 
+            action: 'testCredentials',
+            apiId: apiKeyId
+          }
+        });
+
+        if (!error && data?.result === 'success') {
+          toast({
+            title: "Connection Successful",
+            description: "API credentials are working correctly",
+          });
+          setApiKeys(prev => prev.map(key => 
+            key.id === apiKeyId 
+              ? { ...key, status: 'connected', lastTested: new Date() }
+              : key
+          ));
+          setTesting(null);
+          return;
         }
-      });
 
-      if (error) throw error;
-
-      if (data.result === 'success') {
-        toast({
-          title: "Connection Successful",
-          description: "API credentials are working correctly",
-        });
-        // Update the status in local state
-        setApiKeys(prev => prev.map(key => 
-          key.id === apiKeyId 
-            ? { ...key, status: 'connected', lastTested: new Date() }
-            : key
-        ));
-      } else {
-        toast({
-          title: "Connection Failed",
-          description: data.message || "Invalid API credentials",
-          variant: "destructive",
-        });
-        setApiKeys(prev => prev.map(key => 
-          key.id === apiKeyId 
-            ? { ...key, status: 'disconnected', lastTested: new Date() }
-            : key
-        ));
+        if (!error && data?.result === 'error') {
+          toast({
+            title: "Connection Failed",
+            description: data.message || "Invalid API credentials",
+            variant: "destructive",
+          });
+          setApiKeys(prev => prev.map(key => 
+            key.id === apiKeyId 
+              ? { ...key, status: 'disconnected', lastTested: new Date() }
+              : key
+          ));
+          setTesting(null);
+          return;
+        }
+      } catch (edgeFunctionError) {
+        console.warn('Edge function unavailable for testing:', edgeFunctionError);
       }
+
+      // Fallback: verify credentials exist in database
+      const { data: credentials, error: dbError } = await supabase
+        .from('sunsky_credentials')
+        .select('id, name, is_active')
+        .eq('id', apiKeyId)
+        .single();
+
+      if (dbError || !credentials) {
+        throw new Error('Credentials not found in database');
+      }
+
+      toast({
+        title: "Credentials Verified",
+        description: "Credentials exist but cannot be tested (API service unavailable)",
+        variant: "default",
+      });
+      
+      setApiKeys(prev => prev.map(key => 
+        key.id === apiKeyId 
+          ? { ...key, status: 'unknown' as const, lastTested: new Date() }
+          : key
+      ));
     } catch (error) {
       console.error('Error testing connection:', error);
       toast({
         title: "Connection Failed",
-        description: error.message || "Failed to test connection",
+        description: error instanceof Error ? error.message : "Failed to test connection",
         variant: "destructive",
       });
       setApiKeys(prev => prev.map(key => 
@@ -190,34 +221,59 @@ export const SunskyCredentialsManager: React.FC<SunskyCredentialsManagerProps> =
 
   const toggleApiKeyActive = async (apiKeyId: string, makeActive: boolean) => {
     try {
-      const { data, error } = await supabase.functions.invoke('sunsky-api', {
-        body: { 
-          action: 'toggleApiKeyActive',
-          apiId: apiKeyId,
-          isActive: makeActive
-        }
-      });
-
-      if (error) throw error;
-
-      if (data.result === 'success') {
-        toast({
-          title: "Success",
-          description: makeActive ? "API key activated" : "API key deactivated",
+      // Try edge function first
+      try {
+        const { data, error } = await supabase.functions.invoke('sunsky-api', {
+          body: { 
+            action: 'toggleApiKeyActive',
+            apiId: apiKeyId,
+            isActive: makeActive
+          }
         });
-        setApiKeys(prev => prev.map(key => ({
-          ...key,
-          isActive: key.id === apiKeyId ? makeActive : key.isActive
-        })));
-        onCredentialsChanged?.();
-      } else {
-        throw new Error(data.message || 'Failed to update API key status');
+
+        if (!error && data?.result === 'success') {
+          toast({
+            title: "Success",
+            description: makeActive ? "API key activated" : "API key deactivated",
+          });
+          setApiKeys(prev => prev.map(key => ({
+            ...key,
+            isActive: key.id === apiKeyId ? makeActive : key.isActive
+          })));
+          onCredentialsChanged?.();
+          return;
+        }
+
+        if (!error && data?.result === 'error') {
+          throw new Error(data.message || 'Failed to update API key status');
+        }
+      } catch (edgeFunctionError) {
+        console.warn('Edge function unavailable for toggle, falling back to direct update:', edgeFunctionError);
       }
+
+      // Fallback: update directly in database
+      const { error: updateError } = await supabase
+        .from('sunsky_credentials')
+        .update({ is_active: makeActive })
+        .eq('id', apiKeyId);
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: "Success",
+        description: makeActive ? "API key activated" : "API key deactivated",
+      });
+      
+      setApiKeys(prev => prev.map(key => ({
+        ...key,
+        isActive: key.id === apiKeyId ? makeActive : key.isActive
+      })));
+      onCredentialsChanged?.();
     } catch (error) {
       console.error('Error updating API key status:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to update API key status",
+        description: error instanceof Error ? error.message : "Failed to update API key status",
         variant: "destructive",
       });
     }
