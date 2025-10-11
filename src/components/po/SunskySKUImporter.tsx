@@ -2058,7 +2058,7 @@ export const SunskySKUImporter: React.FC = () => {
           </Alert>}
 
         <Tabs defaultValue="search" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 h-12 bg-muted/50 border-2 border-border/50 rounded-lg p-1">
+          <TabsList className="grid w-full grid-cols-6 h-12 bg-muted/50 border-2 border-border/50 rounded-lg p-1">
             <TabsTrigger value="search" className="h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200">
               <Search className="h-4 w-4 mr-2" />
               Search & Import
@@ -2070,6 +2070,10 @@ export const SunskySKUImporter: React.FC = () => {
             <TabsTrigger value="skus" className="h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200">
               <Database className="h-4 w-4 mr-2" />
               Imported SKUs
+            </TabsTrigger>
+            <TabsTrigger value="images" className="h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200">
+              <Eye className="h-4 w-4 mr-2" />
+              Image Gallery
             </TabsTrigger>
             <TabsTrigger value="export-status" className="h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200">
               <Download className="h-4 w-4 mr-2" />
@@ -3576,6 +3580,23 @@ export const SunskySKUImporter: React.FC = () => {
                     </div>
                   </CardContent>
                 </Card>}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="images" className="space-y-6">
+          <Card className="border-2 border-border/50 bg-card/50 backdrop-blur-sm shadow-lg">
+            <CardHeader className="bg-gradient-to-r from-primary/5 to-transparent border-b">
+              <CardTitle className="flex items-center gap-2">
+                <Eye className="h-5 w-5 text-primary" />
+                Image Gallery
+              </CardTitle>
+              <CardDescription>
+                Browse and download product images from Sunsky
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6">
+              <ImageGalleryTab selectedAPI={selectedAPI} />
             </CardContent>
           </Card>
         </TabsContent>
