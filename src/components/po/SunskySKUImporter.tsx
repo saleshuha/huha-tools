@@ -1401,11 +1401,22 @@ export const SunskySKUImporter: React.FC = () => {
       }
     } catch (error) {
       console.error('Error searching products:', error);
-      toast({
-        title: "Error",
-        description: "Failed to search products",
-        variant: "destructive"
-      });
+      const errorMessage = error instanceof Error ? error.message : 'Failed to search products';
+      
+      // Provide specific error message based on error type
+      if (errorMessage.includes('Edge function unavailable')) {
+        toast({
+          title: "Service Unavailable",
+          description: "The Sunsky API service is currently unavailable. Please try again later.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Search Failed",
+          description: errorMessage,
+          variant: "destructive"
+        });
+      }
     } finally {
       setLoading(false);
     }
