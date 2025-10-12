@@ -1452,7 +1452,7 @@ serve(async (req) => {
     url: req.url,
     timestamp: new Date().toISOString()
   });
-  
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     console.log('✅ Handling CORS preflight');
@@ -1460,13 +1460,21 @@ serve(async (req) => {
   }
 
   try {
-    // Parse request body with error handling
+    // Parse request body once
+    console.log('📥 Parsing request body...');
     let requestBody;
     try {
       requestBody = await req.json();
     } catch (jsonError) {
-      console.error('Failed to parse request JSON:', jsonError);
-      throw new Error('Invalid JSON in request body');
+      console.error('❌ Failed to parse request JSON:', jsonError);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Invalid JSON in request body',
+          details: jsonError.message 
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
     
     const { action, ...requestData } = requestBody;
