@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5/dist/main/index.js";
 import { crypto } from "https://deno.land/std@0.190.0/crypto/mod.ts";
 
+console.log('🚀 Sunsky API Edge Function Initialized');
+
 // CORS headers for security  
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,6 +14,12 @@ const corsHeaders = {
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+console.log('✅ Environment variables loaded:', {
+  hasUrl: !!supabaseUrl,
+  hasServiceKey: !!supabaseServiceKey
+});
+
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // MD5 implementation for Sunsky API signature
