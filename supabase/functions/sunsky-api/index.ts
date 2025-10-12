@@ -1760,15 +1760,31 @@ serve(async (req) => {
           }
 
         // Convert prices for products if they exist
-        if (result.result === 'success' && result.data?.result) {
+        if (result.result === 'success' && result.data?.result && result.data.result.length > 0) {
+          // Get exchange rate once for all products
+          const targetCurrency = userCountry === 'KSA' ? 'SAR' : 'AED';
+          let exchangeRate = 1;
+          
+          try {
+            const { data: rate } = await supabase.rpc('get_exchange_rate', {
+              from_currency: 'USD',
+              to_currency: targetCurrency
+            });
+            exchangeRate = rate || 1;
+          } catch (error) {
+            console.error('Exchange rate fetch error:', error);
+            exchangeRate = targetCurrency === 'SAR' ? 3.75 : 3.67; // Fallback rates
+          }
+          
+          // Apply conversion to all products
           for (const product of result.data.result) {
             if (product.price) {
               try {
                 const priceUSD = parseFloat(product.price);
-                product.convertedPrice = await convertCurrency(priceUSD, userCountry);
-                product.convertedCurrency = userCountry === 'KSA' ? 'SAR' : 'AED';
+                product.convertedPrice = priceUSD * exchangeRate;
+                product.convertedCurrency = targetCurrency;
               } catch (error) {
-                console.error('Currency conversion error:', error);
+                console.error('Price conversion error:', error);
                 product.convertedPrice = parseFloat(product.price);
                 product.convertedCurrency = 'USD';
               }
@@ -1777,7 +1793,7 @@ serve(async (req) => {
         }
 
           return new Response(JSON.stringify({
-            success: true,
+            result: 'success',
             data: {
               products: result.data?.result || [],
               total: result.data?.total || 0
