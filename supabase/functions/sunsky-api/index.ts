@@ -1439,8 +1439,15 @@ async function processImportJob(job: any, userId: string, userCountry: string) {
 }
 
 serve(async (req) => {
+  console.log('🚀 Sunsky API function invoked:', {
+    method: req.method,
+    url: req.url,
+    timestamp: new Date().toISOString()
+  });
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('✅ Handling CORS preflight');
     return new Response(null, { headers: corsHeaders });
   }
 
@@ -1760,36 +1767,41 @@ serve(async (req) => {
           }
 
         // Convert prices for products if they exist
-        if (result.result === 'success' && result.data?.result && result.data.result.length > 0) {
-          // Get exchange rate once for all products
-          const targetCurrency = userCountry === 'KSA' ? 'SAR' : 'AED';
-          let exchangeRate = 1;
-          
-          try {
-            const { data: rate } = await supabase.rpc('get_exchange_rate', {
-              from_currency: 'USD',
-              to_currency: targetCurrency
-            });
-            exchangeRate = rate || 1;
-          } catch (error) {
-            console.error('Exchange rate fetch error:', error);
-            exchangeRate = targetCurrency === 'SAR' ? 3.75 : 3.67; // Fallback rates
-          }
-          
-          // Apply conversion to all products
-          for (const product of result.data.result) {
-            if (product.price) {
-              try {
-                const priceUSD = parseFloat(product.price);
-                product.convertedPrice = priceUSD * exchangeRate;
-                product.convertedCurrency = targetCurrency;
-              } catch (error) {
-                console.error('Price conversion error:', error);
-                product.convertedPrice = parseFloat(product.price);
-                product.convertedCurrency = 'USD';
+        try {
+          if (result.result === 'success' && result.data?.result && result.data.result.length > 0) {
+            // Get exchange rate once for all products
+            const targetCurrency = userCountry === 'KSA' ? 'SAR' : 'AED';
+            let exchangeRate = 1;
+            
+            try {
+              const { data: rate } = await supabase.rpc('get_exchange_rate', {
+                from_currency: 'USD',
+                to_currency: targetCurrency
+              });
+              exchangeRate = rate || 1;
+            } catch (error) {
+              console.error('Exchange rate fetch error:', error);
+              exchangeRate = targetCurrency === 'SAR' ? 3.75 : 3.67; // Fallback rates
+            }
+            
+            // Apply conversion to all products
+            for (const product of result.data.result) {
+              if (product.price) {
+                try {
+                  const priceUSD = parseFloat(product.price);
+                  product.convertedPrice = priceUSD * exchangeRate;
+                  product.convertedCurrency = targetCurrency;
+                } catch (error) {
+                  console.error('Price conversion error:', error);
+                  product.convertedPrice = parseFloat(product.price);
+                  product.convertedCurrency = 'USD';
+                }
               }
             }
           }
+        } catch (conversionError) {
+          console.error('Currency conversion failed, returning products without conversion:', conversionError);
+          // Continue without currency conversion
         }
 
           return new Response(JSON.stringify({
