@@ -1447,35 +1447,28 @@ async function processImportJob(job: any, userId: string, userCountry: string) {
 }
 
 serve(async (req) => {
-  console.log('🚀 Sunsky API function invoked:', {
-    method: req.method,
-    url: req.url,
-    timestamp: new Date().toISOString()
-  });
-
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    console.log('✅ Handling CORS preflight');
-    return new Response(null, { headers: corsHeaders });
-  }
-
   try {
+    console.log('🚀 Sunsky API function invoked:', {
+      method: req.method,
+      url: req.url,
+      timestamp: new Date().toISOString()
+    });
+
+    // Handle CORS preflight requests
+    if (req.method === 'OPTIONS') {
+      console.log('✅ Handling CORS preflight');
+      return new Response(null, { headers: corsHeaders });
+    }
+
     // Parse request body once
     console.log('📥 Parsing request body...');
-    let requestBody;
-    try {
-      requestBody = await req.json();
-    } catch (jsonError) {
-      console.error('❌ Failed to parse request JSON:', jsonError);
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'Invalid JSON in request body',
-          details: jsonError.message 
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const requestBody = await req.json();
+    console.log('Received request:', {
+      method: req.method,
+      action: requestBody.action,
+      hasRequestData: !!requestBody.data,
+      requestDataKeys: Object.keys(requestBody.data || {})
+    });
     
     const { action, ...requestData } = requestBody;
     
@@ -3300,18 +3293,30 @@ serve(async (req) => {
     }
 
   } catch (error) {
-    console.error('Error in sunsky-api function:', error);
-    
-    // Enhanced error logging
-    console.error('Request details:', {
-      method: req.method,
-      url: req.url,
-      headers: Object.fromEntries(req.headers.entries()),
+    console.error('❌ Fatal error in Sunsky API function:', error);
+    console.error('Error details:', {
+      name: error?.constructor?.name,
+      message: error?.message,
+      stack: error?.stack,
+      type: typeof error
     });
     
     return new Response(JSON.stringify({ 
       result: 'error', 
-      message: error.message,
+      message: error?.message || 'Unknown error occurred',
+      errorType: error?.constructor?.name || 'UnknownError',
+      timestamp: new Date().toISOString()
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (fatalError) {
+    // Last resort error handler
+    console.error('💥 CRITICAL UNHANDLED ERROR:', fatalError);
+    return new Response(JSON.stringify({ 
+      result: 'error', 
+      message: 'Critical server error',
+      details: String(fatalError),
       timestamp: new Date().toISOString()
     }), {
       status: 500,
