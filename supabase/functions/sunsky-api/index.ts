@@ -1447,32 +1447,25 @@ async function processImportJob(job: any, userId: string, userCountry: string) {
 }
 
 serve(async (req) => {
+  console.log('🚀 Sunsky API function invoked:', {
+    method: req.method,
+    url: req.url,
+    timestamp: new Date().toISOString()
+  });
+
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    console.log('✅ Handling CORS preflight');
+    return new Response(null, { headers: corsHeaders });
+  }
+
   try {
-    console.log('🚀 Sunsky API function invoked:', {
-      method: req.method,
-      url: req.url,
-      timestamp: new Date().toISOString()
-    });
-
-    // Handle CORS preflight requests
-    if (req.method === 'OPTIONS') {
-      console.log('✅ Handling CORS preflight');
-      return new Response(null, { headers: corsHeaders });
-    }
-
     // Parse request body once
     console.log('📥 Parsing request body...');
     const requestBody = await req.json();
-    console.log('Received request:', {
-      method: req.method,
-      action: requestBody.action,
-      hasRequestData: !!requestBody.data,
-      requestDataKeys: Object.keys(requestBody.data || {})
-    });
     
     const { action, ...requestData } = requestBody;
     
-    // Debug logging
     console.log('Received request:', {
       method: req.method,
       action: action,
