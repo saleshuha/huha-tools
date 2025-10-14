@@ -62,7 +62,7 @@ export function LabelTemplates({ onTemplateSelect, activeTemplate }: LabelTempla
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setTemplates(data || []);
+      setTemplates((data as any) || []);
     } catch (error) {
       console.error('Error loading templates:', error);
       toast.error("Failed to load templates");
@@ -88,14 +88,14 @@ export function LabelTemplates({ onTemplateSelect, activeTemplate }: LabelTempla
             width: newTemplate.width,
             height: newTemplate.height,
             canvas_data: {}
-          }
+          } as any
         ])
         .select()
         .single();
 
       if (error) throw error;
 
-      setTemplates(prev => [data, ...prev]);
+      setTemplates(prev => [(data as any), ...prev]);
       setShowCreateDialog(false);
       setNewTemplate({ name: '', description: '', width: 400, height: 300 });
       toast.success("Template created successfully!");
@@ -110,7 +110,7 @@ export function LabelTemplates({ onTemplateSelect, activeTemplate }: LabelTempla
       const { error } = await supabase
         .from('label_templates')
         .delete()
-        .eq('id', templateId);
+        .eq('id' as any, templateId as any);
 
       if (error) throw error;
 
@@ -139,14 +139,14 @@ export function LabelTemplates({ onTemplateSelect, activeTemplate }: LabelTempla
             width: template.width,
             height: template.height,
             canvas_data: template.canvas_data
-          }
+          } as any
         ])
         .select()
         .single();
 
       if (error) throw error;
 
-      setTemplates(prev => [data, ...prev]);
+      setTemplates(prev => [(data as any), ...prev]);
       toast.success("Template duplicated successfully!");
     } catch (error) {
       console.error('Error duplicating template:', error);

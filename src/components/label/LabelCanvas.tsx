@@ -97,27 +97,28 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange, onCanva
         const { data, error } = await supabase
           .from('label_templates')
           .select('*')
-          .eq('id', templateId)
+          .eq('id' as any, templateId as any)
           .single();
 
         if (error) throw error;
 
-        setTemplateData(data);
-        setCanvasSize({ width: data.width, height: data.height });
+        const templateData = data as any;
+        setTemplateData(templateData);
+        setCanvasSize({ width: templateData.width, height: templateData.height });
         
         // Clear existing canvas
         fabricCanvas.clear();
-        fabricCanvas.setDimensions({ width: data.width, height: data.height });
+        fabricCanvas.setDimensions({ width: templateData.width, height: templateData.height });
         
         // Load canvas data if it exists
-        if (data.canvas_data && typeof data.canvas_data === 'object' && Object.keys(data.canvas_data).length > 0) {
-          fabricCanvas.loadFromJSON(data.canvas_data as Record<string, any>, () => {
+        if (templateData.canvas_data && typeof templateData.canvas_data === 'object' && Object.keys(templateData.canvas_data).length > 0) {
+          fabricCanvas.loadFromJSON(templateData.canvas_data as Record<string, any>, () => {
             fabricCanvas.renderAll();
-            toast.success(`Template "${data.name}" loaded!`);
+            toast.success(`Template "${templateData.name}" loaded!`);
           });
         } else {
           fabricCanvas.renderAll();
-          toast.success(`Template "${data.name}" ready for editing!`);
+          toast.success(`Template "${templateData.name}" ready for editing!`);
         }
         
         setHasUnsavedChanges(false);
@@ -327,8 +328,8 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange, onCanva
           width: canvasSize.width,
           height: canvasSize.height,
           updated_at: new Date().toISOString()
-        })
-        .eq('id', templateId);
+        } as any)
+        .eq('id' as any, templateId as any);
 
       if (error) throw error;
 

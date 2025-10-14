@@ -60,11 +60,11 @@ export function PrintManager({ templateId, datasetId, canvasData }: PrintManager
         const { data, error } = await supabase
           .from('label_templates')
           .select('*')
-          .eq('id', templateId)
+          .eq('id' as any, templateId as any)
           .single();
         
         if (error) throw error;
-        setTemplateData(data);
+        setTemplateData(data as any);
       } catch (error) {
         console.error('Error loading template:', error);
       }

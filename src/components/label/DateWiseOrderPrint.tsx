@@ -180,7 +180,7 @@ export const DateWiseOrderPrint: React.FC = () => {
         return;
       }
 
-      const formattedOrders: OrderToProcess[] = (data || []).map((order: any) => ({
+      const formattedOrders: OrderToProcess[] = ((data as any) || []).map((order: any) => ({
         id: order.id,
         file_name: order.source_file || 'Unknown File',
         asin_code: order.asin || '',

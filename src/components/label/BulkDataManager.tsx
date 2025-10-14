@@ -153,14 +153,14 @@ export function BulkDataManager({ onDatasetSelect, activeDataset }: BulkDataMana
             headers: newDataset.headers,
             data: newDataset.data,
             row_count: newDataset.data.length
-          }
+          } as any
         ])
         .select()
         .single();
 
       if (error) throw error;
 
-      setDatasets(prev => [data, ...prev]);
+      setDatasets(prev => [(data as any), ...prev]);
       setShowCreateDialog(false);
       setNewDataset({ name: '', description: '', data: [], headers: [] });
       toast.success("Dataset created successfully!");

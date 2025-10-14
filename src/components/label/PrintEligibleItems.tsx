@@ -62,7 +62,7 @@ export const PrintEligibleItems: React.FC = () => {
 
       if (error) throw error;
       
-      const items = data?.map(item => ({
+      const items = (data as any)?.map((item: any) => ({
         ...item,
         type: item.type as 'ASIN' | 'SKU'
       })) || [];
@@ -105,7 +105,7 @@ export const PrintEligibleItems: React.FC = () => {
           type: identifierType.toLowerCase(),
           is_active: true,
           user_id: user?.id
-        }]);
+        } as any]);
 
       if (error) throw error;
 
@@ -143,7 +143,7 @@ export const PrintEligibleItems: React.FC = () => {
 
       const { error } = await supabase
         .from('print_eligible_items')
-        .insert(insertData);
+        .insert(insertData as any);
 
       if (error) throw error;
 
@@ -162,8 +162,8 @@ export const PrintEligibleItems: React.FC = () => {
     try {
       const { error } = await supabase
         .from('print_eligible_items')
-        .update({ is_active: newStatus })
-        .eq('id', id);
+        .update({ is_active: newStatus } as any)
+        .eq('id' as any, id as any);
 
       if (error) throw error;
 
@@ -183,7 +183,7 @@ export const PrintEligibleItems: React.FC = () => {
       const { error } = await supabase
         .from('print_eligible_items')
         .delete()
-        .eq('id', id);
+        .eq('id' as any, id as any);
 
       if (error) throw error;
 
@@ -216,9 +216,9 @@ export const PrintEligibleItems: React.FC = () => {
       
       const { error } = await supabase
         .from('print_eligible_items')
-        .update({ is_active: true })
-        .eq('user_id', user?.id)
-        .eq('is_active', false);
+        .update({ is_active: true } as any)
+        .eq('user_id' as any, user?.id as any)
+        .eq('is_active' as any, false as any);
 
       if (error) throw error;
 
@@ -240,9 +240,9 @@ export const PrintEligibleItems: React.FC = () => {
       
       const { error } = await supabase
         .from('print_eligible_items')
-        .update({ is_active: false })
-        .eq('user_id', user?.id)
-        .eq('is_active', true);
+        .update({ is_active: false } as any)
+        .eq('user_id' as any, user?.id as any)
+        .eq('is_active' as any, true as any);
 
       if (error) throw error;
 

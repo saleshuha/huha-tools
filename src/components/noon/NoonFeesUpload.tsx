@@ -51,12 +51,12 @@ export function NoonFeesUpload({ onDataUploaded }: NoonFeesUploadProps) {
         const { data, error } = await supabase
           .from('stores')
           .select('id, name')
-          .eq('country', selectedCountry)
-          .eq('platform', 'noon')
+          .eq('country' as any, selectedCountry as any)
+          .eq('platform' as any, 'noon' as any)
           .order('name');
         
         if (error) throw error;
-        setStores(data || []);
+        setStores((data as any) || []);
       } catch (error) {
         console.error('Error loading stores:', error);
         toast({
