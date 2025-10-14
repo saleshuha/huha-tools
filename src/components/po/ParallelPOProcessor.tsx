@@ -26,9 +26,9 @@ export const useParallelPOProcessor = ({
     const { data: activeKeys, error: keysError } = await supabase
       .from('sunsky_credentials')
       .select('id, api_key')
-      .eq('user_id' as any, profile?.id)
-      .eq('is_active' as any, true as any)
-      .order('created_at', { ascending: false });
+      .eq('user_id', profile?.id)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false }) as any;
 
     if (keysError || !activeKeys || activeKeys.length === 0) {
       throw new Error("No active API keys found. Please activate at least one API key.");
@@ -178,7 +178,7 @@ export const useParallelPOProcessor = ({
               chunkSuccess++;
               
               // Update PO orders
-              await supabase
+              await (supabase
                 .from('po_orders')
                 .update({
                   sku_code: productToImport.itemNo,
@@ -186,9 +186,9 @@ export const useParallelPOProcessor = ({
                   unit_cost: productToImport.convertedPrice || parseFloat(productToImport.price || '0') || 0,
                   external_id: productToImport.itemNo,
                   external_id_type: 'sunsky'
-                } as any)
-                .eq('user_id' as any, profile?.id)
-                .eq('model_number' as any, modelNumber);
+                })
+                .eq('user_id', profile?.id)
+                .eq('model_number', modelNumber) as any);
             } else {
               chunkErrors++;
             }
@@ -243,15 +243,15 @@ export const useParallelPOProcessor = ({
 
     // Complete the import job
     if (importJob) {
-      await supabase
+      await (supabase
         .from('sunsky_import_jobs')
         .update({
           status: 'completed',
           completed_at: new Date().toISOString(),
           success_count: finalSuccess,
           error_count: finalErrors
-        } as any)
-        .eq('id' as any, (importJob as any).id);
+        })
+        .eq('id', (importJob as any).id) as any);
     }
     
     // Refresh data

@@ -129,7 +129,7 @@ export default function NoonFeesReports() {
         .select('id, name')
         .in('id', uniqueStoreIds);
 
-      const storeMap = new Map(stores?.map(s => [s.id, s.name]) || []);
+      const storeMap: Map<string, string> = new Map(stores?.map((s: any) => [s.id, s.name]) || []);
 
       // Step 4: Group and aggregate
       const groupedSummary = new Map<string, FeesSummary>();

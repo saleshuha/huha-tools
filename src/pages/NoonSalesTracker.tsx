@@ -162,7 +162,7 @@ export default function NoonSalesTracker() {
       
       if (error) throw error;
       
-      const uniqueMonths = [...new Set(data?.map(item => item.report_month) || [])];
+      const uniqueMonths: string[] = [...new Set<string>(data?.map((item: any) => item.report_month as string) || [])];
       setMonths(uniqueMonths.sort().reverse());
     } catch (error) {
       console.error('Error loading months:', error);

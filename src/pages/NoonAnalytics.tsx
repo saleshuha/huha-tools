@@ -196,7 +196,7 @@ export default function NoonAnalytics() {
         .select('*')
         .eq('country', selectedCountry);
 
-      const costMap = new Map(costsData?.map(c => [c.sku, c.cost]) || []);
+      const costMap: Map<string, number> = new Map(costsData?.map((c: any) => [c.sku, c.cost]) || []);
 
       // Process the data for analytics
       await processAnalyticsData(feesData || [], costMap);
