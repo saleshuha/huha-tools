@@ -344,9 +344,9 @@ export function OrderProcessor() {
         match_field_type: matchFieldType || null,
         inventory_id: inventoryId || null,
         updated_at: new Date().toISOString()
-      } as any)
-      .eq('user_id' as any, user.id as any)
-      .eq('order_id' as any, orderId as any);
+      })
+      .eq('user_id', user.id)
+      .eq('order_id', orderId);
     
     if (error) {
       console.error('Error updating order match status:', error);

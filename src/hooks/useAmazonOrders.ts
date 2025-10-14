@@ -27,7 +27,7 @@ export const useAmazonOrders = () => {
         const { data, error } = await supabase
           .from('orders')
           .select('*')
-          .eq('country' as any, selectedCountry as any)
+          .eq('country', selectedCountry)
           .order('shipment_date', { ascending: true }) // Changed to shipment_date ascending to get older orders first
           .range(from, from + batchSize - 1);
 
@@ -382,8 +382,8 @@ export const useAmazonOrders = () => {
     try {
       const { error } = await supabase
         .from('orders')
-        .update(updates as any)
-        .eq('id' as any, id as any);
+        .update(updates)
+        .eq('id', id);
 
       if (error) throw error;
 
@@ -408,7 +408,7 @@ export const useAmazonOrders = () => {
       const { error } = await supabase
         .from('orders')
         .delete()
-        .eq('id' as any, id as any);
+        .eq('id', id);
 
       if (error) throw error;
 
@@ -438,8 +438,8 @@ export const useAmazonOrders = () => {
       const { data: existingOrders, error: fetchError } = await supabase
         .from('orders')
         .select('order_id, id, status, payment_status, updated_at')
-        .eq('country' as any, selectedCountry as any)
-        .eq('user_id' as any, user?.id as any);
+        .eq('country', selectedCountry)
+        .eq('user_id', user?.id);
 
       if (fetchError) {
         console.warn('Error fetching existing orders:', fetchError);
@@ -454,8 +454,8 @@ export const useAmazonOrders = () => {
         const { error: deleteError } = await supabase
           .from('orders')
           .delete()
-          .eq('country' as any, selectedCountry as any)
-          .eq('user_id' as any, user?.id as any);
+          .eq('country', selectedCountry)
+          .eq('user_id', user?.id);
 
         if (deleteError) {
           console.warn('Error clearing existing data:', deleteError);
@@ -541,8 +541,8 @@ export const useAmazonOrders = () => {
       const { error } = await supabase
         .from('orders')
         .delete()
-        .eq('country' as any, selectedCountry as any)
-        .neq('id' as any, '00000000-0000-0000-0000-000000000000' as any); // Delete all user orders
+        .eq('country', selectedCountry)
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all user orders
 
       if (error) throw error;
 

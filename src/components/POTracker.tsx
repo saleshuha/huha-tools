@@ -305,9 +305,9 @@ export const POTracker = () => {
     try {
       const { error } = await supabase
         .from('po_orders')
-        .update({ status: 'closed', updated_at: new Date().toISOString() } as any)
-        .in('po_number' as any, poNumbers as any)
-        .eq('user_id' as any, profile?.id as any);
+        .update({ status: 'closed', updated_at: new Date().toISOString() })
+        .in('po_number', poNumbers)
+        .eq('user_id', profile?.id);
 
       if (error) throw error;
 
@@ -336,9 +336,9 @@ export const POTracker = () => {
     try {
       const { error } = await supabase
         .from('po_orders')
-        .update({ status: 'closed', updated_at: new Date().toISOString() } as any)
-        .eq('po_number' as any, poNumber as any)
-        .eq('user_id' as any, profile?.id as any);
+        .update({ status: 'closed', updated_at: new Date().toISOString() })
+        .eq('po_number', poNumber)
+        .eq('user_id', profile?.id);
 
       if (error) throw error;
 
@@ -440,7 +440,7 @@ export const POTracker = () => {
       const { data, error } = await supabase
         .from('label_templates')
         .select('id, name, description, canvas_data, width, height')
-        .eq('user_id' as any, user.id as any)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -607,7 +607,7 @@ export const POTracker = () => {
         const { data, error } = await supabase
           .from('asin_inventory')
           .select('*')
-          .eq('user_id' as any, profile.id as any)
+          .eq('user_id', profile.id)
           .order('created_at', { ascending: false })
           .range(asinPage * pageSize, (asinPage + 1) * pageSize - 1);
         
@@ -629,7 +629,7 @@ export const POTracker = () => {
         const { data, error } = await supabase
           .from('sku_inventory')
           .select('*')
-          .eq('user_id' as any, profile.id as any)
+          .eq('user_id', profile.id)
           .order('created_at', { ascending: false })
           .range(skuPage * pageSize, (skuPage + 1) * pageSize - 1);
         
@@ -1246,8 +1246,8 @@ export const POTracker = () => {
           .update({ 
             is_printed: true,
             printed_quantity: newPrintedQuantity
-          } as any)
-          .eq('id' as any, order.id as any);
+          })
+          .eq('id', order.id);
           
         if (error) {
           console.error(`❌ Failed to update order ${order.id}:`, error);
@@ -1541,8 +1541,8 @@ export const POTracker = () => {
         .update({ 
           is_printed: true,
           printed_quantity: newPrintedQuantity
-        } as any)
-        .eq('id' as any, order.id as any);
+        })
+        .eq('id', order.id);
         
       if (error) {
         console.error(`❌ Failed to update single order ${order.id}:`, error);
@@ -4109,13 +4109,13 @@ export const POTracker = () => {
                                        try {
                                          // Update printed quantity without actual printing
                                          const newPrintedQty = (order.printed_quantity || 0) + printQty;
-                                          const { error } = await supabase
-                                            .from('po_orders')
-                                            .update({ 
-                                              printed_quantity: newPrintedQty,
-                                              is_printed: true
-                                            } as any)
-                                            .eq('id' as any, order.id as any);
+                                           const { error } = await supabase
+                                             .from('po_orders')
+                                             .update({ 
+                                               printed_quantity: newPrintedQty,
+                                               is_printed: true
+                                             })
+                                             .eq('id', order.id);
                                          
                                          if (error) throw error;
                                          

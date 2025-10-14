@@ -191,7 +191,7 @@ export function UserManagement() {
       await supabase
         .from('user_roles')
         .delete()
-        .eq('user_id' as any, userId as any);
+        .eq('user_id', userId);
 
       // Then insert the new role
       const { error } = await supabase

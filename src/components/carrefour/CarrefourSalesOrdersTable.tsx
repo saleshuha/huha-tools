@@ -164,7 +164,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
       const { data, error } = await supabase
         .from("carrefour_payments")
         .select("*")
-        .eq("country" as any, selectedCountry as any)
+        .eq("country", selectedCountry)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -231,8 +231,8 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
           cost: editingData.cost,
           profit: editingData.profit,
           status: editingData.status,
-        } as any)
-        .eq("id" as any, editingId as any);
+        })
+        .eq("id", editingId);
 
       if (error) throw error;
 
@@ -272,7 +272,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
       const { data: storeData } = await supabase
         .from("stores")
         .select("country")
-        .eq("id" as any, storeId as any)
+        .eq("id", storeId)
         .single();
 
       const { error } = await supabase
@@ -341,7 +341,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
       const { error } = await supabase
         .from("carrefour_payments")
         .delete()
-        .eq("id" as any, id as any);
+        .eq("id", id);
 
       if (error) throw error;
 
@@ -368,8 +368,8 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
     try {
       const { error } = await supabase
         .from("carrefour_payments")
-        .update({ status } as any)
-        .in("id" as any, Array.from(selectedOrders) as any);
+        .update({ status })
+        .in("id", Array.from(selectedOrders));
 
       if (error) throw error;
 
@@ -396,8 +396,8 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
     try {
       const { error } = await supabase
         .from("carrefour_payments")
-        .update({ payment_status: paymentStatus } as any)
-        .in("id" as any, Array.from(selectedOrders) as any);
+        .update({ payment_status: paymentStatus })
+        .in("id", Array.from(selectedOrders));
 
       if (error) throw error;
 
