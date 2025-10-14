@@ -46,12 +46,12 @@ export const useProductImages = () => {
       let hasMore = true;
       
       while (hasMore) {
-        const { data: batch, error: batchError } = await supabase
+        const { data: batch, error: batchError } = await ((supabase as any)
           .from('product_images')
           .select('*')
-          .eq('user_id' as any, userId as any)
+          .eq('user_id', userId)
           .order('created_at', { ascending: false })
-          .range(from, from + batchSize - 1);
+          .range(from, from + batchSize - 1));
           
         if (batchError) {
           console.error('🖼️ Error fetching batch:', batchError);
@@ -125,12 +125,12 @@ export const useProductImages = () => {
       if (!user) throw new Error('User not authenticated');
 
       // First check if image already exists for this user and ASIN
-      const { data: existingImage } = await supabase
+      const { data: existingImage } = await ((supabase as any)
         .from('product_images')
         .select('*')
-        .eq('user_id' as any, user.id as any)
-        .eq('asin' as any, asin.trim() as any)
-        .maybeSingle();
+        .eq('user_id', user.id)
+        .eq('asin', asin.trim())
+        .maybeSingle());
 
       if (existingImage) {
         // Image already exists, return existing data with a flag
@@ -155,12 +155,12 @@ export const useProductImages = () => {
         if (error.code === '23505' && error.message.includes('unique_user_asin')) {
           console.log(`🖼️ Duplicate detected during insert for ASIN ${asin}, fetching existing image`);
           // Fetch the existing image that caused the conflict
-          const { data: conflictImage } = await supabase
+          const { data: conflictImage } = await (supabase
             .from('product_images')
             .select('*')
             .eq('user_id' as any, user.id as any)
             .eq('asin' as any, asin.trim() as any)
-            .single();
+            .single() as any);
           return { ...(conflictImage as any), wasExisting: true };
         }
         throw error;
@@ -195,16 +195,16 @@ export const useProductImages = () => {
   // Update product image
   const updateProductImage = useMutation({
     mutationFn: async ({ id, asin, imageUrl, imageName }: { id: string; asin: string; imageUrl: string; imageName?: string }) => {
-      const { data, error } = await supabase
+      const { data, error } = await ((supabase as any)
         .from('product_images')
         .update({
           asin: asin.trim(),
           image_url: imageUrl.trim(),
           image_name: imageName?.trim()
-        } as any)
-        .eq('id' as any, id as any)
+        })
+        .eq('id', id)
         .select()
-        .single();
+        .single());
       
       if (error) throw error;
       return data;
@@ -257,10 +257,10 @@ export const useProductImages = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      const { error, count } = await supabase
+      const { error, count } = await ((supabase as any)
         .from('product_images')
         .delete()
-        .eq('user_id' as any, user.id as any);
+        .eq('user_id', user.id));
       
       if (error) throw error;
       return count;

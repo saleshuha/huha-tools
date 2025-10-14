@@ -55,10 +55,10 @@ export function useQuarterlyVelocityAnalytics() {
         .select('asin_id, recommended_quantity');
 
       // Fetch export mode preferences
-      const { data: exportModes } = await supabase
+      const { data: exportModes } = await ((supabase as any)
         .from('export_mode_preferences')
         .select('item_id, export_mode')
-        .eq('item_type' as any, 'asin_inventory' as any);
+        .eq('item_type', 'asin_inventory'));
 
       const overridesMap = new Map(
         ((overrides as any) || []).map((o: any) => [o.asin_id, o.recommended_quantity])
@@ -144,10 +144,10 @@ export function useQuarterlyVelocityAnalytics() {
 
   const clearManualOverride = async (asinId: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await ((supabase as any)
         .from('velocity_quantity_overrides')
         .delete()
-        .eq('asin_id' as any, asinId as any);
+        .eq('asin_id', asinId));
 
       if (error) throw error;
 

@@ -20,12 +20,12 @@ export function useWarehouseManager() {
   // Load warehouses from database
   const loadWarehouses = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await ((supabase as any)
         .from('warehouses')
         .select('*')
-        .eq('is_active' as any, true as any)
+        .eq('is_active', true)
         .order('is_default', { ascending: false })
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: true }));
 
       if (error) throw error;
 
@@ -71,10 +71,10 @@ export function useWarehouseManager() {
 
       // If this is set as default, unset other defaults
       if (warehouse.is_default) {
-        await supabase
+        await ((supabase as any)
           .from('warehouses')
-          .update({ is_default: false } as any)
-          .neq('id' as any, (data as any).id as any);
+          .update({ is_default: false })
+          .neq('id', (data as any).id));
       }
 
       await loadWarehouses();

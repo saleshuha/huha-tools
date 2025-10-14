@@ -52,11 +52,11 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
 
       // Load original item details
       const tableName = inventoryType === 'asin' ? 'asin_inventory' : 'sku_inventory';
-      const { data: itemData, error: itemError } = await supabase
-        .from(tableName as any)
+      const { data: itemData, error: itemError } = await ((supabase as any)
+        .from(tableName)
         .select('date_added, quantity')
-        .eq('id' as any, inventoryId as any)
-        .single();
+        .eq('id', inventoryId)
+        .single());
 
       if (itemError) throw itemError;
       setItemDetails({

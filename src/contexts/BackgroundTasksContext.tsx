@@ -187,7 +187,7 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
     // Remove from database (async but don't wait)
     (async () => {
       try {
-        await supabase.from('background_tasks').delete().eq('id' as any, id as any);
+        await ((supabase as any).from('background_tasks').delete().eq('id', id));
       } catch (error) {
         console.error('Failed to remove task from database:', error);
       }
@@ -216,10 +216,10 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
     if (completedTaskIds.length > 0) {
       (async () => {
         try {
-          await supabase
+          await ((supabase as any)
             .from('background_tasks')
             .delete()
-            .in('id' as any, completedTaskIds as any);
+            .in('id', completedTaskIds));
         } catch (error) {
           console.error('Failed to remove completed tasks from database:', error);
         }

@@ -56,10 +56,10 @@ export function SunskyDataViewer({ open, onOpenChange, invalidItems, onRefreshCo
       setLoading(true);
       
       // Get local SKU data for the invalid items
-      const { data: localData, error } = await supabase
+      const { data: localData, error } = await ((supabase as any)
         .from('sunsky_skus')
         .select('sku_code, title, cost, currency, country, created_at, updated_at')
-        .in('sku_code' as any, invalidItems.map(item => item.itemNo) as any);
+        .in('sku_code', invalidItems.map(item => item.itemNo)));
 
       if (error) throw error;
 

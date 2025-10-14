@@ -282,7 +282,7 @@ export const useConcurrentSunskyExport = () => {
         // Update background task if provided
         if (backgroundTaskId) {
           try {
-            await supabase
+            await ((supabase as any)
               .from('background_tasks')
               .update({ 
                 progress: Math.round(overallPercent),
@@ -295,8 +295,8 @@ export const useConcurrentSunskyExport = () => {
                   totalPagesExpected,
                   lastUpdate: new Date().toISOString()
                 }
-              } as any)
-              .eq('id' as any, backgroundTaskId as any);
+              })
+              .eq('id', backgroundTaskId));
               
             console.log('📊 Background task updated:', {
               taskId: backgroundTaskId,
@@ -523,7 +523,10 @@ export const useConcurrentSunskyExport = () => {
               status: 'completed',
               completed_at: new Date().toISOString(),
               metadata: {
-...
+                fileName,
+                totalProducts: allProducts.length,
+                fileSize: blob.size,
+                completedAt: new Date().toISOString()
               } 
             } as any)
             .eq('id', backgroundTaskId);
@@ -554,7 +557,7 @@ export const useConcurrentSunskyExport = () => {
         } catch (error) {
           console.error('Failed to complete background task with file:', error);
           // Still mark as completed even if file generation fails
-          await supabase
+          await ((supabase as any)
             .from('background_tasks')
             .update({ 
               progress: 100,
@@ -566,8 +569,8 @@ export const useConcurrentSunskyExport = () => {
                 completedAt: new Date().toISOString(),
                 error: `File generation failed: ${error.message}`
               }
-            } as any)
-            .eq('id' as any, backgroundTaskId as any);
+            })
+            .eq('id', backgroundTaskId));
         }
       } else {
         toast({
@@ -586,7 +589,7 @@ export const useConcurrentSunskyExport = () => {
       // Update background task failure if provided
       if (backgroundTaskId) {
         try {
-          await supabase
+          await ((supabase as any)
             .from('background_tasks')
             .update({ 
               status: 'failed',
@@ -594,8 +597,8 @@ export const useConcurrentSunskyExport = () => {
                 error: error.message || 'Export failed',
                 failedAt: new Date().toISOString()
               }
-            } as any)
-            .eq('id' as any, backgroundTaskId as any);
+            })
+            .eq('id', backgroundTaskId));
           console.log('❌ Background task marked as failed:', backgroundTaskId);
         } catch (updateError) {
           console.error('Failed to update background task failure:', updateError);
@@ -634,14 +637,14 @@ export const useConcurrentSunskyExport = () => {
         if (!user) return;
 
         // Find active export tasks
-        const { data: activeTasks, error } = await supabase
+        const { data: activeTasks, error } = await ((supabase as any)
           .from('background_tasks')
           .select('*')
-          .eq('user_id' as any, user.id as any)
-          .eq('type' as any, 'concurrent_export' as any)
-          .eq('status' as any, 'processing' as any)
+          .eq('user_id', user.id)
+          .eq('type', 'concurrent_export')
+          .eq('status', 'processing')
           .order('created_at', { ascending: false })
-          .limit(1);
+          .limit(1));
 
         if (error) {
           console.error('Failed to check for active tasks:', error);
