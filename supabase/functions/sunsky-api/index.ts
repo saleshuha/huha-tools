@@ -1446,6 +1446,14 @@ async function processImportJob(job: any, userId: string, userCountry: string) {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight immediately - before any other processing
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { 
+      status: 200,
+      headers: corsHeaders 
+    });
+  }
+
   // Top-level error boundary to catch ALL errors
   try {
     const requestId = crypto.randomUUID();
@@ -1455,12 +1463,6 @@ serve(async (req) => {
       timestamp: new Date().toISOString()
     });
 
-    // Handle CORS preflight requests
-    if (req.method === 'OPTIONS') {
-      console.log(`[${requestId}] ✅ Handling CORS preflight`);
-      return new Response(null, { headers: corsHeaders });
-    }
-
     // Inner try-catch for request processing
     try {
       // Parse request body with validation
@@ -1469,13 +1471,16 @@ serve(async (req) => {
       
       try {
         requestBody = await req.json();
-        console.log(`[${requestId}] ✅ Request body parsed successfully`);
+        console.log(`[${requestId}] ✅ Request body parsed successfully`, {
+          hasAction: !!(requestBody as any)?.action
+        });
       } catch (parseError) {
         console.error(`[${requestId}] ❌ JSON parsing failed:`, parseError);
         return new Response(JSON.stringify({ 
           result: 'error', 
           message: 'Invalid JSON in request body',
-          details: parseError?.message || 'Unknown parsing error'
+          details: parseError?.message || 'Unknown parsing error',
+          requestId
         }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -1487,7 +1492,8 @@ serve(async (req) => {
         console.error(`[${requestId}] ❌ Invalid request body structure:`, requestBody);
         return new Response(JSON.stringify({ 
           result: 'error', 
-          message: 'Request body must be a valid JSON object'
+          message: 'Request body must be a valid JSON object',
+          requestId
         }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -1503,6 +1509,20 @@ serve(async (req) => {
         requestDataKeys: requestData ? Object.keys(requestData) : [],
         timestamp: new Date().toISOString()
       });
+
+      // Health check endpoint (no auth required)
+      if (action === 'ping' || action === 'health') {
+        console.log(`[${requestId}] 💚 Health check requested`);
+        return new Response(JSON.stringify({ 
+          result: 'success',
+          message: 'Sunsky API function is online',
+          timestamp: new Date().toISOString(),
+          requestId
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
       
       // Validate action parameter
       if (!action || typeof action !== 'string' || action.trim() === '') {
@@ -1510,7 +1530,8 @@ serve(async (req) => {
         return new Response(JSON.stringify({ 
           result: 'error', 
           message: `Invalid action parameter: ${action}. Action must be a non-empty string.`,
-          receivedAction: action
+          receivedAction: action,
+          requestId
         }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
