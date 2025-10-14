@@ -406,6 +406,137 @@ async function handleTestCredentials(_params: any, key: string, secret: string) 
 }
 
 // ============================================
+// Credential Management Handlers
+// ============================================
+
+async function handleAddApiKey(userId: string, params: any, supabaseClient: any) {
+  console.log('➕ Add API Key:', params.name);
+  
+  const { apiKey, apiSecret, name } = params;
+  
+  if (!apiKey || !apiSecret || !name) {
+    throw new Error('apiKey, apiSecret, and name are required');
+  }
+  
+  // Extract last 4 characters for display
+  const keyLast4 = apiKey.slice(-4);
+  
+  // Insert credentials
+  const { data, error } = await supabase
+    .from('sunsky_credentials')
+    .insert({
+      user_id: userId,
+      name,
+      api_key: apiKey,
+      api_secret: apiSecret,
+      key_last4: keyLast4,
+      is_active: true
+    })
+    .select()
+    .single();
+  
+  if (error) {
+    console.error('❌ Failed to save credentials:', error);
+    throw new Error(`Failed to save credentials: ${error.message}`);
+  }
+  
+  console.log('✅ Credentials saved:', data.id);
+  
+  return {
+    result: 'success',
+    message: 'API key added successfully',
+    data: {
+      id: data.id,
+      name: data.name,
+      key_last4: data.key_last4
+    }
+  };
+}
+
+async function handleDeleteApiKey(userId: string, params: any, supabaseClient: any) {
+  console.log('🗑️ Delete API Key:', params.apiId);
+  
+  const { apiId } = params;
+  
+  if (!apiId) {
+    throw new Error('apiId is required');
+  }
+  
+  // Verify ownership and delete
+  const { error } = await supabase
+    .from('sunsky_credentials')
+    .delete()
+    .eq('id', apiId)
+    .eq('user_id', userId);
+  
+  if (error) {
+    console.error('❌ Failed to delete credentials:', error);
+    throw new Error(`Failed to delete credentials: ${error.message}`);
+  }
+  
+  console.log('✅ Credentials deleted');
+  
+  return {
+    result: 'success',
+    message: 'API key deleted successfully'
+  };
+}
+
+async function handleToggleApiKey(userId: string, params: any, supabaseClient: any) {
+  console.log('🔄 Toggle API Key:', params.apiId, 'active:', params.isActive);
+  
+  const { apiId, isActive } = params;
+  
+  if (!apiId || isActive === undefined) {
+    throw new Error('apiId and isActive are required');
+  }
+  
+  // Verify ownership and update
+  const { error } = await supabase
+    .from('sunsky_credentials')
+    .update({ 
+      is_active: isActive,
+      last_tested: isActive ? new Date().toISOString() : undefined
+    })
+    .eq('id', apiId)
+    .eq('user_id', userId);
+  
+  if (error) {
+    console.error('❌ Failed to update credentials:', error);
+    throw new Error(`Failed to update credentials: ${error.message}`);
+  }
+  
+  console.log('✅ Credentials updated');
+  
+  return {
+    result: 'success',
+    message: `API key ${isActive ? 'activated' : 'deactivated'} successfully`
+  };
+}
+
+async function handleListApiKeys(userId: string, supabaseClient: any) {
+  console.log('📋 List API Keys for user:', userId);
+  
+  const { data, error } = await supabase
+    .from('sunsky_credentials')
+    .select('id, name, key_last4, is_active, last_tested, created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+  
+  if (error) {
+    console.error('❌ Failed to fetch credentials:', error);
+    throw new Error(`Failed to fetch credentials: ${error.message}`);
+  }
+  
+  console.log(`✅ Found ${data.length} credentials`);
+  
+  return {
+    result: 'success',
+    data: data || []
+  };
+}
+
+// ============================================
 // Main Handler
 // ============================================
 serve(async (req: Request) => {
@@ -460,48 +591,79 @@ serve(async (req: Request) => {
     
     console.log(`✅ User authenticated: ${user.id}`);
     
-    // Get credentials
-    const credentials = await getCredentials(user.id, apiId);
-    
     // Route to action handler
     let result;
     
+    // Handle credential management actions (don't need Sunsky credentials)
     switch (action) {
+      case 'addApiKey':
+        result = await handleAddApiKey(user.id, params, supabaseClient);
+        break;
+      
+      case 'deleteApiKey':
+        result = await handleDeleteApiKey(user.id, params, supabaseClient);
+        break;
+      
+      case 'toggleApiKeyActive':
+        result = await handleToggleApiKey(user.id, params, supabaseClient);
+        break;
+      
+      case 'listApiKeys':
+        result = await handleListApiKeys(user.id, supabaseClient);
+        break;
+      
+      // All other actions need Sunsky credentials
       case 'searchProducts':
-        result = await handleSearchProducts(params, credentials.key, credentials.secret);
-        break;
-      
       case 'getProductDetails':
-        result = await handleGetProductDetails(params, credentials.key, credentials.secret);
-        break;
-      
       case 'getCategories':
-        result = await handleGetCategories(params, credentials.key, credentials.secret);
-        break;
-      
       case 'getBrands':
-        result = await handleGetBrands(params, credentials.key, credentials.secret);
-        break;
-      
       case 'getCountries':
-        result = await handleGetCountries(params, credentials.key, credentials.secret);
-        break;
-      
       case 'createOrder':
-        result = await handleCreateOrder(params, credentials.key, credentials.secret);
-        break;
-      
       case 'getOrders':
-        result = await handleGetOrders(params, credentials.key, credentials.secret);
-        break;
-      
       case 'getOrderDetails':
-        result = await handleGetOrderDetails(params, credentials.key, credentials.secret);
+      case 'testCredentials': {
+        // Get credentials for Sunsky API calls
+        const credentials = await getCredentials(user.id, apiId);
+        
+        switch (action) {
+          case 'searchProducts':
+            result = await handleSearchProducts(params, credentials.key, credentials.secret);
+            break;
+          
+          case 'getProductDetails':
+            result = await handleGetProductDetails(params, credentials.key, credentials.secret);
+            break;
+          
+          case 'getCategories':
+            result = await handleGetCategories(params, credentials.key, credentials.secret);
+            break;
+          
+          case 'getBrands':
+            result = await handleGetBrands(params, credentials.key, credentials.secret);
+            break;
+          
+          case 'getCountries':
+            result = await handleGetCountries(params, credentials.key, credentials.secret);
+            break;
+          
+          case 'createOrder':
+            result = await handleCreateOrder(params, credentials.key, credentials.secret);
+            break;
+          
+          case 'getOrders':
+            result = await handleGetOrders(params, credentials.key, credentials.secret);
+            break;
+          
+          case 'getOrderDetails':
+            result = await handleGetOrderDetails(params, credentials.key, credentials.secret);
+            break;
+          
+          case 'testCredentials':
+            result = await handleTestCredentials(params, credentials.key, credentials.secret);
+            break;
+        }
         break;
-      
-      case 'testCredentials':
-        result = await handleTestCredentials(params, credentials.key, credentials.secret);
-        break;
+      }
       
       default:
         return corsResponse({
