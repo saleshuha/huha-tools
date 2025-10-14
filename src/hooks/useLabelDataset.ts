@@ -34,7 +34,7 @@ export function useLabelDataset(datasetId: string | null) {
       const { data, error } = await supabase
         .from('label_datasets')
         .select('*')
-        .eq('id' as any, id as any)
+        .eq('id', id)
         .single();
 
       if (error) throw error;

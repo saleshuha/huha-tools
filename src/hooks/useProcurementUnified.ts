@@ -64,7 +64,7 @@ export const useProcurementUnified = () => {
       const { error } = await supabase
         .from(tableName)
         .update({ status } as any)
-        .eq('id' as any, itemId as any);
+        .eq('id', itemId);
 
       if (error) throw error;
 
@@ -92,7 +92,7 @@ export const useProcurementUnified = () => {
           status,
           order_date: status === 'ordered' ? new Date().toISOString() : undefined
         } as any)
-        .eq('id' as any, poId as any);
+        .eq('id', poId);
 
       if (error) throw error;
 

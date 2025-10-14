@@ -76,7 +76,7 @@ export function useVendorIntegration() {
         .order('created_at', { ascending: false });
 
       if (country) {
-        query = query.eq('country' as any, country as any);
+        query = query.eq('country', country);
       }
 
       const { data, error } = await query;
@@ -113,7 +113,7 @@ export function useVendorIntegration() {
         .limit(limit);
 
       if (integrationId) {
-        query = query.eq('integration_id' as any, integrationId as any);
+        query = query.eq('integration_id', integrationId);
       }
 
       const { data, error } = await query;
@@ -205,7 +205,7 @@ export function useVendorIntegration() {
       const { error } = await supabase
         .from('vendor_integrations')
         .update(updates as any)
-        .eq('id' as any, id as any);
+        .eq('id', id);
 
       if (error) {
         console.error('Error updating integration:', error);
@@ -240,7 +240,7 @@ export function useVendorIntegration() {
       const { error } = await supabase
         .from('vendor_integrations')
         .delete()
-        .eq('id' as any, id as any);
+        .eq('id', id);
 
       if (error) {
         console.error('Error deleting integration:', error);

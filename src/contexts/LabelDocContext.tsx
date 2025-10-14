@@ -96,7 +96,7 @@ export const LabelDocProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const { data, error } = await supabase
         .from('label_templates')
         .select('*')
-        .eq('id' as any, id as any)
+        .eq('id', id)
         .single();
 
       if (error) throw error;
@@ -170,7 +170,7 @@ export const LabelDocProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           canvas_data: { elements: document.elements } as any,
           description: document.datasetId || null,
         } as any)
-        .eq('id' as any, document.id as any);
+        .eq('id', document.id);
 
       if (error) throw error;
       
@@ -194,7 +194,7 @@ export const LabelDocProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const { data, error } = await supabase
         .from('label_datasets')
         .select('*')
-        .eq('id' as any, id as any)
+        .eq('id', id)
         .single();
 
       if (error) throw error;
@@ -299,7 +299,7 @@ export const LabelDocProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const { data, error } = await supabase
         .from('label_templates')
         .select('id, name, width, height, created_at, updated_at')
-        .eq('user_id' as any, user.id as any)
+        .eq('user_id', user.id)
         .order('updated_at', { ascending: false });
 
       if (error) throw error;

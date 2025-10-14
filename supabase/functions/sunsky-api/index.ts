@@ -414,11 +414,35 @@ async function handleGetPricesAndFreights(params: any, key: string, secret: stri
     throw new Error('deliveryAddress and items are required');
   }
   
+  // Delivery address
+  const addr = params.deliveryAddress;
+  
+  // Validate required delivery address fields
+  if (!addr.countryId) {
+    throw new Error('deliveryAddress.countryId is required');
+  }
+  if (!addr.city) {
+    throw new Error('deliveryAddress.city is required');
+  }
+  if (!addr.postcode) {
+    throw new Error('deliveryAddress.postcode is required');
+  }
+  
+  // Validate items
+  if (!Array.isArray(params.items) || params.items.length === 0) {
+    throw new Error('At least one item is required');
+  }
+  
+  console.log('📋 Request details:', {
+    countryId: addr.countryId,
+    city: addr.city,
+    postcode: addr.postcode,
+    itemCount: params.items.length
+  });
+  
   // Build request params according to Sunsky API docs
   const requestParams: Record<string, any> = {};
   
-  // Delivery address
-  const addr = params.deliveryAddress;
   requestParams['deliveryAddress.countryId'] = addr.countryId;
   requestParams['deliveryAddress.state'] = addr.state || '';
   requestParams['deliveryAddress.city'] = addr.city;

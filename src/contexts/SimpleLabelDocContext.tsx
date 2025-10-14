@@ -105,7 +105,7 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
       const { data, error } = await supabase
         .from('label_templates')
         .select('*')
-        .eq('id' as any, id as any)
+        .eq('id', id)
         .single();
 
       if (error) throw error;
@@ -208,7 +208,7 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
       const { error } = await supabase
         .from('label_templates')
         .update(updateData as any)
-        .eq('id' as any, document.id as any);
+        .eq('id', document.id);
 
       if (error) {
         console.error('Supabase update error:', error);
@@ -234,7 +234,7 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
       const { data, error } = await supabase
         .from('label_templates')
         .select('id, name, width, height, created_at, updated_at')
-        .eq('user_id' as any, user.id as any)
+        .eq('user_id', user.id)
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
@@ -253,7 +253,7 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
       const { error } = await supabase
         .from('label_templates')
         .delete()
-        .eq('id' as any, id as any);
+        .eq('id', id);
 
       if (error) throw error;
       
@@ -298,7 +298,7 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
       const { data, error } = await supabase
         .from('label_datasets')
         .select('*')
-        .eq('id' as any, id as any)
+        .eq('id', id)
         .single();
 
       if (error) throw error;

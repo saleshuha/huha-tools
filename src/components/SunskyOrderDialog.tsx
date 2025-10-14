@@ -387,15 +387,38 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
   };
 
   const loadShippingMethods = async () => {
-    if (!deliveryAddress.countryId || checkedItems.size === 0) {
-      console.error('Cannot load shipping methods:', {
-        hasCountryId: !!deliveryAddress.countryId,
-        checkedItemsCount: checkedItems.size,
-        deliveryAddress
-      });
+    // Validate all required delivery address fields
+    if (!deliveryAddress.countryId) {
       toast({
-        title: "Cannot Load Shipping Methods",
-        description: checkedItems.size === 0 ? "Please select at least one item first" : "Please select a country first",
+        title: "Missing Delivery Information",
+        description: "Please select a country before loading shipping options",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!deliveryAddress.city) {
+      toast({
+        title: "Missing Delivery Information",
+        description: "Please enter a city before loading shipping options",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!deliveryAddress.postcode) {
+      toast({
+        title: "Missing Delivery Information",
+        description: "Please enter a postcode before loading shipping options",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (checkedItems.size === 0) {
+      toast({
+        title: "No Items Selected",
+        description: "Please select at least one item to order",
         variant: "destructive"
       });
       return;
