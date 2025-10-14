@@ -442,19 +442,17 @@ async function handleGetPricesAndFreights(params: any, key: string, secret: stri
   });
   
   // Build request params according to Sunsky API docs
+  // NOTE: For getPricesAndFreights, parameters are NOT prefixed with "deliveryAddress."
+  // That prefix is only for createOrder!
   const requestParams: Record<string, any> = {};
   
-  // Always send countryId as string
-  requestParams['deliveryAddress.countryId'] = String(addr.countryId);
+  // countryId and state are top-level parameters (not deliveryAddress.*)
+  requestParams['countryId'] = String(addr.countryId);
   
   // Only include state if it has a meaningful value
   if (addr.state && addr.state.trim()) {
-    requestParams['deliveryAddress.state'] = addr.state.trim();
+    requestParams['state'] = addr.state.trim();
   }
-  
-  // Always required fields - trim values
-  requestParams['deliveryAddress.city'] = addr.city.trim();
-  requestParams['deliveryAddress.postcode'] = addr.postcode.trim();
   
   // Items
   params.items.forEach((item: any, index: number) => {
