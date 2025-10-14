@@ -1554,39 +1554,27 @@ serve(async (req) => {
         status: 401
       });
     }
-        console.error(`[${requestId}] ❌ Exception during authentication:`, authException);
-        return new Response(JSON.stringify({ 
-          result: 'error', 
-          message: 'Authentication system error',
-          details: authException?.message || 'Unknown error'
-        }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
 
-      // Get user's profile for country information
-      console.log(`[${requestId}] 📍 Fetching user profile...`);
-      let userCountry = 'UAE'; // Default
+    // Step 5: Get user country
+    console.log(`[${requestId}] 📍 Fetching user profile...`);
+    let userCountry = 'UAE';
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('country')
+        .eq('id', userId)
+        .maybeSingle();
       
-      try {
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('country')
-          .eq('id', user.id)
-          .maybeSingle(); // Use maybeSingle to avoid errors if no profile exists
-
-        if (profileError) {
-          console.warn(`[${requestId}] ⚠️ Profile fetch error (using default):`, profileError);
-        } else if (profile?.country) {
-          userCountry = profile.country;
-          console.log(`[${requestId}] ✅ User country:`, userCountry);
-        } else {
-          console.log(`[${requestId}] ℹ️ No profile found, using default country:`, userCountry);
-        }
-      } catch (profileException) {
-        console.warn(`[${requestId}] ⚠️ Profile fetch exception (using default):`, profileException);
+      if (profile?.country) {
+        userCountry = profile.country;
+        console.log(`[${requestId}] ✅ User country: ${userCountry}`);
       }
+    } catch (e) {
+      console.warn(`[${requestId}] ⚠️ Profile fetch failed, using default country`);
+    }
+
+    // Step 6: Route action
+    console.log(`[${requestId}] 🎯 Routing action: ${action}`);
 
     switch (action) {
       case 'saveCredentials': {
