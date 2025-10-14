@@ -421,7 +421,7 @@ async function handleAddApiKey(userId: string, params: any, supabaseClient: any)
   // Extract last 4 characters for display
   const keyLast4 = apiKey.slice(-4);
   
-  // Insert credentials
+  // Insert credentials using service role client for write operations
   const { data, error } = await supabase
     .from('sunsky_credentials')
     .insert({
@@ -462,7 +462,7 @@ async function handleDeleteApiKey(userId: string, params: any, supabaseClient: a
     throw new Error('apiId is required');
   }
   
-  // Verify ownership and delete
+  // Verify ownership and delete using service role client
   const { error } = await supabase
     .from('sunsky_credentials')
     .delete()
@@ -491,7 +491,7 @@ async function handleToggleApiKey(userId: string, params: any, supabaseClient: a
     throw new Error('apiId and isActive are required');
   }
   
-  // Verify ownership and update
+  // Verify ownership and update using service role client
   const { error } = await supabase
     .from('sunsky_credentials')
     .update({ 
@@ -517,6 +517,7 @@ async function handleToggleApiKey(userId: string, params: any, supabaseClient: a
 async function handleListApiKeys(userId: string, supabaseClient: any) {
   console.log('📋 List API Keys for user:', userId);
   
+  // Use service role client to fetch credentials
   const { data, error } = await supabase
     .from('sunsky_credentials')
     .select('id, name, key_last4, is_active, last_tested, created_at')
