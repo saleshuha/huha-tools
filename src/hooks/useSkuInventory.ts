@@ -385,11 +385,11 @@ export function useSkuInventory() {
     if (!selectedCountry) return;
     
     try {
-      const { error } = await supabase
+      const { error } = await ((supabase as any)
         .from('sku_inventory')
-        .update({ sku_number: newSku, updated_at: new Date().toISOString() } as any)
-        .eq('id' as any, id as any)
-        .eq('country' as any, selectedCountry as any);
+        .update({ sku_number: newSku, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .eq('country', selectedCountry));
 
       if (error) throw error;
 
@@ -417,11 +417,11 @@ export function useSkuInventory() {
       const updates = [];
       
       for (const pair of binSkuPairs) {
-        const { error } = await supabase
+        const { error } = await ((supabase as any)
           .from('sku_inventory')
-          .update({ sku_number: pair.sku.trim() || null } as any)
-          .eq('bin_serial_number' as any, pair.binSerial as any)
-          .eq('country' as any, selectedCountry as any);
+          .update({ sku_number: pair.sku.trim() || null })
+          .eq('bin_serial_number', pair.binSerial)
+          .eq('country', selectedCountry));
 
         if (error) {
           console.error('Error updating SKU for bin:', pair.binSerial, error);
@@ -471,11 +471,11 @@ export function useSkuInventory() {
     if (!selectedCountry) return;
     
     try {
-      const { error } = await supabase
+      const { error } = await ((supabase as any)
         .from('sku_inventory')
-        .update({ asin: newAsin || null, updated_at: new Date().toISOString() } as any)
-        .eq('id' as any, id as any)
-        .eq('country' as any, selectedCountry as any);
+        .update({ asin: newAsin || null, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .eq('country', selectedCountry));
 
       if (error) throw error;
 
@@ -497,11 +497,11 @@ export function useSkuInventory() {
     if (!selectedCountry) return;
     
     try {
-      const { error } = await supabase
+      const { error } = await ((supabase as any)
         .from('sku_inventory')
-        .update({ title: newTitle.trim() || null } as any)
-        .eq('id' as any, id as any)
-        .eq('country' as any, selectedCountry as any);
+        .update({ title: newTitle.trim() || null })
+        .eq('id', id)
+        .eq('country', selectedCountry));
 
       if (error) throw error;
 
@@ -530,11 +530,11 @@ export function useSkuInventory() {
       const updates = [];
       
       for (const pair of skuTitlePairs) {
-        const { error } = await supabase
+        const { error } = await ((supabase as any)
           .from('sku_inventory')
-          .update({ title: pair.title.trim() || null } as any)
-          .eq('sku_number' as any, pair.skuNumber as any)
-          .eq('country' as any, selectedCountry as any);
+          .update({ title: pair.title.trim() || null })
+          .eq('sku_number', pair.skuNumber)
+          .eq('country', selectedCountry));
 
         if (error) {
           console.error('Error updating title for SKU:', pair.skuNumber, error);

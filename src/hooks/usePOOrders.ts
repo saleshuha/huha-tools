@@ -810,10 +810,10 @@ export const usePOOrders = () => {
         console.log('✅ All batches deleted successfully, refreshing data...');
       } else {
         // Delete all orders for user (no ID filter)
-        const { error } = await supabase
+        const { error } = await ((supabase as any)
           .from('po_orders')
           .delete()
-          .eq('user_id' as any, user.id as any);
+          .eq('user_id', user.id));
 
         if (error) {
           console.error('❌ Delete error:', error);
@@ -843,10 +843,10 @@ export const usePOOrders = () => {
       console.log('🖨️ Updating print status for orders:', orderIds, 'isPrinted:', isPrinted);
       
       // First, verify current status
-      const { data: currentOrders, error: fetchError } = await supabase
+      const { data: currentOrders, error: fetchError } = await ((supabase as any)
         .from('po_orders')
         .select('id, is_printed')
-          .in('id' as any, orderIds as any);
+          .in('id', orderIds));
       
       if (fetchError) {
         console.error('❌ Error fetching current orders:', fetchError);
@@ -854,10 +854,10 @@ export const usePOOrders = () => {
         console.log('📋 Current orders before update:', currentOrders);
       }
       
-      const { error } = await supabase
+      const { error } = await ((supabase as any)
         .from('po_orders')
-        .update({ is_printed: isPrinted } as any)
-        .in('id' as any, orderIds as any);
+        .update({ is_printed: isPrinted })
+        .in('id', orderIds));
 
       if (error) {
         console.error('❌ Print status update error:', error);
@@ -867,10 +867,10 @@ export const usePOOrders = () => {
       console.log('✅ Print status updated successfully');
       
       // Verify the update worked
-      const { data: updatedOrders, error: verifyError } = await supabase
+      const { data: updatedOrders, error: verifyError } = await ((supabase as any)
         .from('po_orders')
         .select('id, is_printed')
-        .in('id' as any, orderIds as any);
+        .in('id', orderIds));
       
       if (verifyError) {
         console.error('❌ Error verifying update:', verifyError);

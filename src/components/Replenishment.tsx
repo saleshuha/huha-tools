@@ -379,7 +379,7 @@ export function Replenishment() {
       // Get non-source items to exclude them
       const {
         data: nonSourceData
-      } = await supabase.from('non_source_items').select('asin, serial_number').eq('country' as any, selectedCountry as any);
+      } = await ((supabase as any).from('non_source_items').select('asin, serial_number').eq('country', selectedCountry));
       const nonSourceIdentifiers = new Set(((nonSourceData as any) || []).map((item: any) => `${item.asin}-${item.serial_number}`));
       if (asinAll.error) {
         console.error('ASIN query error:', asinAll.error);
@@ -742,7 +742,7 @@ export function Replenishment() {
   // Load ordered items separately for analytics and display
   const loadOrderedItems = async () => {
     try {
-      const [asinOrdered] = await Promise.all([supabase.from('asin_inventory').select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added').eq('country' as any, selectedCountry as any).eq('status' as any, 'ordered' as any).eq('quantity' as any, 0 as any).eq('eligible_for_restock' as any, true as any)]);
+      const [asinOrdered] = await Promise.all([(supabase as any).from('asin_inventory').select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added').eq('country', selectedCountry).eq('status', 'ordered').eq('quantity', 0).eq('eligible_for_restock', true)]);
       if (asinOrdered.error) throw asinOrdered.error;
       const orderedItemsData = [...((asinOrdered.data as any) || []).map((item: any) => ({
         id: item.id,
@@ -765,17 +765,17 @@ export function Replenishment() {
   const removeRestockedOrderedItems = async () => {
     try {
       // Get all ordered items that now have quantity > 0
-      const [asinRestocked] = await Promise.all([supabase.from('asin_inventory').select('id, asin, serial_number, quantity, status').eq('country' as any, selectedCountry as any).eq('status' as any, 'ordered' as any).gt('quantity' as any, 0 as any)]);
+      const [asinRestocked] = await Promise.all([(supabase as any).from('asin_inventory').select('id, asin, serial_number, quantity, status').eq('country', selectedCountry).eq('status', 'ordered').gt('quantity', 0)]);
       if (asinRestocked.error) throw asinRestocked.error;
       const restockedItems = [...((asinRestocked.data as any) || [])];
       if (restockedItems.length > 0) {
         // Update status to 'in-stock' for these items
-        const asinUpdates = ((asinRestocked.data as any) || []).map((item: any) => supabase.from('asin_inventory').update({
+        const asinUpdates = ((asinRestocked.data as any) || []).map((item: any) => (supabase as any).from('asin_inventory').update({
           status: 'in-stock'
-        } as any).eq('id' as any, item.id as any)) || [];
-        const skuUpdates = ((asinRestocked.data as any) || []).map((item: any) => supabase.from('asin_inventory').update({
+        }).eq('id', item.id)) || [];
+        const skuUpdates = ((asinRestocked.data as any) || []).map((item: any) => (supabase as any).from('asin_inventory').update({
           status: 'in-stock'
-        } as any).eq('id' as any, item.id as any)) || [];
+        }).eq('id', item.id)) || [];
 
         // Execute all updates
         await Promise.all([...skuUpdates]);
@@ -805,10 +805,10 @@ export function Replenishment() {
         startDate.setDate(startDate.getDate() - days);
 
         // Query ASIN inventory for sales data
-        let asinSalesQuery = supabase.from('asin_inventory').select('*').eq('status' as any, 'sold' as any).eq('country' as any, selectedCountry as any) // Filter by selected country
-        .eq('eligible_for_restock' as any, true as any).gte('date_sold' as any, startDate.toISOString() as any).limit(100000); // Explicitly set high limit to override default 1000
-        let asinRestockQuery = supabase.from('asin_inventory').select('restock_quantity').eq('country' as any, selectedCountry as any) // Filter by selected country
-        .eq('eligible_for_restock' as any, true as any).not('last_restock_date' as any, 'is' as any, null as any).gte('last_restock_date' as any, startDate.toISOString() as any).limit(100000); // Explicitly set high limit to override default 1000
+        let asinSalesQuery = (supabase as any).from('asin_inventory').select('*').eq('status', 'sold').eq('country', selectedCountry) // Filter by selected country
+        .eq('eligible_for_restock', true).gte('date_sold', startDate.toISOString()).limit(100000); // Explicitly set high limit to override default 1000
+        let asinRestockQuery = (supabase as any).from('asin_inventory').select('restock_quantity').eq('country', selectedCountry) // Filter by selected country
+        .eq('eligible_for_restock', true).not('last_restock_date', 'is', null).gte('last_restock_date', startDate.toISOString()).limit(100000); // Explicitly set high limit to override default 1000
         const [asinSalesData, asinRestockData] = await Promise.all([asinSalesQuery, asinRestockQuery]);
         if (asinSalesData.error) throw asinSalesData.error;
         if (asinRestockData.error) throw asinRestockData.error;
@@ -900,9 +900,9 @@ export function Replenishment() {
       const updatePromises = Array.from(selectedItems).map(async itemId => {
         const item = restockItems.find(i => i.id === itemId);
         if (!item) return;
-        return supabase.from('asin_inventory').update({
+        return (supabase as any).from('asin_inventory').update({
           status: 'ordered'
-        } as any).eq('id' as any, itemId as any);
+        }).eq('id', itemId);
       });
       const results = await Promise.all(updatePromises);
       const errors = results.filter(result => result?.error);
@@ -952,7 +952,7 @@ export function Replenishment() {
       const {
         data: inventoryItem,
         error: fetchError
-      } = await supabase.from('asin_inventory').select('*').eq('id' as any, itemId as any).single();
+      } = await ((supabase as any).from('asin_inventory').select('*').eq('id', itemId).single());
       if (fetchError) throw fetchError;
 
       // Insert into non_source_items table
@@ -972,9 +972,9 @@ export function Replenishment() {
       // Mark as not eligible for restock
       const {
         error: updateError
-      } = await supabase.from('asin_inventory').update({
+      } = await ((supabase as any).from('asin_inventory').update({
         eligible_for_restock: false
-      } as any).eq('id' as any, itemId as any);
+      }).eq('id', itemId));
       if (updateError) throw updateError;
 
       // Reload data to reflect changes
@@ -1015,9 +1015,9 @@ export function Replenishment() {
       let updateResult;
 
       // Update status in database using the correct ID
-      updateResult = await supabase.from('asin_inventory').update({
+      updateResult = await ((supabase as any).from('asin_inventory').update({
         status: 'ordered'
-      } as any).eq('id' as any, itemId as any);
+      }).eq('id', itemId));
       console.log('ASIN update result:', updateResult);
       if (updateResult.error) {
         console.error('Database update error:', updateResult.error);
@@ -1208,9 +1208,9 @@ export function Replenishment() {
       const updatePromises = Array.from(selectedItems).map(async itemId => {
         const item = restockItems.find(i => i.id === itemId);
         if (!item) return;
-        return supabase.from('asin_inventory').update({
+        return (supabase as any).from('asin_inventory').update({
           status: 'ordered'
-        } as any).eq('id' as any, itemId as any);
+        }).eq('id', itemId);
       });
       await Promise.all(updatePromises);
       toast({
@@ -1469,7 +1469,7 @@ export function Replenishment() {
       startDate.setDate(startDate.getDate() - daysNum);
 
       // Get ASIN data only
-      const asinQuery = supabase.from('asin_inventory').select('*').eq('user_id' as any, ((await supabase.auth.getUser()).data.user?.id) as any).eq('country' as any, selectedCountry as any).eq('eligible_for_restock' as any, true as any);
+      const asinQuery = (supabase as any).from('asin_inventory').select('*').eq('user_id', ((await supabase.auth.getUser()).data.user?.id)).eq('country', selectedCountry).eq('eligible_for_restock', true);
       const [asinResult] = await Promise.all([asinQuery]);
       if (asinResult.error) throw asinResult.error;
 
@@ -1628,7 +1628,7 @@ export function Replenishment() {
   const openActiveItemsDialog = async () => {
     try {
       // Get all active items from both tables
-      const [asinData] = await Promise.all([supabase.from('asin_inventory').select('*').eq('country' as any, selectedCountry as any).eq('status' as any, 'in-stock' as any).eq('eligible_for_restock' as any, true as any)]);
+      const [asinData] = await Promise.all([(supabase as any).from('asin_inventory').select('*').eq('country', selectedCountry).eq('status', 'in-stock').eq('eligible_for_restock', true)]);
       if (asinData.error) throw asinData.error;
       const activeItemsData = [...((asinData.data as any) || []).map((item: any) => ({
         id: item.id,
