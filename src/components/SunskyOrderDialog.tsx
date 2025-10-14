@@ -489,9 +489,10 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
           items,
           deliveryAddress: {
             countryId: deliveryAddress.countryId,
-            state: deliveryAddress.state,
-            city: deliveryAddress.city,
-            postcode: deliveryAddress.postcode
+            // Only include state if it has a trimmed value
+            ...(deliveryAddress.state?.trim() && { state: deliveryAddress.state.trim() }),
+            city: deliveryAddress.city.trim(),
+            postcode: deliveryAddress.postcode.trim()
           }
         }
       });

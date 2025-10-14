@@ -78,10 +78,12 @@ export function SunskyOrderPlacement({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      const { error } = await supabase
+      const query = supabase
         .from('noon_orders')
         .delete()
-        .eq('user_id' as any, user.id as any);
+        .eq('user_id', user.id);
+      
+      const { error } = await (query as any);
 
       if (error) throw error;
 

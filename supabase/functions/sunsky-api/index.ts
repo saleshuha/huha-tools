@@ -443,10 +443,17 @@ async function handleGetPricesAndFreights(params: any, key: string, secret: stri
   // Build request params according to Sunsky API docs
   const requestParams: Record<string, any> = {};
   
-  requestParams['deliveryAddress.countryId'] = addr.countryId;
-  if (addr.state) requestParams['deliveryAddress.state'] = addr.state;
-  requestParams['deliveryAddress.city'] = addr.city;
-  requestParams['deliveryAddress.postcode'] = addr.postcode;
+  // Always send countryId as string
+  requestParams['deliveryAddress.countryId'] = String(addr.countryId);
+  
+  // Only include state if it has a meaningful value
+  if (addr.state && addr.state.trim()) {
+    requestParams['deliveryAddress.state'] = addr.state.trim();
+  }
+  
+  // Always required fields - trim values
+  requestParams['deliveryAddress.city'] = addr.city.trim();
+  requestParams['deliveryAddress.postcode'] = addr.postcode.trim();
   
   // Items
   params.items.forEach((item: any, index: number) => {

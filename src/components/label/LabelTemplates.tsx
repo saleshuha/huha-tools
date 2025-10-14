@@ -107,10 +107,12 @@ export function LabelTemplates({ onTemplateSelect, activeTemplate }: LabelTempla
 
   const deleteTemplate = async (templateId: string) => {
     try {
-      const { error } = await supabase
+      const query = supabase
         .from('label_templates')
         .delete()
-        .eq('id' as any, templateId as any);
+        .eq('id', templateId);
+      
+      const { error } = await (query as any);
 
       if (error) throw error;
 
