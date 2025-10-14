@@ -157,6 +157,7 @@ async function callSunskyAPI(
   }
   
   console.log('📤 Request params:', Object.keys(params));
+  console.log('📤 Form data being sent:', formData.toString());
   
   // Make request
   const response = await fetch(url, {
