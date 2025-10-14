@@ -1088,9 +1088,9 @@ export function Replenishment() {
         // Query stock changes to calculate units sold since last restock
         let stockChangesQuery;
         if (item.table_name === 'asin_inventory') {
-          stockChangesQuery = supabase.from('stock_changes').select('change_amount, created_at').eq('inventory_id' as any, item.id as any).eq('inventory_type' as any, 'asin' as any).lt('change_amount' as any, 0 as any); // Only negative changes (sales)
+          stockChangesQuery = (supabase as any).from('stock_changes').select('change_amount, created_at').eq('inventory_id', item.id).eq('inventory_type', 'asin').lt('change_amount', 0); // Only negative changes (sales)
         } else {
-          stockChangesQuery = supabase.from('stock_changes').select('change_amount, created_at').eq('inventory_id' as any, item.id as any).eq('inventory_type' as any, 'sku' as any).lt('change_amount' as any, 0 as any); // Only negative changes (sales)
+          stockChangesQuery = (supabase as any).from('stock_changes').select('change_amount, created_at').eq('inventory_id', item.id).eq('inventory_type', 'sku').lt('change_amount', 0); // Only negative changes (sales)
         }
 
         // If there's a last restock date, only count sales after that date
