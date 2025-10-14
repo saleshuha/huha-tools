@@ -1105,7 +1105,7 @@ export const SunskySKUImporter: React.FC = () => {
       const {
         data,
         error
-      } = await supabase.from('sunsky_credentials').select('is_active').eq('user_id' as any, profile?.id as any).eq('is_active' as any, true as any).limit(1);
+      } = await supabase.from('sunsky_credentials').select('is_active').eq('user_id', profile?.id).eq('is_active', true).limit(1);
       if (error) throw error;
       const hasCredsResult = !!data && data.length > 0;
       console.log('🔍 Credentials check result:', {
@@ -1862,8 +1862,8 @@ export const SunskySKUImporter: React.FC = () => {
       const { data: allCredentials, error: credentialsError } = await supabase
         .from('sunsky_credentials')
         .select('id, name')
-        .eq('user_id' as any, profile?.id as any)
-        .eq('is_active' as any, true as any);
+        .eq('user_id', profile?.id)
+        .eq('is_active', true);
 
       if (credentialsError) {
         throw new Error(`Failed to fetch credentials: ${credentialsError.message}`);
@@ -2155,7 +2155,7 @@ export const SunskySKUImporter: React.FC = () => {
         const {
           data: job,
           error
-        } = await supabase.from('sunsky_import_jobs').select('*').eq('id' as any, jobId as any).single();
+        } = await supabase.from('sunsky_import_jobs').select('*').eq('id', jobId).single();
         if (error || !job) {
           clearInterval(pollInterval);
           return;
@@ -3583,7 +3583,7 @@ export const SunskySKUImporter: React.FC = () => {
                         ...((task as any)?.metadata || {}),
                         processingStarted: new Date().toISOString()
                       }
-                    } as any).eq('id' as any, (task as any)?.id as any);
+                    }).eq('id', (task as any)?.id);
                     if (updateError) {
                       console.error('❌ Failed to update task status:', updateError);
                       throw new Error(`Failed to update task status: ${updateError.message}`);
@@ -3620,7 +3620,7 @@ export const SunskySKUImporter: React.FC = () => {
                           error: error.message || 'Export failed',
                           failedAt: new Date().toISOString()
                         }
-                      } as any).eq('id' as any, (task as any)?.id as any).then(() => {
+                      }).eq('id', (task as any)?.id).then(() => {
                         console.log('❌ Task marked as failed in database');
                         fetchTasks(); // Refresh to show failed status
                       });
