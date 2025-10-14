@@ -1168,23 +1168,23 @@ export const SunskySKUImporter: React.FC = () => {
     });
 
     try {
-      // Simple direct call - matching the working connection test
-      const response = await supabase.functions.invoke('sunsky-api', {
-        body: {
-          action: action,
-          filters: data?.filters,
-          page: data?.page,
-          pageSize: data?.pageSize,
-          apiId: apiId || selectedSearchAPI || selectedAPI,
-          // Include other data fields
-          ...(data && Object.keys(data).reduce((acc, key) => {
-            if (!['filters', 'page', 'pageSize'].includes(key)) {
-              acc[key] = data[key];
-            }
-            return acc;
-          }, {} as Record<string, any>))
-        }
+      // Construct body - simple and clean
+      const body = {
+        action,
+        apiId: apiId || selectedSearchAPI || selectedAPI,
+        ...data
+      };
+      
+      console.log('📤 About to invoke sunsky-api:', {
+        action,
+        apiId: body.apiId,
+        bodyKeys: Object.keys(body),
+        hasFilters: !!data?.filters,
+        filterKeys: data?.filters ? Object.keys(data.filters) : []
       });
+      
+      // Direct call to edge function
+      const response = await supabase.functions.invoke('sunsky-api', { body });
       
       console.log('🟢 Sunsky API response:', {
         hasData: !!response.data,
@@ -1194,16 +1194,24 @@ export const SunskySKUImporter: React.FC = () => {
       });
 
       if (response.error) {
-        console.error('🔴 Edge function error:', response.error);
+        console.error('🔴 Edge function error:', {
+          message: response.error.message,
+          details: response.error,
+          action,
+          apiId: body.apiId
+        });
         
-        // Retry on network errors
-        if (retryCount < maxRetries && 
-            (response.error.message?.includes('Failed to fetch') || 
-             response.error.message?.includes('Failed to send') ||
-             response.error.message?.includes('NetworkError'))) {
-          console.log(`🔄 Network error - retrying in 2 seconds...`);
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          return callSunskyAPI(action, data, apiId, retryCount + 1);
+        // Check for specific error types
+        if (response.error.message?.includes('FunctionNotFound')) {
+          throw new Error('Edge function not deployed or not found');
+        }
+        if (response.error.message?.includes('Failed to fetch')) {
+          if (retryCount < maxRetries) {
+            console.log(`🔄 Network error - retrying in 2 seconds...`);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            return callSunskyAPI(action, data, apiId, retryCount + 1);
+          }
+          throw new Error('Network error - edge function might be unavailable');
         }
         
         throw new Error(response.error.message || 'Edge function error');
@@ -1373,7 +1381,47 @@ export const SunskySKUImporter: React.FC = () => {
       setFetchingBrands(false);
     }
   };
+  
+  // Test search with minimal payload for debugging
+  const testMinimalSearch = async () => {
+    if (!selectedSearchAPI) {
+      toast({
+        title: "No API Selected",
+        description: "Please select an API credential first",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    console.log('🧪 TESTING MINIMAL SEARCH REQUEST');
+    setLoading(true);
+    
+    try {
+      const result = await callSunskyAPI('searchProducts', {
+        filters: { keyword: 'phone' },
+        page: 1,
+        pageSize: 5
+      }, selectedSearchAPI);
+      
+      console.log('✅ Test search successful:', result);
+      toast({
+        title: "Test Search Successful",
+        description: `Found ${result.data?.total || 0} products with test query`,
+      });
+    } catch (error) {
+      console.error('❌ Test search failed:', error);
+      toast({
+        title: "Test Search Failed",
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   const searchProducts = async (page = 1, apiId?: string) => {
+    // Pre-flight validation
     if (!hasCredentials) {
       toast({
         title: "API Credentials Required",
@@ -1383,7 +1431,8 @@ export const SunskySKUImporter: React.FC = () => {
       return;
     }
     
-    if (!apiId && !selectedSearchAPI) {
+    const targetApiId = apiId || selectedSearchAPI;
+    if (!targetApiId) {
       toast({
         title: "No API Selected",
         description: "Please select an API credential from the dropdown above",
@@ -1392,14 +1441,16 @@ export const SunskySKUImporter: React.FC = () => {
       return;
     }
     
+    console.log('🔍 PRE-SEARCH VALIDATION:', {
+      hasCredentials,
+      selectedSearchAPI,
+      targetApiId,
+      availableAPIs: availableAPIs.length,
+      apiIdParam: apiId
+    });
+    
     setLoading(true);
     try {
-      const targetApiId = apiId || selectedSearchAPI;
-      console.log('🔍 Starting search with:', {
-        targetApiId,
-        hasSelectedSearchAPI: !!selectedSearchAPI,
-        apiIdParam: apiId
-      });
       
       const filters: SearchFilters = {
         keyword: searchTerm || undefined,
@@ -1414,8 +1465,13 @@ export const SunskySKUImporter: React.FC = () => {
         dateTo: dateRange?.to?.toISOString().split('T')[0]
       };
       
-      console.log('🔍 Search filters:', filters);
-      console.log('🔍 Calling API with apiId:', targetApiId);
+      console.log('🔍 SEARCH REQUEST:', {
+        targetApiId,
+        filters,
+        page,
+        pageSize: searchPageSize,
+        filtersString: JSON.stringify(filters)
+      });
       
       const result = await callSunskyAPI('searchProducts', {
         filters,
@@ -2427,19 +2483,31 @@ export const SunskySKUImporter: React.FC = () => {
 
               <div className="flex items-center gap-4">
                 <div className="flex flex-col gap-2 flex-1">
-                  <Button 
-                    onClick={() => searchProducts(1, selectedSearchAPI)} 
-                    disabled={!hasCredentials || loading || !selectedSearchAPI} 
-                    className="flex items-center gap-2 w-full"
-                  >
-                    {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                    Search Products
-                    {selectedSearchAPI && (
-                      <span className="text-xs opacity-70">
-                        ({availableAPIs.find(api => api.id === selectedSearchAPI)?.name || 'API'})
-                      </span>
-                    )}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={() => searchProducts(1, selectedSearchAPI)} 
+                      disabled={!hasCredentials || loading || !selectedSearchAPI} 
+                      className="flex items-center gap-2 flex-1"
+                    >
+                      {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                      Search Products
+                      {selectedSearchAPI && (
+                        <span className="text-xs opacity-70">
+                          ({availableAPIs.find(api => api.id === selectedSearchAPI)?.name || 'API'})
+                        </span>
+                      )}
+                    </Button>
+                    <Button 
+                      onClick={testMinimalSearch} 
+                      disabled={!hasCredentials || loading || !selectedSearchAPI} 
+                      variant="outline"
+                      className="flex items-center gap-2"
+                      title="Test search with minimal payload for debugging"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Test
+                    </Button>
+                  </div>
                   {!selectedSearchAPI && hasCredentials && (
                     <p className="text-xs text-destructive text-center">
                       ⚠️ Please select an API credential above
