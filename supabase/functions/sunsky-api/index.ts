@@ -1718,7 +1718,11 @@ serve(async (req) => {
       }
 
       case 'searchProducts': {
-        const { apiId, filters } = requestData;
+        console.log('📦 searchProducts action - requestData:', JSON.stringify(requestData, null, 2));
+        
+        const { apiId, filters, page: requestPage, pageSize: requestPageSize } = requestData;
+        console.log('📦 Extracted values:', { apiId, hasFilters: !!filters, requestPage, requestPageSize });
+        
         const credentials = await getApiCredentials(user.id, apiId);
         
         const { 
@@ -1727,8 +1731,8 @@ serve(async (req) => {
           keyword,
           dateFrom,
           dateTo,
-          pageSize = 40, 
-          page = 1, 
+          pageSize = requestPageSize || 40, 
+          page = requestPage || 1, 
           brandName,
           searchTerm,
           leadTimeLevel,
@@ -1737,7 +1741,7 @@ serve(async (req) => {
           priceMin,
           priceMax,
           stockMin
-        } = filters || requestData;
+        } = filters || {};
 
         const params: Record<string, any> = {
           lang: 'en',
@@ -1758,7 +1762,7 @@ serve(async (req) => {
         if (priceMax) params.priceMax = priceMax;
         if (stockMin) params.stockMin = stockMin;
 
-        console.log('Search params:', params);
+        console.log('🔍 Search params:', params);
 
         try {
           const result = await makeSunskyRequest('/openapi/product!search.do', params, credentials.key, credentials.secret, user.id);
