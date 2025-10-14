@@ -3713,15 +3713,62 @@ export const SunskySKUImporter: React.FC = () => {
                           onClick={async () => {
                             try {
                               setLoading(true);
-                              console.log('🧪 Testing Sunsky API connection...');
+                              console.log('🧪 ============ CONNECTION TEST START ============');
                               
-                              // Try direct invoke with minimal body
-                              console.log('🧪 Invoking sunsky-api with ping action...');
+                              // Check authentication status
+                              const { data: { session } } = await supabase.auth.getSession();
+                              console.log('🧪 Auth session:', {
+                                hasSession: !!session,
+                                hasAccessToken: !!session?.access_token,
+                                tokenLength: session?.access_token?.length
+                              });
+                              
+                              // Get the function URL
+                              const functionUrl = `https://vfqqlifvhooefxvvyebm.supabase.co/functions/v1/sunsky-api`;
+                              console.log('🧪 Function URL:', functionUrl);
+                              
+                              // Try direct fetch first to see raw error
+                              console.log('🧪 Attempt 1: Direct fetch with minimal headers...');
+                              try {
+                                const fetchResponse = await fetch(functionUrl, {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${session?.access_token || ''}`
+                                  },
+                                  body: JSON.stringify({ action: 'ping' })
+                                });
+                                
+                                console.log('🧪 Fetch response:', {
+                                  status: fetchResponse.status,
+                                  statusText: fetchResponse.statusText,
+                                  headers: Object.fromEntries(fetchResponse.headers.entries())
+                                });
+                                
+                                const text = await fetchResponse.text();
+                                console.log('🧪 Response body:', text);
+                                
+                                if (fetchResponse.ok) {
+                                  const data = JSON.parse(text);
+                                  if (data.result === 'success') {
+                                    toast({
+                                      title: "Connection Successful",
+                                      description: "Sunsky API is online and responding",
+                                    });
+                                    return;
+                                  }
+                                }
+                              } catch (fetchError) {
+                                console.error('🧪 Direct fetch failed:', fetchError);
+                              }
+                              
+                              // Try with supabase client
+                              console.log('🧪 Attempt 2: Using Supabase client...');
                               const directResponse = await supabase.functions.invoke('sunsky-api', {
                                 body: { action: 'ping' }
                               });
                               
-                              console.log('🧪 Response received:', {
+                              console.log('🧪 Supabase client response:', {
                                 hasData: !!directResponse.data,
                                 hasError: !!directResponse.error,
                                 data: directResponse.data,
@@ -3732,23 +3779,21 @@ export const SunskySKUImporter: React.FC = () => {
                                 console.error('🧪 Edge function error:', directResponse.error);
                                 toast({
                                   title: "Connection Test Failed",
-                                  description: `Error: ${directResponse.error.message || 'Failed to reach edge function'}`,
+                                  description: `${directResponse.error.message || 'Failed to reach edge function'}`,
                                   variant: "destructive",
                                 });
                                 return;
                               }
                               
                               if (directResponse.data?.result === 'success') {
-                                console.log('✅ Connection successful!');
                                 toast({
                                   title: "Connection Successful",
-                                  description: "Sunsky API is online and responding correctly",
+                                  description: "Sunsky API is responding correctly",
                                 });
                               } else {
-                                console.warn('⚠️ Unexpected response:', directResponse.data);
                                 toast({
                                   title: "Connection Test Warning",
-                                  description: directResponse.data?.message || "Unexpected response from API",
+                                  description: directResponse.data?.message || "Unexpected response",
                                   variant: "destructive",
                                 });
                               }
@@ -3756,10 +3801,11 @@ export const SunskySKUImporter: React.FC = () => {
                               console.error('🧪 Connection test exception:', error);
                               toast({
                                 title: "Connection Test Failed",
-                                description: error instanceof Error ? error.message : "Failed to reach Sunsky API",
+                                description: error instanceof Error ? error.message : "Unknown error",
                                 variant: "destructive",
                               });
                             } finally {
+                              console.log('🧪 ============ CONNECTION TEST END ============');
                               setLoading(false);
                             }
                           }}
