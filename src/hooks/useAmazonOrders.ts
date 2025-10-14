@@ -27,7 +27,7 @@ export const useAmazonOrders = () => {
         const { data, error } = await supabase
           .from('orders')
           .select('*')
-          .eq('country', selectedCountry)
+          .eq('country' as any, selectedCountry as any)
           .order('shipment_date', { ascending: true }) // Changed to shipment_date ascending to get older orders first
           .range(from, from + batchSize - 1);
 
@@ -355,7 +355,7 @@ export const useAmazonOrders = () => {
           ...orderData,
           country: selectedCountry,
           user_id: (await supabase.auth.getUser()).data.user?.id,
-        }])
+        }] as any)
         .select()
         .single();
 
@@ -382,8 +382,8 @@ export const useAmazonOrders = () => {
     try {
       const { error } = await supabase
         .from('orders')
-        .update(updates)
-        .eq('id', id);
+        .update(updates as any)
+        .eq('id' as any, id as any);
 
       if (error) throw error;
 
@@ -408,7 +408,7 @@ export const useAmazonOrders = () => {
       const { error } = await supabase
         .from('orders')
         .delete()
-        .eq('id', id);
+        .eq('id' as any, id as any);
 
       if (error) throw error;
 
@@ -438,15 +438,15 @@ export const useAmazonOrders = () => {
       const { data: existingOrders, error: fetchError } = await supabase
         .from('orders')
         .select('order_id, id, status, payment_status, updated_at')
-        .eq('country', selectedCountry)
-        .eq('user_id', user?.id);
+        .eq('country' as any, selectedCountry as any)
+        .eq('user_id' as any, user?.id as any);
 
       if (fetchError) {
         console.warn('Error fetching existing orders:', fetchError);
       }
 
       const existingOrdersMap = new Map(
-        (existingOrders || []).map(order => [order.order_id, order])
+        (existingOrders || []).map((order: any) => [(order as any).order_id, order])
       );
 
       // Clear existing data if requested
@@ -454,8 +454,8 @@ export const useAmazonOrders = () => {
         const { error: deleteError } = await supabase
           .from('orders')
           .delete()
-          .eq('country', selectedCountry)
-          .eq('user_id', user?.id);
+          .eq('country' as any, selectedCountry as any)
+          .eq('user_id' as any, user?.id as any);
 
         if (deleteError) {
           console.warn('Error clearing existing data:', deleteError);
@@ -483,8 +483,8 @@ export const useAmazonOrders = () => {
           user_id: user?.id,
           payment_due_date: paymentDueDate?.toISOString().split('T')[0] || null,
           // Preserve existing payment status if order exists and is already paid
-          payment_status: existingOrder?.payment_status === 'completed' 
-            ? existingOrder.payment_status 
+          payment_status: (existingOrder as any)?.payment_status === 'completed' 
+            ? (existingOrder as any).payment_status 
             : order.payment_status || 'pending',
           // Set payment schedule days default
           payment_schedule_days: order.payment_schedule_days || 45,
@@ -497,7 +497,7 @@ export const useAmazonOrders = () => {
       // Use upsert to handle duplicates - update if order_id exists, insert if new
       const { data, error } = await supabase
         .from('orders')
-        .upsert(formattedOrders, {
+        .upsert(formattedOrders as any, {
           onConflict: 'order_id,user_id,country',
           ignoreDuplicates: false // This ensures we update existing records
         })
@@ -541,8 +541,8 @@ export const useAmazonOrders = () => {
       const { error } = await supabase
         .from('orders')
         .delete()
-        .eq('country', selectedCountry)
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all user orders
+        .eq('country' as any, selectedCountry as any)
+        .neq('id' as any, '00000000-0000-0000-0000-000000000000' as any); // Delete all user orders
 
       if (error) throw error;
 

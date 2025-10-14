@@ -39,7 +39,7 @@ export function useAsinInventory() {
       const { count, error: countError } = await supabase
         .from('asin_inventory')
         .select('*', { count: 'exact', head: true })
-        .eq('country', selectedCountry);
+        .eq('country' as any, selectedCountry as any);
 
       console.log(`📊 Total records in database: ${count}`);
 
@@ -52,7 +52,7 @@ export function useAsinInventory() {
         const { data: batchData, error: batchError } = await supabase
           .from('asin_inventory')
           .select('*')
-          .eq('country', selectedCountry)
+          .eq('country' as any, selectedCountry as any)
           .order('date_added', { ascending: true })
           .range(from, from + batchSize - 1);
 
@@ -132,13 +132,13 @@ export function useAsinInventory() {
       const { data: existingItems, error: checkError } = await supabase
         .from('asin_inventory')
         .select('serial_number, asin')
-        .eq('user_id', user.id)
-        .eq('serial_number', item.serialNumber);
+        .eq('user_id' as any, user.id as any)
+        .eq('serial_number' as any, item.serialNumber as any);
 
       if (checkError) throw checkError;
 
       if (existingItems && existingItems.length > 0) {
-        const existingAsin = existingItems[0].asin;
+        const existingAsin = (existingItems[0] as any).asin;
         throw new Error(`Serial number "${item.serialNumber}" is already used by ASIN "${existingAsin}". Each serial number must be unique across all ASINs.`);
       }
 
@@ -159,26 +159,26 @@ export function useAsinInventory() {
           restock_quantity: item.restockQuantity || null,
           last_restock_date: item.lastRestockDate || null,
           country: selectedCountry,
-        })
+        } as any)
         .select()
         .single();
 
       if (error) throw error;
 
       const newItem: AsinInventoryItem = {
-        id: data.id,
-        asin: data.asin,
-        serialNumber: data.serial_number,
-        sku: data.sku,
-        title: data.title || undefined,
-        status: data.status,
-        dateAdded: data.date_added,
-        dateSold: data.date_sold || undefined,
-        notes: data.notes || undefined,
-        quantity: data.quantity ?? 1,
-        restockDate: data.restock_date || undefined,
-        restockQuantity: data.restock_quantity || undefined,
-        lastRestockDate: data.last_restock_date || undefined,
+        id: (data as any).id,
+        asin: (data as any).asin,
+        serialNumber: (data as any).serial_number,
+        sku: (data as any).sku,
+        title: (data as any).title || undefined,
+        status: (data as any).status,
+        dateAdded: (data as any).date_added,
+        dateSold: (data as any).date_sold || undefined,
+        notes: (data as any).notes || undefined,
+        quantity: (data as any).quantity ?? 1,
+        restockDate: (data as any).restock_date || undefined,
+        restockQuantity: (data as any).restock_quantity || undefined,
+        lastRestockDate: (data as any).last_restock_date || undefined,
       };
 
       setInventory(prev => [newItem, ...prev]);
@@ -205,8 +205,8 @@ export function useAsinInventory() {
 
       const { error } = await supabase
         .from('asin_inventory')
-        .update(updateData)
-        .eq('id', id);
+        .update(updateData as any)
+        .eq('id' as any, id as any);
 
       if (error) throw error;
 
@@ -230,7 +230,7 @@ export function useAsinInventory() {
       const { error } = await supabase
         .from('asin_inventory')
         .delete()
-        .eq('id', id);
+        .eq('id' as any, id as any);
 
       if (error) throw error;
 
@@ -277,7 +277,7 @@ export function useAsinInventory() {
 
       if (error) throw error;
 
-      const newItems: AsinInventoryItem[] = data.map(item => ({
+      const newItems: AsinInventoryItem[] = (data as any).map((item: any) => ({
         id: item.id,
         asin: item.asin,
         serialNumber: item.serial_number,
@@ -329,8 +329,8 @@ export function useAsinInventory() {
 
       const { error } = await supabase
         .from('asin_inventory')
-        .update(updateData)
-        .eq('id', id);
+        .update(updateData as any)
+        .eq('id' as any, id as any);
 
       if (error) throw error;
 
@@ -376,8 +376,8 @@ export function useAsinInventory() {
       // Update the inventory quantity (triggers will handle status automatically)
       const { error: updateError } = await supabase
         .from('asin_inventory')
-        .update({ quantity: newQuantity })
-        .eq('id', id);
+        .update({ quantity: newQuantity } as any)
+        .eq('id' as any, id as any);
 
       if (updateError) throw updateError;
 
@@ -402,7 +402,7 @@ export function useAsinInventory() {
             sku: item.sku,
             title: item.title
           }
-        });
+        } as any);
 
       if (changeError) throw changeError;
 
@@ -427,8 +427,8 @@ export function useAsinInventory() {
     try {
       const { error } = await supabase
         .from('asin_inventory')
-        .update({ notes: binLocation })
-        .eq('id', id);
+        .update({ notes: binLocation } as any)
+        .eq('id' as any, id as any);
 
       if (error) throw error;
 
@@ -456,9 +456,9 @@ export function useAsinInventory() {
     try {
       const { error } = await supabase
         .from('asin_inventory')
-        .update({ sku: newSku.trim() || null })
-        .eq('id', id)
-        .eq('user_id', profile.id);
+        .update({ sku: newSku.trim() || null } as any)
+        .eq('id' as any, id as any)
+        .eq('user_id' as any, profile.id as any);
 
       if (error) throw error;
 
@@ -489,22 +489,22 @@ export function useAsinInventory() {
       const { data: existingItems, error: checkError } = await supabase
         .from('asin_inventory')
         .select('id, asin, serial_number')
-        .eq('user_id', profile.id)
-        .eq('serial_number', newSerialNumber.trim())
-        .neq('id', id);
+        .eq('user_id' as any, profile.id as any)
+        .eq('serial_number' as any, newSerialNumber.trim() as any)
+        .neq('id' as any, id as any);
 
       if (checkError) throw checkError;
 
       if (existingItems && existingItems.length > 0) {
-        const existingAsin = existingItems[0].asin;
+        const existingAsin = (existingItems[0] as any).asin;
         throw new Error(`Serial number "${newSerialNumber}" is already used by ASIN "${existingAsin}". Each serial number must be unique.`);
       }
 
       const { error } = await supabase
         .from('asin_inventory')
-        .update({ serial_number: newSerialNumber.trim() })
-        .eq('id', id)
-        .eq('user_id', profile.id);
+        .update({ serial_number: newSerialNumber.trim() } as any)
+        .eq('id' as any, id as any)
+        .eq('user_id' as any, profile.id as any);
 
       if (error) throw error;
 
@@ -536,9 +536,9 @@ export function useAsinInventory() {
       for (const pair of asinSkuPairs) {
         const { error } = await supabase
           .from('asin_inventory')
-          .update({ sku: pair.sku.trim() || null })
-          .eq('asin', pair.asin)
-          .eq('user_id', profile.id);
+          .update({ sku: pair.sku.trim() || null } as any)
+          .eq('asin' as any, pair.asin as any)
+          .eq('user_id' as any, profile.id as any);
 
         if (error) throw error;
         updates.push(pair);
@@ -572,9 +572,9 @@ export function useAsinInventory() {
     try {
       const { error } = await supabase
         .from('asin_inventory')
-        .update({ title: newTitle.trim() || null })
-        .eq('id', id)
-        .eq('user_id', profile.id);
+        .update({ title: newTitle.trim() || null } as any)
+        .eq('id' as any, id as any)
+        .eq('user_id' as any, profile.id as any);
 
       if (error) throw error;
 
@@ -606,9 +606,9 @@ export function useAsinInventory() {
       for (const pair of asinTitlePairs) {
         const { error } = await supabase
           .from('asin_inventory')
-          .update({ title: pair.title.trim() || null })
-          .eq('asin', pair.asin)
-          .eq('user_id', profile.id);
+          .update({ title: pair.title.trim() || null } as any)
+          .eq('asin' as any, pair.asin as any)
+          .eq('user_id' as any, profile.id as any);
 
         if (error) throw error;
         updates.push(pair);
@@ -726,10 +726,10 @@ export function useAsinInventory() {
         const { data: changes } = await supabase
           .from('stock_changes')
           .select('id')
-          .eq('inventory_id', item.id)
-          .lt('change_amount', 0)
-          .gte('created_at', referenceDate)
-          .lte('created_at', cutoffDate.toISOString())
+          .eq('inventory_id' as any, item.id as any)
+          .lt('change_amount' as any, 0 as any)
+          .gte('created_at' as any, referenceDate as any)
+          .lte('created_at' as any, cutoffDate.toISOString() as any)
           .limit(1);
 
         const shouldBeEligible = Boolean(changes && changes.length > 0);
@@ -743,8 +743,8 @@ export function useAsinInventory() {
         for (const update of updates) {
           await supabase
             .from('asin_inventory')
-            .update({ eligible_for_restock: update.eligible })
-            .eq('id', update.id);
+            .update({ eligible_for_restock: update.eligible } as any)
+            .eq('id' as any, update.id as any);
         }
 
         setInventory(prev => prev.map(item => {
@@ -762,8 +762,8 @@ export function useAsinInventory() {
     try {
       const { error } = await supabase
         .from('asin_inventory')
-        .update({ eligible_for_restock: eligible })
-        .eq('id', itemId);
+        .update({ eligible_for_restock: eligible } as any)
+        .eq('id' as any, itemId as any);
 
       if (error) throw error;
 
@@ -792,8 +792,8 @@ export function useAsinInventory() {
     try {
       const { error } = await supabase
         .from('asin_inventory')
-        .update({ is_active: isActive })
-        .eq('id', id);
+        .update({ is_active: isActive } as any)
+        .eq('id' as any, id as any);
 
       if (error) throw error;
 

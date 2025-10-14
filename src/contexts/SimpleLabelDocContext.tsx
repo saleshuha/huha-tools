@@ -298,20 +298,20 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
       const { data, error } = await supabase
         .from('label_datasets')
         .select('*')
-        .eq('id', id)
+        .eq('id' as any, id as any)
         .single();
 
       if (error) throw error;
       
       const dataset: LabelDataset = {
-        id: data.id,
-        name: data.name,
-        description: data.description || '',
-        headers: Array.isArray(data.headers) ? data.headers.map(h => String(h)) : [],
-        data: Array.isArray(data.data) ? data.data as any[][] : [],
-        rowCount: data.row_count || 0,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
+        id: (data as any).id,
+        name: (data as any).name,
+        description: (data as any).description || '',
+        headers: Array.isArray((data as any).headers) ? (data as any).headers.map((h: any) => String(h)) : [],
+        data: Array.isArray((data as any).data) ? (data as any).data as any[][] : [],
+        rowCount: (data as any).row_count || 0,
+        createdAt: (data as any).created_at,
+        updatedAt: (data as any).updated_at,
       };
       
       setDataset(dataset);
