@@ -2,16 +2,23 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5/dist/main/index.js";
 import { crypto } from "https://deno.land/std@0.190.0/crypto/mod.ts";
 
+console.log('🚀 Sunsky API Edge Function Initialized');
+
 // CORS headers for security  
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Credentials': 'true',
 };
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+console.log('✅ Environment variables loaded:', {
+  hasUrl: !!supabaseUrl,
+  hasServiceKey: !!supabaseServiceKey
+});
+
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // MD5 implementation for Sunsky API signature
@@ -474,6 +481,184 @@ async function convertCurrency(priceUSD: number, userCountry: string): Promise<n
   });
   
   return priceUSD * (exchangeRate || 1);
+}
+
+// Handle image download for products
+async function handleImageDownload(body: any, userId: string): Promise<Response> {
+  const { itemNos, size = 800, watermark, apiId } = body;
+
+  if (!itemNos || !Array.isArray(itemNos) || itemNos.length === 0) {
+    return new Response(JSON.stringify({ 
+      result: 'error', 
+      message: 'itemNos array is required and must not be empty' 
+    }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  try {
+    // Get API credentials
+    const credentials = await getApiCredentials(userId, apiId);
+    
+    const results = [];
+    let successCount = 0;
+    let errorCount = 0;
+
+    // Process each item
+    for (const itemNo of itemNos) {
+      try {
+        // Build parameters for image download
+        const params: Record<string, any> = { itemNo };
+        if (size) params.size = size;
+        if (watermark) params.watermark = watermark;
+
+        // Make request to Sunsky API for images
+        const response = await fetch(`https://open.sunsky-online.com/openapi/product!getImages.do`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            ...params,
+            key: credentials.key,
+            signature: await generateSignature(params, credentials.key, credentials.secret)
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        // Get the ZIP file as array buffer
+        const zipData = await response.arrayBuffer();
+        
+        // Extract images from ZIP using JSZip
+        const JSZip = (await import('https://esm.sh/jszip@3.10.1')).default;
+        const zip = await JSZip.loadAsync(zipData);
+        
+        const imageFiles = Object.keys(zip.files).filter(name => 
+          !zip.files[name].dir && /\.(jpg|jpeg|png|gif|webp)$/i.test(name)
+        );
+
+        let imageOrder = 0;
+        for (const fileName of imageFiles) {
+          const file = zip.files[fileName];
+          const imageData = await file.async('base64');
+          const ext = fileName.split('.').pop()?.toLowerCase() || 'jpg';
+          const mimeType = ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : 'image/jpeg';
+          
+          // Upload to Supabase Storage
+          const storagePath = `${userId}/${itemNo}/${imageOrder}_${fileName}`;
+          const { error: uploadError } = await supabase.storage
+            .from('sunsky-images')
+            .upload(storagePath, Buffer.from(imageData, 'base64'), {
+              contentType: mimeType,
+              upsert: true
+            });
+
+          if (uploadError) {
+            console.error('Storage upload error:', uploadError);
+            continue;
+          }
+
+          // Get public URL
+          const { data: { publicUrl } } = supabase.storage
+            .from('sunsky-images')
+            .getPublicUrl(storagePath);
+
+          // Save to database
+          await supabase
+            .from('sunsky_product_images')
+            .upsert({
+              user_id: userId,
+              item_no: itemNo,
+              image_url: publicUrl,
+              image_order: imageOrder,
+              image_type: imageOrder === 0 ? 'main' : 'detail',
+              storage_path: storagePath,
+              download_status: 'completed'
+            }, {
+              onConflict: 'user_id,item_no,image_order'
+            });
+
+          imageOrder++;
+        }
+
+        // Update SKU with image info
+        if (imageOrder > 0) {
+          const { data: { publicUrl: thumbnailUrl } } = supabase.storage
+            .from('sunsky-images')
+            .getPublicUrl(`${userId}/${itemNo}/0_${imageFiles[0]}`);
+
+          await supabase
+            .from('sunsky_skus')
+            .update({
+              images_downloaded: true,
+              images_download_date: new Date().toISOString(),
+              thumbnail_url: thumbnailUrl,
+              image_count: imageOrder
+            })
+            .eq('user_id', userId)
+            .eq('sku_code', itemNo);
+        }
+
+        results.push({
+          itemNo,
+          status: 'success',
+          imageCount: imageOrder
+        });
+        successCount++;
+
+      } catch (error) {
+        console.error(`Error downloading images for ${itemNo}:`, error);
+        
+        // Save error to database
+        await supabase
+          .from('sunsky_product_images')
+          .upsert({
+            user_id: userId,
+            item_no: itemNo,
+            image_url: '',
+            image_order: 0,
+            download_status: 'failed',
+            download_error: error.message
+          }, {
+            onConflict: 'user_id,item_no,image_order'
+          });
+
+        results.push({
+          itemNo,
+          status: 'error',
+          error: error.message
+        });
+        errorCount++;
+      }
+    }
+
+    return new Response(JSON.stringify({
+      result: 'success',
+      data: {
+        total: itemNos.length,
+        success: successCount,
+        errors: errorCount,
+        results
+      }
+    }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    console.error('Image download error:', error);
+    return new Response(JSON.stringify({
+      result: 'error',
+      message: error.message
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
 }
 
 // Process a chunk of products (helper function for chunked processing)
@@ -1261,59 +1446,191 @@ async function processImportJob(job: any, userId: string, userCountry: string) {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
+  // Handle CORS preflight immediately - before any other processing
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { 
+      status: 200,
+      headers: corsHeaders 
+    });
   }
 
+  // Top-level error boundary to catch ALL errors
   try {
-    // Parse request body with error handling
-    let requestBody;
-    try {
-      requestBody = await req.json();
-    } catch (jsonError) {
-      console.error('Failed to parse request JSON:', jsonError);
-      throw new Error('Invalid JSON in request body');
-    }
-    
-    const { action, ...requestData } = requestBody;
-    
-    // Debug logging
-    console.log('Received request:', {
+    const requestId = crypto.randomUUID();
+    console.log(`[${requestId}] 🚀 Sunsky API function invoked:`, {
       method: req.method,
-      action: action,
-      hasRequestData: !!requestData,
-      requestDataKeys: requestData ? Object.keys(requestData) : []
+      url: req.url,
+      timestamp: new Date().toISOString()
     });
-    
-    // Validate action parameter
-    if (!action || typeof action !== 'string') {
-      console.error('Invalid or missing action parameter:', action);
-      throw new Error(`Invalid action parameter: ${action}. Action must be a non-empty string.`);
-    }
-    
-    // Get user from auth header
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
-      throw new Error('No authorization header');
-    }
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    );
-    
-    if (authError || !user) {
-      throw new Error('Invalid authentication');
-    }
+    // Inner try-catch for request processing
+    try {
+      // Parse request body with validation
+      console.log(`[${requestId}] 📥 Parsing request body...`);
+      let requestBody;
+      
+      try {
+        requestBody = await req.json();
+        console.log(`[${requestId}] ✅ Request body parsed successfully`, {
+          hasAction: !!(requestBody as any)?.action
+        });
+      } catch (parseError) {
+        console.error(`[${requestId}] ❌ JSON parsing failed:`, parseError);
+        return new Response(JSON.stringify({ 
+          result: 'error', 
+          message: 'Invalid JSON in request body',
+          details: parseError?.message || 'Unknown parsing error',
+          requestId
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      // Validate request structure
+      if (!requestBody || typeof requestBody !== 'object') {
+        console.error(`[${requestId}] ❌ Invalid request body structure:`, requestBody);
+        return new Response(JSON.stringify({ 
+          result: 'error', 
+          message: 'Request body must be a valid JSON object',
+          requestId
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      const { action, ...requestData } = requestBody;
+      
+      console.log(`[${requestId}] 📋 Received request:`, {
+        method: req.method,
+        action: action,
+        hasRequestData: !!requestData,
+        requestDataKeys: requestData ? Object.keys(requestData) : [],
+        timestamp: new Date().toISOString()
+      });
 
-    // Get user's profile for country information
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('country')
-      .eq('id', user.id)
-      .single();
+      // Health check endpoint (no auth required)
+      if (action === 'ping' || action === 'health') {
+        console.log(`[${requestId}] 💚 Health check requested`);
+        return new Response(JSON.stringify({ 
+          result: 'success',
+          message: 'Sunsky API function is online',
+          timestamp: new Date().toISOString(),
+          requestId
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      // Validate action parameter
+      if (!action || typeof action !== 'string' || action.trim() === '') {
+        console.error(`[${requestId}] ❌ Invalid or missing action parameter:`, action);
+        return new Response(JSON.stringify({ 
+          result: 'error', 
+          message: `Invalid action parameter: ${action}. Action must be a non-empty string.`,
+          receivedAction: action,
+          requestId
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      // Get and validate auth header
+      console.log(`[${requestId}] 🔐 Validating authentication...`);
+      const authHeader = req.headers.get('authorization');
+      
+      if (!authHeader) {
+        console.error(`[${requestId}] ❌ No authorization header provided`);
+        return new Response(JSON.stringify({ 
+          result: 'error', 
+          message: 'No authorization header provided. Please log in.'
+        }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
-    const userCountry = profile?.country || 'UAE';
+      // Extract and validate JWT token
+      const token = authHeader.replace('Bearer ', '').trim();
+      if (!token || token === authHeader) {
+        console.error(`[${requestId}] ❌ Invalid authorization header format`);
+        return new Response(JSON.stringify({ 
+          result: 'error', 
+          message: 'Invalid authorization header format. Expected "Bearer <token>"'
+        }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Authenticate user
+      let user;
+      try {
+        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser(token);
+        
+        if (authError) {
+          console.error(`[${requestId}] ❌ Authentication error:`, authError);
+          return new Response(JSON.stringify({ 
+            result: 'error', 
+            message: 'Authentication failed. Please log in again.',
+            details: authError.message
+          }), {
+            status: 401,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        
+        if (!authUser) {
+          console.error(`[${requestId}] ❌ No user returned from auth`);
+          return new Response(JSON.stringify({ 
+            result: 'error', 
+            message: 'User not found. Please log in again.'
+          }), {
+            status: 401,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        
+        user = authUser;
+        console.log(`[${requestId}] ✅ User authenticated:`, user.id);
+        
+      } catch (authException) {
+        console.error(`[${requestId}] ❌ Exception during authentication:`, authException);
+        return new Response(JSON.stringify({ 
+          result: 'error', 
+          message: 'Authentication system error',
+          details: authException?.message || 'Unknown error'
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Get user's profile for country information
+      console.log(`[${requestId}] 📍 Fetching user profile...`);
+      let userCountry = 'UAE'; // Default
+      
+      try {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('country')
+          .eq('id', user.id)
+          .maybeSingle(); // Use maybeSingle to avoid errors if no profile exists
+
+        if (profileError) {
+          console.warn(`[${requestId}] ⚠️ Profile fetch error (using default):`, profileError);
+        } else if (profile?.country) {
+          userCountry = profile.country;
+          console.log(`[${requestId}] ✅ User country:`, userCountry);
+        } else {
+          console.log(`[${requestId}] ℹ️ No profile found, using default country:`, userCountry);
+        }
+      } catch (profileException) {
+        console.warn(`[${requestId}] ⚠️ Profile fetch exception (using default):`, profileException);
+      }
 
     switch (action) {
       case 'saveCredentials': {
@@ -1531,8 +1848,53 @@ serve(async (req) => {
       }
 
       case 'searchProducts': {
-        const { apiId, filters } = requestData;
-        const credentials = await getApiCredentials(user.id, apiId);
+        console.log(`[${requestId}] 📦 searchProducts action started`);
+        console.log(`[${requestId}] 📦 Request data:`, JSON.stringify(requestData, null, 2));
+        
+        // Defensive extraction of parameters
+        const apiId = requestData?.apiId;
+        const filters = requestData?.filters || {};
+        const requestPage = requestData?.page;
+        const requestPageSize = requestData?.pageSize;
+        
+        console.log(`[${requestId}] 📦 Extracted values:`, { 
+          apiId, 
+          hasFilters: !!filters,
+          filterKeys: Object.keys(filters),
+          requestPage, 
+          requestPageSize 
+        });
+        
+        // Validate apiId
+        if (!apiId) {
+          console.error(`[${requestId}] ❌ Missing apiId parameter`);
+          return new Response(JSON.stringify({ 
+            result: 'error', 
+            message: 'API credentials ID (apiId) is required for searching products',
+            receivedData: { hasApiId: !!apiId, hasFilters: !!filters }
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        
+        // Get credentials with error handling
+        console.log(`[${requestId}] 🔑 Fetching API credentials...`);
+        let credentials;
+        try {
+          credentials = await getApiCredentials(user.id, apiId);
+          console.log(`[${requestId}] ✅ Credentials fetched successfully`);
+        } catch (credError) {
+          console.error(`[${requestId}] ❌ Failed to fetch credentials:`, credError);
+          return new Response(JSON.stringify({ 
+            result: 'error', 
+            message: 'Failed to fetch API credentials. Please check your API key settings.',
+            details: credError?.message || 'Unknown error'
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
         
         const { 
           categoryId, 
@@ -1540,8 +1902,8 @@ serve(async (req) => {
           keyword,
           dateFrom,
           dateTo,
-          pageSize = 40, 
-          page = 1, 
+          pageSize = requestPageSize || 40, 
+          page = requestPage || 1, 
           brandName,
           searchTerm,
           leadTimeLevel,
@@ -1550,7 +1912,7 @@ serve(async (req) => {
           priceMin,
           priceMax,
           stockMin
-        } = filters || requestData;
+        } = filters || {};
 
         const params: Record<string, any> = {
           lang: 'en',
@@ -1571,7 +1933,7 @@ serve(async (req) => {
         if (priceMax) params.priceMax = priceMax;
         if (stockMin) params.stockMin = stockMin;
 
-        console.log('Search params:', params);
+        console.log('🔍 Search params:', params);
 
         try {
           const result = await makeSunskyRequest('/openapi/product!search.do', params, credentials.key, credentials.secret, user.id);
@@ -1582,24 +1944,45 @@ serve(async (req) => {
           }
 
         // Convert prices for products if they exist
-        if (result.result === 'success' && result.data?.result) {
-          for (const product of result.data.result) {
-            if (product.price) {
-              try {
-                const priceUSD = parseFloat(product.price);
-                product.convertedPrice = await convertCurrency(priceUSD, userCountry);
-                product.convertedCurrency = userCountry === 'KSA' ? 'SAR' : 'AED';
-              } catch (error) {
-                console.error('Currency conversion error:', error);
-                product.convertedPrice = parseFloat(product.price);
-                product.convertedCurrency = 'USD';
+        try {
+          if (result.result === 'success' && result.data?.result && result.data.result.length > 0) {
+            // Get exchange rate once for all products
+            const targetCurrency = userCountry === 'KSA' ? 'SAR' : 'AED';
+            let exchangeRate = 1;
+            
+            try {
+              const { data: rate } = await supabase.rpc('get_exchange_rate', {
+                from_currency: 'USD',
+                to_currency: targetCurrency
+              });
+              exchangeRate = rate || 1;
+            } catch (error) {
+              console.error('Exchange rate fetch error:', error);
+              exchangeRate = targetCurrency === 'SAR' ? 3.75 : 3.67; // Fallback rates
+            }
+            
+            // Apply conversion to all products
+            for (const product of result.data.result) {
+              if (product.price) {
+                try {
+                  const priceUSD = parseFloat(product.price);
+                  product.convertedPrice = priceUSD * exchangeRate;
+                  product.convertedCurrency = targetCurrency;
+                } catch (error) {
+                  console.error('Price conversion error:', error);
+                  product.convertedPrice = parseFloat(product.price);
+                  product.convertedCurrency = 'USD';
+                }
               }
             }
           }
+        } catch (conversionError) {
+          console.error('Currency conversion failed, returning products without conversion:', conversionError);
+          // Continue without currency conversion
         }
 
           return new Response(JSON.stringify({
-            success: true,
+            result: 'success',
             data: {
               products: result.data?.result || [],
               total: result.data?.total || 0
@@ -3077,23 +3460,57 @@ serve(async (req) => {
         throw new Error(`Unknown action: ${action}`);
     }
 
-  } catch (error) {
-    console.error('Error in sunsky-api function:', error);
-    
-    // Enhanced error logging
-    console.error('Request details:', {
-      method: req.method,
-      url: req.url,
-      headers: Object.fromEntries(req.headers.entries()),
+    } catch (error) {
+      console.error('❌ Fatal error in Sunsky API function:', error);
+      console.error('Error details:', {
+        name: error?.constructor?.name,
+        message: error?.message,
+        stack: error?.stack,
+        type: typeof error
+      });
+      
+      return new Response(JSON.stringify({ 
+        result: 'error', 
+        message: error?.message || 'Unknown error occurred',
+        errorType: error?.constructor?.name || 'UnknownError',
+        timestamp: new Date().toISOString()
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+  
+  } catch (topLevelError) {
+    // Top-level error boundary - catches ANY error that wasn't caught by inner try-catch
+    console.error('🔥 TOP-LEVEL ERROR BOUNDARY TRIGGERED:', topLevelError);
+    console.error('🔥 This error occurred before/outside the main error handler');
+    console.error('🔥 Full error details:', {
+      name: topLevelError?.constructor?.name,
+      message: topLevelError?.message,
+      stack: topLevelError?.stack,
+      type: typeof topLevelError,
+      stringified: String(topLevelError)
     });
     
-    return new Response(JSON.stringify({ 
-      result: 'error', 
-      message: error.message,
-      timestamp: new Date().toISOString()
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    // Try to return a response, but be extra careful
+    try {
+      return new Response(JSON.stringify({ 
+        result: 'error', 
+        message: 'Critical system error: ' + (topLevelError?.message || 'Unknown error'),
+        errorType: topLevelError?.constructor?.name || 'CriticalError',
+        category: 'top_level_boundary',
+        timestamp: new Date().toISOString()
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    } catch (responseError) {
+      // If even creating the error response fails, return a basic response
+      console.error('🔥 FAILED TO CREATE ERROR RESPONSE:', responseError);
+      return new Response('Critical system error', {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'text/plain' },
+      });
+    }
   }
 });
