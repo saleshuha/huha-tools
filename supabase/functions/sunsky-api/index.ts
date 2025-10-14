@@ -1483,7 +1483,7 @@ serve(async (req) => {
       });
     }
 
-    const { action, ...requestData } = body;
+    const { action } = body;
 
     // Step 2: Health check (no auth needed)
     if (action === 'ping' || action === 'health') {
@@ -1580,7 +1580,7 @@ serve(async (req) => {
 
     switch (action) {
       case 'saveCredentials': {
-        const { apiKey, apiSecret } = requestData;
+        const { apiKey, apiSecret } = body;
 
         console.log('Saving credentials for user:', user.id);
 
@@ -1613,7 +1613,7 @@ serve(async (req) => {
       }
 
       case 'testCredentials': {
-        const { apiId } = requestData;
+        const { apiId } = body;
         const credentials = await getApiCredentials(user.id, apiId);
         
         // Test with a simple categories request
@@ -1718,7 +1718,7 @@ serve(async (req) => {
       }
 
       case 'debugSignature': {
-        const { params: debugParams } = requestData;
+        const { params: debugParams } = body;
         const credentials = await getApiCredentials(user.id);
         
         // Generate signature and return debug info
@@ -1754,7 +1754,7 @@ serve(async (req) => {
       }
 
       case 'search_products': {
-        const { credentials_id, search_skus } = requestData;
+        const { credentials_id, search_skus } = body;
         
         if (!search_skus || !Array.isArray(search_skus)) {
           throw new Error('search_skus array is required');
@@ -1795,13 +1795,13 @@ serve(async (req) => {
 
       case 'searchProducts': {
         console.log(`[${requestId}] 📦 searchProducts action started`);
-        console.log(`[${requestId}] 📦 Request data:`, JSON.stringify(requestData, null, 2));
+        console.log(`[${requestId}] 📦 Request data:`, JSON.stringify(body, null, 2));
         
         // Defensive extraction of parameters
-        const apiId = requestData?.apiId;
-        const filters = requestData?.filters || {};
-        const requestPage = requestData?.page;
-        const requestPageSize = requestData?.pageSize;
+        const apiId = body?.apiId;
+        const filters = body?.filters || {};
+        const requestPage = body?.page;
+        const requestPageSize = body?.pageSize;
         
         console.log(`[${requestId}] 📦 Extracted values:`, { 
           apiId, 
@@ -1946,7 +1946,7 @@ serve(async (req) => {
       }
 
       case 'getProductDetails': {
-        const { apiId, itemNo, skuCode } = requestData;
+        const { apiId, itemNo, skuCode } = body;
         const credentials = await getApiCredentials(user.id, apiId);
 
         // Accept either itemNo or skuCode (they're the same thing)
@@ -1987,7 +1987,7 @@ serve(async (req) => {
 
       case 'importSKUs': {
         const credentials = await getApiCredentials(user.id);
-        const { skus } = requestData;
+        const { skus } = body;
 
         if (!Array.isArray(skus) || skus.length === 0) {
           throw new Error('skus array is required');
@@ -2120,10 +2120,10 @@ serve(async (req) => {
       }
 
       case 'getCategories': {
-        console.log('getCategories action called with data:', requestData);
-        const { apiId } = requestData;
+        console.log('getCategories action called with data:', body);
+        const { apiId } = body;
         const credentials = await getApiCredentials(user.id, apiId);
-        const { parentId, lang = 'en', gmtModifiedStart, mode } = requestData;
+        const { parentId, lang = 'en', gmtModifiedStart, mode } = body;
 
         const params: Record<string, any> = {
           lang
@@ -2176,10 +2176,10 @@ serve(async (req) => {
       }
 
       case 'getBrands': {
-        console.log('getBrands action called with data:', requestData);
-        const { apiId, categoryId } = requestData;
+        console.log('getBrands action called with data:', body);
+        const { apiId, categoryId } = body;
         const credentials = await getApiCredentials(user.id, apiId);
-        const { lang = 'en' } = requestData;
+        const { lang = 'en' } = body;
 
         const params = { lang };
 
@@ -2262,7 +2262,7 @@ serve(async (req) => {
       }
 
       case 'createImportJob': {
-        const { type, criteria } = requestData;
+        const { type, criteria } = body;
         
         if (!type || !criteria) {
           throw new Error('type and criteria are required');
@@ -2293,7 +2293,7 @@ serve(async (req) => {
       }
 
       case 'startImportJob': {
-        const { jobId } = requestData;
+        const { jobId } = body;
         
         if (!jobId) {
           throw new Error('jobId is required');
@@ -2356,7 +2356,7 @@ serve(async (req) => {
       }
 
       case 'getJobStatus': {
-        const { jobId } = requestData;
+        const { jobId } = body;
         
         if (!jobId) {
           throw new Error('jobId is required');
@@ -2409,7 +2409,7 @@ serve(async (req) => {
       }
 
       case 'getPricesAndFreights': {
-        const { items, deliveryAddress } = requestData;
+        const { items, deliveryAddress } = body;
         const credentials = await getApiCredentials(user.id);
         
         if (!items || !Array.isArray(items) || items.length === 0) {
@@ -2482,7 +2482,7 @@ serve(async (req) => {
       }
 
       case 'createOrder': {
-        const { orderData, apiId } = requestData;
+        const { orderData, apiId } = body;
         console.log('Creating order with apiId:', apiId);
         const credentials = await getApiCredentials(user.id, apiId);
         
@@ -2605,7 +2605,7 @@ serve(async (req) => {
       }
 
       case 'addApiKey': {
-        const { apiKey, apiSecret, name } = requestData;
+        const { apiKey, apiSecret, name } = body;
 
         if (!apiKey || !apiSecret || !name) {
           throw new Error('API key, secret, and name are required');
@@ -2668,7 +2668,7 @@ serve(async (req) => {
       }
 
       case 'toggleApiKeyActive': {
-        const { apiId, isActive } = requestData;
+        const { apiId, isActive } = body;
 
         if (!apiId) {
           throw new Error('API ID is required');
@@ -2694,7 +2694,7 @@ serve(async (req) => {
       }
 
       case 'toggleApiKeyActive': {
-        const { apiId, isActive } = requestData;
+        const { apiId, isActive } = body;
 
         if (!apiId) {
           throw new Error('API ID is required');
@@ -2720,7 +2720,7 @@ serve(async (req) => {
       }
 
       case 'listOrders': {
-        const { pageSize = 40, page = 1, status, siteNumber, gmtCreatedStart, gmtCreatedEnd, apiKey, apiSecret } = requestData;
+        const { pageSize = 40, page = 1, status, siteNumber, gmtCreatedStart, gmtCreatedEnd, apiKey, apiSecret } = body;
         
         // Use provided credentials if available, otherwise get from database/env
         const credentials = apiKey && apiSecret 
@@ -2773,7 +2773,7 @@ serve(async (req) => {
       }
 
       case 'getOrderDetails': {
-        const { orderNumber, poNumbers, apiId } = requestData;
+        const { orderNumber, poNumbers, apiId } = body;
         
         console.log('=== getOrderDetails START ===');
         console.log('Request data:', { orderNumber, poNumbers, apiId });
@@ -3020,7 +3020,7 @@ serve(async (req) => {
       }
 
       case 'getAllOrders': {
-        const { apiId, skipDeliveredOrders = [] } = requestData;
+        const { apiId, skipDeliveredOrders = [] } = body;
         
         if (!apiId) {
           throw new Error('API credential ID is required');
@@ -3122,7 +3122,7 @@ serve(async (req) => {
       }
 
       case 'saveOrderWithItems': {
-        const { orderData, apiId } = requestData;
+        const { orderData, apiId } = body;
         
         if (!orderData) {
           throw new Error('Order data is required');
@@ -3216,7 +3216,7 @@ serve(async (req) => {
       }
 
       case 'getOrderLabels': {
-        const { orderNumber } = requestData;
+        const { orderNumber } = body;
         
         if (!orderNumber) {
           throw new Error('Order number is required');
@@ -3239,7 +3239,7 @@ serve(async (req) => {
       }
 
       case 'getRecentOrders': {
-        const { apiId, skipDeliveredOrders = true, dateFrom } = requestData;
+        const { apiId, skipDeliveredOrders = true, dateFrom } = body;
         
         if (!apiId) {
           throw new Error('API credential ID is required');
@@ -3305,7 +3305,7 @@ serve(async (req) => {
       }
 
       case 'setActiveApiKey': {
-        const { apiId } = requestData;
+        const { apiId } = body;
 
         if (!apiId) {
           throw new Error('API ID is required');
@@ -3341,7 +3341,7 @@ serve(async (req) => {
       }
 
       case 'deleteApiKey': {
-        const { apiId } = requestData;
+        const { apiId } = body;
 
         if (!apiId) {
           throw new Error('API ID is required');
