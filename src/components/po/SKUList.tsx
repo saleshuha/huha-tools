@@ -60,7 +60,7 @@ export function SKUList({ skus, shippingRate, isLoading, hasMore, onLoadMore, on
 
     setIsUpdating(true);
     try {
-      const { error } = await supabase
+      const query = supabase
         .from('sunsky_skus')
         .update({
           title: updatedData.title,
@@ -68,7 +68,9 @@ export function SKUList({ skus, shippingRate, isLoading, hasMore, onLoadMore, on
           weight: updatedData.weight,
           updated_at: new Date().toISOString()
         } as any)
-        .eq('id' as any, editingSku.id as any);
+        .eq('id', editingSku.id);
+
+      const { error } = await (query as any);
 
       if (error) {
         throw error;

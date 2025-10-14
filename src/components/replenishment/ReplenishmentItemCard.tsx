@@ -17,6 +17,8 @@ interface ReplenishmentItemCardProps {
     date_sold?: string | null;
     last_restock_date?: string | null;
     days_since_last_restock?: number | null;
+    date_added?: string | null;
+    total_sold_units?: number;
   };
   imageUrl?: string;
   selected?: boolean;
@@ -84,10 +86,22 @@ export function ReplenishmentItemCard({
               <Package className="w-3 h-3" />
               <span>Qty: {item.current_quantity}</span>
             </div>
+            {item.total_sold_units !== undefined && item.total_sold_units > 0 && (
+              <div className="flex items-center gap-1">
+                <Package className="w-3 h-3" />
+                <span className="font-medium">Sold: {item.total_sold_units} units</span>
+              </div>
+            )}
+            {item.date_added && (
+              <div className="flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                <span>{Math.floor((Date.now() - new Date(item.date_added).getTime()) / (1000 * 60 * 60 * 24))} days total</span>
+              </div>
+            )}
             {item.date_sold && (
               <div className="flex items-center gap-1">
                 <Calendar className="w-3 h-3" />
-                <span>Sold: {format(new Date(item.date_sold), 'MMM dd, yyyy')}</span>
+                <span>Last sold: {format(new Date(item.date_sold), 'MMM dd, yyyy')}</span>
               </div>
             )}
             {item.last_restock_date && (

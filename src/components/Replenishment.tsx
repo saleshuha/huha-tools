@@ -326,20 +326,24 @@ export function Replenishment() {
       const [asinResult] = await Promise.all([asinQuery]);
       if (asinResult.error) throw asinResult.error;
 
-      // Get last sale dates from stock_changes
+      // Get last sale dates and total sold units from stock_changes
       const inventoryIds = ((asinResult.data as any) || []).map((item: any) => item.id);
       const {
         data: stockChanges
-      } = await ((supabase as any).from('stock_changes').select('inventory_id, created_at').in('inventory_id', inventoryIds).lt('change_amount', 0).order('created_at', {
+      } = await ((supabase as any).from('stock_changes').select('inventory_id, created_at, change_amount').in('inventory_id', inventoryIds).lt('change_amount', 0).order('created_at', {
         ascending: false
       }));
 
-      // Create a map of inventory_id to last sale date
+      // Create a map of inventory_id to last sale date and total sold units
       const lastSaleDates = new Map();
+      const totalSoldUnits = new Map();
       ((stockChanges as any) || []).forEach((change: any) => {
         if (!lastSaleDates.has(change.inventory_id)) {
           lastSaleDates.set(change.inventory_id, change.created_at);
         }
+        // Sum up all negative changes (sales) as positive numbers
+        const currentTotal = totalSoldUnits.get(change.inventory_id) || 0;
+        totalSoldUnits.set(change.inventory_id, currentTotal + Math.abs(change.change_amount));
       });
 
       // Process ASIN items only (excluding non-source items)
@@ -353,7 +357,9 @@ export function Replenishment() {
           status: item.status,
           date_sold: lastSaleDate,
           last_restock_date: item.last_restock_date,
-          days_since_last_restock: item.last_restock_date ? Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
+          days_since_last_restock: item.last_restock_date ? Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null,
+          date_added: item.date_added,
+          total_sold_units: totalSoldUnits.get(item.id) || 0
         };
       });
       const allItems = [...asinItems];
@@ -424,7 +430,9 @@ export function Replenishment() {
         status: item.status,
         date_sold: item.last_sold_date,
         last_restock_date: item.last_order_date,
-        days_since_last_restock: item.days_since_ordered
+        days_since_last_restock: item.days_since_ordered,
+        date_added: item.date_added,
+        total_sold_units: 0 // Will be calculated if needed
       }));
 
       // Items that are eligible but cannot be ordered (no valid SKU)
@@ -441,7 +449,9 @@ export function Replenishment() {
         status: item.status,
         date_sold: item.last_sold_date,
         last_restock_date: item.last_order_date,
-        days_since_last_restock: item.days_since_ordered
+        days_since_last_restock: item.days_since_ordered,
+        date_added: item.date_added,
+        total_sold_units: 0 // Will be calculated if needed
       }));
       const orderedItemsData = allInventoryItems.filter(item => item.status === 'ordered').map(item => ({
         id: item.id,
@@ -451,7 +461,9 @@ export function Replenishment() {
         status: item.status,
         date_sold: item.last_sold_date,
         last_restock_date: item.last_order_date,
-        days_since_last_restock: item.days_since_ordered
+        days_since_last_restock: item.days_since_ordered,
+        date_added: item.date_added,
+        total_sold_units: 0 // Will be calculated if needed
       }));
       console.log('Setting allInventoryItems state with:', allInventoryItems.length, 'items');
       setAllInventoryItems(allInventoryItems);
