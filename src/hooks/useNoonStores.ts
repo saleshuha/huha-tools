@@ -100,10 +100,12 @@ export function useNoonStores() {
 
   const updateStore = async (storeId: string, updates: Partial<NoonStore>) => {
     try {
-      const { error } = await supabase
+      const query = supabase
         .from('noon_stores_config')
         .update(updates as any)
-        .eq('id' as any, storeId as any);
+        .eq('id', storeId);
+      
+      const { error } = await (query as any);
 
       if (error) throw error;
 
@@ -133,10 +135,12 @@ export function useNoonStores() {
 
   const deleteStore = async (storeId: string) => {
     try {
-      const { error } = await supabase
+      const query = supabase
         .from('noon_stores_config')
         .delete()
-        .eq('id' as any, storeId as any);
+        .eq('id', storeId);
+      
+      const { error } = await (query as any);
 
       if (error) throw error;
 

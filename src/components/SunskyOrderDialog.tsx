@@ -388,7 +388,7 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
 
   const loadShippingMethods = async () => {
     // Validate all required delivery address fields with trim to catch whitespace-only values
-    if (!deliveryAddress.countryId?.trim()) {
+    if (!deliveryAddress.countryId) {
       toast({
         title: "Country Required",
         description: "Please select a country before loading shipping options",
@@ -1009,7 +1009,7 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
   const selectedCountry = countries.find(c => c.id === deliveryAddress.countryId);
   const requiresState = selectedCountry?.shipToState === true;
   const canLoadShipping = checkedItems.size > 0 && 
-    deliveryAddress.countryId?.trim() && 
+    deliveryAddress.countryId && 
     deliveryAddress.city?.trim() && 
     deliveryAddress.postcode?.trim() && 
     (!requiresState || deliveryAddress.state?.trim());
