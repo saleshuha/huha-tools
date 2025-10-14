@@ -1446,6 +1446,12 @@ async function processImportJob(job: any, userId: string, userCountry: string) {
 }
 
 serve(async (req) => {
+  // Ultra-early logging - BEFORE anything else except OPTIONS
+  console.log('🔵 SERVE HANDLER INVOKED');
+  console.log('🔵 Method:', req.method);
+  console.log('🔵 URL:', req.url);
+  console.log('🔵 Headers:', Object.fromEntries(req.headers.entries()));
+  
   // CORS MUST be handled first - before ANYTHING else
   if (req.method === 'OPTIONS') {
     console.log('✅ CORS preflight request handled');
@@ -1458,12 +1464,29 @@ serve(async (req) => {
   console.log(`[${requestId}] URL: ${req.url}`);
   console.log(`[${requestId}] Timestamp: ${new Date().toISOString()}`);
 
+  // Simple health check that works even if JSON parsing fails
+  const url = new URL(req.url);
+  if (url.searchParams.get('ping') === 'true') {
+    console.log(`[${requestId}] 💚 URL-based health check`);
+    return new Response(JSON.stringify({ 
+      result: 'success',
+      message: 'Sunsky API is responding',
+      method: req.method,
+      timestamp: new Date().toISOString(),
+      requestId
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200
+    });
+  }
+
   try {
     // Step 1: Parse request body
     let body;
     try {
       const rawBody = await req.text();
       console.log(`[${requestId}] Raw body length: ${rawBody.length} bytes`);
+      console.log(`[${requestId}] Raw body preview: ${rawBody.substring(0, 200)}...`);
       body = JSON.parse(rawBody);
       console.log(`[${requestId}] ✅ Body parsed:`, { 
         action: body.action,
@@ -1475,7 +1498,7 @@ serve(async (req) => {
       console.error(`[${requestId}] ❌ JSON parse error:`, e);
       return new Response(JSON.stringify({ 
         result: 'error', 
-        message: 'Invalid JSON',
+        message: 'Invalid JSON: ' + e.message,
         requestId
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

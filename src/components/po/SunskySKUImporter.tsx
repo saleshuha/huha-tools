@@ -3714,23 +3714,46 @@ export const SunskySKUImporter: React.FC = () => {
                             try {
                               setLoading(true);
                               console.log('🧪 Testing Sunsky API connection...');
-                              const response = await callSunskyAPI('ping', {});
-                              console.log('🧪 Ping response:', response);
                               
-                              if (response?.result === 'success') {
+                              // Try direct invoke with minimal body
+                              console.log('🧪 Invoking sunsky-api with ping action...');
+                              const directResponse = await supabase.functions.invoke('sunsky-api', {
+                                body: { action: 'ping' }
+                              });
+                              
+                              console.log('🧪 Response received:', {
+                                hasData: !!directResponse.data,
+                                hasError: !!directResponse.error,
+                                data: directResponse.data,
+                                error: directResponse.error
+                              });
+                              
+                              if (directResponse.error) {
+                                console.error('🧪 Edge function error:', directResponse.error);
+                                toast({
+                                  title: "Connection Test Failed",
+                                  description: `Error: ${directResponse.error.message || 'Failed to reach edge function'}`,
+                                  variant: "destructive",
+                                });
+                                return;
+                              }
+                              
+                              if (directResponse.data?.result === 'success') {
+                                console.log('✅ Connection successful!');
                                 toast({
                                   title: "Connection Successful",
                                   description: "Sunsky API is online and responding correctly",
                                 });
                               } else {
+                                console.warn('⚠️ Unexpected response:', directResponse.data);
                                 toast({
-                                  title: "Connection Test Failed",
-                                  description: response?.message || "Unexpected response from API",
+                                  title: "Connection Test Warning",
+                                  description: directResponse.data?.message || "Unexpected response from API",
                                   variant: "destructive",
                                 });
                               }
                             } catch (error) {
-                              console.error('🧪 Connection test failed:', error);
+                              console.error('🧪 Connection test exception:', error);
                               toast({
                                 title: "Connection Test Failed",
                                 description: error instanceof Error ? error.message : "Failed to reach Sunsky API",
