@@ -1158,10 +1158,9 @@ export const SunskySKUImporter: React.FC = () => {
     }
   };
   const callSunskyAPI = async (action: string, data: any, apiId?: string, retryCount = 0): Promise<any> => {
-    const maxRetries = 3;
-    const timeout = 30000; // 30 seconds
+    const maxRetries = 2;
     
-    console.log(`🔵 [Attempt ${retryCount + 1}/${maxRetries}] Calling Sunsky API:`, {
+    console.log(`🔵 [Attempt ${retryCount + 1}/${maxRetries + 1}] Calling Sunsky API:`, {
       action,
       hasData: !!data,
       dataKeys: data ? Object.keys(data) : [],
@@ -1169,20 +1168,15 @@ export const SunskySKUImporter: React.FC = () => {
     });
 
     try {
-      // Create timeout promise
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Request timeout after 30 seconds')), timeout);
-      });
-
-      // Create API call promise with explicit body structure
-      const apiCallPromise = supabase.functions.invoke('sunsky-api', {
+      // Simple direct call - matching the working connection test
+      const response = await supabase.functions.invoke('sunsky-api', {
         body: {
           action: action,
-          filters: data?.filters || undefined,
-          page: data?.page || undefined,
-          pageSize: data?.pageSize || undefined,
+          filters: data?.filters,
+          page: data?.page,
+          pageSize: data?.pageSize,
           apiId: apiId || selectedSearchAPI || selectedAPI,
-          // Include other data fields explicitly
+          // Include other data fields
           ...(data && Object.keys(data).reduce((acc, key) => {
             if (!['filters', 'page', 'pageSize'].includes(key)) {
               acc[key] = data[key];
@@ -1191,67 +1185,52 @@ export const SunskySKUImporter: React.FC = () => {
           }, {} as Record<string, any>))
         }
       });
-
-      // Race between timeout and API call
-      const result = await Promise.race([apiCallPromise, timeoutPromise]) as { data: any; error: any };
       
-      console.log('🟢 Sunsky API response received:', {
-        hasData: !!result.data,
-        hasError: !!result.error,
-        dataType: typeof result.data
+      console.log('🟢 Sunsky API response:', {
+        hasData: !!response.data,
+        hasError: !!response.error,
+        data: response.data,
+        error: response.error
       });
 
-      if (result.error) {
-        console.error('🔴 Edge function error:', result.error);
+      if (response.error) {
+        console.error('🔴 Edge function error:', response.error);
         
         // Retry on network errors
-        if (retryCount < maxRetries - 1 && 
-            (result.error.message?.includes('Failed to fetch') || 
-             result.error.message?.includes('Failed to send') ||
-             result.error.message?.includes('NetworkError'))) {
-          console.log(`🔄 Retrying in 2 seconds...`);
+        if (retryCount < maxRetries && 
+            (response.error.message?.includes('Failed to fetch') || 
+             response.error.message?.includes('Failed to send') ||
+             response.error.message?.includes('NetworkError'))) {
+          console.log(`🔄 Network error - retrying in 2 seconds...`);
           await new Promise(resolve => setTimeout(resolve, 2000));
           return callSunskyAPI(action, data, apiId, retryCount + 1);
         }
         
-        throw new Error(result.error.message || 'Edge function error');
+        throw new Error(response.error.message || 'Edge function error');
       }
 
-      // Parse response
-      const response = result.data;
-      if (response && typeof response === 'object') {
-        if ('result' in response) {
-          return response;
-        }
-        if ('success' in response) {
-          return {
-            result: response.success ? 'success' : 'error',
-            data: response.data || response,
-            message: response.message
-          };
-        }
+      // Return the data directly
+      const result = response.data;
+      if (result && typeof result === 'object') {
+        return result;
       }
       
-      return response;
+      return { result: 'error', message: 'Invalid response format' };
       
     } catch (error) {
-      console.error(`🔴 [Attempt ${retryCount + 1}] Sunsky API error:`, error);
+      console.error(`🔴 [Attempt ${retryCount + 1}] Exception:`, error);
       
-      // Retry on timeout
-      if (retryCount < maxRetries - 1 && error instanceof Error && error.message.includes('timeout')) {
-        console.log(`🔄 Timeout - retrying in 2 seconds...`);
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        return callSunskyAPI(action, data, apiId, retryCount + 1);
+      // Retry on network exceptions
+      if (retryCount < maxRetries && error instanceof Error) {
+        const errorMsg = error.message.toLowerCase();
+        if (errorMsg.includes('network') || errorMsg.includes('fetch') || errorMsg.includes('timeout')) {
+          console.log(`🔄 Exception - retrying in 2 seconds...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          return callSunskyAPI(action, data, apiId, retryCount + 1);
+        }
       }
       
-      // Show user-friendly error
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      toast({
-        title: "Connection Error",
-        description: `Failed to reach Sunsky API: ${errorMessage}`,
-        variant: "destructive",
-      });
-      
+      // Don't show toast here - let the caller handle it
       throw error;
     }
   };
