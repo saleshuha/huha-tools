@@ -289,11 +289,11 @@ export function Replenishment() {
       const {
         data,
         error
-      } = await supabase.from('non_source_items').select('*').eq('country', selectedCountry).order('marked_at', {
+      } = await supabase.from('non_source_items').select('*').eq('country' as any, selectedCountry).order('marked_at', {
         ascending: false
       });
       if (error) throw error;
-      const nonSourceItemsData = (data || []).map(item => ({
+      const nonSourceItemsData = ((data as any) || []).map((item: any) => ({
         id: item.id,
         identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
         current_quantity: 0,
@@ -320,9 +320,9 @@ export function Replenishment() {
       // Get ASIN inventory items that are eligible for restock (excluding non-source items)
       const {
         data: nonSourceData
-      } = await supabase.from('non_source_items').select('asin, serial_number').eq('country', selectedCountry);
-      const nonSourceIdentifiers = new Set((nonSourceData || []).map(item => `${item.asin}-${item.serial_number}`));
-      const asinQuery = supabase.from('asin_inventory').select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added, eligible_for_restock').eq('country', selectedCountry).eq('eligible_for_restock', true).eq('quantity', 0).neq('status', 'no-stock').neq('status', 'ordered');
+      } = await supabase.from('non_source_items').select('asin, serial_number').eq('country' as any, selectedCountry);
+      const nonSourceIdentifiers = new Set(((nonSourceData as any) || []).map((item: any) => `${item.asin}-${item.serial_number}`));
+      const asinQuery = supabase.from('asin_inventory').select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added, eligible_for_restock').eq('country' as any, selectedCountry).eq('eligible_for_restock' as any, true).eq('quantity' as any, 0).neq('status' as any, 'no-stock').neq('status' as any, 'ordered');
       const [asinResult] = await Promise.all([asinQuery]);
       if (asinResult.error) throw asinResult.error;
 
