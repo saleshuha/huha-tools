@@ -1483,7 +1483,7 @@ serve(async (req) => {
       });
     }
 
-    const { action } = body;
+    const { action, ...requestData } = body;
 
     // Step 2: Health check (no auth needed)
     if (action === 'ping' || action === 'health') {
@@ -1527,10 +1527,11 @@ serve(async (req) => {
 
     const token = authHeader.replace('Bearer ', '');
     let userId: string;
+    let user: any;
     
     try {
-      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-      if (authError || !user) {
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser(token);
+      if (authError || !authUser) {
         console.error(`[${requestId}] ❌ Auth failed:`, authError);
         return new Response(JSON.stringify({ 
           result: 'error', 
@@ -1541,6 +1542,7 @@ serve(async (req) => {
           status: 401
         });
       }
+      user = authUser;
       userId = user.id;
       console.log(`[${requestId}] ✅ User authenticated: ${userId}`);
     } catch (e) {
