@@ -1157,9 +1157,8 @@ export const SunskySKUImporter: React.FC = () => {
       });
     }
   };
-  const checkCredentialsStatus = checkStatus;
   const callSunskyAPI = async (action: string, data: any, apiId?: string) => {
-    console.log('Calling Sunsky API:', {
+    console.log('🔵 Calling Sunsky API:', {
       action,
       data,
       apiId,
@@ -1176,14 +1175,15 @@ export const SunskySKUImporter: React.FC = () => {
           apiId: apiId || selectedSearchAPI || selectedAPI // Use specified API or default search API
         }
       });
-      console.log('Sunsky API response:', {
+      console.log('🟢 Sunsky API response:', {
         response,
         error
       });
       
       if (error) {
+        console.error('🔴 Edge function returned error:', error);
         // Check if this is an edge function connection error
-        if (error.message?.includes('Failed to fetch') || error.message?.includes('Failed to send')) {
+        if (error.message?.includes('Failed to fetch') || error.message?.includes('Failed to send') || error.message?.includes('NetworkError')) {
           throw new Error('Edge function unavailable. The Sunsky API service is currently not reachable. Please try again later or contact support if the issue persists.');
         }
         throw error;
@@ -1206,7 +1206,7 @@ export const SunskySKUImporter: React.FC = () => {
       }
       return response;
     } catch (error) {
-      console.error('Sunsky API error:', error);
+      console.error('🔴 Sunsky API error:', error);
       
       // Provide user-friendly error message
       if (error instanceof Error && error.message.includes('Edge function unavailable')) {
