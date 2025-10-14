@@ -1395,9 +1395,33 @@ export const SunskySKUImporter: React.FC = () => {
     }
   };
   const searchProducts = async (page = 1, apiId?: string) => {
-    if (!hasCredentials) return;
+    if (!hasCredentials) {
+      toast({
+        title: "API Credentials Required",
+        description: "Please configure your Sunsky API credentials first",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!apiId && !selectedSearchAPI) {
+      toast({
+        title: "No API Selected",
+        description: "Please select an API credential from the dropdown above",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setLoading(true);
     try {
+      const targetApiId = apiId || selectedSearchAPI;
+      console.log('🔍 Starting search with:', {
+        targetApiId,
+        hasSelectedSearchAPI: !!selectedSearchAPI,
+        apiIdParam: apiId
+      });
+      
       const filters: SearchFilters = {
         keyword: searchTerm || undefined,
         productId: productId || undefined,
@@ -1410,11 +1434,16 @@ export const SunskySKUImporter: React.FC = () => {
         dateFrom: dateRange?.from?.toISOString().split('T')[0],
         dateTo: dateRange?.to?.toISOString().split('T')[0]
       };
+      
+      console.log('🔍 Search filters:', filters);
+      console.log('🔍 Calling API with apiId:', targetApiId);
+      
       const result = await callSunskyAPI('searchProducts', {
         filters,
         page,
         pageSize: searchPageSize
-      }, apiId || selectedSearchAPI);
+      }, targetApiId);
+      
       console.log('Search products API response:', result);
       if (result.result === 'success') {
         setProducts(result.data?.products || []);
@@ -1434,7 +1463,7 @@ export const SunskySKUImporter: React.FC = () => {
         });
       } else {
         console.error('Search products failed:', result);
-        throw new Error(result.error || 'Search failed');
+        throw new Error(result.message || result.error || 'Search failed');
       }
     } catch (error) {
       console.error('Error searching products:', error);
@@ -1445,6 +1474,18 @@ export const SunskySKUImporter: React.FC = () => {
         toast({
           title: "Service Unavailable",
           description: "The Sunsky API service is currently unavailable. Please try again later.",
+          variant: "destructive"
+        });
+      } else if (errorMessage.includes('API credentials ID')) {
+        toast({
+          title: "API Not Selected",
+          description: "Please select an API credential from the dropdown above",
+          variant: "destructive"
+        });
+      } else if (errorMessage.includes('Failed to fetch credentials')) {
+        toast({
+          title: "Credentials Error",
+          description: "Unable to load API credentials. Please check your settings.",
           variant: "destructive"
         });
       } else {
@@ -2406,10 +2447,26 @@ export const SunskySKUImporter: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-4">
-                <Button onClick={() => searchProducts(1, selectedSearchAPI)} disabled={!hasCredentials || loading || !selectedSearchAPI} className="flex items-center gap-2">
-                  {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                  Search Products
-                </Button>
+                <div className="flex flex-col gap-2 flex-1">
+                  <Button 
+                    onClick={() => searchProducts(1, selectedSearchAPI)} 
+                    disabled={!hasCredentials || loading || !selectedSearchAPI} 
+                    className="flex items-center gap-2 w-full"
+                  >
+                    {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                    Search Products
+                    {selectedSearchAPI && (
+                      <span className="text-xs opacity-70">
+                        ({availableAPIs.find(api => api.id === selectedSearchAPI)?.name || 'API'})
+                      </span>
+                    )}
+                  </Button>
+                  {!selectedSearchAPI && hasCredentials && (
+                    <p className="text-xs text-destructive text-center">
+                      ⚠️ Please select an API credential above
+                    </p>
+                  )}
+                </div>
 
                 <Button disabled={!hasCredentials || isSearchingPO} onClick={handleSearchPOModelNumbers} variant="outline" className="border-primary text-primary hover:bg-primary hover:text-primary-foreground">
                   <Package className="h-4 w-4 mr-2" />
