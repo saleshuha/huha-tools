@@ -565,7 +565,7 @@ export const SunskySKUImporter: React.FC = () => {
       const {
         data,
         error
-      } = await supabase.from('noon_file_headers').select('headers').eq('user_id' as any, profile?.id).eq('file_type' as any, 'sunsky_sku_columns').eq('store_name' as any, 'sunsky_importer').limit(1);
+      } = await supabase.from('noon_file_headers').select('headers').eq('user_id' as any, profile?.id as any).eq('file_type' as any, 'sunsky_sku_columns' as any).eq('store_name' as any, 'sunsky_importer' as any).limit(1);
       if (error) throw error;
 
       // Take the first result if any exist
@@ -584,7 +584,7 @@ export const SunskySKUImporter: React.FC = () => {
         error
       } = await supabase.from('sunsky_import_jobs').update({
         paused: true
-      } as any).eq('id' as any, jobId).eq('user_id' as any, profile?.id);
+      } as any).eq('id' as any, jobId as any).eq('user_id' as any, profile?.id as any);
       if (error) throw error;
       toast({
         title: "Success",
@@ -606,7 +606,7 @@ export const SunskySKUImporter: React.FC = () => {
         error
       } = await supabase.from('sunsky_import_jobs').update({
         paused: false
-      } as any).eq('id' as any, jobId).eq('user_id' as any, profile?.id);
+      } as any).eq('id' as any, jobId as any).eq('user_id' as any, profile?.id as any);
       if (error) throw error;
       toast({
         title: "Success",
@@ -629,7 +629,7 @@ export const SunskySKUImporter: React.FC = () => {
       } = await supabase.from('sunsky_import_jobs').update({
         cancelled: true,
         status: 'cancelled'
-      } as any).eq('id' as any, jobId).eq('user_id' as any, profile?.id);
+      } as any).eq('id' as any, jobId as any).eq('user_id' as any, profile?.id as any);
       if (error) throw error;
       toast({
         title: "Success",
@@ -651,7 +651,7 @@ export const SunskySKUImporter: React.FC = () => {
     try {
       const {
         error
-      } = await supabase.from('sunsky_skus').delete().eq('user_id' as any, profile?.id);
+      } = await supabase.from('sunsky_skus').delete().eq('user_id' as any, profile?.id as any);
       if (error) throw error;
       toast({
         title: "Success",
@@ -1105,7 +1105,7 @@ export const SunskySKUImporter: React.FC = () => {
       const {
         data,
         error
-      } = await supabase.from('sunsky_credentials').select('is_active').eq('user_id' as any, profile?.id).eq('is_active' as any, true as any).limit(1);
+      } = await supabase.from('sunsky_credentials').select('is_active').eq('user_id' as any, profile?.id as any).eq('is_active' as any, true as any).limit(1);
       if (error) throw error;
       const hasCredsResult = !!data && data.length > 0;
       console.log('🔍 Credentials check result:', {
@@ -1827,7 +1827,7 @@ export const SunskySKUImporter: React.FC = () => {
       const { data: allCredentials, error: credentialsError } = await supabase
         .from('sunsky_credentials')
         .select('id, name')
-        .eq('user_id' as any, profile?.id)
+        .eq('user_id' as any, profile?.id as any)
         .eq('is_active' as any, true as any);
 
       if (credentialsError) {
@@ -2120,7 +2120,7 @@ export const SunskySKUImporter: React.FC = () => {
         const {
           data: job,
           error
-        } = await supabase.from('sunsky_import_jobs').select('*').eq('id' as any, jobId).single();
+        } = await supabase.from('sunsky_import_jobs').select('*').eq('id' as any, jobId as any).single();
         if (error || !job) {
           clearInterval(pollInterval);
           return;
@@ -2148,12 +2148,12 @@ export const SunskySKUImporter: React.FC = () => {
             await fetchJobs();
             toast({
               title: "Background Processing Complete",
-              description: `Successfully processed ${job.success_count} items. ${job.error_count} errors.`
+              description: `Successfully processed ${(job as any)?.success_count || 0} items. ${(job as any)?.error_count || 0} errors.`
             });
-          } else if (job.status === 'error') {
+          } else if ((job as any)?.status === 'error') {
             toast({
               title: "Background Processing Failed",
-              description: job.last_error || "Processing failed with unknown error",
+              description: (job as any)?.last_error || "Processing failed with unknown error",
               variant: "destructive"
             });
           }
@@ -3528,7 +3528,7 @@ export const SunskySKUImporter: React.FC = () => {
                     const {
                       data: task,
                       error: taskError
-                    } = await supabase.from('background_tasks').insert([taskData]).select().single();
+                    } = await supabase.from('background_tasks').insert([taskData] as any).select().single();
                     if (taskError) {
                       console.error('❌ Failed to create background task:', taskError);
                       throw new Error(`Failed to create background task: ${taskError.message}`);
@@ -3545,10 +3545,10 @@ export const SunskySKUImporter: React.FC = () => {
                     } = await supabase.from('background_tasks').update({
                       status: 'processing',
                       metadata: {
-                        ...(task.metadata as any || {}),
+                        ...((task as any)?.metadata || {}),
                         processingStarted: new Date().toISOString()
                       }
-                    }).eq('id', task.id);
+                    } as any).eq('id' as any, (task as any)?.id as any);
                     if (updateError) {
                       console.error('❌ Failed to update task status:', updateError);
                       throw new Error(`Failed to update task status: ${updateError.message}`);
@@ -3565,27 +3565,27 @@ export const SunskySKUImporter: React.FC = () => {
                     // Start the concurrent export in the background
                     const exportConfig = taskData.metadata.exportConfig;
                     console.log('🎯 Starting concurrent export with config:', exportConfig);
-                    console.log('🎯 Starting concurrent export with task ID:', task.id);
+                    console.log('🎯 Starting concurrent export with task ID:', (task as any)?.id);
 
                     // Start the export - don't await this
-                    const exportPromise = startConcurrentExport(exportConfig, task.id);
+                    const exportPromise = startConcurrentExport(exportConfig, (task as any)?.id);
 
                     // Handle the export completion/failure
                     exportPromise.then(() => {
-                      console.log('✅ Concurrent export completed successfully for task:', task.id);
+                      console.log('✅ Concurrent export completed successfully for task:', (task as any)?.id);
                       // Refresh tasks to show completion
                       fetchTasks();
                     }).catch(error => {
-                      console.error('❌ Concurrent export failed for task:', task.id, error);
+                      console.error('❌ Concurrent export failed for task:', (task as any)?.id, error);
                       // Mark task as failed
                       supabase.from('background_tasks').update({
                         status: 'failed',
                         metadata: {
-                          ...(task.metadata as any || {}),
+                          ...((task as any)?.metadata || {}),
                           error: error.message || 'Export failed',
                           failedAt: new Date().toISOString()
                         }
-                      }).eq('id', task.id).then(() => {
+                      } as any).eq('id' as any, (task as any)?.id as any).then(() => {
                         console.log('❌ Task marked as failed in database');
                         fetchTasks(); // Refresh to show failed status
                       });
@@ -3594,7 +3594,7 @@ export const SunskySKUImporter: React.FC = () => {
                     // Refresh tasks to show new task immediately
                     console.log('🔄 Refreshing tasks list to show new task...');
                     await fetchTasks();
-                    console.log('🎉 Background export initiated successfully, Task ID:', task.id);
+                    console.log('🎉 Background export initiated successfully, Task ID:', (task as any)?.id);
                   } catch (error) {
                     console.error('💥 Background export error:', error);
                     toast({
@@ -3639,7 +3639,7 @@ export const SunskySKUImporter: React.FC = () => {
                     const {
                       data,
                       error
-                    } = await supabase.from('background_tasks').insert([testTask]).select().single();
+                    } = await supabase.from('background_tasks').insert([testTask] as any).select().single();
                     if (error) throw error;
                     console.log('Test task created:', data);
 
@@ -3647,7 +3647,7 @@ export const SunskySKUImporter: React.FC = () => {
                     await fetchTasks();
                     toast({
                       title: "Test Task Created",
-                      description: `Test task ${data.id} created successfully`
+                      description: `Test task ${(data as any)?.id} created successfully`
                     });
                   } catch (error) {
                     console.error('Failed to create test task:', error);

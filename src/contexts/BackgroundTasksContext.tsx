@@ -90,7 +90,7 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
         const { data, error } = await supabase
           .from('background_tasks')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id' as any, user.id as any)
           .or(`status.in.(processing,pending),and(status.in.(completed,error,cancelled),created_at.gte.${oneDayAgo.toISOString()})`)
           .order('created_at', { ascending: false })
           .limit(20);
@@ -99,17 +99,17 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
 
         if (data && data.length > 0) {
           const persistedTasks: BackgroundTask[] = data.map(dbTask => ({
-            id: dbTask.id,
-            type: dbTask.type as BackgroundTask['type'],
-            name: `${dbTask.type} - ${(dbTask.metadata as any)?.exportType || 'Task'}`,
-            progress: dbTask.progress || 0,
-            status: dbTask.status as BackgroundTask['status'],
-            totalItems: dbTask.total_items || 0,
-            processedItems: dbTask.processed_items || 0,
-            startTime: new Date(dbTask.created_at),
-            endTime: dbTask.completed_at ? new Date(dbTask.completed_at) : undefined,
-            canCancel: dbTask.status === 'processing' || dbTask.status === 'pending',
-            metadata: (dbTask.metadata as any) || {}
+            id: (dbTask as any)?.id,
+            type: (dbTask as any)?.type as BackgroundTask['type'],
+            name: `${(dbTask as any)?.type} - ${((dbTask as any)?.metadata as any)?.exportType || 'Task'}`,
+            progress: (dbTask as any)?.progress || 0,
+            status: (dbTask as any)?.status as BackgroundTask['status'],
+            totalItems: (dbTask as any)?.total_items || 0,
+            processedItems: (dbTask as any)?.processed_items || 0,
+            startTime: new Date((dbTask as any)?.created_at),
+            endTime: (dbTask as any)?.completed_at ? new Date((dbTask as any)?.completed_at) : undefined,
+            canCancel: (dbTask as any)?.status === 'processing' || (dbTask as any)?.status === 'pending',
+            metadata: ((dbTask as any)?.metadata as any) || {}
           }));
 
           setTasks(persistedTasks);
