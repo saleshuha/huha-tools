@@ -34,15 +34,15 @@ export function useLabelDataset(datasetId: string | null) {
       const { data, error } = await supabase
         .from('label_datasets')
         .select('*')
-        .eq('id', id)
+        .eq('id' as any, id as any)
         .single();
 
       if (error) throw error;
       
       setDataset({
-        ...data,
-        data: Array.isArray(data.data) ? data.data : [],
-        headers: Array.isArray(data.headers) ? data.headers.map(h => String(h)) : []
+        ...(data as any),
+        data: Array.isArray((data as any).data) ? (data as any).data : [],
+        headers: Array.isArray((data as any).headers) ? (data as any).headers.map((h: any) => String(h)) : []
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load dataset');

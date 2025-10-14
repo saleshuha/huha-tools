@@ -90,7 +90,7 @@ export function useInventoryData() {
             title: hasRealTitle ? item.title : `ASIN: ${item.asin}${item.sku ? ` | SKU: ${item.sku}` : ''}`,
           };
         }),
-        ...(skuData || []).map(item => {
+      ...((skuData as any) || []).map((item: any) => {
           const hasRealTitle = item.title && item.title.trim() && 
                               !item.title.toLowerCase().includes('asin:') && 
                               !item.title.toLowerCase().includes('sku:');
@@ -127,7 +127,7 @@ export function useInventoryData() {
 
       if (error) throw error;
 
-      setNoonOrders(data || []);
+      setNoonOrders((data as any) || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch noon orders');
     } finally {
@@ -147,7 +147,7 @@ export function useInventoryData() {
 
       if (error) throw error;
 
-      setOrders(data || []);
+      setOrders((data as any) || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch orders');
     } finally {

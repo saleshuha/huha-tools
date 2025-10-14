@@ -41,7 +41,7 @@ export function useNoonStores() {
 
       setState(prev => ({
         ...prev,
-        stores: data || [],
+        stores: ((data || []) as any),
         loading: false,
       }));
     } catch (error) {
@@ -67,7 +67,7 @@ export function useNoonStores() {
           ...storeData,
           user_id: user.id,
           is_active: true,
-        }])
+        }] as any)
         .select()
         .single();
 
@@ -75,7 +75,7 @@ export function useNoonStores() {
 
       setState(prev => ({
         ...prev,
-        stores: [data, ...prev.stores],
+        stores: [(data as any), ...prev.stores],
       }));
 
       toast({
@@ -102,8 +102,8 @@ export function useNoonStores() {
     try {
       const { error } = await supabase
         .from('noon_stores_config')
-        .update(updates)
-        .eq('id', storeId);
+        .update(updates as any)
+        .eq('id' as any, storeId as any);
 
       if (error) throw error;
 
@@ -136,7 +136,7 @@ export function useNoonStores() {
       const { error } = await supabase
         .from('noon_stores_config')
         .delete()
-        .eq('id', storeId);
+        .eq('id' as any, storeId as any);
 
       if (error) throw error;
 
