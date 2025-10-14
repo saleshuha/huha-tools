@@ -1168,6 +1168,17 @@ export const SunskySKUImporter: React.FC = () => {
     });
 
     try {
+      // Log Supabase client configuration and auth status
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('🔐 Auth diagnostics:', {
+        hasSession: !!session,
+        hasAccessToken: !!session?.access_token,
+        tokenLength: session?.access_token?.length,
+        tokenPreview: session?.access_token?.substring(0, 20) + '...',
+        supabaseUrl: 'https://vfqqlifvhooefxvvyebm.supabase.co',
+        timestamp: new Date().toISOString()
+      });
+      
       // Construct body - simple and clean
       const body = {
         action,
@@ -1179,8 +1190,10 @@ export const SunskySKUImporter: React.FC = () => {
         action,
         apiId: body.apiId,
         bodyKeys: Object.keys(body),
+        bodySize: JSON.stringify(body).length,
         hasFilters: !!data?.filters,
-        filterKeys: data?.filters ? Object.keys(data.filters) : []
+        filterKeys: data?.filters ? Object.keys(data.filters) : [],
+        fullBody: JSON.stringify(body, null, 2)
       });
       
       // Direct call to edge function
@@ -1189,8 +1202,11 @@ export const SunskySKUImporter: React.FC = () => {
       console.log('🟢 Sunsky API response:', {
         hasData: !!response.data,
         hasError: !!response.error,
+        dataType: typeof response.data,
+        errorType: typeof response.error,
         data: response.data,
-        error: response.error
+        error: response.error,
+        fullResponse: JSON.stringify(response, null, 2)
       });
 
       if (response.error) {
@@ -1198,7 +1214,9 @@ export const SunskySKUImporter: React.FC = () => {
           message: response.error.message,
           details: response.error,
           action,
-          apiId: body.apiId
+          apiId: body.apiId,
+          errorProps: Object.keys(response.error),
+          errorStringified: JSON.stringify(response.error, Object.getOwnPropertyNames(response.error))
         });
         
         // Check for specific error types
@@ -1225,8 +1243,15 @@ export const SunskySKUImporter: React.FC = () => {
       
       return { result: 'error', message: 'Invalid response format' };
       
-    } catch (error) {
-      console.error(`🔴 [Attempt ${retryCount + 1}] Exception:`, error);
+    } catch (error: any) {
+      console.error(`🔴 [Attempt ${retryCount + 1}] Exception:`, {
+        error,
+        errorName: error.name,
+        errorMessage: error.message,
+        errorStack: error.stack,
+        errorProps: Object.keys(error),
+        errorStringified: JSON.stringify(error, Object.getOwnPropertyNames(error))
+      });
       
       // Retry on network exceptions
       if (retryCount < maxRetries && error instanceof Error) {
@@ -1382,7 +1407,87 @@ export const SunskySKUImporter: React.FC = () => {
     }
   };
   
-  // Test search with minimal payload for debugging
+  // Direct fetch test to bypass Supabase SDK
+  const testDirectFetch = async () => {
+    if (!selectedSearchAPI) {
+      toast({
+        title: "No API Selected",
+        description: "Please select an API credential first",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      console.log('🧪 ========== TESTING DIRECT FETCH ==========');
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const url = 'https://vfqqlifvhooefxvvyebm.supabase.co/functions/v1/sunsky-api';
+      const body = {
+        action: 'searchProducts',
+        apiId: selectedSearchAPI,
+        filters: { keyword: 'test' },
+        page: 1,
+        pageSize: 10
+      };
+      
+      console.log('🌐 Direct fetch configuration:', {
+        url,
+        method: 'POST',
+        bodySize: JSON.stringify(body).length,
+        hasAuthToken: !!session?.access_token,
+        tokenLength: session?.access_token?.length,
+        body: JSON.stringify(body, null, 2)
+      });
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmcXFsaWZ2aG9vZWZ4dnZ5ZWJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MzY1OTgsImV4cCI6MjA2ODAxMjU5OH0.u-iIilnOACJTo_3AUCkmhREXdVV84JmbswtM_-NJJBM'
+        },
+        body: JSON.stringify(body)
+      });
+      
+      console.log('🌐 Direct fetch response:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      
+      const text = await response.text();
+      console.log('🌐 Response body (text):', text);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${text}`);
+      }
+      
+      const data = JSON.parse(text);
+      console.log('✅ Direct fetch successful! Parsed data:', data);
+      toast({
+        title: "Direct Fetch Works!",
+        description: `Got response with ${data.data?.total || 0} products`,
+      });
+    } catch (error: any) {
+      console.error('❌ Direct fetch failed:', {
+        error,
+        message: error.message,
+        stack: error.stack
+      });
+      toast({
+        title: "Direct Fetch Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Test search with minimal payload for debugging (via Supabase SDK)
   const testMinimalSearch = async () => {
     if (!selectedSearchAPI) {
       toast({
@@ -1393,7 +1498,7 @@ export const SunskySKUImporter: React.FC = () => {
       return;
     }
     
-    console.log('🧪 TESTING MINIMAL SEARCH REQUEST');
+    console.log('🧪 ========== TESTING MINIMAL SEARCH (SDK) ==========');
     setLoading(true);
     
     try {
@@ -1405,7 +1510,7 @@ export const SunskySKUImporter: React.FC = () => {
       
       console.log('✅ Test search successful:', result);
       toast({
-        title: "Test Search Successful",
+        title: "SDK Test Successful",
         description: `Found ${result.data?.total || 0} products with test query`,
       });
     } catch (error) {
@@ -2501,11 +2606,23 @@ export const SunskySKUImporter: React.FC = () => {
                       onClick={testMinimalSearch} 
                       disabled={!hasCredentials || loading || !selectedSearchAPI} 
                       variant="outline"
+                      size="sm"
                       className="flex items-center gap-2"
-                      title="Test search with minimal payload for debugging"
+                      title="Test search via Supabase SDK"
                     >
                       <RefreshCw className="h-4 w-4" />
-                      Test
+                      Test SDK
+                    </Button>
+                    <Button 
+                      onClick={testDirectFetch} 
+                      disabled={!hasCredentials || loading || !selectedSearchAPI} 
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-2"
+                      title="Test search via direct fetch (bypasses SDK)"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Test Direct
                     </Button>
                   </div>
                   {!selectedSearchAPI && hasCredentials && (
