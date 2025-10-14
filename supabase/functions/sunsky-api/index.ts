@@ -444,7 +444,7 @@ async function handleGetPricesAndFreights(params: any, key: string, secret: stri
   const requestParams: Record<string, any> = {};
   
   requestParams['deliveryAddress.countryId'] = addr.countryId;
-  requestParams['deliveryAddress.state'] = addr.state || '';
+  if (addr.state) requestParams['deliveryAddress.state'] = addr.state;
   requestParams['deliveryAddress.city'] = addr.city;
   requestParams['deliveryAddress.postcode'] = addr.postcode;
   
