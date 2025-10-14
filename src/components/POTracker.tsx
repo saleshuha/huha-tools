@@ -306,8 +306,8 @@ export const POTracker = () => {
       const { error } = await supabase
         .from('po_orders')
         .update({ status: 'closed', updated_at: new Date().toISOString() } as any)
-        .in('po_number' as any, poNumbers)
-        .eq('user_id' as any, profile?.id);
+        .in('po_number' as any, poNumbers as any)
+        .eq('user_id' as any, profile?.id as any);
 
       if (error) throw error;
 
@@ -337,8 +337,8 @@ export const POTracker = () => {
       const { error } = await supabase
         .from('po_orders')
         .update({ status: 'closed', updated_at: new Date().toISOString() } as any)
-        .eq('po_number' as any, poNumber)
-        .eq('user_id' as any, profile?.id);
+        .eq('po_number' as any, poNumber as any)
+        .eq('user_id' as any, profile?.id as any);
 
       if (error) throw error;
 
@@ -440,7 +440,7 @@ export const POTracker = () => {
       const { data, error } = await supabase
         .from('label_templates')
         .select('id, name, description, canvas_data, width, height')
-        .eq('user_id' as any, user.id)
+        .eq('user_id' as any, user.id as any)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -607,7 +607,7 @@ export const POTracker = () => {
         const { data, error } = await supabase
           .from('asin_inventory')
           .select('*')
-          .eq('user_id' as any, profile.id)
+          .eq('user_id' as any, profile.id as any)
           .order('created_at', { ascending: false })
           .range(asinPage * pageSize, (asinPage + 1) * pageSize - 1);
         
@@ -629,7 +629,7 @@ export const POTracker = () => {
         const { data, error } = await supabase
           .from('sku_inventory')
           .select('*')
-          .eq('user_id' as any, profile.id)
+          .eq('user_id' as any, profile.id as any)
           .order('created_at', { ascending: false })
           .range(skuPage * pageSize, (skuPage + 1) * pageSize - 1);
         
@@ -1247,7 +1247,7 @@ export const POTracker = () => {
             is_printed: true,
             printed_quantity: newPrintedQuantity
           } as any)
-          .eq('id' as any, order.id);
+          .eq('id' as any, order.id as any);
           
         if (error) {
           console.error(`❌ Failed to update order ${order.id}:`, error);
@@ -1542,7 +1542,7 @@ export const POTracker = () => {
           is_printed: true,
           printed_quantity: newPrintedQuantity
         } as any)
-        .eq('id' as any, order.id);
+        .eq('id' as any, order.id as any);
         
       if (error) {
         console.error(`❌ Failed to update single order ${order.id}:`, error);
@@ -4115,7 +4115,7 @@ export const POTracker = () => {
                                               printed_quantity: newPrintedQty,
                                               is_printed: true
                                             } as any)
-                                            .eq('id' as any, order.id);
+                                            .eq('id' as any, order.id as any);
                                          
                                          if (error) throw error;
                                          
