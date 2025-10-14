@@ -503,11 +503,7 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
 
       console.log('Shipping methods response:', response);
 
-      if (response.error) {
-        console.error('Supabase function error:', response.error);
-        throw response.error;
-      }
-      
+      // Don't throw on error immediately - check if it's ITEM_NOT_EXIST which we can handle
       const data = response.data;
       console.log('Shipping methods data:', data);
       

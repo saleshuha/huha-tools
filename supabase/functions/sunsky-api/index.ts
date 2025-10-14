@@ -467,12 +467,31 @@ async function handleGetPricesAndFreights(params: any, key: string, secret: stri
     itemCount: params.items.length
   });
   
-  const result = await callSunskyAPI('/openapi/order!getPricesAndFreights.do', requestParams, key, secret);
-  
-  return {
-    result: 'success',
-    data: result.data || result
-  };
+  try {
+    const result = await callSunskyAPI('/openapi/order!getPricesAndFreights.do', requestParams, key, secret);
+    
+    return {
+      result: 'success',
+      data: result.data || result
+    };
+  } catch (error: any) {
+    // Check if this is an ITEM_NOT_EXIST error
+    const errorMessage = error.message || '';
+    if (errorMessage.includes('ITEM_NOT_EXIST')) {
+      // Return error as a structured response instead of throwing
+      // This allows the frontend to handle it gracefully
+      return {
+        result: 'error',
+        message: 'ITEM_NOT_EXIST',
+        messages: ['ITEM_NOT_EXIST'],
+        originalError: 'ITEM_NOT_EXIST',
+        details: 'One or more items are not available in Sunsky catalog'
+      };
+    }
+    
+    // For other errors, re-throw to be handled by the main error handler
+    throw error;
+  }
 }
 
 async function handleTestCredentials(_params: any, key: string, secret: string) {
