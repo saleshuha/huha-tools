@@ -15,7 +15,7 @@ export const usePaymentTerms = () => {
         const { data, error } = await supabase
           .from('payment_terms')
           .select('*')
-          .eq('country', selectedCountry)
+          .eq('country' as any, selectedCountry as any)
           .single();
 
         if (error) {
@@ -23,7 +23,7 @@ export const usePaymentTerms = () => {
           return;
         }
 
-        setPaymentTerms(data);
+        setPaymentTerms(data as any);
       } catch (error) {
         console.error('Error fetching payment terms:', error);
       } finally {

@@ -58,18 +58,18 @@ export function useQuarterlyVelocityAnalytics() {
       const { data: exportModes } = await supabase
         .from('export_mode_preferences')
         .select('item_id, export_mode')
-        .eq('item_type', 'asin_inventory');
+        .eq('item_type' as any, 'asin_inventory' as any);
 
       const overridesMap = new Map(
-        overrides?.map(o => [o.asin_id, o.recommended_quantity]) || []
+        ((overrides as any) || []).map((o: any) => [o.asin_id, o.recommended_quantity])
       );
 
       const exportModesMap = new Map(
-        exportModes?.map(m => [m.item_id, m.export_mode]) || []
+        ((exportModes as any) || []).map((m: any) => [m.item_id, m.export_mode])
       );
 
       // Merge overrides and export modes with analytics data, filter to only global items
-      const itemsWithOverrides = (data || [])
+      const itemsWithOverrides = ((data || []) as any)
         .map((item: any) => ({
           ...item,
           manual_override: overridesMap.get(item.asin_id),
@@ -107,7 +107,7 @@ export function useQuarterlyVelocityAnalytics() {
           user_id: user.id,
           recommended_quantity: quantity,
           system_recommendation: systemRecommendation
-        }, {
+        } as any, {
           onConflict: 'user_id,asin_id'
         });
 
@@ -147,7 +147,7 @@ export function useQuarterlyVelocityAnalytics() {
       const { error } = await supabase
         .from('velocity_quantity_overrides')
         .delete()
-        .eq('asin_id', asinId);
+        .eq('asin_id' as any, asinId as any);
 
       if (error) throw error;
 

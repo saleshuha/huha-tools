@@ -71,7 +71,7 @@ export const useSKUManager = () => {
       const { count, error } = await supabase
         .from('sunsky_skus')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
+        .eq('user_id' as any, user.id as any);
 
       if (error) throw error;
       setTotalCount(count || 0);
@@ -109,7 +109,7 @@ export const useSKUManager = () => {
       const { count, error: countError } = await supabase
         .from('sunsky_skus')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
+        .eq('user_id' as any, user.id as any);
 
       if (countError) throw countError;
       setTotalCount(count || 0);
@@ -138,7 +138,7 @@ export const useSKUManager = () => {
           created_at,
           updated_at
         `)
-        .eq('user_id', user.id)
+        .eq('user_id' as any, user.id as any)
         .order('created_at', { ascending: false })
         .range(from, to);
 
@@ -150,11 +150,11 @@ export const useSKUManager = () => {
       const skuData = data || [];
       
       if (page === 1) {
-        setSunskySKUs(skuData);
+        setSunskySKUs((skuData as any));
         // Cache first page for faster subsequent loads
-        setCachedSKUs(skuData);
+        setCachedSKUs((skuData as any));
       } else {
-        setSunskySKUs(prev => [...prev, ...skuData]);
+        setSunskySKUs(prev => [...prev, ...(skuData as any)]);
       }
 
       setLoadingProgress(100);
@@ -202,7 +202,7 @@ export const useSKUManager = () => {
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('country')
-        .eq('id', user.id)
+        .eq('id' as any, user.id as any)
         .single();
 
       if (profileError) throw new Error('Failed to get user profile');
@@ -214,7 +214,7 @@ export const useSKUManager = () => {
       const skusWithUserId = skus.map(sku => ({
         ...sku,
         user_id: user.id,
-        country: profile.country
+        country: (profile as any).country
       }));
 
       console.log('Adding SKUs to database:', skusWithUserId.length);
@@ -238,14 +238,14 @@ export const useSKUManager = () => {
           // Use batch insert for better performance
           const { data: chunkData, error: chunkError } = await supabase
             .from('sunsky_skus')
-            .insert(chunk)
+            .insert(chunk as any)
             .select('id');
             
           if (chunkError) {
             // If batch insert fails due to duplicates, try upsert
             const { data: upsertData, error: upsertError } = await supabase
               .from('sunsky_skus')
-              .upsert(chunk, { 
+              .upsert(chunk as any, { 
                 onConflict: 'user_id,sku_code',
                 ignoreDuplicates: false
               })
@@ -273,7 +273,7 @@ export const useSKUManager = () => {
             try {
               const { data: subBatchData, error: subBatchError } = await supabase
                 .from('sunsky_skus')
-                .upsert(subBatch, { 
+                .upsert(subBatch as any, { 
                   onConflict: 'user_id,sku_code',
                   ignoreDuplicates: false
                 })
@@ -291,7 +291,7 @@ export const useSKUManager = () => {
                 try {
                   await supabase
                     .from('sunsky_skus')
-                    .upsert([sku], { 
+                    .upsert([sku] as any, { 
                       onConflict: 'user_id,sku_code',
                       ignoreDuplicates: false
                     });

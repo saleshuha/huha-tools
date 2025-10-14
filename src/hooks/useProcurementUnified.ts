@@ -49,8 +49,8 @@ export const useProcurementUnified = () => {
         throw error;
       }
 
-      console.log('📊 Unified items result:', data?.length || 0, 'items');
-      return (data || []) as UnifiedProcurementItem[];
+      console.log('📊 Unified items result:', (data as any)?.length || 0, 'items');
+      return ((data || []) as any) as UnifiedProcurementItem[];
     },
     staleTime: 30000, // 30 seconds
     refetchOnWindowFocus: false
@@ -63,8 +63,8 @@ export const useProcurementUnified = () => {
       
       const { error } = await supabase
         .from(tableName)
-        .update({ status })
-        .eq('id', itemId);
+        .update({ status } as any)
+        .eq('id' as any, itemId as any);
 
       if (error) throw error;
 
@@ -91,8 +91,8 @@ export const useProcurementUnified = () => {
         .update({ 
           status,
           order_date: status === 'ordered' ? new Date().toISOString() : undefined
-        })
-        .eq('id', poId);
+        } as any)
+        .eq('id' as any, poId as any);
 
       if (error) throw error;
 

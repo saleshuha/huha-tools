@@ -56,8 +56,8 @@ export const usePOMetrics = () => {
 
       if (error) throw error;
 
-      if (summaryData && summaryData.length > 0) {
-        const result = summaryData[0];
+      if ((summaryData as any) && (summaryData as any).length > 0) {
+        const result = (summaryData as any)[0];
         const newMetrics: POMetrics = {
           totalActiveOrders: Number(result.total_active_orders) || 0,
           totalActiveQuantity: Number(result.total_active_quantity) || 0,
@@ -103,8 +103,8 @@ export const usePOMetrics = () => {
 
       if (error) throw error;
 
-      if (totalsData && totalsData.length > 0) {
-        const result = totalsData[0];
+      if ((totalsData as any) && (totalsData as any).length > 0) {
+        const result = (totalsData as any)[0];
         const newTotals: POTotals = {
           totalRecords: Number(result.total_records) || 0,
           totalQuantity: Number(result.total_quantity) || 0,

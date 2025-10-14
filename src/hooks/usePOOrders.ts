@@ -110,7 +110,7 @@ export const usePOOrders = () => {
         const { data: batch, error: batchError } = await supabase
           .from('po_orders')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id' as any, user.id as any)
           .order('created_at', { ascending: false })
           .order('id', { ascending: false })  // Secondary sort ensures consistent ordering
           .range(from, from + batchSize - 1);
@@ -155,7 +155,7 @@ export const usePOOrders = () => {
       const { data: sunskySkus, error: skuError } = await supabase
         .from('sunsky_skus')
         .select('*')
-        .eq('user_id', user.id);
+        .eq('user_id' as any, user.id as any);
 
       if (skuError) {
         console.warn('⚠️ Failed to fetch sunsky_skus:', skuError);
@@ -163,7 +163,7 @@ export const usePOOrders = () => {
 
       // Create a Map of sunsky SKU codes to full SKU objects for fast matching
       const sunskySkuMap = new Map();
-      (sunskySkus || []).forEach(sku => {
+      (sunskySkus || []).forEach((sku: any) => {
         sunskySkuMap.set(sku.sku_code, sku);
       });
       console.log(`📋 Found ${sunskySkuMap.size} Sunsky SKUs for matching`);
@@ -254,7 +254,7 @@ export const usePOOrders = () => {
       const { data: existingOrders, error: fetchError } = await supabase
         .from('po_orders')
         .select('*')
-        .eq('user_id', user.id);
+        .eq('user_id' as any, user.id as any);
 
       if (fetchError) {
         throw new Error(`Failed to fetch existing orders: ${fetchError.message}`);
@@ -268,7 +268,7 @@ export const usePOOrders = () => {
       // Create map of existing orders by identity for quick lookup and comparison
       const existingOrdersMap = new Map();
       
-      (existingOrders || []).forEach(order => {
+      (existingOrders || []).forEach((order: any) => {
         if (order.po_key && order.item_key) {
           const identity = `${order.po_key}|${order.item_key}`;
           existingOrdersMap.set(identity, order);
@@ -596,8 +596,8 @@ export const usePOOrders = () => {
         .update({ 
           status,
           order_date: status === 'placed' ? new Date().toISOString() : undefined
-        })
-        .eq('id', orderId);
+        } as any)
+        .eq('id' as any, orderId as any);
 
       if (error) throw error;
 
@@ -621,8 +621,8 @@ export const usePOOrders = () => {
     try {
       const { error } = await supabase
         .from('po_orders')
-        .update(trackingData)
-        .eq('id', orderId);
+        .update(trackingData as any)
+        .eq('id' as any, orderId as any);
 
       if (error) throw error;
 
@@ -664,7 +664,7 @@ export const usePOOrders = () => {
         const { data: pageData, error, count } = await supabase
           .from('po_orders')
           .select('*', { count: 'exact' })
-          .eq('user_id', user.id)
+          .eq('user_id' as any, user.id as any)
           .range(startRange, endRange)
           .order('created_at', { ascending: false });
 
@@ -728,9 +728,9 @@ export const usePOOrders = () => {
       const { data: existingSKUs, error: skusError } = await supabase
         .from('sunsky_skus')
         .select('sku_code')
-        .eq('user_id', user.id);
+        .eq('user_id' as any, user.id as any);
 
-      const existingSKUCodes = new Set((existingSKUs || []).map(sku => sku.sku_code));
+      const existingSKUCodes = new Set(((existingSKUs || []) as any).map((sku: any) => sku.sku_code));
       const alreadyImportedCount = uniqueModelNumbers.filter(modelNumber => 
         existingSKUCodes.has(modelNumber)
       ).length;
@@ -796,8 +796,8 @@ export const usePOOrders = () => {
           const { error } = await supabase
             .from('po_orders')
             .delete()
-            .eq('user_id', user.id)
-            .in('id', batch);
+            .eq('user_id' as any, user.id as any)
+            .in('id' as any, batch as any);
 
           if (error) {
             console.error(`❌ Delete error in batch ${i + 1}:`, error);
@@ -813,7 +813,7 @@ export const usePOOrders = () => {
         const { error } = await supabase
           .from('po_orders')
           .delete()
-          .eq('user_id', user.id);
+          .eq('user_id' as any, user.id as any);
 
         if (error) {
           console.error('❌ Delete error:', error);
@@ -846,7 +846,7 @@ export const usePOOrders = () => {
       const { data: currentOrders, error: fetchError } = await supabase
         .from('po_orders')
         .select('id, is_printed')
-        .in('id', orderIds);
+          .in('id' as any, orderIds as any);
       
       if (fetchError) {
         console.error('❌ Error fetching current orders:', fetchError);
@@ -856,8 +856,8 @@ export const usePOOrders = () => {
       
       const { error } = await supabase
         .from('po_orders')
-        .update({ is_printed: isPrinted })
-        .in('id', orderIds);
+        .update({ is_printed: isPrinted } as any)
+        .in('id' as any, orderIds as any);
 
       if (error) {
         console.error('❌ Print status update error:', error);
@@ -870,7 +870,7 @@ export const usePOOrders = () => {
       const { data: updatedOrders, error: verifyError } = await supabase
         .from('po_orders')
         .select('id, is_printed')
-        .in('id', orderIds);
+        .in('id' as any, orderIds as any);
       
       if (verifyError) {
         console.error('❌ Error verifying update:', verifyError);

@@ -35,12 +35,12 @@ export function useSkuInventory() {
       const { data, error } = await supabase
         .from('sku_inventory')
         .select('*')
-        .eq('country', selectedCountry)
+        .eq('country' as any, selectedCountry as any)
         .order('date_added', { ascending: false });
 
       if (error) throw error;
 
-      const formattedData: SkuInventoryItem[] = data.map(item => ({
+      const formattedData: SkuInventoryItem[] = ((data as any) || []).map((item: any) => ({
         id: item.id,
         skuNumber: item.sku_number,
         binSerialNumber: item.bin_serial_number,
@@ -96,18 +96,18 @@ export function useSkuInventory() {
       if (error) throw error;
 
       const newItem: SkuInventoryItem = {
-        id: data.id,
-        skuNumber: data.sku_number,
-        binSerialNumber: data.bin_serial_number,
-        asin: data.asin || undefined,
-        title: data.title || undefined,
-        status: data.status as "in-stock" | "sold" | "reserved" | "damaged" | "ordered",
-        dateAdded: data.date_added,
-        dateSold: data.date_sold || undefined,
-        quantity: data.quantity ?? 1,
-        restockDate: data.restock_date || undefined,
-        restockQuantity: data.restock_quantity || undefined,
-        lastRestockDate: data.last_restock_date || undefined,
+        id: (data as any).id,
+        skuNumber: (data as any).sku_number,
+        binSerialNumber: (data as any).bin_serial_number,
+        asin: (data as any).asin || undefined,
+        title: (data as any).title || undefined,
+        status: (data as any).status as "in-stock" | "sold" | "reserved" | "damaged" | "ordered",
+        dateAdded: (data as any).date_added,
+        dateSold: (data as any).date_sold || undefined,
+        quantity: (data as any).quantity ?? 1,
+        restockDate: (data as any).restock_date || undefined,
+        restockQuantity: (data as any).restock_quantity || undefined,
+        lastRestockDate: (data as any).last_restock_date || undefined,
       };
 
       setInventory(prev => [newItem, ...prev]);
@@ -135,7 +135,7 @@ export function useSkuInventory() {
       const { error } = await supabase
         .from('sku_inventory')
         .update(updateData)
-        .eq('id', id);
+        .eq('id' as any, id as any);
 
       if (error) throw error;
 
@@ -159,7 +159,7 @@ export function useSkuInventory() {
       const { error } = await supabase
         .from('sku_inventory')
         .delete()
-        .eq('id', id);
+        .eq('id' as any, id as any);
 
       if (error) throw error;
 
@@ -201,7 +201,7 @@ export function useSkuInventory() {
       const { error } = await supabase
         .from('sku_inventory')
         .update(updateData)
-        .eq('id', id);
+        .eq('id' as any, id as any);
 
       if (error) throw error;
 
@@ -247,8 +247,8 @@ export function useSkuInventory() {
       // Update the inventory quantity (triggers will handle status automatically)
       const { error: updateError } = await supabase
         .from('sku_inventory')
-        .update({ quantity: newQuantity })
-        .eq('id', id);
+        .update({ quantity: newQuantity } as any)
+        .eq('id' as any, id as any);
 
       if (updateError) throw updateError;
 
@@ -318,12 +318,12 @@ export function useSkuInventory() {
 
       const { data, error } = await supabase
         .from('sku_inventory')
-        .insert(insertData)
+        .insert(insertData as any)
         .select();
 
       if (error) throw error;
 
-      const newItems: SkuInventoryItem[] = data.map(item => ({
+      const newItems: SkuInventoryItem[] = ((data as any) || []).map((item: any) => ({
         id: item.id,
         skuNumber: item.sku_number,
         binSerialNumber: item.bin_serial_number,

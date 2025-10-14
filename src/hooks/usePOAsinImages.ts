@@ -42,9 +42,9 @@ export const usePOAsinImages = () => {
       const { data: poOrders, error } = await supabase
         .from('po_orders')
         .select('id, asin, title, po_number, quantity, status')
-        .eq('user_id', user.id)
+        .eq('user_id' as any, user.id as any)
         .not('asin', 'is', null)
-        .neq('asin', '')
+        .neq('asin' as any, '' as any)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -52,7 +52,7 @@ export const usePOAsinImages = () => {
       // Group by ASIN to avoid duplicates
       const asinMap = new Map<string, POAsinItem>();
       
-      poOrders?.forEach(order => {
+      (poOrders as any)?.forEach((order: any) => {
         const asin = order.asin!;
         if (asinMap.has(asin)) {
           const existing = asinMap.get(asin)!;

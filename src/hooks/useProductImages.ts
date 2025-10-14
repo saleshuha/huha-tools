@@ -49,7 +49,7 @@ export const useProductImages = () => {
         const { data: batch, error: batchError } = await supabase
           .from('product_images')
           .select('*')
-          .eq('user_id', userId)
+          .eq('user_id' as any, userId as any)
           .order('created_at', { ascending: false })
           .range(from, from + batchSize - 1);
           
@@ -128,14 +128,14 @@ export const useProductImages = () => {
       const { data: existingImage } = await supabase
         .from('product_images')
         .select('*')
-        .eq('user_id', user.id)
-        .eq('asin', asin.trim())
+        .eq('user_id' as any, user.id as any)
+        .eq('asin' as any, asin.trim() as any)
         .maybeSingle();
 
       if (existingImage) {
         // Image already exists, return existing data with a flag
         console.log(`🖼️ Image already exists for ASIN ${asin}, skipping insertion`);
-        return { ...existingImage, wasExisting: true };
+        return { ...(existingImage as any), wasExisting: true };
       }
 
       // Insert new image since it doesn't exist
@@ -146,7 +146,7 @@ export const useProductImages = () => {
           asin: asin.trim(),
           image_url: imageUrl.trim(),
           image_name: imageName?.trim()
-        })
+        } as any)
         .select()
         .single();
       
@@ -158,14 +158,14 @@ export const useProductImages = () => {
           const { data: conflictImage } = await supabase
             .from('product_images')
             .select('*')
-            .eq('user_id', user.id)
-            .eq('asin', asin.trim())
+            .eq('user_id' as any, user.id as any)
+            .eq('asin' as any, asin.trim() as any)
             .single();
-          return { ...conflictImage, wasExisting: true };
+          return { ...(conflictImage as any), wasExisting: true };
         }
         throw error;
       }
-      return { ...data, wasExisting: false };
+      return { ...(data as any), wasExisting: false };
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['product-images'] });
@@ -201,8 +201,8 @@ export const useProductImages = () => {
           asin: asin.trim(),
           image_url: imageUrl.trim(),
           image_name: imageName?.trim()
-        })
-        .eq('id', id)
+        } as any)
+        .eq('id' as any, id as any)
         .select()
         .single();
       
@@ -231,7 +231,7 @@ export const useProductImages = () => {
       const { error } = await supabase
         .from('product_images')
         .delete()
-        .eq('id', id);
+        .eq('id' as any, id as any);
       
       if (error) throw error;
     },
@@ -260,7 +260,7 @@ export const useProductImages = () => {
       const { error, count } = await supabase
         .from('product_images')
         .delete()
-        .eq('user_id', user.id);
+        .eq('user_id' as any, user.id as any);
       
       if (error) throw error;
       return count;

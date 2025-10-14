@@ -29,14 +29,14 @@ export function usePersistentBackgroundTasks() {
       const { data, error } = await supabase
         .from('background_tasks')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id' as any, user.id as any)
         .order('created_at', { ascending: false })
         .limit(20);
 
       if (error) throw error;
       
       // Type the data properly
-      const typedTasks: PersistentTask[] = (data || []).map(task => ({
+      const typedTasks: PersistentTask[] = ((data || []) as any).map((task: any) => ({
         ...task,
         status: task.status === 'error' ? 'failed' : task.status as PersistentTask['status'],
         metadata: task.metadata || {}
@@ -62,8 +62,8 @@ export function usePersistentBackgroundTasks() {
         .update({ 
           status: 'cancelled',
           completed_at: new Date().toISOString()
-        })
-        .eq('id', taskId);
+        } as any)
+        .eq('id' as any, taskId as any);
 
       if (error) throw error;
 
@@ -93,7 +93,7 @@ export function usePersistentBackgroundTasks() {
       const { error } = await supabase
         .from('background_tasks')
         .delete()
-        .eq('id', taskId);
+        .eq('id' as any, taskId as any);
 
       if (error) throw error;
 
