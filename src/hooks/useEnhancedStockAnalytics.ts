@@ -83,7 +83,7 @@ export function useEnhancedStockAnalytics() {
       const { data: itemData, error: itemError } = await supabase
         .from(tableName)
         .select('*')
-        .eq('id', itemId)
+        .eq('id' as any, itemId as any)
         .single();
 
       if (itemError) throw itemError;
@@ -92,8 +92,8 @@ export function useEnhancedStockAnalytics() {
       const { data: stockChanges, error: stockError } = await supabase
         .from('stock_changes')
         .select('*')
-        .eq('inventory_id', itemId)
-        .eq('inventory_type', inventoryType)
+        .eq('inventory_id' as any, itemId as any)
+        .eq('inventory_type' as any, inventoryType as any)
         .order('created_at', { ascending: true });
 
       if (stockError) throw stockError;
@@ -111,7 +111,7 @@ export function useEnhancedStockAnalytics() {
       let poQuery = supabase
         .from('po_orders')
         .select('*')
-        .eq(poField, itemIdentifier)
+        .eq(poField as any, itemIdentifier as any)
         .order('created_at', { ascending: true });
 
       const { data: poOrders } = await poQuery;
@@ -126,9 +126,9 @@ export function useEnhancedStockAnalytics() {
         id: itemId,
         identifier: itemIdentifier,
         table_name: tableName as 'asin_inventory' | 'sku_inventory',
-        current_quantity: itemData.quantity,
-        date_added: itemData.date_added,
-        status: itemData.status,
+        current_quantity: (itemData as any).quantity,
+        date_added: (itemData as any).date_added,
+        status: (itemData as any).status,
         lifecycle_events: lifecycleEvents,
         metrics,
         po_orders: poOrders || [],
@@ -324,10 +324,10 @@ export function useEnhancedStockAnalytics() {
       let asinQuery = supabase
         .from('asin_inventory')
         .select('id')
-        .eq('eligible_for_restock', true);
+        .eq('eligible_for_restock' as any, true as any);
       
       if (selectedCountry) {
-        asinQuery = asinQuery.eq('country', selectedCountry);
+        asinQuery = asinQuery.eq('country' as any, selectedCountry as any);
       }
       
       const { data: asinItems } = await asinQuery;
@@ -338,19 +338,19 @@ export function useEnhancedStockAnalytics() {
         .select('id');
       
       if (selectedCountry) {
-        skuQuery = skuQuery.eq('country', selectedCountry);
+        skuQuery = skuQuery.eq('country' as any, selectedCountry as any);
       }
       
       const { data: skuItems } = await skuQuery;
 
       // Process ASIN items (limit to first 20 for performance)
       const asinAnalytics = await Promise.all(
-        (asinItems?.slice(0, 20) || []).map(item => loadItemAnalysis(item.id, 'asin'))
+        ((asinItems as any)?.slice(0, 20) || []).map((item: any) => loadItemAnalysis(item.id, 'asin'))
       );
 
       // Process SKU items (limit to first 20 for performance)
       const skuAnalytics = await Promise.all(
-        (skuItems?.slice(0, 20) || []).map(item => loadItemAnalysis(item.id, 'sku'))
+        ((skuItems as any)?.slice(0, 20) || []).map((item: any) => loadItemAnalysis(item.id, 'sku'))
       );
 
       setAsinAnalytics(asinAnalytics.filter(Boolean) as InventoryItemAnalysis[]);

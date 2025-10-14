@@ -13,7 +13,7 @@ export const useCurrencyConverter = () => {
         .select('*');
 
       if (error) throw error;
-      setExchangeRates(data || []);
+      setExchangeRates((data as any) || []);
     } catch (error) {
       console.error('Error fetching exchange rates:', error);
     } finally {

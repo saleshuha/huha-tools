@@ -32,13 +32,13 @@ export const useExportHistory = () => {
       const { data, error } = await supabase
         .from('export_history')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id' as any, user.id as any)
         .order('created_at', { ascending: false })
         .limit(MAX_HISTORY_ENTRIES);
 
       if (error) throw error;
 
-      const historyEntries = (data || []).map(entry => ({
+      const historyEntries = ((data as any) || []).map((entry: any) => ({
         ...entry,
         metadata: typeof entry.metadata === 'object' ? entry.metadata : {}
       })) as ExportHistoryEntry[];
@@ -82,15 +82,15 @@ export const useExportHistory = () => {
           file_size: entry.file_size,
           error_message: entry.error_message,
           metadata: entry.metadata || {}
-        })
+        } as any)
         .select()
         .single();
 
       if (error) throw error;
 
       const newEntry: ExportHistoryEntry = {
-        ...data,
-        metadata: typeof data.metadata === 'object' ? data.metadata : {}
+        ...(data as any),
+        metadata: typeof (data as any).metadata === 'object' ? (data as any).metadata : {}
       };
 
       setExportHistory(prev => {
@@ -124,8 +124,8 @@ export const useExportHistory = () => {
           file_size: updates.file_size,
           status: updates.status,
           error_message: updates.error_message
-        })
-        .eq('id', id);
+        } as any)
+        .eq('id' as any, id as any);
 
       if (error) throw error;
 
@@ -215,7 +215,7 @@ export const useExportHistory = () => {
       const { error } = await supabase
         .from('export_history')
         .delete()
-        .eq('id', id);
+        .eq('id' as any, id as any);
 
       if (error) throw error;
 
