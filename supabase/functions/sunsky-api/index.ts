@@ -3401,29 +3401,17 @@ serve(async (req) => {
       }
 
       default:
-        throw new Error(`Unknown action: ${action}`);
+        console.error(`[${requestId}] ❌ Unknown action: ${action}`);
+        return new Response(JSON.stringify({
+          result: 'error',
+          message: `Unknown action: ${action}`,
+          requestId
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400
+        });
     }
 
-    } catch (error) {
-      console.error('❌ Fatal error in Sunsky API function:', error);
-      console.error('Error details:', {
-        name: error?.constructor?.name,
-        message: error?.message,
-        stack: error?.stack,
-        type: typeof error
-      });
-      
-      return new Response(JSON.stringify({ 
-        result: 'error', 
-        message: error?.message || 'Unknown error occurred',
-        errorType: error?.constructor?.name || 'UnknownError',
-        timestamp: new Date().toISOString()
-      }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-  
   } catch (topLevelError) {
     // Top-level error boundary - catches ANY error that wasn't caught by inner try-catch
     console.error('🔥 TOP-LEVEL ERROR BOUNDARY TRIGGERED:', topLevelError);
