@@ -1445,6 +1445,21 @@ async function processImportJob(job: any, userId: string, userCountry: string) {
   }
 }
 
+// Wrapper function to ensure ALL responses have CORS headers
+function corsResponse(body: any, init?: ResponseInit): Response {
+  return new Response(
+    typeof body === 'string' ? body : JSON.stringify(body),
+    {
+      ...init,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+        ...init?.headers
+      }
+    }
+  );
+}
+
 serve(async (req) => {
   // Ultra-early logging - BEFORE anything else except OPTIONS
   console.log('🔵 SERVE HANDLER INVOKED');
@@ -1457,6 +1472,9 @@ serve(async (req) => {
     console.log('✅ CORS preflight request handled');
     return new Response('ok', { headers: corsHeaders });
   }
+  
+  // Wrap entire handler in try-catch to guarantee CORS on all responses
+  try {
 
   const requestId = crypto.randomUUID();
   console.log(`\n[${requestId}] ========== NEW REQUEST ==========`);
@@ -3449,25 +3467,20 @@ serve(async (req) => {
       stringified: String(topLevelError)
     });
     
-    // Try to return a response, but be extra careful
-    try {
-      return new Response(JSON.stringify({ 
-        result: 'error', 
-        message: 'Critical system error: ' + (topLevelError?.message || 'Unknown error'),
-        errorType: topLevelError?.constructor?.name || 'CriticalError',
-        category: 'top_level_boundary',
-        timestamp: new Date().toISOString()
-      }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    } catch (responseError) {
-      // If even creating the error response fails, return a basic response
-      console.error('🔥 FAILED TO CREATE ERROR RESPONSE:', responseError);
-      return new Response('Critical system error', {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'text/plain' },
-      });
-    }
+    // Use corsResponse wrapper to guarantee CORS headers
+    return corsResponse({
+      result: 'error', 
+      message: 'Critical system error: ' + (topLevelError?.message || 'Unknown error'),
+      errorType: topLevelError?.constructor?.name || 'CriticalError',
+      category: 'top_level_boundary',
+      timestamp: new Date().toISOString()
+    }, { status: 500 });
+  } catch (outerError) {
+    // Absolute last resort - if even the error handler fails
+    console.error('🔥 OUTER ERROR BOUNDARY:', outerError);
+    return new Response(JSON.stringify({ result: 'error', message: 'System failure' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   }
 });
