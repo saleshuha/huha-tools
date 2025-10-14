@@ -139,47 +139,58 @@ export const SunskyCredentialsManager: React.FC<SunskyCredentialsManagerProps> =
   const testApiKey = async (apiKeyId: string) => {
     setTesting(apiKeyId);
     try {
-      // Try edge function first
-      try {
-        const { data, error } = await supabase.functions.invoke('sunsky-api', {
-          body: { 
-            action: 'testCredentials',
-            apiId: apiKeyId
-          }
-        });
-
-        if (!error && data?.result === 'success') {
-          toast({
-            title: "Connection Successful",
-            description: "API credentials are working correctly",
-          });
-          setApiKeys(prev => prev.map(key => 
-            key.id === apiKeyId 
-              ? { ...key, status: 'connected', lastTested: new Date() }
-              : key
-          ));
-          setTesting(null);
-          return;
+      console.log('🧪 Testing API key:', apiKeyId);
+      
+      const { data, error } = await supabase.functions.invoke('sunsky-api', {
+        body: { 
+          action: 'testCredentials',
+          apiId: apiKeyId
         }
+      });
 
-        if (!error && data?.result === 'error') {
-          toast({
-            title: "Connection Failed",
-            description: data.message || "Invalid API credentials",
-            variant: "destructive",
-          });
-          setApiKeys(prev => prev.map(key => 
-            key.id === apiKeyId 
-              ? { ...key, status: 'disconnected', lastTested: new Date() }
-              : key
-          ));
-          setTesting(null);
-          return;
-        }
-      } catch (edgeFunctionError) {
-        console.warn('Edge function unavailable for testing:', edgeFunctionError);
+      console.log('📡 Test API response:', { data, error });
+
+      if (error) {
+        console.error('❌ Edge function error:', error);
+        throw error;
       }
 
+      if (data?.result === 'success') {
+        console.log('✅ Test successful');
+        toast({
+          title: "Connection Successful",
+          description: "API credentials are working correctly",
+        });
+        setApiKeys(prev => prev.map(key => 
+          key.id === apiKeyId 
+            ? { ...key, status: 'connected', lastTested: new Date() }
+            : key
+        ));
+        setTesting(null);
+        return;
+      }
+
+      if (data?.result === 'error') {
+        console.log('⚠️ Test failed:', data.message);
+        toast({
+          title: "Connection Failed",
+          description: data.message || "Invalid API credentials",
+          variant: "destructive",
+        });
+        setApiKeys(prev => prev.map(key => 
+          key.id === apiKeyId 
+            ? { ...key, status: 'disconnected', lastTested: new Date() }
+            : key
+        ));
+        setTesting(null);
+        return;
+      }
+      
+      console.error('⚠️ Unexpected response format:', data);
+      throw new Error('Unexpected response from API test');
+    } catch (error) {
+      console.error('❌ Test API key failed:', error);
+      
       // Fallback: verify credentials exist in database
       const { data: credentials, error: dbError } = await supabase
         .from('sunsky_credentials')
@@ -188,32 +199,29 @@ export const SunskyCredentialsManager: React.FC<SunskyCredentialsManagerProps> =
         .single();
 
       if (dbError || !credentials) {
-        throw new Error('Credentials not found in database');
+        toast({
+          title: "Connection Failed",
+          description: "API credentials not found or invalid",
+          variant: "destructive",
+        });
+        setApiKeys(prev => prev.map(key => 
+          key.id === apiKeyId 
+            ? { ...key, status: 'disconnected', lastTested: new Date() }
+            : key
+        ));
+      } else {
+        toast({
+          title: "Credentials Verified",
+          description: "Credentials exist but testing failed. Please check your API keys or try again later.",
+          variant: "default",
+        });
+        
+        setApiKeys(prev => prev.map(key => 
+          key.id === apiKeyId 
+            ? { ...key, status: 'unknown' as const, lastTested: new Date() }
+            : key
+        ));
       }
-
-      toast({
-        title: "Credentials Verified",
-        description: "Credentials exist but cannot be tested (API service unavailable)",
-        variant: "default",
-      });
-      
-      setApiKeys(prev => prev.map(key => 
-        key.id === apiKeyId 
-          ? { ...key, status: 'unknown' as const, lastTested: new Date() }
-          : key
-      ));
-    } catch (error) {
-      console.error('Error testing connection:', error);
-      toast({
-        title: "Connection Failed",
-        description: error instanceof Error ? error.message : "Failed to test connection",
-        variant: "destructive",
-      });
-      setApiKeys(prev => prev.map(key => 
-        key.id === apiKeyId 
-          ? { ...key, status: 'disconnected', lastTested: new Date() }
-          : key
-      ));
     } finally {
       setTesting(null);
     }
