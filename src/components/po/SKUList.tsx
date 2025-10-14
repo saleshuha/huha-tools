@@ -67,8 +67,8 @@ export function SKUList({ skus, shippingRate, isLoading, hasMore, onLoadMore, on
           cost: updatedData.cost,
           weight: updatedData.weight,
           updated_at: new Date().toISOString()
-        })
-        .eq('id', editingSku.id);
+        } as any)
+        .eq('id' as any, editingSku.id);
 
       if (error) {
         throw error;

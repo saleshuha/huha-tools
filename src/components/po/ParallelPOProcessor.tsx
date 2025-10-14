@@ -26,8 +26,8 @@ export const useParallelPOProcessor = ({
     const { data: activeKeys, error: keysError } = await supabase
       .from('sunsky_credentials')
       .select('id, api_key')
-      .eq('user_id', profile?.id)
-      .eq('is_active', true)
+      .eq('user_id' as any, profile?.id)
+      .eq('is_active' as any, true as any)
       .order('created_at', { ascending: false });
 
     if (keysError || !activeKeys || activeKeys.length === 0) {
@@ -56,7 +56,7 @@ export const useParallelPOProcessor = ({
         success_count: 0,
         error_count: 0,
         started_at: new Date().toISOString()
-      })
+      } as any)
       .select()
       .maybeSingle();
 
@@ -169,7 +169,7 @@ export const useParallelPOProcessor = ({
                 currency: productToImport.convertedCurrency || 'USD',
                 country: profile?.country || 'UAE',
                 product_data: productToImport
-              }, {
+              } as any, {
                 onConflict: 'user_id,sku_code',
                 ignoreDuplicates: false
               });
@@ -186,9 +186,9 @@ export const useParallelPOProcessor = ({
                   unit_cost: productToImport.convertedPrice || parseFloat(productToImport.price || '0') || 0,
                   external_id: productToImport.itemNo,
                   external_id_type: 'sunsky'
-                })
-                .eq('user_id', profile?.id)
-                .eq('model_number', modelNumber);
+                } as any)
+                .eq('user_id' as any, profile?.id)
+                .eq('model_number' as any, modelNumber);
             } else {
               chunkErrors++;
             }
@@ -250,8 +250,8 @@ export const useParallelPOProcessor = ({
           completed_at: new Date().toISOString(),
           success_count: finalSuccess,
           error_count: finalErrors
-        })
-        .eq('id', importJob.id);
+        } as any)
+        .eq('id' as any, (importJob as any).id);
     }
     
     // Refresh data

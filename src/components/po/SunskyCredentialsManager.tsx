@@ -65,7 +65,7 @@ export const SunskyCredentialsManager: React.FC<SunskyCredentialsManagerProps> =
 
       if (rpcError) throw rpcError;
 
-      const formattedKeys: ApiKeyEntry[] = credentials?.map(key => ({
+      const formattedKeys: ApiKeyEntry[] = (credentials as any)?.map((key: any) => ({
         id: key.id,
         name: key.name || 'Unnamed API Key',
         maskedKey: key.key_last4 ? `****${key.key_last4}` : '****',
@@ -195,7 +195,7 @@ export const SunskyCredentialsManager: React.FC<SunskyCredentialsManagerProps> =
       const { data: credentials, error: dbError } = await supabase
         .from('sunsky_credentials')
         .select('id, name, is_active')
-        .eq('id', apiKeyId)
+        .eq('id' as any, apiKeyId)
         .single();
 
       if (dbError || !credentials) {
@@ -262,8 +262,8 @@ export const SunskyCredentialsManager: React.FC<SunskyCredentialsManagerProps> =
       // Fallback: update directly in database
       const { error: updateError } = await supabase
         .from('sunsky_credentials')
-        .update({ is_active: makeActive })
-        .eq('id', apiKeyId);
+        .update({ is_active: makeActive } as any)
+        .eq('id' as any, apiKeyId);
 
       if (updateError) throw updateError;
 

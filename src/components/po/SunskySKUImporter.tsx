@@ -543,7 +543,7 @@ export const SunskySKUImporter: React.FC = () => {
         file_type: 'sunsky_sku_columns',
         headers: skuTableHeaders,
         store_name: 'sunsky_importer'
-      });
+      } as any);
       if (error) throw error;
       toast({
         title: "Success",
@@ -565,12 +565,12 @@ export const SunskySKUImporter: React.FC = () => {
       const {
         data,
         error
-      } = await supabase.from('noon_file_headers').select('headers').eq('user_id', profile?.id).eq('file_type', 'sunsky_sku_columns').eq('store_name', 'sunsky_importer').limit(1);
+      } = await supabase.from('noon_file_headers').select('headers').eq('user_id' as any, profile?.id).eq('file_type' as any, 'sunsky_sku_columns').eq('store_name' as any, 'sunsky_importer').limit(1);
       if (error) throw error;
 
       // Take the first result if any exist
-      if (data && data.length > 0 && data[0]?.headers) {
-        setSkuTableHeaders(data[0].headers);
+      if (data && data.length > 0 && (data[0] as any)?.headers) {
+        setSkuTableHeaders((data[0] as any).headers);
       }
     } catch (error) {
       console.error('Error loading preferences:', error);
@@ -584,7 +584,7 @@ export const SunskySKUImporter: React.FC = () => {
         error
       } = await supabase.from('sunsky_import_jobs').update({
         paused: true
-      }).eq('id', jobId).eq('user_id', profile?.id);
+      } as any).eq('id' as any, jobId).eq('user_id' as any, profile?.id);
       if (error) throw error;
       toast({
         title: "Success",
@@ -606,7 +606,7 @@ export const SunskySKUImporter: React.FC = () => {
         error
       } = await supabase.from('sunsky_import_jobs').update({
         paused: false
-      }).eq('id', jobId).eq('user_id', profile?.id);
+      } as any).eq('id' as any, jobId).eq('user_id' as any, profile?.id);
       if (error) throw error;
       toast({
         title: "Success",
@@ -629,7 +629,7 @@ export const SunskySKUImporter: React.FC = () => {
       } = await supabase.from('sunsky_import_jobs').update({
         cancelled: true,
         status: 'cancelled'
-      }).eq('id', jobId).eq('user_id', profile?.id);
+      } as any).eq('id' as any, jobId).eq('user_id' as any, profile?.id);
       if (error) throw error;
       toast({
         title: "Success",
@@ -651,7 +651,7 @@ export const SunskySKUImporter: React.FC = () => {
     try {
       const {
         error
-      } = await supabase.from('sunsky_skus').delete().eq('user_id', profile?.id);
+      } = await supabase.from('sunsky_skus').delete().eq('user_id' as any, profile?.id);
       if (error) throw error;
       toast({
         title: "Success",
@@ -1068,7 +1068,7 @@ export const SunskySKUImporter: React.FC = () => {
         error
       } = await supabase.rpc('get_user_sunsky_credentials_secure');
       if (error) throw error;
-      const apis = (data || []).map((cred: any, index: number) => ({
+      const apis = ((data as any) || []).map((cred: any, index: number) => ({
         id: cred.id,
         name: `API Key ${index + 1} (***${cred.key_last4 || 'N/A'})`,
         is_active: cred.is_active
@@ -1105,7 +1105,7 @@ export const SunskySKUImporter: React.FC = () => {
       const {
         data,
         error
-      } = await supabase.from('sunsky_credentials').select('is_active').eq('user_id', profile?.id).eq('is_active', true).limit(1);
+      } = await supabase.from('sunsky_credentials').select('is_active').eq('user_id' as any, profile?.id).eq('is_active' as any, true as any).limit(1);
       if (error) throw error;
       const hasCredsResult = !!data && data.length > 0;
       console.log('🔍 Credentials check result:', {
@@ -1691,7 +1691,7 @@ export const SunskySKUImporter: React.FC = () => {
               currency: productDetails.convertedCurrency || 'USD',
               country: profile?.country || 'UAE',
               product_data: productDetails
-            }, {
+            } as any, {
               onConflict: 'user_id,sku_code',
               ignoreDuplicates: false
             }).select();
@@ -1827,8 +1827,8 @@ export const SunskySKUImporter: React.FC = () => {
       const { data: allCredentials, error: credentialsError } = await supabase
         .from('sunsky_credentials')
         .select('id, name')
-        .eq('user_id', profile?.id)
-        .eq('is_active', true);
+        .eq('user_id' as any, profile?.id)
+        .eq('is_active' as any, true as any);
 
       if (credentialsError) {
         throw new Error(`Failed to fetch credentials: ${credentialsError.message}`);
@@ -1857,9 +1857,9 @@ export const SunskySKUImporter: React.FC = () => {
       const activeAPICount = allCredentials.length;
       
       // Initialize individual API progress tracking
-      setPOApiProgress(allCredentials.map((api, index) => ({
-        apiId: api.id,
-        apiName: api.name || `API ${index + 1}`,
+      setPOApiProgress((allCredentials as any).map((api: any, index: number) => ({
+        apiId: (api as any).id,
+        apiName: (api as any).name || `API ${index + 1}`,
         progress: 0,
         currentItem: '',
         status: 'idle',
@@ -2060,7 +2060,7 @@ export const SunskySKUImporter: React.FC = () => {
       console.log(`🚀 Starting parallel processing with ${activeAPICount} API keys, chunks:`, modelChunks.map((chunk, i) => `API ${i + 1}: ${chunk.length} items`));
       
       const chunkPromises = modelChunks.map((chunk, index) => 
-        processChunk(chunk, allCredentials[index % activeAPICount].id, index)
+        processChunk(chunk, (allCredentials as any)[index % activeAPICount].id, index)
       );
 
       // Wait for all chunks to complete
@@ -2120,29 +2120,29 @@ export const SunskySKUImporter: React.FC = () => {
         const {
           data: job,
           error
-        } = await supabase.from('sunsky_import_jobs').select('*').eq('id', jobId).single();
+        } = await supabase.from('sunsky_import_jobs').select('*').eq('id' as any, jobId).single();
         if (error || !job) {
           clearInterval(pollInterval);
           return;
         }
 
         // Update progress
-        const progress = job.total_items > 0 ? Math.floor(job.processed_items / job.total_items * 100) : 0;
+        const progress = (job as any).total_items > 0 ? Math.floor((job as any).processed_items / (job as any).total_items * 100) : 0;
         setPOSearchProgress(progress);
 
         // Update stats
         setPOSearchStats(prev => ({
           ...prev,
-          searchedItems: job.processed_items,
-          matchedItems: job.success_count,
-          errorItems: job.error_count,
-          currentItem: job.status === 'completed' ? 'Completed!' : job.status === 'error' ? 'Failed!' : `Processing... (${job.processed_items}/${job.total_items})`
+          searchedItems: (job as any).processed_items,
+          matchedItems: (job as any).success_count,
+          errorItems: (job as any).error_count,
+          currentItem: (job as any).status === 'completed' ? 'Completed!' : (job as any).status === 'error' ? 'Failed!' : `Processing... (${(job as any).processed_items}/${(job as any).total_items})`
         }));
 
         // Check if job is complete
-        if (job.status === 'completed' || job.status === 'error' || job.status === 'cancelled') {
+        if ((job as any).status === 'completed' || (job as any).status === 'error' || (job as any).status === 'cancelled') {
           clearInterval(pollInterval);
-          if (job.status === 'completed') {
+          if ((job as any).status === 'completed') {
             // Refresh data
             await fetchSKUs(1, false);
             await fetchJobs();
