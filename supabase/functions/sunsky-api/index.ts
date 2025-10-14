@@ -456,10 +456,8 @@ async function handleAddApiKey(userId: string, params: any, supabaseClient: any)
   };
 }
 
-async function handleDeleteApiKey(userId: string, params: any, supabaseClient: any) {
-  console.log('🗑️ Delete API Key:', params.apiId);
-  
-  const { apiId } = params;
+async function handleDeleteApiKey(userId: string, apiId: string, supabaseClient: any) {
+  console.log('🗑️ Delete API Key:', apiId);
   
   if (!apiId) {
     throw new Error('apiId is required');
@@ -485,10 +483,8 @@ async function handleDeleteApiKey(userId: string, params: any, supabaseClient: a
   };
 }
 
-async function handleToggleApiKey(userId: string, params: any, supabaseClient: any) {
-  console.log('🔄 Toggle API Key:', params.apiId, 'active:', params.isActive);
-  
-  const { apiId, isActive } = params;
+async function handleToggleApiKey(userId: string, apiId: string, isActive: boolean, supabaseClient: any) {
+  console.log('🔄 Toggle API Key:', apiId, 'active:', isActive);
   
   if (!apiId || isActive === undefined) {
     throw new Error('apiId and isActive are required');
@@ -605,11 +601,11 @@ serve(async (req: Request) => {
         break;
       
       case 'deleteApiKey':
-        result = await handleDeleteApiKey(user.id, params, supabaseClient);
+        result = await handleDeleteApiKey(user.id, apiId, supabaseClient);
         break;
       
       case 'toggleApiKeyActive':
-        result = await handleToggleApiKey(user.id, params, supabaseClient);
+        result = await handleToggleApiKey(user.id, apiId, params.isActive, supabaseClient);
         break;
       
       case 'listApiKeys':
