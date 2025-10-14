@@ -26,7 +26,7 @@ export function useUserPagePermissions(userId?: string) {
       const { data, error } = await supabase
         .from('user_page_permissions')
         .select('*')
-        .eq('user_id' as any, userId as any);
+        .eq('user_id', userId);
 
       if (error) throw error;
       setPermissions((data || []) as any);
@@ -54,7 +54,7 @@ export function useUserPagePermissions(userId?: string) {
       await supabase
         .from('user_page_permissions')
         .delete()
-        .eq('user_id' as any, userId as any);
+        .eq('user_id', userId);
 
       // Insert new permissions
       if (pageRoutes.length > 0) {

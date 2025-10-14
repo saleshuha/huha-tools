@@ -43,8 +43,8 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
       const { data, error } = await supabase
         .from('stock_changes')
         .select('*')
-        .eq('inventory_id' as any, inventoryId as any)
-        .eq('inventory_type' as any, inventoryType as any)
+        .eq('inventory_id', inventoryId)
+        .eq('inventory_type', inventoryType)
         .order('created_at', { ascending: false });
 
       if (error) throw error;

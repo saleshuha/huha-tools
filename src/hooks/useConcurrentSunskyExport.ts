@@ -362,7 +362,7 @@ export const useConcurrentSunskyExport = () => {
                   lastUpdate: new Date().toISOString()
                 }
               } as any)
-              .eq('id' as any, backgroundTaskId as any);
+              .eq('id', backgroundTaskId);
           } catch (error) {
             console.error('Failed to update background task:', error);
           }
@@ -523,33 +523,10 @@ export const useConcurrentSunskyExport = () => {
               status: 'completed',
               completed_at: new Date().toISOString(),
               metadata: {
-                background: true,
-                totalProducts: allProducts.length,
-                categoriesCount: categoriesMap.size,
-                concurrent: true,
-                unlimited: true,
-                downloadableResults: {
-                  products: allProducts,
-                  totalFound: allProducts.length,
-                  categories: Array.from(categoriesMap.entries()).map(([id, cat]) => ({
-                    id,
-                    name: cat.name,
-                    count: cat.products.length
-                  })),
-                  filters: {
-                    status: config.status,
-                    categoryId: config.categoryId,
-                    categoryName: categoriesMap.has(config.categoryId || 0) ? categoriesMap.get(config.categoryId || 0)?.name : 'All Categories'
-                  },
-                  columns: config.columns
-                },
-                fileName,
-                fileSize: blob.size,
-                downloadReady: true,
-                generatedAt: new Date().toISOString()
-              }
+...
+              } 
             } as any)
-            .eq('id' as any, backgroundTaskId as any);
+            .eq('id', backgroundTaskId);
 
           console.log('✅ Background export completed successfully:', {
             taskId: backgroundTaskId,

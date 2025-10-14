@@ -90,7 +90,7 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
         const { data, error } = await supabase
           .from('background_tasks')
           .select('*')
-          .eq('user_id' as any, user.id as any)
+          .eq('user_id', user.id)
           .or(`status.in.(processing,pending),and(status.in.(completed,error,cancelled),created_at.gte.${oneDayAgo.toISOString()})`)
           .order('created_at', { ascending: false })
           .limit(20);
@@ -173,7 +173,7 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
         await supabase
           .from('background_tasks')
           .update(updateData)
-          .eq('id' as any, id as any);
+          .eq('id', id);
       } catch (error) {
         console.error('Failed to update task in database:', error);
       }

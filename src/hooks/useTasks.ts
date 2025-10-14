@@ -29,7 +29,7 @@ export function useTasks() {
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
-        .eq('country' as any, selectedCountry as any)
+        .eq('country', selectedCountry)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -107,7 +107,7 @@ export function useTasks() {
       const { data, error } = await supabase
         .from('tasks')
         .update(updates as any)
-        .eq('id' as any, id as any)
+        .eq('id', id)
         .select()
         .single();
 
@@ -139,7 +139,7 @@ export function useTasks() {
       const { error } = await supabase
         .from('tasks')
         .delete()
-        .eq('id' as any, id as any);
+        .eq('id', id);
 
       if (error) {
         console.error('Error deleting task:', error);

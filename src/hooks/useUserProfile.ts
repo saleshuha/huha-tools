@@ -35,7 +35,7 @@ export function useUserProfile() {
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id' as any, userId as any)
+          .eq('id', userId)
           .abortSignal(controller.signal)
           .maybeSingle();
 
