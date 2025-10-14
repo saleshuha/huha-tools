@@ -178,11 +178,15 @@ async function callSunskyAPI(
     const data = JSON.parse(responseText);
     
     if (data.result === 'error') {
-      throw new Error(data.messages?.join(', ') || 'Sunsky API error');
+      throw new Error(data.messages?.join(', ') || data.message || 'Sunsky API error');
     }
     
     return data;
   } catch (e) {
+    // If it's already our custom error, rethrow it
+    if (e instanceof Error && e.message !== 'Unexpected token') {
+      throw e;
+    }
     console.error('❌ Failed to parse response:', responseText.substring(0, 500));
     throw new Error(`Invalid JSON response from Sunsky: ${e.message}`);
   }
@@ -610,6 +614,11 @@ serve(async (req: Request) => {
       
       case 'listApiKeys':
         result = await handleListApiKeys(user.id, supabaseClient);
+        break;
+      
+      // Handle ping/connection test
+      case 'ping':
+        result = { result: 'success', message: 'Edge function is running' };
         break;
       
       // All other actions need Sunsky credentials
