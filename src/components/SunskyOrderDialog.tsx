@@ -288,10 +288,10 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
     if (!confirmed) return;
 
     try {
-      const { error } = await supabase
+      const { error } = await ((supabase as any)
         .from('saved_delivery_addresses')
         .delete()
-        .eq('id' as any, addressId as any);
+        .eq('id', addressId));
 
       if (error) throw error;
 

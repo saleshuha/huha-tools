@@ -107,12 +107,12 @@ export const usePOOrders = () => {
       let hasMore = true;
       
       while (hasMore) {
-        const { data: batch, error: batchError } = await supabase
+        const { data: batch, error: batchError } = await ((supabase as any)
           .from('po_orders')
           .select('*')
-          .eq('user_id' as any, user.id as any)
+          .eq('user_id', user.id)
           .order('created_at', { ascending: false })
-          .order('id', { ascending: false })  // Secondary sort ensures consistent ordering
+          .order('id', { ascending: false }))  // Secondary sort ensures consistent ordering
           .range(from, from + batchSize - 1);
         
         if (batchError) {
@@ -152,10 +152,10 @@ export const usePOOrders = () => {
       setLoadingProgress(60);
       
       // Fetch all sunsky_skus with full data for matching
-      const { data: sunskySkus, error: skuError } = await supabase
+      const { data: sunskySkus, error: skuError } = await ((supabase as any)
         .from('sunsky_skus')
         .select('*')
-        .eq('user_id' as any, user.id as any);
+        .eq('user_id', user.id));
 
       if (skuError) {
         console.warn('⚠️ Failed to fetch sunsky_skus:', skuError);
@@ -251,10 +251,10 @@ export const usePOOrders = () => {
       setLoadingStatus('Loading existing PO data for update comparison...');
 
       // Fetch ALL existing PO data for comparison and updates
-      const { data: existingOrders, error: fetchError } = await supabase
+      const { data: existingOrders, error: fetchError } = await ((supabase as any)
         .from('po_orders')
         .select('*')
-        .eq('user_id' as any, user.id as any);
+        .eq('user_id', user.id));
 
       if (fetchError) {
         throw new Error(`Failed to fetch existing orders: ${fetchError.message}`);
@@ -591,13 +591,13 @@ export const usePOOrders = () => {
   // Update order status
   const updateOrderStatus = useCallback(async (orderId: string, status: POOrder['status']) => {
     try {
-      const { error } = await supabase
+      const { error } = await ((supabase as any)
         .from('po_orders')
         .update({ 
           status,
           order_date: status === 'placed' ? new Date().toISOString() : undefined
-        } as any)
-        .eq('id' as any, orderId as any);
+        })
+        .eq('id', orderId));
 
       if (error) throw error;
 
@@ -619,10 +619,10 @@ export const usePOOrders = () => {
   // Update tracking information
   const updateTrackingInfo = useCallback(async (orderId: string, trackingData: { supplier_order_number?: string; tracking_number?: string; tracking_url?: string }) => {
     try {
-      const { error } = await supabase
+      const { error } = await ((supabase as any)
         .from('po_orders')
-        .update(trackingData as any)
-        .eq('id' as any, orderId as any);
+        .update(trackingData)
+        .eq('id', orderId));
 
       if (error) throw error;
 
@@ -661,12 +661,12 @@ export const usePOOrders = () => {
         
         console.log(`📄 Fetching page ${page + 1} (rows ${startRange}-${endRange})...`);
         
-        const { data: pageData, error, count } = await supabase
+        const { data: pageData, error, count } = await ((supabase as any)
           .from('po_orders')
           .select('*', { count: 'exact' })
-          .eq('user_id' as any, user.id as any)
+          .eq('user_id', user.id)
           .range(startRange, endRange)
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false }));
 
         if (error) throw error;
 
@@ -725,10 +725,10 @@ export const usePOOrders = () => {
       const uniqueModelNumbers = [...new Set(allModelNumbers)];
       
       // Get existing SKUs for reference only (not for filtering)
-      const { data: existingSKUs, error: skusError } = await supabase
+      const { data: existingSKUs, error: skusError } = await ((supabase as any)
         .from('sunsky_skus')
         .select('sku_code')
-        .eq('user_id' as any, user.id as any);
+        .eq('user_id', user.id));
 
       const existingSKUCodes = new Set(((existingSKUs || []) as any).map((sku: any) => sku.sku_code));
       const alreadyImportedCount = uniqueModelNumbers.filter(modelNumber => 
@@ -793,11 +793,11 @@ export const usePOOrders = () => {
           
           console.log(`🗑️ Batch ${i + 1}/${totalBatches}: Deleting ${batch.length} orders...`);
           
-          const { error } = await supabase
+          const { error } = await ((supabase as any)
             .from('po_orders')
             .delete()
-            .eq('user_id' as any, user.id as any)
-            .in('id' as any, batch as any);
+            .eq('user_id', user.id)
+            .in('id', batch));
 
           if (error) {
             console.error(`❌ Delete error in batch ${i + 1}:`, error);

@@ -36,10 +36,10 @@ export function useAsinInventory() {
     try {
       setLoading(true);
       // First get count to check if we need pagination
-      const { count, error: countError } = await supabase
+      const { count, error: countError } = await ((supabase as any)
         .from('asin_inventory')
         .select('*', { count: 'exact', head: true })
-        .eq('country' as any, selectedCountry as any);
+        .eq('country', selectedCountry));
 
       console.log(`📊 Total records in database: ${count}`);
 
@@ -129,11 +129,11 @@ export function useAsinInventory() {
       if (!user || !selectedCountry) throw new Error('User not authenticated or no country');
 
       // Check for duplicate serial numbers across all ASINs
-      const { data: existingItems, error: checkError } = await supabase
+      const { data: existingItems, error: checkError } = await ((supabase as any)
         .from('asin_inventory')
         .select('serial_number, asin')
-        .eq('user_id' as any, user.id as any)
-        .eq('serial_number' as any, item.serialNumber as any);
+        .eq('user_id', user.id)
+        .eq('serial_number', item.serialNumber));
 
       if (checkError) throw checkError;
 
@@ -203,10 +203,10 @@ export function useAsinInventory() {
         updateData.date_sold = new Date().toISOString();
       }
 
-      const { error } = await supabase
+      const { error } = await ((supabase as any)
         .from('asin_inventory')
-        .update(updateData as any)
-        .eq('id' as any, id as any);
+        .update(updateData)
+        .eq('id', id));
 
       if (error) throw error;
 
@@ -227,10 +227,10 @@ export function useAsinInventory() {
   // Delete item
   const deleteItem = async (id: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await ((supabase as any)
         .from('asin_inventory')
         .delete()
-        .eq('id' as any, id as any);
+        .eq('id', id));
 
       if (error) throw error;
 
@@ -327,10 +327,10 @@ export function useAsinInventory() {
         updateData.status = 'in-stock';
       }
 
-      const { error } = await supabase
+      const { error } = await ((supabase as any)
         .from('asin_inventory')
-        .update(updateData as any)
-        .eq('id' as any, id as any);
+        .update(updateData)
+        .eq('id', id));
 
       if (error) throw error;
 

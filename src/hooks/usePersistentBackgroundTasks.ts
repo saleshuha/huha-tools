@@ -26,12 +26,12 @@ export function usePersistentBackgroundTasks() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase
+      const { data, error } = await ((supabase as any)
         .from('background_tasks')
         .select('*')
-        .eq('user_id' as any, user.id as any)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(20));
 
       if (error) throw error;
       
@@ -57,13 +57,13 @@ export function usePersistentBackgroundTasks() {
 
   const cancelTask = async (taskId: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await ((supabase as any)
         .from('background_tasks')
         .update({ 
           status: 'cancelled',
           completed_at: new Date().toISOString()
-        } as any)
-        .eq('id' as any, taskId as any);
+        })
+        .eq('id', taskId));
 
       if (error) throw error;
 
@@ -90,10 +90,10 @@ export function usePersistentBackgroundTasks() {
 
   const deleteTask = async (taskId: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await ((supabase as any)
         .from('background_tasks')
         .delete()
-        .eq('id' as any, taskId as any);
+        .eq('id', taskId));
 
       if (error) throw error;
 

@@ -289,9 +289,9 @@ export function Replenishment() {
       const {
         data,
         error
-      } = await supabase.from('non_source_items').select('*').eq('country' as any, selectedCountry as any).order('marked_at', {
+      } = await ((supabase as any).from('non_source_items').select('*').eq('country', selectedCountry).order('marked_at', {
         ascending: false
-      });
+      }));
       if (error) throw error;
       const nonSourceItemsData = ((data as any) || []).map((item: any) => ({
         id: item.id,
@@ -320,9 +320,9 @@ export function Replenishment() {
       // Get ASIN inventory items that are eligible for restock (excluding non-source items)
       const {
         data: nonSourceData
-      } = await supabase.from('non_source_items').select('asin, serial_number').eq('country' as any, selectedCountry as any);
+      } = await ((supabase as any).from('non_source_items').select('asin, serial_number').eq('country', selectedCountry));
       const nonSourceIdentifiers = new Set(((nonSourceData as any) || []).map((item: any) => `${item.asin}-${item.serial_number}`));
-      const asinQuery = supabase.from('asin_inventory').select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added, eligible_for_restock').eq('country' as any, selectedCountry as any).eq('eligible_for_restock' as any, true as any).eq('quantity' as any, 0 as any).neq('status' as any, 'no-stock' as any).neq('status' as any, 'ordered' as any);
+      const asinQuery = (supabase as any).from('asin_inventory').select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added, eligible_for_restock').eq('country', selectedCountry).eq('eligible_for_restock', true).eq('quantity', 0).neq('status', 'no-stock').neq('status', 'ordered');
       const [asinResult] = await Promise.all([asinQuery]);
       if (asinResult.error) throw asinResult.error;
 
@@ -330,9 +330,9 @@ export function Replenishment() {
       const inventoryIds = ((asinResult.data as any) || []).map((item: any) => item.id);
       const {
         data: stockChanges
-      } = await supabase.from('stock_changes').select('inventory_id, created_at').in('inventory_id' as any, inventoryIds as any).lt('change_amount' as any, 0 as any).order('created_at', {
+      } = await ((supabase as any).from('stock_changes').select('inventory_id, created_at').in('inventory_id', inventoryIds).lt('change_amount', 0).order('created_at', {
         ascending: false
-      });
+      }));
 
       // Create a map of inventory_id to last sale date
       const lastSaleDates = new Map();
@@ -374,7 +374,7 @@ export function Replenishment() {
   const loadAllInventoryItems = async () => {
     try {
       console.log('Starting loadAllInventoryItems for country:', selectedCountry);
-      const [asinAll] = await Promise.all([supabase.from('asin_inventory').select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added, notes, eligible_for_restock').eq('country' as any, selectedCountry as any).eq('eligible_for_restock' as any, true as any).eq('quantity' as any, 0 as any).neq('status' as any, 'no-stock' as any)]);
+      const [asinAll] = await Promise.all([(supabase as any).from('asin_inventory').select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added, notes, eligible_for_restock').eq('country', selectedCountry).eq('eligible_for_restock', true).eq('quantity', 0).neq('status', 'no-stock')]);
 
       // Get non-source items to exclude them
       const {

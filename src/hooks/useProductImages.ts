@@ -155,12 +155,12 @@ export const useProductImages = () => {
         if (error.code === '23505' && error.message.includes('unique_user_asin')) {
           console.log(`🖼️ Duplicate detected during insert for ASIN ${asin}, fetching existing image`);
           // Fetch the existing image that caused the conflict
-          const { data: conflictImage } = await (supabase
+          const { data: conflictImage } = await ((supabase as any)
             .from('product_images')
             .select('*')
-            .eq('user_id' as any, user.id as any)
-            .eq('asin' as any, asin.trim() as any)
-            .single() as any);
+            .eq('user_id', user.id)
+            .eq('asin', asin.trim())
+            .single());
           return { ...(conflictImage as any), wasExisting: true };
         }
         throw error;
@@ -228,10 +228,10 @@ export const useProductImages = () => {
   // Delete product image
   const deleteProductImage = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { error } = await ((supabase as any)
         .from('product_images')
         .delete()
-        .eq('id' as any, id as any);
+        .eq('id', id));
       
       if (error) throw error;
     },

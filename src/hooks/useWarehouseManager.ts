@@ -99,19 +99,19 @@ export function useWarehouseManager() {
   // Update warehouse
   const updateWarehouse = async (id: string, updates: Partial<Omit<Warehouse, 'id'>>) => {
     try {
-      const { error } = await supabase
+      const { error } = await ((supabase as any)
         .from('warehouses')
-        .update(updates as any)
-        .eq('id' as any, id as any);
+        .update(updates)
+        .eq('id', id));
 
       if (error) throw error;
 
       // If this is set as default, unset other defaults
       if (updates.is_default) {
-        await supabase
+        await ((supabase as any)
           .from('warehouses')
-          .update({ is_default: false } as any)
-          .neq('id' as any, id as any);
+          .update({ is_default: false })
+          .neq('id', id));
       }
 
       await loadWarehouses();
@@ -133,10 +133,10 @@ export function useWarehouseManager() {
   // Delete warehouse
   const deleteWarehouse = async (id: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await ((supabase as any)
         .from('warehouses')
-        .update({ is_active: false } as any)
-        .eq('id' as any, id as any);
+        .update({ is_active: false })
+        .eq('id', id));
 
       if (error) throw error;
 

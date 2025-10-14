@@ -32,11 +32,11 @@ export function useSkuInventory() {
     
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      const { data, error } = await ((supabase as any)
         .from('sku_inventory')
         .select('*')
-        .eq('country' as any, selectedCountry as any)
-        .order('date_added', { ascending: false });
+        .eq('country', selectedCountry)
+        .order('date_added', { ascending: false }));
 
       if (error) throw error;
 
@@ -132,10 +132,10 @@ export function useSkuInventory() {
         updateData.date_sold = new Date().toISOString();
       }
 
-      const { error } = await supabase
+      const { error } = await ((supabase as any)
         .from('sku_inventory')
         .update(updateData)
-        .eq('id' as any, id as any);
+        .eq('id', id));
 
       if (error) throw error;
 
@@ -156,10 +156,10 @@ export function useSkuInventory() {
   // Delete item
   const deleteItem = async (id: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await ((supabase as any)
         .from('sku_inventory')
         .delete()
-        .eq('id' as any, id as any);
+        .eq('id', id));
 
       if (error) throw error;
 
@@ -198,10 +198,10 @@ export function useSkuInventory() {
         updateData.status = 'in-stock';
       }
 
-      const { error } = await supabase
+      const { error } = await ((supabase as any)
         .from('sku_inventory')
         .update(updateData)
-        .eq('id' as any, id as any);
+        .eq('id', id));
 
       if (error) throw error;
 
@@ -245,10 +245,10 @@ export function useSkuInventory() {
       const changeAmount = newQuantity - previousQuantity;
 
       // Update the inventory quantity (triggers will handle status automatically)
-      const { error: updateError } = await supabase
+      const { error: updateError } = await ((supabase as any)
         .from('sku_inventory')
-        .update({ quantity: newQuantity } as any)
-        .eq('id' as any, id as any);
+        .update({ quantity: newQuantity })
+        .eq('id', id));
 
       if (updateError) throw updateError;
 
@@ -355,10 +355,10 @@ export function useSkuInventory() {
   // Update bin location
   const updateBinLocation = async (id: string, newBinSerial: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await ((supabase as any)
         .from('sku_inventory')
-        .update({ bin_serial_number: newBinSerial } as any)
-        .eq('id' as any, id as any);
+        .update({ bin_serial_number: newBinSerial })
+        .eq('id', id));
 
       if (error) throw error;
 
