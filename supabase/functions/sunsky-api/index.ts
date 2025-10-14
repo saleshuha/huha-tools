@@ -3456,7 +3456,7 @@ serve(async (req) => {
     }
 
   } catch (error: any) {
-    // Inner error handler - catches errors from the main logic
+    // Error handler - catches errors from the main logic
     console.error(`[${requestId}] 🔥 Error processing request:`, error);
     
     return new Response(JSON.stringify({
@@ -3467,36 +3467,5 @@ serve(async (req) => {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
-  }
-
-  } catch (topLevelError) {
-    // Top-level error boundary - catches ANY error that wasn't caught by inner try-catch
-    console.error('🔥 TOP-LEVEL ERROR BOUNDARY TRIGGERED:', topLevelError);
-    console.error('🔥 This error occurred before/outside the main error handler');
-    console.error('🔥 Full error details:', {
-      name: topLevelError?.constructor?.name,
-      message: topLevelError?.message,
-      stack: topLevelError?.stack,
-      type: typeof topLevelError,
-      stringified: String(topLevelError)
-    });
-    
-    // Use corsResponse wrapper to guarantee CORS headers with safe error handling
-    try {
-      return corsResponse({
-        result: 'error', 
-        message: 'Critical system error: ' + (topLevelError?.message || 'Unknown error'),
-        errorType: topLevelError?.constructor?.name || 'CriticalError',
-        category: 'top_level_boundary',
-        timestamp: new Date().toISOString()
-      }, { status: 500 });
-    } catch (responseError) {
-      // Absolute last resort fallback if corsResponse fails
-      console.error('🔥 FAILED TO CREATE ERROR RESPONSE:', responseError);
-      return new Response(JSON.stringify({ result: 'error', message: 'System failure' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
   }
 });
