@@ -42,9 +42,9 @@ export const usePOAsinImages = () => {
       const { data: poOrders, error } = await supabase
         .from('po_orders')
         .select('id, asin, title, po_number, quantity, status')
-        .eq('user_id' as any, user.id as any)
+        .eq('user_id', user.id)
         .not('asin', 'is', null)
-        .neq('asin' as any, '' as any)
+        .neq('asin', '')
         .order('created_at', { ascending: false });
 
       if (error) throw error;

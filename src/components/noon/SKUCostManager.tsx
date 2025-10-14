@@ -50,9 +50,9 @@ export function SKUCostManager({ feesData, onCostsUpdated }: SKUCostManagerProps
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('sku_costs' as any)
+        .from('sku_costs')
         .select('*')
-        .eq('country' as any, selectedCountry as any);
+        .eq('country', selectedCountry);
 
       if (error) throw error;
 
@@ -156,13 +156,13 @@ export function SKUCostManager({ feesData, onCostsUpdated }: SKUCostManagerProps
       if (existingCost?.id) {
         // Update existing cost
         const { error } = await supabase
-          .from('sku_costs' as any)
+          .from('sku_costs')
           .update({
             cost,
             notes: editingNotes.trim() || null,
             updated_at: new Date().toISOString()
-          } as any)
-          .eq('id' as any, existingCost.id as any);
+          })
+          .eq('id', existingCost.id);
 
         if (error) throw error;
       } else {
@@ -272,13 +272,13 @@ export function SKUCostManager({ feesData, onCostsUpdated }: SKUCostManagerProps
             if (updateData.length > 0) {
               for (const update of updateData) {
                 const { error: updateError } = await supabase
-                  .from('sku_costs' as any)
+                  .from('sku_costs')
                   .update({
                     cost: update.cost,
                     notes: update.notes,
                     updated_at: update.updated_at
-                  } as any)
-                  .eq('id' as any, update.id as any);
+                  })
+                  .eq('id', update.id);
                 if (updateError) throw updateError;
               }
             }

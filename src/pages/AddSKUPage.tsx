@@ -76,7 +76,7 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
       const { data, error } = await supabase
         .from('sunsky_skus')
         .select('sku_code, country')
-        .eq('country' as any, selectedCountry as any);
+        .eq('country', selectedCountry);
       
       if (error) {
         console.error('Error loading existing SKUs:', error);

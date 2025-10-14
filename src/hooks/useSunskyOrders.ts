@@ -95,7 +95,7 @@ export const useSunskyOrders = () => {
       const { count: totalCountResult, error: countError } = await supabase
         .from('sunsky_orders')
         .select('id', { count: 'exact', head: true })
-        .eq('user_id' as any, (await supabase.auth.getUser()).data.user?.id as any);
+        .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
 
       if (countError) {
         console.error('❌ Error getting count:', countError);
@@ -148,7 +148,7 @@ export const useSunskyOrders = () => {
               created_at
             )
           `)
-          .eq('user_id' as any, (await supabase.auth.getUser()).data.user?.id as any)
+          .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
           .order('gmt_created', { ascending: false })
           .order('created_at', { ascending: false })
           .range(currentOffset, currentOffset + batchSize - 1)

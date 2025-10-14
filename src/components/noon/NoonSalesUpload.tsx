@@ -66,9 +66,9 @@ export function NoonSalesUpload({ onDataUploaded }: NoonSalesUploadProps) {
       const { data, error } = await supabase
         .from('stores')
         .select('id, name')
-        .eq('country' as any, selectedCountry as any)
-        .eq('platform' as any, 'noon' as any)
-        .eq('is_active' as any, true as any)
+        .eq('country', selectedCountry)
+        .eq('platform', 'noon')
+        .eq('is_active', true)
         .order('name');
       
       if (error) throw error;
@@ -145,13 +145,13 @@ export function NoonSalesUpload({ onDataUploaded }: NoonSalesUploadProps) {
     const { data: stores } = await supabase
       .from('stores')
       .select('id')
-      .eq('platform' as any, 'noon' as any)
-      .eq('country' as any, selectedCountry as any)
-      .eq('user_id' as any, user.id as any)
-      .eq('is_active' as any, true as any)
+      .eq('platform', 'noon')
+      .eq('country', selectedCountry)
+      .eq('user_id', user.id)
+      .eq('is_active', true)
       .limit(1);
 
-    const storeId = (stores as any)?.[0]?.id || null;
+    const storeId = stores?.[0]?.id || null;
 
     const batchSize = 100;
     const batches = [];

@@ -32,7 +32,7 @@ export const useExportHistory = () => {
       const { data, error } = await supabase
         .from('export_history')
         .select('*')
-        .eq('user_id' as any, user.id as any)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(MAX_HISTORY_ENTRIES);
 
@@ -124,8 +124,8 @@ export const useExportHistory = () => {
           file_size: updates.file_size,
           status: updates.status,
           error_message: updates.error_message
-        } as any)
-        .eq('id' as any, id as any);
+        })
+        .eq('id', id);
 
       if (error) throw error;
 
@@ -215,7 +215,7 @@ export const useExportHistory = () => {
       const { error } = await supabase
         .from('export_history')
         .delete()
-        .eq('id' as any, id as any);
+        .eq('id', id);
 
       if (error) throw error;
 

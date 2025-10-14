@@ -24,7 +24,7 @@ export const useAmazonReturns = (country: string) => {
         let query = supabase
           .from('amazon_returns_data')
           .select('*', { count: 'exact' })
-          .eq('country' as any, country as any)
+          .eq('country', country)
           .order('return_ratio', { ascending: false })
           .range(from, from + pageSize - 1);
 
@@ -98,7 +98,7 @@ export const useAmazonReturns = (country: string) => {
         const { data, error } = await supabase
           .from('amazon_returns_data')
           .select('*')
-          .eq('country' as any, country as any)
+          .eq('country', country)
           .range(from, from + pageSize - 1);
 
         if (error) throw error;
@@ -195,8 +195,8 @@ export const useAmazonReturns = (country: string) => {
     try {
       const { error } = await supabase
         .from('amazon_returns_data')
-        .update(updates as any)
-        .eq('id' as any, id as any);
+        .update(updates)
+        .eq('id', id);
 
       if (error) throw error;
 
@@ -221,7 +221,7 @@ export const useAmazonReturns = (country: string) => {
       const { error } = await supabase
         .from('amazon_returns_data')
         .delete()
-        .eq('id' as any, id as any);
+        .eq('id', id);
 
       if (error) throw error;
 
@@ -246,7 +246,7 @@ export const useAmazonReturns = (country: string) => {
       const { error } = await supabase
         .from('amazon_returns_data')
         .delete()
-        .in('id' as any, ids as any);
+        .in('id', ids);
 
       if (error) throw error;
 

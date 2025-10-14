@@ -38,7 +38,7 @@ export function useInventoryAsinImages() {
         .from('asin_inventory')
         .select('asin, title, quantity, status')
         .not('asin', 'is', null)
-        .neq('asin' as any, '' as any);
+        .neq('asin', '');
 
       if (error) throw error;
 

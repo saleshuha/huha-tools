@@ -51,8 +51,8 @@ export function NoonFeesUpload({ onDataUploaded }: NoonFeesUploadProps) {
         const { data, error } = await supabase
           .from('stores')
           .select('id, name')
-          .eq('country' as any, selectedCountry as any)
-          .eq('platform' as any, 'noon' as any)
+          .eq('country', selectedCountry)
+          .eq('platform', 'noon')
           .order('name');
         
         if (error) throw error;

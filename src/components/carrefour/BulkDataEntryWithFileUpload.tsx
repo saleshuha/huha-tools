@@ -242,7 +242,7 @@ ORD003,200.00,20.00,100.00,Delivered,Received`;
       const { data: storeData } = await supabase
         .from("stores")
         .select("country")
-        .eq("id" as any, storeId as any)
+        .eq("id", storeId)
         .single();
 
       const mappedData = getMappedData();

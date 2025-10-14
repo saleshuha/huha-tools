@@ -109,7 +109,7 @@ export const useSKUManager = () => {
       const { count, error: countError } = await supabase
         .from('sunsky_skus')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id' as any, user.id as any);
+        .eq('user_id', user.id);
 
       if (countError) throw countError;
       setTotalCount(count || 0);

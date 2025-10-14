@@ -1619,20 +1619,22 @@ export const SunskySKUImporter: React.FC = () => {
       
       console.log('Search products API response:', result);
       if (result.result === 'success') {
-        setProducts(result.data?.products || []);
+        // Products are nested at data.products.result
+        const productsArray = result.data?.products?.result || [];
+        setProducts(productsArray);
         setCurrentPage(page);
-        setTotalPages(Math.ceil((result.data?.total || 0) / 20));
+        setTotalPages(Math.ceil((result.data?.products?.total || 0) / searchPageSize));
 
         // Extract all headers from first product and set them as selected
-        if (result.data?.products?.length > 0) {
-          const productKeys = Object.keys(result.data.products[0]);
+        if (productsArray.length > 0) {
+          const productKeys = Object.keys(productsArray[0]);
           setAvailableHeaders(productKeys);
           // Auto-select all available headers to show all columns
           setSelectedHeaders(productKeys);
         }
         toast({
           title: "Search Complete",
-          description: `Found ${result.data?.total || 0} products`
+          description: `Found ${result.data?.products?.total || 0} products`
         });
       } else {
         console.error('Search products failed:', result);
