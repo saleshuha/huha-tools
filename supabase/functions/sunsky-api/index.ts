@@ -3467,20 +3467,22 @@ serve(async (req) => {
       stringified: String(topLevelError)
     });
     
-    // Use corsResponse wrapper to guarantee CORS headers
-    return corsResponse({
-      result: 'error', 
-      message: 'Critical system error: ' + (topLevelError?.message || 'Unknown error'),
-      errorType: topLevelError?.constructor?.name || 'CriticalError',
-      category: 'top_level_boundary',
-      timestamp: new Date().toISOString()
-    }, { status: 500 });
-  } catch (outerError) {
-    // Absolute last resort - if even the error handler fails
-    console.error('🔥 OUTER ERROR BOUNDARY:', outerError);
-    return new Response(JSON.stringify({ result: 'error', message: 'System failure' }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    // Use corsResponse wrapper to guarantee CORS headers with safe error handling
+    try {
+      return corsResponse({
+        result: 'error', 
+        message: 'Critical system error: ' + (topLevelError?.message || 'Unknown error'),
+        errorType: topLevelError?.constructor?.name || 'CriticalError',
+        category: 'top_level_boundary',
+        timestamp: new Date().toISOString()
+      }, { status: 500 });
+    } catch (responseError) {
+      // Absolute last resort fallback if corsResponse fails
+      console.error('🔥 FAILED TO CREATE ERROR RESPONSE:', responseError);
+      return new Response(JSON.stringify({ result: 'error', message: 'System failure' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
   }
 });
