@@ -82,11 +82,7 @@ export function ReplenishmentItemCard({
           </div>
 
           <div className="flex flex-wrap gap-4 text-xs text-muted-foreground mb-3">
-            <div className="flex items-center gap-1">
-              <Package className="w-3 h-3" />
-              <span>Qty: {item.current_quantity}</span>
-            </div>
-            {item.total_sold_units !== undefined && item.total_sold_units > 0 && (
+            {item.total_sold_units !== undefined && (
               <div className="flex items-center gap-1">
                 <Package className="w-3 h-3" />
                 <span className="font-medium">Sold: {item.total_sold_units} units</span>

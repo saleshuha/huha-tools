@@ -415,6 +415,21 @@ export function Replenishment() {
       // Separate items based on eligibility for restocking
       const allEligibleItems = allInventoryItems.filter(item => item.status !== 'ordered' && item.status !== 'no-stock');
 
+      // Get stock changes for all items to calculate total sold units
+      const allItemIds = allEligibleItems.map(item => item.id);
+      const { data: stockChanges } = await (supabase as any)
+        .from('stock_changes')
+        .select('inventory_id, change_amount')
+        .in('inventory_id', allItemIds)
+        .lt('change_amount', 0);
+
+      // Create map of total sold units per item
+      const totalSoldMap = new Map<string, number>();
+      (stockChanges || []).forEach((change: any) => {
+        const current = totalSoldMap.get(change.inventory_id) || 0;
+        totalSoldMap.set(change.inventory_id, current + Math.abs(change.change_amount));
+      });
+
       // Separate eligible items into those that can be ordered and those that cannot
       const restockNeeded = allEligibleItems.filter(item => {
         // Check if item has valid SKU for ordering
@@ -432,7 +447,7 @@ export function Replenishment() {
         last_restock_date: item.last_order_date,
         days_since_last_restock: item.days_since_ordered,
         date_added: item.date_added,
-        total_sold_units: 0 // Will be calculated if needed
+        total_sold_units: totalSoldMap.get(item.id) || 0
       }));
 
       // Items that are eligible but cannot be ordered (no valid SKU)
@@ -451,7 +466,7 @@ export function Replenishment() {
         last_restock_date: item.last_order_date,
         days_since_last_restock: item.days_since_ordered,
         date_added: item.date_added,
-        total_sold_units: 0 // Will be calculated if needed
+        total_sold_units: totalSoldMap.get(item.id) || 0
       }));
       const orderedItemsData = allInventoryItems.filter(item => item.status === 'ordered').map(item => ({
         id: item.id,
@@ -463,7 +478,7 @@ export function Replenishment() {
         last_restock_date: item.last_order_date,
         days_since_last_restock: item.days_since_ordered,
         date_added: item.date_added,
-        total_sold_units: 0 // Will be calculated if needed
+        total_sold_units: totalSoldMap.get(item.id) || 0
       }));
       console.log('Setting allInventoryItems state with:', allInventoryItems.length, 'items');
       setAllInventoryItems(allInventoryItems);
