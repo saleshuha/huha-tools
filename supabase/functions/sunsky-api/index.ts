@@ -3303,17 +3303,5 @@ serve(async (req) => {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-  } catch (fatalError) {
-    // Last resort error handler
-    console.error('💥 CRITICAL UNHANDLED ERROR:', fatalError);
-    return new Response(JSON.stringify({ 
-      result: 'error', 
-      message: 'Critical server error',
-      details: String(fatalError),
-      timestamp: new Date().toISOString()
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
   }
 });
