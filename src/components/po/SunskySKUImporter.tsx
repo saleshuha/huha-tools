@@ -33,7 +33,6 @@ import { generateExcelFile } from "@/utils/excelExport";
 import { useBackgroundTasks } from "@/contexts/BackgroundTasksContext";
 import { useConcurrentSunskyExport } from "@/hooks/useConcurrentSunskyExport";
 import { usePersistentBackgroundTasks } from "@/hooks/usePersistentBackgroundTasks";
-import { ImageGalleryTab } from "./ImageGalleryTab";
 interface SunskyProduct {
   // Core product fields
   id: number;
@@ -1157,8 +1156,9 @@ export const SunskySKUImporter: React.FC = () => {
       });
     }
   };
+  const checkCredentialsStatus = checkStatus;
   const callSunskyAPI = async (action: string, data: any, apiId?: string) => {
-    console.log('🔵 Calling Sunsky API:', {
+    console.log('Calling Sunsky API:', {
       action,
       data,
       apiId,
@@ -1175,19 +1175,11 @@ export const SunskySKUImporter: React.FC = () => {
           apiId: apiId || selectedSearchAPI || selectedAPI // Use specified API or default search API
         }
       });
-      console.log('🟢 Sunsky API response:', {
+      console.log('Sunsky API response:', {
         response,
         error
       });
-      
-      if (error) {
-        console.error('🔴 Edge function returned error:', error);
-        // Check if this is an edge function connection error
-        if (error.message?.includes('Failed to fetch') || error.message?.includes('Failed to send') || error.message?.includes('NetworkError')) {
-          throw new Error('Edge function unavailable. The Sunsky API service is currently not reachable. Please try again later or contact support if the issue persists.');
-        }
-        throw error;
-      }
+      if (error) throw error;
 
       // Handle different response structures
       if (response && typeof response === 'object') {
@@ -1206,24 +1198,12 @@ export const SunskySKUImporter: React.FC = () => {
       }
       return response;
     } catch (error) {
-      console.error('🔴 Sunsky API error:', error);
-      
-      // Provide user-friendly error message
-      if (error instanceof Error && error.message.includes('Edge function unavailable')) {
-        toast({
-          title: "Service Unavailable",
-          description: "The Sunsky API service is currently not reachable. Your credentials are valid but the service cannot be accessed at this time.",
-          variant: "destructive",
-        });
-      }
-      
+      console.error('Sunsky API error:', error);
       throw error;
     }
   };
 
-  // Alias for backwards compatibility
-  const checkCredentialsStatus = checkStatus;
-
+  // Initialize parallel processor after all required functions are defined
   // Remove the parallel processor hook since we're using background processing
   // const { processModelNumbersInParallel } = useParallelPOProcessor({
   //   profile,
@@ -1403,22 +1383,11 @@ export const SunskySKUImporter: React.FC = () => {
       }
     } catch (error) {
       console.error('Error searching products:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to search products';
-      
-      // Provide specific error message based on error type
-      if (errorMessage.includes('Edge function unavailable')) {
-        toast({
-          title: "Service Unavailable",
-          description: "The Sunsky API service is currently unavailable. Please try again later.",
-          variant: "destructive"
-        });
-      } else {
-        toast({
-          title: "Search Failed",
-          description: errorMessage,
-          variant: "destructive"
-        });
-      }
+      toast({
+        title: "Error",
+        description: "Failed to search products",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -2088,7 +2057,7 @@ export const SunskySKUImporter: React.FC = () => {
           </Alert>}
 
         <Tabs defaultValue="search" className="w-full">
-          <TabsList className="grid w-full grid-cols-6 h-12 bg-muted/50 border-2 border-border/50 rounded-lg p-1">
+          <TabsList className="grid w-full grid-cols-5 h-12 bg-muted/50 border-2 border-border/50 rounded-lg p-1">
             <TabsTrigger value="search" className="h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200">
               <Search className="h-4 w-4 mr-2" />
               Search & Import
@@ -2100,10 +2069,6 @@ export const SunskySKUImporter: React.FC = () => {
             <TabsTrigger value="skus" className="h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200">
               <Database className="h-4 w-4 mr-2" />
               Imported SKUs
-            </TabsTrigger>
-            <TabsTrigger value="images" className="h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200">
-              <Eye className="h-4 w-4 mr-2" />
-              Image Gallery
             </TabsTrigger>
             <TabsTrigger value="export-status" className="h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200">
               <Download className="h-4 w-4 mr-2" />
@@ -3610,23 +3575,6 @@ export const SunskySKUImporter: React.FC = () => {
                     </div>
                   </CardContent>
                 </Card>}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="images" className="space-y-6">
-          <Card className="border-2 border-border/50 bg-card/50 backdrop-blur-sm shadow-lg">
-            <CardHeader className="bg-gradient-to-r from-primary/5 to-transparent border-b">
-              <CardTitle className="flex items-center gap-2">
-                <Eye className="h-5 w-5 text-primary" />
-                Image Gallery
-              </CardTitle>
-              <CardDescription>
-                Browse and download product images from Sunsky
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-6">
-              <ImageGalleryTab selectedAPI={selectedAPI} />
             </CardContent>
           </Card>
         </TabsContent>

@@ -3590,48 +3590,6 @@ export type Database = {
         }
         Relationships: []
       }
-      sunsky_product_images: {
-        Row: {
-          created_at: string
-          download_error: string | null
-          download_status: string
-          id: string
-          image_order: number
-          image_type: string
-          image_url: string
-          item_no: string
-          storage_path: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          download_error?: string | null
-          download_status?: string
-          id?: string
-          image_order?: number
-          image_type?: string
-          image_url: string
-          item_no: string
-          storage_path?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          download_error?: string | null
-          download_status?: string
-          id?: string
-          image_order?: number
-          image_type?: string
-          image_url?: string
-          item_no?: string
-          storage_path?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       sunsky_products: {
         Row: {
           barcode: string | null
@@ -3751,12 +3709,8 @@ export type Database = {
           currency: string | null
           description: string | null
           id: string
-          image_count: number | null
-          images_download_date: string | null
-          images_downloaded: boolean | null
           product_data: Json | null
           sku_code: string
-          thumbnail_url: string | null
           title: string | null
           updated_at: string
           user_id: string
@@ -3769,12 +3723,8 @@ export type Database = {
           currency?: string | null
           description?: string | null
           id?: string
-          image_count?: number | null
-          images_download_date?: string | null
-          images_downloaded?: boolean | null
           product_data?: Json | null
           sku_code: string
-          thumbnail_url?: string | null
           title?: string | null
           updated_at?: string
           user_id: string
@@ -3787,12 +3737,8 @@ export type Database = {
           currency?: string | null
           description?: string | null
           id?: string
-          image_count?: number | null
-          images_download_date?: string | null
-          images_downloaded?: boolean | null
           product_data?: Json | null
           sku_code?: string
-          thumbnail_url?: string | null
           title?: string | null
           updated_at?: string
           user_id?: string
