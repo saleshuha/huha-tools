@@ -160,10 +160,10 @@ export function useNoonOrders() {
                 .update({
                   ...order,
                   updated_at: new Date().toISOString()
-                } as any)
-                .eq('user_id' as any, user.id as any)
-                .eq('order_nr' as any, order.order_nr as any)
-                .eq('purchase_item_nr' as any, order.purchase_item_nr as any);
+                })
+                .eq('user_id', user.id)
+                .eq('order_nr', order.order_nr)
+                .eq('purchase_item_nr', order.purchase_item_nr);
 
               if (updateError) {
                 console.warn(`❌ Failed to update order ${order.order_nr}: ${updateError.message}`);
@@ -238,8 +238,8 @@ export function useNoonOrders() {
       
       const { data, error } = await supabase
         .from('noon_orders')
-        .update(updates as any)
-        .eq('id' as any, orderId as any)
+        .update(updates)
+        .eq('id', orderId)
         .select();
 
       if (error) {
@@ -439,7 +439,7 @@ export function useNoonOrders() {
     const { data: credentials } = await supabase
       .from('sunsky_credentials')
       .select('id')
-      .eq('is_active' as any, true as any)
+      .eq('is_active', true)
       .limit(1);
 
     if (!credentials || credentials.length === 0) {
@@ -523,7 +523,7 @@ export function useNoonOrders() {
   const getOrdersByStatus = (status: string) => state.orders.filter(order => (order.order_status || 'uploaded') === status);
   const findExceptions = () => state.orders.filter(order => order.order_status === 'exception' || !order.partner_sku || order.quantity <= 0 || order.sunsky_error_message);
   const batchUpdateOrders = async (orderIds: string[], updates: Partial<NoonOrder>) => {
-    const { error } = await supabase.from('noon_orders').update(updates as any).in('id' as any, orderIds as any);
+    const { error } = await supabase.from('noon_orders').update(updates).in('id', orderIds);
     if (error) throw error;
     setState(prev => ({ ...prev, orders: prev.orders.map(order => orderIds.includes(order.id) ? { ...order, ...updates } : order) }));
   };

@@ -23,11 +23,11 @@ export function useNoonOrderEvents(noonOrderId?: string) {
       const { data, error } = await supabase
         .from('noon_order_events')
         .select('*')
-        .eq('noon_order_id' as any, orderId as any)
+        .eq('noon_order_id', orderId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setEvents((data as any) || []);
+      setEvents(data || []);
     } catch (error) {
       console.error('Error fetching order events:', error);
       toast({

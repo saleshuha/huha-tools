@@ -71,7 +71,7 @@ export const useSKUManager = () => {
       const { count, error } = await supabase
         .from('sunsky_skus')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id' as any, user.id as any);
+        .eq('user_id', user.id);
 
       if (error) throw error;
       setTotalCount(count || 0);
@@ -138,7 +138,7 @@ export const useSKUManager = () => {
           created_at,
           updated_at
         `)
-        .eq('user_id' as any, user.id as any)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .range(from, to);
 
@@ -202,7 +202,7 @@ export const useSKUManager = () => {
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('country')
-        .eq('id' as any, user.id as any)
+        .eq('id', user.id)
         .single();
 
       if (profileError) throw new Error('Failed to get user profile');

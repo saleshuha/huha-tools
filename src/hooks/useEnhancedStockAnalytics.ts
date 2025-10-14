@@ -83,7 +83,7 @@ export function useEnhancedStockAnalytics() {
       const { data: itemData, error: itemError } = await supabase
         .from(tableName)
         .select('*')
-        .eq('id' as any, itemId as any)
+        .eq('id', itemId)
         .single();
 
       if (itemError) throw itemError;
@@ -92,8 +92,8 @@ export function useEnhancedStockAnalytics() {
       const { data: stockChanges, error: stockError } = await supabase
         .from('stock_changes')
         .select('*')
-        .eq('inventory_id' as any, itemId as any)
-        .eq('inventory_type' as any, inventoryType as any)
+        .eq('inventory_id', itemId)
+        .eq('inventory_type', inventoryType)
         .order('created_at', { ascending: true });
 
       if (stockError) throw stockError;
@@ -111,7 +111,7 @@ export function useEnhancedStockAnalytics() {
       let poQuery = supabase
         .from('po_orders')
         .select('*')
-        .eq(poField as any, itemIdentifier as any)
+        .eq(poField, itemIdentifier)
         .order('created_at', { ascending: true });
 
       const { data: poOrders } = await poQuery;
@@ -324,10 +324,10 @@ export function useEnhancedStockAnalytics() {
       let asinQuery = supabase
         .from('asin_inventory')
         .select('id')
-        .eq('eligible_for_restock' as any, true as any);
+        .eq('eligible_for_restock', true);
       
       if (selectedCountry) {
-        asinQuery = asinQuery.eq('country' as any, selectedCountry as any);
+        asinQuery = asinQuery.eq('country', selectedCountry);
       }
       
       const { data: asinItems } = await asinQuery;
@@ -338,7 +338,7 @@ export function useEnhancedStockAnalytics() {
         .select('id');
       
       if (selectedCountry) {
-        skuQuery = skuQuery.eq('country' as any, selectedCountry as any);
+        skuQuery = skuQuery.eq('country', selectedCountry);
       }
       
       const { data: skuItems } = await skuQuery;

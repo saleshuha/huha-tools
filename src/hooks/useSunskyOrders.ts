@@ -238,8 +238,8 @@ export const useSunskyOrders = () => {
         const { data: credentials, error: credError } = await supabase
           .from('sunsky_credentials')
           .select('id, name, is_active')
-          .eq('user_id' as any, user.id as any)
-          .eq('is_active' as any, true as any)
+          .eq('user_id', user.id)
+          .eq('is_active', true)
           .limit(1);
 
         if (credError) throw credError;
@@ -265,8 +265,8 @@ export const useSunskyOrders = () => {
       const { data: deliveredOrdersData, error: deliveredError } = await supabase
         .from('sunsky_orders')
         .select('number')
-        .eq('user_id' as any, user.id as any)
-        .in('status' as any, ['6', 'delivered'] as any); // Status 6 = delivered
+        .eq('user_id', user.id)
+        .in('status', ['6', 'delivered']); // Status 6 = delivered
 
       if (deliveredError) {
         console.warn('Failed to fetch delivered orders, continuing with full sync:', deliveredError);

@@ -52,8 +52,8 @@ export function BulkPOProcessor({ onProcessComplete }: BulkPOProcessorProps) {
         const { data: allOrders, error: fetchError } = await supabase
           .from('po_orders')
           .select('id, status, po_number')
-          .in('po_number' as any, poList as any)
-          .neq('status' as any, 'closed' as any);
+          .in('po_number', poList)
+          .neq('status', 'closed');
 
         if (fetchError) {
           console.error('Batch fetch error:', fetchError);
@@ -119,12 +119,12 @@ export function BulkPOProcessor({ onProcessComplete }: BulkPOProcessorProps) {
 
         // Batch close all found orders
         if (allOrders && allOrders.length > 0) {
-          const orderIds = (allOrders as any).map((order: any) => order.id);
+          const orderIds = allOrders.map(order => order.id);
           
           const { error: updateError } = await supabase
             .from('po_orders')
-            .update({ status: 'closed' } as any)
-            .in('id' as any, orderIds as any);
+            .update({ status: 'closed' })
+            .in('id', orderIds);
 
           if (updateError) {
             console.error('Batch update error:', updateError);

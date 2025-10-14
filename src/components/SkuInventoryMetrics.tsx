@@ -56,8 +56,8 @@ export function SkuInventoryMetrics() {
       setLoading(true);
       const {
         data: skuData
-      } = await supabase.from('sku_inventory').select('*').eq('country' as any, selectedCountry as any);
-      const allItems = ((skuData as any) || []);
+      } = await supabase.from('sku_inventory').select('*').eq('country', selectedCountry);
+      const allItems = skuData || [];
       const activeItems = allItems.length;
       const inStockItems = allItems.filter((item: any) => item.quantity > 0).length;
       const outOfStockItems = allItems.filter((item: any) => item.quantity === 0).length;
@@ -90,8 +90,8 @@ export function SkuInventoryMetrics() {
     try {
       const {
         data: skuData
-      } = await supabase.from('sku_inventory').select('*').eq('country' as any, selectedCountry as any);
-      let filteredItems = ((skuData as any) || []);
+      } = await supabase.from('sku_inventory').select('*').eq('country', selectedCountry);
+      let filteredItems = skuData || [];
 
       // Filter based on metric
       if (metric === 'instock') {

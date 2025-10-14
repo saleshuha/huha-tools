@@ -15,7 +15,7 @@ export const usePaymentTerms = () => {
         const { data, error } = await supabase
           .from('payment_terms')
           .select('*')
-          .eq('country' as any, selectedCountry as any)
+          .eq('country', selectedCountry)
           .single();
 
         if (error) {

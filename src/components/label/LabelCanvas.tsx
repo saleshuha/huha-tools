@@ -97,12 +97,12 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange, onCanva
         const { data, error } = await supabase
           .from('label_templates')
           .select('*')
-          .eq('id' as any, templateId as any)
+          .eq('id', templateId)
           .single();
 
         if (error) throw error;
 
-        const templateData = data as any;
+        const templateData = data;
         setTemplateData(templateData);
         setCanvasSize({ width: templateData.width, height: templateData.height });
         
@@ -328,8 +328,8 @@ export function LabelCanvas({ templateId, datasetId, onCanvasSizeChange, onCanva
           width: canvasSize.width,
           height: canvasSize.height,
           updated_at: new Date().toISOString()
-        } as any)
-        .eq('id' as any, templateId as any);
+        })
+        .eq('id', templateId);
 
       if (error) throw error;
 

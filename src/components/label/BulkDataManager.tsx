@@ -175,7 +175,7 @@ export function BulkDataManager({ onDatasetSelect, activeDataset }: BulkDataMana
       const { error } = await supabase
         .from('label_datasets')
         .delete()
-        .eq('id' as any, datasetId as any);
+        .eq('id', datasetId);
 
       if (error) throw error;
 

@@ -565,12 +565,12 @@ export const SunskySKUImporter: React.FC = () => {
       const {
         data,
         error
-      } = await supabase.from('noon_file_headers').select('headers').eq('user_id' as any, profile?.id as any).eq('file_type' as any, 'sunsky_sku_columns' as any).eq('store_name' as any, 'sunsky_importer' as any).limit(1);
+      } = await supabase.from('noon_file_headers').select('headers').eq('user_id', profile?.id).eq('file_type', 'sunsky_sku_columns').eq('store_name', 'sunsky_importer').limit(1);
       if (error) throw error;
 
       // Take the first result if any exist
-      if (data && data.length > 0 && (data[0] as any)?.headers) {
-        setSkuTableHeaders((data[0] as any).headers);
+      if (data && data.length > 0 && data[0]?.headers) {
+        setSkuTableHeaders(data[0].headers);
       }
     } catch (error) {
       console.error('Error loading preferences:', error);
@@ -584,7 +584,7 @@ export const SunskySKUImporter: React.FC = () => {
         error
       } = await supabase.from('sunsky_import_jobs').update({
         paused: true
-      } as any).eq('id' as any, jobId as any).eq('user_id' as any, profile?.id as any);
+      }).eq('id', jobId).eq('user_id', profile?.id);
       if (error) throw error;
       toast({
         title: "Success",
@@ -606,7 +606,7 @@ export const SunskySKUImporter: React.FC = () => {
         error
       } = await supabase.from('sunsky_import_jobs').update({
         paused: false
-      } as any).eq('id' as any, jobId as any).eq('user_id' as any, profile?.id as any);
+      }).eq('id', jobId).eq('user_id', profile?.id);
       if (error) throw error;
       toast({
         title: "Success",
@@ -629,7 +629,7 @@ export const SunskySKUImporter: React.FC = () => {
       } = await supabase.from('sunsky_import_jobs').update({
         cancelled: true,
         status: 'cancelled'
-      } as any).eq('id' as any, jobId as any).eq('user_id' as any, profile?.id as any);
+      }).eq('id', jobId).eq('user_id', profile?.id);
       if (error) throw error;
       toast({
         title: "Success",
@@ -651,7 +651,7 @@ export const SunskySKUImporter: React.FC = () => {
     try {
       const {
         error
-      } = await supabase.from('sunsky_skus').delete().eq('user_id' as any, profile?.id as any);
+      } = await supabase.from('sunsky_skus').delete().eq('user_id', profile?.id);
       if (error) throw error;
       toast({
         title: "Success",

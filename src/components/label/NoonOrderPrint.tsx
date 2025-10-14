@@ -167,7 +167,7 @@ export const NoonOrderPrint: React.FC = () => {
 
       // Apply status filter
       if (statusFilter !== 'all') {
-        query = query.eq('item_status' as any, statusFilter as any);
+        query = query.eq('item_status', statusFilter);
       }
 
       const { data, error } = await query;
