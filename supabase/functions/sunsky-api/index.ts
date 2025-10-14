@@ -11,14 +11,17 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Content-Type': 'application/json'
+  'Access-Control-Max-Age': '86400'
 };
 
 // Standardized CORS response helper
 function corsResponse(body: any, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: corsHeaders
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'application/json'
+    }
   });
 }
 
