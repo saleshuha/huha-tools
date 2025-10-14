@@ -87,7 +87,7 @@ export function InventoryAnalytics() {
   const generateSimplifiedForecast = async () => {
     try {
       // Get basic inventory data with simple calculations - limit to prevent slowness
-      const [asinData, skuData] = await Promise.all([supabase.from('asin_inventory').select('id, asin, serial_number, quantity, last_restock_date').eq('country', selectedCountry).gt('quantity', 0).limit(100000), supabase.from('sku_inventory').select('id, sku_number, bin_serial_number, quantity, last_restock_date').eq('country', selectedCountry).gt('quantity', 0).limit(100000)]);
+      const [asinData, skuData] = await Promise.all([supabase.from('asin_inventory').select('id, asin, serial_number, quantity, last_restock_date').eq('country', selectedCountry as any).gt('quantity', 0 as any).limit(100000), supabase.from('sku_inventory').select('id, sku_number, bin_serial_number, quantity, last_restock_date').eq('country', selectedCountry as any).gt('quantity', 0 as any).limit(100000)]);
       const forecasts: ReplenishmentForecast[] = [];
 
       // Simple forecast logic for ASINs

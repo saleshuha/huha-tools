@@ -49,7 +49,7 @@ export function LabelTemplateManager({ selectedItems, allItems, onPrint }: Label
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setTemplates(data || []);
+      setTemplates((data as any) || []);
     } catch (error) {
       console.error('Error loading templates:', error);
       toast.error("Failed to load templates");

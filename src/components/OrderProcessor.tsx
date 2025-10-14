@@ -263,8 +263,8 @@ export function OrderProcessor() {
     const { data: existingOrders } = await supabase
       .from('order_imports')
       .select('order_id')
-      .eq('user_id', user.id)
-      .in('order_id', orderIds);
+      .eq('user_id', user.id as any)
+      .in('order_id', orderIds as any);
 
     const existingOrderIds = new Set((existingOrders || []).map(o => o.order_id));
     

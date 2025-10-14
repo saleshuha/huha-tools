@@ -143,8 +143,8 @@ export function AsinInventory() {
         const { data, error } = await supabase
           .from('export_mode_preferences')
           .select('item_id, export_mode')
-          .eq('user_id', user.id)
-          .eq('item_type', 'asin_inventory');
+          .eq('user_id', user.id as any)
+          .eq('item_type', 'asin_inventory' as any);
 
         if (error) {
           console.error('❌ Failed to load export modes from database:', error);
@@ -152,9 +152,11 @@ export function AsinInventory() {
         }
 
         const modesMap: Record<string, 'global' | 'local'> = {};
-        data?.forEach(pref => {
-          modesMap[pref.item_id] = pref.export_mode as 'global' | 'local';
-        });
+        if (data && Array.isArray(data)) {
+          data.forEach((pref: any) => {
+            modesMap[pref.item_id] = pref.export_mode as 'global' | 'local';
+          });
+        }
 
         console.log('🔧 Loading export modes from database:', modesMap);
         setExportModes(modesMap);
@@ -176,11 +178,11 @@ export function AsinInventory() {
       const { error } = await supabase
         .from('export_mode_preferences')
         .upsert({
-          user_id: user.id,
-          item_id: itemId,
-          item_type: 'asin_inventory',
-          export_mode: mode
-        }, {
+          user_id: user.id as any,
+          item_id: itemId as any,
+          item_type: 'asin_inventory' as any,
+          export_mode: mode as any
+        } as any, {
           onConflict: 'user_id,item_id,item_type'
         });
 
@@ -904,7 +906,7 @@ export function AsinInventory() {
 
       // Load saved template
       const savedTemplate = localStorage.getItem('savedLabelTemplate');
-      if (savedTemplate && templates?.some(t => t.id === savedTemplate)) {
+      if (savedTemplate && templates && Array.isArray(templates) && templates.some((t: any) => t?.id === savedTemplate)) {
         setSelectedTemplate(savedTemplate);
       }
     } catch (error) {
@@ -958,23 +960,24 @@ export function AsinInventory() {
       const { data: template, error } = await supabase
         .from('label_templates')
         .select('*')
-        .eq('id', selectedTemplate)
-        .single();
+        .eq('id', selectedTemplate as any)
+        .maybeSingle();
 
       if (error) throw error;
+      if (!template) throw new Error('Template not found');
 
       // Create LabelDoc from template
       const labelDoc: LabelDoc = {
-        id: template.id,
-        name: template.name,
+        id: (template as any).id,
+        name: (template as any).name,
         size: {
-          width: template.width || 100,
-          height: template.height || 60,
+          width: (template as any).width || 100,
+          height: (template as any).height || 60,
           unit: 'mm'
         },
-        elements: (template.canvas_data as any)?.elements || [],
-        createdAt: template.created_at,
-        updatedAt: template.updated_at
+        elements: ((template as any).canvas_data as any)?.elements || [],
+        createdAt: (template as any).created_at,
+        updatedAt: (template as any).updated_at
       };
 
       // Create dataset with single item
@@ -1057,23 +1060,24 @@ export function AsinInventory() {
       const { data: template, error } = await supabase
         .from('label_templates')
         .select('*')
-        .eq('id', selectedTemplate)
-        .single();
+        .eq('id', selectedTemplate as any)
+        .maybeSingle();
 
       if (error) throw error;
+      if (!template) throw new Error('Template not found');
 
       // Create LabelDoc from template
       const labelDoc: LabelDoc = {
-        id: template.id,
-        name: template.name,
+        id: (template as any).id,
+        name: (template as any).name,
         size: {
-          width: template.width || 100,
-          height: template.height || 60,
+          width: (template as any).width || 100,
+          height: (template as any).height || 60,
           unit: 'mm'
         },
-        elements: (template.canvas_data as any)?.elements || [],
-        createdAt: template.created_at,
-        updatedAt: template.updated_at
+        elements: ((template as any).canvas_data as any)?.elements || [],
+        createdAt: (template as any).created_at,
+        updatedAt: (template as any).updated_at
       };
 
       // Create dataset with selected items
@@ -1810,8 +1814,8 @@ export function AsinInventory() {
                                     try {
                                       const { error } = await supabase
                                         .from('asin_inventory')
-                                        .update({ eligible_for_restock: !!checked })
-                                        .eq('id', item.id);
+                                        .update({ eligible_for_restock: !!checked } as any)
+                                        .eq('id', item.id as any);
                                       
                                       if (error) throw error;
                                       

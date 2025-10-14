@@ -183,7 +183,7 @@ export function NoonOrdersUploader() {
       });
       const {
         error
-      } = await supabase.from('noon_processing_orders').insert(ordersToInsert);
+      } = await supabase.from('noon_processing_orders').insert(ordersToInsert as any);
       if (error) throw error;
       toast({
         title: "Upload Successful",

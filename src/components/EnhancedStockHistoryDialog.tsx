@@ -75,13 +75,13 @@ export function EnhancedStockHistoryDialog({ inventoryId, itemIdentifier, invent
       const { data, error } = await supabase
         .from('stock_changes')
         .select('*')
-        .eq('inventory_id', inventoryId)
-        .eq('inventory_type', inventoryType)
+        .eq('inventory_id', inventoryId as any)
+        .eq('inventory_type', inventoryType as any)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       
-      const formattedData = (data || []).map(item => ({
+      const formattedData: any[] = (data || []).map((item: any) => ({
         ...item,
         user_email: undefined // User email would require admin API access
       }));

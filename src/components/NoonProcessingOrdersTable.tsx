@@ -59,13 +59,13 @@ export function NoonProcessingOrdersTable({ selectedStoreId }: { selectedStoreId
       
       // Filter by store if selectedStoreId is provided
       if (storeId) {
-        query = query.eq('selected_store_id', storeId);
+        query = query.eq('selected_store_id', storeId as any);
       }
 
       const { data, error } = await query;
 
       if (error) throw error;
-      setOrders(data || []);
+      setOrders((data as any) || []);
     } catch (error) {
       console.error('Error fetching processing orders:', error);
       toast({
@@ -94,11 +94,11 @@ export function NoonProcessingOrdersTable({ selectedStoreId }: { selectedStoreId
       let query = supabase
         .from('noon_processing_orders')
         .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all user's orders
+        .neq('id', '00000000-0000-0000-0000-000000000000' as any); // Delete all user's orders
       
       // Filter by store if selectedStoreId is provided
       if (selectedStoreId) {
-        query = query.eq('selected_store_id', selectedStoreId);
+        query = query.eq('selected_store_id', selectedStoreId as any);
       }
 
       const { error } = await query;

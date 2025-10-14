@@ -92,34 +92,34 @@ export function InventoryMetrics({
           supabase
             .from('asin_inventory')
             .select('*', { count: 'exact', head: true })
-            .eq('country', selectedCountry),
+            .eq('country', selectedCountry as any),
           
           // In stock count  
           supabase
             .from('asin_inventory')
             .select('*', { count: 'exact', head: true })
-            .eq('country', selectedCountry)
-            .gt('quantity', 0),
+            .eq('country', selectedCountry as any)
+            .gt('quantity', 0 as any),
             
           // Out of stock count
           supabase
             .from('asin_inventory')
             .select('*', { count: 'exact', head: true })
-            .eq('country', selectedCountry)
-            .eq('quantity', 0),
+            .eq('country', selectedCountry as any)
+            .eq('quantity', 0 as any),
             
           // Sold items data (need actual data for quantity sum and date filtering)
           supabase
             .from('asin_inventory')
             .select('quantity, date_sold')
-            .eq('country', selectedCountry)
-            .eq('status', 'sold'),
+            .eq('country', selectedCountry as any)
+            .eq('status', 'sold' as any),
             
           // Product images for missing images calculation
           supabase
             .from('product_images')
             .select('asin')
-            .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+            .eq('user_id', (await supabase.auth.getUser()).data.user?.id as any)
         ]);
         
         if (countError) throw countError;
@@ -147,40 +147,40 @@ export function InventoryMetrics({
           supabase
             .from('asin_inventory')
             .select('*', { count: 'exact', head: true })
-            .eq('country', selectedCountry)
+            .eq('country', selectedCountry as any)
             .or('sku.is.null,sku.eq.'),
             
           // Missing titles count  
           supabase
             .from('asin_inventory')
             .select('*', { count: 'exact', head: true })
-            .eq('country', selectedCountry)
+            .eq('country', selectedCountry as any)
             .or('title.is.null,title.eq.'),
             
           // Restock eligible count
           supabase
             .from('asin_inventory')
             .select('*', { count: 'exact', head: true })
-            .eq('country', selectedCountry)
-            .eq('eligible_for_restock', true),
+            .eq('country', selectedCountry as any)
+            .eq('eligible_for_restock', true as any),
             
           // Get all quantities to calculate total units
           supabase
             .from('asin_inventory')
             .select('quantity, asin')
-            .eq('country', selectedCountry)
+            .eq('country', selectedCountry as any)
         ]);
         
         // Calculate metrics
         const activeItems = totalCount || 0;
         const inStockItems = inStockCount || 0;
         const outOfStockItems = outOfStockCount || 0;
-        const asinTotalUnits = (totalUnitsData || []).reduce((sum, item) => sum + (item.quantity || 0), 0);
+        const asinTotalUnits = ((totalUnitsData as any) || []).reduce((sum: number, item: any) => sum + (item.quantity || 0), 0);
         
         // Filter sold units based on date filters
-        let filteredSoldItems = soldData || [];
+        let filteredSoldItems: any[] = (soldData as any) || [];
         if (soldDateFrom || soldDateTo) {
-          filteredSoldItems = filteredSoldItems.filter(item => {
+          filteredSoldItems = filteredSoldItems.filter((item: any) => {
             if (!item.date_sold) return false;
             const soldDate = new Date(item.date_sold);
             if (soldDateFrom && soldDate < soldDateFrom) return false;
@@ -192,11 +192,11 @@ export function InventoryMetrics({
             return true;
           });
         }
-        const asinSoldUnits = filteredSoldItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
+        const asinSoldUnits = filteredSoldItems.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0);
         
         // Calculate missing images
-        const existingImageAsins = new Set((productImages || []).map(img => img.asin));
-        const uniqueAsins = [...new Set((totalUnitsData || []).map(item => item.asin))];
+        const existingImageAsins = new Set(((productImages as any) || []).map((img: any) => img.asin));
+        const uniqueAsins = [...new Set(((totalUnitsData as any) || []).map((item: any) => item.asin))];
         const missingImages = uniqueAsins.filter(asin => !existingImageAsins.has(asin)).length;
         
         console.log(`📈 Final ASIN Metrics:`, {
@@ -227,17 +227,17 @@ export function InventoryMetrics({
         // Load only SKU data
         const {
           data: skuData
-        } = await supabase.from('sku_inventory').select('*').eq('country', selectedCountry).limit(50000);
-        const skuItems = skuData || [];
+        } = await supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any).limit(50000);
+        const skuItems: any[] = (skuData as any) || [];
         const activeItems = skuItems.length;
-        const inStockItems = skuItems.filter(item => item.quantity > 0).length;
-        const outOfStockItems = skuItems.filter(item => item.quantity === 0).length;
-        const skuTotalUnits = skuItems.reduce((sum, item) => sum + item.quantity, 0);
+        const inStockItems = skuItems.filter((item: any) => item.quantity > 0).length;
+        const outOfStockItems = skuItems.filter((item: any) => item.quantity === 0).length;
+        const skuTotalUnits = skuItems.reduce((sum: number, item: any) => sum + item.quantity, 0);
 
         // Filter sold units based on date filters
-        let soldItems = skuItems.filter(item => item.status === 'sold');
+        let soldItems = skuItems.filter((item: any) => item.status === 'sold');
         if (soldDateFrom || soldDateTo) {
-          soldItems = soldItems.filter(item => {
+          soldItems = soldItems.filter((item: any) => {
             if (!item.date_sold) return false;
             const soldDate = new Date(item.date_sold);
             if (soldDateFrom && soldDate < soldDateFrom) return false;
@@ -249,7 +249,7 @@ export function InventoryMetrics({
             return true;
           });
         }
-        const skuSoldUnits = soldItems.reduce((sum, item) => sum + item.quantity, 0);
+        const skuSoldUnits = soldItems.reduce((sum: number, item: any) => sum + item.quantity, 0);
         setStats({
           activeItems,
           inStockItems,
@@ -265,29 +265,29 @@ export function InventoryMetrics({
         });
       } else {
         // Load both ASIN and SKU data
-        const [asinData, skuData] = await Promise.all([supabase.from('asin_inventory').select('*').eq('country', selectedCountry).limit(50000), supabase.from('sku_inventory').select('*').eq('country', selectedCountry).limit(50000)]);
+        const [asinData, skuData] = await Promise.all([supabase.from('asin_inventory').select('*').eq('country', selectedCountry as any).limit(50000), supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any).limit(50000)]);
 
         // Calculate metrics
-        const allItems = [...(asinData.data || []).map(item => ({
+        const allItems = [...((asinData.data as any) || []).map((item: any) => ({
           ...item,
           type: 'asin' as const,
           identifier: `${item.asin} (${item.serial_number})`
-        })), ...(skuData.data || []).map(item => ({
+        })), ...((skuData.data as any) || []).map((item: any) => ({
           ...item,
           type: 'sku' as const,
           identifier: `${item.sku_number} (${item.bin_serial_number})`
         }))];
         const activeItems = allItems.length;
-        const inStockItems = allItems.filter(item => item.quantity > 0).length;
-        const outOfStockItems = allItems.filter(item => item.quantity === 0).length;
+        const inStockItems = allItems.filter((item: any) => item.quantity > 0).length;
+        const outOfStockItems = allItems.filter((item: any) => item.quantity === 0).length;
 
         // Calculate separate totals for ASIN and SKU
-        const asinItems = asinData.data || [];
-        const skuItems = skuData.data || [];
-        const asinTotalUnits = asinItems.reduce((sum, item) => sum + item.quantity, 0);
-        const asinSoldUnits = asinItems.filter(item => item.status === 'sold').reduce((sum, item) => sum + item.quantity, 0);
-        const skuTotalUnits = skuItems.reduce((sum, item) => sum + item.quantity, 0);
-        const skuSoldUnits = skuItems.filter(item => item.status === 'sold').reduce((sum, item) => sum + item.quantity, 0);
+        const asinItems: any[] = (asinData.data as any) || [];
+        const skuItems: any[] = (skuData.data as any) || [];
+        const asinTotalUnits = asinItems.reduce((sum: number, item: any) => sum + item.quantity, 0);
+        const asinSoldUnits = asinItems.filter((item: any) => item.status === 'sold').reduce((sum: number, item: any) => sum + item.quantity, 0);
+        const skuTotalUnits = skuItems.reduce((sum: number, item: any) => sum + item.quantity, 0);
+        const skuSoldUnits = skuItems.filter((item: any) => item.status === 'sold').reduce((sum: number, item: any) => sum + item.quantity, 0);
         
         // Calculate items with missing SKU (only for ASIN)
         const missingSku = asinItems.filter(item => !item.sku || item.sku.trim() === '').length;
@@ -299,10 +299,10 @@ export function InventoryMetrics({
         const { data: productImages } = await supabase
           .from('product_images')
           .select('asin')
-          .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
+          .eq('user_id', (await supabase.auth.getUser()).data.user?.id as any);
         
-        const existingImageAsins = new Set((productImages || []).map(img => img.asin));
-        const missingImages = asinItems.filter(item => !existingImageAsins.has(item.asin)).length;
+        const existingImageAsins = new Set(((productImages as any) || []).map((img: any) => img.asin));
+        const missingImages = asinItems.filter((item: any) => !existingImageAsins.has(item.asin)).length;
         
         setStats({
           activeItems,
@@ -335,11 +335,11 @@ export function InventoryMetrics({
         const { data: asinData } = await supabase
           .from('asin_inventory')
           .select('*')
-          .eq('country', selectedCountry)
+          .eq('country', selectedCountry as any)
           .or('sku.is.null,sku.eq.')
           .limit(50000);
         
-        const allItems = (asinData || []).map(item => ({
+        const allItems = ((asinData as any) || []).map((item: any) => ({
           ...item,
           type: 'asin' as const,
           identifier: `${item.asin} (${item.serial_number})`
@@ -364,8 +364,8 @@ export function InventoryMetrics({
         // Load only ASIN data
         const {
           data: asinData
-        } = await supabase.from('asin_inventory').select('*').eq('country', selectedCountry).limit(50000); // Explicit high limit to override default 1000
-        let allItems = (asinData || []).map(item => ({
+        } = await supabase.from('asin_inventory').select('*').eq('country', selectedCountry as any).limit(50000); // Explicit high limit to override default 1000
+        let allItems = ((asinData as any) || []).map((item: any) => ({
           ...item,
           type: 'asin' as const,
           identifier: `${item.asin} (${item.serial_number})`
@@ -384,8 +384,8 @@ export function InventoryMetrics({
         // Load only SKU data
         const {
           data: skuData
-        } = await supabase.from('sku_inventory').select('*').eq('country', selectedCountry);
-        let allItems = (skuData || []).map(item => ({
+        } = await supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any);
+        let allItems = ((skuData as any) || []).map((item: any) => ({
           ...item,
           type: 'sku' as const,
           identifier: `${item.sku_number} (${item.bin_serial_number})`
@@ -400,12 +400,12 @@ export function InventoryMetrics({
         setInventoryItems(allItems);
       } else {
         // Load both ASIN and SKU data
-        const [asinData, skuData] = await Promise.all([supabase.from('asin_inventory').select('*').eq('country', selectedCountry).limit(50000), supabase.from('sku_inventory').select('*').eq('country', selectedCountry).limit(50000)]);
-        let allItems = [...(asinData.data || []).map(item => ({
+        const [asinData, skuData] = await Promise.all([supabase.from('asin_inventory').select('*').eq('country', selectedCountry as any).limit(50000), supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any).limit(50000)]);
+        let allItems = [...((asinData.data as any) || []).map((item: any) => ({
           ...item,
           type: 'asin' as const,
           identifier: `${item.asin} (${item.serial_number})`
-        })), ...(skuData.data || []).map(item => ({
+        })), ...((skuData.data as any) || []).map((item: any) => ({
           ...item,
           type: 'sku' as const,
           identifier: `${item.sku_number} (${item.bin_serial_number})`
@@ -431,21 +431,21 @@ export function InventoryMetrics({
     try {
       if (showOnlyAsin) {
         // Load only ASIN data
-        let query = supabase.from('asin_inventory').select('*').eq('country', selectedCountry).eq('status', 'sold').limit(50000);
+        let query = supabase.from('asin_inventory').select('*').eq('country', selectedCountry as any).eq('status', 'sold' as any).limit(50000);
 
         // Apply date filters if set
         if (soldDateFrom) {
-          query = query.gte('date_sold', soldDateFrom.toISOString());
+          query = query.gte('date_sold', soldDateFrom.toISOString() as any);
         }
         if (soldDateTo) {
           const endDate = new Date(soldDateTo);
           endDate.setHours(23, 59, 59, 999);
-          query = query.lte('date_sold', endDate.toISOString());
+          query = query.lte('date_sold', endDate.toISOString() as any);
         }
         const {
           data: asinData
         } = await query;
-        const allItems = (asinData || []).map(item => ({
+        const allItems = ((asinData as any) || []).map((item: any) => ({
           ...item,
           type: 'asin' as const,
           identifier: `${item.asin} (${item.serial_number})`
@@ -453,21 +453,21 @@ export function InventoryMetrics({
         setInventoryItems(allItems);
       } else if (showOnlySku) {
         // Load only SKU data
-        let query = supabase.from('sku_inventory').select('*').eq('country', selectedCountry).eq('status', 'sold');
+        let query = supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any).eq('status', 'sold' as any);
 
         // Apply date filters if set
         if (soldDateFrom) {
-          query = query.gte('date_sold', soldDateFrom.toISOString());
+          query = query.gte('date_sold', soldDateFrom.toISOString() as any);
         }
         if (soldDateTo) {
           const endDate = new Date(soldDateTo);
           endDate.setHours(23, 59, 59, 999);
-          query = query.lte('date_sold', endDate.toISOString());
+          query = query.lte('date_sold', endDate.toISOString() as any);
         }
         const {
           data: skuData
         } = await query;
-        const allItems = (skuData || []).map(item => ({
+        const allItems = ((skuData as any) || []).map((item: any) => ({
           ...item,
           type: 'sku' as const,
           identifier: `${item.sku_number} (${item.bin_serial_number})`
@@ -475,26 +475,26 @@ export function InventoryMetrics({
         setInventoryItems(allItems);
       } else {
         // Load both ASIN and SKU data
-        let asinQuery = supabase.from('asin_inventory').select('*').eq('country', selectedCountry).eq('status', 'sold').limit(50000);
-        let skuQuery = supabase.from('sku_inventory').select('*').eq('country', selectedCountry).eq('status', 'sold').limit(50000);
+        let asinQuery = supabase.from('asin_inventory').select('*').eq('country', selectedCountry as any).eq('status', 'sold' as any).limit(50000);
+        let skuQuery = supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any).eq('status', 'sold' as any).limit(50000);
 
         // Apply date filters if set
         if (soldDateFrom) {
-          asinQuery = asinQuery.gte('date_sold', soldDateFrom.toISOString());
-          skuQuery = skuQuery.gte('date_sold', soldDateFrom.toISOString());
+          asinQuery = asinQuery.gte('date_sold', soldDateFrom.toISOString() as any);
+          skuQuery = skuQuery.gte('date_sold', soldDateFrom.toISOString() as any);
         }
         if (soldDateTo) {
           const endDate = new Date(soldDateTo);
           endDate.setHours(23, 59, 59, 999);
-          asinQuery = asinQuery.lte('date_sold', endDate.toISOString());
-          skuQuery = skuQuery.lte('date_sold', endDate.toISOString());
+          asinQuery = asinQuery.lte('date_sold', endDate.toISOString() as any);
+          skuQuery = skuQuery.lte('date_sold', endDate.toISOString() as any);
         }
         const [asinData, skuData] = await Promise.all([asinQuery, skuQuery]);
-        const allItems = [...(asinData.data || []).map(item => ({
+        const allItems = [...((asinData.data as any) || []).map((item: any) => ({
           ...item,
           type: 'asin' as const,
           identifier: `${item.asin} (${item.serial_number})`
-        })), ...(skuData.data || []).map(item => ({
+        })), ...((skuData.data as any) || []).map((item: any) => ({
           ...item,
           type: 'sku' as const,
           identifier: `${item.sku_number} (${item.bin_serial_number})`
@@ -521,11 +521,11 @@ export function InventoryMetrics({
         const { data: asinData } = await supabase
           .from('asin_inventory')
           .select('*')
-          .eq('country', selectedCountry)
+          .eq('country', selectedCountry as any)
           .or('title.is.null,title.eq.')
           .limit(50000);
         
-        const allItems = (asinData || []).map(item => ({
+        const allItems = ((asinData as any) || []).map((item: any) => ({
           ...item,
           type: 'asin' as const,
           identifier: `${item.asin} (${item.serial_number})`
@@ -551,18 +551,18 @@ export function InventoryMetrics({
         const { data: productImages } = await supabase
           .from('product_images')
           .select('asin')
-          .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
+          .eq('user_id', (await supabase.auth.getUser()).data.user?.id as any);
         
-        const existingImageAsins = new Set((productImages || []).map(img => img.asin));
+        const existingImageAsins = new Set(((productImages as any) || []).map((img: any) => img.asin));
         
         // Load ASIN data and filter for missing images
         const { data: asinData } = await supabase
           .from('asin_inventory')
           .select('*') 
-          .eq('country', selectedCountry)
+          .eq('country', selectedCountry as any)
           .limit(50000);
         
-        const allItems = (asinData || [])
+        const allItems: any[] = ((asinData as any) || [])
           .filter(item => !existingImageAsins.has(item.asin))
           .map(item => ({
             ...item,
