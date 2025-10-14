@@ -61,23 +61,23 @@ export const LabelDocProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           height: size.height,
           canvas_data: { elements: [] } as any,
           user_id: user.id,
-        })
+        } as any)
         .select()
         .single();
 
       if (error) throw error;
       
       const newDoc: LabelDoc = {
-        id: data.id,
-        name: data.name,
+        id: (data as any)?.id,
+        name: (data as any)?.name,
         size: {
-          width: data.width,
-          height: data.height,
+          width: (data as any)?.width,
+          height: (data as any)?.height,
           unit: 'mm'
         },
         elements: [],
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
+        createdAt: (data as any)?.created_at,
+        updatedAt: (data as any)?.updated_at,
       };
       
       setDocument(newDoc);
@@ -96,21 +96,21 @@ export const LabelDocProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const { data, error } = await supabase
         .from('label_templates')
         .select('*')
-        .eq('id', id)
+        .eq('id' as any, id as any)
         .single();
 
       if (error) throw error;
       
       const doc: LabelDoc = {
-        id: data.id,
-        name: data.name,
+        id: (data as any)?.id,
+        name: (data as any)?.name,
         size: {
-          width: data.width || 100,
-          height: data.height || 50,
+          width: (data as any)?.width || 100,
+          height: (data as any)?.height || 50,
           unit: 'mm'
         },
-        elements: Array.isArray((data.canvas_data as any)?.elements) ? 
-          (data.canvas_data as any).elements.map((el: any) => ({
+        elements: Array.isArray(((data as any)?.canvas_data as any)?.elements) ? 
+          ((data as any).canvas_data as any).elements.map((el: any) => ({
             id: el.id || crypto.randomUUID(),
             type: el.type || 'text',
             x: Number(el.x) || 0,
@@ -138,9 +138,9 @@ export const LabelDocProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             src: el.src || undefined,
             objectFit: el.objectFit || 'contain'
           })) : [],
-        datasetId: data.description, // using description field temporarily
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
+        datasetId: (data as any)?.description, // using description field temporarily
+        createdAt: (data as any)?.created_at,
+        updatedAt: (data as any)?.updated_at,
       };
       
       setDocument(doc);
@@ -169,8 +169,8 @@ export const LabelDocProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           height: document.size.height,
           canvas_data: { elements: document.elements } as any,
           description: document.datasetId || null,
-        })
-        .eq('id', document.id);
+        } as any)
+        .eq('id' as any, document.id as any);
 
       if (error) throw error;
       
@@ -194,20 +194,20 @@ export const LabelDocProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const { data, error } = await supabase
         .from('label_datasets')
         .select('*')
-        .eq('id', id)
+        .eq('id' as any, id as any)
         .single();
 
       if (error) throw error;
       
       const dataset: LabelDataset = {
-        id: data.id,
-        name: data.name,
-        description: data.description || '',
-        headers: Array.isArray(data.headers) ? data.headers.map(h => String(h)) : [],
-        data: Array.isArray(data.data) ? data.data as any[][] : [],
-        rowCount: data.row_count || 0,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
+        id: (data as any)?.id,
+        name: (data as any)?.name,
+        description: (data as any)?.description || '',
+        headers: Array.isArray((data as any)?.headers) ? (data as any).headers.map((h: any) => String(h)) : [],
+        data: Array.isArray((data as any)?.data) ? (data as any).data as any[][] : [],
+        rowCount: (data as any)?.row_count || 0,
+        createdAt: (data as any)?.created_at,
+        updatedAt: (data as any)?.updated_at,
       };
       
       setDataset(dataset);
@@ -299,7 +299,7 @@ export const LabelDocProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const { data, error } = await supabase
         .from('label_templates')
         .select('id, name, width, height, created_at, updated_at')
-        .eq('user_id', user.id)
+        .eq('user_id' as any, user.id as any)
         .order('updated_at', { ascending: false });
 
       if (error) throw error;

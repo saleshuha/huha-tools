@@ -144,7 +144,7 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
             total_items: newTask.totalItems,
             processed_items: newTask.processedItems,
             metadata: newTask.metadata || {}
-          });
+          } as any);
         }
       } catch (error) {
         console.error('Failed to persist task to database:', error);
@@ -173,7 +173,7 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
         await supabase
           .from('background_tasks')
           .update(updateData)
-          .eq('id', id);
+          .eq('id' as any, id as any);
       } catch (error) {
         console.error('Failed to update task in database:', error);
       }
@@ -187,7 +187,7 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
     // Remove from database (async but don't wait)
     (async () => {
       try {
-        await supabase.from('background_tasks').delete().eq('id', id);
+        await supabase.from('background_tasks').delete().eq('id' as any, id as any);
       } catch (error) {
         console.error('Failed to remove task from database:', error);
       }
@@ -219,7 +219,7 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
           await supabase
             .from('background_tasks')
             .delete()
-            .in('id', completedTaskIds);
+            .in('id' as any, completedTaskIds as any);
         } catch (error) {
           console.error('Failed to remove completed tasks from database:', error);
         }

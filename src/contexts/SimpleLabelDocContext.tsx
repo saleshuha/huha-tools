@@ -69,24 +69,24 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
             meta: { domain, datasetId: null }
           } as any,
           user_id: user.id,
-        })
+        } as any)
         .select()
         .single();
 
       if (error) throw error;
       
       const newDoc: LabelDoc = {
-        id: data.id,
-        name: data.name,
+        id: (data as any)?.id,
+        name: (data as any)?.name,
         size: {
-          width: data.width,
-          height: data.height,
+          width: (data as any)?.width,
+          height: (data as any)?.height,
           unit: 'mm'
         },
         elements: [],
         domain,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
+        createdAt: (data as any)?.created_at,
+        updatedAt: (data as any)?.updated_at,
       };
       
       setDocument(newDoc);
@@ -105,20 +105,20 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
       const { data, error } = await supabase
         .from('label_templates')
         .select('*')
-        .eq('id', id)
+        .eq('id' as any, id as any)
         .single();
 
       if (error) throw error;
       
-      const canvasData = data.canvas_data as any;
+      const canvasData = (data as any)?.canvas_data as any;
       const meta = canvasData?.meta || {};
       
       const doc: LabelDoc = {
-        id: data.id,
-        name: data.name,
+        id: (data as any)?.id,
+        name: (data as any)?.name,
         size: {
-          width: data.width || 100,
-          height: data.height || 50,
+          width: (data as any)?.width || 100,
+          height: (data as any)?.height || 50,
           unit: 'mm'
         },
         elements: Array.isArray(canvasData?.elements) ? 
@@ -151,9 +151,9 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
             objectFit: el.objectFit || 'contain'
           })) : [],
         domain: meta.domain || 'inventory', // fallback to inventory for existing labels
-        datasetId: meta.datasetId || data.description, // new location or fallback to description
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
+        datasetId: meta.datasetId || (data as any)?.description, // new location or fallback to description
+        createdAt: (data as any)?.created_at,
+        updatedAt: (data as any)?.updated_at,
       };
       
       setDocument(doc);
@@ -207,8 +207,8 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
       
       const { error } = await supabase
         .from('label_templates')
-        .update(updateData)
-        .eq('id', document.id);
+        .update(updateData as any)
+        .eq('id' as any, document.id as any);
 
       if (error) {
         console.error('Supabase update error:', error);
@@ -234,7 +234,7 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
       const { data, error } = await supabase
         .from('label_templates')
         .select('id, name, width, height, created_at, updated_at')
-        .eq('user_id', user.id)
+        .eq('user_id' as any, user.id as any)
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
@@ -253,7 +253,7 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
       const { error } = await supabase
         .from('label_templates')
         .delete()
-        .eq('id', id);
+        .eq('id' as any, id as any);
 
       if (error) throw error;
       

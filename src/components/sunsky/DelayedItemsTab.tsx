@@ -44,7 +44,7 @@ export function DelayedItemsTab({
       setLoading(true);
       try {
         const items = await getSlowItems(3);
-        setSlowItems(items);
+        setSlowItems(items as any);
       } catch (error) {
         console.error('Failed to fetch delayed items:', error);
       } finally {
