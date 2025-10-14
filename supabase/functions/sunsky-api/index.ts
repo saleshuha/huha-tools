@@ -290,7 +290,8 @@ async function handleGetBrands(_params: any, key: string, secret: string) {
   const result = await callSunskyAPI('/openapi/product!search.do', searchParams, key, secret);
   
   const brands = new Set<string>();
-  const products = result.data || [];
+  // Handle both array and object response formats
+  const products = Array.isArray(result.data) ? result.data : (result.data?.products || []);
   
   for (const product of products) {
     if (product.brandName) {
