@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
-import { Search, Plus, Download, AlertCircle, CheckCircle2, Package, Globe, Calendar, RefreshCw, Filter, Grid, List, Settings, Eye, Save, RotateCcw, Play, Pause, X, PauseCircle, PlayCircle, XCircle, Trash2, ChevronDown, Database } from "lucide-react";
+import { Search, Plus, Download, AlertCircle, CheckCircle2, Package, Globe, Calendar, RefreshCw, Filter, Grid, List, Settings, Eye, Save, RotateCcw, Play, Pause, X, PauseCircle, PlayCircle, XCircle, Trash2, ChevronDown, Database, Wifi } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -1157,45 +1157,72 @@ export const SunskySKUImporter: React.FC = () => {
       });
     }
   };
-  const callSunskyAPI = async (action: string, data: any, apiId?: string) => {
-    console.log('🔵 Calling Sunsky API:', {
+  const callSunskyAPI = async (action: string, data: any, apiId?: string, retryCount = 0): Promise<any> => {
+    const maxRetries = 3;
+    const timeout = 30000; // 30 seconds
+    
+    console.log(`🔵 [Attempt ${retryCount + 1}/${maxRetries}] Calling Sunsky API:`, {
       action,
-      data,
-      apiId,
-      selectedAPI
+      hasData: !!data,
+      dataKeys: data ? Object.keys(data) : [],
+      apiId: apiId || selectedSearchAPI || selectedAPI
     });
+
     try {
-      const {
-        data: response,
-        error
-      } = await supabase.functions.invoke('sunsky-api', {
+      // Create timeout promise
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Request timeout after 30 seconds')), timeout);
+      });
+
+      // Create API call promise with explicit body structure
+      const apiCallPromise = supabase.functions.invoke('sunsky-api', {
         body: {
-          action,
-          ...data,
-          apiId: apiId || selectedSearchAPI || selectedAPI // Use specified API or default search API
+          action: action,
+          filters: data?.filters || undefined,
+          page: data?.page || undefined,
+          pageSize: data?.pageSize || undefined,
+          apiId: apiId || selectedSearchAPI || selectedAPI,
+          // Include other data fields explicitly
+          ...(data && Object.keys(data).reduce((acc, key) => {
+            if (!['filters', 'page', 'pageSize'].includes(key)) {
+              acc[key] = data[key];
+            }
+            return acc;
+          }, {} as Record<string, any>))
         }
       });
-      console.log('🟢 Sunsky API response:', {
-        response,
-        error
-      });
+
+      // Race between timeout and API call
+      const result = await Promise.race([apiCallPromise, timeoutPromise]) as { data: any; error: any };
       
-      if (error) {
-        console.error('🔴 Edge function returned error:', error);
-        // Check if this is an edge function connection error
-        if (error.message?.includes('Failed to fetch') || error.message?.includes('Failed to send') || error.message?.includes('NetworkError')) {
-          throw new Error('Edge function unavailable. The Sunsky API service is currently not reachable. Please try again later or contact support if the issue persists.');
+      console.log('🟢 Sunsky API response received:', {
+        hasData: !!result.data,
+        hasError: !!result.error,
+        dataType: typeof result.data
+      });
+
+      if (result.error) {
+        console.error('🔴 Edge function error:', result.error);
+        
+        // Retry on network errors
+        if (retryCount < maxRetries - 1 && 
+            (result.error.message?.includes('Failed to fetch') || 
+             result.error.message?.includes('Failed to send') ||
+             result.error.message?.includes('NetworkError'))) {
+          console.log(`🔄 Retrying in 2 seconds...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          return callSunskyAPI(action, data, apiId, retryCount + 1);
         }
-        throw error;
+        
+        throw new Error(result.error.message || 'Edge function error');
       }
 
-      // Handle different response structures
+      // Parse response
+      const response = result.data;
       if (response && typeof response === 'object') {
-        // If response has result field, return the full response for proper parsing
         if ('result' in response) {
           return response;
         }
-        // If response has success field, transform to expected structure
         if ('success' in response) {
           return {
             result: response.success ? 'success' : 'error',
@@ -1204,18 +1231,26 @@ export const SunskySKUImporter: React.FC = () => {
           };
         }
       }
-      return response;
-    } catch (error) {
-      console.error('🔴 Sunsky API error:', error);
       
-      // Provide user-friendly error message
-      if (error instanceof Error && error.message.includes('Edge function unavailable')) {
-        toast({
-          title: "Service Unavailable",
-          description: "The Sunsky API service is currently not reachable. Your credentials are valid but the service cannot be accessed at this time.",
-          variant: "destructive",
-        });
+      return response;
+      
+    } catch (error) {
+      console.error(`🔴 [Attempt ${retryCount + 1}] Sunsky API error:`, error);
+      
+      // Retry on timeout
+      if (retryCount < maxRetries - 1 && error instanceof Error && error.message.includes('timeout')) {
+        console.log(`🔄 Timeout - retrying in 2 seconds...`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        return callSunskyAPI(action, data, apiId, retryCount + 1);
       }
+      
+      // Show user-friendly error
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast({
+        title: "Connection Error",
+        description: `Failed to reach Sunsky API: ${errorMessage}`,
+        variant: "destructive",
+      });
       
       throw error;
     }
@@ -3663,6 +3698,67 @@ export const SunskySKUImporter: React.FC = () => {
                       {hasCredentials ? 'Active' : 'Inactive'}
                     </Badge>
                   </div>
+
+                  {/* Test Connection Button */}
+                  {hasCredentials && (
+                    <div className="p-4 border rounded-lg bg-blue-50/50 border-blue-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-medium text-blue-900">Test Connection</h4>
+                          <p className="text-sm text-blue-700 mt-1">
+                            Verify that the Sunsky API service is reachable and responding
+                          </p>
+                        </div>
+                        <Button
+                          onClick={async () => {
+                            try {
+                              setLoading(true);
+                              console.log('🧪 Testing Sunsky API connection...');
+                              const response = await callSunskyAPI('ping', {});
+                              console.log('🧪 Ping response:', response);
+                              
+                              if (response?.result === 'success') {
+                                toast({
+                                  title: "Connection Successful",
+                                  description: "Sunsky API is online and responding correctly",
+                                });
+                              } else {
+                                toast({
+                                  title: "Connection Test Failed",
+                                  description: response?.message || "Unexpected response from API",
+                                  variant: "destructive",
+                                });
+                              }
+                            } catch (error) {
+                              console.error('🧪 Connection test failed:', error);
+                              toast({
+                                title: "Connection Test Failed",
+                                description: error instanceof Error ? error.message : "Failed to reach Sunsky API",
+                                variant: "destructive",
+                              });
+                            } finally {
+                              setLoading(false);
+                            }
+                          }}
+                          variant="outline"
+                          disabled={loading}
+                          className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                        >
+                          {loading ? (
+                            <>
+                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                              Testing...
+                            </>
+                          ) : (
+                            <>
+                              <Wifi className="h-4 w-4 mr-2" />
+                              Test Connection
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* API Credentials Management */}
                   <div className="space-y-4">

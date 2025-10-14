@@ -1446,158 +1446,114 @@ async function processImportJob(job: any, userId: string, userCountry: string) {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight immediately - before any other processing
+  // CORS MUST be handled first - before ANYTHING else
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { 
-      status: 200,
-      headers: corsHeaders 
-    });
+    console.log('✅ CORS preflight request handled');
+    return new Response('ok', { headers: corsHeaders });
   }
 
-  // Top-level error boundary to catch ALL errors
+  const requestId = crypto.randomUUID();
+  console.log(`\n[${requestId}] ========== NEW REQUEST ==========`);
+  console.log(`[${requestId}] Method: ${req.method}`);
+  console.log(`[${requestId}] URL: ${req.url}`);
+  console.log(`[${requestId}] Timestamp: ${new Date().toISOString()}`);
+
   try {
-    const requestId = crypto.randomUUID();
-    console.log(`[${requestId}] 🚀 Sunsky API function invoked:`, {
-      method: req.method,
-      url: req.url,
-      timestamp: new Date().toISOString()
-    });
-
-    // Inner try-catch for request processing
+    // Step 1: Parse request body
+    let body;
     try {
-      // Parse request body with validation
-      console.log(`[${requestId}] 📥 Parsing request body...`);
-      let requestBody;
-      
-      try {
-        requestBody = await req.json();
-        console.log(`[${requestId}] ✅ Request body parsed successfully`, {
-          hasAction: !!(requestBody as any)?.action
-        });
-      } catch (parseError) {
-        console.error(`[${requestId}] ❌ JSON parsing failed:`, parseError);
-        return new Response(JSON.stringify({ 
-          result: 'error', 
-          message: 'Invalid JSON in request body',
-          details: parseError?.message || 'Unknown parsing error',
-          requestId
-        }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      
-      // Validate request structure
-      if (!requestBody || typeof requestBody !== 'object') {
-        console.error(`[${requestId}] ❌ Invalid request body structure:`, requestBody);
-        return new Response(JSON.stringify({ 
-          result: 'error', 
-          message: 'Request body must be a valid JSON object',
-          requestId
-        }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      
-      const { action, ...requestData } = requestBody;
-      
-      console.log(`[${requestId}] 📋 Received request:`, {
-        method: req.method,
-        action: action,
-        hasRequestData: !!requestData,
-        requestDataKeys: requestData ? Object.keys(requestData) : [],
-        timestamp: new Date().toISOString()
+      const rawBody = await req.text();
+      console.log(`[${requestId}] Raw body length: ${rawBody.length} bytes`);
+      body = JSON.parse(rawBody);
+      console.log(`[${requestId}] ✅ Body parsed:`, { 
+        action: body.action,
+        keys: Object.keys(body),
+        hasFilters: !!body.filters,
+        hasApiId: !!body.apiId
       });
+    } catch (e) {
+      console.error(`[${requestId}] ❌ JSON parse error:`, e);
+      return new Response(JSON.stringify({ 
+        result: 'error', 
+        message: 'Invalid JSON',
+        requestId
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400
+      });
+    }
 
-      // Health check endpoint (no auth required)
-      if (action === 'ping' || action === 'health') {
-        console.log(`[${requestId}] 💚 Health check requested`);
+    const { action } = body;
+
+    // Step 2: Health check (no auth needed)
+    if (action === 'ping' || action === 'health') {
+      console.log(`[${requestId}] 💚 Health check OK`);
+      return new Response(JSON.stringify({ 
+        result: 'success',
+        message: 'Sunsky API is online',
+        timestamp: new Date().toISOString(),
+        requestId
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Step 3: Validate action
+    if (!action) {
+      console.error(`[${requestId}] ❌ No action provided`);
+      return new Response(JSON.stringify({ 
+        result: 'error', 
+        message: 'Action is required',
+        requestId
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400
+      });
+    }
+
+    // Step 4: Authenticate
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      console.error(`[${requestId}] ❌ No auth header`);
+      return new Response(JSON.stringify({ 
+        result: 'error', 
+        message: 'Authorization required',
+        requestId
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401
+      });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    let userId: string;
+    
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+      if (authError || !user) {
+        console.error(`[${requestId}] ❌ Auth failed:`, authError);
         return new Response(JSON.stringify({ 
-          result: 'success',
-          message: 'Sunsky API function is online',
-          timestamp: new Date().toISOString(),
+          result: 'error', 
+          message: 'Authentication failed',
           requestId
         }), {
-          status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401
         });
       }
-      
-      // Validate action parameter
-      if (!action || typeof action !== 'string' || action.trim() === '') {
-        console.error(`[${requestId}] ❌ Invalid or missing action parameter:`, action);
-        return new Response(JSON.stringify({ 
-          result: 'error', 
-          message: `Invalid action parameter: ${action}. Action must be a non-empty string.`,
-          receivedAction: action,
-          requestId
-        }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      
-      // Get and validate auth header
-      console.log(`[${requestId}] 🔐 Validating authentication...`);
-      const authHeader = req.headers.get('authorization');
-      
-      if (!authHeader) {
-        console.error(`[${requestId}] ❌ No authorization header provided`);
-        return new Response(JSON.stringify({ 
-          result: 'error', 
-          message: 'No authorization header provided. Please log in.'
-        }), {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      // Extract and validate JWT token
-      const token = authHeader.replace('Bearer ', '').trim();
-      if (!token || token === authHeader) {
-        console.error(`[${requestId}] ❌ Invalid authorization header format`);
-        return new Response(JSON.stringify({ 
-          result: 'error', 
-          message: 'Invalid authorization header format. Expected "Bearer <token>"'
-        }), {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      // Authenticate user
-      let user;
-      try {
-        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser(token);
-        
-        if (authError) {
-          console.error(`[${requestId}] ❌ Authentication error:`, authError);
-          return new Response(JSON.stringify({ 
-            result: 'error', 
-            message: 'Authentication failed. Please log in again.',
-            details: authError.message
-          }), {
-            status: 401,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-        
-        if (!authUser) {
-          console.error(`[${requestId}] ❌ No user returned from auth`);
-          return new Response(JSON.stringify({ 
-            result: 'error', 
-            message: 'User not found. Please log in again.'
-          }), {
-            status: 401,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-        
-        user = authUser;
-        console.log(`[${requestId}] ✅ User authenticated:`, user.id);
-        
-      } catch (authException) {
+      userId = user.id;
+      console.log(`[${requestId}] ✅ User authenticated: ${userId}`);
+    } catch (e) {
+      console.error(`[${requestId}] ❌ Auth exception:`, e);
+      return new Response(JSON.stringify({ 
+        result: 'error', 
+        message: 'Authentication error',
+        requestId
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401
+      });
+    }
         console.error(`[${requestId}] ❌ Exception during authentication:`, authException);
         return new Response(JSON.stringify({ 
           result: 'error', 
