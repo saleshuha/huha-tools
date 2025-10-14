@@ -1447,58 +1447,170 @@ async function processImportJob(job: any, userId: string, userCountry: string) {
 }
 
 serve(async (req) => {
-  console.log('🚀 Sunsky API function invoked:', {
-    method: req.method,
-    url: req.url,
-    timestamp: new Date().toISOString()
-  });
-
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    console.log('✅ Handling CORS preflight');
-    return new Response(null, { headers: corsHeaders });
-  }
-
+  // Top-level error boundary to catch ALL errors
   try {
-    // Parse request body once
-    console.log('📥 Parsing request body...');
-    const requestBody = await req.json();
-    
-    const { action, ...requestData } = requestBody;
-    
-    console.log('Received request:', {
+    const requestId = crypto.randomUUID();
+    console.log(`[${requestId}] 🚀 Sunsky API function invoked:`, {
       method: req.method,
-      action: action,
-      hasRequestData: !!requestData,
-      requestDataKeys: requestData ? Object.keys(requestData) : []
+      url: req.url,
+      timestamp: new Date().toISOString()
     });
-    
-    // Validate action parameter
-    if (!action || typeof action !== 'string') {
-      console.error('Invalid or missing action parameter:', action);
-      throw new Error(`Invalid action parameter: ${action}. Action must be a non-empty string.`);
-    }
-    
-    // Get user from auth header
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
-      throw new Error('No authorization header');
+
+    // Handle CORS preflight requests
+    if (req.method === 'OPTIONS') {
+      console.log(`[${requestId}] ✅ Handling CORS preflight`);
+      return new Response(null, { headers: corsHeaders });
     }
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    );
-    
-    if (authError || !user) {
-      throw new Error('Invalid authentication');
-    }
+    // Inner try-catch for request processing
+    try {
+      // Parse request body with validation
+      console.log(`[${requestId}] 📥 Parsing request body...`);
+      let requestBody;
+      
+      try {
+        requestBody = await req.json();
+        console.log(`[${requestId}] ✅ Request body parsed successfully`);
+      } catch (parseError) {
+        console.error(`[${requestId}] ❌ JSON parsing failed:`, parseError);
+        return new Response(JSON.stringify({ 
+          result: 'error', 
+          message: 'Invalid JSON in request body',
+          details: parseError?.message || 'Unknown parsing error'
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      // Validate request structure
+      if (!requestBody || typeof requestBody !== 'object') {
+        console.error(`[${requestId}] ❌ Invalid request body structure:`, requestBody);
+        return new Response(JSON.stringify({ 
+          result: 'error', 
+          message: 'Request body must be a valid JSON object'
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      const { action, ...requestData } = requestBody;
+      
+      console.log(`[${requestId}] 📋 Received request:`, {
+        method: req.method,
+        action: action,
+        hasRequestData: !!requestData,
+        requestDataKeys: requestData ? Object.keys(requestData) : [],
+        timestamp: new Date().toISOString()
+      });
+      
+      // Validate action parameter
+      if (!action || typeof action !== 'string' || action.trim() === '') {
+        console.error(`[${requestId}] ❌ Invalid or missing action parameter:`, action);
+        return new Response(JSON.stringify({ 
+          result: 'error', 
+          message: `Invalid action parameter: ${action}. Action must be a non-empty string.`,
+          receivedAction: action
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      // Get and validate auth header
+      console.log(`[${requestId}] 🔐 Validating authentication...`);
+      const authHeader = req.headers.get('authorization');
+      
+      if (!authHeader) {
+        console.error(`[${requestId}] ❌ No authorization header provided`);
+        return new Response(JSON.stringify({ 
+          result: 'error', 
+          message: 'No authorization header provided. Please log in.'
+        }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
-    // Get user's profile for country information
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('country')
-      .eq('id', user.id)
-      .single();
+      // Extract and validate JWT token
+      const token = authHeader.replace('Bearer ', '').trim();
+      if (!token || token === authHeader) {
+        console.error(`[${requestId}] ❌ Invalid authorization header format`);
+        return new Response(JSON.stringify({ 
+          result: 'error', 
+          message: 'Invalid authorization header format. Expected "Bearer <token>"'
+        }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Authenticate user
+      let user;
+      try {
+        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser(token);
+        
+        if (authError) {
+          console.error(`[${requestId}] ❌ Authentication error:`, authError);
+          return new Response(JSON.stringify({ 
+            result: 'error', 
+            message: 'Authentication failed. Please log in again.',
+            details: authError.message
+          }), {
+            status: 401,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        
+        if (!authUser) {
+          console.error(`[${requestId}] ❌ No user returned from auth`);
+          return new Response(JSON.stringify({ 
+            result: 'error', 
+            message: 'User not found. Please log in again.'
+          }), {
+            status: 401,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        
+        user = authUser;
+        console.log(`[${requestId}] ✅ User authenticated:`, user.id);
+        
+      } catch (authException) {
+        console.error(`[${requestId}] ❌ Exception during authentication:`, authException);
+        return new Response(JSON.stringify({ 
+          result: 'error', 
+          message: 'Authentication system error',
+          details: authException?.message || 'Unknown error'
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Get user's profile for country information
+      console.log(`[${requestId}] 📍 Fetching user profile...`);
+      let userCountry = 'UAE'; // Default
+      
+      try {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('country')
+          .eq('id', user.id)
+          .maybeSingle(); // Use maybeSingle to avoid errors if no profile exists
+
+        if (profileError) {
+          console.warn(`[${requestId}] ⚠️ Profile fetch error (using default):`, profileError);
+        } else if (profile?.country) {
+          userCountry = profile.country;
+          console.log(`[${requestId}] ✅ User country:`, userCountry);
+        } else {
+          console.log(`[${requestId}] ℹ️ No profile found, using default country:`, userCountry);
+        }
+      } catch (profileException) {
+        console.warn(`[${requestId}] ⚠️ Profile fetch exception (using default):`, profileException);
+      }
 
     const userCountry = profile?.country || 'UAE';
 
@@ -1718,12 +1830,53 @@ serve(async (req) => {
       }
 
       case 'searchProducts': {
-        console.log('📦 searchProducts action - requestData:', JSON.stringify(requestData, null, 2));
+        console.log(`[${requestId}] 📦 searchProducts action started`);
+        console.log(`[${requestId}] 📦 Request data:`, JSON.stringify(requestData, null, 2));
         
-        const { apiId, filters, page: requestPage, pageSize: requestPageSize } = requestData;
-        console.log('📦 Extracted values:', { apiId, hasFilters: !!filters, requestPage, requestPageSize });
+        // Defensive extraction of parameters
+        const apiId = requestData?.apiId;
+        const filters = requestData?.filters || {};
+        const requestPage = requestData?.page;
+        const requestPageSize = requestData?.pageSize;
         
-        const credentials = await getApiCredentials(user.id, apiId);
+        console.log(`[${requestId}] 📦 Extracted values:`, { 
+          apiId, 
+          hasFilters: !!filters,
+          filterKeys: Object.keys(filters),
+          requestPage, 
+          requestPageSize 
+        });
+        
+        // Validate apiId
+        if (!apiId) {
+          console.error(`[${requestId}] ❌ Missing apiId parameter`);
+          return new Response(JSON.stringify({ 
+            result: 'error', 
+            message: 'API credentials ID (apiId) is required for searching products',
+            receivedData: { hasApiId: !!apiId, hasFilters: !!filters }
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        
+        // Get credentials with error handling
+        console.log(`[${requestId}] 🔑 Fetching API credentials...`);
+        let credentials;
+        try {
+          credentials = await getApiCredentials(user.id, apiId);
+          console.log(`[${requestId}] ✅ Credentials fetched successfully`);
+        } catch (credError) {
+          console.error(`[${requestId}] ❌ Failed to fetch credentials:`, credError);
+          return new Response(JSON.stringify({ 
+            result: 'error', 
+            message: 'Failed to fetch API credentials. Please check your API key settings.',
+            details: credError?.message || 'Unknown error'
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
         
         const { 
           categoryId, 
@@ -3289,23 +3442,57 @@ serve(async (req) => {
         throw new Error(`Unknown action: ${action}`);
     }
 
-  } catch (error) {
-    console.error('❌ Fatal error in Sunsky API function:', error);
-    console.error('Error details:', {
-      name: error?.constructor?.name,
-      message: error?.message,
-      stack: error?.stack,
-      type: typeof error
+    } catch (error) {
+      console.error('❌ Fatal error in Sunsky API function:', error);
+      console.error('Error details:', {
+        name: error?.constructor?.name,
+        message: error?.message,
+        stack: error?.stack,
+        type: typeof error
+      });
+      
+      return new Response(JSON.stringify({ 
+        result: 'error', 
+        message: error?.message || 'Unknown error occurred',
+        errorType: error?.constructor?.name || 'UnknownError',
+        timestamp: new Date().toISOString()
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+  
+  } catch (topLevelError) {
+    // Top-level error boundary - catches ANY error that wasn't caught by inner try-catch
+    console.error('🔥 TOP-LEVEL ERROR BOUNDARY TRIGGERED:', topLevelError);
+    console.error('🔥 This error occurred before/outside the main error handler');
+    console.error('🔥 Full error details:', {
+      name: topLevelError?.constructor?.name,
+      message: topLevelError?.message,
+      stack: topLevelError?.stack,
+      type: typeof topLevelError,
+      stringified: String(topLevelError)
     });
     
-    return new Response(JSON.stringify({ 
-      result: 'error', 
-      message: error?.message || 'Unknown error occurred',
-      errorType: error?.constructor?.name || 'UnknownError',
-      timestamp: new Date().toISOString()
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    // Try to return a response, but be extra careful
+    try {
+      return new Response(JSON.stringify({ 
+        result: 'error', 
+        message: 'Critical system error: ' + (topLevelError?.message || 'Unknown error'),
+        errorType: topLevelError?.constructor?.name || 'CriticalError',
+        category: 'top_level_boundary',
+        timestamp: new Date().toISOString()
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    } catch (responseError) {
+      // If even creating the error response fails, return a basic response
+      console.error('🔥 FAILED TO CREATE ERROR RESPONSE:', responseError);
+      return new Response('Critical system error', {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'text/plain' },
+      });
+    }
   }
 });
