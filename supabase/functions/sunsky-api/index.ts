@@ -407,6 +407,44 @@ async function handleGetOrderDetails(params: any, key: string, secret: string) {
   };
 }
 
+async function handleGetPricesAndFreights(params: any, key: string, secret: string) {
+  console.log('💰 Get Prices and Freights:', params);
+  
+  if (!params.deliveryAddress || !params.items) {
+    throw new Error('deliveryAddress and items are required');
+  }
+  
+  // Build request params according to Sunsky API docs
+  const requestParams: Record<string, any> = {};
+  
+  // Delivery address
+  const addr = params.deliveryAddress;
+  requestParams['deliveryAddress.countryId'] = addr.countryId;
+  requestParams['deliveryAddress.state'] = addr.state || '';
+  requestParams['deliveryAddress.city'] = addr.city;
+  requestParams['deliveryAddress.postcode'] = addr.postcode;
+  
+  // Items
+  params.items.forEach((item: any, index: number) => {
+    const i = index + 1;
+    requestParams[`items.${i}.itemNo`] = item.itemNo;
+    requestParams[`items.${i}.qty`] = item.qty;
+  });
+  
+  console.log('📤 Requesting prices and freights with params:', {
+    countryId: addr.countryId,
+    city: addr.city,
+    itemCount: params.items.length
+  });
+  
+  const result = await callSunskyAPI('/openapi/order!getPricesAndFreights.do', requestParams, key, secret);
+  
+  return {
+    result: 'success',
+    data: result.data || result
+  };
+}
+
 async function handleTestCredentials(_params: any, key: string, secret: string) {
   console.log('🧪 Test Credentials');
   
@@ -635,6 +673,7 @@ serve(async (req: Request) => {
       case 'getCategories':
       case 'getBrands':
       case 'getCountries':
+      case 'getPricesAndFreights':
       case 'createOrder':
       case 'getOrders':
       case 'getOrderDetails':
@@ -661,6 +700,10 @@ serve(async (req: Request) => {
           
           case 'getCountries':
             result = await handleGetCountries(params, credentials.key, credentials.secret);
+            break;
+          
+          case 'getPricesAndFreights':
+            result = await handleGetPricesAndFreights(params, credentials.key, credentials.secret);
             break;
           
           case 'createOrder':
