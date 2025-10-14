@@ -387,29 +387,29 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
   };
 
   const loadShippingMethods = async () => {
-    // Validate all required delivery address fields
-    if (!deliveryAddress.countryId) {
+    // Validate all required delivery address fields with trim to catch whitespace-only values
+    if (!deliveryAddress.countryId?.trim()) {
       toast({
-        title: "Missing Delivery Information",
+        title: "Country Required",
         description: "Please select a country before loading shipping options",
         variant: "destructive"
       });
       return;
     }
     
-    if (!deliveryAddress.city) {
+    if (!deliveryAddress.city?.trim()) {
       toast({
-        title: "Missing Delivery Information",
+        title: "City Required",
         description: "Please enter a city before loading shipping options",
         variant: "destructive"
       });
       return;
     }
     
-    if (!deliveryAddress.postcode) {
+    if (!deliveryAddress.postcode?.trim()) {
       toast({
-        title: "Missing Delivery Information",
-        description: "Please enter a postcode before loading shipping options",
+        title: "Postal Code Required",
+        description: "Please enter a postal code before loading shipping options",
         variant: "destructive"
       });
       return;
@@ -1005,10 +1005,14 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
   const canProceedToAddress = checkedItems.size > 0;
   const canProceedToShipping = deliveryAddress.countryId && deliveryAddress.receiver && deliveryAddress.address && deliveryAddress.city && deliveryAddress.postcode;
   
-  // For loading shipping, only require selected items, country, and state (if country requires it)
+  // For loading shipping, require: selected items, country, city, postcode, and state (if country requires it)
   const selectedCountry = countries.find(c => c.id === deliveryAddress.countryId);
   const requiresState = selectedCountry?.shipToState === true;
-  const canLoadShipping = checkedItems.size > 0 && deliveryAddress.countryId && (!requiresState || deliveryAddress.state);
+  const canLoadShipping = checkedItems.size > 0 && 
+    deliveryAddress.countryId?.trim() && 
+    deliveryAddress.city?.trim() && 
+    deliveryAddress.postcode?.trim() && 
+    (!requiresState || deliveryAddress.state?.trim());
   
   const canProceedToReview = typeof deliveryAddress.shippingWayId !== 'undefined' && deliveryAddress.shippingWayId !== null && deliveryAddress.shippingWayId !== '';
 
@@ -1142,14 +1146,22 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
           {step === 'address' && (
             <div>
               <h3 className="text-lg font-semibold mb-4">Delivery Address</h3>
+              <div className="space-y-1 mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <p className="text-sm font-medium text-blue-900 dark:text-blue-100">Required for Shipping Calculation:</p>
+                <p className="text-xs text-blue-700 dark:text-blue-200">Country, City, and Postal Code must be filled to load shipping options</p>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="country">Country *</Label>
+                  <Label htmlFor="country" className="flex items-center gap-1">
+                    Country 
+                    <span className="text-destructive">*</span>
+                    <span className="text-xs text-muted-foreground">(Required for shipping)</span>
+                  </Label>
                   <Select 
                     value={deliveryAddress.countryId} 
                     onValueChange={(value) => setDeliveryAddress({...deliveryAddress, countryId: value})}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={!deliveryAddress.countryId ? "border-orange-300 dark:border-orange-700" : ""}>
                       <SelectValue placeholder="Select country" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1198,12 +1210,17 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
                   />
                 </div>
                 <div>
-                  <Label htmlFor="city">City *</Label>
+                  <Label htmlFor="city" className="flex items-center gap-1">
+                    City 
+                    <span className="text-destructive">*</span>
+                    <span className="text-xs text-muted-foreground">(Required for shipping)</span>
+                  </Label>
                   <Input
                     id="city"
                     value={deliveryAddress.city}
                     onChange={(e) => setDeliveryAddress({...deliveryAddress, city: e.target.value})}
                     placeholder="City"
+                    className={!deliveryAddress.city?.trim() ? "border-orange-300 dark:border-orange-700" : ""}
                   />
                 </div>
                 <div>
@@ -1243,12 +1260,17 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
                   })()}
                 </div>
                 <div>
-                  <Label htmlFor="postcode">Postal Code *</Label>
+                  <Label htmlFor="postcode" className="flex items-center gap-1">
+                    Postal Code 
+                    <span className="text-destructive">*</span>
+                    <span className="text-xs text-muted-foreground">(Required for shipping)</span>
+                  </Label>
                   <Input
                     id="postcode"
                     value={deliveryAddress.postcode}
                     onChange={(e) => setDeliveryAddress({...deliveryAddress, postcode: e.target.value})}
                     placeholder="Postal/ZIP code"
+                    className={!deliveryAddress.postcode?.trim() ? "border-orange-300 dark:border-orange-700" : ""}
                   />
                 </div>
                 <div>
@@ -1384,10 +1406,19 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
           {step === 'shipping' && (
             <div>
               <h3 className="text-lg font-semibold mb-4">Select Shipping Method</h3>
+              {!canLoadShipping && (
+                <div className="mb-4 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+                  <p className="text-sm font-medium text-orange-900 dark:text-orange-100">Missing Required Information</p>
+                  <p className="text-xs text-orange-700 dark:text-orange-200 mt-1">
+                    Please go back and fill in: Country, City, and Postal Code
+                  </p>
+                </div>
+              )}
                <Button 
                  onClick={loadShippingMethods} 
                  disabled={loadingShipping || !canLoadShipping}
                  className="mb-4"
+                 title={!canLoadShipping ? "Please fill in Country, City, and Postal Code first" : ""}
                >
                  {loadingShipping ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Truck className="h-4 w-4 mr-2" />}
                  Load Shipping Options

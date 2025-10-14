@@ -160,10 +160,10 @@ export const PrintEligibleItems: React.FC = () => {
 
   const toggleItemStatus = async (id: string, newStatus: boolean) => {
     try {
-      const { error } = await supabase
+      const { error } = await (supabase
         .from('print_eligible_items')
-        .update({ is_active: newStatus } as any)
-        .eq('id' as any, id as any);
+        .update({ is_active: newStatus })
+        .eq('id', id) as any);
 
       if (error) throw error;
 
@@ -180,10 +180,10 @@ export const PrintEligibleItems: React.FC = () => {
 
   const deleteItem = async (id: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await (supabase
         .from('print_eligible_items')
         .delete()
-        .eq('id' as any, id as any);
+        .eq('id', id) as any);
 
       if (error) throw error;
 
@@ -214,11 +214,11 @@ export const PrintEligibleItems: React.FC = () => {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       
-      const { error } = await supabase
+      const { error } = await (supabase
         .from('print_eligible_items')
-        .update({ is_active: true } as any)
-        .eq('user_id' as any, user?.id as any)
-        .eq('is_active' as any, false as any);
+        .update({ is_active: true })
+        .eq('user_id', user?.id)
+        .eq('is_active', false) as any);
 
       if (error) throw error;
 
@@ -238,11 +238,11 @@ export const PrintEligibleItems: React.FC = () => {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       
-      const { error } = await supabase
+      const { error } = await (supabase
         .from('print_eligible_items')
-        .update({ is_active: false } as any)
-        .eq('user_id' as any, user?.id as any)
-        .eq('is_active' as any, true as any);
+        .update({ is_active: false })
+        .eq('user_id', user?.id)
+        .eq('is_active', true) as any);
 
       if (error) throw error;
 
