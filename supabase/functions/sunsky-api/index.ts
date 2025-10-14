@@ -178,17 +178,24 @@ async function callSunskyAPI(
     const data = JSON.parse(responseText);
     
     if (data.result === 'error') {
-      throw new Error(data.messages?.join(', ') || data.message || 'Sunsky API error');
+      const errorMsg = data.messages?.join(', ') || data.message || 'Sunsky API error';
+      throw new Error(errorMsg);
     }
     
     return data;
   } catch (e) {
+    // Check if response is a plain text error from Sunsky
+    if (responseText.includes('NO_PERMISSION_DUE_TO_USER_STATUS')) {
+      throw new Error('Invalid Sunsky API credentials or account not active. Please verify your API key and secret are correct and your Sunsky account is in good standing.');
+    }
+    
     // If it's already our custom error, rethrow it
-    if (e instanceof Error && e.message !== 'Unexpected token') {
+    if (e instanceof Error && !e.message.includes('JSON')) {
       throw e;
     }
+    
     console.error('❌ Failed to parse response:', responseText.substring(0, 500));
-    throw new Error(`Invalid JSON response from Sunsky: ${e.message}`);
+    throw new Error(`Invalid response from Sunsky API. Please check your credentials.`);
   }
 }
 
