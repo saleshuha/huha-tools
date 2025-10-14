@@ -76,7 +76,7 @@ export function useVendorIntegration() {
         .order('created_at', { ascending: false });
 
       if (country) {
-        query = query.eq('country', country);
+        query = query.eq('country' as any, country as any);
       }
 
       const { data, error } = await query;
@@ -91,7 +91,7 @@ export function useVendorIntegration() {
         return;
       }
 
-      setIntegrations(data || []);
+      setIntegrations((data || []) as any);
     } catch (error) {
       console.error('Error in loadIntegrations:', error);
       toast({
@@ -113,7 +113,7 @@ export function useVendorIntegration() {
         .limit(limit);
 
       if (integrationId) {
-        query = query.eq('integration_id', integrationId);
+        query = query.eq('integration_id' as any, integrationId as any);
       }
 
       const { data, error } = await query;
@@ -128,7 +128,7 @@ export function useVendorIntegration() {
         return;
       }
 
-      setFeedLogs(data || []);
+      setFeedLogs((data || []) as any);
     } catch (error) {
       console.error('Error in loadFeedLogs:', error);
     }
@@ -168,7 +168,7 @@ export function useVendorIntegration() {
           primary_key_type: integration.primary_key_type,
           feed_schedule: integration.feed_schedule || 'daily',
           is_active: integration.is_active || false,
-        })
+        } as any)
         .select()
         .single();
 
@@ -204,8 +204,8 @@ export function useVendorIntegration() {
     try {
       const { error } = await supabase
         .from('vendor_integrations')
-        .update(updates)
-        .eq('id', id);
+        .update(updates as any)
+        .eq('id' as any, id as any);
 
       if (error) {
         console.error('Error updating integration:', error);
@@ -240,7 +240,7 @@ export function useVendorIntegration() {
       const { error } = await supabase
         .from('vendor_integrations')
         .delete()
-        .eq('id', id);
+        .eq('id' as any, id as any);
 
       if (error) {
         console.error('Error deleting integration:', error);

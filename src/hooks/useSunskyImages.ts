@@ -119,12 +119,12 @@ export const useSunskyImages = (): UseSunskyImages => {
       const { data, error } = await supabase
         .from('sunsky_product_images')
         .select('*')
-        .eq('item_no', itemNo)
+        .eq('item_no' as any, itemNo as any)
         .order('image_order', { ascending: true });
 
       if (error) throw error;
 
-      return (data || []) as ProductImage[];
+      return (data || []) as any;
     } catch (error: any) {
       console.error('Error fetching product images:', error);
       toast({
@@ -142,15 +142,15 @@ export const useSunskyImages = (): UseSunskyImages => {
       const { data: images, error: fetchError } = await supabase
         .from('sunsky_product_images')
         .select('storage_path')
-        .eq('item_no', itemNo);
+        .eq('item_no' as any, itemNo as any);
 
       if (fetchError) throw fetchError;
 
       // Delete from storage
-      if (images && images.length > 0) {
-        const paths = images
-          .map(img => img.storage_path)
-          .filter(path => path !== null) as string[];
+      if (images && (images as any).length > 0) {
+        const paths = (images as any)
+          .map((img: any) => img.storage_path)
+          .filter((path: any) => path !== null) as string[];
         
         if (paths.length > 0) {
           const { error: storageError } = await supabase.storage
@@ -167,7 +167,7 @@ export const useSunskyImages = (): UseSunskyImages => {
       const { error: deleteError } = await supabase
         .from('sunsky_product_images')
         .delete()
-        .eq('item_no', itemNo);
+        .eq('item_no' as any, itemNo as any);
 
       if (deleteError) throw deleteError;
 
@@ -179,8 +179,8 @@ export const useSunskyImages = (): UseSunskyImages => {
           images_download_date: null,
           thumbnail_url: null,
           image_count: 0
-        })
-        .eq('sku_code', itemNo);
+        } as any)
+        .eq('sku_code' as any, itemNo as any);
 
       toast({
         title: "Images Deleted",

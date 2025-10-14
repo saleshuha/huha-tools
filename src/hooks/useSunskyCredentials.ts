@@ -52,7 +52,7 @@ export function useSunskyCredentials() {
         
         setCredentials(mockCredentials);
       } else {
-        setCredentials(credentials || []);
+        setCredentials((credentials || []) as any);
       }
     } catch (error) {
       console.error('Error fetching Sunsky credentials:', error);

@@ -21,11 +21,5 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     headers: {
       'Prefer': 'return=representation'
     }
-  },
-  functions: {
-    headers: {
-      'Content-Type': 'application/json',
-      'x-client-info': 'supabase-js-web/2.50.5'
-    }
   }
 });

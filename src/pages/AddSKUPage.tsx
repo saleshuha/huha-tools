@@ -76,14 +76,14 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
       const { data, error } = await supabase
         .from('sunsky_skus')
         .select('sku_code, country')
-        .eq('country', selectedCountry);
+        .eq('country' as any, selectedCountry as any);
       
       if (error) {
         console.error('Error loading existing SKUs:', error);
         return [];
       }
       
-      return data || [];
+      return (data || []) as any;
     },
     enabled: !!profile?.id
   });
@@ -91,10 +91,10 @@ export default function AddSKUPage({ onAddSKUs: propOnAddSKUs, isLoading: propIs
   // Create a Set for fast duplicate lookup
   const [existingSkuSet, setExistingSkus] = useState<Set<string>>(new Set());
 
-  React.useEffect(() => {
+    React.useEffect(() => {
     if (existingSKUs.length > 0) {
       const skuSet = new Set<string>();
-      existingSKUs.forEach(sku => {
+      (existingSKUs as any).forEach((sku: any) => {
         skuSet.add(`${sku.sku_code}_${sku.country}`);
       });
       setExistingSkus(skuSet);

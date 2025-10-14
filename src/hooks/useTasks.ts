@@ -29,7 +29,7 @@ export function useTasks() {
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
-        .eq('country', selectedCountry)
+        .eq('country' as any, selectedCountry as any)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -42,7 +42,7 @@ export function useTasks() {
         return;
       }
 
-      setTasks(data || []);
+      setTasks((data || []) as any);
     } catch (error) {
       console.error('Error loading tasks:', error);
       toast({
@@ -73,7 +73,7 @@ export function useTasks() {
           ...task,
           user_id: user.id,
           country: selectedCountry,
-        }])
+        }] as any)
         .select()
         .single();
 
@@ -87,7 +87,7 @@ export function useTasks() {
         return;
       }
 
-      setTasks(prevTasks => [data, ...prevTasks]);
+      setTasks(prevTasks => [(data as any), ...prevTasks]);
       toast({
         title: "Success",
         description: "Task added successfully",
@@ -106,8 +106,8 @@ export function useTasks() {
     try {
       const { data, error } = await supabase
         .from('tasks')
-        .update(updates)
-        .eq('id', id)
+        .update(updates as any)
+        .eq('id' as any, id as any)
         .select()
         .single();
 
@@ -122,7 +122,7 @@ export function useTasks() {
       }
 
       setTasks(prevTasks => 
-        prevTasks.map(task => task.id === id ? data : task)
+        prevTasks.map(task => task.id === id ? (data as any) : task)
       );
     } catch (error) {
       console.error('Error updating task:', error);
@@ -139,7 +139,7 @@ export function useTasks() {
       const { error } = await supabase
         .from('tasks')
         .delete()
-        .eq('id', id);
+        .eq('id' as any, id as any);
 
       if (error) {
         console.error('Error deleting task:', error);

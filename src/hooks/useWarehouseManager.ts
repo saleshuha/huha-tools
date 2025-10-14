@@ -23,16 +23,16 @@ export function useWarehouseManager() {
       const { data, error } = await supabase
         .from('warehouses')
         .select('*')
-        .eq('is_active', true)
+        .eq('is_active' as any, true as any)
         .order('is_default', { ascending: false })
         .order('created_at', { ascending: true });
 
       if (error) throw error;
 
-      setWarehouses(data || []);
+      setWarehouses((data || []) as any);
       
       // Set default warehouse as selected
-      const defaultWarehouse = data?.find(w => w.is_default) || data?.[0];
+      const defaultWarehouse = (data as any)?.find((w: any) => w.is_default) || (data as any)?.[0];
       if (defaultWarehouse) {
         setSelectedWarehouse(defaultWarehouse);
       }
@@ -63,7 +63,7 @@ export function useWarehouseManager() {
           name: warehouse.name,
           location: warehouse.location,
           is_default: warehouse.is_default
-        })
+        } as any)
         .select()
         .single();
 
@@ -73,8 +73,8 @@ export function useWarehouseManager() {
       if (warehouse.is_default) {
         await supabase
           .from('warehouses')
-          .update({ is_default: false })
-          .neq('id', data.id);
+          .update({ is_default: false } as any)
+          .neq('id' as any, (data as any).id as any);
       }
 
       await loadWarehouses();
@@ -101,8 +101,8 @@ export function useWarehouseManager() {
     try {
       const { error } = await supabase
         .from('warehouses')
-        .update(updates)
-        .eq('id', id);
+        .update(updates as any)
+        .eq('id' as any, id as any);
 
       if (error) throw error;
 
@@ -110,8 +110,8 @@ export function useWarehouseManager() {
       if (updates.is_default) {
         await supabase
           .from('warehouses')
-          .update({ is_default: false })
-          .neq('id', id);
+          .update({ is_default: false } as any)
+          .neq('id' as any, id as any);
       }
 
       await loadWarehouses();
@@ -135,8 +135,8 @@ export function useWarehouseManager() {
     try {
       const { error } = await supabase
         .from('warehouses')
-        .update({ is_active: false })
-        .eq('id', id);
+        .update({ is_active: false } as any)
+        .eq('id' as any, id as any);
 
       if (error) throw error;
 

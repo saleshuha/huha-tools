@@ -26,10 +26,10 @@ export function useUserPagePermissions(userId?: string) {
       const { data, error } = await supabase
         .from('user_page_permissions')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id' as any, userId as any);
 
       if (error) throw error;
-      setPermissions(data || []);
+      setPermissions((data || []) as any);
     } catch (error) {
       console.error('Error fetching permissions:', error);
       toast({
@@ -54,7 +54,7 @@ export function useUserPagePermissions(userId?: string) {
       await supabase
         .from('user_page_permissions')
         .delete()
-        .eq('user_id', userId);
+        .eq('user_id' as any, userId as any);
 
       // Insert new permissions
       if (pageRoutes.length > 0) {
@@ -64,7 +64,7 @@ export function useUserPagePermissions(userId?: string) {
             pageRoutes.map(route => ({
               user_id: userId,
               page_route: route
-            }))
+            })) as any
           );
 
         if (error) throw error;

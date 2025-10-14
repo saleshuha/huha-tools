@@ -65,9 +65,9 @@ export default function CarrefourSalesTracker() {
       const {
         data,
         error
-      } = await supabase.from("stores").select("*").eq("id", storeId).single();
+      } = await supabase.from("stores").select("*").eq("id" as any, storeId as any).single();
       if (error) throw error;
-      setCurrentStore(data as Store);
+      setCurrentStore((data as any) as Store);
     } catch (error) {
       console.error("Error fetching store:", error);
       toast({
@@ -84,12 +84,12 @@ export default function CarrefourSalesTracker() {
       const {
         data,
         error
-      } = await supabase.from("carrefour_payments").select("*").eq("store_id", storeId).eq("country", currentStore.country) // Filter by store's country
+      } = await supabase.from("carrefour_payments").select("*").eq("store_id" as any, storeId as any).eq("country" as any, currentStore.country as any) // Filter by store's country
       .order("created_at", {
         ascending: false
       });
       if (error) throw error;
-      setSalesOrders((data || []) as CarrefourSalesOrder[]);
+      setSalesOrders(((data || []) as any) as CarrefourSalesOrder[]);
     } catch (error) {
       console.error("Error fetching sales orders:", error);
       toast({

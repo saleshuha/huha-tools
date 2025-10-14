@@ -35,7 +35,7 @@ export function useUserProfile() {
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id', userId)
+          .eq('id' as any, userId as any)
           .abortSignal(controller.signal)
           .maybeSingle();
 
@@ -50,8 +50,8 @@ export function useUserProfile() {
         }
 
         if (data) {
-          console.log('✅ Profile loaded:', data.country);
-          setProfile(data as UserProfile);
+          console.log('✅ Profile loaded:', (data as any).country);
+          setProfile((data as any) as UserProfile);
         } else {
           console.warn('⚠️ No profile found');
         }

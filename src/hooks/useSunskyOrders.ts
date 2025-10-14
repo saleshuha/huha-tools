@@ -95,7 +95,7 @@ export const useSunskyOrders = () => {
       const { count: totalCountResult, error: countError } = await supabase
         .from('sunsky_orders')
         .select('id', { count: 'exact', head: true })
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
+        .eq('user_id' as any, (await supabase.auth.getUser()).data.user?.id as any);
 
       if (countError) {
         console.error('❌ Error getting count:', countError);
@@ -148,7 +148,7 @@ export const useSunskyOrders = () => {
               created_at
             )
           `)
-          .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+          .eq('user_id' as any, (await supabase.auth.getUser()).data.user?.id as any)
           .order('gmt_created', { ascending: false })
           .order('created_at', { ascending: false })
           .range(currentOffset, currentOffset + batchSize - 1)
@@ -238,8 +238,8 @@ export const useSunskyOrders = () => {
         const { data: credentials, error: credError } = await supabase
           .from('sunsky_credentials')
           .select('id, name, is_active')
-          .eq('user_id', user.id)
-          .eq('is_active', true)
+          .eq('user_id' as any, user.id as any)
+          .eq('is_active' as any, true as any)
           .limit(1);
 
         if (credError) throw credError;
@@ -254,7 +254,7 @@ export const useSunskyOrders = () => {
           return;
         }
 
-        finalCredentialId = credentials[0].id;
+        finalCredentialId = (credentials[0] as any).id;
         console.log('Using first available credential:', finalCredentialId);
       }
 
@@ -265,14 +265,14 @@ export const useSunskyOrders = () => {
       const { data: deliveredOrdersData, error: deliveredError } = await supabase
         .from('sunsky_orders')
         .select('number')
-        .eq('user_id', user.id)
-        .in('status', ['6', 'delivered']); // Status 6 = delivered
+        .eq('user_id' as any, user.id as any)
+        .in('status' as any, ['6', 'delivered'] as any); // Status 6 = delivered
 
       if (deliveredError) {
         console.warn('Failed to fetch delivered orders, continuing with full sync:', deliveredError);
       }
 
-      const deliveredOrderNumbers = new Set(deliveredOrdersData?.map(o => o.number) || []);
+      const deliveredOrderNumbers = new Set(deliveredOrdersData?.map((o: any) => o.number) || []);
       console.log(`📦 Found ${deliveredOrderNumbers.size} delivered orders in database to skip`);
 
       // Determine sync strategy

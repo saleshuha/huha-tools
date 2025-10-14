@@ -89,7 +89,7 @@ export function useSkuInventory() {
           restock_quantity: item.restockQuantity || null,
           last_restock_date: item.lastRestockDate || null,
           country: selectedCountry,
-        })
+        } as any)
         .select()
         .single();
 
@@ -273,7 +273,7 @@ export function useSkuInventory() {
             bin_serial_number: item.binSerialNumber,
             sku_number: item.skuNumber
           }
-        });
+        } as any);
 
       if (changeError) throw changeError;
 
@@ -357,8 +357,8 @@ export function useSkuInventory() {
     try {
       const { error } = await supabase
         .from('sku_inventory')
-        .update({ bin_serial_number: newBinSerial })
-        .eq('id', id);
+        .update({ bin_serial_number: newBinSerial } as any)
+        .eq('id' as any, id as any);
 
       if (error) throw error;
 
@@ -387,9 +387,9 @@ export function useSkuInventory() {
     try {
       const { error } = await supabase
         .from('sku_inventory')
-        .update({ sku_number: newSku, updated_at: new Date().toISOString() })
-        .eq('id', id)
-        .eq('country', selectedCountry);
+        .update({ sku_number: newSku, updated_at: new Date().toISOString() } as any)
+        .eq('id' as any, id as any)
+        .eq('country' as any, selectedCountry as any);
 
       if (error) throw error;
 
@@ -419,9 +419,9 @@ export function useSkuInventory() {
       for (const pair of binSkuPairs) {
         const { error } = await supabase
           .from('sku_inventory')
-          .update({ sku_number: pair.sku.trim() || null })
-          .eq('bin_serial_number', pair.binSerial)
-          .eq('country', selectedCountry);
+          .update({ sku_number: pair.sku.trim() || null } as any)
+          .eq('bin_serial_number' as any, pair.binSerial as any)
+          .eq('country' as any, selectedCountry as any);
 
         if (error) {
           console.error('Error updating SKU for bin:', pair.binSerial, error);
@@ -473,9 +473,9 @@ export function useSkuInventory() {
     try {
       const { error } = await supabase
         .from('sku_inventory')
-        .update({ asin: newAsin || null, updated_at: new Date().toISOString() })
-        .eq('id', id)
-        .eq('country', selectedCountry);
+        .update({ asin: newAsin || null, updated_at: new Date().toISOString() } as any)
+        .eq('id' as any, id as any)
+        .eq('country' as any, selectedCountry as any);
 
       if (error) throw error;
 
@@ -499,9 +499,9 @@ export function useSkuInventory() {
     try {
       const { error } = await supabase
         .from('sku_inventory')
-        .update({ title: newTitle.trim() || null })
-        .eq('id', id)
-        .eq('country', selectedCountry);
+        .update({ title: newTitle.trim() || null } as any)
+        .eq('id' as any, id as any)
+        .eq('country' as any, selectedCountry as any);
 
       if (error) throw error;
 
@@ -532,9 +532,9 @@ export function useSkuInventory() {
       for (const pair of skuTitlePairs) {
         const { error } = await supabase
           .from('sku_inventory')
-          .update({ title: pair.title.trim() || null })
-          .eq('sku_number', pair.skuNumber)
-          .eq('country', selectedCountry);
+          .update({ title: pair.title.trim() || null } as any)
+          .eq('sku_number' as any, pair.skuNumber as any)
+          .eq('country' as any, selectedCountry as any);
 
         if (error) {
           console.error('Error updating title for SKU:', pair.skuNumber, error);
