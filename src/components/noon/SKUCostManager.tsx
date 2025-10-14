@@ -52,7 +52,7 @@ export function SKUCostManager({ feesData, onCostsUpdated }: SKUCostManagerProps
       const { data, error } = await supabase
         .from('sku_costs' as any)
         .select('*')
-        .eq('country', selectedCountry);
+        .eq('country' as any, selectedCountry as any);
 
       if (error) throw error;
 
@@ -161,8 +161,8 @@ export function SKUCostManager({ feesData, onCostsUpdated }: SKUCostManagerProps
             cost,
             notes: editingNotes.trim() || null,
             updated_at: new Date().toISOString()
-          })
-          .eq('id', existingCost.id);
+          } as any)
+          .eq('id' as any, existingCost.id as any);
 
         if (error) throw error;
       } else {
@@ -178,7 +178,7 @@ export function SKUCostManager({ feesData, onCostsUpdated }: SKUCostManagerProps
             country: selectedCountry,
             notes: editingNotes.trim() || null,
             user_id: user.id
-          });
+          } as any);
 
         if (error) throw error;
       }
@@ -277,8 +277,8 @@ export function SKUCostManager({ feesData, onCostsUpdated }: SKUCostManagerProps
                     cost: update.cost,
                     notes: update.notes,
                     updated_at: update.updated_at
-                  })
-                  .eq('id', update.id);
+                  } as any)
+                  .eq('id' as any, update.id as any);
                 if (updateError) throw updateError;
               }
             }

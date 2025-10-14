@@ -258,7 +258,7 @@ export function NoonFeesUpload({ onDataUploaded }: NoonFeesUploadProps) {
 
       const { error } = await supabase
         .from('noon_order_fees')
-        .insert(dbData);
+        .insert(dbData as any);
 
       if (error) throw error;
 

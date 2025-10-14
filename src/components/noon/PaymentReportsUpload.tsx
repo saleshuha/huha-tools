@@ -88,13 +88,13 @@ export function PaymentReportsUpload({ onDataUploaded }: PaymentReportsUploadPro
     const { data: stores } = await supabase
       .from('stores')
       .select('id')
-      .eq('platform', 'noon')
-      .eq('country', selectedCountry)
-      .eq('user_id', user.id)
-      .eq('is_active', true)
+      .eq('platform' as any, 'noon' as any)
+      .eq('country' as any, selectedCountry as any)
+      .eq('user_id' as any, user.id as any)
+      .eq('is_active' as any, true as any)
       .limit(1);
 
-    const storeId = stores?.[0]?.id || null;
+    const storeId = (stores as any)?.[0]?.id || null;
 
     const batchSize = 100;
     const batches = [];
