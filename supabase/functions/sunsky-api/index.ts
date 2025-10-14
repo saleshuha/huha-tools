@@ -3468,4 +3468,16 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
+  
+  } catch (outerError: any) {
+    // Outer error handler - catches errors from the entire handler (including parsing, etc.)
+    console.error('🔥 OUTER ERROR HANDLER:', outerError);
+    return new Response(JSON.stringify({
+      result: 'error',
+      message: outerError.message || 'System error',
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
 });
