@@ -1612,8 +1612,6 @@ serve(async (req) => {
         console.warn(`[${requestId}] ⚠️ Profile fetch exception (using default):`, profileException);
       }
 
-    const userCountry = profile?.country || 'UAE';
-
     switch (action) {
       case 'saveCredentials': {
         const { apiKey, apiSecret } = requestData;
