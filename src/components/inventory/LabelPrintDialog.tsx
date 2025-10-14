@@ -105,7 +105,7 @@ export function LabelPrintDialog({ open, onOpenChange, selectedItems, inventoryT
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setTemplates(data || []);
+      setTemplates((data as any) || []);
     } catch (error) {
       toast({
         title: "Error loading templates",

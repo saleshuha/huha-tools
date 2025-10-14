@@ -68,7 +68,7 @@ export function BulkDataManager({ onDatasetSelect, activeDataset }: BulkDataMana
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setDatasets(data || []);
+      setDatasets((data as any) || []);
     } catch (error) {
       console.error('Error loading datasets:', error);
       toast.error("Failed to load datasets");
@@ -175,7 +175,7 @@ export function BulkDataManager({ onDatasetSelect, activeDataset }: BulkDataMana
       const { error } = await supabase
         .from('label_datasets')
         .delete()
-        .eq('id', datasetId);
+        .eq('id' as any, datasetId as any);
 
       if (error) throw error;
 

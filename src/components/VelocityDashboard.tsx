@@ -62,7 +62,7 @@ export function VelocityDashboard() {
       const { data: asinData, error } = await supabase
         .from('asin_inventory')
         .select('*')
-        .eq('id', itemId)
+        .eq('id' as any, itemId as any)
         .single();
 
       if (error || !asinData) {

@@ -163,7 +163,7 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setSavedAddresses(data || []);
+      setSavedAddresses((data as any) || []);
     } catch (error) {
       console.error('Failed to load saved addresses:', error);
       toast({
@@ -185,8 +185,8 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
 
       if (error) throw error;
       
-      const credentials = data || [];
-      setSunskyCredentials(credentials);
+      const credentials = (data as any) || [];
+      setSunskyCredentials(credentials as any);
       
       // Auto-select the first credential if available
       if (credentials.length > 0) {
@@ -238,7 +238,7 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
           telephone: deliveryAddress.telephone,
           email: deliveryAddress.email,
           is_default: savedAddresses.length === 0 // First address becomes default
-        });
+        } as any);
 
       if (error) throw error;
 
@@ -291,7 +291,7 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
       const { error } = await supabase
         .from('saved_delivery_addresses')
         .delete()
-        .eq('id', addressId);
+        .eq('id' as any, addressId as any);
 
       if (error) throw error;
 

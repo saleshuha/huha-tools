@@ -81,7 +81,7 @@ export function SunskyOrderPlacement({
       const { error } = await supabase
         .from('noon_orders')
         .delete()
-        .eq('user_id', user.id);
+        .eq('user_id' as any, user.id as any);
 
       if (error) throw error;
 

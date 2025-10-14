@@ -56,17 +56,17 @@ export function SkuInventoryMetrics() {
       setLoading(true);
       const {
         data: skuData
-      } = await supabase.from('sku_inventory').select('*').eq('country', selectedCountry);
-      const allItems = skuData || [];
+      } = await supabase.from('sku_inventory').select('*').eq('country' as any, selectedCountry as any);
+      const allItems = ((skuData as any) || []);
       const activeItems = allItems.length;
-      const inStockItems = allItems.filter(item => item.quantity > 0).length;
-      const outOfStockItems = allItems.filter(item => item.quantity === 0).length;
+      const inStockItems = allItems.filter((item: any) => item.quantity > 0).length;
+      const outOfStockItems = allItems.filter((item: any) => item.quantity === 0).length;
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      const recentlyAdded = allItems.filter(item => new Date(item.date_added) >= sevenDaysAgo).length;
-      const totalUnits = allItems.reduce((sum, item) => sum + item.quantity, 0);
-      const soldUnits = allItems.filter(item => item.status === 'sold').reduce((sum, item) => sum + item.quantity, 0);
-      const missingSku = allItems.filter(item => !item.sku_number || item.sku_number.trim() === '').length;
+      const recentlyAdded = allItems.filter((item: any) => new Date(item.date_added) >= sevenDaysAgo).length;
+      const totalUnits = allItems.reduce((sum: number, item: any) => sum + item.quantity, 0);
+      const soldUnits = allItems.filter((item: any) => item.status === 'sold').reduce((sum: number, item: any) => sum + item.quantity, 0);
+      const missingSku = allItems.filter((item: any) => !item.sku_number || item.sku_number.trim() === '').length;
       setStats({
         activeItems,
         inStockItems,
@@ -90,22 +90,22 @@ export function SkuInventoryMetrics() {
     try {
       const {
         data: skuData
-      } = await supabase.from('sku_inventory').select('*').eq('country', selectedCountry);
-      let filteredItems = skuData || [];
+      } = await supabase.from('sku_inventory').select('*').eq('country' as any, selectedCountry as any);
+      let filteredItems = ((skuData as any) || []);
 
       // Filter based on metric
       if (metric === 'instock') {
-        filteredItems = filteredItems.filter(item => item.quantity > 0);
+        filteredItems = filteredItems.filter((item: any) => item.quantity > 0);
       } else if (metric === 'outofstock') {
-        filteredItems = filteredItems.filter(item => item.quantity === 0);
+        filteredItems = filteredItems.filter((item: any) => item.quantity === 0);
       } else if (metric === 'recentlyadded') {
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        filteredItems = filteredItems.filter(item => new Date(item.date_added) >= sevenDaysAgo);
+        filteredItems = filteredItems.filter((item: any) => new Date(item.date_added) >= sevenDaysAgo);
       } else if (metric === 'missingsku') {
-        filteredItems = filteredItems.filter(item => !item.sku_number || item.sku_number.trim() === '');
+        filteredItems = filteredItems.filter((item: any) => !item.sku_number || item.sku_number.trim() === '');
       }
-      setInventoryItems(filteredItems);
+      setInventoryItems(filteredItems as any);
     } catch (error: any) {
       toast({
         title: "Error loading SKU items",

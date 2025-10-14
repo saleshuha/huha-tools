@@ -242,7 +242,7 @@ ORD003,200.00,20.00,100.00,Delivered,Received`;
       const { data: storeData } = await supabase
         .from("stores")
         .select("country")
-        .eq("id", storeId)
+        .eq("id" as any, storeId as any)
         .single();
 
       const mappedData = getMappedData();
@@ -252,12 +252,12 @@ ORD003,200.00,20.00,100.00,Delivered,Received`;
         ...order,
         user_id: user.id,
         store_id: storeId,
-        country: storeData?.country || selectedCountry,
+        country: (storeData as any)?.country || selectedCountry,
       }));
 
       const { error } = await supabase
         .from("carrefour_payments")
-        .insert(dataWithIds);
+        .insert(dataWithIds as any);
 
       if (error) throw error;
 

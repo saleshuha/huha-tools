@@ -43,12 +43,12 @@ export const SunskyCredentialsSelector: React.FC<SunskyCredentialsSelectorProps>
       
       if (error) throw error;
       
-      setCredentials(data || []);
+      setCredentials((data as any) || []);
       
       // Auto-select first active credential if none selected
-      if (!selectedCredentialId && data && data.length > 0) {
-        const activeCredential = data.find(cred => cred.is_active);
-        const defaultCredential = activeCredential || data[0];
+      if (!selectedCredentialId && data && (data as any).length > 0) {
+        const activeCredential = (data as any).find((cred: any) => cred.is_active);
+        const defaultCredential = activeCredential || (data as any)[0];
         onCredentialSelect?.(defaultCredential.id);
       }
     } catch (error) {

@@ -320,8 +320,8 @@ export function VelocityAnalyticsSimple() {
               sunsky_order_number: orderNumber,
               ordered_quantity: orderedQty,
               ordered_at: new Date().toISOString()
-            })
-            .eq('id', item.asin_id);
+            } as any)
+            .eq('id' as any, item.asin_id as any);
           
           if (statusError) {
             console.error(`❌ Status update failed for ${item.asin}:`, statusError);

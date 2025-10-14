@@ -43,25 +43,25 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
       const { data, error } = await supabase
         .from('stock_changes')
         .select('*')
-        .eq('inventory_id', inventoryId)
-        .eq('inventory_type', inventoryType)
+        .eq('inventory_id' as any, inventoryId as any)
+        .eq('inventory_type' as any, inventoryType as any)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setStockChanges(data || []);
+      setStockChanges((data as any) || []);
 
       // Load original item details
       const tableName = inventoryType === 'asin' ? 'asin_inventory' : 'sku_inventory';
       const { data: itemData, error: itemError } = await supabase
-        .from(tableName)
+        .from(tableName as any)
         .select('date_added, quantity')
-        .eq('id', inventoryId)
+        .eq('id' as any, inventoryId as any)
         .single();
 
       if (itemError) throw itemError;
       setItemDetails({
-        dateAdded: itemData.date_added,
-        quantity: itemData.quantity
+        dateAdded: (itemData as any).date_added,
+        quantity: (itemData as any).quantity
       });
     } catch (error) {
       console.error('Error loading stock history:', error);

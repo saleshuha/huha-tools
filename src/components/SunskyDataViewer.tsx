@@ -59,16 +59,16 @@ export function SunskyDataViewer({ open, onOpenChange, invalidItems, onRefreshCo
       const { data: localData, error } = await supabase
         .from('sunsky_skus')
         .select('sku_code, title, cost, currency, country, created_at, updated_at')
-        .in('sku_code', invalidItems.map(item => item.itemNo));
+        .in('sku_code' as any, invalidItems.map(item => item.itemNo) as any);
 
       if (error) throw error;
 
-      setLocalSKUData(localData || []);
+      setLocalSKUData((localData as any) || []);
 
       // Calculate statistics
       const totalSKUs = invalidItems.length;
-      const matchedSKUs = localData?.length || 0;
-      const outdatedSKUs = localData?.filter(sku => {
+      const matchedSKUs = ((localData as any) || []).length || 0;
+      const outdatedSKUs = ((localData as any) || []).filter((sku: any) => {
         const updatedDate = new Date(sku.updated_at);
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);

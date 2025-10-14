@@ -164,11 +164,11 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
       const { data, error } = await supabase
         .from("carrefour_payments")
         .select("*")
-        .eq("country", selectedCountry)
+        .eq("country" as any, selectedCountry as any)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setSalesOrders((data || []) as CarrefourSalesOrder[]);
+      setSalesOrders((data as any) || []);
     } catch (error) {
       console.error("Error fetching sales orders:", error);
       toast({
@@ -231,8 +231,8 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
           cost: editingData.cost,
           profit: editingData.profit,
           status: editingData.status,
-        })
-        .eq("id", editingId);
+        } as any)
+        .eq("id" as any, editingId as any);
 
       if (error) throw error;
 
@@ -272,7 +272,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
       const { data: storeData } = await supabase
         .from("stores")
         .select("country")
-        .eq("id", storeId)
+        .eq("id" as any, storeId as any)
         .single();
 
       const { error } = await supabase
@@ -281,8 +281,8 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
           ...newOrderData,
           user_id: user.id,
           store_id: storeId,
-          country: storeData?.country || selectedCountry, // Use store's country
-        }]);
+          country: (storeData as any)?.country || selectedCountry, // Use store's country
+        }] as any);
 
       if (error) throw error;
 
@@ -341,7 +341,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
       const { error } = await supabase
         .from("carrefour_payments")
         .delete()
-        .eq("id", id);
+        .eq("id" as any, id as any);
 
       if (error) throw error;
 
@@ -368,8 +368,8 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
     try {
       const { error } = await supabase
         .from("carrefour_payments")
-        .update({ status })
-        .in("id", Array.from(selectedOrders));
+        .update({ status } as any)
+        .in("id" as any, Array.from(selectedOrders) as any);
 
       if (error) throw error;
 
@@ -396,8 +396,8 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
     try {
       const { error } = await supabase
         .from("carrefour_payments")
-        .update({ payment_status: paymentStatus })
-        .in("id", Array.from(selectedOrders));
+        .update({ payment_status: paymentStatus } as any)
+        .in("id" as any, Array.from(selectedOrders) as any);
 
       if (error) throw error;
 

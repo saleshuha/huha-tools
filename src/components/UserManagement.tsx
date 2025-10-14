@@ -100,7 +100,7 @@ export function UserManagement() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setProfiles((data || []) as Profile[]);
+      setProfiles((data as any) || [] as any);
     } catch (error) {
       console.error('Error fetching profiles:', error);
       toast({
@@ -191,7 +191,7 @@ export function UserManagement() {
       await supabase
         .from('user_roles')
         .delete()
-        .eq('user_id', userId);
+        .eq('user_id' as any, userId as any);
 
       // Then insert the new role
       const { error } = await supabase
@@ -200,7 +200,7 @@ export function UserManagement() {
           user_id: userId,
           role: newRole,
           assigned_by: userProfile?.id
-        });
+        } as any);
 
       if (error) throw error;
 
