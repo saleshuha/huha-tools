@@ -1157,6 +1157,39 @@ export const SunskySKUImporter: React.FC = () => {
       });
     }
   };
+
+  const deleteApiKey = async (apiKeyId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('sunsky-api', {
+        body: {
+          action: 'deleteApiKey',
+          apiId: apiKeyId
+        }
+      });
+      
+      if (error) throw error;
+      
+      if (data.result === 'success') {
+        toast({
+          title: "Success",
+          description: "API key deleted successfully"
+        });
+
+        // Refresh the available APIs list
+        await loadAvailableAPIs();
+        await checkCredentialsStatus();
+      } else {
+        throw new Error(data.message || 'Failed to delete API key');
+      }
+    } catch (error) {
+      console.error('Error deleting API key:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete API key",
+        variant: "destructive"
+      });
+    }
+  };
   const callSunskyAPI = async (action: string, data: any, apiId?: string, retryCount = 0): Promise<any> => {
     const maxRetries = 2;
     
@@ -4071,6 +4104,9 @@ export const SunskySKUImporter: React.FC = () => {
                              <div className="flex items-center gap-2">
                                <Button variant="outline" size="sm" onClick={() => toggleApiKeyActive(api.id, !api.is_active)}>
                                  {api.is_active ? 'Deactivate' : 'Activate'}
+                               </Button>
+                               <Button variant="destructive" size="sm" onClick={() => deleteApiKey(api.id)}>
+                                 Delete
                                </Button>
                              </div>
                           </div>)}
