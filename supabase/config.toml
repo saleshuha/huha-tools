@@ -38,7 +38,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.sunsky-api]
-verify_jwt = true
+verify_jwt = false
 
 [functions.vendor-inventory-feed]
 verify_jwt = true
