@@ -3455,6 +3455,20 @@ serve(async (req) => {
         });
     }
 
+  } catch (error: any) {
+    // Inner error handler - catches errors from the main logic
+    console.error(`[${requestId}] 🔥 Error processing request:`, error);
+    
+    return new Response(JSON.stringify({
+      result: 'error',
+      message: error.message || 'Unknown error occurred',
+      requestId
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
   } catch (topLevelError) {
     // Top-level error boundary - catches ANY error that wasn't caught by inner try-catch
     console.error('🔥 TOP-LEVEL ERROR BOUNDARY TRIGGERED:', topLevelError);
