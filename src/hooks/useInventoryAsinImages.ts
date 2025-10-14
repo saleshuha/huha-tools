@@ -38,14 +38,14 @@ export function useInventoryAsinImages() {
         .from('asin_inventory')
         .select('asin, title, quantity, status')
         .not('asin', 'is', null)
-        .neq('asin', '');
+        .neq('asin' as any, '' as any);
 
       if (error) throw error;
 
       // Group by ASIN and aggregate
       const asinMap = new Map<string, InventoryAsinItem>();
       
-      data.forEach(item => {
+      (data as any).forEach((item: any) => {
         if (asinMap.has(item.asin)) {
           const existing = asinMap.get(item.asin)!;
           existing.quantity += item.quantity;

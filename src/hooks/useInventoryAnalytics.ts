@@ -67,12 +67,12 @@ export function useInventoryAnalytics() {
         let asinQuery = supabase
           .from('asin_inventory')
           .select('id')
-          .eq('status', 'sold')
-          .eq('eligible_for_restock', true)
+          .eq('status' as any, 'sold' as any)
+          .eq('eligible_for_restock' as any, true as any)
           .gte('date_sold', startDate.toISOString());
 
         if (country) {
-          asinQuery = asinQuery.eq('country', country);
+          asinQuery = asinQuery.eq('country' as any, country as any);
         }
 
         const { data: asinSold } = await asinQuery;
@@ -90,8 +90,8 @@ export function useInventoryAnalytics() {
           let asinRestockQuery = supabase
             .from('asin_inventory')
             .select('restock_quantity, quantity')
-            .eq('country', country)
-            .eq('eligible_for_restock', true)
+            .eq('country' as any, country as any)
+            .eq('eligible_for_restock' as any, true as any)
             .or('last_restock_date.not.is.null,quantity.gt.0');
 
           const [{ data: asinRestocked }, { data: stockChanges }] = await Promise.all([
@@ -100,12 +100,12 @@ export function useInventoryAnalytics() {
           ]);
 
           // Calculate total restocked from actual restock quantities and current stock
-          const asinRestockTotal = asinRestocked?.reduce((sum, item) => {
+          const asinRestockTotal = (asinRestocked as any)?.reduce((sum: number, item: any) => {
             // Count restock quantity if restocked in period, or current quantity if recently added
             return sum + (item.restock_quantity || item.quantity || 0);
           }, 0) || 0;
 
-          const stockChangesTotal = stockChanges?.reduce((sum, change) => sum + change.change_amount, 0) || 0;
+          const stockChangesTotal = (stockChanges as any)?.reduce((sum: number, change: any) => sum + change.change_amount, 0) || 0;
 
           var totalRestocked = asinRestockTotal + stockChangesTotal;
         } else {
@@ -113,11 +113,11 @@ export function useInventoryAnalytics() {
           
           // For non-country specific, get all ASIN inventory quantities only
           const [{ data: allAsin }] = await Promise.all([
-            supabase.from('asin_inventory').select('quantity, restock_quantity').neq('status', 'sold').eq('eligible_for_restock', true).limit(100000)
+            supabase.from('asin_inventory').select('quantity, restock_quantity').neq('status' as any, 'sold' as any).eq('eligible_for_restock' as any, true as any).limit(100000)
           ]);
 
-          const asinTotal = allAsin?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
-          const stockChangesTotal = stockChanges?.reduce((sum, change) => sum + change.change_amount, 0) || 0;
+          const asinTotal = (allAsin as any)?.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) || 0;
+          const stockChangesTotal = (stockChanges as any)?.reduce((sum: number, change: any) => sum + change.change_amount, 0) || 0;
 
           var totalRestocked = asinTotal + stockChangesTotal;
         }
@@ -133,11 +133,11 @@ export function useInventoryAnalytics() {
       let totalItemsQuery = supabase
         .from('asin_inventory')
         .select('id, quantity')
-        .eq('status', 'in-stock')
-        .eq('eligible_for_restock', true);
+        .eq('status' as any, 'in-stock' as any)
+        .eq('eligible_for_restock' as any, true as any);
 
       if (country) {
-        totalItemsQuery = totalItemsQuery.eq('country', country);
+        totalItemsQuery = totalItemsQuery.eq('country' as any, country as any);
       }
 
       const [{ data: asinItems }] = await Promise.all([
@@ -145,7 +145,7 @@ export function useInventoryAnalytics() {
       ]);
 
       const totalActiveItems = asinItems?.length || 0;
-      const criticalStockItems = asinItems?.filter(item => item.quantity <= 1).length || 0;
+      const criticalStockItems = (asinItems as any)?.filter((item: any) => item.quantity <= 1).length || 0;
 
       setInventoryMetrics({
         salesTracking,

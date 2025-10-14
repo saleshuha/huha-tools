@@ -77,7 +77,7 @@ export function useInventoryData() {
 
       // Combine and format the data - prioritize actual titles
       const combinedInventory: InventoryItem[] = [
-        ...(asinData || []).map(item => {
+        ...((asinData as any) || []).map((item: any) => {
           const hasRealTitle = item.title && item.title.trim() && 
                               !item.title.toLowerCase().includes('asin:') && 
                               !item.title.toLowerCase().includes('sku:');
