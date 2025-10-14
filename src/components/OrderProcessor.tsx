@@ -266,7 +266,7 @@ export function OrderProcessor() {
       .eq('user_id', user.id as any)
       .in('order_id', orderIds as any);
 
-    const existingOrderIds = new Set((existingOrders || []).map(o => o.order_id));
+    const existingOrderIds = new Set(((existingOrders as any) || []).map((o: any) => 'order_id' in o ? o.order_id : null).filter(Boolean));
     
     // Filter out duplicate orders
     const newOrders = orders.filter(order => !existingOrderIds.has(order.orderId));
@@ -321,7 +321,7 @@ export function OrderProcessor() {
 
     const { error } = await supabase
       .from('order_imports')
-      .insert(orderRecords);
+      .insert(orderRecords as any);
     
     if (error) {
       console.error('Error saving orders to database:', error);
@@ -344,9 +344,9 @@ export function OrderProcessor() {
         match_field_type: matchFieldType || null,
         inventory_id: inventoryId || null,
         updated_at: new Date().toISOString()
-      })
-      .eq('user_id', user.id)
-      .eq('order_id', orderId);
+      } as any)
+      .eq('user_id' as any, user.id)
+      .eq('order_id' as any, orderId);
     
     if (error) {
       console.error('Error updating order match status:', error);
@@ -580,7 +580,7 @@ export function OrderProcessor() {
             new_stock: newQuantity,
             inventory_id: match.inventoryMatch.id,
             processed_at: new Date().toISOString()
-          });
+          } as any);
         }
 
         const processedItem: ProcessedItem = {
@@ -696,7 +696,7 @@ export function OrderProcessor() {
             new_stock: newQuantity,
             inventory_id: match.inventoryMatch.id,
             processed_at: new Date().toISOString()
-          });
+          } as any);
         }
 
         const processedItem: ProcessedItem = {

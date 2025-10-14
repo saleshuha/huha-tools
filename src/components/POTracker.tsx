@@ -305,9 +305,9 @@ export const POTracker = () => {
     try {
       const { error } = await supabase
         .from('po_orders')
-        .update({ status: 'closed', updated_at: new Date().toISOString() })
-        .in('po_number', poNumbers)
-        .eq('user_id', profile?.id);
+        .update({ status: 'closed', updated_at: new Date().toISOString() } as any)
+        .in('po_number' as any, poNumbers)
+        .eq('user_id' as any, profile?.id);
 
       if (error) throw error;
 
@@ -336,9 +336,9 @@ export const POTracker = () => {
     try {
       const { error } = await supabase
         .from('po_orders')
-        .update({ status: 'closed', updated_at: new Date().toISOString() })
-        .eq('po_number', poNumber)
-        .eq('user_id', profile?.id);
+        .update({ status: 'closed', updated_at: new Date().toISOString() } as any)
+        .eq('po_number' as any, poNumber)
+        .eq('user_id' as any, profile?.id);
 
       if (error) throw error;
 
@@ -440,7 +440,7 @@ export const POTracker = () => {
       const { data, error } = await supabase
         .from('label_templates')
         .select('id, name, description, canvas_data, width, height')
-        .eq('user_id', user.id)
+        .eq('user_id' as any, user.id)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -499,8 +499,8 @@ export const POTracker = () => {
         throw error;
       }
 
-      console.log('📊 PO group metrics fetched:', data?.length, 'POs');
-      return data as Array<{
+      console.log('📊 PO group metrics fetched:', (data as any)?.length, 'POs');
+      return (data || []) as Array<{
         po_number: string;
         distinct_skus: number;
         asn_quantity: number;
@@ -607,7 +607,7 @@ export const POTracker = () => {
         const { data, error } = await supabase
           .from('asin_inventory')
           .select('*')
-          .eq('user_id', profile.id)
+          .eq('user_id' as any, profile.id)
           .order('created_at', { ascending: false })
           .range(asinPage * pageSize, (asinPage + 1) * pageSize - 1);
         
@@ -629,7 +629,7 @@ export const POTracker = () => {
         const { data, error } = await supabase
           .from('sku_inventory')
           .select('*')
-          .eq('user_id', profile.id)
+          .eq('user_id' as any, profile.id)
           .order('created_at', { ascending: false })
           .range(skuPage * pageSize, (skuPage + 1) * pageSize - 1);
         
@@ -1246,8 +1246,8 @@ export const POTracker = () => {
           .update({ 
             is_printed: true,
             printed_quantity: newPrintedQuantity
-          })
-          .eq('id', order.id);
+          } as any)
+          .eq('id' as any, order.id);
           
         if (error) {
           console.error(`❌ Failed to update order ${order.id}:`, error);
@@ -1284,8 +1284,8 @@ export const POTracker = () => {
     
     // Check if it's a custom template
     if (template !== 'default' && template !== 'compact' && template !== 'detailed' && template !== 'minimal' && labelTemplates) {
-      const customTemplate = labelTemplates.find(t => t.id === template);
-      if (customTemplate) {
+      const customTemplate = labelTemplates.find((t: any) => t.id === template);
+      if (customTemplate && 'id' in customTemplate) {
         return generateZPLFromCustomTemplate(order, customTemplate, settings);
       }
     }
@@ -1541,8 +1541,8 @@ export const POTracker = () => {
         .update({ 
           is_printed: true,
           printed_quantity: newPrintedQuantity
-        })
-        .eq('id', order.id);
+        } as any)
+        .eq('id' as any, order.id);
         
       if (error) {
         console.error(`❌ Failed to update single order ${order.id}:`, error);
@@ -2892,8 +2892,8 @@ export const POTracker = () => {
                               // Auto-size from template if it's a custom template and auto-size is enabled
                               if (value !== 'default' && value !== 'compact' && value !== 'detailed' && value !== 'minimal' && 
                                   printSettings.autoSizeFromTemplate && printSettings.pageSize === 'custom' && labelTemplates) {
-                                const selectedTemplate = labelTemplates.find(t => t.id === value);
-                                if (selectedTemplate) {
+                                const selectedTemplate = (labelTemplates as any).find((t: any) => 'id' in t && t.id === value);
+                                if (selectedTemplate && 'width' in selectedTemplate && 'height' in selectedTemplate) {
                                   setPrintSettings(prev => ({
                                     ...prev,
                                     customWidth: selectedTemplate.width || 100,
@@ -2931,13 +2931,15 @@ export const POTracker = () => {
                                   Minimal
                                 </div>
                               </SelectItem>
-                              {labelTemplates?.map((template) => (
+                              {labelTemplates?.map((template: any) => (
+                                'id' in template && 'name' in template && (
                                 <SelectItem key={template.id} value={template.id} className="hover:bg-accent/50">
                                   <div className="flex items-center gap-2">
                                     <div className="w-3 h-2 bg-gradient-to-r from-primary to-accent rounded-sm"></div>
                                     {template.name}
                                   </div>
                                 </SelectItem>
+                                )
                               ))}
                             </SelectContent>
                           </Select>
@@ -2956,8 +2958,8 @@ export const POTracker = () => {
                               
                               // Auto-size from template if custom template and auto-size enabled
                               if (value === 'custom' && printSettings.autoSizeFromTemplate && labelTemplates) {
-                                const selectedTemplate = labelTemplates.find(t => t.id === printSettings.template);
-                                if (selectedTemplate) {
+                                const selectedTemplate = (labelTemplates as any).find((t: any) => 'id' in t && t.id === printSettings.template);
+                                if (selectedTemplate && 'width' in selectedTemplate && 'height' in selectedTemplate) {
                                   setPrintSettings(prev => ({
                                     ...prev,
                                     customWidth: selectedTemplate.width || 100,
@@ -3004,8 +3006,8 @@ export const POTracker = () => {
                                   // If enabling auto-size and we have a custom template selected
                                   if (autoSize && printSettings.template !== 'default' && printSettings.template !== 'compact' && 
                                       printSettings.template !== 'detailed' && printSettings.template !== 'minimal' && labelTemplates) {
-                                    const selectedTemplate = labelTemplates.find(t => t.id === printSettings.template);
-                                    if (selectedTemplate) {
+                                    const selectedTemplate = (labelTemplates as any).find((t: any) => 'id' in t && t.id === printSettings.template);
+                                    if (selectedTemplate && 'width' in selectedTemplate && 'height' in selectedTemplate) {
                                       setPrintSettings(prev => ({
                                         ...prev,
                                         customWidth: selectedTemplate.width || 100,
@@ -4107,13 +4109,13 @@ export const POTracker = () => {
                                        try {
                                          // Update printed quantity without actual printing
                                          const newPrintedQty = (order.printed_quantity || 0) + printQty;
-                                         const { error } = await supabase
-                                           .from('po_orders')
-                                           .update({ 
-                                             printed_quantity: newPrintedQty,
-                                             is_printed: true
-                                           })
-                                           .eq('id', order.id);
+                                          const { error } = await supabase
+                                            .from('po_orders')
+                                            .update({ 
+                                              printed_quantity: newPrintedQty,
+                                              is_printed: true
+                                            } as any)
+                                            .eq('id' as any, order.id);
                                          
                                          if (error) throw error;
                                          
