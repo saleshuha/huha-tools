@@ -1221,7 +1221,9 @@ export const SunskySKUImporter: React.FC = () => {
     }
   };
 
-  // Initialize parallel processor after all required functions are defined
+  // Alias for backwards compatibility
+  const checkCredentialsStatus = checkStatus;
+
   // Remove the parallel processor hook since we're using background processing
   // const { processModelNumbersInParallel } = useParallelPOProcessor({
   //   profile,
