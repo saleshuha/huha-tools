@@ -117,22 +117,60 @@ export const usePOOrders = () => {
         skuMap.set(sku.sku_code, sku);
       });
 
-      // Fetch PO orders - ALWAYS load all for proper functionality
-      // Load ALL orders to ensure complete PO list is visible
-      console.log(`📦 Loading ${loadAllOrders ? 'ALL' : 'INITIAL 500'} PO orders...`);
+      // Fetch PO orders - Use paginated fetching to bypass 1000-row Supabase limit
+      console.log('📦 Loading ALL PO orders with pagination...');
       
-      const { data: poOrdersData, error: poError } = await supabase
-        .from('po_orders')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+      let allPOOrders: any[] = [];
+      let hasMore = true;
+      let page = 0;
+      const pageSize = 1000;
+      let totalCount = 0;
 
-      if (poError) {
-        console.error('❌ Error fetching PO orders:', poError);
-        throw poError;
+      // First, get the total count
+      const { count: totalCountResult } = await supabase
+        .from('po_orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      totalCount = totalCountResult || 0;
+      const totalPages = Math.ceil(totalCount / pageSize);
+      console.log(`📊 Total PO orders: ${totalCount}, Pages: ${totalPages}`);
+
+      while (hasMore) {
+        const start = page * pageSize;
+        const end = start + pageSize - 1;
+        
+        setLoadingProgress(30 + (page / totalPages) * 40);
+        setLoadingStatus(`Fetching page ${page + 1} of ${totalPages}...`);
+        
+        const { data: pageData, error: poError } = await supabase
+          .from('po_orders')
+          .select('*')
+          .eq('user_id', user.id)
+          .range(start, end)
+          .order('created_at', { ascending: false });
+
+        if (poError) {
+          console.error('❌ Error fetching PO orders page:', poError);
+          throw poError;
+        }
+
+        if (pageData && pageData.length > 0) {
+          allPOOrders = [...allPOOrders, ...pageData];
+          console.log(`✅ Loaded page ${page + 1}/${totalPages}: ${pageData.length} orders (Total so far: ${allPOOrders.length})`);
+          page++;
+          
+          // Stop if we got less than a full page
+          if (pageData.length < pageSize) {
+            hasMore = false;
+          }
+        } else {
+          hasMore = false;
+        }
       }
 
-      console.log(`✅ Loaded ${poOrdersData?.length || 0} PO orders`);
+      const poOrdersData = allPOOrders;
+      console.log(`✅ Loaded ALL ${poOrdersData.length} PO orders in ${page} pages`);
       setLoadingProgress(70);
       setLoadingStatus('Joining data...');
 
