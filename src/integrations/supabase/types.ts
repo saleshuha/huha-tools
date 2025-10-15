@@ -2246,6 +2246,7 @@ export type Database = {
       po_orders: {
         Row: {
           asin: string | null
+          batch_id: string | null
           country: string | null
           created_at: string
           currency: string | null
@@ -2280,6 +2281,7 @@ export type Database = {
         }
         Insert: {
           asin?: string | null
+          batch_id?: string | null
           country?: string | null
           created_at?: string
           currency?: string | null
@@ -2314,6 +2316,7 @@ export type Database = {
         }
         Update: {
           asin?: string | null
+          batch_id?: string | null
           country?: string | null
           created_at?: string
           currency?: string | null
@@ -4488,6 +4491,7 @@ export type Database = {
         Args: { user_id_param: string }
         Returns: {
           asin: string | null
+          batch_id: string | null
           country: string | null
           created_at: string
           currency: string | null

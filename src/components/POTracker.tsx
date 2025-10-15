@@ -62,6 +62,7 @@ export interface POOrder {
   updated_at: string;
   is_printed?: boolean;
   sunsky_sku?: any;
+  batch_id?: string;
 }
 
 interface POGroup {
@@ -2247,6 +2248,17 @@ export const POTracker = () => {
                                        {poNumber}
                                        {!isClosedPO && <ExternalLink className="h-3 w-3 ml-1" />}
                                      </Button>
+                                     {(() => {
+                                       const orderWithBatch = orders.find(o => o.batch_id);
+                                       if (orderWithBatch?.batch_id) {
+                                         return (
+                                           <Badge variant="outline" className="text-xs ml-2" title={`Batch ID: ${orderWithBatch.batch_id}`}>
+                                             Batch: {orderWithBatch.batch_id.slice(0, 8)}
+                                           </Badge>
+                                         );
+                                       }
+                                       return null;
+                                     })()}
                                      {isClosedPO && (
                                        <Badge variant="destructive" className="text-xs">
                                          CLOSED

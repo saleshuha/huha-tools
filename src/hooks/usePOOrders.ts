@@ -34,6 +34,7 @@ export interface POOrder {
   updated_at: string;
   is_printed?: boolean;
   sunsky_sku?: any;
+  batch_id?: string;
 }
 
 export interface POUploadStats {
@@ -237,14 +238,16 @@ export const usePOOrders = () => {
     }
   }, [toast, queryClient]);
 
-  // Process PO files with identity-based duplicate detection
-  // Process PO files with identity-based duplicate detection
+  // Process PO files with smart duplicate detection
   const processPOFiles = useCallback(async (mappedData: any[], sunskySKUs: any[], selectedCountry: string = 'UAE') => {
     setIsLoading(true);
     setLoadingProgress(0);
     setLoadingStatus('Processing PO files...');
     setCurrentPO('');
     setCurrentItem('');
+    
+    // Generate unique batch ID for this import session
+    const batchId = crypto.randomUUID();
     
     // Initialize stats
     setUploadStats({
@@ -261,6 +264,7 @@ export const usePOOrders = () => {
       if (!user) throw new Error('User not authenticated');
 
       console.log(`🚀 STARTING PO PROCESSING: ${mappedData.length} rows from file`);
+      console.log(`🆔 BATCH ID: ${batchId} - This import session`);
 
       setLoadingProgress(5);
       setLoadingStatus('Loading existing PO data for update comparison...');
@@ -438,61 +442,80 @@ export const usePOOrders = () => {
             country: selectedCountry,
             currency: currency,
             sku_user_id: user.id,
-            user_id: user.id
+            user_id: user.id,
+            batch_id: batchId
           };
+
+          // Check if this EXACT item exists in the CURRENT BATCH (within this file)
+          if (itemGroups.has(identity)) {
+            // Same item appears multiple times in THIS file - merge quantities
+            const existingGroup = itemGroups.get(identity);
+            existingGroup.quantity += qty;
+            console.log(`📎 Row ${rowNum}: Merged within batch, new qty: ${existingGroup.quantity}`);
+            continue; // Skip to next row
+          }
 
           // Check if exists in database
           const existingOrder = existingOrdersMap.get(identity);
           
+          // NEW LOGIC: Only treat as "update" if it's from a recent batch (within 24 hours)
+          // Otherwise, treat as a NEW separate order
+          let shouldInsertAsNew = true;
+          
           if (existingOrder) {
-            // Compare data to detect changes
-            const hasChanges = 
-              existingOrder.quantity !== newOrderData.quantity ||
-              existingOrder.title !== newOrderData.title ||
-              existingOrder.ship_to_location !== newOrderData.ship_to_location ||
-              existingOrder.unit_cost !== newOrderData.unit_cost ||
-              existingOrder.asin !== newOrderData.asin ||
-              existingOrder.model_number !== newOrderData.model_number ||
-              existingOrder.external_id !== newOrderData.external_id;
+            const existingDate = new Date(existingOrder.created_at);
+            const hoursSinceCreation = (Date.now() - existingDate.getTime()) / (1000 * 60 * 60);
+            
+            // If existing order is recent (< 24 hours), update if changed or skip if unchanged
+            if (hoursSinceCreation < 24) {
+              const hasChanges = 
+                existingOrder.quantity !== newOrderData.quantity ||
+                existingOrder.title !== newOrderData.title ||
+                existingOrder.ship_to_location !== newOrderData.ship_to_location ||
+                existingOrder.unit_cost !== newOrderData.unit_cost ||
+                existingOrder.asin !== newOrderData.asin ||
+                existingOrder.model_number !== newOrderData.model_number;
 
-            if (hasChanges) {
-              // Add to update list with existing ID to preserve the record
-              const changeDetails = [];
-              if (existingOrder.quantity !== newOrderData.quantity) {
-                changeDetails.push(`qty: ${existingOrder.quantity}→${newOrderData.quantity}`);
+              if (hasChanges) {
+                // Update recent order with new data
+                const changeDetails = [];
+                if (existingOrder.quantity !== newOrderData.quantity) {
+                  changeDetails.push(`qty: ${existingOrder.quantity}→${newOrderData.quantity}`);
+                }
+                if (existingOrder.unit_cost !== newOrderData.unit_cost) {
+                  changeDetails.push(`cost: ${existingOrder.unit_cost}→${newOrderData.unit_cost}`);
+                }
+                
+                console.log(`🔄 UPDATE recent order: ${identity} - within 24hrs, changes: ${changeDetails.join(', ')}`);
+                results.changes.push(`${po}/${primarySku}: ${changeDetails.join(', ')}`);
+                
+                itemGroups.set(identity, {
+                  ...newOrderData,
+                  id: existingOrder.id,
+                  created_at: existingOrder.created_at,
+                  status: existingOrder.status
+                });
+                results.updated++;
+                setUploadStats(prev => ({ ...prev, updated: results.updated }));
+                shouldInsertAsNew = false;
+              } else {
+                console.log(`✓ SKIP duplicate: ${identity} - same data within 24hrs`);
+                results.unchanged++;
+                setUploadStats(prev => ({ ...prev, unchanged: results.unchanged }));
+                shouldInsertAsNew = false;
               }
-              if (existingOrder.unit_cost !== newOrderData.unit_cost) {
-                changeDetails.push(`cost: ${existingOrder.unit_cost}→${newOrderData.unit_cost}`);
-              }
-              
-              console.log(`🔄 UPDATE: ${identity} - Changes: ${changeDetails.join(', ')}`);
-              results.changes.push(`${po}/${primarySku}: ${changeDetails.join(', ')}`);
-              
-              // Keep existing ID and update fields
-              itemGroups.set(identity, {
-                ...newOrderData,
-                id: existingOrder.id, // Preserve ID for update
-                created_at: existingOrder.created_at, // Preserve creation date
-                status: existingOrder.status // Keep existing status unless closed
-              });
-              results.updated++;
-              setUploadStats(prev => ({ ...prev, updated: results.updated }));
             } else {
-              console.log(`✓ UNCHANGED: ${identity}`);
-              results.unchanged++;
-              setUploadStats(prev => ({ ...prev, unchanged: results.unchanged }));
+              // Old order (>24 hours) - insert as NEW separate order
+              console.log(`✨ NEW separate order: ${identity} - existing order is ${Math.floor(hoursSinceCreation)}hrs old`);
             }
-          } else {
-            // New item - add to insert list
-            if (itemGroups.has(identity)) {
-              // Merge quantities within file
-              const existingGroup = itemGroups.get(identity);
-              existingGroup.quantity += qty;
-              console.log(`📎 Row ${rowNum}: Merged in file, new total qty: ${existingGroup.quantity}`);
-            } else {
-              itemGroups.set(identity, newOrderData);
-              console.log(`✨ NEW: ${identity}`);
-            }
+          }
+
+          // Insert as new order (either no match found OR existing is old)
+          if (shouldInsertAsNew) {
+            itemGroups.set(identity, newOrderData);
+            results.inserted++;
+            setUploadStats(prev => ({ ...prev, inserted: results.inserted }));
+            console.log(`✨ NEW: ${identity}`);
           }
         }
 
@@ -519,23 +542,41 @@ export const usePOOrders = () => {
       const ordersToUpsert = Array.from(itemGroups.values());
 
       if (ordersToUpsert.length > 0) {
-        console.log(`🚀 About to upsert ${ordersToUpsert.length} items (${ordersToUpsert.filter(o => o.id).length} updates, ${ordersToUpsert.filter(o => !o.id).length} inserts)`);
+        console.log(`🚀 Batch ${batchId}: Processing ${ordersToUpsert.length} items (${ordersToUpsert.filter(o => o.id).length} updates, ${ordersToUpsert.filter(o => !o.id).length} inserts)`);
         
-        const { error: upsertError } = await supabase
-          .from('po_orders')
-          .upsert(ordersToUpsert, {
-            onConflict: 'user_id,po_key,item_key',
-            ignoreDuplicates: false // Allow updates!
-          });
-
-        if (upsertError) {
-          console.error('❌ Upsert error details:', upsertError);
-          throw new Error(`Bulk upsert failed: ${upsertError.message}`);
+        // Separate new inserts from updates
+        const itemsToInsert = ordersToUpsert.filter(o => !o.id);
+        const itemsToUpdate = ordersToUpsert.filter(o => o.id);
+        
+        // Insert new items
+        if (itemsToInsert.length > 0) {
+          const { error: insertError } = await supabase
+            .from('po_orders')
+            .insert(itemsToInsert);
+          
+          if (insertError) {
+            console.error('❌ Insert error:', insertError);
+            throw new Error(`Bulk insert failed: ${insertError.message}`);
+          }
+          console.log(`✅ Inserted ${itemsToInsert.length} new orders`);
+        }
+        
+        // Update existing items
+        if (itemsToUpdate.length > 0) {
+          for (const item of itemsToUpdate) {
+            const { error: updateError } = await supabase
+              .from('po_orders')
+              .update(item)
+              .eq('id', item.id);
+            
+            if (updateError) {
+              console.error(`❌ Update error for ${item.id}:`, updateError);
+            }
+          }
+          console.log(`✅ Updated ${itemsToUpdate.length} existing orders`);
         }
 
-        results.inserted = ordersToUpsert.filter(o => !o.id).length;
-        setUploadStats(prev => ({ ...prev, inserted: results.inserted }));
-        console.log(`✅ Successfully processed ${ordersToUpsert.length} orders (${results.inserted} new, ${results.updated} updated)`);
+        console.log(`✅ Batch ${batchId}: Successfully processed ${ordersToUpsert.length} orders (${itemsToInsert.length} new, ${itemsToUpdate.length} updated)`);
 
         // Log sample changes
         if (results.changes.length > 0) {
