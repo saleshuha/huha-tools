@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
-import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, AlertTriangle, FileText, ArrowLeft } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, AlertTriangle, FileText, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import { SortableTableHeader } from '@/components/order-processing/SortableTableHeader';
 import { useToast } from '@/hooks/use-toast';
 import { POFileUpload } from '@/components/po/POFileUpload';
@@ -4480,34 +4480,59 @@ export const POTracker = () => {
                 </div>
 
                 {/* Pagination */}
-                {groupedPOOrders.length > itemsPerPage && (
-                  <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between border-t pt-4">
+                  <div className="flex items-center gap-4">
                     <div className="text-sm text-muted-foreground">
                       Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, groupedPOOrders.length)} of {groupedPOOrders.length} POs
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                        disabled={currentPage === 1}
-                      >
-                        Previous
-                      </Button>
-                      <span className="text-sm">
-                        Page {currentPage} of {Math.ceil(groupedPOOrders.length / itemsPerPage)}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage(prev => Math.min(Math.ceil(groupedPOOrders.length / itemsPerPage), prev + 1))}
-                        disabled={currentPage >= Math.ceil(groupedPOOrders.length / itemsPerPage)}
-                      >
-                        Next
-                      </Button>
-                    </div>
+                    {poOrders.length >= 500 && (
+                      <div className="flex items-center gap-2 px-3 py-1 bg-yellow-500/10 border border-yellow-500/20 rounded-md">
+                        <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
+                        <span className="text-xs text-yellow-700 dark:text-yellow-400">
+                          Showing first 500 orders. Click "Reload All" to load complete data.
+                        </span>
+                      </div>
+                    )}
                   </div>
-                )}
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={itemsPerPage.toString()}
+                      onValueChange={(value) => {
+                        setItemsPerPage(Number(value));
+                        setCurrentPage(1);
+                      }}
+                    >
+                      <SelectTrigger className="h-8 w-[100px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="25">25 per page</SelectItem>
+                        <SelectItem value="50">50 per page</SelectItem>
+                        <SelectItem value="100">100 per page</SelectItem>
+                        <SelectItem value="200">200 per page</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-sm min-w-[100px] text-center">
+                      Page {currentPage} of {Math.ceil(groupedPOOrders.length / itemsPerPage)}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.min(Math.ceil(groupedPOOrders.length / itemsPerPage), prev + 1))}
+                      disabled={currentPage >= Math.ceil(groupedPOOrders.length / itemsPerPage)}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
