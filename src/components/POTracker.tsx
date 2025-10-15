@@ -63,6 +63,9 @@ export interface POOrder {
   is_printed?: boolean;
   sunsky_sku?: any;
   batch_id?: string;
+  // Consolidation properties for merged ASIN view
+  _isConsolidated?: boolean;
+  _consolidatedOrders?: POOrder[];
 }
 
 interface POGroup {
@@ -4069,12 +4072,75 @@ export const POTracker = () => {
                                    if (printedFilter === 'all') return true;
                                    if (printedFilter === 'printed') return order.is_printed === true;
                                    if (printedFilter === 'not-printed') return !order.is_printed;
-                                   return true;
+                                 return true;
                                  });
+                               
+                               // NEW: Consolidate orders by ASIN when multiple POs are selected
+                               let ordersToDisplay: POOrder[] = ordersForSelectedPOs;
+                               
+                               if (selectedPOsList.length > 1) {
+                                 console.log('🔄 CONSOLIDATING: Multiple POs selected, merging items by ASIN');
+                                 
+                                 // Group orders by ASIN
+                                 const asinGroups = new Map<string, POOrder[]>();
+                                 
+                                 ordersForSelectedPOs.forEach(order => {
+                                   const key = order.asin || `no-asin-${order.id}`; // Fallback for orders without ASIN
+                                   
+                                   if (!asinGroups.has(key)) {
+                                     asinGroups.set(key, []);
+                                   }
+                                   asinGroups.get(key)!.push(order);
+                                 });
+                                 
+                                 // Create consolidated orders
+                                 ordersToDisplay = Array.from(asinGroups.values()).map((group): POOrder => {
+                                   if (group.length === 1) {
+                                     // Single order for this ASIN, return as-is
+                                     return group[0];
+                                   }
+                                   
+                                   // Multiple orders for this ASIN - merge them
+                                   const baseOrder = { ...group[0] }; // Use first order as base
+                                   
+                                   // Sum up quantities
+                                   const totalQuantity = group.reduce((sum, order) => sum + (order.quantity || 0), 0);
+                                   const totalPrintedQuantity = group.reduce((sum, order) => sum + (order.printed_quantity || 0), 0);
+                                   
+                                   // Collect all PO numbers
+                                   const poNumbers = [...new Set(group.map(o => o.po_number))];
+                                   
+                                   // Collect all ship-to locations
+                                   const shipToLocations = [...new Set(group.map(o => o.ship_to_location).filter(Boolean))];
+                                   
+                                   // Return consolidated order
+                                   return {
+                                     ...baseOrder,
+                                     id: `consolidated-${baseOrder.asin}-${group.map(o => o.id).join('-')}`, // Unique consolidated ID
+                                     quantity: totalQuantity,
+                                     printed_quantity: totalPrintedQuantity,
+                                     ship_to_location: shipToLocations.length > 1 
+                                       ? `Multiple (${shipToLocations.length})` 
+                                       : shipToLocations[0] || baseOrder.ship_to_location,
+                                     notes: `Consolidated from ${poNumbers.length} PO(s): ${poNumbers.join(', ')}`,
+                                     // Store original orders for reference
+                                     _consolidatedOrders: group,
+                                     _isConsolidated: true
+                                   };
+                                 });
+                                 
+                                 console.log('🔄 CONSOLIDATION RESULT:', {
+                                   originalCount: ordersForSelectedPOs.length,
+                                   consolidatedCount: ordersToDisplay.length,
+                                   reduction: ordersForSelectedPOs.length - ordersToDisplay.length
+                                 });
+                               } else {
+                                 console.log('📋 Single PO selected, no consolidation needed');
+                               }
                                
                                // Apply sorting to labels tab (only if not preserving original order)
                                if (!originalOrderPreserved) {
-                                 ordersForSelectedPOs.sort((a, b) => {
+                                 ordersToDisplay.sort((a, b) => {
                                    let aValue: string | number | undefined;
                                    let bValue: string | number | undefined;
                                    
@@ -4116,14 +4182,14 @@ export const POTracker = () => {
                                }
                               
                               console.log('🔍 Print Labels After Filtering:', {
-                                ordersCount: ordersForSelectedPOs.length,
-                                totalQuantity: ordersForSelectedPOs.reduce((sum, o) => sum + (o.quantity || 0), 0),
-                                statuses: [...new Set(ordersForSelectedPOs.map(o => o.status))]
+                                ordersCount: ordersToDisplay.length,
+                                totalQuantity: ordersToDisplay.reduce((sum, o) => sum + (o.quantity || 0), 0),
+                                statuses: [...new Set(ordersToDisplay.map(o => o.status))]
                               });
                               
                               const startIndex = (labelCurrentPage - 1) * labelItemsPerPage;
                               const endIndex = startIndex + labelItemsPerPage;
-                              const paginatedOrders = ordersForSelectedPOs.slice(startIndex, endIndex);
+                              const paginatedOrders = ordersToDisplay.slice(startIndex, endIndex);
                              
                              return paginatedOrders.map((order, index) => (
                               <TableRow 
@@ -4137,14 +4203,27 @@ export const POTracker = () => {
                                   <div className="flex items-center justify-center">
                                      <input
                                        type="checkbox"
-                                       checked={selectedForPrint.has(order.id)}
+                                       checked={order._isConsolidated 
+                                         ? order._consolidatedOrders.every((o: any) => selectedForPrint.has(o.id))
+                                         : selectedForPrint.has(order.id)}
                                        onChange={(e) => {
                                          const newSelected = new Map(selectedForPrint);
-                                         if (e.target.checked) {
-                                           newSelected.set(order.id, 1); // Default quantity of 1
+                                         
+                                         if (order._isConsolidated) {
+                                           // For consolidated items, select/deselect all underlying orders
+                                           if (e.target.checked) {
+                                             order._consolidatedOrders.forEach((o: any) => newSelected.set(o.id, 1));
+                                           } else {
+                                             order._consolidatedOrders.forEach((o: any) => newSelected.delete(o.id));
+                                           }
                                          } else {
-                                           newSelected.delete(order.id);
+                                           if (e.target.checked) {
+                                             newSelected.set(order.id, 1); // Default quantity of 1
+                                           } else {
+                                             newSelected.delete(order.id);
+                                           }
                                          }
+                                         
                                          setSelectedForPrint(newSelected);
                                        }}
                                        className="h-4 w-4 rounded border-border accent-primary group-hover:scale-110 transition-transform"
@@ -4239,6 +4318,14 @@ export const POTracker = () => {
                                    <div className="text-sm font-medium break-words text-foreground group-hover:text-primary/80 transition-colors" title={order.title}>
                                      {order.title || 'No title available'}
                                    </div>
+                                   
+                                   {/* Show consolidation badge if this is a merged item */}
+                                   {order._isConsolidated && (
+                                     <Badge variant="secondary" className="bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30 text-xs">
+                                       📦 Merged from {order._consolidatedOrders.length} PO(s)
+                                     </Badge>
+                                   )}
+                                   
                                      {order.asin && (
                                        <div className="flex items-center gap-2">
                                          <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
@@ -4339,11 +4426,26 @@ export const POTracker = () => {
                                            </div>
                                          </div>
                                        ) : (
-                                         <div className="flex items-center gap-2">
-                                           <Badge variant="secondary" className="font-mono bg-emerald/10 text-emerald-700 dark:text-emerald-300 border-emerald/30">
-                                             {order.quantity}
-                                           </Badge>
-                                           <div className="text-xs text-muted-foreground">items</div>
+                                         <div className="space-y-2">
+                                           <div className="flex items-center gap-2">
+                                             <Badge variant="secondary" className={`font-mono ${
+                                               order._isConsolidated 
+                                                 ? 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30' 
+                                                 : 'bg-emerald/10 text-emerald-700 dark:text-emerald-300 border-emerald/30'
+                                             }`}>
+                                               {order.quantity}
+                                             </Badge>
+                                             <div className="text-xs text-muted-foreground">
+                                               {order._isConsolidated ? 'total items' : 'items'}
+                                             </div>
+                                           </div>
+                                           
+                                           {/* Show PO count for consolidated items */}
+                                           {order._isConsolidated && (
+                                             <div className="text-xs text-muted-foreground">
+                                               From {order._consolidatedOrders.length} PO(s)
+                                             </div>
+                                           )}
                                          </div>
                                        )}
                                      </div>
