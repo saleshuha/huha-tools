@@ -422,7 +422,10 @@ export const usePOOrders = () => {
             primarySku = item.sku_code?.trim() || '';
           }
           const itemKey = primarySku.toLowerCase().trim();
-          const identity = `${poKey}|${itemKey}`;
+          // Use row number + timestamp to ensure uniqueness for each upload row
+          const identity = `${poKey}|${itemKey}|${rowNum}|${Date.now()}`;
+          // Separate lookup key for database matching (without row/timestamp)
+          const dbLookupKey = `${poKey}|${itemKey}`;
 
           // Create new order data
           const currency = selectedCountry === 'KSA' ? 'SAR' : 'AED';
@@ -446,17 +449,8 @@ export const usePOOrders = () => {
             batch_id: batchId
           };
 
-          // Check if this EXACT item exists in the CURRENT BATCH (within this file)
-          if (itemGroups.has(identity)) {
-            // Same item appears multiple times in THIS file - merge quantities
-            const existingGroup = itemGroups.get(identity);
-            existingGroup.quantity += qty;
-            console.log(`📎 Row ${rowNum}: Merged within batch, new qty: ${existingGroup.quantity}`);
-            continue; // Skip to next row
-          }
-
-          // Check if exists in database
-          const existingOrder = existingOrdersMap.get(identity);
+          // Check if exists in database using ONLY po_key + item_key
+          const existingOrder = existingOrdersMap.get(dbLookupKey);
           
           // NEW LOGIC: Only treat as "update" if it's from a recent batch (within 24 hours)
           // Otherwise, treat as a NEW separate order
@@ -486,7 +480,7 @@ export const usePOOrders = () => {
                   changeDetails.push(`cost: ${existingOrder.unit_cost}→${newOrderData.unit_cost}`);
                 }
                 
-                console.log(`🔄 UPDATE recent order: ${identity} - within 24hrs, changes: ${changeDetails.join(', ')}`);
+                console.log(`🔄 UPDATE recent order: ${dbLookupKey} - within 24hrs, changes: ${changeDetails.join(', ')}`);
                 results.changes.push(`${po}/${primarySku}: ${changeDetails.join(', ')}`);
                 
                 itemGroups.set(identity, {
@@ -498,15 +492,21 @@ export const usePOOrders = () => {
                 results.updated++;
                 setUploadStats(prev => ({ ...prev, updated: results.updated }));
                 shouldInsertAsNew = false;
+                
+                // Remove from map so next duplicate creates NEW order
+                existingOrdersMap.delete(dbLookupKey);
               } else {
-                console.log(`✓ SKIP duplicate: ${identity} - same data within 24hrs`);
+                console.log(`✓ SKIP duplicate: ${dbLookupKey} - same data within 24hrs`);
                 results.unchanged++;
                 setUploadStats(prev => ({ ...prev, unchanged: results.unchanged }));
                 shouldInsertAsNew = false;
+                
+                // Remove from map so next duplicate creates NEW order
+                existingOrdersMap.delete(dbLookupKey);
               }
             } else {
               // Old order (>24 hours) - insert as NEW separate order
-              console.log(`✨ NEW separate order: ${identity} - existing order is ${Math.floor(hoursSinceCreation)}hrs old`);
+              console.log(`✨ NEW separate order: ${dbLookupKey} - existing order is ${Math.floor(hoursSinceCreation)}hrs old`);
             }
           }
 
@@ -515,7 +515,7 @@ export const usePOOrders = () => {
             itemGroups.set(identity, newOrderData);
             results.inserted++;
             setUploadStats(prev => ({ ...prev, inserted: results.inserted }));
-            console.log(`✨ NEW: ${identity}`);
+            console.log(`✨ NEW: ${dbLookupKey}`);
           }
         }
 
