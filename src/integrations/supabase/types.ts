@@ -4626,6 +4626,7 @@ export type Database = {
           days_since_last_restock: number
           identifier: string
           item_id: string
+          status: string
           table_name: string
         }[]
       }

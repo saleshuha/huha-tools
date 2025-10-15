@@ -120,8 +120,8 @@ Deno.serve(async (req) => {
 
     console.log(`Total records to fetch: ${skuCount || 0} SKUs, ${orderCount || 0} PO orders`);
 
-    // Fetch ALL Sunsky SKUs using direct database access
-    console.log('Fetching ALL Sunsky SKUs...');
+    // Fetch ALL Sunsky SKUs using direct database access with optimized field selection
+    console.log('Fetching ALL Sunsky SKUs (optimized fields)...');
     let allSkus: any[] = [];
     let skuOffset = 0;
     const chunkSize = 1000;
@@ -131,7 +131,7 @@ Deno.serve(async (req) => {
     while (hasMoreSkus && (skuCount === null || skuOffset < skuCount)) {
       const { data: skuChunk, error: skuError } = await supabase
         .from('sunsky_skus')
-        .select('*')
+        .select('id, user_id, sku_code, title, cost, weight, currency, country, created_at, updated_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .range(skuOffset, skuOffset + chunkSize - 1);
@@ -158,8 +158,8 @@ Deno.serve(async (req) => {
 
     console.log(`Total SKUs loaded: ${allSkus.length}`);
 
-    // Fetch ALL PO Orders using direct database access
-    console.log('Fetching ALL PO Orders...');
+    // Fetch ALL PO Orders using direct database access with optimized field selection
+    console.log('Fetching ALL PO Orders (optimized fields)...');
     let allOrders: any[] = [];
     let orderOffset = 0;
     let hasMoreOrders = true;
@@ -168,9 +168,10 @@ Deno.serve(async (req) => {
     while (hasMoreOrders && (orderCount === null || orderOffset < orderCount)) {
       const { data: orderChunk, error: orderError } = await supabase
         .from('po_orders')
-        .select('*')
+        .select('id, user_id, po_number, sku_code, quantity, status, order_date, expected_delivery, notes, file_name, country, currency, unit_cost, total_cost, sku_user_id, supplier_order_number, tracking_number, tracking_url, created_at, updated_at, ship_to_location, asin, model_number, title, external_id, external_id_type, is_printed, printed_quantity, job_id, sunsky_credentials_id, po_key, item_key')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
         .range(orderOffset, orderOffset + chunkSize - 1);
 
       if (orderError) {
@@ -195,17 +196,32 @@ Deno.serve(async (req) => {
 
     console.log(`Total PO orders loaded: ${allOrders.length}`);
 
-    // Create a SKU lookup map for efficient joining
+    // Create a SKU lookup map for efficient joining (index by both sku_code and model_number)
     const skuMap = new Map();
     allSkus.forEach(sku => {
       skuMap.set(sku.sku_code, sku);
     });
 
-    // Add sunsky_sku to each order
-    const ordersWithSkus = allOrders.map(order => ({
-      ...order,
-      sunsky_sku: skuMap.get(order.sku_code) || null
-    }));
+    // Add sunsky_sku to each order with dual lookup strategy
+    const ordersWithSkus = allOrders.map(order => {
+      const matchedSku = skuMap.get(order.sku_code) || 
+                        (order.model_number ? skuMap.get(order.model_number) : null);
+      return {
+        ...order,
+        sunsky_sku: matchedSku ? {
+          id: matchedSku.id,
+          user_id: matchedSku.user_id,
+          sku_code: matchedSku.sku_code,
+          title: matchedSku.title,
+          cost: matchedSku.cost,
+          weight: matchedSku.weight,
+          currency: matchedSku.currency,
+          country: matchedSku.country,
+          created_at: matchedSku.created_at,
+          updated_at: matchedSku.updated_at
+        } : null
+      };
+    });
 
     console.log('Successfully fetched and processed all data');
 

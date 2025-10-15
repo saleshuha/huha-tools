@@ -71,9 +71,9 @@ export const usePOOrders = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch PO orders - optimized to load only active orders by default
+  // Fetch PO orders - optimized to use edge function for better performance
   const fetchPOOrders = useCallback(async (loadAllOrders = false) => {
-    console.log('📥 fetchPOOrders called, loadAllOrders:', loadAllOrders);
+    console.log('📥 fetchPOOrders called (optimized), loadAllOrders:', loadAllOrders);
     setIsLoading(true);
     setLoadingProgress(0);
     setLoadingStatus('Fetching PO orders...');
@@ -92,118 +92,77 @@ export const usePOOrders = () => {
       }
 
       console.log('✅ Authenticated user:', user.id);
-      setLoadingProgress(20);
+      setLoadingProgress(10);
       
-      // Query po_orders table with pagination to fetch ALL rows
-      setLoadingStatus(loadAllOrders ? 'Loading ALL PO orders...' : 'Loading active PO orders...');
-      console.log(loadAllOrders ? '📚 Loading ALL orders with pagination' : '🎯 Loading ACTIVE orders with pagination');
+      // Use optimized edge function to fetch all data with server-side joins
+      setLoadingStatus('Loading PO data from server...');
+      console.log('🚀 Calling optimized edge function...');
       
-      // Fetch ALL rows by paginating in chunks of 1000
-      // CRITICAL: Order by both created_at AND id to ensure consistent pagination
-      // when multiple records share the same timestamp (prevents random subsets)
-      let allPOOrders: any[] = [];
-      let from = 0;
-      const batchSize = 1000;
-      let hasMore = true;
+      const startTime = performance.now();
       
-      while (hasMore) {
-        const { data: batch, error: batchError } = await ((supabase as any)
-          .from('po_orders')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .order('id', { ascending: false }))  // Secondary sort ensures consistent ordering
-          .range(from, from + batchSize - 1);
-        
-        if (batchError) {
-          throw batchError;
-        }
-        
-        if (batch && batch.length > 0) {
-          allPOOrders = [...allPOOrders, ...batch];
-          console.log(`📦 Loaded batch: ${batch.length} orders (total so far: ${allPOOrders.length})`);
-          from += batchSize;
-          hasMore = batch.length === batchSize; // Continue if we got a full batch
-        } else {
-          hasMore = false;
-        }
+      const { data: edgeFunctionData, error: edgeFunctionError } = await supabase.functions.invoke('get-all-po-data', {
+        body: { loadAllOrders }
+      });
+      
+      const endTime = performance.now();
+      const loadTime = ((endTime - startTime) / 1000).toFixed(2);
+      console.log(`⚡ Edge function completed in ${loadTime}s`);
+      
+      if (edgeFunctionError) {
+        console.error('❌ Edge function error:', edgeFunctionError);
+        throw new Error(`Failed to fetch PO data: ${edgeFunctionError.message}`);
       }
       
-      const fetchError = null;
+      if (!edgeFunctionData || !edgeFunctionData.success) {
+        console.error('❌ Edge function returned error:', edgeFunctionData);
+        throw new Error(edgeFunctionData?.error || 'Failed to fetch PO data');
+      }
+
+      console.log(`✅ Edge function success:`, {
+        skuCount: edgeFunctionData.data?.sunskySKUs?.length || 0,
+        orderCount: edgeFunctionData.data?.poOrders?.length || 0,
+        loadTime: `${loadTime}s`
+      });
       
-      if (fetchError) {
-        console.error('❌ Fetch error:', fetchError);
-        throw fetchError;
-      }
-
-      console.log(`📊 Database returned ${allPOOrders?.length || 0} total orders`);
-
-      // Filter to active orders if not loading all
-      let filteredOrders = allPOOrders || [];
-      if (!loadAllOrders) {
-        // Include 'placed' status in active orders filter
-        filteredOrders = filteredOrders.filter((order: any) => 
-          ['pending', 'ordered', 'shipped', 'placed'].includes(order.status)
-        );
-        console.log(`🎯 Filtered to ${filteredOrders.length} active orders (from ${allPOOrders?.length || 0} total)`);
-      }
-
-      console.log(`✅ Fetched ${filteredOrders.length} PO orders`);
       setLoadingProgress(60);
       
-      // Fetch all sunsky_skus with full data for matching
-      const { data: sunskySkus, error: skuError } = await ((supabase as any)
-        .from('sunsky_skus')
-        .select('*')
-        .eq('user_id', user.id));
+      // Data is already joined by the edge function
+      const allOrders = edgeFunctionData.data?.poOrders || [];
+      
+      console.log(`📊 Received ${allOrders.length} orders from edge function`);
 
-      if (skuError) {
-        console.warn('⚠️ Failed to fetch sunsky_skus:', skuError);
+      // Filter to active orders if not loading all
+      let filteredOrders = allOrders;
+      if (!loadAllOrders) {
+        filteredOrders = allOrders.filter((order: any) => 
+          ['pending', 'ordered', 'shipped', 'placed'].includes(order.status)
+        );
+        console.log(`🎯 Filtered to ${filteredOrders.length} active orders (from ${allOrders.length} total)`);
       }
 
-      // Create a Map of sunsky SKU codes to full SKU objects for fast matching
-      const sunskySkuMap = new Map();
-      (sunskySkus || []).forEach((sku: any) => {
-        sunskySkuMap.set(sku.sku_code, sku);
-      });
-      console.log(`📋 Found ${sunskySkuMap.size} Sunsky SKUs for matching`);
-      
-      // Type the final data and add sunsky_sku matching
-      const typedData: POOrder[] = filteredOrders.map((order: any) => {
-        // Try to match by sku_code first, then model_number
-        const matchedSku = sunskySkuMap.get(order.sku_code) || 
-                          (order.model_number ? sunskySkuMap.get(order.model_number) : null);
-        
-        return {
-          ...order,
-          status: order.status as POOrder['status'],
-          sunsky_sku: matchedSku ? {
-            id: matchedSku.id,
-            user_id: matchedSku.user_id,
-            sku_code: matchedSku.sku_code,
-            title: matchedSku.title,
-            cost: matchedSku.cost,
-            weight: matchedSku.weight,
-            currency: matchedSku.currency,
-            country: matchedSku.country,
-            created_at: matchedSku.created_at,
-            updated_at: matchedSku.updated_at
-          } : null
-        };
-      });
+      // Type the final data
+      const typedData: POOrder[] = filteredOrders.map((order: any) => ({
+        ...order,
+        status: order.status as POOrder['status']
+      }));
 
       console.log(`📊 Final data stats:`, {
         total: typedData.length,
-        totalInDb: allPOOrders?.length || 0,
+        totalInDb: allOrders.length,
         withSunskySku: typedData.filter((o: any) => o.sunsky_sku).length,
         countries: [...new Set(typedData.map(o => o.country))],
-        statuses: [...new Set(typedData.map(o => o.status))]
+        statuses: [...new Set(typedData.map(o => o.status))],
+        loadTime: `${loadTime}s`
       });
 
       console.log('🎯 Setting poOrders state with', typedData.length, 'orders');
       setPOOrders(typedData);
       setLoadingProgress(100);
-      setLoadingStatus(`Loaded ${typedData.length} orders with SKU matching`);
+      setLoadingStatus(`Loaded ${typedData.length} orders in ${loadTime}s`);
+
+      // Invalidate related queries to refresh metrics
+      queryClient.invalidateQueries({ queryKey: ['po-group-metrics'] });
+      queryClient.invalidateQueries({ queryKey: ['po-comprehensive-metrics'] });
 
     } catch (error) {
       console.error('❌ Error in fetchPOOrders:', error);
@@ -218,9 +177,9 @@ export const usePOOrders = () => {
         setIsLoading(false);
         setLoadingProgress(0);
         setLoadingStatus('');
-      }, 1000);
+      }, 500); // Reduced delay for better perceived performance
     }
-  }, [toast]);
+  }, [toast, queryClient]);
 
   // Process PO files with identity-based duplicate detection
   // Process PO files with identity-based duplicate detection

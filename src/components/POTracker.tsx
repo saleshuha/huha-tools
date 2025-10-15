@@ -1576,6 +1576,45 @@ export const POTracker = () => {
     return filteredOrders.slice(startIndex, endIndex);
   }, [filteredOrders, startIndex, endIndex]);
 
+  // Show loading skeleton during initial load
+  if (isLoading && poOrders.length === 0) {
+    return (
+      <div className="space-y-6 animate-pulse">
+        <div className="flex items-center justify-between">
+          <div className="h-8 w-48 bg-muted rounded"></div>
+          <div className="flex gap-2">
+            <div className="h-10 w-24 bg-muted rounded"></div>
+            <div className="h-10 w-24 bg-muted rounded"></div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="p-6">
+              <div className="h-4 w-32 bg-muted rounded mb-4"></div>
+              <div className="h-8 w-20 bg-muted rounded mb-2"></div>
+              <div className="h-3 w-40 bg-muted rounded"></div>
+            </Card>
+          ))}
+        </div>
+        <Card className="p-6">
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary mb-4" />
+              <p className="text-lg font-medium text-muted-foreground mb-2">Loading PO Data...</p>
+              {loadingStatus && <p className="text-sm text-muted-foreground">{loadingStatus}</p>}
+              {loadingProgress > 0 && (
+                <div className="mt-4 w-64 mx-auto">
+                  <Progress value={loadingProgress} className="h-2" />
+                  <p className="text-xs text-muted-foreground mt-2">{loadingProgress}%</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
