@@ -427,6 +427,16 @@ export const usePOOrders = () => {
           // Separate lookup key for database matching (without row/timestamp)
           const dbLookupKey = `${poKey}|${itemKey}`;
 
+          // Detailed logging for debugging
+          console.log(`📝 Processing row ${rowNum}/${mappedData.length}:`, {
+            po: po,
+            asin: asin,
+            model: model,
+            qty: qty,
+            identity: dbLookupKey,
+            hasExistingInDB: existingOrdersMap.has(dbLookupKey)
+          });
+
           // Create new order data
           const currency = selectedCountry === 'KSA' ? 'SAR' : 'AED';
           const newOrderData = {
@@ -460,8 +470,24 @@ export const usePOOrders = () => {
             const existingDate = new Date(existingOrder.created_at);
             const hoursSinceCreation = (Date.now() - existingDate.getTime()) / (1000 * 60 * 60);
             
-            // If existing order is recent (< 24 hours), update if changed or skip if unchanged
-            if (hoursSinceCreation < 24) {
+            console.log(`⏰ Existing order found for ${dbLookupKey}:`, {
+              created: existingDate.toISOString(),
+              hoursOld: Math.floor(hoursSinceCreation),
+              existingQty: existingOrder.quantity,
+              newQty: qty,
+              existingBatchId: existingOrder.batch_id,
+              currentBatchId: batchId
+            });
+            
+            // CRITICAL FIX: Only consider as update if:
+            // 1. Within 24 hours AND
+            // 2. Same batch_id (uploaded in same session) OR no batch_id yet
+            const isSameBatch = existingOrder.batch_id === batchId || !existingOrder.batch_id;
+            const isRecent = hoursSinceCreation < 24;
+            
+            if (isRecent && isSameBatch) {
+              console.log(`🔍 Treating as potential update (recent + same batch)`);
+              
               const hasChanges = 
                 existingOrder.quantity !== newOrderData.quantity ||
                 existingOrder.title !== newOrderData.title ||
@@ -505,8 +531,9 @@ export const usePOOrders = () => {
                 existingOrdersMap.delete(dbLookupKey);
               }
             } else {
-              // Old order (>24 hours) - insert as NEW separate order
-              console.log(`✨ NEW separate order: ${dbLookupKey} - existing order is ${Math.floor(hoursSinceCreation)}hrs old`);
+              // Different batch or old order - insert as NEW separate order
+              const reason = !isSameBatch ? 'different batch' : `${Math.floor(hoursSinceCreation)}hrs old`;
+              console.log(`✨ Treating as NEW order (${reason})`);
             }
           }
 
@@ -528,6 +555,15 @@ export const usePOOrders = () => {
       console.log(`\n📊 PROCESSING SUMMARY:`);
       console.log(`📥 Rows processed: ${results.processed}`);
       console.log(`✨ New items: ${itemGroups.size - results.updated}`);
+      console.log(`🔄 Updated items: ${results.updated}`);
+      console.log(`✓ Unchanged items: ${results.unchanged}`);
+      console.log(`📊 Total accounted for: ${results.inserted + results.updated + results.unchanged}`);
+      
+      const discrepancy = mappedData.length - (results.inserted + results.updated + results.unchanged);
+      if (discrepancy !== 0) {
+        console.warn(`⚠️ DATA DISCREPANCY DETECTED: ${discrepancy} rows not accounted for!`);
+        console.warn(`Expected ${mappedData.length} rows, but only processed ${results.inserted + results.updated + results.unchanged}`);
+      }
       console.log(`🔄 Items to update: ${results.updated}`);
       console.log(`✓ Unchanged: ${results.unchanged}`);
       console.log(`❌ Invalid rows: ${results.invalid}`);

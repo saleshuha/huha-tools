@@ -4752,8 +4752,8 @@ export type Database = {
         Args: { user_id_param: string }
         Returns: {
           asn_quantity: number
-          distinct_skus: number
           po_number: string
+          total_line_items: number
         }[]
       }
       get_po_reconciliation_summary: {

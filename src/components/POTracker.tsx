@@ -600,7 +600,7 @@ export const POTracker = () => {
       console.log('📊 PO group metrics fetched:', (data as any)?.length, 'POs');
       return (data || []) as Array<{
         po_number: string;
-        distinct_skus: number;
+        total_line_items: number;
         asn_quantity: number;
       }>;
     },
@@ -2147,13 +2147,13 @@ export const POTracker = () => {
                       <div>
                          {paginatedPOGroups.map(({ poNumber, orders }) => {
                            const firstOrder = orders[0];
-                           const ordersInPO = orders; // Alias for consistency
-                           
-                            // Get metrics from database function - includes ALL items
-                            const dbMetrics = poGroupMetrics?.find(m => m.po_number === poNumber);
-                            const totalLineItems = dbMetrics?.distinct_skus || orders.length;
-                            // Use frontend calculation as fallback to ensure accuracy - count ALL items
-                            const asnQuantity = dbMetrics?.asn_quantity || orders.reduce((sum, o) => sum + (o.quantity || 0), 0);
+                            const ordersInPO = orders; // Alias for consistency
+                            
+                             // Get metrics from database function - includes ALL items
+                             const dbMetrics = poGroupMetrics?.find(m => m.po_number === poNumber);
+                             const totalLineItems = dbMetrics?.total_line_items || orders.length;
+                             // Use frontend calculation as fallback to ensure accuracy - count ALL items
+                             const asnQuantity = dbMetrics?.asn_quantity || orders.reduce((sum, o) => sum + (o.quantity || 0), 0);
                            
                             // Calculate matched percentage for display
                              const activeOrdersInPO = orders.filter((order: any) => 
@@ -2979,7 +2979,7 @@ export const POTracker = () => {
                               {(() => {
                                 // Get metrics from database function - same as PO Overview
                                 const dbMetrics = poGroupMetrics?.find(m => m.po_number === group.poNumber);
-                                const itemCount = dbMetrics?.distinct_skus || group.orders.length;
+                                const itemCount = dbMetrics?.total_line_items || group.orders.length;
                                 return (
                                   <Badge variant="secondary" className="text-xs">
                                     {itemCount} item{itemCount !== 1 ? 's' : ''}
