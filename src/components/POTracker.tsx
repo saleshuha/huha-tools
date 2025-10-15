@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
-import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, AlertTriangle, FileText, ArrowLeft, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, AlertTriangle, FileText, ArrowLeft, ChevronLeft, ChevronRight, Trash2, Copy } from 'lucide-react';
 import { SortableTableHeader } from '@/components/order-processing/SortableTableHeader';
 import { useToast } from '@/hooks/use-toast';
 import { POFileUpload } from '@/components/po/POFileUpload';
@@ -2247,6 +2247,22 @@ export const POTracker = () => {
                                      >
                                        {poNumber}
                                        {!isClosedPO && <ExternalLink className="h-3 w-3 ml-1" />}
+                                     </Button>
+                                     <Button
+                                       variant="ghost"
+                                       size="sm"
+                                       className="h-6 w-6 p-0"
+                                       onClick={(e) => {
+                                         e.stopPropagation();
+                                         navigator.clipboard.writeText(poNumber);
+                                         toast({
+                                           title: "Copied!",
+                                           description: `PO Number "${poNumber}" copied to clipboard`,
+                                         });
+                                       }}
+                                       title="Copy PO Number"
+                                     >
+                                       <Copy className="h-3 w-3" />
                                      </Button>
                                      {(() => {
                                        const orderWithBatch = orders.find(o => o.batch_id);
