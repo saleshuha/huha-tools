@@ -100,7 +100,6 @@ export const POTracker = () => {
   const [selectedForPrint, setSelectedForPrint] = useState<Map<string, number>>(new Map());
   const [labelCurrentPage, setLabelCurrentPage] = useState(1);
   const [labelItemsPerPage, setLabelItemsPerPage] = useState(20);
-  const [expandedConsolidated, setExpandedConsolidated] = useState<Set<string>>(new Set());
   const [consolidatedViewMode, setConsolidatedViewMode] = useState<'merged' | 'detailed'>('merged');
   const [filterPrintStatus, setFilterPrintStatus] = useState<'all' | 'pending' | 'printed'>('all');
   
@@ -4210,8 +4209,6 @@ export const POTracker = () => {
                               const paginatedOrders = ordersToDisplay.slice(startIndex, endIndex);
                              
                              return paginatedOrders.map((order, index) => {
-                               const isExpanded = expandedConsolidated.has(order.id);
-                               
                                return (
                                  <React.Fragment key={order.id}>
                               <TableRow 
@@ -4219,29 +4216,9 @@ export const POTracker = () => {
                                    selectedForPrint.has(order.id) ? 'bg-primary/10 border-primary/30' : ''
                                 } ${index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}`}
                               >
-                                {/* Enhanced Checkbox Cell with Expand Button */}
+                                {/* Enhanced Checkbox Cell */}
                                 <TableCell className="w-12 border-r border-border/50 bg-background/50">
-                                  <div className="flex items-center gap-2">
-                                    {order._isConsolidated && (
-                                      <button
-                                        onClick={() => {
-                                          const newExpanded = new Set(expandedConsolidated);
-                                          if (isExpanded) {
-                                            newExpanded.delete(order.id);
-                                          } else {
-                                            newExpanded.add(order.id);
-                                          }
-                                          setExpandedConsolidated(newExpanded);
-                                        }}
-                                        className="p-1 hover:bg-muted rounded transition-colors"
-                                      >
-                                        {isExpanded ? (
-                                          <ChevronUp className="h-3 w-3 text-muted-foreground" />
-                                        ) : (
-                                          <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                                        )}
-                                      </button>
-                                    )}
+                                  <div className="flex items-center justify-center">
                                      <input
                                        type="checkbox"
                                        checked={order._isConsolidated 
@@ -4483,27 +4460,126 @@ export const POTracker = () => {
                                            </div>
                                          </div>
                                        ) : (
-                                         <div className="space-y-2">
-                                           <div className="flex items-center gap-2">
-                                             <Badge variant="secondary" className={`font-mono ${
-                                               order._isConsolidated 
-                                                 ? 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30' 
-                                                 : 'bg-emerald/10 text-emerald-700 dark:text-emerald-300 border-emerald/30'
-                                             }`}>
-                                               {order.quantity}
-                                             </Badge>
-                                             <div className="text-xs text-muted-foreground">
-                                               {order._isConsolidated ? 'total items' : 'items'}
-                                             </div>
-                                           </div>
-                                           
-                                           {/* Show PO count for consolidated items */}
-                                           {order._isConsolidated && (
-                                             <div className="text-xs text-muted-foreground">
-                                               From {order._consolidatedOrders.length} PO(s)
-                                             </div>
-                                           )}
-                                         </div>
+                                          <div className="space-y-2">
+                                            <div className="flex items-center gap-2">
+                                              <Badge variant="secondary" className={`font-mono ${
+                                                order._isConsolidated 
+                                                  ? 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30' 
+                                                  : 'bg-emerald/10 text-emerald-700 dark:text-emerald-300 border-emerald/30'
+                                              }`}>
+                                                {order.quantity}
+                                              </Badge>
+                                              <div className="text-xs text-muted-foreground">
+                                                {order._isConsolidated ? 'total' : 'items'}
+                                              </div>
+                                              
+                                              {/* Breakdown Popover for Consolidated Items */}
+                                              {order._isConsolidated && (
+                                                <Popover>
+                                                  <PopoverTrigger asChild>
+                                                    <Button
+                                                      variant="ghost"
+                                                      size="sm"
+                                                      className="h-6 w-6 p-0 hover:bg-purple-500/10 transition-colors"
+                                                      title="View printed labels breakdown"
+                                                    >
+                                                      <ChevronDown className="h-3 w-3 text-purple-600 dark:text-purple-400" />
+                                                    </Button>
+                                                  </PopoverTrigger>
+                                                  <PopoverContent 
+                                                    side="right" 
+                                                    align="start"
+                                                    className="w-96 p-0 border-purple-500/30 shadow-lg"
+                                                  >
+                                                    <div className="p-4 space-y-3 bg-gradient-to-br from-purple-500/5 to-background">
+                                                      {/* Header */}
+                                                      <div className="flex items-center gap-2 text-sm font-semibold text-foreground pb-2 border-b border-border">
+                                                        <Package className="h-4 w-4 text-purple-600" />
+                                                        <span>Printed Labels Breakdown</span>
+                                                        <Badge variant="outline" className="ml-auto text-xs font-mono">
+                                                          {order.asin}
+                                                        </Badge>
+                                                      </div>
+                                                      
+                                                      {/* Per-PO Breakdown */}
+                                                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                                                        {order._consolidatedOrders.map((po: any, idx: number) => (
+                                                          <div 
+                                                            key={idx}
+                                                            className="flex items-center justify-between p-3 bg-card rounded-md border border-border/50 hover:border-purple-500/30 transition-colors"
+                                                          >
+                                                            <div className="flex items-center gap-3">
+                                                              <Badge variant="outline" className="font-mono text-xs">
+                                                                {po.po_number}
+                                                              </Badge>
+                                                              <div className="text-xs text-muted-foreground truncate max-w-[120px]">
+                                                                {po.ship_to_location || 'No location'}
+                                                              </div>
+                                                            </div>
+                                                            
+                                                            <div className="flex items-center gap-3">
+                                                              <div className="text-sm text-right">
+                                                                <span className="font-semibold text-foreground">{po.quantity}</span>
+                                                                <span className="text-muted-foreground text-xs ml-1">units</span>
+                                                              </div>
+                                                              
+                                                              {po.printed_quantity > 0 ? (
+                                                                <div className="flex items-center gap-2">
+                                                                  <CheckCircle2 className="h-3 w-3 text-green-600" />
+                                                                  <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                                                                    {po.printed_quantity}
+                                                                  </span>
+                                                                  {po.quantity > po.printed_quantity && (
+                                                                    <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 text-xs">
+                                                                      {po.quantity - po.printed_quantity} pending
+                                                                    </Badge>
+                                                                  )}
+                                                                </div>
+                                                              ) : (
+                                                                <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 text-xs">
+                                                                  Not printed
+                                                                </Badge>
+                                                              )}
+                                                            </div>
+                                                          </div>
+                                                        ))}
+                                                      </div>
+                                                      
+                                                      {/* Summary Footer */}
+                                                      <div className="pt-3 mt-2 border-t border-border flex items-center justify-between text-sm bg-muted/20 -mx-4 -mb-4 px-4 py-3 rounded-b-lg">
+                                                        <span className="font-semibold text-foreground">Total:</span>
+                                                        <div className="flex items-center gap-3">
+                                                          <span className="font-semibold text-foreground">{order.quantity} units</span>
+                                                          {order.printed_quantity > 0 && (
+                                                            <div className="flex items-center gap-1">
+                                                              <div className="w-1 h-1 bg-green-600 rounded-full"></div>
+                                                              <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                                                                {order.printed_quantity} printed ({Math.round((order.printed_quantity / order.quantity) * 100)}%)
+                                                              </span>
+                                                            </div>
+                                                          )}
+                                                        </div>
+                                                      </div>
+                                                    </div>
+                                                  </PopoverContent>
+                                                </Popover>
+                                              )}
+                                            </div>
+                                            
+                                            {/* Show PO count for consolidated items */}
+                                            {order._isConsolidated && (
+                                              <div className="text-xs text-purple-600 dark:text-purple-400 font-medium">
+                                                From {order._consolidatedOrders.length} PO(s) • 
+                                                {order.printed_quantity > 0 ? (
+                                                  <span className="text-green-600 dark:text-green-400 ml-1">
+                                                    {order.printed_quantity} printed
+                                                  </span>
+                                                ) : (
+                                                  <span className="text-muted-foreground ml-1">None printed</span>
+                                                )}
+                                              </div>
+                                            )}
+                                          </div>
                                        )}
                                      </div>
                                   </div>
@@ -4674,75 +4750,6 @@ export const POTracker = () => {
                                   </div>
                                 </TableCell>
                                </TableRow>
-                               
-                               {/* Expandable breakdown row */}
-                               {order._isConsolidated && isExpanded && (
-                                 <TableRow className="bg-muted/20">
-                                   <TableCell colSpan={8} className="p-0">
-                                     <div className="p-4 space-y-3">
-                                       <div className="flex items-center gap-2 text-sm font-semibold text-foreground mb-3">
-                                         <Package className="h-4 w-4" />
-                                         Per-PO Breakdown for {order.asin}
-                                       </div>
-                                       
-                                       <div className="grid gap-2">
-                                         {order._consolidatedOrders.map((po: any, idx: number) => (
-                                           <div 
-                                             key={idx}
-                                             className="flex items-center justify-between p-3 bg-card rounded-md border border-border/50"
-                                           >
-                                             <div className="flex items-center gap-4">
-                                               <Badge variant="outline" className="font-mono">
-                                                 {po.po_number}
-                                               </Badge>
-                                               <div className="text-sm text-muted-foreground">
-                                                 {po.ship_to_location || 'No location'}
-                                               </div>
-                                             </div>
-                                             
-                                             <div className="flex items-center gap-4">
-                                               <div className="text-sm">
-                                                 <span className="font-semibold text-foreground">{po.quantity}</span>
-                                                 <span className="text-muted-foreground ml-1">units</span>
-                                               </div>
-                                               
-                                               {po.printed_quantity > 0 ? (
-                                                 <div className="flex items-center gap-2">
-                                                   <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                                   <span className="text-sm text-green-600 dark:text-green-400 font-medium">
-                                                     {po.printed_quantity} printed
-                                                   </span>
-                                                   {po.quantity > po.printed_quantity && (
-                                                     <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30">
-                                                       {po.quantity - po.printed_quantity} pending
-                                                     </Badge>
-                                                   )}
-                                                 </div>
-                                               ) : (
-                                                 <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30">
-                                                   Not printed
-                                                 </Badge>
-                                               )}
-                                             </div>
-                                           </div>
-                                         ))}
-                                       </div>
-                                       
-                                       <div className="pt-2 mt-2 border-t border-border/50 flex items-center justify-between text-sm">
-                                         <span className="font-semibold text-foreground">Total Consolidated:</span>
-                                         <div className="flex items-center gap-4">
-                                           <span className="font-semibold text-foreground">{order.quantity} units</span>
-                                           {order.printed_quantity > 0 && (
-                                             <span className="text-green-600 dark:text-green-400">
-                                               {order.printed_quantity} printed ({Math.round((order.printed_quantity / order.quantity) * 100)}%)
-                                             </span>
-                                           )}
-                                         </div>
-                                       </div>
-                                     </div>
-                                   </TableCell>
-                                 </TableRow>
-                               )}
                              </React.Fragment>
                              );
                            });
