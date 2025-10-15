@@ -2047,52 +2047,33 @@ export const POTracker = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     {/* Bulk Close Actions */}
-                    {selectedPOsForBulkClose.size > 0 && (() => {
-                      // Calculate total quantity for selected POs
-                      const selectedPOsArray = Array.from(selectedPOsForBulkClose);
-                      const totalQty = selectedPOsArray.reduce((sum, poNumber) => {
-                        const poGroup = groupedPOOrders.find(g => g.poNumber === poNumber);
-                        if (poGroup) {
-                          const dbMetrics = poGroupMetrics?.find(m => m.po_number === poNumber);
-                          const asnQuantity = dbMetrics?.asn_quantity || poGroup.orders.reduce((s, o) => s + (o.quantity || 0), 0);
-                          return sum + asnQuantity;
-                        }
-                        return sum;
-                      }, 0);
-
-                      return (
-                        <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg border">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline">
-                              {selectedPOsForBulkClose.size} PO{selectedPOsForBulkClose.size !== 1 ? 's' : ''} selected
-                            </Badge>
-                            <Badge variant="secondary" className="bg-primary/10 text-primary">
-                              {totalQty} units
-                            </Badge>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setShowBulkCloseConfirm(true)}
-                            disabled={isClosingPOs}
-                          >
-                            {isClosingPOs ? (
-                              <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                            ) : (
-                              <X className="h-3 w-3 mr-1" />
-                            )}
-                            Close Selected
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSelectedPOsForBulkClose(new Set())}
-                          >
-                            Clear
-                          </Button>
-                        </div>
-                      );
-                    })()}
+                    {selectedPOsForBulkClose.size > 0 && (
+                      <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg border">
+                        <Badge variant="outline">
+                          {selectedPOsForBulkClose.size} PO{selectedPOsForBulkClose.size !== 1 ? 's' : ''} selected
+                        </Badge>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowBulkCloseConfirm(true)}
+                          disabled={isClosingPOs}
+                        >
+                          {isClosingPOs ? (
+                            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                          ) : (
+                            <X className="h-3 w-3 mr-1" />
+                          )}
+                          Close Selected
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedPOsForBulkClose(new Set())}
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                    )}
                     
                     <div className="flex items-center border-2 border-border rounded-lg p-1">
                       <Button
