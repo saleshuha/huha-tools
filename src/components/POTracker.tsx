@@ -1139,6 +1139,11 @@ export const POTracker = () => {
   }, [poOrders, labelEligibleOrders, labelSearchQuery, searchQuery, activeTab, selectedCountry]);
 
   const groupedPOOrders = useMemo(() => {
+    console.log('📦 GROUPING START:', {
+      filteredOrdersCount: filteredOrders.length,
+      uniquePONumbers: [...new Set(filteredOrders.map(o => o.po_number))].length
+    });
+    
     const groups: { [key: string]: POOrder[] } = {};
     filteredOrders.forEach(order => {
       if (!groups[order.po_number]) {
@@ -1152,15 +1157,11 @@ export const POTracker = () => {
       orders
     }));
 
-    // Debug specific PO grouping
-    const debugPO = '8RGH1C7S';
-    const debugGroup = poGroups.find(group => group.poNumber === debugPO);
-    if (debugGroup) {
-      console.log(`🔍 FRONTEND DEBUG: PO ${debugPO} grouped with ${debugGroup.orders.length} orders, total quantity:`, 
-        debugGroup.orders.reduce((sum, order) => sum + (order.quantity || 0), 0));
-    } else {
-      console.log(`🔍 FRONTEND DEBUG: PO ${debugPO} not found in grouped orders`);
-    }
+    console.log('📦 GROUPING RESULT:', {
+      totalPOGroups: poGroups.length,
+      firstFewPOs: poGroups.slice(0, 5).map(g => g.poNumber),
+      totalItemsInGroups: poGroups.reduce((sum, g) => sum + g.orders.length, 0)
+    });
 
     return poGroups;
   }, [filteredOrders]);
@@ -1168,8 +1169,18 @@ export const POTracker = () => {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedPOGroups = useMemo(() => {
-    return groupedPOOrders.slice(startIndex, endIndex);
-  }, [groupedPOOrders, startIndex, endIndex]);
+    const paginated = groupedPOOrders.slice(startIndex, endIndex);
+    console.log('📄 PAGINATION:', {
+      currentPage,
+      itemsPerPage,
+      startIndex,
+      endIndex,
+      totalGroups: groupedPOOrders.length,
+      paginatedGroups: paginated.length,
+      showingPOs: paginated.map(g => g.poNumber)
+    });
+    return paginated;
+  }, [groupedPOOrders, startIndex, endIndex, currentPage, itemsPerPage]);
 
   // Handle print functionality with advanced settings
   const handleDirectPrint = async () => {
@@ -1882,6 +1893,92 @@ export const POTracker = () => {
                        </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                {/* Filter Status Indicators */}
+                <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border-2 border-border">
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <Package className="h-4 w-4 text-muted-foreground" />
+                      <div className="text-sm">
+                        <span className="font-semibold text-primary">{groupedPOOrders.length}</span>
+                        <span className="text-muted-foreground"> / </span>
+                        <span className="font-semibold">{[...new Set(poOrders.map(o => o.po_number))].length}</span>
+                        <span className="text-muted-foreground"> PO Groups</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <div className="text-sm">
+                        <span className="font-semibold text-primary">{filteredOrders.length}</span>
+                        <span className="text-muted-foreground"> / </span>
+                        <span className="font-semibold">{poOrders.length}</span>
+                        <span className="text-muted-foreground"> Line Items</span>
+                      </div>
+                    </div>
+                    
+                    {/* Active Filters Display */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {statusFilter !== 'all' && (
+                        <Badge variant="secondary" className="gap-1">
+                          Status: {statusFilter}
+                          <X 
+                            className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                            onClick={() => setStatusFilter('all')}
+                          />
+                        </Badge>
+                      )}
+                      {searchQuery.trim() && (
+                        <Badge variant="secondary" className="gap-1">
+                          Search: "{searchQuery.trim()}"
+                          <X 
+                            className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                            onClick={() => setSearchQuery('')}
+                          />
+                        </Badge>
+                      )}
+                      {searchTags.length > 0 && searchTags.map((tag, idx) => (
+                        <Badge key={idx} variant="secondary" className="gap-1">
+                          Tag: "{tag}"
+                          <X 
+                            className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                            onClick={() => setSearchTags(prev => prev.filter((_, i) => i !== idx))}
+                          />
+                        </Badge>
+                      ))}
+                      {activeTab === 'overview' && viewMode === 'detailed' && selectedPOsForLabels.size > 0 && (
+                        <Badge variant="secondary" className="gap-1">
+                          PO Filter: {selectedPOsForLabels.size} selected
+                          <X 
+                            className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                            onClick={() => setSelectedPOsForLabels(new Set())}
+                          />
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Clear All Filters Button */}
+                  {(statusFilter !== 'all' || searchQuery.trim() || searchTags.length > 0 || (activeTab === 'overview' && viewMode === 'detailed' && selectedPOsForLabels.size > 0)) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setStatusFilter('all');
+                        setSearchQuery('');
+                        setSearchTags([]);
+                        setSelectedPOsForLabels(new Set());
+                        toast({
+                          title: "Filters cleared",
+                          description: "All filters have been reset",
+                        });
+                      }}
+                      className="border-2 border-destructive/50 text-destructive hover:bg-destructive/10"
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Clear All Filters
+                    </Button>
+                  )}
                 </div>
 
                 {/* Selected POs Filter Indicator */}
