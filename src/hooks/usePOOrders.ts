@@ -71,14 +71,15 @@ export const usePOOrders = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch PO orders - optimized to use edge function for better performance
+  // Fetch PO orders - restored working version with progressive loading
   const fetchPOOrders = useCallback(async (loadAllOrders = false) => {
-    console.log('📥 fetchPOOrders called (optimized), loadAllOrders:', loadAllOrders);
+    console.log('📥 fetchPOOrders called, loadAllOrders:', loadAllOrders);
     setIsLoading(true);
     setLoadingProgress(0);
-    setLoadingStatus('Fetching PO orders...');
+    setLoadingStatus('Authenticating...');
 
     try {
+      const startTime = performance.now();
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       
       if (authError) {
@@ -93,67 +94,76 @@ export const usePOOrders = () => {
 
       console.log('✅ Authenticated user:', user.id);
       setLoadingProgress(10);
-      
-      // Use optimized edge function to fetch all data with server-side joins
-      setLoadingStatus('Loading PO data from server...');
-      console.log('🚀 Calling optimized edge function...');
-      
-      const startTime = performance.now();
-      
-      const { data: edgeFunctionData, error: edgeFunctionError } = await supabase.functions.invoke('get-all-po-data', {
-        body: { loadAllOrders }
+      setLoadingStatus('Fetching Sunsky SKUs...');
+
+      // Fetch ALL Sunsky SKUs first (they're typically fewer)
+      const { data: sunskySKUs, error: skuError } = await supabase
+        .from('sunsky_skus')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (skuError) {
+        console.error('❌ Error fetching Sunsky SKUs:', skuError);
+        throw skuError;
+      }
+
+      console.log(`✅ Loaded ${sunskySKUs?.length || 0} Sunsky SKUs`);
+      setLoadingProgress(30);
+      setLoadingStatus('Fetching PO orders...');
+
+      // Create SKU map for faster lookups
+      const skuMap = new Map();
+      (sunskySKUs || []).forEach((sku: any) => {
+        skuMap.set(sku.sku_code, sku);
       });
+
+      // Fetch PO orders with progressive loading
+      // Load initial batch (500 orders) for quick display
+      const initialLimit = loadAllOrders ? 100000 : 500;
       
-      const endTime = performance.now();
-      const loadTime = ((endTime - startTime) / 1000).toFixed(2);
-      console.log(`⚡ Edge function completed in ${loadTime}s`);
-      
-      if (edgeFunctionError) {
-        console.error('❌ Edge function error:', edgeFunctionError);
-        throw new Error(`Failed to fetch PO data: ${edgeFunctionError.message}`);
-      }
-      
-      if (!edgeFunctionData || !edgeFunctionData.success) {
-        console.error('❌ Edge function returned error:', edgeFunctionData);
-        throw new Error(edgeFunctionData?.error || 'Failed to fetch PO data');
+      const { data: poOrdersData, error: poError } = await supabase
+        .from('po_orders')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(initialLimit);
+
+      if (poError) {
+        console.error('❌ Error fetching PO orders:', poError);
+        throw poError;
       }
 
-      console.log(`✅ Edge function success:`, {
-        skuCount: edgeFunctionData.data?.sunskySKUs?.length || 0,
-        orderCount: edgeFunctionData.data?.poOrders?.length || 0,
-        loadTime: `${loadTime}s`
+      console.log(`✅ Loaded ${poOrdersData?.length || 0} PO orders`);
+      setLoadingProgress(70);
+      setLoadingStatus('Joining data...');
+
+      // Join PO orders with Sunsky SKUs on client side
+      const ordersWithSkus = (poOrdersData || []).map((order: any) => {
+        const matchedSku = skuMap.get(order.sku_code) || 
+                          (order.model_number ? skuMap.get(order.model_number) : null);
+        return {
+          ...order,
+          sunsky_sku: matchedSku || null
+        };
       });
-      
-      setLoadingProgress(60);
-      
-      // Data is already joined by the edge function
-      const allOrders = edgeFunctionData.data?.poOrders || [];
-      
-      console.log(`📊 Received ${allOrders.length} orders from edge function`);
 
-      // Filter to active orders if not loading all
-      let filteredOrders = allOrders;
-      if (!loadAllOrders) {
-        filteredOrders = allOrders.filter((order: any) => 
-          ['pending', 'ordered', 'shipped', 'placed'].includes(order.status)
-        );
-        console.log(`🎯 Filtered to ${filteredOrders.length} active orders (from ${allOrders.length} total)`);
-      }
+      console.log(`📊 Data stats:`, {
+        total: ordersWithSkus.length,
+        withSunskySku: ordersWithSkus.filter((o: any) => o.sunsky_sku).length,
+        countries: [...new Set(ordersWithSkus.map((o: any) => o.country))],
+        statuses: [...new Set(ordersWithSkus.map((o: any) => o.status))]
+      });
 
+      setLoadingProgress(90);
+      
       // Type the final data
-      const typedData: POOrder[] = filteredOrders.map((order: any) => ({
+      const typedData: POOrder[] = ordersWithSkus.map((order: any) => ({
         ...order,
         status: order.status as POOrder['status']
       }));
 
-      console.log(`📊 Final data stats:`, {
-        total: typedData.length,
-        totalInDb: allOrders.length,
-        withSunskySku: typedData.filter((o: any) => o.sunsky_sku).length,
-        countries: [...new Set(typedData.map(o => o.country))],
-        statuses: [...new Set(typedData.map(o => o.status))],
-        loadTime: `${loadTime}s`
-      });
+      const endTime = performance.now();
+      const loadTime = ((endTime - startTime) / 1000).toFixed(2);
 
       console.log('🎯 Setting poOrders state with', typedData.length, 'orders');
       setPOOrders(typedData);
@@ -164,9 +174,18 @@ export const usePOOrders = () => {
       queryClient.invalidateQueries({ queryKey: ['po-group-metrics'] });
       queryClient.invalidateQueries({ queryKey: ['po-comprehensive-metrics'] });
 
+      // Show success message
+      if (typedData.length > 0) {
+        toast({
+          title: "Success",
+          description: `Loaded ${typedData.length} orders in ${loadTime}s`,
+        });
+      }
+
     } catch (error) {
       console.error('❌ Error in fetchPOOrders:', error);
       setLoadingStatus('Failed to load PO orders');
+      setPOOrders([]); // Clear orders on error
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to fetch PO orders",
@@ -177,7 +196,7 @@ export const usePOOrders = () => {
         setIsLoading(false);
         setLoadingProgress(0);
         setLoadingStatus('');
-      }, 500); // Reduced delay for better perceived performance
+      }, 500);
     }
   }, [toast, queryClient]);
 
