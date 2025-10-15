@@ -94,10 +94,14 @@ export function ReplenishmentItemCard({
                 <span>{Math.floor((Date.now() - new Date(item.date_added).getTime()) / (1000 * 60 * 60 * 24))} days total</span>
               </div>
             )}
-            {item.date_sold && (
+            <div className="flex items-center gap-1">
+              <Package className="w-3 h-3" />
+              <span className="font-medium">Ordered: {item.current_quantity} units</span>
+            </div>
+            {item.last_restock_date && (
               <div className="flex items-center gap-1">
                 <Calendar className="w-3 h-3" />
-                <span>Last sold: {format(new Date(item.date_sold), 'MMM dd, yyyy')}</span>
+                <span>Ordered on: {format(new Date(item.last_restock_date), 'MMM dd, yyyy')}</span>
               </div>
             )}
             {item.last_restock_date && (
