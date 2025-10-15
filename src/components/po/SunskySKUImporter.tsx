@@ -2085,11 +2085,19 @@ export const SunskySKUImporter: React.FC = () => {
               
               // Remove from not found table if it was there
               try {
-                await supabase
+                const { error: deleteError } = await supabase
                   .from('sunsky_not_found_skus')
                   .delete()
                   .eq('user_id', profile?.id)
                   .eq('model_number', modelNumber);
+
+                if (!deleteError) {
+                  // Update local state immediately
+                  setNotFoundSkus(prev => 
+                    prev.filter(item => item.model_number !== modelNumber)
+                  );
+                  console.log(`✅ Removed from not found: ${modelNumber}`);
+                }
               } catch (error) {
                 console.warn('Error removing from not found list:', error);
               }
@@ -2127,16 +2135,16 @@ export const SunskySKUImporter: React.FC = () => {
             } else {
               console.log(`❌ API ${chunkIndex + 1} - No product found for ${modelNumber}`);
               
-              // Add to not found table
+              // Add to not found table immediately
               try {
                 const { data: existingData } = await supabase
                   .from('sunsky_not_found_skus')
-                  .select('search_attempts')
+                  .select('id, search_attempts')
                   .eq('user_id', profile?.id)
                   .eq('model_number', modelNumber)
                   .single();
 
-                await supabase
+                const { data: upsertedData, error: upsertError } = await supabase
                   .from('sunsky_not_found_skus')
                   .upsert({
                     user_id: profile?.id,
@@ -2145,7 +2153,26 @@ export const SunskySKUImporter: React.FC = () => {
                     last_search_date: new Date().toISOString()
                   }, {
                     onConflict: 'user_id,model_number'
+                  })
+                  .select()
+                  .single();
+
+                if (!upsertError && upsertedData) {
+                  // Update local state immediately
+                  setNotFoundSkus(prev => {
+                    const existing = prev.find(item => item.id === upsertedData.id);
+                    if (existing) {
+                      // Update existing item
+                      return prev.map(item => 
+                        item.id === upsertedData.id ? upsertedData : item
+                      );
+                    } else {
+                      // Add new item
+                      return [...prev, upsertedData];
+                    }
                   });
+                  console.log(`💾 Saved not found: ${modelNumber} (attempt ${upsertedData.search_attempts})`);
+                }
               } catch (error) {
                 console.warn('Error adding to not found list:', error);
               }
@@ -2232,10 +2259,7 @@ export const SunskySKUImporter: React.FC = () => {
         });
       }
 
-      // Refresh not found SKUs list
-      await loadNotFoundSkus();
-
-      // Final update
+      // Final update (not found SKUs already updated in real-time)
       setPOSearchStats(prev => ({
         ...prev,
         currentItem: `✅ Parallel search completed using ${activeAPICount} API keys!`,
