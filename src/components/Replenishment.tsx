@@ -78,6 +78,7 @@ interface AllInventoryItem {
   sku?: string;
   serial_number?: string;
   quantity: number;
+  ordered_quantity?: number;
   status: string;
   last_sold_date?: string | null;
   last_order_date?: string | null;
@@ -380,7 +381,7 @@ export function Replenishment() {
   const loadAllInventoryItems = async () => {
     try {
       console.log('Starting loadAllInventoryItems for country:', selectedCountry);
-      const [asinAll] = await Promise.all([(supabase as any).from('asin_inventory').select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added, notes, eligible_for_restock').eq('country', selectedCountry).eq('eligible_for_restock', true).eq('quantity', 0).neq('status', 'no-stock')]);
+      const [asinAll] = await Promise.all([(supabase as any).from('asin_inventory').select('id, asin, serial_number, quantity, ordered_quantity, status, sku, last_restock_date, date_sold, date_added, notes, eligible_for_restock').eq('country', selectedCountry).eq('eligible_for_restock', true).eq('quantity', 0).neq('status', 'no-stock')]);
 
       // Get non-source items to exclude them
       const {
@@ -401,6 +402,7 @@ export function Replenishment() {
         sku: item.sku,
         serial_number: item.serial_number,
         quantity: item.quantity,
+        ordered_quantity: item.ordered_quantity,
         status: item.status,
         last_sold_date: item.date_sold,
         last_order_date: item.last_restock_date,
@@ -472,6 +474,7 @@ export function Replenishment() {
         id: item.id,
         identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
         current_quantity: item.quantity,
+        ordered_quantity: item.ordered_quantity,
         table_name: 'asin_inventory',
         status: item.status,
         date_sold: item.last_sold_date,

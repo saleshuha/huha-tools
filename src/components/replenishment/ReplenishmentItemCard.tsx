@@ -13,6 +13,7 @@ interface ReplenishmentItemCardProps {
     sku?: string;
     serial_number?: string;
     current_quantity: number;
+    ordered_quantity?: number;
     status: string;
     date_sold?: string | null;
     last_restock_date?: string | null;
@@ -96,7 +97,7 @@ export function ReplenishmentItemCard({
             )}
             <div className="flex items-center gap-1">
               <Package className="w-3 h-3" />
-              <span className="font-medium">Ordered: {item.current_quantity} units</span>
+              <span className="font-medium">Ordered: {item.ordered_quantity || item.current_quantity} units</span>
             </div>
             {item.last_restock_date && (
               <div className="flex items-center gap-1">
