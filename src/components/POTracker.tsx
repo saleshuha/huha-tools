@@ -13,9 +13,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
-import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, AlertTriangle, FileText, ArrowLeft, ChevronLeft, ChevronRight, Trash2, Copy } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, AlertTriangle, FileText, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, Copy, CheckCircle2, Info } from 'lucide-react';
 import { SortableTableHeader } from '@/components/order-processing/SortableTableHeader';
 import { useToast } from '@/hooks/use-toast';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { POFileUpload } from '@/components/po/POFileUpload';
 import { POProfitAnalytics } from '@/components/po/POProfitAnalytics';
 import { POReportsSection } from '@/components/po/POReportsSection';
@@ -99,6 +100,9 @@ export const POTracker = () => {
   const [selectedForPrint, setSelectedForPrint] = useState<Map<string, number>>(new Map());
   const [labelCurrentPage, setLabelCurrentPage] = useState(1);
   const [labelItemsPerPage, setLabelItemsPerPage] = useState(20);
+  const [expandedConsolidated, setExpandedConsolidated] = useState<Set<string>>(new Set());
+  const [consolidatedViewMode, setConsolidatedViewMode] = useState<'merged' | 'detailed'>('merged');
+  const [filterPrintStatus, setFilterPrintStatus] = useState<'all' | 'pending' | 'printed'>('all');
   
   // Multi-tag search state
   const [searchTags, setSearchTags] = useState<string[]>([]);
@@ -4078,7 +4082,7 @@ export const POTracker = () => {
                                // NEW: Consolidate orders by ASIN when multiple POs are selected
                                let ordersToDisplay: POOrder[] = ordersForSelectedPOs;
                                
-                               if (selectedPOsList.length > 1) {
+                               if (selectedPOsList.length > 1 && consolidatedViewMode === 'merged') {
                                  console.log('🔄 CONSOLIDATING: Multiple POs selected, merging items by ASIN');
                                  
                                  // Group orders by ASIN
@@ -4191,16 +4195,39 @@ export const POTracker = () => {
                               const endIndex = startIndex + labelItemsPerPage;
                               const paginatedOrders = ordersToDisplay.slice(startIndex, endIndex);
                              
-                             return paginatedOrders.map((order, index) => (
+                             return paginatedOrders.map((order, index) => {
+                               const isExpanded = expandedConsolidated.has(order.id);
+                               
+                               return (
+                                 <React.Fragment key={order.id}>
                               <TableRow 
-                                key={order.id} 
                                 className={`group hover:bg-gradient-to-r hover:from-primary/10 hover:to-accent/10 transition-all duration-300 border-b border-border ${
                                    selectedForPrint.has(order.id) ? 'bg-primary/10 border-primary/30' : ''
                                 } ${index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}`}
                               >
-                                {/* Enhanced Checkbox Cell */}
+                                {/* Enhanced Checkbox Cell with Expand Button */}
                                 <TableCell className="w-12 border-r border-border/50 bg-background/50">
-                                  <div className="flex items-center justify-center">
+                                  <div className="flex items-center gap-2">
+                                    {order._isConsolidated && (
+                                      <button
+                                        onClick={() => {
+                                          const newExpanded = new Set(expandedConsolidated);
+                                          if (isExpanded) {
+                                            newExpanded.delete(order.id);
+                                          } else {
+                                            newExpanded.add(order.id);
+                                          }
+                                          setExpandedConsolidated(newExpanded);
+                                        }}
+                                        className="p-1 hover:bg-muted rounded transition-colors"
+                                      >
+                                        {isExpanded ? (
+                                          <ChevronUp className="h-3 w-3 text-muted-foreground" />
+                                        ) : (
+                                          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                                        )}
+                                      </button>
+                                    )}
                                      <input
                                        type="checkbox"
                                        checked={order._isConsolidated 
@@ -4613,11 +4640,82 @@ export const POTracker = () => {
                                        <CheckCircle className="h-3 w-3" />
                                        <span className="text-xs font-medium">Mark Printed</span>
                                      </div>
-                                   </Button>
-                                 </div>
-                               </TableCell>
-                              </TableRow>
-                            ));
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                               </TableRow>
+                               
+                               {/* Expandable breakdown row */}
+                               {order._isConsolidated && isExpanded && (
+                                 <TableRow className="bg-muted/20">
+                                   <TableCell colSpan={8} className="p-0">
+                                     <div className="p-4 space-y-3">
+                                       <div className="flex items-center gap-2 text-sm font-semibold text-foreground mb-3">
+                                         <Package className="h-4 w-4" />
+                                         Per-PO Breakdown for {order.asin}
+                                       </div>
+                                       
+                                       <div className="grid gap-2">
+                                         {order._consolidatedOrders.map((po: any, idx: number) => (
+                                           <div 
+                                             key={idx}
+                                             className="flex items-center justify-between p-3 bg-card rounded-md border border-border/50"
+                                           >
+                                             <div className="flex items-center gap-4">
+                                               <Badge variant="outline" className="font-mono">
+                                                 {po.po_number}
+                                               </Badge>
+                                               <div className="text-sm text-muted-foreground">
+                                                 {po.ship_to_location || 'No location'}
+                                               </div>
+                                             </div>
+                                             
+                                             <div className="flex items-center gap-4">
+                                               <div className="text-sm">
+                                                 <span className="font-semibold text-foreground">{po.quantity}</span>
+                                                 <span className="text-muted-foreground ml-1">units</span>
+                                               </div>
+                                               
+                                               {po.printed_quantity > 0 ? (
+                                                 <div className="flex items-center gap-2">
+                                                   <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                                   <span className="text-sm text-green-600 dark:text-green-400 font-medium">
+                                                     {po.printed_quantity} printed
+                                                   </span>
+                                                   {po.quantity > po.printed_quantity && (
+                                                     <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30">
+                                                       {po.quantity - po.printed_quantity} pending
+                                                     </Badge>
+                                                   )}
+                                                 </div>
+                                               ) : (
+                                                 <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30">
+                                                   Not printed
+                                                 </Badge>
+                                               )}
+                                             </div>
+                                           </div>
+                                         ))}
+                                       </div>
+                                       
+                                       <div className="pt-2 mt-2 border-t border-border/50 flex items-center justify-between text-sm">
+                                         <span className="font-semibold text-foreground">Total Consolidated:</span>
+                                         <div className="flex items-center gap-4">
+                                           <span className="font-semibold text-foreground">{order.quantity} units</span>
+                                           {order.printed_quantity > 0 && (
+                                             <span className="text-green-600 dark:text-green-400">
+                                               {order.printed_quantity} printed ({Math.round((order.printed_quantity / order.quantity) * 100)}%)
+                                             </span>
+                                           )}
+                                         </div>
+                                       </div>
+                                     </div>
+                                   </TableCell>
+                                 </TableRow>
+                               )}
+                             </React.Fragment>
+                             );
+                           });
                           })()}
                        </TableBody>
                      </Table>
@@ -4898,11 +4996,11 @@ export const POTracker = () => {
                                       Close PO
                                     </Button>
                                   )}
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
+                                 </div>
+                </TableCell>
+              </TableRow>
+            )
+          })}
                     </TableBody>
                   </Table>
                 </div>
