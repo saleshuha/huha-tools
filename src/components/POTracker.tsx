@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
-import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, AlertTriangle, FileText, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, AlertTriangle, FileText, ArrowLeft, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { SortableTableHeader } from '@/components/order-processing/SortableTableHeader';
 import { useToast } from '@/hooks/use-toast';
 import { POFileUpload } from '@/components/po/POFileUpload';
@@ -98,6 +98,16 @@ export const POTracker = () => {
   
   // Multi-tag search state
   const [searchTags, setSearchTags] = useState<string[]>([]);
+  
+  // Bulk delete state
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+  const [bulkDeleteInput, setBulkDeleteInput] = useState('');
+  const [bulkDeleteMatches, setBulkDeleteMatches] = useState<{
+    matched: string[];
+    notFound: string[];
+  }>({ matched: [], notFound: [] });
+  const [isDeletingPOs, setIsDeletingPOs] = useState(false);
+  const [bulkDeleteStep, setBulkDeleteStep] = useState<'input' | 'confirm'>('input');
   
   // Auto-create chip after 5 seconds of inactivity
   useEffect(() => {
@@ -427,6 +437,93 @@ export const POTracker = () => {
         description: "Failed to delete today's orders",
         variant: "destructive",
       });
+    }
+  };
+
+  // Parse PO numbers from input text
+  const parsePONumbers = (input: string): string[] => {
+    // Split by comma, newline, semicolon, or multiple spaces
+    const cleaned = input
+      .split(/[,;\n\r\s]+/)
+      .map(po => po.trim())
+      .filter(po => po.length > 0);
+    
+    // Remove duplicates
+    return [...new Set(cleaned)];
+  };
+
+  // Match PO numbers against existing orders
+  const matchPONumbers = (inputPOs: string[]): {
+    matched: string[];
+    notFound: string[];
+  } => {
+    const existingPONumbers = new Set(poOrders.map(o => o.po_number));
+    
+    const matched: string[] = [];
+    const notFound: string[] = [];
+    
+    inputPOs.forEach(po => {
+      if (existingPONumbers.has(po)) {
+        matched.push(po);
+      } else {
+        notFound.push(po);
+      }
+    });
+    
+    return { matched, notFound };
+  };
+
+  // Handle bulk delete
+  const handleBulkDelete = async () => {
+    if (bulkDeleteMatches.matched.length === 0) {
+      toast({
+        title: "No POs to Delete",
+        description: "No matching PO numbers found",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsDeletingPOs(true);
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      // Delete all orders matching the PO numbers
+      const { error } = await supabase
+        .from('po_orders')
+        .delete()
+        .in('po_number', bulkDeleteMatches.matched)
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: `Deleted ${bulkDeleteMatches.matched.length} PO(s) successfully`,
+      });
+      
+      // Refresh data
+      await fetchPOOrders(true);
+      refetchComprehensiveMetrics();
+      refetchMetrics();
+      
+      // Reset state
+      setShowBulkDeleteDialog(false);
+      setBulkDeleteInput('');
+      setBulkDeleteMatches({ matched: [], notFound: [] });
+      setBulkDeleteStep('input');
+      
+    } catch (error) {
+      console.error('Error deleting POs:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete POs",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeletingPOs(false);
     }
   };
 
@@ -1827,6 +1924,15 @@ export const POTracker = () => {
                           Reload All
                         </>
                       )}
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setShowBulkDeleteDialog(true)}
+                      className="border-2"
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Bulk Delete POs
                     </Button>
                   </div>
                   <div className="flex items-center gap-2">
@@ -4631,6 +4737,154 @@ export const POTracker = () => {
         </TabsContent>
 
       </Tabs>
+
+      {/* Bulk Delete POs Dialog */}
+      <Dialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-destructive" />
+              Bulk Delete POs
+            </DialogTitle>
+          </DialogHeader>
+          
+          {bulkDeleteStep === 'input' ? (
+            <div className="space-y-4">
+              <div>
+                <Label>Paste PO Numbers</Label>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Enter PO numbers separated by commas, spaces, or new lines
+                </p>
+                <Textarea
+                  value={bulkDeleteInput}
+                  onChange={(e) => setBulkDeleteInput(e.target.value)}
+                  placeholder="Example: PO001, PO002, PO003 or one per line"
+                  className="min-h-[150px] font-mono"
+                />
+              </div>
+              
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => {
+                    const parsed = parsePONumbers(bulkDeleteInput);
+                    const matches = matchPONumbers(parsed);
+                    setBulkDeleteMatches(matches);
+                    setBulkDeleteStep('confirm');
+                  }}
+                  disabled={!bulkDeleteInput.trim()}
+                >
+                  Check Matches
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowBulkDeleteDialog(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Matched POs */}
+              <div className="border rounded-lg p-4 bg-destructive/5">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <h4 className="font-semibold">
+                    Matched POs: {bulkDeleteMatches.matched.length}
+                  </h4>
+                </div>
+                {bulkDeleteMatches.matched.length > 0 ? (
+                  <div className="max-h-[200px] overflow-y-auto">
+                    <div className="grid grid-cols-3 gap-2">
+                      {bulkDeleteMatches.matched.map((po, idx) => (
+                        <Badge key={idx} variant="destructive">{po}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No matches found</p>
+                )}
+              </div>
+              
+              {/* Not Found POs */}
+              {bulkDeleteMatches.notFound.length > 0 && (
+                <div className="border rounded-lg p-4 bg-muted/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertCircle className="h-5 w-5 text-amber-600" />
+                    <h4 className="font-semibold">
+                      Not Found: {bulkDeleteMatches.notFound.length}
+                    </h4>
+                  </div>
+                  <div className="max-h-[150px] overflow-y-auto">
+                    <div className="grid grid-cols-3 gap-2">
+                      {bulkDeleteMatches.notFound.map((po, idx) => (
+                        <Badge key={idx} variant="outline">{po}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Warning Message */}
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-5 w-5 text-destructive mt-0.5" />
+                  <div>
+                    <h4 className="font-semibold text-destructive">Warning</h4>
+                    <p className="text-sm text-muted-foreground">
+                      This action will permanently delete <strong>{bulkDeleteMatches.matched.length} PO(s)</strong> and 
+                      all associated line items from the database. This cannot be undone.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="flex gap-2">
+                <Button
+                  variant="destructive"
+                  onClick={handleBulkDelete}
+                  disabled={isDeletingPOs || bulkDeleteMatches.matched.length === 0}
+                >
+                  {isDeletingPOs ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete {bulkDeleteMatches.matched.length} PO(s)
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setBulkDeleteStep('input');
+                    setBulkDeleteMatches({ matched: [], notFound: [] });
+                  }}
+                  disabled={isDeletingPOs}
+                >
+                  Back
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setShowBulkDeleteDialog(false);
+                    setBulkDeleteInput('');
+                    setBulkDeleteMatches({ matched: [], notFound: [] });
+                    setBulkDeleteStep('input');
+                  }}
+                  disabled={isDeletingPOs}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Bulk Close Confirmation Dialog */}
       <Dialog open={showBulkCloseConfirm} onOpenChange={setShowBulkCloseConfirm}>
