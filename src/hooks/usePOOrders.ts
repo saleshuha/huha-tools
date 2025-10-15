@@ -117,16 +117,15 @@ export const usePOOrders = () => {
         skuMap.set(sku.sku_code, sku);
       });
 
-      // Fetch PO orders with progressive loading
-      // Load initial batch (500 orders) for quick display
-      const initialLimit = loadAllOrders ? 100000 : 500;
+      // Fetch PO orders - ALWAYS load all for proper functionality
+      // Load ALL orders to ensure complete PO list is visible
+      console.log(`📦 Loading ${loadAllOrders ? 'ALL' : 'INITIAL 500'} PO orders...`);
       
       const { data: poOrdersData, error: poError } = await supabase
         .from('po_orders')
         .select('*')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(initialLimit);
+        .order('created_at', { ascending: false });
 
       if (poError) {
         console.error('❌ Error fetching PO orders:', poError);
