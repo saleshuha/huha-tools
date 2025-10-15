@@ -1976,15 +1976,20 @@ export const POTracker = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
+                {/* Full-width search bar */}
+                <div className="w-full">
+                  <Input
+                    type="text"
+                    placeholder="Search PO number, ASIN, model, serial number..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full border-2 border-border focus:border-primary"
+                  />
+                </div>
+                
+                {/* Action buttons row */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Input
-                      type="text"
-                      placeholder="Search PO number, ASIN, model, serial number..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="max-w-sm border-2 border-border focus:border-primary"
-                    />
                     <Button
                       variant="outline"
                       size="sm"
