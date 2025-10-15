@@ -1178,6 +1178,100 @@ export const POTracker = () => {
     return filtered;
   }, [poOrders, searchQuery, debouncedLabelSearch, searchType, statusFilter, sortField, sortDirection, activeTab, viewMode, selectedPOsForLabels, labelEligibleOrders, preventTableReorder, selectedCountry, inventoryData]);
 
+  // Export PO data to CSV
+  const exportPOData = useCallback(() => {
+    try {
+      // Get filtered orders based on current filters
+      const ordersToExport = filteredOrders;
+      
+      if (ordersToExport.length === 0) {
+        toast({
+          title: "No data to export",
+          description: "No PO orders match the current filters",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Define CSV headers
+      const headers = [
+        'PO Number',
+        'ASIN',
+        'Model Number',
+        'SKU Code',
+        'Title',
+        'Quantity',
+        'Status',
+        'Ship To Location',
+        'Unit Cost',
+        'Total Cost',
+        'Currency',
+        'Country',
+        'Order Date',
+        'Expected Delivery',
+        'Tracking Number',
+        'File Name',
+        'Notes',
+        'Created At',
+        'Is Printed'
+      ];
+      
+      // Convert orders to CSV rows
+      const csvRows = ordersToExport.map(order => [
+        order.po_number || '',
+        order.asin || '',
+        order.model_number || '',
+        order.sku_code || '',
+        order.title ? `"${order.title.replace(/"/g, '""')}"` : '',
+        order.quantity || 0,
+        order.status || '',
+        order.ship_to_location || '',
+        order.unit_cost || '',
+        order.total_cost || '',
+        order.currency || '',
+        order.country || '',
+        order.order_date || '',
+        order.expected_delivery || '',
+        order.tracking_number || '',
+        order.file_name || '',
+        order.notes ? `"${order.notes.replace(/"/g, '""')}"` : '',
+        order.created_at || '',
+        order.is_printed ? 'Yes' : 'No'
+      ]);
+      
+      // Combine headers and rows
+      const csvContent = [
+        headers.join(','),
+        ...csvRows.map(row => row.join(','))
+      ].join('\n');
+      
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `po-orders-${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({
+        title: "Export successful",
+        description: `Exported ${ordersToExport.length} PO orders to CSV`,
+      });
+    } catch (error) {
+      console.error('Error exporting PO data:', error);
+      toast({
+        title: "Export failed",
+        description: "Failed to export PO data",
+        variant: "destructive",
+      });
+    }
+  }, [filteredOrders, toast]);
+
   // Filtered PO Groups for labels search
   const filteredPOGroups = useMemo(() => {
     const groups: { [key: string]: POOrder[] } = {};
@@ -1925,6 +2019,16 @@ export const POTracker = () => {
                           Reload All
                         </>
                       )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={exportPOData}
+                      className="border-2 border-green-500 text-green-600 hover:bg-green-50"
+                      title="Export filtered PO orders to CSV"
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      Export CSV
                     </Button>
                     <Button
                       variant="destructive"
