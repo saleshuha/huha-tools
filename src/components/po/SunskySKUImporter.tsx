@@ -2068,6 +2068,46 @@ export const SunskySKUImporter: React.FC = () => {
               chunkErrorCount++;
               totalErrorCount++;
               
+              // Save as not found immediately when there's an API error
+              try {
+                const { data: existingData } = await supabase
+                  .from('sunsky_not_found_skus')
+                  .select('id, search_attempts')
+                  .eq('user_id', profile?.id)
+                  .eq('model_number', modelNumber)
+                  .single();
+
+                const { data: upsertedData, error: upsertError } = await supabase
+                  .from('sunsky_not_found_skus')
+                  .upsert({
+                    user_id: profile?.id,
+                    model_number: modelNumber,
+                    search_attempts: (existingData?.search_attempts || 0) + 1,
+                    last_search_date: new Date().toISOString(),
+                    notes: 'API Error: ' + (response.error?.message || 'Unknown error')
+                  }, {
+                    onConflict: 'user_id,model_number'
+                  })
+                  .select()
+                  .single();
+
+                if (!upsertError && upsertedData) {
+                  setNotFoundSkus(prev => {
+                    const existing = prev.find(item => item.id === upsertedData.id);
+                    if (existing) {
+                      return prev.map(item => 
+                        item.id === upsertedData.id ? upsertedData : item
+                      );
+                    } else {
+                      return [...prev, upsertedData];
+                    }
+                  });
+                  console.log(`💾 Saved not found (API error): ${modelNumber}`);
+                }
+              } catch (saveError) {
+                console.warn('Error saving to not found list:', saveError);
+              }
+              
               // Update API error count
               setPOApiProgress(prev => prev.map((api, index) => 
                 index === chunkIndex ? { ...api, errors: chunkErrorCount } : api
@@ -2193,6 +2233,46 @@ export const SunskySKUImporter: React.FC = () => {
             console.error(`API ${chunkIndex + 1} - Error processing ${modelNumber}:`, error);
             chunkErrorCount++;
             totalErrorCount++;
+            
+            // Save as not found immediately when there's an exception
+            try {
+              const { data: existingData } = await supabase
+                .from('sunsky_not_found_skus')
+                .select('id, search_attempts')
+                .eq('user_id', profile?.id)
+                .eq('model_number', modelNumber)
+                .single();
+
+              const { data: upsertedData, error: upsertError } = await supabase
+                .from('sunsky_not_found_skus')
+                .upsert({
+                  user_id: profile?.id,
+                  model_number: modelNumber,
+                  search_attempts: (existingData?.search_attempts || 0) + 1,
+                  last_search_date: new Date().toISOString(),
+                  notes: 'Processing Error: ' + (error instanceof Error ? error.message : 'Unknown error')
+                }, {
+                  onConflict: 'user_id,model_number'
+                })
+                .select()
+                .single();
+
+              if (!upsertError && upsertedData) {
+                setNotFoundSkus(prev => {
+                  const existing = prev.find(item => item.id === upsertedData.id);
+                  if (existing) {
+                    return prev.map(item => 
+                      item.id === upsertedData.id ? upsertedData : item
+                    );
+                  } else {
+                    return [...prev, upsertedData];
+                  }
+                });
+                console.log(`💾 Saved not found (exception): ${modelNumber}`);
+              }
+            } catch (saveError) {
+              console.warn('Error saving to not found list:', saveError);
+            }
             
             // Update API error count
             setPOApiProgress(prev => prev.map((api, index) => 
