@@ -2371,20 +2371,9 @@ export const POTracker = () => {
                                        }}
                                        title="Copy PO Number"
                                      >
-                                       <Copy className="h-3 w-3" />
-                                     </Button>
-                                     {(() => {
-                                       const orderWithBatch = orders.find(o => o.batch_id);
-                                       if (orderWithBatch?.batch_id) {
-                                         return (
-                                           <Badge variant="outline" className="text-xs ml-2" title={`Batch ID: ${orderWithBatch.batch_id}`}>
-                                             Batch: {orderWithBatch.batch_id.slice(0, 8)}
-                                           </Badge>
-                                         );
-                                       }
-                                       return null;
-                                     })()}
-                                     {isClosedPO && (
+                                     <Copy className="h-3 w-3" />
+                                      </Button>
+                                      {isClosedPO && (
                                        <Badge variant="destructive" className="text-xs">
                                          CLOSED
                                        </Badge>
@@ -2425,20 +2414,31 @@ export const POTracker = () => {
                                     !order.supplier_order_number &&
                                     findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku) !== null
                                   ).length}
-                                </div>
-                              </div>
-                                 <div className="p-2 flex items-center">
-                                   <div className="flex items-center gap-1">
-                                     <Button 
-                                       variant="outline" 
-                                       size="sm"
-                                       onClick={() => navigate(`/po-details/${poNumber}`)}
-                                       disabled={isClosedPO}
-                                       className="text-xs px-2 py-1 h-7"
-                                     >
-                                       View
-                                     </Button>
-                                      {!isClosedPO && (
+                                 </div>
+                               </div>
+                                  <div className="p-2 flex items-center">
+                                    <div className="flex items-center gap-1">
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm"
+                                        onClick={() => navigate(`/po-details/${poNumber}`)}
+                                        disabled={isClosedPO}
+                                        className="text-xs px-2 py-1 h-7"
+                                      >
+                                        View
+                                      </Button>
+                                      {(() => {
+                                        const orderWithBatch = orders.find(o => o.batch_id);
+                                        if (orderWithBatch?.batch_id) {
+                                          return (
+                                            <Badge variant="outline" className="text-xs" title={`Batch ID: ${orderWithBatch.batch_id}`}>
+                                              Batch: {orderWithBatch.batch_id.slice(0, 8)}
+                                            </Badge>
+                                          );
+                                        }
+                                        return null;
+                                      })()}
+                                       {!isClosedPO && (
                                         <Button 
                                           variant="outline" 
                                           size="sm"
