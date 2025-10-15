@@ -428,13 +428,23 @@ export const usePOOrders = () => {
           const dbLookupKey = `${poKey}|${itemKey}`;
 
           // Detailed logging for debugging
-          console.log(`📝 Processing row ${rowNum}/${mappedData.length}:`, {
+          console.log(`\n📝 ROW ${rowNum}/${mappedData.length} ANALYSIS:`, {
             po: po,
             asin: asin,
             model: model,
             qty: qty,
-            identity: dbLookupKey,
-            hasExistingInDB: existingOrdersMap.has(dbLookupKey)
+            primarySku: primarySku,
+            dbLookupKey: dbLookupKey,
+            identity: identity,
+            existingOrderFound: !!existingOrdersMap.get(dbLookupKey),
+            existingOrderDetails: existingOrdersMap.get(dbLookupKey) ? {
+              id: existingOrdersMap.get(dbLookupKey)!.id,
+              created: new Date(existingOrdersMap.get(dbLookupKey)!.created_at).toISOString(),
+              hoursOld: Math.floor((Date.now() - new Date(existingOrdersMap.get(dbLookupKey)!.created_at).getTime()) / (1000 * 60 * 60)),
+              quantity: existingOrdersMap.get(dbLookupKey)!.quantity,
+              batch_id: existingOrdersMap.get(dbLookupKey)!.batch_id,
+              currentBatchId: batchId
+            } : 'N/A'
           });
 
           // Create new order data
@@ -481,8 +491,8 @@ export const usePOOrders = () => {
             
             // CRITICAL FIX: Only consider as update if:
             // 1. Within 24 hours AND
-            // 2. Same batch_id (uploaded in same session) OR no batch_id yet
-            const isSameBatch = existingOrder.batch_id === batchId || !existingOrder.batch_id;
+            // 2. Has batch_id AND it matches current batch (strict match)
+            const isSameBatch = existingOrder.batch_id && existingOrder.batch_id === batchId;
             const isRecent = hoursSinceCreation < 24;
             
             if (isRecent && isSameBatch) {
@@ -518,21 +528,22 @@ export const usePOOrders = () => {
                 results.updated++;
                 setUploadStats(prev => ({ ...prev, updated: results.updated }));
                 shouldInsertAsNew = false;
-                
-                // Remove from map so next duplicate creates NEW order
-                existingOrdersMap.delete(dbLookupKey);
               } else {
                 console.log(`✓ SKIP duplicate: ${dbLookupKey} - same data within 24hrs`);
                 results.unchanged++;
                 setUploadStats(prev => ({ ...prev, unchanged: results.unchanged }));
                 shouldInsertAsNew = false;
-                
-                // Remove from map so next duplicate creates NEW order
-                existingOrdersMap.delete(dbLookupKey);
               }
             } else {
-              // Different batch or old order - insert as NEW separate order
-              const reason = !isSameBatch ? 'different batch' : `${Math.floor(hoursSinceCreation)}hrs old`;
+              // Always insert as NEW if:
+              // - Different batch
+              // - No batch_id on existing order
+              // - Older than 24 hours
+              const reason = !existingOrder.batch_id 
+                ? 'existing order has no batch_id' 
+                : !isSameBatch 
+                  ? 'different batch' 
+                  : `${Math.floor(hoursSinceCreation)}hrs old`;
               console.log(`✨ Treating as NEW order (${reason})`);
             }
           }
@@ -634,12 +645,19 @@ export const usePOOrders = () => {
       setLoadingStatus('Upload complete!');
 
       // === FINAL RESULTS ===
-      console.log(`\n🏁 FINAL RESULTS:`);
-      console.log(`📊 Total rows in file: ${mappedData.length}`);
+      console.log(`\n🏁 FINAL VALIDATION:`);
+      console.log(`📁 Total rows in uploaded file(s): ${mappedData.length}`);
       console.log(`✨ New items inserted: ${results.inserted}`);
       console.log(`🔄 Items updated: ${results.updated}`);
-      console.log(`✓ Unchanged items: ${results.unchanged}`);
-      console.log(`❌ Invalid/Errors: ${results.invalid}`);
+      console.log(`✓ Unchanged items skipped: ${results.unchanged}`);
+      console.log(`❌ Invalid/Skipped rows: ${results.invalid}`);
+      console.log(`📊 Total accounted: ${results.inserted + results.updated + results.unchanged + results.invalid}`);
+
+      const unaccountedFor = mappedData.length - (results.inserted + results.updated + results.unchanged + results.invalid);
+      if (unaccountedFor !== 0) {
+        console.error(`🚨 CRITICAL: ${Math.abs(unaccountedFor)} rows UNACCOUNTED FOR!`);
+        console.error(`Expected to process ${mappedData.length} rows but only accounted for ${results.inserted + results.updated + results.unchanged + results.invalid}`);
+      }
 
       // Show user-friendly results
       let message = `Processed ${results.processed} rows: `;
@@ -656,10 +674,14 @@ export const usePOOrders = () => {
         console.log('🚨 First 5 processing errors:', results.errors.slice(0, 5));
       }
 
+      const unaccountedForFinal = mappedData.length - (results.inserted + results.updated + results.unchanged + results.invalid);
+      
       toast({
-        title: (results.inserted > 0 || results.updated > 0) ? "PO Upload Complete" : "No Changes Found",
-        description: message,
-        variant: (results.inserted > 0 || results.updated > 0) ? "default" : "default"
+        title: unaccountedForFinal === 0 ? "PO Upload Complete ✅" : "PO Upload Complete ⚠️",
+        description: unaccountedForFinal === 0 
+          ? message 
+          : `${message}\n⚠️ Warning: ${Math.abs(unaccountedForFinal)} rows not accounted for - check console logs`,
+        variant: unaccountedForFinal === 0 ? "default" : "destructive"
       });
 
     } catch (error) {
