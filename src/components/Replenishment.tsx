@@ -1234,12 +1234,25 @@ export function Replenishment() {
   };
   const handleSunskyOrderSuccess = async (orderNumber: string, selectedOrderIds: string[]) => {
     try {
-      // Mark the original inventory items as ordered
+      // Create a map of item IDs to their ordered quantities
+      const quantityMap = new Map<string, number>();
+      sunskyOrderItems.forEach(orderItem => {
+        if (orderItem.id) {
+          quantityMap.set(orderItem.id, orderItem.qty || orderItem.quantity || 1);
+        }
+      });
+
+      // Mark the original inventory items as ordered with their quantities
       const updatePromises = Array.from(selectedItems).map(async itemId => {
         const item = restockItems.find(i => i.id === itemId);
         if (!item) return;
+        
+        const orderedQty = quantityMap.get(itemId) || 1;
+        
         return (supabase as any).from('asin_inventory').update({
-          status: 'ordered'
+          status: 'ordered',
+          ordered_quantity: orderedQty,
+          ordered_at: new Date().toISOString()
         }).eq('id', itemId);
       });
       await Promise.all(updatePromises);
