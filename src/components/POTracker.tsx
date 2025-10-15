@@ -4586,30 +4586,65 @@ export const POTracker = () => {
                                 </TableCell>
 
                                   {/* Enhanced Print Qty Cell */}
-                                 <TableCell className="w-24 border-r border-border/50">
-                                   <div className="flex items-center gap-2">
-                                     <Input
-                                       type="number"
-                                       min="1"
-                                       max="99"
-                                       placeholder="Qty"
-                                       className="w-16 h-9 text-center bg-background border-2 border-border focus:border-primary group-hover:border-primary/50 transition-colors font-mono text-foreground"
-                                       value={selectedForPrint.has(order.id) ? (selectedForPrint.get(order.id) || 1) : ''}
-                                       onChange={(e) => {
-                                         const value = parseInt(e.target.value) || 1;
-                                         if (selectedForPrint.has(order.id)) {
-                                           const newSelected = new Map(selectedForPrint);
-                                           newSelected.set(order.id, value);
-                                           setSelectedForPrint(newSelected);
-                                         }
-                                       }}
-                                       disabled={!selectedForPrint.has(order.id) || printingItems.has(order.id)}
-                                     />
-                                     {!selectedForPrint.has(order.id) && (
-                                       <span className="text-xs text-muted-foreground whitespace-nowrap">Select first</span>
-                                     )}
-                                   </div>
-                                 </TableCell>
+                                  <TableCell className="w-24 border-r border-border/50">
+                                    <div className="flex items-center gap-2">
+                                      {(() => {
+                                        // Check if this item (or its consolidated items) are selected
+                                        const isSelected = order._isConsolidated 
+                                          ? order._consolidatedOrders.some((o: any) => selectedForPrint.has(o.id))
+                                          : selectedForPrint.has(order.id);
+                                        
+                                        // Get the quantity value
+                                        const qtyValue = order._isConsolidated
+                                          ? (order._consolidatedOrders[0] && selectedForPrint.get(order._consolidatedOrders[0].id)) || 1
+                                          : selectedForPrint.get(order.id) || 1;
+                                        
+                                        console.log('🔢 Print Qty Input State:', {
+                                          orderId: order.id,
+                                          isConsolidated: order._isConsolidated,
+                                          isSelected,
+                                          qtyValue,
+                                          selectedMapSize: selectedForPrint.size
+                                        });
+                                        
+                                        return (
+                                          <>
+                                            <Input
+                                              type="number"
+                                              min="1"
+                                              max="99"
+                                              placeholder="Qty"
+                                              className="w-16 h-9 text-center bg-background border-2 border-border focus:border-primary group-hover:border-primary/50 transition-colors font-mono text-foreground"
+                                              value={isSelected ? qtyValue : ''}
+                                              onChange={(e) => {
+                                                const value = parseInt(e.target.value) || 1;
+                                                console.log('📝 Qty input changed:', value);
+                                                
+                                                if (isSelected) {
+                                                  const newSelected = new Map(selectedForPrint);
+                                                  
+                                                  if (order._isConsolidated) {
+                                                    // Update all underlying orders
+                                                    order._consolidatedOrders.forEach((o: any) => {
+                                                      newSelected.set(o.id, value);
+                                                    });
+                                                  } else {
+                                                    newSelected.set(order.id, value);
+                                                  }
+                                                  
+                                                  setSelectedForPrint(newSelected);
+                                                }
+                                              }}
+                                              disabled={!isSelected || printingItems.has(order.id)}
+                                            />
+                                            {!isSelected && (
+                                              <span className="text-xs text-muted-foreground whitespace-nowrap">Select first</span>
+                                            )}
+                                          </>
+                                        );
+                                      })()}
+                                    </div>
+                                  </TableCell>
 
                                 {/* Enhanced Status Cell */}
                                 <TableCell className="border-r border-border/50">
