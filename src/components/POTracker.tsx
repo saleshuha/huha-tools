@@ -3631,8 +3631,12 @@ export const POTracker = () => {
                       </div>
                     </div>
 
-                    {/* Primary Action Buttons */}
+                     {/* Primary Action Buttons */}
                     <div className="flex items-center justify-between p-4 border-2 border-border rounded-lg bg-card/50">
+                      {(() => {
+                        console.log('🎨 Rendering action buttons with selectedForPrint.size:', selectedForPrint.size);
+                        return (
+                          <>
                       <div className="flex items-center gap-3">
                         {/* Preview Button */}
                         <Button 
@@ -3640,6 +3644,7 @@ export const POTracker = () => {
                           size="lg"
                           disabled={selectedForPrint.size === 0}
                           className="group hover:shadow-soft transition-all border-2 border-border hover:border-primary"
+                          onClick={() => console.log('Preview clicked with selection:', selectedForPrint.size)}
                         >
                           <div className="flex items-center gap-2">
                             <div className="p-1 bg-accent/10 rounded group-hover:bg-accent/20 transition-colors">
@@ -3653,7 +3658,10 @@ export const POTracker = () => {
                         <Button 
                           variant="outline" 
                           size="lg"
-                          onClick={handleDownloadZPL}
+                          onClick={() => {
+                            console.log('Download clicked with selection:', selectedForPrint.size);
+                            handleDownloadZPL();
+                          }}
                           disabled={selectedForPrint.size === 0}
                           className="group hover:shadow-soft transition-all border-2 border-border hover:border-primary"
                         >
@@ -3672,7 +3680,10 @@ export const POTracker = () => {
                       {/* Primary Print Button */}
                       <Button 
                         size="lg"
-                        onClick={handleDirectPrint}
+                        onClick={() => {
+                          console.log('Print clicked with selection:', selectedForPrint.size, 'QZ:', qzConnected, 'Printer:', selectedPrinter);
+                          handleDirectPrint();
+                        }}
                         disabled={selectedForPrint.size === 0 || !qzConnected || !selectedPrinter || isPrinting}
                         className="bg-primary hover:bg-primary-dark text-primary-foreground shadow-glow hover:shadow-accent-glow transition-all group min-w-[180px] border-2 border-primary-dark"
                       >
@@ -3694,6 +3705,9 @@ export const POTracker = () => {
                           </div>
                         )}
                       </Button>
+                          </>
+                        );
+                      })()}
                     </div>
 
                     {/* Connection Status Alert */}
@@ -4236,20 +4250,36 @@ export const POTracker = () => {
                                        onChange={(e) => {
                                          const newSelected = new Map(selectedForPrint);
                                          
+                                         console.log('🔘 Checkbox clicked:', {
+                                           orderId: order.id,
+                                           isConsolidated: order._isConsolidated,
+                                           checked: e.target.checked,
+                                           currentSize: selectedForPrint.size
+                                         });
+                                         
                                          if (order._isConsolidated) {
                                            // For consolidated items, select/deselect all underlying orders
                                            if (e.target.checked) {
                                              order._consolidatedOrders.forEach((o: any) => newSelected.set(o.id, 1));
+                                             console.log('✅ Added consolidated orders:', order._consolidatedOrders.map((o: any) => o.id));
                                            } else {
                                              order._consolidatedOrders.forEach((o: any) => newSelected.delete(o.id));
+                                             console.log('❌ Removed consolidated orders:', order._consolidatedOrders.map((o: any) => o.id));
                                            }
                                          } else {
                                            if (e.target.checked) {
                                              newSelected.set(order.id, 1); // Default quantity of 1
+                                             console.log('✅ Added single order:', order.id);
                                            } else {
                                              newSelected.delete(order.id);
+                                             console.log('❌ Removed single order:', order.id);
                                            }
                                          }
+                                         
+                                         console.log('📊 New selection state:', {
+                                           newSize: newSelected.size,
+                                           selectedIds: Array.from(newSelected.keys())
+                                         });
                                          
                                          setSelectedForPrint(newSelected);
                                        }}
