@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
-import { Search, Plus, Download, AlertCircle, CheckCircle2, Package, Globe, Calendar, RefreshCw, Filter, Grid, List, Settings, Eye, Save, RotateCcw, Play, Pause, X, PauseCircle, PlayCircle, XCircle, Trash2, ChevronDown, Database, Wifi } from "lucide-react";
+import { Search, Plus, Download, AlertCircle, CheckCircle2, Package, Globe, Calendar, RefreshCw, Filter, Grid, List, Settings, Eye, Save, RotateCcw, Play, Pause, X, PauseCircle, PlayCircle, XCircle, Trash2, ChevronDown, Database, Wifi, Ban, SkipForward } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -34,6 +34,7 @@ import { useBackgroundTasks } from "@/contexts/BackgroundTasksContext";
 import { useConcurrentSunskyExport } from "@/hooks/useConcurrentSunskyExport";
 import { usePersistentBackgroundTasks } from "@/hooks/usePersistentBackgroundTasks";
 import { ImageGalleryTab } from "./ImageGalleryTab";
+import { NotFoundSkusManager } from "./NotFoundSkusManager";
 interface SunskyProduct {
   // Core product fields
   id: number;
@@ -303,10 +304,20 @@ export const SunskySKUImporter: React.FC = () => {
     alreadyImportedCount: 0,
     searchedItems: 0,
     skippedItems: 0,
+    skippedFromHistory: 0,
     matchedItems: 0,
     errorItems: 0,
     currentItem: ''
   });
+  const [notFoundSkus, setNotFoundSkus] = useState<Array<{
+    id: string;
+    model_number: string;
+    search_attempts: number;
+    last_search_date: string;
+    notes?: string;
+  }>>([]);
+  const [showNotFoundDialog, setShowNotFoundDialog] = useState(false);
+  const [includeSkippedItems, setIncludeSkippedItems] = useState(false);
 
   // Individual API progress tracking for PO search
   const [poApiProgress, setPOApiProgress] = useState<Array<{
@@ -1439,6 +1450,30 @@ export const SunskySKUImporter: React.FC = () => {
       setFetchingBrands(false);
     }
   };
+
+  const loadNotFoundSkus = async () => {
+    if (!profile?.id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('sunsky_not_found_skus')
+        .select('*')
+        .eq('user_id', profile.id)
+        .order('last_search_date', { ascending: false });
+
+      if (error) throw error;
+      setNotFoundSkus(data || []);
+    } catch (error) {
+      console.error('Error loading not found SKUs:', error);
+    }
+  };
+
+  // Load not found SKUs on mount
+  useEffect(() => {
+    if (profile?.id) {
+      loadNotFoundSkus();
+    }
+  }, [profile?.id]);
   
   // Direct fetch test to bypass Supabase SDK
   const testDirectFetch = async () => {
@@ -1905,32 +1940,67 @@ export const SunskySKUImporter: React.FC = () => {
         errors: 0
       })));
       
+      // Load not found SKUs from database if auto-skip is enabled
+      let notFoundModelNumbers: Set<string> = new Set();
+      if (!includeSkippedItems && profile?.sunsky_skip_not_found !== false) {
+        try {
+          const { data: notFoundData, error: notFoundError } = await supabase
+            .from('sunsky_not_found_skus')
+            .select('model_number, last_search_date, sunsky_recheck_after_days:profiles!inner(sunsky_recheck_after_days)')
+            .eq('user_id', profile?.id);
+
+          if (!notFoundError && notFoundData) {
+            const recheckDays = profile?.sunsky_recheck_after_days || 30;
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - recheckDays);
+
+            notFoundData.forEach(item => {
+              const lastSearchDate = new Date(item.last_search_date);
+              // Only skip if within recheck period
+              if (lastSearchDate >= cutoffDate) {
+                notFoundModelNumbers.add(item.model_number);
+              }
+            });
+            console.log(`🚫 Loaded ${notFoundModelNumbers.size} not found SKUs to skip`);
+          }
+        } catch (error) {
+          console.warn('Error loading not found SKUs:', error);
+        }
+      }
+
+      // Filter out not found model numbers
+      const modelsToSearch = modelData.uniqueModels.filter(
+        model => !notFoundModelNumbers.has(model)
+      );
+      const skippedCount = modelData.uniqueModels.length - modelsToSearch.length;
+
       // Show start message
       toast({
-        title: `Searching ${modelData.uniqueCount} Model Numbers`,
-        description: `Using ${activeAPICount} API key${activeAPICount > 1 ? 's' : ''} in parallel for faster processing...`,
+        title: `Searching ${modelsToSearch.length} Model Numbers`,
+        description: `Using ${activeAPICount} API key${activeAPICount > 1 ? 's' : ''} in parallel${skippedCount > 0 ? `. Skipping ${skippedCount} previously not found items.` : '...'}`,
         variant: "default"
       });
 
       // Initialize stats for UI
       setPOSearchStats({
-        totalItems: modelData.uniqueCount,
+        totalItems: modelsToSearch.length,
         totalPOItems: modelData.totalCount,
         totalUniqueItems: modelData.totalUniqueCount,
         alreadyImportedCount: modelData.alreadyImportedCount,
         searchedItems: 0,
         skippedItems: 0,
+        skippedFromHistory: skippedCount,
         matchedItems: 0,
         errorItems: 0,
-        currentItem: `Distributing ${modelData.uniqueCount} items across ${activeAPICount} API keys...`
+        currentItem: `Distributing ${modelsToSearch.length} items across ${activeAPICount} API keys...`
       });
 
       // Divide model numbers into chunks for each API key
-      const chunkSize = Math.ceil(modelData.uniqueModels.length / activeAPICount);
+      const chunkSize = Math.ceil(modelsToSearch.length / activeAPICount);
       const modelChunks = [];
       
-      for (let i = 0; i < modelData.uniqueModels.length; i += chunkSize) {
-        modelChunks.push(modelData.uniqueModels.slice(i, i + chunkSize));
+      for (let i = 0; i < modelsToSearch.length; i += chunkSize) {
+        modelChunks.push(modelsToSearch.slice(i, i + chunkSize));
       }
 
       // Process statistics tracking
@@ -1975,7 +2045,7 @@ export const SunskySKUImporter: React.FC = () => {
             ));
             
             // Update overall progress and stats
-            const overallProgress = Math.floor((totalSearchedCount / modelData.uniqueCount) * 100);
+            const overallProgress = Math.floor((totalSearchedCount / modelsToSearch.length) * 100);
             setPOSearchProgress(overallProgress);
             
             setPOSearchStats(prev => ({
@@ -2013,6 +2083,17 @@ export const SunskySKUImporter: React.FC = () => {
               
               console.log(`✅ API ${chunkIndex + 1} - Found product for ${modelNumber}:`, product.name);
               
+              // Remove from not found table if it was there
+              try {
+                await supabase
+                  .from('sunsky_not_found_skus')
+                  .delete()
+                  .eq('user_id', profile?.id)
+                  .eq('model_number', modelNumber);
+              } catch (error) {
+                console.warn('Error removing from not found list:', error);
+              }
+              
               // Import this product immediately
               try {
                 const importResponse = await supabase.functions.invoke('sunsky-api', {
@@ -2045,6 +2126,29 @@ export const SunskySKUImporter: React.FC = () => {
               }
             } else {
               console.log(`❌ API ${chunkIndex + 1} - No product found for ${modelNumber}`);
+              
+              // Add to not found table
+              try {
+                const { data: existingData } = await supabase
+                  .from('sunsky_not_found_skus')
+                  .select('search_attempts')
+                  .eq('user_id', profile?.id)
+                  .eq('model_number', modelNumber)
+                  .single();
+
+                await supabase
+                  .from('sunsky_not_found_skus')
+                  .upsert({
+                    user_id: profile?.id,
+                    model_number: modelNumber,
+                    search_attempts: (existingData?.search_attempts || 0) + 1,
+                    last_search_date: new Date().toISOString()
+                  }, {
+                    onConflict: 'user_id,model_number'
+                  });
+              } catch (error) {
+                console.warn('Error adding to not found list:', error);
+              }
             }
 
             // Update stats
@@ -2112,7 +2216,7 @@ export const SunskySKUImporter: React.FC = () => {
       if (totalImported > 0) {
         toast({
           title: "Parallel Search & Import Complete",
-          description: `Successfully found and imported ${totalImported} of ${totalMatched} matched products from ${modelData.uniqueCount} PO model numbers using ${activeAPICount} API key${activeAPICount > 1 ? 's' : ''}. ${totalErrors} errors.`
+          description: `Successfully found and imported ${totalImported} of ${totalMatched} matched products from ${modelsToSearch.length} PO model numbers using ${activeAPICount} API key${activeAPICount > 1 ? 's' : ''}. ${skippedCount > 0 ? `Skipped ${skippedCount} previously not found.` : ''} ${totalErrors} errors.`
         });
       } else if (totalMatched > 0) {
         toast({
@@ -2123,18 +2227,22 @@ export const SunskySKUImporter: React.FC = () => {
       } else {
         toast({
           title: "No Matches Found",
-          description: `Searched ${modelData.uniqueCount} model numbers using ${activeAPICount} API key${activeAPICount > 1 ? 's' : ''} but found no matching products in Sunsky catalog.`,
+          description: `Searched ${modelsToSearch.length} model numbers using ${activeAPICount} API key${activeAPICount > 1 ? 's' : ''} but found no matching products in Sunsky catalog.${skippedCount > 0 ? ` (Skipped ${skippedCount} previously not found)` : ''}`,
           variant: "default"
         });
       }
+
+      // Refresh not found SKUs list
+      await loadNotFoundSkus();
 
       // Final update
       setPOSearchStats(prev => ({
         ...prev,
         currentItem: `✅ Parallel search completed using ${activeAPICount} API keys!`,
-        searchedItems: modelData.uniqueCount,
+        searchedItems: modelsToSearch.length,
         matchedItems: totalMatched,
-        errorItems: totalErrors
+        errorItems: totalErrors,
+        skippedFromHistory: skippedCount
       }));
     } catch (error) {
       console.error('Error in PO model search:', error);
@@ -2339,7 +2447,7 @@ export const SunskySKUImporter: React.FC = () => {
           </Alert>}
 
         <Tabs defaultValue="search" className="w-full">
-          <TabsList className="grid w-full grid-cols-6 h-12 bg-muted/50 border-2 border-border/50 rounded-lg p-1">
+          <TabsList className="grid w-full grid-cols-7 h-12 bg-muted/50 border-2 border-border/50 rounded-lg p-1">
             <TabsTrigger value="search" className="h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200">
               <Search className="h-4 w-4 mr-2" />
               Search & Import
@@ -2351,6 +2459,15 @@ export const SunskySKUImporter: React.FC = () => {
             <TabsTrigger value="skus" className="h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200">
               <Database className="h-4 w-4 mr-2" />
               Imported SKUs
+            </TabsTrigger>
+            <TabsTrigger value="not-found" className="h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200">
+              <Ban className="h-4 w-4 mr-2" />
+              Not Found
+              {notFoundSkus.length > 0 && (
+                <Badge variant="destructive" className="ml-2 h-5 px-1.5 text-xs">
+                  {notFoundSkus.length}
+                </Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="images" className="h-10 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200">
               <Eye className="h-4 w-4 mr-2" />
@@ -2503,7 +2620,33 @@ export const SunskySKUImporter: React.FC = () => {
                         </div>
                         <div className="text-xs text-muted-foreground">Found</div>
                       </div>
+                      
+                      {poSearchStats.skippedFromHistory > 0 && (
+                        <div className="bg-card p-3 rounded-lg border">
+                          <div className="text-2xl font-bold text-muted-foreground">
+                            {poSearchStats.skippedFromHistory}
+                          </div>
+                          <div className="text-xs text-muted-foreground flex items-center gap-1">
+                            <SkipForward className="w-3 h-3" />
+                            Skipped (History)
+                          </div>
+                        </div>
+                      )}
                     </div>
+
+                    {/* Include Skipped Items Checkbox */}
+                    {!isSearchingPO && (
+                      <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-lg">
+                        <Checkbox
+                          id="include-skipped"
+                          checked={includeSkippedItems}
+                          onCheckedChange={(checked) => setIncludeSkippedItems(checked === true)}
+                        />
+                        <Label htmlFor="include-skipped" className="text-sm cursor-pointer">
+                          Include previously not found items ({notFoundSkus.length})
+                        </Label>
+                      </div>
+                    )}
 
                     {/* Progress Breakdown */}
                     {poSearchStats.totalItems > 0 && <div className="space-y-2">
@@ -3920,6 +4063,13 @@ export const SunskySKUImporter: React.FC = () => {
               <ImageGalleryTab selectedAPI={selectedAPI} />
             </CardContent>
           </Card>
+        </TabsContent>
+        
+        <TabsContent value="not-found" className="space-y-6">
+          <NotFoundSkusManager 
+            userId={profile?.id || ''} 
+            onRefresh={loadNotFoundSkus}
+          />
         </TabsContent>
         
         <TabsContent value="settings" className="space-y-6">

@@ -2644,6 +2644,8 @@ export type Database = {
           is_main_admin: boolean
           role: string
           shipping_rate: number | null
+          sunsky_recheck_after_days: number | null
+          sunsky_skip_not_found: boolean | null
           updated_at: string
         }
         Insert: {
@@ -2655,6 +2657,8 @@ export type Database = {
           is_main_admin?: boolean
           role?: string
           shipping_rate?: number | null
+          sunsky_recheck_after_days?: number | null
+          sunsky_skip_not_found?: boolean | null
           updated_at?: string
         }
         Update: {
@@ -2666,6 +2670,8 @@ export type Database = {
           is_main_admin?: boolean
           role?: string
           shipping_rate?: number | null
+          sunsky_recheck_after_days?: number | null
+          sunsky_skip_not_found?: boolean | null
           updated_at?: string
         }
         Relationships: []
@@ -3315,6 +3321,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      sunsky_not_found_skus: {
+        Row: {
+          created_at: string | null
+          id: string
+          last_search_date: string | null
+          model_number: string
+          notes: string | null
+          search_attempts: number | null
+          skip_until: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          last_search_date?: string | null
+          model_number: string
+          notes?: string | null
+          search_attempts?: number | null
+          skip_until?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          last_search_date?: string | null
+          model_number?: string
+          notes?: string | null
+          search_attempts?: number | null
+          skip_until?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       sunsky_order_items: {
         Row: {

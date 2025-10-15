@@ -11,6 +11,8 @@ interface UserProfile {
   is_main_admin: boolean;
   created_at: string;
   updated_at: string;
+  sunsky_skip_not_found?: boolean;
+  sunsky_recheck_after_days?: number;
 }
 
 export function useUserProfile() {
