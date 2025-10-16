@@ -2444,6 +2444,22 @@ export const SunskySKUImporter: React.FC = () => {
       }));
     } catch (error) {
       console.error('Error in PO model search:', error);
+      
+      // Mark job as failed if it exists
+      if (importJobId) {
+        await supabase
+          .from('sunsky_import_jobs')
+          .update({
+            status: 'failed',
+            completed_at: new Date().toISOString(),
+            result_summary: {
+              error_message: error instanceof Error ? error.message : 'Unknown error'
+            }
+          })
+          .eq('id', importJobId);
+        console.log(`❌ Marked import job ${importJobId} as failed`);
+      }
+      
       toast({
         title: "Search Failed",
         description: error instanceof Error ? error.message : "Failed to search PO model numbers",
@@ -2451,6 +2467,7 @@ export const SunskySKUImporter: React.FC = () => {
       });
     } finally {
       setIsSearchingPO(false);
+      setPOSearchProgress(100); // Ensure progress shows complete
     }
   };
 
