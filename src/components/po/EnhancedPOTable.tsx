@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Edit, ExternalLink, Package, PackageCheck, PackageX, Trash2 } from 'lucide-react';
+import { Edit, ExternalLink, Package, PackageCheck, PackageX, Trash2, Clock, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -74,26 +74,44 @@ export function EnhancedPOTable({
 
   return (
     <TooltipProvider>
-      <div className="border border-border/40 rounded-lg overflow-hidden bg-card">
+      <div className="border border-border/40 rounded-lg overflow-hidden bg-card/50 backdrop-blur-sm shadow-sm">
         <Table>
-          <TableHeader className="sticky top-0 bg-muted/50 backdrop-blur-sm z-10">
-            <TableRow className="hover:bg-transparent border-b border-border/40">
-              <TableHead className="w-[50px]">
+          <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-md z-10 border-b-2 border-border/50">
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="w-[50px] pl-4">
                 <Checkbox
                   checked={allSelected}
                   onCheckedChange={onSelectAll}
-                  className="data-[state=checked]:bg-primary"
+                  className="data-[state=checked]:bg-primary data-[state=checked]:border-primary transition-all"
                 />
               </TableHead>
-              <TableHead className="font-semibold">ASIN</TableHead>
-              <TableHead className="font-semibold">Product</TableHead>
-              <TableHead className="font-semibold text-center">ASN Qty</TableHead>
-              <TableHead className="font-semibold text-center">Pending</TableHead>
-              <TableHead className="font-semibold">Status</TableHead>
-              <TableHead className="font-semibold">Inventory</TableHead>
-              <TableHead className="font-semibold">Cost</TableHead>
-              <TableHead className="font-semibold">Tracking</TableHead>
-              <TableHead className="text-right font-semibold">Actions</TableHead>
+              <TableHead className="font-semibold text-xs uppercase tracking-wide text-muted-foreground">
+                ASIN / SKU
+              </TableHead>
+              <TableHead className="font-semibold text-xs uppercase tracking-wide text-muted-foreground">
+                Product Details
+              </TableHead>
+              <TableHead className="font-semibold text-xs uppercase tracking-wide text-muted-foreground text-center">
+                ASN Qty
+              </TableHead>
+              <TableHead className="font-semibold text-xs uppercase tracking-wide text-muted-foreground text-center">
+                Pending
+              </TableHead>
+              <TableHead className="font-semibold text-xs uppercase tracking-wide text-muted-foreground">
+                Status
+              </TableHead>
+              <TableHead className="font-semibold text-xs uppercase tracking-wide text-muted-foreground">
+                Inventory
+              </TableHead>
+              <TableHead className="font-semibold text-xs uppercase tracking-wide text-muted-foreground">
+                Cost
+              </TableHead>
+              <TableHead className="font-semibold text-xs uppercase tracking-wide text-muted-foreground">
+                Tracking
+              </TableHead>
+              <TableHead className="text-right font-semibold text-xs uppercase tracking-wide text-muted-foreground pr-4">
+                Actions
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -114,68 +132,74 @@ export function EnhancedPOTable({
                 <TableRow
                   key={order.id}
                   className={`
-                    transition-all duration-200 
-                    hover:bg-muted/30 
-                    ${index % 2 === 0 ? 'bg-background' : 'bg-muted/10'}
-                    ${selectedItems.has(order.id) ? 'bg-primary/5 border-l-4 border-l-primary' : ''}
+                    group
+                    transition-all duration-200 ease-in-out
+                    hover:bg-muted/40 hover:shadow-sm
+                    ${index % 2 === 0 ? 'bg-background' : 'bg-muted/5'}
+                    ${selectedItems.has(order.id) ? 'bg-primary/5 border-l-4 border-l-primary shadow-sm' : 'border-l-4 border-l-transparent'}
                   `}
                 >
-                  <TableCell>
+                  <TableCell className="pl-4">
                     <Checkbox
                       checked={selectedItems.has(order.id)}
                       onCheckedChange={() => onItemSelect(order.id)}
-                      className="data-[state=checked]:bg-primary"
+                      className="data-[state=checked]:bg-primary transition-all"
                     />
                   </TableCell>
                   
                   <TableCell>
-                    <div className="space-y-1">
-                      <code className="text-xs bg-muted px-2 py-0.5 rounded font-mono">
+                    <div className="space-y-1.5">
+                      <code className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-md font-mono font-medium">
                         {order.asin}
                       </code>
                       {order.sku_code && (
-                        <div className="text-xs text-muted-foreground">
-                          SKU: {order.sku_code}
+                        <div className="text-xs text-muted-foreground flex items-center gap-1">
+                          <span className="opacity-70">SKU:</span>
+                          <span className="font-mono">{order.sku_code}</span>
                         </div>
                       )}
                     </div>
                   </TableCell>
 
                   <TableCell className="max-w-[300px]">
-                    <div className="space-y-1">
-                      <div className="font-medium line-clamp-2 text-sm">
+                    <div className="space-y-1.5">
+                      <div className="font-medium line-clamp-2 text-sm leading-tight">
                         {order.title || 'N/A'}
                       </div>
                       {order.model_number && (
-                        <div className="text-xs text-muted-foreground">
-                          Model: {order.model_number}
+                        <div className="text-xs text-muted-foreground flex items-center gap-1">
+                          <span className="opacity-70">Model:</span>
+                          <span className="font-mono">{order.model_number}</span>
                         </div>
                       )}
                       {order.sunsky_sku?.sku_code && (
-                        <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20">
-                          Sunsky: {order.sunsky_sku.sku_code}
+                        <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20 font-medium">
+                          <span className="opacity-70 mr-1">Sunsky:</span>
+                          {order.sunsky_sku.sku_code}
                         </Badge>
                       )}
                     </div>
                   </TableCell>
 
                   <TableCell className="text-center">
-                    <div className="font-semibold text-base">
+                    <div className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-muted font-bold text-base">
                       {orderQuantity}
                     </div>
                   </TableCell>
 
                   <TableCell className="text-center">
                     {pendingQty > 0 ? (
-                      <div className="flex items-center justify-center gap-1">
-                        <span className="font-medium text-yellow-700 dark:text-yellow-400">
-                          ⏳ {pendingQty}
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20">
+                        <Clock className="h-3.5 w-3.5 text-yellow-600 dark:text-yellow-400" />
+                        <span className="font-semibold text-sm text-yellow-700 dark:text-yellow-400">
+                          {pendingQty}
                         </span>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-center gap-1">
-                        <span className="font-medium text-green-700 dark:text-green-400">
-                          ✓ 0
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/20">
+                        <CheckCircle className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                        <span className="font-semibold text-sm text-green-700 dark:text-green-400">
+                          0
                         </span>
                       </div>
                     )}
@@ -243,20 +267,22 @@ export function EnhancedPOTable({
                     )}
                   </TableCell>
 
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
+                  <TableCell className="text-right pr-4">
+                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8 w-8 p-0"
+                            className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary transition-all"
                             onClick={() => onIndividualAction(order, 'edit')}
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Edit tracking info</TooltipContent>
+                        <TooltipContent side="left">
+                          <p className="text-xs font-medium">Edit tracking info</p>
+                        </TooltipContent>
                       </Tooltip>
 
                       {inventoryMatch && inventoryMatch.quantity > 0 && (
@@ -265,13 +291,16 @@ export function EnhancedPOTable({
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20"
+                              className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-500/10 dark:text-green-400 dark:hover:bg-green-500/20 transition-all"
                               onClick={() => onIndividualAction(order, 'stock')}
                             >
                               <PackageCheck className="h-4 w-4" />
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>Mark from stock</TooltipContent>
+                          <TooltipContent side="left">
+                            <p className="text-xs font-medium">Mark from stock</p>
+                            <p className="text-xs text-muted-foreground">({inventoryMatch.quantity} available)</p>
+                          </TooltipContent>
                         </Tooltip>
                       )}
                     </div>
@@ -283,11 +312,13 @@ export function EnhancedPOTable({
         </Table>
 
         {orders.length === 0 && (
-          <div className="text-center py-12">
-            <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-            <p className="text-lg text-muted-foreground font-medium">No items found</p>
-            <p className="text-sm text-muted-foreground mt-2">
-              Try adjusting your filters or search criteria
+          <div className="text-center py-20 px-4">
+            <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-muted/30 mb-4">
+              <Package className="h-8 w-8 text-muted-foreground/50" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2">No items found</h3>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+              Try adjusting your filters or search criteria to see more results
             </p>
           </div>
         )}

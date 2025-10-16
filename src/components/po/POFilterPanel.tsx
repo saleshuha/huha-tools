@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Filter, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
@@ -79,173 +79,193 @@ export function POFilterPanel({ filters, onFilterChange, stats }: POFilterPanelP
     filters.hasSunskySku !== 'all';
 
   return (
-    <Card className="border-border/40 bg-card">
-      <div className="p-4 space-y-3">
+    <Card className="border-border/40 bg-card/50 backdrop-blur-sm">
+      <CardContent className="p-4 space-y-4">
+        {/* Header with Clear Button */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Filter className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold">Filters</h3>
+              <p className="text-xs text-muted-foreground">
+                {hasActiveFilters ? `${Object.values(filters).filter(v => v !== 'all' && v !== '' && (Array.isArray(v) ? v.length > 0 : true)).length} active` : 'No filters applied'}
+              </p>
+            </div>
+          </div>
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearAllFilters}
+              className="h-8 text-xs hover:bg-destructive/10 hover:text-destructive"
+            >
+              <X className="h-3 w-3 mr-1" />
+              Clear
+            </Button>
+          )}
+        </div>
+
         {/* Quick Filters */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-medium flex items-center gap-2">
-              <Filter className="h-4 w-4" />
-              Quick Filters
-            </h3>
-            {hasActiveFilters && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleClearAllFilters}
-                className="h-7 text-xs"
-              >
-                <X className="h-3 w-3 mr-1" />
-                Clear All
-              </Button>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {quickFilters.map((filter) => (
-              <Badge
-                key={filter.value}
-                variant={filters.quickFilter === filter.value ? "default" : "outline"}
-                className={`cursor-pointer transition-all ${
-                  filters.quickFilter === filter.value 
-                    ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' 
-                    : filter.color
-                }`}
-                onClick={() => handleQuickFilterClick(filter.value)}
-              >
-                {filter.label} ({filter.count})
-              </Badge>
-            ))}
+          <Label className="text-xs font-medium text-muted-foreground">Quick Filters</Label>
+          <div className="flex flex-wrap gap-2">
+            {quickFilters.map((filter) => {
+              const isActive = filters.quickFilter === filter.value;
+              return (
+                <Badge
+                  key={filter.value}
+                  variant={isActive ? "default" : "outline"}
+                  className={`cursor-pointer transition-all duration-200 ${
+                    isActive 
+                      ? 'shadow-md scale-105' 
+                      : `${filter.color} hover:scale-105`
+                  }`}
+                  onClick={() => handleQuickFilterClick(filter.value)}
+                >
+                  <span className="font-medium">{filter.label}</span>
+                  <span className="ml-1.5 opacity-70">({filter.count})</span>
+                </Badge>
+              );
+            })}
           </div>
         </div>
 
         {/* Advanced Filters */}
-        <Collapsible open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
+        <Collapsible open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen} className="space-y-3">
           <CollapsibleTrigger asChild>
-            <Button variant="outline" size="sm" className="w-full">
-              Advanced Filters
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="w-full hover:bg-muted/50 transition-colors"
+            >
+              <span className="text-xs font-medium">Advanced Filters</span>
               {isAdvancedOpen ? (
-                <ChevronUp className="h-4 w-4 ml-2" />
+                <ChevronUp className="h-3.5 w-3.5 ml-auto" />
               ) : (
-                <ChevronDown className="h-4 w-4 ml-2" />
+                <ChevronDown className="h-3.5 w-3.5 ml-auto" />
               )}
             </Button>
           </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-4 mt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {/* Inventory Status */}
-              <div className="space-y-2">
-                <Label className="text-xs">Inventory Status</Label>
-                <Select
-                  value={filters.inventoryStatus}
-                  onValueChange={(value) =>
-                    onFilterChange({ ...filters, inventoryStatus: value as FilterState['inventoryStatus'] })
-                  }
-                >
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="in-stock">In Stock</SelectItem>
-                    <SelectItem value="out-of-stock">Out of Stock</SelectItem>
-                    <SelectItem value="not-found">Not Found</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Has Tracking */}
-              <div className="space-y-2">
-                <Label className="text-xs">Tracking Info</Label>
-                <Select
-                  value={filters.hasTracking}
-                  onValueChange={(value) =>
-                    onFilterChange({ ...filters, hasTracking: value as FilterState['hasTracking'] })
-                  }
-                >
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="yes">With Tracking</SelectItem>
-                    <SelectItem value="no">No Tracking</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Has Sunsky SKU */}
-              <div className="space-y-2">
-                <Label className="text-xs">Sunsky SKU</Label>
-                <Select
-                  value={filters.hasSunskySku}
-                  onValueChange={(value) =>
-                    onFilterChange({ ...filters, hasSunskySku: value as FilterState['hasSunskySku'] })
-                  }
-                >
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="yes">With Sunsky</SelectItem>
-                    <SelectItem value="no">No Sunsky</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Quantity Range */}
-              <div className="space-y-2">
-                <Label className="text-xs">Quantity Range</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    placeholder="Min"
-                    className="h-9"
-                    value={filters.quantityMin}
-                    onChange={(e) =>
-                      onFilterChange({ ...filters, quantityMin: e.target.value })
+          <CollapsibleContent className="space-y-4 pt-4 animate-in slide-in-from-top-2 duration-300">
+            <div className="p-3 rounded-lg bg-muted/30 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Inventory Status */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Inventory Status</Label>
+                  <Select
+                    value={filters.inventoryStatus}
+                    onValueChange={(value) =>
+                      onFilterChange({ ...filters, inventoryStatus: value as FilterState['inventoryStatus'] })
                     }
-                  />
-                  <Input
-                    type="number"
-                    placeholder="Max"
-                    className="h-9"
-                    value={filters.quantityMax}
-                    onChange={(e) =>
-                      onFilterChange({ ...filters, quantityMax: e.target.value })
-                    }
-                  />
+                  >
+                    <SelectTrigger className="h-9 bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="in-stock">✓ In Stock</SelectItem>
+                      <SelectItem value="out-of-stock">⏳ Out of Stock</SelectItem>
+                      <SelectItem value="not-found">❌ Not Found</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              </div>
 
-              {/* Cost Range */}
-              <div className="space-y-2">
-                <Label className="text-xs">Cost Range</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    placeholder="Min"
-                    className="h-9"
-                    value={filters.costMin}
-                    onChange={(e) =>
-                      onFilterChange({ ...filters, costMin: e.target.value })
+                {/* Has Tracking */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Tracking Info</Label>
+                  <Select
+                    value={filters.hasTracking}
+                    onValueChange={(value) =>
+                      onFilterChange({ ...filters, hasTracking: value as FilterState['hasTracking'] })
                     }
-                  />
-                  <Input
-                    type="number"
-                    placeholder="Max"
-                    className="h-9"
-                    value={filters.costMax}
-                    onChange={(e) =>
-                      onFilterChange({ ...filters, costMax: e.target.value })
+                  >
+                    <SelectTrigger className="h-9 bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Items</SelectItem>
+                      <SelectItem value="yes">✓ With Tracking</SelectItem>
+                      <SelectItem value="no">❌ No Tracking</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Has Sunsky SKU */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Sunsky SKU</Label>
+                  <Select
+                    value={filters.hasSunskySku}
+                    onValueChange={(value) =>
+                      onFilterChange({ ...filters, hasSunskySku: value as FilterState['hasSunskySku'] })
                     }
-                  />
+                  >
+                    <SelectTrigger className="h-9 bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Items</SelectItem>
+                      <SelectItem value="yes">✓ With Sunsky</SelectItem>
+                      <SelectItem value="no">❌ No Sunsky</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Quantity Range */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Quantity Range</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      placeholder="Min"
+                      className="h-9 bg-background"
+                      value={filters.quantityMin}
+                      onChange={(e) =>
+                        onFilterChange({ ...filters, quantityMin: e.target.value })
+                      }
+                    />
+                    <Input
+                      type="number"
+                      placeholder="Max"
+                      className="h-9 bg-background"
+                      value={filters.quantityMax}
+                      onChange={(e) =>
+                        onFilterChange({ ...filters, quantityMax: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+
+                {/* Cost Range */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Cost Range</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      placeholder="Min"
+                      className="h-9 bg-background"
+                      value={filters.costMin}
+                      onChange={(e) =>
+                        onFilterChange({ ...filters, costMin: e.target.value })
+                      }
+                    />
+                    <Input
+                      type="number"
+                      placeholder="Max"
+                      className="h-9 bg-background"
+                      value={filters.costMax}
+                      onChange={(e) =>
+                        onFilterChange({ ...filters, costMax: e.target.value })
+                      }
+                    />
+                  </div>
                 </div>
               </div>
             </div>
           </CollapsibleContent>
         </Collapsible>
-      </div>
+      </CardContent>
     </Card>
   );
 }
