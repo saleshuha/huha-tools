@@ -2509,40 +2509,72 @@ export const SunskySKUImporter: React.FC = () => {
       );
 
       // Wait for all chunks to complete
-      const chunkResults = await Promise.all(chunkPromises);
+      let chunkResults: Array<{ searched: number; matched: number; imported: number; errors: number; }> = [];
+      let processingError: Error | null = null;
+      
+      try {
+        chunkResults = await Promise.all(chunkPromises);
+      } catch (promiseError) {
+        console.error('Error during parallel processing:', promiseError);
+        processingError = promiseError instanceof Error ? promiseError : new Error('Unknown processing error');
+        // Even if Promise.all fails, continue to cleanup
+      }
 
       // Refresh SKU list at the end
-      await fetchSKUs(1, false);
+      try {
+        await fetchSKUs(1, false);
+      } catch (refreshError) {
+        console.warn('Failed to refresh SKUs:', refreshError);
+      }
       
-      // Show completion message with detailed stats
+      // Calculate results from completed chunks
       const totalMatched = chunkResults.reduce((sum, result) => sum + result.matched, 0);
       const totalImported = chunkResults.reduce((sum, result) => sum + result.imported, 0);
       const totalErrors = chunkResults.reduce((sum, result) => sum + result.errors, 0);
 
-      // Update import job with final results
+      // Determine final status
+      let finalStatus: 'completed' | 'cancelled' | 'failed' = 'completed';
+      if (shouldStopSearchRef.current) {
+        finalStatus = 'cancelled';
+      } else if (processingError) {
+        finalStatus = 'failed';
+      }
+
+      // Update import job with final results - ALWAYS update regardless of success/failure
       if (importJobId) {
-        await supabase
-          .from('sunsky_import_jobs')
-          .update({
-            status: shouldStopSearchRef.current ? 'cancelled' : 'completed',
-            completed_at: new Date().toISOString(),
-            processed_items: modelsToSearch.length,
-            success_count: totalImported,
-            error_count: totalErrors,
-            result_summary: {
-              total_searched: modelsToSearch.length,
-              total_matched: totalMatched,
-              total_imported: totalImported,
-              total_errors: totalErrors,
-              skipped_from_history: skippedCount,
-              stopped_by_user: shouldStopSearchRef.current
-            }
-          })
-          .eq('id', importJobId);
-        console.log(`✅ Updated import job ${importJobId} with final results`);
-        
-        // Trigger job history refresh
-        setJobHistoryRefresh(prev => prev + 1);
+        try {
+          const updateResult = await supabase
+            .from('sunsky_import_jobs')
+            .update({
+              status: finalStatus,
+              completed_at: new Date().toISOString(),
+              processed_items: modelsToSearch.length,
+              success_count: totalImported,
+              error_count: totalErrors,
+              result_summary: {
+                total_searched: modelsToSearch.length,
+                total_matched: totalMatched,
+                total_imported: totalImported,
+                total_errors: totalErrors,
+                skipped_from_history: skippedCount,
+                skipped_already_imported: skippedImportedCount,
+                stopped_by_user: shouldStopSearchRef.current,
+                error_message: processingError?.message
+              }
+            })
+            .eq('id', importJobId);
+          
+          if (updateResult.error) {
+            console.error(`❌ Failed to update import job ${importJobId}:`, updateResult.error);
+          } else {
+            console.log(`✅ Updated import job ${importJobId} with status: ${finalStatus}`);
+          }
+          
+          // Trigger job history refresh
+          setJobHistoryRefresh(prev => prev + 1);
+        } catch (updateError) {
+          console.error(`❌ Exception updating import job ${importJobId}:`, updateError);
+        }
       }
 
       if (shouldStopSearchRef.current) {
@@ -2582,22 +2614,28 @@ export const SunskySKUImporter: React.FC = () => {
     } catch (error) {
       console.error('Error in PO model search:', error);
       
-      // Mark job as failed if it exists
+      // Job status is now handled in the main flow above
+      // This catch block is for unexpected errors before Promise.all
       if (importJobId) {
-        await supabase
-          .from('sunsky_import_jobs')
-          .update({
-            status: 'failed',
-            completed_at: new Date().toISOString(),
-            result_summary: {
-              error_message: error instanceof Error ? error.message : 'Unknown error'
-            }
-          })
-          .eq('id', importJobId);
-        console.log(`❌ Marked import job ${importJobId} as failed`);
-        
-        // Trigger job history refresh
-        setJobHistoryRefresh(prev => prev + 1);
+        try {
+          await supabase
+            .from('sunsky_import_jobs')
+            .update({
+              status: 'failed',
+              completed_at: new Date().toISOString(),
+              result_summary: {
+                error_message: error instanceof Error ? error.message : 'Unknown error',
+                error_location: 'before_parallel_processing'
+              }
+            })
+            .eq('id', importJobId);
+          console.log(`❌ Marked import job ${importJobId} as failed (pre-processing error)`);
+          
+          // Trigger job history refresh
+          setJobHistoryRefresh(prev => prev + 1);
+        } catch (updateError) {
+          console.error('Failed to update job status:', updateError);
+        }
       }
       
       toast({

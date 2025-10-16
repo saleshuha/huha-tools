@@ -77,6 +77,8 @@ export function ImportJobHistory({ refreshTrigger }: ImportJobHistoryProps) {
     // Set up real-time subscription for job updates
     if (!profile?.id) return;
 
+    console.log('📡 Setting up real-time subscription for import jobs');
+    
     const channel = supabase
       .channel('import-jobs-changes')
       .on(
@@ -88,14 +90,22 @@ export function ImportJobHistory({ refreshTrigger }: ImportJobHistoryProps) {
           filter: `user_id=eq.${profile.id}`
         },
         (payload) => {
-          console.log('Job update received:', payload);
+          console.log('📨 Job update received via real-time:', {
+            event: payload.eventType,
+            jobId: (payload.new as any)?.id || (payload.old as any)?.id,
+            status: (payload.new as any)?.status,
+            completed_at: (payload.new as any)?.completed_at
+          });
           // Reload jobs when any change occurs
           loadJobs();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 Subscription status:', status);
+      });
 
     return () => {
+      console.log('📡 Cleaning up real-time subscription');
       supabase.removeChannel(channel);
     };
   }, [profile?.id, refreshTrigger]); // Also refresh when refreshTrigger changes
