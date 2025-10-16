@@ -2008,17 +2008,44 @@ export const SunskySKUImporter: React.FC = () => {
       let notFoundModelNumbers: Set<string> = new Set();
       if (!includeSkippedItems && profile?.sunsky_skip_not_found !== false) {
         try {
-          const { data: notFoundData, error: notFoundError } = await supabase
-            .from('sunsky_not_found_skus')
-            .select('model_number, last_search_date')
-            .eq('user_id', profile?.id);
+          // Fetch all not found records in batches to avoid 1000 row limit
+          let allNotFoundData: Array<{ model_number: string; last_search_date: string }> = [];
+          const batchSize = 1000;
+          let currentBatch = 0;
+          let hasMore = true;
 
-          if (!notFoundError && notFoundData) {
+          while (hasMore) {
+            const start = currentBatch * batchSize;
+            const end = start + batchSize - 1;
+
+            const { data: notFoundData, error: notFoundError } = await supabase
+              .from('sunsky_not_found_skus')
+              .select('model_number, last_search_date')
+              .eq('user_id', profile?.id)
+              .range(start, end);
+
+            if (notFoundError) throw notFoundError;
+
+            if (notFoundData && notFoundData.length > 0) {
+              allNotFoundData = [...allNotFoundData, ...notFoundData];
+              currentBatch++;
+              
+              if (notFoundData.length < batchSize) {
+                hasMore = false;
+              }
+            } else {
+              hasMore = false;
+            }
+          }
+
+          console.log(`📥 Loaded ${allNotFoundData.length} not found SKUs from database`);
+
+          if (allNotFoundData.length > 0) {
             const recheckDays = profile?.sunsky_recheck_after_days || 30;
             const cutoffDate = new Date();
             cutoffDate.setDate(cutoffDate.getDate() - recheckDays);
 
-            notFoundData.forEach(item => {
+            allNotFoundData.forEach(item => {
               const lastSearchDate = new Date(item.last_search_date);
               // Only skip if within recheck period (recently searched)
               if (lastSearchDate >= cutoffDate) {
