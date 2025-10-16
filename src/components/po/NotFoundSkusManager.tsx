@@ -39,16 +39,41 @@ export const NotFoundSkusManager: React.FC<NotFoundSkusManagerProps> = ({ userId
 
   const loadNotFoundSkus = async () => {
     try {
-      // Fetch all records by using a very high limit to bypass Supabase's default 1000 row limit
-      const { data, error } = await supabase
-        .from('sunsky_not_found_skus')
-        .select('*')
-        .eq('user_id', userId)
-        .order('last_search_date', { ascending: false })
-        .limit(1000000); // Set a very high limit to get all records
+      setIsLoading(true);
+      let allRecords: NotFoundSku[] = [];
+      const batchSize = 1000;
+      let currentBatch = 0;
+      let hasMore = true;
 
-      if (error) throw error;
-      setNotFoundSkus(data || []);
+      // Fetch records in batches until we get all of them
+      while (hasMore) {
+        const start = currentBatch * batchSize;
+        const end = start + batchSize - 1;
+
+        const { data, error } = await supabase
+          .from('sunsky_not_found_skus')
+          .select('*')
+          .eq('user_id', userId)
+          .order('last_search_date', { ascending: false })
+          .range(start, end);
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          allRecords = [...allRecords, ...data];
+          currentBatch++;
+          
+          // If we got fewer records than the batch size, we've reached the end
+          if (data.length < batchSize) {
+            hasMore = false;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+
+      setNotFoundSkus(allRecords);
+      console.log(`Loaded ${allRecords.length} not found SKUs in ${currentBatch} batches`);
     } catch (error) {
       console.error('Error loading not found SKUs:', error);
       toast({
@@ -56,6 +81,8 @@ export const NotFoundSkusManager: React.FC<NotFoundSkusManagerProps> = ({ userId
         description: "Failed to load not found SKUs",
         variant: "destructive"
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
