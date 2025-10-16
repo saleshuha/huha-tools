@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { ArrowLeft, Package, Truck, CheckCircle, Clock, AlertTriangle, Plus, Save, ExternalLink, Upload, Edit, PackageCheck, PackageX, Trash2, Download, Printer, Eye, Info, ShoppingCart, X, Search, Settings, RotateCcw, Undo } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -254,29 +254,15 @@ export default function PODetailsPage() {
 
   // Function to find inventory match for an ASIN - Enhanced to match ASINs and SKUs
   const findInventoryMatch = (asin: string, sunskySku?: string, poSku?: string, modelNumber?: string) => {
-    console.log(`\n🔍 Finding inventory match for:`, {
-      asin,
-      sunskySku,
-      poSku,
-      modelNumber
-    });
-    console.log(`📦 Available inventory:`, {
-      asinInventoryCount: inventoryData.asinInventory.length,
-      skuInventoryCount: inventoryData.skuInventory.length
-    });
+    // Disable verbose logging for performance (enable only when debugging)
+    const ENABLE_LOGS = false;
 
     // First check ASIN inventory - aggregate all matching records
     if (asin) {
-      console.log(`🎯 Checking ASIN inventory for: ${asin}`);
       const asinMatches = inventoryData.asinInventory.filter(item => item.asin === asin);
       if (asinMatches.length > 0) {
-        console.log(`✅ Found ${asinMatches.length} ASIN match(es):`, asinMatches);
-
-        // Aggregate quantities from all matching records
         const totalQuantity = asinMatches.reduce((sum, item) => sum + item.quantity, 0);
         const firstMatch = asinMatches[0];
-        console.log(`📊 Total aggregated quantity for ${asin}: ${totalQuantity}`);
-        console.log(`🔍 Breakdown for ${asin}:`, asinMatches.map(item => `${item.serial_number}: ${item.quantity} units`).join(', '));
         return {
           type: 'ASIN',
           status: totalQuantity > 0 ? 'in-stock' : firstMatch.status,
@@ -284,18 +270,14 @@ export default function PODetailsPage() {
           identifier: firstMatch.asin,
           serialNumber: asinMatches.map(item => `${item.serial_number}(${item.quantity})`).join(', ')
         };
-      } else {
-        console.log(`❌ No ASIN match found in asin_inventory`);
       }
     }
 
     // Then check SKU inventory with multiple possible SKU values
     const skusToCheck = [sunskySku, poSku, modelNumber].filter(Boolean);
-    console.log(`🔑 Checking SKU inventory for SKUs:`, skusToCheck);
     for (const sku of skusToCheck) {
       const skuMatch = inventoryData.skuInventory.find(item => item.sku_number === sku);
       if (skuMatch) {
-        console.log(`✅ Found SKU match for ${sku}:`, skuMatch);
         return {
           type: 'SKU',
           status: skuMatch.status,
@@ -303,18 +285,13 @@ export default function PODetailsPage() {
           identifier: skuMatch.sku_number,
           serialNumber: skuMatch.bin_serial_number
         };
-      } else {
-        console.log(`❌ No SKU match found for: ${sku}`);
       }
     }
 
     // Also check SKU inventory for ASIN matches (since SKU inventory can contain ASIN-like identifiers)
     if (asin) {
-      console.log(`🎯 Checking SKU inventory for ASIN: ${asin}`);
-      console.log(`📋 Available SKU numbers:`, inventoryData.skuInventory.map(item => item.sku_number));
       const skuAsinMatch = inventoryData.skuInventory.find(item => item.sku_number === asin);
       if (skuAsinMatch) {
-        console.log(`✅ Found SKU-ASIN match:`, skuAsinMatch);
         return {
           type: 'SKU-ASIN',
           status: skuAsinMatch.status,
@@ -322,11 +299,8 @@ export default function PODetailsPage() {
           identifier: skuAsinMatch.sku_number,
           serialNumber: skuAsinMatch.bin_serial_number
         };
-      } else {
-        console.log(`❌ No SKU-ASIN match found for: ${asin}`);
       }
     }
-    console.log(`❌ No inventory match found for any identifier`);
     return null;
   };
   if (!poNumber) {
@@ -361,22 +335,46 @@ export default function PODetailsPage() {
       }
     }
   });
-  const matchedOrders = Array.from(matchedOrdersMap.values()).sort((a, b) => {
-    // Get inventory matches for both orders
-    const inventoryMatchA = findInventoryMatch(a.asin, a.sunsky_sku?.sku_code, a.sku_code, a.model_number);
-    const inventoryMatchB = findInventoryMatch(b.asin, b.sunsky_sku?.sku_code, b.sku_code, b.model_number);
+  const matchedOrders = Array.from(matchedOrdersMap.values());
 
-    // Check if items have stock
-    const hasStockA = inventoryMatchA && inventoryMatchA.quantity > 0;
-    const hasStockB = inventoryMatchB && inventoryMatchB.quantity > 0;
+  // Memoized inventory match cache - pre-calculate all matches once
+  const inventoryMatchCache = useMemo(() => {
+    console.log('🔄 Building inventory match cache for', matchedOrders.length, 'orders');
+    const cache = new Map<string, any>();
+    matchedOrders.forEach(order => {
+      const match = findInventoryMatch(
+        order.asin,
+        order.sunsky_sku?.sku_code,
+        order.sku_code,
+        order.model_number
+      );
+      cache.set(order.id, match);
+    });
+    console.log('✅ Inventory cache built with', cache.size, 'entries');
+    return cache;
+  }, [matchedOrders, inventoryData.asinInventory, inventoryData.skuInventory]);
 
-    // Sort: in-stock items first (true sorts before false)
-    return hasStockB ? hasStockA ? 0 : 1 : hasStockA ? -1 : 0;
-  });
+  // Helper to get cached inventory match
+  const getInventoryMatch = useCallback((orderId: string) => {
+    return inventoryMatchCache.get(orderId) || null;
+  }, [inventoryMatchCache]);
 
-  // Filter orders based on search term and filters (memoized for performance)
+  // Sort orders with in-stock items first using cached matches
+  const sortedMatchedOrders = useMemo(() => {
+    return [...matchedOrders].sort((a, b) => {
+      const inventoryMatchA = inventoryMatchCache.get(a.id);
+      const inventoryMatchB = inventoryMatchCache.get(b.id);
+
+      const hasStockA = inventoryMatchA && inventoryMatchA.quantity > 0;
+      const hasStockB = inventoryMatchB && inventoryMatchB.quantity > 0;
+
+      return hasStockB ? hasStockA ? 0 : 1 : hasStockA ? -1 : 0;
+    });
+  }, [matchedOrders, inventoryMatchCache]);
+
+  // Filter orders based on search term and filters (memoized for performance with cache)
   const filteredOrders = useMemo(() => {
-    return matchedOrders.filter(order => {
+    return sortedMatchedOrders.filter(order => {
     // Search filter
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase();
@@ -389,8 +387,10 @@ export default function PODetailsPage() {
       if (!matchesSearch) return false;
     }
 
+    // Use cached inventory match
+    const inventoryMatch = inventoryMatchCache.get(order.id);
+    
     // Quick filter
-    const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
     if (filters.quickFilter === 'in-stock' && (!inventoryMatch || inventoryMatch.quantity === 0)) return false;
     if (filters.quickFilter === 'out-of-stock' && inventoryMatch && inventoryMatch.quantity > 0) return false;
     if (filters.quickFilter === 'pending' && order.status !== 'pending') return false;
@@ -437,7 +437,7 @@ export default function PODetailsPage() {
   }, [searchTerm, filters, resetToPage1]);
 
   // Calculate status progress and metrics
-  const statusProgress: StatusProgress = matchedOrders.reduce((acc, order) => {
+  const statusProgress: StatusProgress = sortedMatchedOrders.reduce((acc, order) => {
     if (order.status === 'pending' || order.status === 'closed') {
       acc[order.status as keyof Omit<StatusProgress, 'total'>]++;
     }
@@ -450,32 +450,34 @@ export default function PODetailsPage() {
   });
 
   // Calculate comprehensive metrics
-  const totalItems = matchedOrders.length;
-  const pendingUnits = matchedOrders.filter(o => o.status === 'pending').reduce((sum, o) => sum + (o.quantity || 0), 0);
-  const fulfilledUnits = matchedOrders.filter(o => o.status === 'closed').reduce((sum, o) => sum + (o.quantity || 0), 0);
-  const totalValue = matchedOrders.reduce((sum, order) => sum + (order.total_cost || 0), 0);
-  const currency = matchedOrders[0]?.currency || 'AED';
-  const shipToLocation = matchedOrders[0]?.ship_to_location || 'N/A';
+  const totalItems = sortedMatchedOrders.length;
+  const pendingUnits = sortedMatchedOrders.filter(o => o.status === 'pending').reduce((sum, o) => sum + (o.quantity || 0), 0);
+  const fulfilledUnits = sortedMatchedOrders.filter(o => o.status === 'closed').reduce((sum, o) => sum + (o.quantity || 0), 0);
+  const totalValue = sortedMatchedOrders.reduce((sum, order) => sum + (order.total_cost || 0), 0);
+  const currency = sortedMatchedOrders[0]?.currency || 'AED';
+  const shipToLocation = sortedMatchedOrders[0]?.ship_to_location || 'N/A';
 
-  // Inventory distribution stats
-  const inventoryStats = matchedOrders.reduce(
-    (acc, order) => {
-      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
-      if (!inventoryMatch) {
-        acc.notFound++;
-      } else if (inventoryMatch.quantity > 0) {
-        acc.inStock++;
-      } else {
-        acc.outOfStock++;
-      }
-      return acc;
-    },
-    { inStock: 0, outOfStock: 0, notFound: 0 }
-  );
+  // Inventory distribution stats using cache
+  const inventoryStats = useMemo(() => {
+    return sortedMatchedOrders.reduce(
+      (acc, order) => {
+        const inventoryMatch = inventoryMatchCache.get(order.id);
+        if (!inventoryMatch) {
+          acc.notFound++;
+        } else if (inventoryMatch.quantity > 0) {
+          acc.inStock++;
+        } else {
+          acc.outOfStock++;
+        }
+        return acc;
+      },
+      { inStock: 0, outOfStock: 0, notFound: 0 }
+    );
+  }, [sortedMatchedOrders, inventoryMatchCache]);
 
   // Filter panel stats
   const filterStats = {
-    total: matchedOrders.length,
+    total: sortedMatchedOrders.length,
     inStock: inventoryStats.inStock,
     outOfStock: inventoryStats.outOfStock,
     pending: statusProgress.pending,
@@ -897,7 +899,7 @@ export default function PODetailsPage() {
   };
 
   // Handle select all/none with smart logic
-  const handleSelectAll = () => {
+   const handleSelectAll = () => {
     if (selectedItems.size === filteredOrders.length) {
       // Deselect all
       setSelectedItems(new Set());
@@ -911,7 +913,7 @@ export default function PODetailsPage() {
       } else {
         // Already have a selection type, only select items of the same type
         const compatibleItems = filteredOrders.filter(order => {
-          const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
+          const inventoryMatch = inventoryMatchCache.get(order.id);
           const hasStock = inventoryMatch && inventoryMatch.quantity > 0;
           const itemType = hasStock ? 'instock' : 'outstock';
           return itemType === selectionType;
@@ -923,9 +925,9 @@ export default function PODetailsPage() {
 
   // Handle individual item selection with smart logic
   const handleItemSelect = (orderId: string) => {
-    const order = matchedOrders.find(o => o.id === orderId);
+    const order = sortedMatchedOrders.find(o => o.id === orderId);
     if (!order) return;
-    const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
+    const inventoryMatch = inventoryMatchCache.get(order.id);
     const hasStock = inventoryMatch && inventoryMatch.quantity > 0;
     const currentItemType = hasStock ? 'instock' : 'outstock';
     const newSelected = new Set(selectedItems);
@@ -2145,7 +2147,7 @@ export default function PODetailsPage() {
                   // Will integrate with existing export logic
                   handleExportPO();
                 }}
-                totalItems={matchedOrders.length}
+                totalItems={sortedMatchedOrders.length}
                 filteredItems={filteredOrders.length}
                 selectedItems={selectedItems.size}
               />
@@ -2257,9 +2259,9 @@ export default function PODetailsPage() {
               </Button>
             )}
           </div>
-          {filteredOrders.length < matchedOrders.length && (
+          {filteredOrders.length < sortedMatchedOrders.length && (
             <p className="text-xs text-muted-foreground mt-1.5">
-              Showing {filteredOrders.length} of {matchedOrders.length} items
+              Showing {filteredOrders.length} of {sortedMatchedOrders.length} items
             </p>
           )}
         </div>
@@ -2283,7 +2285,11 @@ export default function PODetailsPage() {
                 markAsOrderedFromInventory(order.id);
               }
             }}
-            findInventoryMatch={findInventoryMatch}
+            findInventoryMatch={(asin, sunskySku, poSku, modelNumber) => {
+              // Use cached inventory match for performance
+              const order = paginatedOrders.find(o => o.asin === asin);
+              return order ? inventoryMatchCache.get(order.id) || null : null;
+            }}
             viewMode={viewMode}
             visibleColumns={visibleColumns}
           />
@@ -2554,7 +2560,7 @@ export default function PODetailsPage() {
               Mark From Supplier
             </Button>
             
-            <Button size="sm" className="w-full bg-orange-600 hover:bg-orange-700 text-white disabled:bg-orange-300 disabled:cursor-not-allowed transition-all duration-200" onClick={handleOpenSunskyOrder} disabled={isUpdating || selectedItems.size === 0 || !matchedOrders.filter(order => selectedItems.has(order.id) && order.sunsky_sku).length}>
+            <Button size="sm" className="w-full bg-orange-600 hover:bg-orange-700 text-white disabled:bg-orange-300 disabled:cursor-not-allowed transition-all duration-200" onClick={handleOpenSunskyOrder} disabled={isUpdating || selectedItems.size === 0 || !sortedMatchedOrders.filter(order => selectedItems.has(order.id) && order.sunsky_sku).length}>
               <ExternalLink className="h-4 w-4 mr-2" />
               Order at Sunsky
             </Button>
