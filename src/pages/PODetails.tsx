@@ -2123,7 +2123,7 @@ export default function PODetailsPage() {
     <div className="min-h-screen bg-gradient-surface">
       <div className="glass-container mx-2 my-2 p-4 animate-fade-in max-w-full">
         {/* Enhanced Header Section */}
-        <div className="mb-4 pb-3 border-b border-border/40">
+        <div className="mb-4 pb-3 border-b border-border/60">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3">
               <Button 

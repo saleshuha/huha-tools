@@ -31,7 +31,7 @@ export function POMetricsCards({
   return (
     <div className="flex gap-3 overflow-x-auto pb-2">
       {/* Total Items Card */}
-      <Card className="flex-shrink-0 w-56 border-border/40 bg-card hover:shadow-medium transition-all">
+      <Card className="flex-shrink-0 w-56 border-2 border-border/60 bg-card hover:shadow-medium transition-all">
         <CardContent className="p-4">
           <div className="flex items-start justify-between mb-3">
             <div className="space-y-1">
@@ -47,7 +47,7 @@ export function POMetricsCards({
       </Card>
 
       {/* Fulfilled Card */}
-      <Card className="flex-shrink-0 w-56 border-border/40 bg-card hover:shadow-medium transition-all">
+      <Card className="flex-shrink-0 w-56 border-2 border-border/60 bg-card hover:shadow-medium transition-all">
         <CardContent className="p-4">
           <div className="flex items-start justify-between mb-3">
             <div className="space-y-1">
@@ -64,7 +64,7 @@ export function POMetricsCards({
       </Card>
 
       {/* Pending Card */}
-      <Card className="flex-shrink-0 w-56 border-border/40 bg-card hover:shadow-medium transition-all">
+      <Card className="flex-shrink-0 w-56 border-2 border-border/60 bg-card hover:shadow-medium transition-all">
         <CardContent className="p-4">
           <div className="flex items-start justify-between mb-3">
             <div className="space-y-1">
@@ -81,7 +81,7 @@ export function POMetricsCards({
       </Card>
 
       {/* In Stock Card */}
-      <Card className="flex-shrink-0 w-56 border-border/40 bg-card hover:shadow-medium transition-all">
+      <Card className="flex-shrink-0 w-56 border-2 border-border/60 bg-card hover:shadow-medium transition-all">
         <CardContent className="p-4">
           <div className="flex items-start justify-between mb-3">
             <div className="space-y-1">
@@ -105,7 +105,7 @@ export function POMetricsCards({
       </Card>
 
       {/* Out of Stock Card */}
-      <Card className="flex-shrink-0 w-56 border-border/40 bg-card hover:shadow-medium transition-all">
+      <Card className="flex-shrink-0 w-56 border-2 border-border/60 bg-card hover:shadow-medium transition-all">
         <CardContent className="p-4">
           <div className="flex items-start justify-between mb-3">
             <div className="space-y-1">
@@ -129,7 +129,7 @@ export function POMetricsCards({
       </Card>
 
       {/* Not Found Card */}
-      <Card className="flex-shrink-0 w-56 border-border/40 bg-card hover:shadow-medium transition-all">
+      <Card className="flex-shrink-0 w-56 border-2 border-border/60 bg-card hover:shadow-medium transition-all">
         <CardContent className="p-4">
           <div className="flex items-start justify-between mb-3">
             <div className="space-y-1">
