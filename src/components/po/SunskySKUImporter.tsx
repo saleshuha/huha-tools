@@ -2064,24 +2064,78 @@ export const SunskySKUImporter: React.FC = () => {
         }
       }
 
-      // Filter out not found model numbers BEFORE search starts
+      // Load already imported SKUs from sunsky_skus table
+      let alreadyImportedModelNumbers: Set<string> = new Set();
+      try {
+        console.log('📦 Loading already imported SKUs from sunsky_skus table...');
+        let allImportedData: Array<{ sku_code: string }> = [];
+        const batchSize = 1000;
+        let currentBatch = 0;
+        let hasMore = true;
+
+        while (hasMore) {
+          const start = currentBatch * batchSize;
+          const end = start + batchSize - 1;
+
+          const { data: importedData, error: importedError } = await supabase
+            .from('sunsky_skus')
+            .select('sku_code')
+            .eq('user_id', profile?.id)
+            .range(start, end);
+
+          if (importedError) throw importedError;
+
+          if (importedData && importedData.length > 0) {
+            allImportedData = [...allImportedData, ...importedData];
+            currentBatch++;
+            
+            if (importedData.length < batchSize) {
+              hasMore = false;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+
+        console.log(`📥 Loaded ${allImportedData.length} already imported SKUs from database`);
+
+        allImportedData.forEach(item => {
+          alreadyImportedModelNumbers.add(item.sku_code);
+        });
+        console.log(`✅ Total already imported items: ${alreadyImportedModelNumbers.size}`);
+      } catch (error) {
+        console.warn('Error loading already imported SKUs:', error);
+      }
+
+      // Filter out not found AND already imported model numbers BEFORE search starts
       const modelsToSearch = modelData.uniqueModels.filter(
         model => {
-          const shouldSkip = notFoundModelNumbers.has(model);
-          if (shouldSkip) {
+          const isNotFound = notFoundModelNumbers.has(model);
+          const isAlreadyImported = alreadyImportedModelNumbers.has(model);
+          
+          if (isNotFound) {
             console.log(`🚫 Filtered out: ${model} (marked as not found)`);
+          } else if (isAlreadyImported) {
+            console.log(`✅ Filtered out: ${model} (already imported)`);
           }
-          return !shouldSkip;
+          
+          return !isNotFound && !isAlreadyImported;
         }
       );
-      const skippedCount = modelData.uniqueModels.length - modelsToSearch.length;
+      const skippedNotFoundCount = Array.from(modelData.uniqueModels).filter(m => notFoundModelNumbers.has(m)).length;
+      const skippedImportedCount = Array.from(modelData.uniqueModels).filter(m => alreadyImportedModelNumbers.has(m) && !notFoundModelNumbers.has(m)).length;
+      const skippedCount = skippedNotFoundCount + skippedImportedCount;
       
-      console.log(`📊 Search filtering: ${modelData.uniqueModels.length} total → ${modelsToSearch.length} to search (${skippedCount} skipped)`);
+      console.log(`📊 Search filtering: ${modelData.uniqueModels.length} total → ${modelsToSearch.length} to search (${skippedCount} skipped: ${skippedNotFoundCount} not found + ${skippedImportedCount} already imported)`);
 
       // Show start message
+      const skipMessage = skippedCount > 0 
+        ? `. Skipping ${skippedCount} items (${skippedNotFoundCount} not found, ${skippedImportedCount} already imported).`
+        : '...';
+      
       toast({
         title: `Searching ${modelsToSearch.length} Model Numbers`,
-        description: `Using ${activeAPICount} API key${activeAPICount > 1 ? 's' : ''} in parallel${skippedCount > 0 ? `. Skipping ${skippedCount} previously not found items.` : '...'}`,
+        description: `Using ${activeAPICount} API key${activeAPICount > 1 ? 's' : ''} in parallel${skipMessage}`,
         variant: "default"
       });
 
