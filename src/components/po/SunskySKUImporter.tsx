@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -319,6 +319,7 @@ export const SunskySKUImporter: React.FC = () => {
   }>>([]);
   const [showNotFoundDialog, setShowNotFoundDialog] = useState(false);
   const [includeSkippedItems, setIncludeSkippedItems] = useState(false);
+  const shouldStopSearchRef = useRef(false);
 
   // Individual API progress tracking for PO search
   const [poApiProgress, setPOApiProgress] = useState<Array<{
@@ -1921,6 +1922,9 @@ export const SunskySKUImporter: React.FC = () => {
       return;
     }
     
+    // Reset stop flag
+    shouldStopSearchRef.current = false;
+    
     setIsSearchingPO(true);
     setPOSearchProgress(0);
     setPOApiProgress([]); // Clear any previous API progress
@@ -2124,6 +2128,12 @@ export const SunskySKUImporter: React.FC = () => {
         ));
 
         for (const modelNumber of chunk) {
+          // Check if we should stop
+          if (shouldStopSearchRef.current) {
+            console.log(`🛑 Search stopped by user at API ${chunkIndex + 1}`);
+            break;
+          }
+          
           try {
             chunkSearchedCount++;
             totalSearchedCount++;
@@ -2456,7 +2466,7 @@ export const SunskySKUImporter: React.FC = () => {
         await supabase
           .from('sunsky_import_jobs')
           .update({
-            status: 'completed',
+            status: shouldStopSearchRef.current ? 'cancelled' : 'completed',
             completed_at: new Date().toISOString(),
             processed_items: modelsToSearch.length,
             success_count: totalImported,
@@ -2466,14 +2476,21 @@ export const SunskySKUImporter: React.FC = () => {
               total_matched: totalMatched,
               total_imported: totalImported,
               total_errors: totalErrors,
-              skipped_from_history: skippedCount
+              skipped_from_history: skippedCount,
+              stopped_by_user: shouldStopSearchRef.current
             }
           })
           .eq('id', importJobId);
         console.log(`✅ Updated import job ${importJobId} with final results`);
       }
 
-      if (totalImported > 0) {
+      if (shouldStopSearchRef.current) {
+        toast({
+          title: "Search Stopped",
+          description: `Stopped by user. Processed ${totalSearchedCount}/${modelsToSearch.length} items. Imported ${totalImported} products.`,
+          variant: "default"
+        });
+      } else if (totalImported > 0) {
         toast({
           title: "Parallel Search & Import Complete",
           description: `Successfully found and imported ${totalImported} of ${totalMatched} matched products from ${modelsToSearch.length} PO model numbers using ${activeAPICount} API key${activeAPICount > 1 ? 's' : ''}. ${skippedCount > 0 ? `Skipped ${skippedCount} previously not found.` : ''} ${totalErrors} errors.`
@@ -2527,6 +2544,7 @@ export const SunskySKUImporter: React.FC = () => {
     } finally {
       setIsSearchingPO(false);
       setPOSearchProgress(100); // Ensure progress shows complete
+      shouldStopSearchRef.current = false; // Reset stop flag
     }
   };
 
@@ -3088,6 +3106,24 @@ export const SunskySKUImporter: React.FC = () => {
                   <Package className="h-4 w-4 mr-2" />
                   {isSearchingPO ? 'Searching PO Items...' : 'Search PO Model Numbers'}
                 </Button>
+
+                {isSearchingPO && (
+                  <Button 
+                    onClick={() => {
+                      shouldStopSearchRef.current = true;
+                      toast({
+                        title: "Stopping Search",
+                        description: "The search will stop after the current items finish processing...",
+                        variant: "default"
+                      });
+                    }} 
+                    variant="destructive"
+                    className="border-destructive"
+                  >
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Stop Search
+                  </Button>
+                )}
 
                 <Button variant="outline" onClick={() => {
                   setSearchTerm('');
