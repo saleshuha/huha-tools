@@ -2011,7 +2011,8 @@ export const SunskySKUImporter: React.FC = () => {
       
       // Load not found SKUs from database if auto-skip is enabled
       let notFoundModelNumbers: Set<string> = new Set();
-      if (!includeSkippedItems && profile?.sunsky_skip_not_found !== false) {
+      if (!includeSkippedItems) {
+        console.log('🔍 Skip filter is ON - loading not found items to skip...');
         try {
           // Fetch all not found records in batches to avoid 1000 row limit
           let allNotFoundData: Array<{ model_number: string; last_search_date: string }> = [];
@@ -2055,14 +2056,16 @@ export const SunskySKUImporter: React.FC = () => {
               // Only skip if within recheck period (recently searched)
               if (lastSearchDate >= cutoffDate) {
                 notFoundModelNumbers.add(item.model_number);
-                console.log(`⏭️ Skipping: ${item.model_number} (last searched: ${lastSearchDate.toLocaleDateString()})`);
+                console.log(`⏭️ Skipping not found: ${item.model_number} (last searched: ${lastSearchDate.toLocaleDateString()})`);
               }
             });
-            console.log(`🚫 Total items to skip: ${notFoundModelNumbers.size} (within ${recheckDays} day recheck period)`);
+            console.log(`🚫 Total not found items to skip: ${notFoundModelNumbers.size} (within ${recheckDays} day recheck period)`);
           }
         } catch (error) {
           console.warn('Error loading not found SKUs:', error);
         }
+      } else {
+        console.log('⏭️ Skip filter is OFF - will search all items including previously not found');
       }
 
       // Load already imported SKUs from sunsky_skus table
