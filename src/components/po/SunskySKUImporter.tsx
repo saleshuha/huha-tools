@@ -1456,14 +1456,46 @@ export const SunskySKUImporter: React.FC = () => {
     if (!profile?.id) return;
     
     try {
-      const { data, error } = await supabase
-        .from('sunsky_not_found_skus')
-        .select('*')
-        .eq('user_id', profile.id)
-        .order('last_search_date', { ascending: false });
+      let allRecords: Array<{
+        id: string;
+        model_number: string;
+        search_attempts: number;
+        last_search_date: string;
+        notes?: string;
+      }> = [];
+      const batchSize = 1000;
+      let currentBatch = 0;
+      let hasMore = true;
 
-      if (error) throw error;
-      setNotFoundSkus(data || []);
+      // Fetch records in batches until we get all of them
+      while (hasMore) {
+        const start = currentBatch * batchSize;
+        const end = start + batchSize - 1;
+
+        const { data, error } = await supabase
+          .from('sunsky_not_found_skus')
+          .select('*')
+          .eq('user_id', profile.id)
+          .order('last_search_date', { ascending: false })
+          .range(start, end);
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          allRecords = [...allRecords, ...data];
+          currentBatch++;
+          
+          // If we got fewer records than the batch size, we've reached the end
+          if (data.length < batchSize) {
+            hasMore = false;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+
+      setNotFoundSkus(allRecords);
+      console.log(`Loaded ${allRecords.length} not found SKUs in ${currentBatch} batches`);
     } catch (error) {
       console.error('Error loading not found SKUs:', error);
     }
