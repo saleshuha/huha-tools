@@ -36,7 +36,11 @@ interface ImportJobItem {
   created_at: string;
 }
 
-export function ImportJobHistory() {
+interface ImportJobHistoryProps {
+  refreshTrigger?: number; // Used to trigger refresh from parent
+}
+
+export function ImportJobHistory({ refreshTrigger }: ImportJobHistoryProps) {
   const { profile } = useUserProfile();
   const [jobs, setJobs] = useState<ImportJob[]>([]);
   const [selectedJob, setSelectedJob] = useState<ImportJob | null>(null);
@@ -69,7 +73,32 @@ export function ImportJobHistory() {
 
   useEffect(() => {
     loadJobs();
-  }, [profile?.id]);
+
+    // Set up real-time subscription for job updates
+    if (!profile?.id) return;
+
+    const channel = supabase
+      .channel('import-jobs-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table: 'sunsky_import_jobs',
+          filter: `user_id=eq.${profile.id}`
+        },
+        (payload) => {
+          console.log('Job update received:', payload);
+          // Reload jobs when any change occurs
+          loadJobs();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profile?.id, refreshTrigger]); // Also refresh when refreshTrigger changes
 
   const loadJobDetails = async (job: ImportJob) => {
     setSelectedJob(job);

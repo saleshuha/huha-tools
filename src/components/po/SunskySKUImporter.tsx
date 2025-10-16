@@ -320,6 +320,7 @@ export const SunskySKUImporter: React.FC = () => {
   const [showNotFoundDialog, setShowNotFoundDialog] = useState(false);
   const [includeSkippedItems, setIncludeSkippedItems] = useState(false);
   const shouldStopSearchRef = useRef(false);
+  const [jobHistoryRefresh, setJobHistoryRefresh] = useState(0);
 
   // Individual API progress tracking for PO search
   const [poApiProgress, setPOApiProgress] = useState<Array<{
@@ -2536,6 +2537,9 @@ export const SunskySKUImporter: React.FC = () => {
           })
           .eq('id', importJobId);
         console.log(`✅ Updated import job ${importJobId} with final results`);
+        
+        // Trigger job history refresh
+        setJobHistoryRefresh(prev => prev + 1);
       }
 
       if (shouldStopSearchRef.current) {
@@ -2588,6 +2592,9 @@ export const SunskySKUImporter: React.FC = () => {
           })
           .eq('id', importJobId);
         console.log(`❌ Marked import job ${importJobId} as failed`);
+        
+        // Trigger job history refresh
+        setJobHistoryRefresh(prev => prev + 1);
       }
       
       toast({
@@ -3350,7 +3357,7 @@ export const SunskySKUImporter: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
-              <ImportJobHistory />
+              <ImportJobHistory refreshTrigger={jobHistoryRefresh} />
             </CardContent>
           </Card>
           
