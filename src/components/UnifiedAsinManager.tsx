@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,8 +14,9 @@ import {
 } from '@/components/ui/pagination';
 import { useInventoryAsinImages } from '@/hooks/useInventoryAsinImages';
 import { usePOAsinImages } from '@/hooks/usePOAsinImages';
-import { Download, Image as ImageIcon, Package, AlertCircle, Loader2 } from 'lucide-react';
+import { Download, Image as ImageIcon, Package, AlertCircle, Loader2, Box } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface UnifiedAsinItem {
   asin: string;
@@ -48,6 +49,41 @@ export function UnifiedAsinManager() {
   const [activeView, setActiveView] = useState<'missing' | 'covered'>('missing');
   const itemsPerPage = 10;
   const { toast } = useToast();
+  const [inStockCount, setInStockCount] = useState(0);
+  const [poAsinCount, setPoAsinCount] = useState(0);
+  const [metricsLoading, setMetricsLoading] = useState(true);
+
+  // Fetch additional metrics
+  useEffect(() => {
+    const fetchMetrics = async () => {
+      try {
+        setMetricsLoading(true);
+        
+        // Get in-stock inventory count
+        const { count: inStockTotal } = await supabase
+          .from('asin_inventory')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'in-stock');
+        
+        // Get unique PO ASINs count
+        const { data: poAsins } = await supabase
+          .from('po_orders')
+          .select('asin')
+          .not('asin', 'is', null);
+        
+        const uniquePoAsins = new Set(poAsins?.map(item => item.asin).filter(Boolean));
+        
+        setInStockCount(inStockTotal || 0);
+        setPoAsinCount(uniquePoAsins.size);
+      } catch (error) {
+        console.error('Error fetching metrics:', error);
+      } finally {
+        setMetricsLoading(false);
+      }
+    };
+
+    fetchMetrics();
+  }, []);
 
   // Combine all ASIN items
   const allMissingItems = useMemo(() => {
@@ -202,7 +238,7 @@ export function UnifiedAsinManager() {
     }
   };
 
-  if (inventoryLoading || poLoading) {
+  if (inventoryLoading || poLoading || metricsLoading) {
     return (
       <div className="flex items-center justify-center p-8">
         <Loader2 className="h-8 w-8 animate-spin mr-2" />
@@ -214,7 +250,7 @@ export function UnifiedAsinManager() {
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total ASINs</CardTitle>
@@ -265,6 +301,32 @@ export function UnifiedAsinManager() {
             </div>
             <p className="text-xs text-muted-foreground">
               Image coverage ratio
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">In-Stock Inventory</CardTitle>
+            <Box className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{inStockCount}</div>
+            <p className="text-xs text-muted-foreground">
+              Items currently in stock
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">PO ASINs</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{poAsinCount}</div>
+            <p className="text-xs text-muted-foreground">
+              Unique ASINs in PO orders
             </p>
           </CardContent>
         </Card>
