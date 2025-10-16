@@ -35,6 +35,7 @@ import { useConcurrentSunskyExport } from "@/hooks/useConcurrentSunskyExport";
 import { usePersistentBackgroundTasks } from "@/hooks/usePersistentBackgroundTasks";
 import { ImageGalleryTab } from "./ImageGalleryTab";
 import { NotFoundSkusManager } from "./NotFoundSkusManager";
+import { ImportJobHistory } from "./ImportJobHistory";
 interface SunskyProduct {
   // Core product fields
   id: number;
@@ -1892,6 +1893,8 @@ export const SunskySKUImporter: React.FC = () => {
     setPOSearchProgress(0);
     setPOApiProgress([]); // Clear any previous API progress
     
+    let importJobId: string | null = null;  // Declare import job ID
+    
     try {
       // Get all active API credentials for the user
       const { data: allCredentials, error: credentialsError } = await supabase
@@ -1925,6 +1928,35 @@ export const SunskySKUImporter: React.FC = () => {
       }
 
       const activeAPICount = allCredentials.length;
+
+      // Create import job
+      const { data: importJob, error: jobError } = await supabase
+        .from('sunsky_import_jobs')
+        .insert({
+          user_id: profile?.id,
+          type: 'po_model_search',
+          country: profile?.country || 'UAE',
+          criteria: {
+            source: 'po_model_numbers',
+            total_po_items: modelData.totalCount,
+            unique_models: modelData.uniqueCount,
+            api_keys_count: activeAPICount
+          },
+          total_items: modelData.uniqueCount,
+          processed_items: 0,
+          success_count: 0,
+          error_count: 0,
+          status: 'in_progress'
+        })
+        .select()
+        .single();
+
+      if (jobError || !importJob) {
+        console.warn('Failed to create import job:', jobError);
+      } else {
+        importJobId = importJob.id;
+        console.log(`📋 Created import job: ${importJobId}`);
+      }
       
       // Initialize individual API progress tracking
       setPOApiProgress((allCredentials as any).map((api: any, index: number) => ({
@@ -2151,19 +2183,46 @@ export const SunskySKUImporter: React.FC = () => {
                 console.warn('Error removing from not found list:', error);
               }
               
-              // Import this product immediately
+              // Save product directly to sunsky_skus table in real-time
               try {
-                const importResponse = await supabase.functions.invoke('sunsky-api', {
-                  body: {
-                    action: 'importSKUs',
-                    skus: [product] // Import single product
-                  }
-                });
+                const { data: savedSku, error: saveError } = await supabase
+                  .from('sunsky_skus')
+                  .upsert({
+                    user_id: profile?.id,
+                    sku_code: product.itemNo,
+                    title: product.name || '',
+                    cost: product.price ? parseFloat(product.price) : null,
+                    weight: product.weight ? parseFloat(product.weight) : null,
+                    currency: product.currency || 'USD',
+                    country: profile?.country || 'UAE'
+                  }, {
+                    onConflict: 'user_id,sku_code'
+                  })
+                  .select()
+                  .single();
 
-                if (!importResponse.error && importResponse.data?.result === 'success') {
+                if (!saveError && savedSku) {
                   chunkImportedCount++;
                   totalImportedCount++;
-                  console.log(`✅ API ${chunkIndex + 1} - Imported SKU for ${modelNumber}`);
+                  console.log(`💾 API ${chunkIndex + 1} - Saved SKU in real-time: ${modelNumber} -> ${product.itemNo}`);
+                  
+                  // Log to import job items if job exists
+                  if (importJobId) {
+                    await supabase
+                      .from('sunsky_import_job_items')
+                      .insert({
+                        job_id: importJobId,
+                        user_id: profile?.id,
+                        sku_code: product.itemNo,
+                        model_number: modelNumber,
+                        status: 'imported',
+                        details: {
+                          name: product.name,
+                          price: product.price,
+                          weight: product.weight
+                        }
+                      });
+                  }
                   
                   // Update API imported count and current item
                   setPOApiProgress(prev => prev.map((api, index) => 
@@ -2171,15 +2230,19 @@ export const SunskySKUImporter: React.FC = () => {
                       ? { 
                           ...api, 
                           imported: chunkImportedCount,
-                          currentItem: `✅ Imported ${modelNumber}`
+                          currentItem: `✅ Saved ${modelNumber}`
                         }
                       : api
                   ));
                 } else {
-                  console.warn(`❌ API ${chunkIndex + 1} - Failed to import SKU for ${modelNumber}:`, importResponse.error);
+                  console.warn(`❌ API ${chunkIndex + 1} - Failed to save SKU for ${modelNumber}:`, saveError);
+                  chunkErrorCount++;
+                  totalErrorCount++;
                 }
               } catch (importError) {
-                console.error(`API ${chunkIndex + 1} - Error importing SKU for ${modelNumber}:`, importError);
+                console.error(`API ${chunkIndex + 1} - Error saving SKU for ${modelNumber}:`, importError);
+                chunkErrorCount++;
+                totalErrorCount++;
               }
             } else {
               console.log(`❌ API ${chunkIndex + 1} - No product found for ${modelNumber}`);
@@ -2328,6 +2391,28 @@ export const SunskySKUImporter: React.FC = () => {
       const totalMatched = chunkResults.reduce((sum, result) => sum + result.matched, 0);
       const totalImported = chunkResults.reduce((sum, result) => sum + result.imported, 0);
       const totalErrors = chunkResults.reduce((sum, result) => sum + result.errors, 0);
+
+      // Update import job with final results
+      if (importJobId) {
+        await supabase
+          .from('sunsky_import_jobs')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            processed_items: modelsToSearch.length,
+            success_count: totalImported,
+            error_count: totalErrors,
+            result_summary: {
+              total_searched: modelsToSearch.length,
+              total_matched: totalMatched,
+              total_imported: totalImported,
+              total_errors: totalErrors,
+              skipped_from_history: skippedCount
+            }
+          })
+          .eq('id', importJobId);
+        console.log(`✅ Updated import job ${importJobId} with final results`);
+      }
 
       if (totalImported > 0) {
         toast({
@@ -3087,6 +3172,22 @@ export const SunskySKUImporter: React.FC = () => {
         </TabsContent>
         
         <TabsContent value="jobs" className="space-y-6">
+          {/* Import Job History */}
+          <Card className="border-2 border-border/50 bg-card/50 backdrop-blur-sm shadow-lg">
+            <CardHeader className="bg-gradient-to-r from-primary/5 to-transparent border-b">
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Import History & Details
+              </CardTitle>
+              <CardDescription>
+                View all import jobs with detailed information and export options
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <ImportJobHistory />
+            </CardContent>
+          </Card>
+          
           <div className="grid grid-cols-1 gap-6">
             {/* Create Category Import Job */}
             <Card>
