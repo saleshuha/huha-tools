@@ -200,6 +200,37 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
     });
   };
 
+  const handleExportCSV = () => {
+    const csvHeaders = ['#', 'ASIN', 'Title', 'SKU', 'Model', 'Quantity', 'PO Numbers'];
+    const csvRows = printItems.map((item, index) => [
+      index + 1,
+      item.asin || '',
+      item.title || '',
+      item.sku_code || '',
+      item.model_number || '',
+      item.quantity,
+      Array.isArray(item.poNumbers) ? item.poNumbers.join('; ') : item.poNumbers
+    ]);
+
+    const csvContent = [
+      csvHeaders.join(','),
+      ...csvRows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `po-items-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "CSV Exported",
+      description: `Exported ${printItems.length} items without images`,
+    });
+  };
+
   const totalQuantity = printItems.reduce((sum, item) => sum + item.quantity, 0);
   const itemsWithImages = printItems.filter(item => item.imageUrl).length;
 
@@ -456,23 +487,27 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
                                   <TableCell className="font-semibold text-center border-r border-gray-300">
                                     {index + 1}
                                   </TableCell>
-                                  {includeImages && (
-                                    <TableCell className="py-2 border-r border-gray-300">
-                                      {item.imageUrl ? (
-                                        <div className="w-24 h-24 rounded border border-gray-300 overflow-hidden bg-white">
-                                          <img 
-                                            src={item.imageUrl} 
-                                            alt={item.asin}
-                                            className="w-full h-full object-contain"
-                                          />
-                                        </div>
-                                      ) : (
-                                        <div className="w-24 h-24 bg-gray-50 rounded border border-dashed border-gray-400 flex items-center justify-center">
-                                          <Package className="h-8 w-8 text-gray-400" />
-                                        </div>
-                                      )}
-                                    </TableCell>
-                                  )}
+                                   {includeImages && (
+                                     <TableCell className="py-2 border-r border-gray-300">
+                                       {item.imageUrl ? (
+                                         <div 
+                                           className="w-24 h-24 rounded border border-gray-300 overflow-hidden bg-white cursor-pointer hover:opacity-80 transition-opacity"
+                                           onClick={() => window.open(item.imageUrl, '_blank')}
+                                           title="Click to open image in new tab"
+                                         >
+                                           <img 
+                                             src={item.imageUrl} 
+                                             alt={item.asin}
+                                             className="w-full h-full object-contain"
+                                           />
+                                         </div>
+                                       ) : (
+                                         <div className="w-24 h-24 bg-gray-50 rounded border border-dashed border-gray-400 flex items-center justify-center">
+                                           <Package className="h-8 w-8 text-gray-400" />
+                                         </div>
+                                       )}
+                                     </TableCell>
+                                   )}
                                   <TableCell className="border-r border-gray-300">
                                     <div className="space-y-1.5">
                                       <div className="font-bold text-base">
@@ -543,6 +578,11 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
             Cancel
           </Button>
           
+          <Button variant="outline" onClick={handleExportCSV} disabled={printItems.length === 0}>
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV (No Images)
+          </Button>
+
           {printFormat === 'label' && (
             <Button variant="outline" onClick={handleDownloadZPL}>
               <Download className="h-4 w-4 mr-2" />

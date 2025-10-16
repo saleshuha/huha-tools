@@ -102,6 +102,21 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
             border-radius: 4px;
             flex-shrink: 0;
             background: #f9f9f9;
+            cursor: pointer;
+            transition: opacity 0.2s;
+          }
+          
+          .print-item-image:hover {
+            opacity: 0.8;
+          }
+          
+          @media print {
+            .print-item-image {
+              cursor: default;
+            }
+            .print-item-image:hover {
+              opacity: 1;
+            }
           }
           
           .print-item-placeholder {
@@ -185,6 +200,8 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
                       src={item.imageUrl} 
                       alt={item.title}
                       className="print-item-image"
+                      onClick={() => window.open(item.imageUrl, '_blank')}
+                      title="Click to open image in new tab"
                       onError={(e) => {
                         e.currentTarget.style.display = 'none';
                       }}
