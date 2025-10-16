@@ -32,27 +32,55 @@ export const usePOAsinImages = () => {
   const { toast } = useToast();
   const { productImages, addProductImage } = useProductImages();
 
-  // Fetch PO orders with ASINs
+  // Fetch PO orders with ASINs - fetch ALL records in batches
   const { data: poAsinItems = [], isLoading, refetch } = useQuery({
     queryKey: ['po-asin-items'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { data: poOrders, error } = await supabase
-        .from('po_orders')
-        .select('id, asin, title, po_number, quantity, status')
-        .eq('user_id', user.id)
-        .not('asin', 'is', null)
-        .neq('asin', '')
-        .order('created_at', { ascending: false });
+      console.log('🔄 Fetching all PO ASINs...');
+      
+      // Fetch all PO orders in batches to handle 5000+ records
+      const batchSize = 1000;
+      let allPoOrders: any[] = [];
+      let rangeStart = 0;
+      let hasMore = true;
 
-      if (error) throw error;
+      while (hasMore) {
+        const rangeEnd = rangeStart + batchSize - 1;
+        
+        const { data: batch, error } = await supabase
+          .from('po_orders')
+          .select('id, asin, title, po_number, quantity, status')
+          .eq('user_id', user.id)
+          .not('asin', 'is', null)
+          .neq('asin', '')
+          .order('created_at', { ascending: false })
+          .range(rangeStart, rangeEnd);
+
+        if (error) throw error;
+
+        if (batch && batch.length > 0) {
+          allPoOrders = [...allPoOrders, ...batch];
+          console.log(`✅ Fetched batch: ${rangeStart}-${rangeEnd}, records: ${batch.length}`);
+          
+          if (batch.length < batchSize) {
+            hasMore = false; // Last batch
+          } else {
+            rangeStart += batchSize;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+
+      console.log(`✅ Total PO records fetched: ${allPoOrders.length}`);
 
       // Group by ASIN to avoid duplicates
       const asinMap = new Map<string, POAsinItem>();
       
-      (poOrders as any)?.forEach((order: any) => {
+      allPoOrders.forEach((order: any) => {
         const asin = order.asin!;
         if (asinMap.has(asin)) {
           const existing = asinMap.get(asin)!;
@@ -71,6 +99,7 @@ export const usePOAsinImages = () => {
         }
       });
 
+      console.log(`✅ Unique PO ASINs: ${asinMap.size}`);
       return Array.from(asinMap.values());
     }
   });

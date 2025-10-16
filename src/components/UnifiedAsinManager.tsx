@@ -222,20 +222,52 @@ export function UnifiedAsinManager() {
     );
   };
 
-  const handleExportMissing = () => {
-    const inventoryMissingAsins = new Set(inventoryMissing.map(item => item.asin));
-    const poMissingAsins = new Set(poMissing.map(item => item.asin));
-    
-    if (inventoryMissingAsins.size > 0) {
-      exportInventoryMissing();
-    } else if (poMissingAsins.size > 0) {
-      exportPOMissing();
-    } else {
+  const handleExportAllMissing = () => {
+    if (allMissingItems.length === 0) {
       toast({
         title: "No Missing ASINs",
         description: "All ASINs have images assigned.",
       });
+      return;
     }
+
+    // Create a comprehensive CSV with all missing ASINs
+    const csvContent = [
+      ['ASIN', 'Title', 'Source', 'Quantity', 'Status', 'Image URL'],
+      ...allMissingItems.map(item => [
+        item.asin,
+        item.title || '',
+        item.source === 'inventory' ? 'Inventory' : 'PO',
+        item.quantity?.toString() || '',
+        item.status || '',
+        '' // Empty for user to fill
+      ])
+    ].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `all-missing-asins-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: "Export Complete",
+      description: `Exported ${allMissingItems.length} ASINs (${poMissing.length} from PO, ${inventoryMissing.length} from Inventory) with missing images.`,
+    });
+  };
+
+  const handleExportPOMissing = () => {
+    if (poMissing.length === 0) {
+      toast({
+        title: "No PO Missing ASINs",
+        description: "All PO ASINs have images assigned.",
+      });
+      return;
+    }
+
+    exportPOMissing();
   };
 
   if (inventoryLoading || poLoading || metricsLoading) {
@@ -338,19 +370,49 @@ export function UnifiedAsinManager() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Download className="h-5 w-5" />
-              Export Missing ASINs
+              Export Missing ASINs for Image Upload
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                onClick={handleExportMissing}
-                className="flex items-center gap-2"
-              >
-                <Download className="h-4 w-4" />
-                Export Missing ASINs ({allMissingItems.length})
-              </Button>
+            <div className="flex flex-col gap-4">
+              <p className="text-sm text-muted-foreground">
+                Export ASINs without images to add image URLs and bulk upload them back to the system.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button 
+                  variant="default" 
+                  onClick={handleExportAllMissing}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Export All Missing ({allMissingItems.length})
+                </Button>
+                
+                {poMissing.length > 0 && (
+                  <Button 
+                    variant="outline" 
+                    onClick={handleExportPOMissing}
+                    className="flex items-center gap-2"
+                  >
+                    <Package className="h-4 w-4" />
+                    Export PO Only ({poMissing.length})
+                  </Button>
+                )}
+                
+                {inventoryMissing.length > 0 && (
+                  <Button 
+                    variant="outline" 
+                    onClick={exportInventoryMissing}
+                    className="flex items-center gap-2"
+                  >
+                    <Box className="h-4 w-4" />
+                    Export Inventory Only ({inventoryMissing.length})
+                  </Button>
+                )}
+              </div>
+              <div className="text-xs text-muted-foreground bg-muted p-3 rounded-md">
+                <strong>Instructions:</strong> After export, add image URLs in the "Image URL" column and upload the CSV back through the image uploader to bulk assign images.
+              </div>
             </div>
           </CardContent>
         </Card>
