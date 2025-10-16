@@ -213,7 +213,7 @@ export function EnhancedPOTable({
                             <img 
                               src={order.image_url} 
                               alt={order.title || 'Product'} 
-                              className={`${viewMode === 'compact' ? 'w-12 h-12' : viewMode === 'detailed' ? 'w-20 h-20' : 'w-16 h-16'} object-cover rounded-md border border-border`}
+                              className={`${viewMode === 'compact' ? 'w-12 h-12' : viewMode === 'detailed' ? 'w-20 h-20' : 'w-16 h-16'} object-contain rounded-md border border-border bg-white`}
                               onError={(e) => {
                                 e.currentTarget.src = 'https://via.placeholder.com/80?text=No+Image';
                               }}
