@@ -96,11 +96,13 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
       items = convertOrdersToPrintItems(selectedOrders);
     }
 
-    // Add images if available
-    return items.map(item => ({
-      ...item,
-      imageUrl: getImageByAsin(item.asin)?.image_url
-    }));
+    // Add images if available and sort by quantity (high to low)
+    return items
+      .map(item => ({
+        ...item,
+        imageUrl: getImageByAsin(item.asin)?.image_url
+      }))
+      .sort((a, b) => b.quantity - a.quantity);
   }, [orders, selectedItems, mode, bulkAggregate, getImageByAsin]);
 
   const toggleItem = (index: number) => {
