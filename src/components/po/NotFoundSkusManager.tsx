@@ -39,11 +39,13 @@ export const NotFoundSkusManager: React.FC<NotFoundSkusManagerProps> = ({ userId
 
   const loadNotFoundSkus = async () => {
     try {
+      // Fetch all records by using a very high limit to bypass Supabase's default 1000 row limit
       const { data, error } = await supabase
         .from('sunsky_not_found_skus')
         .select('*')
         .eq('user_id', userId)
-        .order('last_search_date', { ascending: false });
+        .order('last_search_date', { ascending: false })
+        .limit(1000000); // Set a very high limit to get all records
 
       if (error) throw error;
       setNotFoundSkus(data || []);
