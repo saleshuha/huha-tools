@@ -27,12 +27,10 @@ interface POTableColumnManagerProps {
 
 const DEFAULT_COLUMNS: ColumnConfig[] = [
   { id: 'checkbox', label: 'Select', visible: true, required: true },
-  { id: 'asin', label: 'ASIN/SKU', visible: true, required: true },
-  { id: 'title', label: 'Product Details', visible: true },
+  { id: 'title', label: 'Product Information', visible: true, required: true },
   { id: 'quantity', label: 'Quantity', visible: true },
   { id: 'status', label: 'Status', visible: true },
   { id: 'inventory', label: 'Inventory', visible: true },
-  { id: 'cost', label: 'Cost', visible: true },
   { id: 'tracking', label: 'Tracking', visible: true },
   { id: 'actions', label: 'Actions', visible: true, required: true },
 ];

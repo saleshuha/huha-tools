@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { usePOOrders } from '@/hooks/usePOOrders';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useProductImages } from '@/hooks/useProductImages';
 import { SunskyOrderDialog } from '@/components/SunskyOrderDialog';
 import { SunskyDataViewer } from '@/components/SunskyDataViewer';
 import { POFilterPanel, FilterState } from '@/components/po/POFilterPanel';
@@ -59,6 +60,7 @@ export default function PODetailsPage() {
   const {
     toast
   } = useToast();
+  const { productImages } = useProductImages();
   const [loading, setLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [inventoryData, setInventoryData] = useState<{
@@ -337,11 +339,22 @@ export default function PODetailsPage() {
   });
   const matchedOrders = Array.from(matchedOrdersMap.values());
 
+  // Enrich orders with product images
+  const ordersWithImages = useMemo(() => {
+    return matchedOrders.map(order => {
+      const productImage = productImages.find(img => img.asin === order.asin);
+      return {
+        ...order,
+        image_url: productImage?.image_url
+      };
+    });
+  }, [matchedOrders, productImages]);
+
   // Memoized inventory match cache - pre-calculate all matches once
   const inventoryMatchCache = useMemo(() => {
-    console.log('🔄 Building inventory match cache for', matchedOrders.length, 'orders');
+    console.log('🔄 Building inventory match cache for', ordersWithImages.length, 'orders');
     const cache = new Map<string, any>();
-    matchedOrders.forEach(order => {
+    ordersWithImages.forEach(order => {
       const match = findInventoryMatch(
         order.asin,
         order.sunsky_sku?.sku_code,
@@ -352,7 +365,7 @@ export default function PODetailsPage() {
     });
     console.log('✅ Inventory cache built with', cache.size, 'entries');
     return cache;
-  }, [matchedOrders, inventoryData.asinInventory, inventoryData.skuInventory]);
+  }, [ordersWithImages, inventoryData.asinInventory, inventoryData.skuInventory]);
 
   // Helper to get cached inventory match
   const getInventoryMatch = useCallback((orderId: string) => {
@@ -361,7 +374,7 @@ export default function PODetailsPage() {
 
   // Sort orders with in-stock items first using cached matches
   const sortedMatchedOrders = useMemo(() => {
-    return [...matchedOrders].sort((a, b) => {
+    return [...ordersWithImages].sort((a, b) => {
       const inventoryMatchA = inventoryMatchCache.get(a.id);
       const inventoryMatchB = inventoryMatchCache.get(b.id);
 
@@ -370,7 +383,7 @@ export default function PODetailsPage() {
 
       return hasStockB ? hasStockA ? 0 : 1 : hasStockA ? -1 : 0;
     });
-  }, [matchedOrders, inventoryMatchCache]);
+  }, [ordersWithImages, inventoryMatchCache]);
 
   // Filter orders based on search term and filters (memoized for performance with cache)
   const filteredOrders = useMemo(() => {

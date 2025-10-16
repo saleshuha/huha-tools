@@ -129,14 +129,9 @@ export function EnhancedPOTable({
                   />
                 </TableHead>
               )}
-              {isColumnVisible('asin') && (
-                <TableHead className={`font-semibold uppercase tracking-wide text-muted-foreground ${classes.header}`}>
-                  ASIN / SKU
-                </TableHead>
-              )}
               {isColumnVisible('title') && (
                 <TableHead className={`font-semibold uppercase tracking-wide text-muted-foreground ${classes.header}`}>
-                  Product Details
+                  Product Information
                 </TableHead>
               )}
               {isColumnVisible('quantity') && (
@@ -157,11 +152,6 @@ export function EnhancedPOTable({
               {isColumnVisible('inventory') && (
                 <TableHead className={`font-semibold uppercase tracking-wide text-muted-foreground ${classes.header}`}>
                   Inventory
-                </TableHead>
-              )}
-              {isColumnVisible('cost') && (
-                <TableHead className={`font-semibold uppercase tracking-wide text-muted-foreground ${classes.header}`}>
-                  Cost
                 </TableHead>
               )}
               {isColumnVisible('tracking') && (
@@ -213,41 +203,64 @@ export function EnhancedPOTable({
                       />
                     </TableCell>
                   )}
-                  
-                  {isColumnVisible('asin') && (
-                    <TableCell className={classes.cell}>
-                      <div className="space-y-1">
-                        <code className={`${classes.badge} bg-primary/10 text-primary px-2 py-0.5 rounded-md font-mono font-medium`}>
-                          {viewMode === 'compact' ? truncateText(order.asin, 10) : order.asin}
-                        </code>
-                        {order.sku_code && viewMode !== 'compact' && (
-                          <div className="text-xs text-muted-foreground flex items-center gap-1">
-                            <span className="opacity-70">SKU:</span>
-                            <span className="font-mono">{order.sku_code}</span>
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                  )}
 
                   {isColumnVisible('title') && (
-                    <TableCell className={`max-w-[300px] ${classes.cell}`}>
-                      <div className="space-y-1">
-                        <div className={`font-medium ${viewMode === 'compact' ? 'line-clamp-1' : 'line-clamp-2'} ${classes.title} leading-tight`}>
-                          {viewMode === 'compact' ? truncateText(order.title || 'N/A', 40) : order.title || 'N/A'}
+                    <TableCell className={`max-w-[500px] ${classes.cell}`}>
+                      <div className="flex items-start gap-3">
+                        {/* Product Image */}
+                        <div className="flex-shrink-0">
+                          {order.image_url ? (
+                            <img 
+                              src={order.image_url} 
+                              alt={order.title || 'Product'} 
+                              className={`${viewMode === 'compact' ? 'w-12 h-12' : viewMode === 'detailed' ? 'w-20 h-20' : 'w-16 h-16'} object-cover rounded-md border border-border`}
+                              onError={(e) => {
+                                e.currentTarget.src = 'https://via.placeholder.com/80?text=No+Image';
+                              }}
+                            />
+                          ) : (
+                            <div className={`${viewMode === 'compact' ? 'w-12 h-12' : viewMode === 'detailed' ? 'w-20 h-20' : 'w-16 h-16'} bg-muted rounded-md border border-border flex items-center justify-center`}>
+                              <Package className={`${viewMode === 'compact' ? 'h-5 w-5' : 'h-8 w-8'} text-muted-foreground/50`} />
+                            </div>
+                          )}
                         </div>
-                        {order.model_number && viewMode === 'detailed' && (
-                          <div className="text-xs text-muted-foreground flex items-center gap-1">
-                            <span className="opacity-70">Model:</span>
-                            <span className="font-mono">{order.model_number}</span>
+                        
+                        {/* Product Details */}
+                        <div className="flex-1 min-w-0 space-y-1.5">
+                          {/* ASIN */}
+                          <code className={`${classes.badge} bg-primary/10 text-primary px-2 py-0.5 rounded-md font-mono font-medium inline-block`}>
+                            {viewMode === 'compact' ? truncateText(order.asin, 10) : order.asin}
+                          </code>
+                          
+                          {/* Title */}
+                          <div className={`font-medium ${viewMode === 'compact' ? 'line-clamp-1' : 'line-clamp-2'} ${classes.title} leading-tight`}>
+                            {viewMode === 'compact' ? truncateText(order.title || 'N/A', 40) : order.title || 'N/A'}
                           </div>
-                        )}
-                        {order.sunsky_sku?.sku_code && viewMode !== 'compact' && (
-                          <Badge variant="outline" className={`${classes.badge} bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20`}>
-                            <span className="opacity-70 mr-1">Sunsky:</span>
-                            {order.sunsky_sku.sku_code}
-                          </Badge>
-                        )}
+                          
+                          {/* SKU and Model Number */}
+                          <div className="flex flex-wrap gap-2 items-center">
+                            {order.sku_code && (
+                              <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                <span className="opacity-70">SKU:</span>
+                                <span className="font-mono">{order.sku_code}</span>
+                              </div>
+                            )}
+                            {order.model_number && viewMode === 'detailed' && (
+                              <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                <span className="opacity-70">Model:</span>
+                                <span className="font-mono">{order.model_number}</span>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Sunsky SKU Badge */}
+                          {order.sunsky_sku?.sku_code && viewMode !== 'compact' && (
+                            <Badge variant="outline" className={`${classes.badge} bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20`}>
+                              <span className="opacity-70 mr-1">Sunsky:</span>
+                              {order.sunsky_sku.sku_code}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                   )}
@@ -297,21 +310,6 @@ export function EnhancedPOTable({
                     </TableCell>
                   )}
 
-                  {isColumnVisible('cost') && (
-                    <TableCell className={classes.cell}>
-                      <div className="space-y-1">
-                        <div className="font-medium">
-                          {order.unit_cost} {order.currency}
-                        </div>
-                        {order.total_cost && viewMode !== 'compact' && (
-                          <div className="text-xs text-muted-foreground">
-                            Total: {order.total_cost} {order.currency}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                  )}
-
                   {isColumnVisible('tracking') && (
                     <TableCell className={classes.cell}>
                       {order.tracking_number ? (
@@ -352,7 +350,7 @@ export function EnhancedPOTable({
 
                   {isColumnVisible('actions') && (
                     <TableCell className={`text-right pr-4 ${classes.cell}`}>
-                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-end gap-1">
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button
