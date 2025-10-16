@@ -1946,7 +1946,7 @@ export const SunskySKUImporter: React.FC = () => {
         try {
           const { data: notFoundData, error: notFoundError } = await supabase
             .from('sunsky_not_found_skus')
-            .select('model_number, last_search_date, sunsky_recheck_after_days:profiles!inner(sunsky_recheck_after_days)')
+            .select('model_number, last_search_date')
             .eq('user_id', profile?.id);
 
           if (!notFoundError && notFoundData) {
@@ -1956,23 +1956,32 @@ export const SunskySKUImporter: React.FC = () => {
 
             notFoundData.forEach(item => {
               const lastSearchDate = new Date(item.last_search_date);
-              // Only skip if within recheck period
+              // Only skip if within recheck period (recently searched)
               if (lastSearchDate >= cutoffDate) {
                 notFoundModelNumbers.add(item.model_number);
+                console.log(`⏭️ Skipping: ${item.model_number} (last searched: ${lastSearchDate.toLocaleDateString()})`);
               }
             });
-            console.log(`🚫 Loaded ${notFoundModelNumbers.size} not found SKUs to skip`);
+            console.log(`🚫 Total items to skip: ${notFoundModelNumbers.size} (within ${recheckDays} day recheck period)`);
           }
         } catch (error) {
           console.warn('Error loading not found SKUs:', error);
         }
       }
 
-      // Filter out not found model numbers
+      // Filter out not found model numbers BEFORE search starts
       const modelsToSearch = modelData.uniqueModels.filter(
-        model => !notFoundModelNumbers.has(model)
+        model => {
+          const shouldSkip = notFoundModelNumbers.has(model);
+          if (shouldSkip) {
+            console.log(`🚫 Filtered out: ${model} (marked as not found)`);
+          }
+          return !shouldSkip;
+        }
       );
       const skippedCount = modelData.uniqueModels.length - modelsToSearch.length;
+      
+      console.log(`📊 Search filtering: ${modelData.uniqueModels.length} total → ${modelsToSearch.length} to search (${skippedCount} skipped)`);
 
       // Show start message
       toast({
