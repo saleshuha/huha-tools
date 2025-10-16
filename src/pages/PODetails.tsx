@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { ArrowLeft, Package, Truck, CheckCircle, Clock, AlertTriangle, Plus, Save, ExternalLink, Upload, Edit, PackageCheck, PackageX, Trash2, Download, Printer, Eye, Info, ShoppingCart, X, Search, Settings, RotateCcw, Undo } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,6 +22,12 @@ import { POFilterPanel, FilterState } from '@/components/po/POFilterPanel';
 import { POMetricsCards } from '@/components/po/POMetricsCards';
 import { EnhancedPOTable } from '@/components/po/EnhancedPOTable';
 import { POActionPanel } from '@/components/po/POActionPanel';
+import { POTablePagination } from '@/components/po/POTablePagination';
+import { POTableViewMode } from '@/components/po/POTableViewMode';
+import { POTableColumnManager } from '@/components/po/POTableColumnManager';
+import { POExportDialog } from '@/components/po/POExportDialog';
+import { usePOTableState } from '@/hooks/usePOTableState';
+import { getPaginatedItems, scrollToTop } from '@/utils/po-table-helpers';
 
 // Cache busting comment - Fixed poDetails issue - v2
 
@@ -115,6 +121,19 @@ export default function PODetailsPage() {
     hasTracking: 'all',
     hasSunskySku: 'all',
   });
+
+  // Table state management (pagination, view mode, columns)
+  const {
+    currentPage,
+    itemsPerPage,
+    viewMode,
+    visibleColumns,
+    setCurrentPage,
+    setItemsPerPage,
+    setViewMode,
+    setVisibleColumns,
+    resetToPage1,
+  } = usePOTableState();
   
   console.log('PODetailsPage: Rendering with poNumber:', poNumber);
   console.log('PODetailsPage: poOrders:', poOrders);
@@ -355,8 +374,9 @@ export default function PODetailsPage() {
     return hasStockB ? hasStockA ? 0 : 1 : hasStockA ? -1 : 0;
   });
 
-  // Filter orders based on search term and filters
-  const filteredOrders = matchedOrders.filter(order => {
+  // Filter orders based on search term and filters (memoized for performance)
+  const filteredOrders = useMemo(() => {
+    return matchedOrders.filter(order => {
     // Search filter
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase();
@@ -401,7 +421,20 @@ export default function PODetailsPage() {
     if (filters.costMax && (order.unit_cost || 0) > parseFloat(filters.costMax)) return false;
 
     return true;
-  });
+    });
+  }, [matchedOrders, searchTerm, filters, findInventoryMatch]);
+
+  // Paginate filtered orders
+  const paginatedOrders = useMemo(() => {
+    return getPaginatedItems(filteredOrders, currentPage, itemsPerPage);
+  }, [filteredOrders, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+
+  // Reset to page 1 when filters or search changes
+  useEffect(() => {
+    resetToPage1();
+  }, [searchTerm, filters, resetToPage1]);
 
   // Calculate status progress and metrics
   const statusProgress: StatusProgress = matchedOrders.reduce((acc, order) => {
@@ -2098,7 +2131,25 @@ export default function PODetailsPage() {
             </div>
             
             {/* Action Toolbar */}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
+              {/* View Mode Switcher */}
+              <POTableViewMode viewMode={viewMode} onViewModeChange={setViewMode} />
+              
+              {/* Column Manager */}
+              <POTableColumnManager columns={visibleColumns} onColumnsChange={setVisibleColumns} />
+              
+              {/* Export Dialog */}
+              <POExportDialog
+                onExport={(options) => {
+                  console.log('Export with options:', options);
+                  // Will integrate with existing export logic
+                  handleExportPO();
+                }}
+                totalItems={matchedOrders.length}
+                filteredItems={filteredOrders.length}
+                selectedItems={selectedItems.size}
+              />
+              
               <Button
                 variant="ghost" 
                 size="sm"
@@ -2126,10 +2177,6 @@ export default function PODetailsPage() {
                 className="h-8 w-8 p-0"
               >
                 <RotateCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              </Button>
-              
-              <Button onClick={handleExportPO} variant="ghost" size="sm" className="h-8 w-8 p-0" title="Export">
-                <Download className="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -2218,9 +2265,9 @@ export default function PODetailsPage() {
         </div>
 
         {/* Enhanced Table */}
-        <div className="mb-4">
+        <div className="mb-2" id="po-table-container">
           <EnhancedPOTable
-            orders={filteredOrders}
+            orders={paginatedOrders}
             selectedItems={selectedItems}
             onItemSelect={handleItemSelect}
             onSelectAll={handleSelectAll}
@@ -2237,8 +2284,27 @@ export default function PODetailsPage() {
               }
             }}
             findInventoryMatch={findInventoryMatch}
+            viewMode={viewMode}
+            visibleColumns={visibleColumns}
           />
         </div>
+
+        {/* Pagination */}
+        {filteredOrders.length > 0 && (
+          <div className="mb-4">
+            <POTablePagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredOrders.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={(page) => {
+                setCurrentPage(page);
+                scrollToTop('po-table-container');
+              }}
+              onItemsPerPageChange={setItemsPerPage}
+            />
+          </div>
+        )}
 
         {/* Preview From Stock Dialog */}
         <Dialog>
