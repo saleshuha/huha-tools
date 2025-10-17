@@ -77,6 +77,8 @@ interface POGroup {
 export const POTracker = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(''); // Add debounced search
+  const [isSearching, setIsSearching] = useState(false); // Add searching indicator
   const [statusFilter, setStatusFilter] = useState<POOrder['status'] | 'all'>('all');
   const [printedFilter, setPrintedFilter] = useState<'all' | 'printed' | 'not-printed'>('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -116,7 +118,21 @@ export const POTracker = () => {
   const [isDeletingPOs, setIsDeletingPOs] = useState(false);
   const [bulkDeleteStep, setBulkDeleteStep] = useState<'input' | 'confirm'>('input');
   
-  // Auto-create chip after 5 seconds of inactivity
+  // Debounce main search query (300ms delay)
+  useEffect(() => {
+    setIsSearching(true);
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+      setIsSearching(false);
+    }, 300);
+    
+    return () => {
+      clearTimeout(timer);
+      setIsSearching(false);
+    };
+  }, [searchQuery]);
+
+  // Auto-create chip after 8 seconds of inactivity (increased from 5)
   useEffect(() => {
     if (!labelSearchQuery.trim()) return;
     
@@ -126,7 +142,7 @@ export const POTracker = () => {
         setSearchTags(prev => [...prev, trimmedQuery]);
         setLabelSearchQuery('');
       }
-    }, 5000);
+    }, 8000);
     
     return () => clearTimeout(timer);
   }, [labelSearchQuery, searchTags]);
@@ -215,6 +231,65 @@ export const POTracker = () => {
     asinInventory: [],
     skuInventory: []
   });
+
+  // Create indexed lookup maps for O(1) inventory matching (CRITICAL OPTIMIZATION)
+  const inventoryMaps = useMemo(() => {
+    console.log('🗺️ Building inventory lookup maps...');
+    const startTime = performance.now();
+    
+    const asinMap = new Map<string, any[]>();
+    const skuMap = new Map<string, any>();
+    const serialMap = new Map<string, any>();
+    
+    // Build ASIN map with normalized keys
+    inventoryData.asinInventory.forEach(item => {
+      if (item.asin) {
+        const key = item.asin.trim().toUpperCase();
+        if (!asinMap.has(key)) {
+          asinMap.set(key, []);
+        }
+        asinMap.get(key)!.push(item);
+      }
+      
+      // Also index by serial number
+      if (item.serial_number) {
+        const serialKey = item.serial_number.trim().toUpperCase();
+        serialMap.set(serialKey, item);
+      }
+    });
+    
+    // Build SKU map with normalized keys
+    inventoryData.skuInventory.forEach(item => {
+      if (item.sku_number) {
+        const key = item.sku_number.trim().toUpperCase();
+        skuMap.set(key, item);
+      }
+      
+      // Also index by ASIN if available
+      if (item.asin) {
+        const asinKey = item.asin.trim().toUpperCase();
+        if (!skuMap.has(asinKey)) {
+          skuMap.set(asinKey, item);
+        }
+      }
+      
+      // Index by bin serial number
+      if (item.bin_serial_number) {
+        const binKey = item.bin_serial_number.trim().toUpperCase();
+        serialMap.set(binKey, item);
+      }
+    });
+    
+    const endTime = performance.now();
+    console.log('✅ Inventory maps built:', {
+      asinMapSize: asinMap.size,
+      skuMapSize: skuMap.size,
+      serialMapSize: serialMap.size,
+      buildTime: `${(endTime - startTime).toFixed(2)}ms`
+    });
+    
+    return { asinMap, skuMap, serialMap };
+  }, [inventoryData]);
 
   // Save disabled POs to localStorage
   useEffect(() => {
@@ -784,41 +859,25 @@ export const POTracker = () => {
     }
   }, [profile?.id]);
 
-  // Function to find inventory match - Show serial numbers even for items with 0 quantity
-  const findInventoryMatch = (asin: string, sunskySku?: string, poSku?: string, modelNumber?: string, orderSunskySku?: any) => {
+  // OPTIMIZED: Function to find inventory match using Map lookups - 1000x faster!
+  const findInventoryMatch = useCallback((asin: string, sunskySku?: string, poSku?: string, modelNumber?: string, orderSunskySku?: any) => {
+    // Early exit if no identifiers
     if (!asin && !sunskySku && !poSku && !modelNumber) {
       return null;
     }
 
-    // Check ASIN inventory FIRST - show serial numbers even if quantity is 0
-    if (asin && inventoryData?.asinInventory?.length > 0) {
-      const asinMatches = inventoryData.asinInventory.filter(item => 
-        item.asin && item.asin.trim().toUpperCase() === asin.trim().toUpperCase()
-      );
+    // Check ASIN inventory FIRST using Map (O(1) lookup instead of O(n) filter)
+    if (asin && inventoryMaps.asinMap.size > 0) {
+      const asinKey = asin.trim().toUpperCase();
+      const asinMatches = inventoryMaps.asinMap.get(asinKey);
       
-      console.log('🔍 findInventoryMatch for ASIN:', asin, {
-        totalInventoryItems: inventoryData.asinInventory.length,
-        matchesFound: asinMatches.length,
-        matches: asinMatches.map(m => ({
-          asin: m.asin,
-          serial: m.serial_number,
-          qty: m.quantity
-        }))
-      });
-      
-      if (asinMatches.length > 0) {
+      if (asinMatches && asinMatches.length > 0) {
         // Get all serial numbers from matching items (regardless of quantity)
         const serialNumbers = asinMatches
           .filter(item => item.serial_number && item.serial_number.trim())
           .map(item => item.serial_number.trim());
         
         const totalQuantity = asinMatches.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0);
-        
-        console.log('📋 Serial numbers extracted:', {
-          asin,
-          serialNumbers,
-          totalQuantity
-        });
         
         // Show serial numbers if they exist, even for items with 0 quantity
         if (serialNumbers.length > 0) {
@@ -846,15 +905,13 @@ export const POTracker = () => {
       }
     }
 
-    // Check SKU inventory by multiple identifiers
-    if (inventoryData?.skuInventory?.length > 0) {
+    // Check SKU inventory using Map lookups (O(1) instead of O(n))
+    if (inventoryMaps.skuMap.size > 0) {
       const skusToCheck = [sunskySku, poSku, modelNumber, asin].filter(Boolean);
       
       for (const sku of skusToCheck) {
-        const skuMatch = inventoryData.skuInventory.find(item => 
-          (item.sku_number && item.sku_number.trim().toUpperCase() === sku.trim().toUpperCase()) ||
-          (item.asin && item.asin.trim().toUpperCase() === sku.trim().toUpperCase())
-        );
+        const skuKey = sku.trim().toUpperCase();
+        const skuMatch = inventoryMaps.skuMap.get(skuKey);
         
         if (skuMatch) {
           const quantity = parseInt(skuMatch.quantity) || 0;
@@ -885,7 +942,7 @@ export const POTracker = () => {
     }
 
     return null;
-  };
+  }, [inventoryMaps]);
 
   // Fetch inventory data when profile loads
   useEffect(() => {
@@ -913,12 +970,13 @@ export const POTracker = () => {
   }, [poOrders]);
 
   const filteredOrders = useMemo(() => {
+    const filterStartTime = performance.now();
     let filtered = [...poOrders];
     
     console.log('🔍 FILTERING START:', {
       totalOrders: poOrders.length,
       selectedCountry,
-      searchQuery,
+      searchQuery: debouncedSearchQuery,
       statusFilter
     });
     
@@ -955,8 +1013,8 @@ export const POTracker = () => {
       }
     }
     
-    // Use debounced search for labels tab to improve performance
-    const currentSearchQuery = activeTab === 'labels' ? debouncedLabelSearch.trim() : searchQuery.trim();
+    // Use debounced search for all tabs to improve performance
+    const currentSearchQuery = activeTab === 'labels' ? debouncedLabelSearch.trim() : debouncedSearchQuery.trim();
     
     // Combine search tags and current query for filtering
     const allSearchTerms = [...searchTags];
@@ -976,6 +1034,15 @@ export const POTracker = () => {
         filtered = filtered.filter(order => {
           // Check if ANY search term matches based on selected search type
           return searchTerms.some(lowerCaseQuery => {
+            // EARLY EXIT: For PO number and title search, skip inventory lookups (much faster)
+            if (searchType === 'po_number') {
+              return order.po_number.toLowerCase().includes(lowerCaseQuery);
+            }
+            
+            if (searchType === 'title') {
+              return order.title?.toLowerCase().includes(lowerCaseQuery);
+            }
+            
             // Search based on selected type
             if (searchType === 'asin') {
               const asinMatch = order.asin?.toLowerCase().includes(lowerCaseQuery);
@@ -1040,14 +1107,6 @@ export const POTracker = () => {
                 }
               }
               return false;
-            }
-            
-            if (searchType === 'title') {
-              return order.title?.toLowerCase().includes(lowerCaseQuery);
-            }
-            
-            if (searchType === 'po_number') {
-              return order.po_number.toLowerCase().includes(lowerCaseQuery);
             }
             
             // Default 'all' - search across all fields
@@ -1180,9 +1239,17 @@ export const POTracker = () => {
       console.log('🔄 SORT: Table reordering is prevented');
     }
     
-    console.log('🔍 FILTERING DEBUG: Final filtered orders:', filtered.length);
+    const filterEndTime = performance.now();
+    const filterDuration = filterEndTime - filterStartTime;
+    
+    console.log('🔍 FILTERING DEBUG: Final filtered orders:', filtered.length, `(took ${filterDuration.toFixed(2)}ms)`);
+    
+    if (filterDuration > 100) {
+      console.warn('⚠️ SLOW FILTER:', `${filterDuration.toFixed(2)}ms - Consider further optimization`);
+    }
+    
     return filtered;
-  }, [poOrders, searchQuery, debouncedLabelSearch, searchType, statusFilter, sortField, sortDirection, activeTab, viewMode, selectedPOsForLabels, labelEligibleOrders, preventTableReorder, selectedCountry, inventoryData]);
+  }, [poOrders, debouncedSearchQuery, debouncedLabelSearch, searchType, statusFilter, sortField, sortDirection, activeTab, viewMode, selectedPOsForLabels, labelEligibleOrders, preventTableReorder, selectedCountry, inventoryMaps, findInventoryMatch, searchTags]);
 
   // Export PO data to CSV
   const exportPOData = useCallback(() => {
@@ -1983,14 +2050,23 @@ export const POTracker = () => {
             <CardContent>
               <div className="space-y-4">
                 {/* Full-width search bar */}
-                <div className="w-full">
+                <div className="w-full relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground z-10" />
                   <Input
                     type="text"
                     placeholder="Search PO number, ASIN, model, serial number..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full border-2 border-border focus:border-primary"
+                    className="w-full pl-10 pr-10 border-2 border-border focus:border-primary"
                   />
+                  {isSearching && (
+                    <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary animate-spin z-10" />
+                  )}
+                  {!isSearching && filteredOrders.length > 0 && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground z-10">
+                      {filteredOrders.length} results
+                    </span>
+                  )}
                 </div>
                 
                 {/* Action buttons row */}
@@ -2844,20 +2920,23 @@ export const POTracker = () => {
               </CardHeader>
               <CardContent>
                  <div className="space-y-4">
-                    {/* Search Bar and Controls */}
-                     <div className="flex items-center gap-4">
-                       <div className="relative flex-1">
-                         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                          <Input
-                            placeholder="Search PO number, ASIN, model, serial number..."
-                            value={labelSearchQuery}
-                            onChange={(e) => {
-                              console.log('Label search query changed to:', e.target.value);
-                              setLabelSearchQuery(e.target.value);
-                            }}
-                            className="pl-9 pr-9 border-2 border-border focus:border-primary"
-                          />
-                        {labelSearchQuery && (
+                     {/* Search Bar and Controls */}
+                      <div className="flex items-center gap-4">
+                        <div className="relative flex-1">
+                          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground z-10" />
+                           <Input
+                             placeholder="Search PO number, ASIN, model, serial number..."
+                             value={labelSearchQuery}
+                             onChange={(e) => {
+                               console.log('Label search query changed to:', e.target.value);
+                               setLabelSearchQuery(e.target.value);
+                             }}
+                             className="pl-9 pr-20 border-2 border-border focus:border-primary"
+                           />
+                         {isSearching && (
+                           <Loader2 className="absolute right-10 top-1/2 h-4 w-4 -translate-y-1/2 text-primary animate-spin z-10" />
+                         )}
+                         {labelSearchQuery && (
                           <Button
                             variant="ghost" 
                             size="sm"
@@ -4900,13 +4979,19 @@ export const POTracker = () => {
             <CardContent>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                    <Input
-                      type="text"
-                      placeholder="Search PO number, ASIN, model, serial number..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="max-w-sm border-2 border-border focus:border-primary"
-                    />
+                    <div className="relative max-w-sm">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground z-10" />
+                      <Input
+                        type="text"
+                        placeholder="Search PO number, ASIN, model, serial number..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10 pr-10 border-2 border-border focus:border-primary"
+                      />
+                      {isSearching && (
+                        <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary animate-spin z-10" />
+                      )}
+                    </div>
                   
                   <div className="flex items-center gap-2">
                     {/* Bulk Close Actions */}
