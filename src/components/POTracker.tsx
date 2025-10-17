@@ -1097,46 +1097,38 @@ export const POTracker = () => {
             
             if (searchType === 'serial') {
               // OPTIMIZED: Search serial numbers DIRECTLY in the serialMap
-              // This searches ALL serial numbers (ASIN serial_numbers + SKU bin_serial_numbers)
-              let foundSerial = false;
+              // Find inventory items with matching serial, then check if order matches those items
               
-              // Search in the serialMap for any serial containing the query
+              // First, collect all ASINs/SKUs that have the searched serial number
+              const matchingProducts = new Set<string>();
+              
               for (const [serialKey, item] of inventoryMaps.serialMap.entries()) {
                 if (serialKey.toLowerCase().includes(lowerCaseQuery)) {
-                  // Check if this serial belongs to the current order
-                  // Match by ASIN, SKU, or model number
-                  const matches = 
-                    (item.asin && order.asin && item.asin.trim().toUpperCase() === order.asin.trim().toUpperCase()) ||
-                    (item.sku && order.sku_code && item.sku.trim().toUpperCase() === order.sku_code.trim().toUpperCase()) ||
-                    (item.sku_number && order.sku_code && item.sku_number.trim().toUpperCase() === order.sku_code.trim().toUpperCase()) ||
-                    (item.asin && order.model_number && item.asin.trim().toUpperCase() === order.model_number.trim().toUpperCase());
-                  
-                  if (matches) {
-                    console.log('✅ SERIAL MATCH FOUND:', {
-                      searchQuery: lowerCaseQuery,
-                      serialFound: serialKey,
-                      orderPO: order.po_number,
-                      orderASIN: order.asin,
-                      orderSKU: order.sku_code,
-                      itemASIN: item.asin,
-                      itemSKU: item.sku || item.sku_number
-                    });
-                    foundSerial = true;
-                    break;
-                  }
+                  // Add all identifiers from this inventory item
+                  if (item.asin) matchingProducts.add(item.asin.trim().toUpperCase());
+                  if (item.sku) matchingProducts.add(item.sku.trim().toUpperCase());
+                  if (item.sku_number) matchingProducts.add(item.sku_number.trim().toUpperCase());
                 }
               }
               
-              if (!foundSerial) {
-                console.log('❌ NO SERIAL MATCH for:', {
+              // Now check if THIS order matches any of those products
+              const orderMatches = 
+                (order.asin && matchingProducts.has(order.asin.trim().toUpperCase())) ||
+                (order.sku_code && matchingProducts.has(order.sku_code.trim().toUpperCase())) ||
+                (order.model_number && matchingProducts.has(order.model_number.trim().toUpperCase()));
+              
+              if (orderMatches) {
+                console.log('✅ SERIAL MATCH - Order has product with serial:', {
                   searchQuery: lowerCaseQuery,
                   orderPO: order.po_number,
                   orderASIN: order.asin,
-                  orderSKU: order.sku_code
+                  orderSKU: order.sku_code,
+                  orderModel: order.model_number,
+                  matchingProducts: Array.from(matchingProducts)
                 });
               }
               
-              return foundSerial;
+              return orderMatches;
             }
             
             // Default 'all' - search across all fields
