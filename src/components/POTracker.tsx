@@ -3974,47 +3974,55 @@ export const POTracker = () => {
                   {/* Enhanced Search Bar with Printed Filter */}
                   <div className="mb-6 space-y-4">
                     <div className="flex gap-2">
-                      {/* Search Type Selector */}
-                      <Select value={searchType} onValueChange={(value: any) => setSearchType(value)}>
-                        <SelectTrigger className="w-[160px] h-12 border-2 border-primary/30 focus:border-primary bg-primary/5">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-popover border shadow-lg z-[100]">
-                          <SelectItem value="all">All Fields</SelectItem>
-                          <SelectItem value="asin">ASIN Only</SelectItem>
-                          <SelectItem value="sku">SKU Only</SelectItem>
-                          <SelectItem value="serial">Serial Number</SelectItem>
-                          <SelectItem value="title">Title Only</SelectItem>
-                          <SelectItem value="po_number">PO Number</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      
-                      {/* Chip Mode Selector */}
-                      <Select value={chipMode} onValueChange={(value: 'auto' | 'manual') => setChipMode(value)}>
-                        <SelectTrigger className="w-[140px] h-12 border-2 border-primary/30 focus:border-primary bg-primary/5">
-                          <SelectValue placeholder="Chip Mode" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-popover border shadow-lg z-[100]">
-                          <SelectItem value="auto">Auto Chip</SelectItem>
-                          <SelectItem value="manual">Manual Chip</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      {/* Unified Search Controls */}
+                      <div className="flex items-center gap-2 border-2 border-primary/30 rounded-md h-12 bg-primary/5 px-3">
+                        {/* Search Type Selector */}
+                        <Select value={searchType} onValueChange={(value: any) => setSearchType(value)}>
+                          <SelectTrigger className="w-[140px] h-8 border-none bg-transparent focus:ring-0">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover border shadow-lg z-[100]">
+                            <SelectItem value="all">All Fields</SelectItem>
+                            <SelectItem value="asin">ASIN Only</SelectItem>
+                            <SelectItem value="sku">SKU Only</SelectItem>
+                            <SelectItem value="serial">Serial Number</SelectItem>
+                            <SelectItem value="title">Title Only</SelectItem>
+                            <SelectItem value="po_number">PO Number</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        
+                        <div className="h-6 w-px bg-border" />
+                        
+                        {/* Chip Mode Selector */}
+                        <Select value={chipMode} onValueChange={(value: 'auto' | 'manual') => setChipMode(value)}>
+                          <SelectTrigger className="w-[110px] h-8 border-none bg-transparent focus:ring-0">
+                            <SelectValue placeholder="Chip Mode" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover border shadow-lg z-[100]">
+                            <SelectItem value="auto">Auto Chip</SelectItem>
+                            <SelectItem value="manual">Manual Chip</SelectItem>
+                          </SelectContent>
+                        </Select>
 
-                      {/* Chip Delay Input (only visible in auto mode) */}
-                      {chipMode === 'auto' && (
-                        <div className="flex items-center gap-2 border-2 border-primary/30 rounded-md px-3 h-12 bg-primary/5">
-                          <Clock className="h-4 w-4 text-primary" />
-                          <Input
-                            type="number"
-                            min="1"
-                            max="10"
-                            value={chipDelay}
-                            onChange={(e) => setChipDelay(Math.max(1, Math.min(10, parseInt(e.target.value) || 2)))}
-                            className="w-16 h-8 border-none bg-transparent text-center p-0 focus-visible:ring-0"
-                          />
-                          <span className="text-sm text-muted-foreground">sec</span>
-                        </div>
-                      )}
+                        {/* Chip Delay Input (only visible in auto mode) */}
+                        {chipMode === 'auto' && (
+                          <>
+                            <div className="h-6 w-px bg-border" />
+                            <div className="flex items-center gap-1.5">
+                              <Clock className="h-3.5 w-3.5 text-primary" />
+                              <Input
+                                type="number"
+                                min="1"
+                                max="10"
+                                value={chipDelay}
+                                onChange={(e) => setChipDelay(Math.max(1, Math.min(10, parseInt(e.target.value) || 2)))}
+                                className="w-12 h-7 border-none bg-transparent text-center p-0 focus-visible:ring-0"
+                              />
+                              <span className="text-xs text-muted-foreground">s</span>
+                            </div>
+                          </>
+                        )}
+                      </div>
                       
                       {/* Search Input with Tags */}
                       <div className="relative group flex-1">
