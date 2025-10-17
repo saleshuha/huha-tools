@@ -107,6 +107,8 @@ export const POTracker = () => {
   
   // Multi-tag search state
   const [searchTags, setSearchTags] = useState<string[]>([]);
+  const [chipMode, setChipMode] = useState<'auto' | 'manual'>('auto');
+  const [chipDelay, setChipDelay] = useState(2); // Default 2 seconds
   
   // Bulk delete state
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
@@ -132,9 +134,9 @@ export const POTracker = () => {
     };
   }, [searchQuery]);
 
-  // Auto-create chip after 8 seconds of inactivity (increased from 5)
+  // Auto-create chip based on chipMode and chipDelay settings
   useEffect(() => {
-    if (!labelSearchQuery.trim()) return;
+    if (!labelSearchQuery.trim() || chipMode === 'manual') return;
     
     const timer = setTimeout(() => {
       const trimmedQuery = labelSearchQuery.trim();
@@ -142,10 +144,10 @@ export const POTracker = () => {
         setSearchTags(prev => [...prev, trimmedQuery]);
         setLabelSearchQuery('');
       }
-    }, 8000);
+    }, chipDelay * 1000); // Convert seconds to milliseconds
     
     return () => clearTimeout(timer);
-  }, [labelSearchQuery, searchTags]);
+  }, [labelSearchQuery, searchTags, chipMode, chipDelay]);
   
   // Load saved print settings from localStorage or use defaults
   const defaultPrintSettings = {
@@ -3987,6 +3989,33 @@ export const POTracker = () => {
                         </SelectContent>
                       </Select>
                       
+                      {/* Chip Mode Selector */}
+                      <Select value={chipMode} onValueChange={(value: 'auto' | 'manual') => setChipMode(value)}>
+                        <SelectTrigger className="w-[140px] h-12 border-2 border-primary/30 focus:border-primary bg-primary/5">
+                          <SelectValue placeholder="Chip Mode" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-popover border shadow-lg z-[100]">
+                          <SelectItem value="auto">Auto Chip</SelectItem>
+                          <SelectItem value="manual">Manual Chip</SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      {/* Chip Delay Input (only visible in auto mode) */}
+                      {chipMode === 'auto' && (
+                        <div className="flex items-center gap-2 border-2 border-primary/30 rounded-md px-3 h-12 bg-primary/5">
+                          <Clock className="h-4 w-4 text-primary" />
+                          <Input
+                            type="number"
+                            min="1"
+                            max="10"
+                            value={chipDelay}
+                            onChange={(e) => setChipDelay(Math.max(1, Math.min(10, parseInt(e.target.value) || 2)))}
+                            className="w-16 h-8 border-none bg-transparent text-center p-0 focus-visible:ring-0"
+                          />
+                          <span className="text-sm text-muted-foreground">sec</span>
+                        </div>
+                      )}
+                      
                       {/* Search Input with Tags */}
                       <div className="relative group flex-1">
                         <Search className="absolute left-4 top-3 text-primary h-4 w-4 transition-colors z-10" />
@@ -4024,7 +4053,16 @@ export const POTracker = () => {
                               value={labelSearchQuery}
                               onChange={(e) => setLabelSearchQuery(e.target.value)}
                               onKeyDown={(e) => {
-                                // Only handle backspace for deleting tags
+                                // Handle Enter key to create chip manually
+                                if (e.key === 'Enter' && labelSearchQuery.trim()) {
+                                  e.preventDefault();
+                                  const trimmedQuery = labelSearchQuery.trim();
+                                  if (!searchTags.includes(trimmedQuery)) {
+                                    setSearchTags(prev => [...prev, trimmedQuery]);
+                                    setLabelSearchQuery('');
+                                  }
+                                }
+                                // Handle backspace for deleting tags
                                 if (e.key === 'Backspace' && !labelSearchQuery && searchTags.length > 0) {
                                   setSearchTags(prev => prev.slice(0, -1));
                                 }
