@@ -1096,6 +1096,22 @@ export const POTracker = () => {
             }
             
             if (searchType === 'serial') {
+              // Debug: Log what we're searching for and what's available
+              if (lowerCaseQuery === '00340') {
+                console.log('🔍 DEBUG SERIAL SEARCH "00340":', {
+                  serialMapSize: inventoryMaps.serialMap.size,
+                  allSerials: Array.from(inventoryMaps.serialMap.keys()),
+                  serialsContaining00340: Array.from(inventoryMaps.serialMap.keys()).filter(s => s.includes('00340') || s.includes('00340'.toUpperCase())),
+                  orderBeingChecked: {
+                    po: order.po_number,
+                    asin: order.asin,
+                    sku: order.sku_code,
+                    model: order.model_number,
+                    title: order.title
+                  }
+                });
+              }
+              
               // OPTIMIZED: Search serial numbers DIRECTLY in the serialMap
               // Find inventory items with matching serial, then check if order matches those items
               
@@ -1108,7 +1124,18 @@ export const POTracker = () => {
                   if (item.asin) matchingProducts.add(item.asin.trim().toUpperCase());
                   if (item.sku) matchingProducts.add(item.sku.trim().toUpperCase());
                   if (item.sku_number) matchingProducts.add(item.sku_number.trim().toUpperCase());
+                  
+                  console.log('🔍 Found serial match in map:', {
+                    serialKey,
+                    itemASIN: item.asin,
+                    itemSKU: item.sku || item.sku_number,
+                    itemType: item.sku_number ? 'SKU' : 'ASIN'
+                  });
                 }
+              }
+              
+              if (matchingProducts.size > 0) {
+                console.log('📋 Products with serial "' + lowerCaseQuery + '":', Array.from(matchingProducts));
               }
               
               // Now check if THIS order matches any of those products
