@@ -1,7 +1,6 @@
 import { AsinInventory } from './AsinInventory';
 import { Package } from 'lucide-react';
 import { HuhaHeader01 } from '@/components/ui/huha-header-01';
-import { InventoryStatsNotification } from './InventoryStatsNotification';
 
 export function Inventory() {
   console.log('Inventory component loaded, current view:', 'main');
@@ -24,8 +23,7 @@ export function Inventory() {
         />
         
         {/* Enhanced Content Container */}
-        <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl rounded-3xl border border-white/20 dark:border-slate-700/30 shadow-2xl shadow-blue-500/10 mx-6 p-6">
-          <InventoryStatsNotification />
+        <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl rounded-3xl border border-white/20 dark:border-slate-700/30 shadow-2xl shadow-blue-500/10 mx-6">
           <AsinInventory />
         </div>
       </div>
