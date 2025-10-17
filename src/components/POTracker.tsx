@@ -234,12 +234,18 @@ export const POTracker = () => {
 
   // Create indexed lookup maps for O(1) inventory matching (CRITICAL OPTIMIZATION)
   const inventoryMaps = useMemo(() => {
-    console.log('🗺️ Building inventory lookup maps...');
+    console.log('🗺️ Building inventory lookup maps...', {
+      asinInventoryCount: inventoryData.asinInventory.length,
+      skuInventoryCount: inventoryData.skuInventory.length
+    });
     const startTime = performance.now();
     
     const asinMap = new Map<string, any[]>();
     const skuMap = new Map<string, any>();
     const serialMap = new Map<string, any>();
+    
+    let asinSerialCount = 0;
+    let skuBinSerialCount = 0;
     
     // Build ASIN map with normalized keys
     inventoryData.asinInventory.forEach(item => {
@@ -255,6 +261,7 @@ export const POTracker = () => {
       if (item.serial_number) {
         const serialKey = item.serial_number.trim().toUpperCase();
         serialMap.set(serialKey, item);
+        asinSerialCount++;
       }
     });
     
@@ -277,6 +284,7 @@ export const POTracker = () => {
       if (item.bin_serial_number) {
         const binKey = item.bin_serial_number.trim().toUpperCase();
         serialMap.set(binKey, item);
+        skuBinSerialCount++;
       }
     });
     
@@ -285,6 +293,9 @@ export const POTracker = () => {
       asinMapSize: asinMap.size,
       skuMapSize: skuMap.size,
       serialMapSize: serialMap.size,
+      asinSerialsIndexed: asinSerialCount,
+      skuBinSerialsIndexed: skuBinSerialCount,
+      sampleSerials: Array.from(serialMap.keys()).slice(0, 10),
       buildTime: `${(endTime - startTime).toFixed(2)}ms`
     });
     
@@ -1094,18 +1105,43 @@ export const POTracker = () => {
                 order.sunsky_sku
               );
               
+              console.log('🔍 SERIAL SEARCH:', {
+                searchQuery: lowerCaseQuery,
+                orderASIN: order.asin,
+                orderSKU: order.sku_code,
+                orderPO: order.po_number,
+                hasInventoryMatch: !!inventoryMatch,
+                matchType: inventoryMatch?.type,
+                serialNumbers: inventoryMatch?.serialNumbers,
+                serialNumber: inventoryMatch?.serialNumber,
+                mapSizes: {
+                  asinMap: inventoryMaps.asinMap.size,
+                  skuMap: inventoryMaps.skuMap.size,
+                  serialMap: inventoryMaps.serialMap.size
+                }
+              });
+              
               if (inventoryMatch) {
                 // Check ASIN inventory serial numbers
                 if (inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0) {
-                  return inventoryMatch.serialNumbers.some(serial => 
+                  const found = inventoryMatch.serialNumbers.some(serial => 
                     serial?.toLowerCase().includes(lowerCaseQuery)
                   );
+                  if (found) {
+                    console.log('✅ SERIAL MATCH FOUND in ASIN inventory:', inventoryMatch.serialNumbers);
+                  }
+                  return found;
                 }
                 // Check SKU inventory serial number (bin number)
                 if (inventoryMatch.serialNumber) {
-                  return inventoryMatch.serialNumber.toLowerCase().includes(lowerCaseQuery);
+                  const found = inventoryMatch.serialNumber.toLowerCase().includes(lowerCaseQuery);
+                  if (found) {
+                    console.log('✅ SERIAL MATCH FOUND in SKU inventory:', inventoryMatch.serialNumber);
+                  }
+                  return found;
                 }
               }
+              console.log('❌ NO SERIAL MATCH for this order');
               return false;
             }
             
