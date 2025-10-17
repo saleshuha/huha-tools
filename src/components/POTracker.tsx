@@ -1096,53 +1096,47 @@ export const POTracker = () => {
             }
             
             if (searchType === 'serial') {
-              // Search serial numbers from inventory
-              const inventoryMatch = findInventoryMatch(
-                order.asin, 
-                order.sunsky_sku?.sku_code, 
-                order.sku_code, 
-                order.model_number,
-                order.sunsky_sku
-              );
+              // OPTIMIZED: Search serial numbers DIRECTLY in the serialMap
+              // This searches ALL serial numbers (ASIN serial_numbers + SKU bin_serial_numbers)
+              let foundSerial = false;
               
-              console.log('🔍 SERIAL SEARCH:', {
-                searchQuery: lowerCaseQuery,
-                orderASIN: order.asin,
-                orderSKU: order.sku_code,
-                orderPO: order.po_number,
-                hasInventoryMatch: !!inventoryMatch,
-                matchType: inventoryMatch?.type,
-                serialNumbers: inventoryMatch?.serialNumbers,
-                serialNumber: inventoryMatch?.serialNumber,
-                mapSizes: {
-                  asinMap: inventoryMaps.asinMap.size,
-                  skuMap: inventoryMaps.skuMap.size,
-                  serialMap: inventoryMaps.serialMap.size
-                }
-              });
-              
-              if (inventoryMatch) {
-                // Check ASIN inventory serial numbers
-                if (inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0) {
-                  const found = inventoryMatch.serialNumbers.some(serial => 
-                    serial?.toLowerCase().includes(lowerCaseQuery)
-                  );
-                  if (found) {
-                    console.log('✅ SERIAL MATCH FOUND in ASIN inventory:', inventoryMatch.serialNumbers);
+              // Search in the serialMap for any serial containing the query
+              for (const [serialKey, item] of inventoryMaps.serialMap.entries()) {
+                if (serialKey.toLowerCase().includes(lowerCaseQuery)) {
+                  // Check if this serial belongs to the current order
+                  // Match by ASIN, SKU, or model number
+                  const matches = 
+                    (item.asin && order.asin && item.asin.trim().toUpperCase() === order.asin.trim().toUpperCase()) ||
+                    (item.sku && order.sku_code && item.sku.trim().toUpperCase() === order.sku_code.trim().toUpperCase()) ||
+                    (item.sku_number && order.sku_code && item.sku_number.trim().toUpperCase() === order.sku_code.trim().toUpperCase()) ||
+                    (item.asin && order.model_number && item.asin.trim().toUpperCase() === order.model_number.trim().toUpperCase());
+                  
+                  if (matches) {
+                    console.log('✅ SERIAL MATCH FOUND:', {
+                      searchQuery: lowerCaseQuery,
+                      serialFound: serialKey,
+                      orderPO: order.po_number,
+                      orderASIN: order.asin,
+                      orderSKU: order.sku_code,
+                      itemASIN: item.asin,
+                      itemSKU: item.sku || item.sku_number
+                    });
+                    foundSerial = true;
+                    break;
                   }
-                  return found;
-                }
-                // Check SKU inventory serial number (bin number)
-                if (inventoryMatch.serialNumber) {
-                  const found = inventoryMatch.serialNumber.toLowerCase().includes(lowerCaseQuery);
-                  if (found) {
-                    console.log('✅ SERIAL MATCH FOUND in SKU inventory:', inventoryMatch.serialNumber);
-                  }
-                  return found;
                 }
               }
-              console.log('❌ NO SERIAL MATCH for this order');
-              return false;
+              
+              if (!foundSerial) {
+                console.log('❌ NO SERIAL MATCH for:', {
+                  searchQuery: lowerCaseQuery,
+                  orderPO: order.po_number,
+                  orderASIN: order.asin,
+                  orderSKU: order.sku_code
+                });
+              }
+              
+              return foundSerial;
             }
             
             // Default 'all' - search across all fields
