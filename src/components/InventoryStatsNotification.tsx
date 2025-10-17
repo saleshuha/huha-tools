@@ -59,19 +59,19 @@ export function InventoryStatsNotification() {
   if (loading) return null;
 
   return (
-    <Alert className="mb-4 border-2 border-border/60 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-blue-950/20 dark:to-indigo-950/20">
-      <Info className="h-4 w-4 text-primary" />
-      <AlertDescription className="flex items-center gap-6 text-sm">
-        <div className="flex items-center gap-2">
-          <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+    <Alert className="mb-3 py-2 border-2 border-border/60 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-blue-950/20 dark:to-indigo-950/20">
+      <Info className="h-3.5 w-3.5 text-primary" />
+      <AlertDescription className="flex items-center gap-4 text-xs leading-none py-0.5">
+        <div className="flex items-center gap-1.5">
+          <TrendingUp className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
           <span className="font-medium text-foreground">
             {stats.recentlyAdded} items
           </span>
           <span className="text-muted-foreground">added in last 30 days</span>
         </div>
-        <div className="h-4 w-px bg-border/60" />
-        <div className="flex items-center gap-2">
-          <PackageX className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+        <div className="h-3 w-px bg-border/60" />
+        <div className="flex items-center gap-1.5">
+          <PackageX className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
           <span className="font-medium text-foreground">
             {stats.notInStock} items
           </span>
