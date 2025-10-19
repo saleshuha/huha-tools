@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
-import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, AlertTriangle, FileText, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, Copy, CheckCircle2, Info } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, AlertTriangle, FileText, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, Copy, CheckCircle2, Info, TrendingDown } from 'lucide-react';
 import { SortableTableHeader } from '@/components/order-processing/SortableTableHeader';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -21,6 +21,7 @@ import { POFileUpload } from '@/components/po/POFileUpload';
 import { POProfitAnalytics } from '@/components/po/POProfitAnalytics';
 import { POReportsSection } from '@/components/po/POReportsSection';
 import { POPrintDialog } from '@/components/po/POPrintDialog';
+import { POMetricsCard } from '@/components/po/POMetricsCard';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { usePOOrders } from '@/hooks/usePOOrders';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -31,6 +32,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { PrintService } from '@/services/print-service';
 import { LabelDoc, LabelDataset, LabelElement, LabelSize } from '@/types/label';
+import { exportMetricToCSV, exportAllMetrics, calculateMetricPercentage } from '@/utils/po-metrics-export';
 
 export interface POOrder {
   id: string;
@@ -86,6 +88,10 @@ export const POTracker = () => {
   const [viewMode, setViewMode] = useState<'grouped' | 'detailed'>('grouped');
   const [processingProgress, setProcessingProgress] = useState(0);
   const [processingStatus, setProcessingStatus] = useState('');
+  
+  // Metrics filter state
+  const [selectedMetricFilter, setSelectedMetricFilter] = useState<string | null>(null);
+  const [exportingMetric, setExportingMetric] = useState<string | null>(null);
   
   // Sorting state
   const [sortField, setSortField] = useState<keyof POOrder | 'combined_title'>('po_number');
@@ -364,6 +370,155 @@ export const POTracker = () => {
       console.log('🔄 SORT: Changing field to:', field, 'Setting direction to: asc');
       setSortField(field);  
       setSortDirection('asc');
+    }
+  };
+
+  // PHASE 3: Metric click handler for filtering
+  const handleMetricClick = (metricType: string) => {
+    console.log('📊 Metric clicked:', metricType);
+    setSelectedMetricFilter(selectedMetricFilter === metricType ? null : metricType);
+    // Scroll to table smoothly
+    setTimeout(() => {
+      const tableElement = document.querySelector('[data-table="po-main"]');
+      if (tableElement) {
+        tableElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
+  };
+
+  // PHASE 4: Export metric data
+  const handleExportMetric = async (metricType: string) => {
+    setExportingMetric(metricType);
+    try {
+      let ordersToExport: POOrder[] = [];
+      
+      switch (metricType) {
+        case 'in-stock':
+          ordersToExport = calculatedMetrics.inStock.orders;
+          break;
+        case 'out-of-stock':
+          ordersToExport = calculatedMetrics.outOfStock.orders;
+          break;
+        case 'not-matched':
+          ordersToExport = calculatedMetrics.notMatched.orders;
+          break;
+        case 'matched':
+          ordersToExport = calculatedMetrics.matched.orders;
+          break;
+        case 'placed':
+          ordersToExport = calculatedMetrics.placed.orders;
+          break;
+        case 'pending':
+          ordersToExport = calculatedMetrics.pending.orders;
+          break;
+        default:
+          ordersToExport = poOrders;
+      }
+      
+      if (ordersToExport.length === 0) {
+        toast({
+          title: 'No data to export',
+          description: `No orders found for ${metricType} metric`,
+          variant: 'destructive'
+        });
+        return;
+      }
+      
+      exportMetricToCSV(ordersToExport, metricType);
+      
+      toast({
+        title: 'Export successful',
+        description: `Exported ${ordersToExport.length} orders`
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: 'Export failed',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive'
+      });
+    } finally {
+      setExportingMetric(null);
+    }
+  };
+
+  // PHASE 4: Export all metrics
+  const handleExportAllMetrics = async () => {
+    setExportingMetric('all');
+    try {
+      const totalItems = comprehensiveMetrics?.total_line_items || poOrders.length;
+      
+      exportAllMetrics({
+        summary: [
+          { 
+            name: 'Total Items', 
+            value: totalItems,
+            subValue: `${comprehensiveMetrics?.total_quantity || 0} units`
+          },
+          { 
+            name: 'In Stock', 
+            value: calculatedMetrics.inStock.count,
+            subValue: `${calculatedMetrics.inStock.qty} units`,
+            percentage: calculateMetricPercentage(calculatedMetrics.inStock.count, totalItems)
+          },
+          { 
+            name: 'Out of Stock', 
+            value: calculatedMetrics.outOfStock.count,
+            subValue: `${calculatedMetrics.outOfStock.qty} units`,
+            percentage: calculateMetricPercentage(calculatedMetrics.outOfStock.count, totalItems)
+          },
+          { 
+            name: 'Not Matched', 
+            value: calculatedMetrics.notMatched.count,
+            subValue: `${calculatedMetrics.notMatched.qty} units`,
+            percentage: calculateMetricPercentage(calculatedMetrics.notMatched.count, totalItems)
+          },
+          { 
+            name: 'Matched', 
+            value: calculatedMetrics.matched.count,
+            subValue: `${calculatedMetrics.matched.qty} units`,
+            percentage: calculateMetricPercentage(calculatedMetrics.matched.count, totalItems)
+          },
+          { 
+            name: 'Placed', 
+            value: calculatedMetrics.placed.count,
+            subValue: `${calculatedMetrics.placed.qty} units`,
+            percentage: calculateMetricPercentage(calculatedMetrics.placed.count, totalItems)
+          },
+          { 
+            name: 'Pending', 
+            value: calculatedMetrics.pending.count,
+            subValue: `${calculatedMetrics.pending.qty} units`,
+            percentage: calculateMetricPercentage(calculatedMetrics.pending.count, totalItems)
+          },
+          { 
+            name: 'Fulfillment Rate', 
+            value: calculatedMetrics.fulfillmentRate,
+            subValue: `${calculatedMetrics.placed.count} / ${calculatedMetrics.matched.count} fulfilled`,
+            percentage: calculatedMetrics.fulfillmentRate
+          }
+        ],
+        inStock: calculatedMetrics.inStock.orders,
+        outOfStock: calculatedMetrics.outOfStock.orders,
+        notMatched: calculatedMetrics.notMatched.orders,
+        matched: calculatedMetrics.matched.orders,
+        placed: calculatedMetrics.placed.orders,
+        pending: calculatedMetrics.pending.orders
+      });
+      
+      toast({
+        title: 'All metrics exported',
+        description: 'Successfully exported complete metrics report'
+      });
+    } catch (error) {
+      console.error('Export all error:', error);
+      toast({
+        title: 'Export failed',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive'
+      });
+    } finally {
+      setExportingMetric(null);
     }
   };
 
@@ -956,6 +1111,94 @@ export const POTracker = () => {
 
     return null;
   }, [inventoryMaps]);
+
+  // Memoized metrics calculations for all cards (PHASE 1: Performance optimization)
+  const calculatedMetrics = useMemo(() => {
+    const startTime = performance.now();
+    console.log('📊 Calculating metrics for', poOrders.length, 'orders...');
+    
+    // In Stock - items with ASIN matches and quantity > 0
+    const inStockOrders = poOrders.filter(order => {
+      if (!order.asin) return false;
+      const inventoryMatch = findInventoryMatch(
+        order.asin,
+        order.sunsky_sku?.sku_code,
+        order.sku_code,
+        order.model_number,
+        order.sunsky_sku
+      );
+      return inventoryMatch && inventoryMatch.quantity > 0;
+    });
+    
+    // Out of Stock - items with ASIN matches but quantity = 0
+    const outOfStockOrders = poOrders.filter(order => {
+      if (!order.asin) return false;
+      const inventoryMatch = findInventoryMatch(
+        order.asin,
+        order.sunsky_sku?.sku_code,
+        order.sku_code,
+        order.model_number,
+        order.sunsky_sku
+      );
+      return inventoryMatch && inventoryMatch.quantity === 0;
+    });
+    
+    // Not Matched - items without sunsky_sku
+    const notMatchedOrders = poOrders.filter(order => !order.sunsky_sku);
+    
+    // Matched - items with sunsky_sku
+    const matchedOrders = poOrders.filter(order => order.sunsky_sku !== null);
+    
+    // Placed - items with placed or received status
+    const placedOrders = poOrders.filter(order => 
+      ['placed', 'received'].includes(order.status)
+    );
+    
+    // Pending - items with pending status and matched
+    const pendingOrders = poOrders.filter(order => 
+      order.status === 'pending' && order.sunsky_sku !== null
+    );
+    
+    // Calculate quantities
+    const inStockQty = inStockOrders.reduce((sum, o) => sum + (o.quantity || 0), 0);
+    const outOfStockQty = outOfStockOrders.reduce((sum, o) => sum + (o.quantity || 0), 0);
+    const notMatchedQty = notMatchedOrders.reduce((sum, o) => sum + (o.quantity || 0), 0);
+    const matchedQty = matchedOrders.reduce((sum, o) => sum + (o.quantity || 0), 0);
+    const placedQty = placedOrders.reduce((sum, o) => sum + (o.quantity || 0), 0);
+    const pendingQty = pendingOrders.reduce((sum, o) => sum + (o.quantity || 0), 0);
+    
+    // Calculate total value if cost data available
+    const totalValue = poOrders.reduce((sum, o) => 
+      sum + ((o.unit_cost || 0) * (o.quantity || 0)), 0
+    );
+    const placedValue = placedOrders.reduce((sum, o) => 
+      sum + ((o.unit_cost || 0) * (o.quantity || 0)), 0
+    );
+    const pendingValue = pendingOrders.reduce((sum, o) => 
+      sum + ((o.unit_cost || 0) * (o.quantity || 0)), 0
+    );
+    
+    // Fulfillment rate
+    const totalMatchedCount = matchedOrders.length;
+    const fulfilledCount = placedOrders.length;
+    const fulfillmentRate = totalMatchedCount > 0 
+      ? (fulfilledCount / totalMatchedCount) * 100 
+      : 0;
+    
+    const endTime = performance.now();
+    console.log('📊 Metrics calculated in', (endTime - startTime).toFixed(2), 'ms');
+    
+    return {
+      inStock: { orders: inStockOrders, count: inStockOrders.length, qty: inStockQty },
+      outOfStock: { orders: outOfStockOrders, count: outOfStockOrders.length, qty: outOfStockQty },
+      notMatched: { orders: notMatchedOrders, count: notMatchedOrders.length, qty: notMatchedQty },
+      matched: { orders: matchedOrders, count: matchedOrders.length, qty: matchedQty },
+      placed: { orders: placedOrders, count: placedOrders.length, qty: placedQty, value: placedValue },
+      pending: { orders: pendingOrders, count: pendingOrders.length, qty: pendingQty, value: pendingValue },
+      totalValue,
+      fulfillmentRate
+    };
+  }, [poOrders, inventoryMaps, findInventoryMatch]);
 
   // Fetch inventory data when profile loads
   useEffect(() => {
@@ -2002,116 +2245,263 @@ export const POTracker = () => {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-            <Card className="relative overflow-hidden border-l-4 border-l-primary bg-gradient-to-br from-primary/5 to-background">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-primary text-sm">
-                  <Package className="h-4 w-4" />
-                  {viewMode === 'grouped' ? 'Unique POs' : 'Line Items'}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pb-3">
-                <div className="text-xl font-bold">
-                  {viewMode === 'grouped' ? 
-                    (comprehensiveMetrics?.unique_po_numbers || groupedPOOrders.length) :
-                    (comprehensiveMetrics?.total_line_items || poOrders.length)
-                  }
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {viewMode === 'grouped' ? 
-                    `${comprehensiveMetrics?.total_line_items || poOrders.length} items` :
-                    `${comprehensiveMetrics?.total_quantity || poOrders.reduce((sum, order) => sum + (order.quantity || 0), 0)} units`
-                  }
-                </div>
-                {isLoadingComprehensiveMetrics && (
-                  <Loader2 className="h-3 w-3 animate-spin mt-1" />
-                )}
-              </CardContent>
-            </Card>
+          {/* PHASE 6: Enhanced responsive grid layout */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+            {/* Total Items Card */}
+            <POMetricsCard
+              title={viewMode === 'grouped' ? 'Unique POs' : 'Line Items'}
+              icon={Package}
+              value={
+                viewMode === 'grouped'
+                  ? comprehensiveMetrics?.unique_po_numbers || groupedPOOrders.length
+                  : comprehensiveMetrics?.total_line_items || poOrders.length
+              }
+              subValue={
+                viewMode === 'grouped'
+                  ? `${comprehensiveMetrics?.total_line_items || poOrders.length} items`
+                  : `${comprehensiveMetrics?.total_quantity || poOrders.reduce((sum, order) => sum + (order.quantity || 0), 0)} units`
+              }
+              isLoading={isLoadingComprehensiveMetrics}
+              colorClass="from-primary/5"
+              borderColorClass="border-l-primary"
+              textColorClass="text-primary"
+              tooltipText="Total purchase orders or line items"
+            />
 
-            <Card className="relative overflow-hidden border-l-4 border-l-success bg-gradient-to-br from-success/5 to-background">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-success text-sm">
-                  <TrendingUp className="h-4 w-4" />
-                  In Stock
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pb-3">
-                <div className="text-xl font-bold">
-                  {(() => {
-                    const matchedInStock = poOrders.filter(order => {
-                      if (!order.asin) return false;
-                      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku);
-                      return inventoryMatch && inventoryMatch.quantity > 0;
-                    });
-                    return matchedInStock.length;
-                  })()}
-                </div>
-                <div className="text-xs text-success/80">
-                  {(() => {
-                    const matchedInStock = poOrders.filter(order => {
-                      if (!order.asin) return false;
-                      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku);
-                      return inventoryMatch && inventoryMatch.quantity > 0;
-                    });
-                    const totalQty = matchedInStock.reduce((sum, order) => sum + (order.quantity || 0), 0);
-                    return `${totalQty} units`;
-                  })()}
-                </div>
-              </CardContent>
-            </Card>
+            {/* PHASE 2: In Stock Card - Enhanced with click and export */}
+            <POMetricsCard
+              title="In Stock"
+              icon={TrendingUp}
+              value={calculatedMetrics.inStock.count}
+              subValue={`${calculatedMetrics.inStock.qty} units`}
+              percentage={calculateMetricPercentage(
+                calculatedMetrics.inStock.count,
+                poOrders.length
+              )}
+              onClick={() => handleMetricClick('in-stock')}
+              onExport={() => handleExportMetric('in-stock')}
+              isExporting={exportingMetric === 'in-stock'}
+              isActive={selectedMetricFilter === 'in-stock'}
+              colorClass="from-success/5"
+              borderColorClass="border-l-success"
+              textColorClass="text-success"
+              tooltipText="Click to show only in-stock items"
+            />
 
-            <Card className="relative overflow-hidden border-l-4 border-l-green-500 bg-gradient-to-br from-green-500/5 to-background">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-green-600 text-sm">
-                  <CheckCircle className="h-4 w-4" />
-                  Matched
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pb-3">
-                <div className="text-xl font-bold">
-                  {poOrders.filter(order => order.sunsky_sku !== null).length}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {poOrders.filter(order => order.sunsky_sku !== null).reduce((sum, order) => sum + (order.quantity || 0), 0)} units
-                </div>
-              </CardContent>
-            </Card>
+            {/* PHASE 2: Out of Stock Card - New */}
+            <POMetricsCard
+              title="Out of Stock"
+              icon={AlertTriangle}
+              value={calculatedMetrics.outOfStock.count}
+              subValue={`${calculatedMetrics.outOfStock.qty} units`}
+              percentage={calculateMetricPercentage(
+                calculatedMetrics.outOfStock.count,
+                poOrders.length
+              )}
+              onClick={() => handleMetricClick('out-of-stock')}
+              onExport={() => handleExportMetric('out-of-stock')}
+              isExporting={exportingMetric === 'out-of-stock'}
+              isActive={selectedMetricFilter === 'out-of-stock'}
+              colorClass="from-destructive/5"
+              borderColorClass="border-l-destructive"
+              textColorClass="text-destructive"
+              tooltipText="Click to show out-of-stock items"
+            />
 
-            <Card className="relative overflow-hidden border-l-4 border-l-blue-500 bg-gradient-to-br from-blue-500/5 to-background">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-blue-600 text-sm">
-                  <Truck className="h-4 w-4" />
-                  Placed
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pb-3">
-                <div className="text-xl font-bold">
-                  {comprehensiveMetrics?.placed_line_items || poOrders.filter(order => ['placed', 'received'].includes(order.status)).length}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {comprehensiveMetrics?.placed_quantity || poOrders.filter(order => ['placed', 'received'].includes(order.status)).reduce((sum, order) => sum + (order.quantity || 0), 0)} units
-                </div>
-              </CardContent>
-            </Card>
+            {/* PHASE 2: Not Matched Card - New */}
+            <POMetricsCard
+              title="Not Matched"
+              icon={Search}
+              value={calculatedMetrics.notMatched.count}
+              subValue={`${calculatedMetrics.notMatched.qty} units`}
+              percentage={calculateMetricPercentage(
+                calculatedMetrics.notMatched.count,
+                poOrders.length
+              )}
+              onClick={() => handleMetricClick('not-matched')}
+              onExport={() => handleExportMetric('not-matched')}
+              isExporting={exportingMetric === 'not-matched'}
+              isActive={selectedMetricFilter === 'not-matched'}
+              colorClass="from-muted/5"
+              borderColorClass="border-l-muted-foreground"
+              textColorClass="text-muted-foreground"
+              tooltipText="Click to show unmatched items"
+            />
 
-            <Card className="relative overflow-hidden border-l-4 border-l-orange-500 bg-gradient-to-br from-orange-500/5 to-background">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-orange-600 text-sm">
-                  <Clock className="h-4 w-4" />
-                  Pending
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pb-3">
-                <div className="text-xl font-bold">
-                  {comprehensiveMetrics?.pending_line_items || poOrders.filter(order => order.status === 'pending' && order.sunsky_sku !== null).length}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {comprehensiveMetrics?.pending_quantity || poOrders.filter(order => order.status === 'pending' && order.sunsky_sku !== null).reduce((sum, order) => sum + (order.quantity || 0), 0)} units
-                </div>
-              </CardContent>
-            </Card>
+            {/* Matched Card - Enhanced */}
+            <POMetricsCard
+              title="Matched"
+              icon={CheckCircle}
+              value={calculatedMetrics.matched.count}
+              subValue={`${calculatedMetrics.matched.qty} units`}
+              percentage={calculateMetricPercentage(
+                calculatedMetrics.matched.count,
+                poOrders.length
+              )}
+              onClick={() => handleMetricClick('matched')}
+              onExport={() => handleExportMetric('matched')}
+              isExporting={exportingMetric === 'matched'}
+              isActive={selectedMetricFilter === 'matched'}
+              colorClass="from-green-500/5"
+              borderColorClass="border-l-green-500"
+              textColorClass="text-green-600"
+              tooltipText="Click to show matched items"
+            />
+
+            {/* Placed Card - Enhanced */}
+            <POMetricsCard
+              title="Placed"
+              icon={Truck}
+              value={calculatedMetrics.placed.count}
+              subValue={`${calculatedMetrics.placed.qty} units`}
+              percentage={calculateMetricPercentage(
+                calculatedMetrics.placed.count,
+                poOrders.length
+              )}
+              onClick={() => handleMetricClick('placed')}
+              onExport={() => handleExportMetric('placed')}
+              isExporting={exportingMetric === 'placed'}
+              isActive={selectedMetricFilter === 'placed'}
+              colorClass="from-blue-500/5"
+              borderColorClass="border-l-blue-500"
+              textColorClass="text-blue-600"
+              tooltipText="Click to show placed orders"
+            />
+
+            {/* Pending Card - Enhanced */}
+            <POMetricsCard
+              title="Pending"
+              icon={Clock}
+              value={calculatedMetrics.pending.count}
+              subValue={`${calculatedMetrics.pending.qty} units`}
+              percentage={calculateMetricPercentage(
+                calculatedMetrics.pending.count,
+                poOrders.length
+              )}
+              onClick={() => handleMetricClick('pending')}
+              onExport={() => handleExportMetric('pending')}
+              isExporting={exportingMetric === 'pending'}
+              isActive={selectedMetricFilter === 'pending'}
+              colorClass="from-orange-500/5"
+              borderColorClass="border-l-orange-500"
+              textColorClass="text-orange-600"
+              tooltipText="Click to show pending orders"
+            />
+
+            {/* PHASE 2: Fulfillment Rate Card - New */}
+            <POMetricsCard
+              title="Fulfillment Rate"
+              icon={calculatedMetrics.fulfillmentRate >= 50 ? TrendingUp : TrendingDown}
+              value={`${calculatedMetrics.fulfillmentRate.toFixed(1)}%`}
+              subValue={`${calculatedMetrics.placed.count} / ${calculatedMetrics.matched.count}`}
+              percentage={calculatedMetrics.fulfillmentRate}
+              colorClass={
+                calculatedMetrics.fulfillmentRate >= 75
+                  ? 'from-success/5'
+                  : calculatedMetrics.fulfillmentRate >= 50
+                  ? 'from-blue-500/5'
+                  : 'from-orange-500/5'
+              }
+              borderColorClass={
+                calculatedMetrics.fulfillmentRate >= 75
+                  ? 'border-l-success'
+                  : calculatedMetrics.fulfillmentRate >= 50
+                  ? 'border-l-blue-500'
+                  : 'border-l-orange-500'
+              }
+              textColorClass={
+                calculatedMetrics.fulfillmentRate >= 75
+                  ? 'text-success'
+                  : calculatedMetrics.fulfillmentRate >= 50
+                  ? 'text-blue-600'
+                  : 'text-orange-600'
+              }
+              tooltipText="Placed orders / Matched orders ratio"
+            />
+
+            {/* PHASE 2: Total Value Card - New (if cost data available) */}
+            {calculatedMetrics.totalValue > 0 && (
+              <POMetricsCard
+                title="Total Value"
+                icon={DollarSign}
+                value={`$${calculatedMetrics.totalValue.toLocaleString()}`}
+                subValue={`Pending: $${calculatedMetrics.pending.value.toLocaleString()}`}
+                colorClass="from-purple-500/5"
+                borderColorClass="border-l-purple-500"
+                textColorClass="text-purple-600"
+                tooltipText="Total monetary value of all orders"
+              />
+            )}
           </div>
+
+          {/* PHASE 4: Export All Metrics Button */}
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportAllMetrics}
+              disabled={exportingMetric === 'all'}
+            >
+              {exportingMetric === 'all' ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Exporting...
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4 mr-2" />
+                  Export All Metrics
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* PHASE 5: Status Breakdown Popover */}
+          {comprehensiveMetrics?.status_breakdown && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Info className="h-5 w-5" />
+                  Status Breakdown
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {Object.entries(comprehensiveMetrics.status_breakdown as Record<string, number>).map(
+                    ([status, count]) => (
+                      <div key={status} className="space-y-1">
+                        <div className="text-sm text-muted-foreground capitalize">
+                          {status.replace('_', ' ')}
+                        </div>
+                        <div className="text-2xl font-bold">{count}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {calculateMetricPercentage(count, poOrders.length).toFixed(1)}%
+                        </div>
+                      </div>
+                    )
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Active filter indicator */}
+          {selectedMetricFilter && (
+            <div className="flex items-center gap-2 p-3 bg-primary/10 rounded-md">
+              <Filter className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium">
+                Filtering by: <span className="capitalize">{selectedMetricFilter.replace('-', ' ')}</span>
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedMetricFilter(null)}
+                className="ml-auto"
+              >
+                Clear Filter
+              </Button>
+            </div>
+          )}
 
           <Card>
             <CardHeader>
