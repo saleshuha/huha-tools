@@ -2002,90 +2002,113 @@ export const POTracker = () => {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
             <Card className="relative overflow-hidden border-l-4 border-l-primary bg-gradient-to-br from-primary/5 to-background">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-primary">
-                  <Package className="h-5 w-5" />
-                  {viewMode === 'grouped' ? 'Unique PO Numbers' : 'Total Line Items'}
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-primary text-sm">
+                  <Package className="h-4 w-4" />
+                  {viewMode === 'grouped' ? 'Unique POs' : 'Line Items'}
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
+              <CardContent className="pb-3">
+                <div className="text-xl font-bold">
                   {viewMode === 'grouped' ? 
                     (comprehensiveMetrics?.unique_po_numbers || groupedPOOrders.length) :
                     (comprehensiveMetrics?.total_line_items || poOrders.length)
                   }
                 </div>
-                <div className="text-sm text-muted-foreground">
+                <div className="text-xs text-muted-foreground">
                   {viewMode === 'grouped' ? 
-                    `Line Items: ${comprehensiveMetrics?.total_line_items || poOrders.length}` :
-                    `Qty: ${comprehensiveMetrics?.total_quantity || poOrders.reduce((sum, order) => sum + (order.quantity || 0), 0)}`
+                    `${comprehensiveMetrics?.total_line_items || poOrders.length} items` :
+                    `${comprehensiveMetrics?.total_quantity || poOrders.reduce((sum, order) => sum + (order.quantity || 0), 0)} units`
                   }
                 </div>
-                <p className="text-muted-foreground mt-1">
-                  {viewMode === 'grouped' ? 'Unique POs with total line items' : 'All line items across POs'}
-                </p>
                 {isLoadingComprehensiveMetrics && (
-                  <div className="flex items-center gap-2 mt-2">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    <span className="text-xs text-muted-foreground">Loading metrics...</span>
-                  </div>
+                  <Loader2 className="h-3 w-3 animate-spin mt-1" />
                 )}
               </CardContent>
             </Card>
 
-            <Card className="relative overflow-hidden border-l-4 border-l-green-500 bg-gradient-to-br from-green-500/5 to-background">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-green-600">
-                  <CheckCircle className="h-5 w-5" />
-                  Total Matched Items
+            <Card className="relative overflow-hidden border-l-4 border-l-success bg-gradient-to-br from-success/5 to-background">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-success text-sm">
+                  <TrendingUp className="h-4 w-4" />
+                  In Stock
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
+              <CardContent className="pb-3">
+                <div className="text-xl font-bold">
+                  {(() => {
+                    const matchedInStock = poOrders.filter(order => {
+                      if (!order.asin) return false;
+                      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku);
+                      return inventoryMatch && inventoryMatch.quantity > 0;
+                    });
+                    return matchedInStock.length;
+                  })()}
+                </div>
+                <div className="text-xs text-success/80">
+                  {(() => {
+                    const matchedInStock = poOrders.filter(order => {
+                      if (!order.asin) return false;
+                      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku);
+                      return inventoryMatch && inventoryMatch.quantity > 0;
+                    });
+                    const totalQty = matchedInStock.reduce((sum, order) => sum + (order.quantity || 0), 0);
+                    return `${totalQty} units`;
+                  })()}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="relative overflow-hidden border-l-4 border-l-green-500 bg-gradient-to-br from-green-500/5 to-background">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-green-600 text-sm">
+                  <CheckCircle className="h-4 w-4" />
+                  Matched
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pb-3">
+                <div className="text-xl font-bold">
                   {poOrders.filter(order => order.sunsky_sku !== null).length}
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  Qty: {poOrders.filter(order => order.sunsky_sku !== null).reduce((sum, order) => sum + (order.quantity || 0), 0)}
+                <div className="text-xs text-muted-foreground">
+                  {poOrders.filter(order => order.sunsky_sku !== null).reduce((sum, order) => sum + (order.quantity || 0), 0)} units
                 </div>
-                <p className="text-muted-foreground mt-1">SKUs matched with supplier</p>
               </CardContent>
             </Card>
 
             <Card className="relative overflow-hidden border-l-4 border-l-blue-500 bg-gradient-to-br from-blue-500/5 to-background">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-blue-600">
-                  <Truck className="h-5 w-5" />
-                  Total Placed Items
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-blue-600 text-sm">
+                  <Truck className="h-4 w-4" />
+                  Placed
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
+              <CardContent className="pb-3">
+                <div className="text-xl font-bold">
                   {comprehensiveMetrics?.placed_line_items || poOrders.filter(order => ['placed', 'received'].includes(order.status)).length}
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  Qty: {comprehensiveMetrics?.placed_quantity || poOrders.filter(order => ['placed', 'received'].includes(order.status)).reduce((sum, order) => sum + (order.quantity || 0), 0)}
+                <div className="text-xs text-muted-foreground">
+                  {comprehensiveMetrics?.placed_quantity || poOrders.filter(order => ['placed', 'received'].includes(order.status)).reduce((sum, order) => sum + (order.quantity || 0), 0)} units
                 </div>
-                <p className="text-muted-foreground mt-1">Orders placed with supplier</p>
               </CardContent>
             </Card>
 
             <Card className="relative overflow-hidden border-l-4 border-l-orange-500 bg-gradient-to-br from-orange-500/5 to-background">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-orange-600">
-                  <Clock className="h-5 w-5" />
-                  Total Pending Items
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-orange-600 text-sm">
+                  <Clock className="h-4 w-4" />
+                  Pending
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
+              <CardContent className="pb-3">
+                <div className="text-xl font-bold">
                   {comprehensiveMetrics?.pending_line_items || poOrders.filter(order => order.status === 'pending' && order.sunsky_sku !== null).length}
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  Qty: {comprehensiveMetrics?.pending_quantity || poOrders.filter(order => order.status === 'pending' && order.sunsky_sku !== null).reduce((sum, order) => sum + (order.quantity || 0), 0)}
+                <div className="text-xs text-muted-foreground">
+                  {comprehensiveMetrics?.pending_quantity || poOrders.filter(order => order.status === 'pending' && order.sunsky_sku !== null).reduce((sum, order) => sum + (order.quantity || 0), 0)} units
                 </div>
-                <p className="text-muted-foreground mt-1">Matched items awaiting order placement</p>
               </CardContent>
             </Card>
           </div>
