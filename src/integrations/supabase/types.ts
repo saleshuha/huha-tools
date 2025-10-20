@@ -5011,6 +5011,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      remove_all_po_duplicates: {
+        Args: { user_id_param: string }
+        Returns: {
+          affected_po_numbers: string[]
+          deleted_count: number
+          remaining_count: number
+        }[]
+      }
       remove_po_duplicates: {
         Args: { po_number_param: string; user_id_param: string }
         Returns: {
