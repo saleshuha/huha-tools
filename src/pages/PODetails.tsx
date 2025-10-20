@@ -1863,8 +1863,17 @@ export default function PODetailsPage() {
     if (!hasSunskyCredentials) {
       toast({
         title: "Sunsky Credentials Required",
-        description: "Please configure your Sunsky API credentials in the SKU Importer first",
-        variant: "destructive"
+        description: "Configure your Sunsky API credentials to place orders",
+        variant: "destructive",
+        action: (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open('/sunsky-importer', '_blank')}
+          >
+            Open SKU Importer
+          </Button>
+        )
       });
       return;
     }
