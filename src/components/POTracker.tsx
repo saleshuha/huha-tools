@@ -2246,7 +2246,8 @@ export const POTracker = () => {
 
         <TabsContent value="overview" className="space-y-6">
           {/* PHASE 6: Enhanced responsive grid layout */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+        <div className="flex gap-3 overflow-x-auto pb-2">
+          <div className="flex gap-3 min-w-max">
             {/* Total Items Card */}
             <POMetricsCard
               title={viewMode === 'grouped' ? 'Unique POs' : 'Line Items'}
@@ -2433,6 +2434,7 @@ export const POTracker = () => {
               />
             )}
           </div>
+        </div>
 
           {/* PHASE 4: Export All Metrics Button */}
           <div className="flex justify-end">
@@ -2770,26 +2772,26 @@ export const POTracker = () => {
                 <div className="rounded-lg border-2 border-border overflow-hidden">
                   {viewMode === 'grouped' ? (
                     <div className="grid">
-                       <div className="grid grid-cols-[45px_70px_minmax(140px,1fr)_100px_110px_110px_100px_90px_200px] bg-muted/50 border-b">
-                         <div className="p-2 font-medium text-sm">
-                              <input
-                                type="checkbox"
-                                checked={selectedPOsForBulkClose.size > 0 && Array.from(selectedPOsForBulkClose).length === groupedPOOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).length}
-                                onChange={(e) => {
-                                  const currentPagePOs = groupedPOOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map(group => group.poNumber);
-                                  if (e.target.checked) {
-                                    setSelectedPOsForBulkClose(prev => new Set([...prev, ...currentPagePOs.filter(po => !groupedPOOrders.find(g => g.poNumber === po)?.orders.some(o => o.status === 'closed'))]));
-                                  } else {
-                                    setSelectedPOsForBulkClose(prev => {
-                                      const newSet = new Set(prev);
-                                      currentPagePOs.forEach(po => newSet.delete(po));
-                                      return newSet;
-                                    });
-                                  }
-                                }}
-                                className="h-4 w-4 rounded border-border"
-                              />
-                         </div>
+                        <div className="grid grid-cols-[45px_70px_minmax(140px,1fr)_100px_110px_110px_100px_90px_200px] bg-muted/50 border-b">
+                          <div className="p-2 font-medium text-sm">
+                            <input
+                              type="checkbox"
+                              checked={selectedPOsForBulkClose.size > 0 && Array.from(selectedPOsForBulkClose).length === groupedPOOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).length}
+                              onChange={(e) => {
+                                const currentPagePOs = groupedPOOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map(group => group.poNumber);
+                                if (e.target.checked) {
+                                  setSelectedPOsForBulkClose(prev => new Set([...prev, ...currentPagePOs.filter(po => !groupedPOOrders.find(g => g.poNumber === po)?.orders.some(o => o.status === 'closed'))]));
+                                } else {
+                                  setSelectedPOsForBulkClose(prev => {
+                                    const newSet = new Set(prev);
+                                    currentPagePOs.forEach(po => newSet.delete(po));
+                                    return newSet;
+                                  });
+                                }
+                              }}
+                              className="h-4 w-4 rounded border-border"
+                            />
+                          </div>
                          <div className="p-2 font-medium text-sm">Enable</div>
                          <div className="p-2 font-medium text-sm">PO Number</div>
                          <div className="p-2 font-medium text-sm">Ship To</div>
