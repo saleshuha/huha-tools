@@ -5011,6 +5011,13 @@ export type Database = {
         }
         Returns: undefined
       }
+      remove_po_duplicates: {
+        Args: { po_number_param: string; user_id_param: string }
+        Returns: {
+          deleted_count: number
+          remaining_count: number
+        }[]
+      }
       update_asin_inventory_status_by_asin: {
         Args: {
           new_status: Database["public"]["Enums"]["inventory_status"]
