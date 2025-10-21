@@ -320,24 +320,27 @@ async function handleGetCountries(_params: any, key: string, secret: string) {
 async function handleCreateOrder(params: any, key: string, secret: string) {
   console.log('🛒 Create Order:', params);
   
-  if (!params.deliveryAddress || !params.items) {
+  // Handle both direct params and wrapped in orderData
+  const orderData = params.orderData || params;
+  
+  if (!orderData.deliveryAddress || !orderData.items) {
     throw new Error('deliveryAddress and items are required');
   }
   
   // Build order params according to Sunsky API docs
   const orderParams: Record<string, any> = {
-    useBalanceOnly: params.useBalanceOnly || false
+    useBalanceOnly: orderData.useBalanceOnly || false
   };
   
   // Optional fields
-  if (params.siteNumber) orderParams.siteNumber = params.siteNumber;
-  if (params.vatNumber) orderParams.vatNumber = params.vatNumber;
-  if (params.eoriNumber) orderParams.eoriNumber = params.eoriNumber;
-  if (params.iossNumber) orderParams.iossNumber = params.iossNumber;
-  if (params.coupon) orderParams.coupon = params.coupon;
+  if (orderData.siteNumber) orderParams.siteNumber = orderData.siteNumber;
+  if (orderData.vatNumber) orderParams.vatNumber = orderData.vatNumber;
+  if (orderData.eoriNumber) orderParams.eoriNumber = orderData.eoriNumber;
+  if (orderData.iossNumber) orderParams.iossNumber = orderData.iossNumber;
+  if (orderData.coupon) orderParams.coupon = orderData.coupon;
   
   // Delivery address
-  const addr = params.deliveryAddress;
+  const addr = orderData.deliveryAddress;
   orderParams['deliveryAddress.countryId'] = addr.countryId;
   orderParams['deliveryAddress.state'] = addr.state;
   orderParams['deliveryAddress.city'] = addr.city;
@@ -353,7 +356,7 @@ async function handleCreateOrder(params: any, key: string, secret: string) {
   if (addr.shipment) orderParams['deliveryAddress.shipment'] = addr.shipment;
   
   // Items
-  params.items.forEach((item: any, index: number) => {
+  orderData.items.forEach((item: any, index: number) => {
     const i = index + 1;
     orderParams[`items.${i}.itemNo`] = item.itemNo;
     orderParams[`items.${i}.qty`] = item.qty;
