@@ -256,84 +256,128 @@ export function VelocityAnalyticsSimple() {
   };
 
   const handleSunskyOrderSuccess = async (orderNumber: string, selectedOrderIds: string[]) => {
-    console.log('🎯 handleSunskyOrderSuccess START', { 
+    console.log('🎯🎯🎯 handleSunskyOrderSuccess START', { 
       orderNumber, 
       selectedOrderIds,
+      selectedOrderIdsType: typeof selectedOrderIds,
+      selectedOrderIdsLength: selectedOrderIds?.length,
       selectedItemsCount: selectedItems.size,
       totalItemsInState: items.length
     });
     
-    // Optimistic UI update - filter out ordered items from ready tab
-    const itemsToRemove = selectedOrderIds?.length > 0 
-      ? items.filter(item => selectedOrderIds.includes(item.asin_id))
-      : items.filter(item => selectedItems.has(item.asin_id));
-
     try {
-      console.log('📦 Items found to update:', itemsToRemove.length);
+      // CRITICAL FIX: Search in ALL items, not just filtered/sorted items
+      const itemsToUpdate = selectedOrderIds?.length > 0 
+        ? items.filter(item => selectedOrderIds.includes(item.asin_id))
+        : items.filter(item => selectedItems.has(item.asin_id));
       
-      if (itemsToRemove.length === 0) {
-        console.error('❌ NO ITEMS FOUND TO UPDATE!');
+      console.log('📦 Items found to update:', {
+        count: itemsToUpdate.length,
+        items: itemsToUpdate.map(i => ({ 
+          asin: i.asin, 
+          asin_id: i.asin_id,
+          sku: i.sku,
+          current_override: i.manual_override,
+          recommended_qty: i.recommended_quantity 
+        }))
+      });
+      
+      if (itemsToUpdate.length === 0) {
+        console.error('❌❌❌ NO ITEMS FOUND TO UPDATE!', {
+          selectedOrderIds,
+          allItemIds: items.slice(0, 5).map(i => i.asin_id),
+          selectedItemsSet: Array.from(selectedItems)
+        });
+        
         toast({
           title: "Error: No items found",
-          description: `Order ${orderNumber} placed but no items matched for update.`,
+          description: `Order ${orderNumber} placed but no items matched for update. Check console logs.`,
           variant: "destructive",
         });
         return;
       }
       
-      // Batch update all items in parallel
-      const updatePromises = itemsToRemove.map(item => {
-        const orderedQty = item.manual_override ?? item.recommended_quantity;
-        const velocityRef = sunskyOrderItems[0]?.site_number || sunskyOrderItems[0]?.po_number || `VELOCITY-${Date.now()}`;
-        
-        return supabase
-          .from('asin_inventory')
-          .update({ 
-            status: 'ordered',
-            velocity_order_ref: velocityRef,
-            sunsky_order_number: orderNumber,
-            ordered_quantity: orderedQty,
-            ordered_at: new Date().toISOString()
-          })
-          .eq('id', item.asin_id)
-          .then(() => saveManualOverride(item.asin_id, 0, item.recommended_quantity, true))
-          .then(() => item.asin_id);
-      });
-
-      const results = await Promise.allSettled(updatePromises);
+      // Update each item
+      let successCount = 0;
+      let failCount = 0;
+      const errors: string[] = [];
       
-      // Check for failures
-      const failures = results.filter(r => r.status === 'rejected');
-      const successes = results.filter(r => r.status === 'fulfilled').length;
+      for (const item of itemsToUpdate) {
+        try {
+          console.log(`📝 Starting update for ${item.asin} (${item.asin_id})...`);
+          
+          const orderedQty = item.manual_override ?? item.recommended_quantity;
+          
+          // Get velocity order reference from the order items
+          const velocityRef = sunskyOrderItems[0]?.site_number || sunskyOrderItems[0]?.po_number || `VELOCITY-${Date.now()}`;
+          
+          // Update asin_inventory with full tracking info
+          const { error: statusError } = await supabase
+            .from('asin_inventory')
+            .update({ 
+              status: 'ordered',
+              velocity_order_ref: velocityRef,
+              sunsky_order_number: orderNumber,
+              ordered_quantity: orderedQty,
+              ordered_at: new Date().toISOString()
+            })
+            .eq('id', item.asin_id);
+          
+          if (statusError) {
+            console.error(`❌ Status update failed for ${item.asin}:`, statusError);
+            throw statusError;
+          }
+          console.log(`✓ Tracking info updated for ${item.asin}:`, { velocityRef, orderNumber, orderedQty });
+          
+          // Set manual_override to 0 to move to ordered tab
+          console.log(`📝 Setting manual_override to 0 for ${item.asin}...`);
+          await saveManualOverride(item.asin_id, 0, item.recommended_quantity, true);
+          console.log(`✅ Successfully completed all updates for ${item.asin}`);
+          successCount++;
+        } catch (itemError: any) {
+          console.error(`❌ Failed to update ${item.asin}:`, itemError);
+          errors.push(`${item.asin}: ${itemError.message}`);
+          failCount++;
+        }
+      }
       
-      if (failures.length > 0) {
-        console.error('Some updates failed:', failures);
+      
+      console.log(`📊 Update complete:`, { successCount, failCount, errors });
+      
+      if (errors.length > 0) {
+        console.error('❌ Errors encountered:', errors);
+      }
+      
+      // Show appropriate toast
+      if (failCount > 0) {
         toast({
-          title: "Partial Update",
-          description: `${successes}/${itemsToRemove.length} items updated successfully`,
+          title: "Partial Success",
+          description: `Order ${orderNumber} placed. ${successCount} items updated, ${failCount} failed. Check console for details.`,
           variant: "destructive",
         });
       } else {
         toast({
-          title: "Order Placed Successfully",
-          description: `${itemsToRemove.length} items ordered and updated`,
+          title: "Success",
+          description: `Order ${orderNumber} placed. ${successCount} items marked as ordered.`,
         });
       }
-
-      // Reload data to ensure consistency
+      
+      // Clear selections
+      setSelectedItems(new Set());
+      setSunskyDialogOpen(false);
+      
+      // Reload analytics data
+      console.log('🔄 Reloading analytics data...');
       await loadAnalytics();
-    } catch (error) {
-      console.error('Error updating ordered items:', error);
+      console.log('✅ Analytics reload complete');
+      
+    } catch (error: any) {
+      console.error('❌❌❌ CRITICAL ERROR in handleSunskyOrderSuccess:', error);
       toast({
-        title: "Update Failed",
-        description: error instanceof Error ? error.message : "Failed to update inventory status",
+        title: "Error",
+        description: `Order ${orderNumber} placed but failed to update items: ${error.message}`,
         variant: "destructive",
       });
-      // Reload to show accurate state
-      await loadAnalytics();
-    } finally {
-      setSunskyDialogOpen(false);
-      setSelectedItems(new Set());
     }
   };
 

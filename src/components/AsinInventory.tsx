@@ -71,42 +71,6 @@ export function AsinInventory() {
   } = useBackgroundTasks();
   const { getImageByAsin, isLoading: imagesLoading, productImages, refreshImages } = useProductImages();
   
-  // Detect duplicate items in raw inventory (before filtering)
-  const duplicateWarning = useMemo(() => {
-    if (loading || inventory.length === 0) return null;
-    
-    const seen = new Map<string, number>();
-    let duplicateCount = 0;
-    
-    inventory.forEach(item => {
-      const key = `${item.asin}-${item.serialNumber}`;
-      const count = seen.get(key) || 0;
-      seen.set(key, count + 1);
-      if (count > 0) duplicateCount++;
-    });
-    
-    if (duplicateCount > 0) {
-      return {
-        count: duplicateCount,
-        message: `⚠️ Found ${duplicateCount} duplicate record(s) in inventory. These have been automatically hidden from view.`
-      };
-    }
-    
-    return null;
-  }, [inventory, loading]);
-
-  // Show warning toast when duplicates detected
-  useEffect(() => {
-    if (duplicateWarning && !loading) {
-      toast({
-        title: "Duplicates Detected",
-        description: duplicateWarning.message,
-        variant: "default",
-        duration: 5000,
-      });
-    }
-  }, [duplicateWarning?.count]);
-  
   // Missing serial numbers calculation
   const missingSerialNumbers = useMemo(() => {
     if (loading || inventory.length === 0) return [];
@@ -283,19 +247,9 @@ export function AsinInventory() {
     setIsPreviewDialogOpen(true);
   };
 
-  // Component for displaying product images - v4.0 with retry logic and caching
+  // Component for displaying product images - v3.0 with proper loading handling
   const ProductImage = ({ asin }: { asin: string }) => {
-    const [retryCount, setRetryCount] = useState(0);
-    const [imageError, setImageError] = useState(false);
-    const maxRetries = 2;
-    
     const productImage = getImageByAsin(asin);
-    
-    // Reset error state when productImages changes (after refresh)
-    useEffect(() => {
-      setImageError(false);
-      setRetryCount(0);
-    }, [productImages]);
     
     // Always show loading state when images are still being fetched
     if (imagesLoading) {
@@ -306,13 +260,27 @@ export function AsinInventory() {
       );
     }
     
-    if (!productImage || imageError) {
+    // Specific debug for problematic ASIN - only when not loading
+    if (asin === 'B0FPBNTD3P') {
+      console.log('🖼️ ProductImage DEBUG B0FPBNTD3P v3.0:', {
+        asin,
+        hasProductImage: !!productImage,
+        imageUrl: productImage?.image_url,
+        imagesLoading,
+        totalImages: productImages?.length || 0,
+        productImagesType: typeof productImages,
+        productImagesArray: Array.isArray(productImages)
+      });
+    }
+    
+    if (!productImage) {
       return (
-        <div className="w-20 h-20 min-w-[5rem] min-h-[5rem] bg-muted rounded-lg flex flex-col items-center justify-center border-2 border-dashed border-border flex-shrink-0 gap-1">
-          <Eye className="w-5 h-5 text-muted-foreground" />
-          {retryCount > 0 && (
-            <span className="text-[10px] text-muted-foreground">No image</span>
-          )}
+        <div className="w-20 h-20 min-w-[5rem] min-h-[5rem] bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-border flex-shrink-0 relative">
+          <Eye className="w-6 h-6 text-muted-foreground" />
+          {/* Debug info */}
+          <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 text-xs text-red-500 whitespace-nowrap text-center bg-white px-1 rounded shadow-sm">
+            {asin ? asin.substring(0,8) : 'No ASIN'}
+          </div>
         </div>
       );
     }
@@ -327,18 +295,9 @@ export function AsinInventory() {
               src={productImage.image_url} 
               alt={`Product image for ${asin}`}
               className="w-full h-full object-contain"
-              loading="lazy"
               onError={(e) => {
-                console.warn(`Image load failed for ASIN ${asin}, retry ${retryCount}/${maxRetries}`);
-                if (retryCount < maxRetries) {
-                  setRetryCount(prev => prev + 1);
-                  // Force re-render to retry
-                  setTimeout(() => {
-                    e.currentTarget.src = productImage.image_url + `?retry=${retryCount}`;
-                  }, 500);
-                } else {
-                  setImageError(true);
-                }
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-full bg-muted flex items-center justify-center"><Eye class="w-6 h-6 text-muted-foreground" /></div>';
               }}
             />
           </div>
@@ -416,11 +375,10 @@ export function AsinInventory() {
       });
     }
 
-    // Remove duplicates - keep the most recent record for each ASIN+SerialNumber combination
-    // NOTE: We don't include SKU in the key because items can have different SKUs but same ASIN+Serial
+    // Remove duplicates - keep the most recent record for each ASIN+SKU+Serial combination
     const uniqueMap = new Map();
     filtered.forEach(item => {
-      const key = `${item.asin}-${item.serialNumber}`;
+      const key = `${item.asin}-${item.sku || ''}-${item.serialNumber || ''}`;
       const existing = uniqueMap.get(key);
       if (!existing || new Date(item.dateAdded) > new Date(existing.dateAdded)) {
         uniqueMap.set(key, item);

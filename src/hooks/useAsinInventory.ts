@@ -36,13 +36,9 @@ export function useAsinInventory() {
     try {
       setLoading(true);
       // First get count to check if we need pagination
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
       const { count, error: countError } = await ((supabase as any)
         .from('asin_inventory')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
         .eq('country', selectedCountry));
 
       console.log(`📊 Total records in database: ${count}`);
@@ -56,7 +52,6 @@ export function useAsinInventory() {
         const { data: batchData, error: batchError } = await ((supabase as any)
           .from('asin_inventory')
           .select('*')
-          .eq('user_id', user.id)
           .eq('country', selectedCountry)
           .order('date_added', { ascending: true })
           .range(from, from + batchSize - 1));
@@ -110,16 +105,7 @@ export function useAsinInventory() {
         formattedData.filter(item => item.quantity === 0 && item.status === 'no-stock').length
       );
 
-      // Remove any remaining duplicates as a safety measure (based on ASIN + serialNumber)
-      const uniqueItems = Array.from(
-        new Map(formattedData.map(item => [`${item.asin}-${item.serialNumber}`, item])).values()
-      );
-      
-      if (uniqueItems.length < formattedData.length) {
-        console.warn(`⚠️ Frontend deduplication removed ${formattedData.length - uniqueItems.length} duplicate(s)`);
-      }
-
-      setInventory(uniqueItems);
+      setInventory(formattedData);
       
       // Auto-calculate restock eligibility after loading inventory
       setTimeout(() => {
@@ -834,12 +820,6 @@ export function useAsinInventory() {
     }
   };
 
-  // Refetch wrapper that clears cache and reloads
-  const refetch = async () => {
-    setInventory([]);
-    await loadInventory();
-  };
-
   return {
     inventory,
     loading,
@@ -859,7 +839,6 @@ export function useAsinInventory() {
     updateRestockEligibility,
     calculateAutoRestockEligibility,
     toggleItemActive,
-    loadInventory,
-    refetch,
+    refetch: loadInventory,
   };
 }
