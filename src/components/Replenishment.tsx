@@ -381,7 +381,7 @@ export function Replenishment() {
   const loadAllInventoryItems = async () => {
     try {
       console.log('Starting loadAllInventoryItems for country:', selectedCountry);
-      const [asinAll] = await Promise.all([(supabase as any).from('asin_inventory').select('id, asin, serial_number, quantity, ordered_quantity, status, sku, last_restock_date, date_sold, date_added, notes, eligible_for_restock').eq('country', selectedCountry).eq('eligible_for_restock', true).eq('quantity', 0).neq('status', 'no-stock')]);
+      const [asinAll] = await Promise.all([(supabase as any).from('asin_inventory').select('id, asin, serial_number, quantity, ordered_quantity, status, sku, last_restock_date, date_sold, date_added, notes, eligible_for_restock').eq('country', selectedCountry).eq('eligible_for_restock', true).eq('quantity', 0)]);
 
       // Get non-source items to exclude them
       const {
@@ -415,7 +415,7 @@ export function Replenishment() {
       console.log('Total items count:', allInventoryItems.length);
 
       // Separate items based on eligibility for restocking
-      const allEligibleItems = allInventoryItems.filter(item => item.status !== 'ordered' && item.status !== 'no-stock');
+      const allEligibleItems = allInventoryItems.filter(item => item.status !== 'ordered');
 
       // Get stock changes for all items to calculate total sold units
       const allItemIds = allEligibleItems.map(item => item.id);
@@ -432,8 +432,23 @@ export function Replenishment() {
         totalSoldMap.set(change.inventory_id, current + Math.abs(change.change_amount));
       });
 
-      // Separate eligible items into those that can be ordered and those that cannot
+      // 1. Items with status='no-stock' → Out of Stock tab
+      const noStockItems = allEligibleItems.filter(item => item.status === 'no-stock').map(item => ({
+        id: item.id,
+        identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
+        current_quantity: item.quantity,
+        table_name: 'asin_inventory',
+        status: item.status,
+        date_sold: item.last_sold_date,
+        last_restock_date: item.last_order_date,
+        days_since_last_restock: item.days_since_ordered,
+        date_added: item.date_added,
+        total_sold_units: totalSoldMap.get(item.id) || 0
+      }));
+
+      // 2. Items with valid SKU and NOT 'no-stock' → Ready to Order tab
       const restockNeeded = allEligibleItems.filter(item => {
+        if (item.status === 'no-stock') return false;
         // Check if item has valid SKU for ordering
         const identifier = item.item_type === 'ASIN' ? `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}` : `SKU: ${item.sku} (${item.serial_number})`;
         const extractedSku = extractSkuFromIdentifier(identifier);
@@ -452,8 +467,9 @@ export function Replenishment() {
         total_sold_units: totalSoldMap.get(item.id) || 0
       }));
 
-      // Items that are eligible but cannot be ordered (no valid SKU)
-      const outOfStockOnly = allEligibleItems.filter(item => {
+      // 3. Items without valid SKU and NOT 'no-stock' → Out of Stock tab (no SKU to order)
+      const outOfStockNoSku = allEligibleItems.filter(item => {
+        if (item.status === 'no-stock') return false;
         const identifier = item.item_type === 'ASIN' ? `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}` : `SKU: ${item.sku} (${item.serial_number})`;
         const extractedSku = extractSkuFromIdentifier(identifier);
         const extractedModel = extractModelFromIdentifier(identifier);
@@ -470,6 +486,9 @@ export function Replenishment() {
         date_added: item.date_added,
         total_sold_units: totalSoldMap.get(item.id) || 0
       }));
+
+      // 4. Combine no-stock items with items lacking SKU for Out of Stock tab
+      const outOfStockOnly = [...noStockItems, ...outOfStockNoSku];
       const orderedItemsData = allInventoryItems.filter(item => item.status === 'ordered').map(item => ({
         id: item.id,
         identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
