@@ -510,6 +510,158 @@ async function handleTestCredentials(_params: any, key: string, secret: string) 
   };
 }
 
+async function handleDownloadImages(userId: string, params: any, key: string, secret: string) {
+  console.log('📥 Download Images:', params);
+  
+  const { itemNos } = params;
+  
+  if (!itemNos || !Array.isArray(itemNos) || itemNos.length === 0) {
+    throw new Error('itemNos array is required');
+  }
+  
+  console.log(`📦 Processing ${itemNos.length} items for image download`);
+  
+  const results = [];
+  
+  for (const itemNo of itemNos) {
+    try {
+      console.log(`🔍 Fetching details for ${itemNo}`);
+      
+      // Get product details from Sunsky
+      const productDetails = await callSunskyAPI('/openapi/product!detail.do', {
+        lang: 'en',
+        itemNo
+      }, key, secret);
+      
+      const product = productDetails.data || productDetails;
+      const imageUrls: string[] = [];
+      
+      // Extract thumbnail
+      if (product.picUrl) {
+        imageUrls.push(product.picUrl);
+      }
+      
+      // Extract additional images
+      if (product.images && Array.isArray(product.images)) {
+        imageUrls.push(...product.images.filter((url: string) => url && !imageUrls.includes(url)));
+      }
+      
+      console.log(`📸 Found ${imageUrls.length} images for ${itemNo}`);
+      
+      // Download and store each image
+      for (let i = 0; i < imageUrls.length; i++) {
+        const imageUrl = imageUrls[i];
+        const imageType = i === 0 ? 'thumbnail' : 'gallery';
+        
+        try {
+          // Download the image
+          const imageResponse = await fetch(imageUrl);
+          if (!imageResponse.ok) {
+            console.error(`❌ Failed to download image: ${imageUrl}`);
+            continue;
+          }
+          
+          const imageBlob = await imageResponse.blob();
+          const imageBuffer = await imageBlob.arrayBuffer();
+          
+          // Generate storage path
+          const fileExt = imageUrl.split('.').pop()?.split('?')[0] || 'jpg';
+          const storagePath = `sunsky-images/${userId}/${itemNo}/${imageType}_${i}.${fileExt}`;
+          
+          // Upload to Supabase storage
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('product-images')
+            .upload(storagePath, imageBuffer, {
+              contentType: imageBlob.type || 'image/jpeg',
+              upsert: true
+            });
+          
+          if (uploadError) {
+            console.error(`❌ Failed to upload image to storage:`, uploadError);
+            continue;
+          }
+          
+          // Get public URL
+          const { data: { publicUrl } } = supabase.storage
+            .from('product-images')
+            .getPublicUrl(storagePath);
+          
+          // Save to database
+          const { error: dbError } = await supabase
+            .from('sunsky_product_images')
+            .upsert({
+              user_id: userId,
+              item_no: itemNo,
+              image_url: imageUrl,
+              storage_path: storagePath,
+              image_order: i,
+              image_type: imageType,
+              download_status: 'completed',
+              updated_at: new Date().toISOString()
+            }, {
+              onConflict: 'user_id,item_no,image_order'
+            });
+          
+          if (dbError) {
+            console.error(`❌ Failed to save image record:`, dbError);
+          }
+          
+          console.log(`✅ Saved image ${i + 1}/${imageUrls.length} for ${itemNo}`);
+          
+        } catch (imgError: any) {
+          console.error(`❌ Error processing image ${imageUrl}:`, imgError);
+        }
+      }
+      
+      // Update sunsky_skus table
+      if (imageUrls.length > 0) {
+        const { error: updateError } = await supabase
+          .from('sunsky_skus')
+          .update({
+            thumbnail_url: imageUrls[0],
+            image_count: imageUrls.length,
+            images_downloaded: true,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', userId)
+          .eq('sku_code', itemNo);
+        
+        if (updateError) {
+          console.error(`❌ Failed to update SKU record:`, updateError);
+        }
+      }
+      
+      results.push({
+        itemNo,
+        status: 'success',
+        imageCount: imageUrls.length
+      });
+      
+    } catch (error: any) {
+      console.error(`❌ Error processing ${itemNo}:`, error);
+      results.push({
+        itemNo,
+        status: 'failed',
+        error: error.message
+      });
+    }
+  }
+  
+  const successCount = results.filter(r => r.status === 'success').length;
+  
+  console.log(`✅ Completed image download: ${successCount}/${results.length} successful`);
+  
+  return {
+    result: 'success',
+    data: {
+      total: results.length,
+      success: successCount,
+      failed: results.length - successCount,
+      results
+    }
+  };
+}
+
 // ============================================
 // Credential Management Handlers
 // ============================================
@@ -729,7 +881,8 @@ serve(async (req: Request) => {
       case 'createOrder':
       case 'getOrders':
       case 'getOrderDetails':
-      case 'testCredentials': {
+      case 'testCredentials':
+      case 'download_images': {
         // Get credentials for Sunsky API calls
         const credentials = await getCredentials(user.id, apiId);
         
@@ -772,6 +925,10 @@ serve(async (req: Request) => {
           
           case 'testCredentials':
             result = await handleTestCredentials(params, credentials.key, credentials.secret);
+            break;
+          
+          case 'download_images':
+            result = await handleDownloadImages(user.id, params, credentials.key, credentials.secret);
             break;
         }
         break;
