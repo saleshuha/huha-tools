@@ -1204,6 +1204,24 @@ export function Replenishment() {
         }
       });
 
+      if (unavailableIds.size === 0) {
+        console.log('No matching items found to move');
+        return;
+      }
+
+      // Update database status to 'no-stock' for unavailable items
+      const updatePromises = Array.from(unavailableIds).map(itemId =>
+        (supabase as any)
+          .from('asin_inventory')
+          .update({ 
+            status: 'no-stock',
+            notes: 'Out of stock in Sunsky catalog'
+          })
+          .eq('id', itemId)
+      );
+      
+      await Promise.all(updatePromises);
+
       // Move items from restockItems to outOfStockItems
       const itemsToMove = restockItems.filter(item => unavailableIds.has(item.id));
       const remainingRestockItems = restockItems.filter(item => !unavailableIds.has(item.id));
@@ -1218,9 +1236,10 @@ export function Replenishment() {
         unavailableIds.forEach(id => newSet.delete(id));
         return newSet;
       });
+      
       toast({
         title: "Items Moved to Out of Stock",
-        description: `${itemsToMove.length} items that don't exist in Sunsky catalog have been moved to the Out of Stock tab`,
+        description: `${itemsToMove.length} items unavailable in Sunsky catalog have been marked as 'no-stock'`,
         variant: "default"
       });
     } catch (error) {
