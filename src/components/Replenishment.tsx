@@ -85,6 +85,8 @@ interface AllInventoryItem {
   days_since_ordered?: number | null;
   date_added: string;
   notes?: string;
+  totalStockIn?: number;
+  totalStockOut?: number;
 }
 interface InventoryMetrics {
   velocityScore: number;
@@ -651,89 +653,6 @@ export function Replenishment() {
 
     return () => clearTimeout(timeoutId);
   }, [allInventoryItems, filters, headerFilters, sortConfig]);
-        switch (filters.orderStatus) {
-          case 'ordered':
-            return daysSinceOrder !== null && daysSinceOrder >= 0;
-          case 'not-ordered':
-            return daysSinceOrder === null;
-          case 'overdue':
-            return daysSinceOrder !== null && daysSinceOrder > 30;
-          default:
-            return true;
-        }
-      });
-      console.log('After order status filter:', filtered.length);
-    }
-
-    // Date range filters
-    if (filters.dateRange.lastSoldFrom || filters.dateRange.lastSoldTo) {
-      filtered = filtered.filter(item => {
-        if (!item.last_sold_date) return false;
-        const soldDate = new Date(item.last_sold_date);
-        if (filters.dateRange.lastSoldFrom && soldDate < filters.dateRange.lastSoldFrom) return false;
-        if (filters.dateRange.lastSoldTo && soldDate > filters.dateRange.lastSoldTo) return false;
-        return true;
-      });
-      console.log('After last sold date filter:', filtered.length);
-    }
-    if (filters.dateRange.lastOrderFrom || filters.dateRange.lastOrderTo) {
-      filtered = filtered.filter(item => {
-        if (!item.last_order_date) return false;
-        const orderDate = new Date(item.last_order_date);
-        if (filters.dateRange.lastOrderFrom && orderDate < filters.dateRange.lastOrderFrom) return false;
-        if (filters.dateRange.lastOrderTo && orderDate > filters.dateRange.lastOrderTo) return false;
-        return true;
-      });
-      console.log('After last order date filter:', filtered.length);
-    }
-
-    // Stock range filter
-    if (filters.stockRange.min !== null || filters.stockRange.max !== null) {
-      filtered = filtered.filter(item => {
-        if (filters.stockRange.min !== null && item.quantity < filters.stockRange.min) return false;
-        if (filters.stockRange.max !== null && item.quantity > filters.stockRange.max) return false;
-        return true;
-      });
-      console.log('After stock range filter:', filtered.length);
-    }
-
-    // Days since order range filter
-    if (filters.daysSinceOrderRange.min !== null || filters.daysSinceOrderRange.max !== null) {
-      filtered = filtered.filter(item => {
-        if (item.days_since_ordered === null) return false;
-        if (filters.daysSinceOrderRange.min !== null && item.days_since_ordered < filters.daysSinceOrderRange.min) return false;
-        if (filters.daysSinceOrderRange.max !== null && item.days_since_ordered > filters.daysSinceOrderRange.max) return false;
-        return true;
-      });
-      console.log('After days since order range filter:', filtered.length);
-    }
-
-    // Apply sorting
-    if (sortConfig.key) {
-      filtered.sort((a, b) => {
-        const aValue = a[sortConfig.key!];
-        const bValue = b[sortConfig.key!];
-        if (aValue === null && bValue === null) return 0;
-        if (aValue === null) return 1;
-        if (bValue === null) return -1;
-        let comparison = 0;
-        if (typeof aValue === 'string' && typeof bValue === 'string') {
-          comparison = aValue.localeCompare(bValue);
-        } else if (typeof aValue === 'number' && typeof bValue === 'number') {
-          comparison = aValue - bValue;
-        } else if (aValue && bValue && typeof aValue === 'string' && typeof bValue === 'string' && (sortConfig.key === 'last_sold_date' || sortConfig.key === 'last_order_date' || sortConfig.key === 'date_added')) {
-          comparison = new Date(aValue).getTime() - new Date(bValue).getTime();
-        } else {
-          comparison = String(aValue).localeCompare(String(bValue));
-        }
-        return sortConfig.direction === 'desc' ? -comparison : comparison;
-      });
-      console.log('After sorting:', filtered.length);
-    }
-    console.log('Final filtered items count:', filtered.length);
-    setFilteredItems(filtered);
-    setCurrentPage(1); // Reset to first page when filters change
-  }, [allInventoryItems, filters, sortConfig]);
 
   // Sorting handler
   const handleSort = (key: keyof AllInventoryItem) => {

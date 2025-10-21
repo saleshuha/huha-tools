@@ -255,7 +255,7 @@ export function VelocityAnalyticsSimple() {
     setSunskyDialogOpen(true);
   };
 
-  const handleSunskyOrderSuccess = useCallback(async (orderNumber: string, selectedOrderIds: string[]) => {
+  const handleSunskyOrderSuccess = async (orderNumber: string, selectedOrderIds: string[]) => {
     console.log('🎯 handleSunskyOrderSuccess START', { 
       orderNumber, 
       selectedOrderIds,
@@ -263,22 +263,15 @@ export function VelocityAnalyticsSimple() {
       totalItemsInState: items.length
     });
     
-    // Optimistic UI update first
-    setItems(prevItems => 
-      prevItems.filter(item => 
-        !selectedOrderIds.some(orderId => orderId === item.asin_id)
-      )
-    );
+    // Optimistic UI update - filter out ordered items from ready tab
+    const itemsToRemove = selectedOrderIds?.length > 0 
+      ? items.filter(item => selectedOrderIds.includes(item.asin_id))
+      : items.filter(item => selectedItems.has(item.asin_id));
 
     try {
-      // Search in ALL items, not just filtered/sorted items
-      const itemsToUpdate = selectedOrderIds?.length > 0 
-        ? items.filter(item => selectedOrderIds.includes(item.asin_id))
-        : items.filter(item => selectedItems.has(item.asin_id));
+      console.log('📦 Items found to update:', itemsToRemove.length);
       
-      console.log('📦 Items found to update:', itemsToUpdate.length);
-      
-      if (itemsToUpdate.length === 0) {
+      if (itemsToRemove.length === 0) {
         console.error('❌ NO ITEMS FOUND TO UPDATE!');
         toast({
           title: "Error: No items found",
@@ -289,7 +282,7 @@ export function VelocityAnalyticsSimple() {
       }
       
       // Batch update all items in parallel
-      const updatePromises = itemsToUpdate.map(item => {
+      const updatePromises = itemsToRemove.map(item => {
         const orderedQty = item.manual_override ?? item.recommended_quantity;
         const velocityRef = sunskyOrderItems[0]?.site_number || sunskyOrderItems[0]?.po_number || `VELOCITY-${Date.now()}`;
         
@@ -317,18 +310,18 @@ export function VelocityAnalyticsSimple() {
         console.error('Some updates failed:', failures);
         toast({
           title: "Partial Update",
-          description: `${successes}/${itemsToUpdate.length} items updated successfully`,
+          description: `${successes}/${itemsToRemove.length} items updated successfully`,
           variant: "destructive",
         });
       } else {
         toast({
           title: "Order Placed Successfully",
-          description: `${itemsToUpdate.length} items ordered and updated`,
+          description: `${itemsToRemove.length} items ordered and updated`,
         });
       }
 
       // Reload data to ensure consistency
-      await loadAnalytics(lookbackYears);
+      await loadAnalytics();
     } catch (error) {
       console.error('Error updating ordered items:', error);
       toast({
@@ -337,42 +330,10 @@ export function VelocityAnalyticsSimple() {
         variant: "destructive",
       });
       // Reload to show accurate state
-      await loadAnalytics(lookbackYears);
-    } finally {
-      setShowSunskyDialog(false);
-    }
-  }, [items, selectedItems, sunskyOrderItems, loadAnalytics, lookbackYears, saveManualOverride]);
-      
-      // Show appropriate toast
-      if (failCount > 0) {
-        toast({
-          title: "Partial Success",
-          description: `Order ${orderNumber} placed. ${successCount} items updated, ${failCount} failed. Check console for details.`,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Success",
-          description: `Order ${orderNumber} placed. ${successCount} items marked as ordered.`,
-        });
-      }
-      
-      // Clear selections
-      setSelectedItems(new Set());
-      setSunskyDialogOpen(false);
-      
-      // Reload analytics data
-      console.log('🔄 Reloading analytics data...');
       await loadAnalytics();
-      console.log('✅ Analytics reload complete');
-      
-    } catch (error: any) {
-      console.error('❌❌❌ CRITICAL ERROR in handleSunskyOrderSuccess:', error);
-      toast({
-        title: "Error",
-        description: `Order ${orderNumber} placed but failed to update items: ${error.message}`,
-        variant: "destructive",
-      });
+    } finally {
+      setSunskyDialogOpen(false);
+      setSelectedItems(new Set());
     }
   };
 
