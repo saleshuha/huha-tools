@@ -377,25 +377,28 @@ export function Replenishment() {
     }
   };
 
-  // Load all inventory items for comprehensive tracking
+  // Load all inventory items with optimized single query
   const loadAllInventoryItems = async () => {
     try {
       console.log('Starting loadAllInventoryItems for country:', selectedCountry);
-      const [asinAll] = await Promise.all([(supabase as any).from('asin_inventory').select('id, asin, serial_number, quantity, ordered_quantity, status, sku, last_restock_date, date_sold, date_added, notes, eligible_for_restock').eq('country', selectedCountry).eq('eligible_for_restock', true).eq('quantity', 0).neq('status', 'no-stock')]);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-      // Get non-source items to exclude them
-      const {
-        data: nonSourceData
-      } = await ((supabase as any).from('non_source_items').select('asin, serial_number').eq('country', selectedCountry));
-      const nonSourceIdentifiers = new Set(((nonSourceData as any) || []).map((item: any) => `${item.asin}-${item.serial_number}`));
-      if (asinAll.error) {
-        console.error('ASIN query error:', asinAll.error);
-        throw asinAll.error;
+      // Use optimized RPC function that does all joins in one query
+      const { data: asinAll, error: rpcError } = await (supabase as any).rpc('get_replenishment_items_optimized', {
+        p_user_id: user.id,
+        p_country: selectedCountry,
+        lookback_days: 365
+      });
+
+      if (rpcError) {
+        console.error('RPC query error:', rpcError);
+        throw rpcError;
       }
-      console.log('Raw ASIN data:', asinAll.data);
+      console.log('Optimized RPC data:', asinAll);
 
-      // Process ASIN items into AllInventoryItem format (excluding non-source items)
-      const asinItems: AllInventoryItem[] = ((asinAll.data as any) || []).filter((item: any) => !nonSourceIdentifiers.has(`${item.asin}-${item.serial_number}`)).map((item: any) => ({
+      // Process items into AllInventoryItem format
+      const asinItems: AllInventoryItem[] = ((asinAll as any) || []).filter((item: any) => !item.is_non_source).map((item: any) => ({
         id: item.id,
         item_type: 'ASIN' as const,
         asin: item.asin,
@@ -408,37 +411,22 @@ export function Replenishment() {
         last_order_date: item.last_restock_date,
         days_since_ordered: item.last_restock_date ? Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null,
         date_added: item.date_added,
-        notes: item.notes
+        notes: item.notes,
+        totalStockIn: item.total_stock_in,
+        totalStockOut: item.total_stock_out
       }));
       const allInventoryItems = [...asinItems];
-      console.log('Processed inventory items:', allInventoryItems);
-      console.log('Total items count:', allInventoryItems.length);
+      console.log('Processed inventory items:', allInventoryItems.length);
 
       // Separate items based on eligibility for restocking
       const allEligibleItems = allInventoryItems.filter(item => item.status !== 'ordered' && item.status !== 'no-stock');
 
-      // Get stock changes for all items to calculate total sold units
-      const allItemIds = allEligibleItems.map(item => item.id);
-      const { data: stockChanges } = await (supabase as any)
-        .from('stock_changes')
-        .select('inventory_id, change_amount')
-        .in('inventory_id', allItemIds)
-        .lt('change_amount', 0);
-
-      // Create map of total sold units per item
-      const totalSoldMap = new Map<string, number>();
-      (stockChanges || []).forEach((change: any) => {
-        const current = totalSoldMap.get(change.inventory_id) || 0;
-        totalSoldMap.set(change.inventory_id, current + Math.abs(change.change_amount));
-      });
-
       // Separate eligible items into those that can be ordered and those that cannot
       const restockNeeded = allEligibleItems.filter(item => {
-        // Check if item has valid SKU for ordering
-        const identifier = item.item_type === 'ASIN' ? `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}` : `SKU: ${item.sku} (${item.serial_number})`;
+        const identifier = `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`;
         const extractedSku = extractSkuFromIdentifier(identifier);
         const extractedModel = extractModelFromIdentifier(identifier);
-        return !!(extractedSku || extractedModel); // Only include items that can be ordered
+        return !!(extractedSku || extractedModel);
       }).map(item => ({
         id: item.id,
         identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
@@ -449,15 +437,14 @@ export function Replenishment() {
         last_restock_date: item.last_order_date,
         days_since_last_restock: item.days_since_ordered,
         date_added: item.date_added,
-        total_sold_units: totalSoldMap.get(item.id) || 0
+        total_sold_units: item.totalStockOut || 0
       }));
 
-      // Items that are eligible but cannot be ordered (no valid SKU)
       const outOfStockOnly = allEligibleItems.filter(item => {
-        const identifier = item.item_type === 'ASIN' ? `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}` : `SKU: ${item.sku} (${item.serial_number})`;
+        const identifier = `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`;
         const extractedSku = extractSkuFromIdentifier(identifier);
         const extractedModel = extractModelFromIdentifier(identifier);
-        return !(extractedSku || extractedModel); // Only include items that cannot be ordered
+        return !(extractedSku || extractedModel);
       }).map(item => ({
         id: item.id,
         identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
@@ -468,8 +455,9 @@ export function Replenishment() {
         last_restock_date: item.last_order_date,
         days_since_last_restock: item.days_since_ordered,
         date_added: item.date_added,
-        total_sold_units: totalSoldMap.get(item.id) || 0
+        total_sold_units: item.totalStockOut || 0
       }));
+
       const orderedItemsData = allInventoryItems.filter(item => item.status === 'ordered').map(item => ({
         id: item.id,
         identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
@@ -481,17 +469,18 @@ export function Replenishment() {
         last_restock_date: item.last_order_date,
         days_since_last_restock: item.days_since_ordered,
         date_added: item.date_added,
-        total_sold_units: totalSoldMap.get(item.id) || 0
+        total_sold_units: item.totalStockOut || 0
       }));
-      console.log('Setting allInventoryItems state with:', allInventoryItems.length, 'items');
+
+      console.log('State updated - allInventoryItems:', allInventoryItems.length);
+      console.log('Items needing restock:', restockNeeded.length);
+      console.log('Items out of stock:', outOfStockOnly.length);
+      console.log('Items on order:', orderedItemsData.length);
+
       setAllInventoryItems(allInventoryItems);
       setRestockItems(restockNeeded);
       setOrderedItems(orderedItemsData);
       setOutOfStockItems(outOfStockOnly);
-      console.log('State updated - allInventoryItems length:', allInventoryItems.length);
-      console.log('Items needing restock (can be ordered):', restockNeeded.length);
-      console.log('Items out of stock (cannot be ordered):', outOfStockOnly.length);
-      console.log('Items on order:', orderedItemsData.length);
     } catch (error: any) {
       console.error('Error loading all inventory items:', error);
       toast({
@@ -502,82 +491,166 @@ export function Replenishment() {
     }
   };
 
-  // Apply filters and sorting (including header filters)
+  // Apply filters with debouncing for search term
   useEffect(() => {
-    console.log('Filtering effect triggered. allInventoryItems length:', allInventoryItems.length);
-    console.log('Current filters:', filters);
-    console.log('Header filters:', headerFilters);
-    let filtered = [...allInventoryItems];
-    console.log('Starting with items:', filtered.length);
+    const timeoutId = setTimeout(() => {
+      console.log('Filtering effect triggered. allInventoryItems length:', allInventoryItems.length);
+      let filtered = [...allInventoryItems];
 
-    // Search filter (main search)
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      filtered = filtered.filter(item => item.asin?.toLowerCase().includes(searchLower) || item.sku?.toLowerCase().includes(searchLower) || item.serial_number?.toLowerCase().includes(searchLower));
-      console.log('After search filter:', filtered.length);
-    }
+      // Search filter (main search)
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase();
+        filtered = filtered.filter(item => item.asin?.toLowerCase().includes(searchLower) || item.sku?.toLowerCase().includes(searchLower) || item.serial_number?.toLowerCase().includes(searchLower));
+        console.log('After search filter:', filtered.length);
+      }
 
-    // Header filters
-    if (headerFilters.type && headerFilters.type !== 'all') {
-      filtered = filtered.filter(item => item.item_type.toLowerCase().includes(headerFilters.type.toLowerCase()));
-    }
-    if (headerFilters.asin) {
-      filtered = filtered.filter(item => item.asin?.toLowerCase().includes(headerFilters.asin.toLowerCase()));
-    }
-    if (headerFilters.sku) {
-      filtered = filtered.filter(item => item.sku?.toLowerCase().includes(headerFilters.sku.toLowerCase()));
-    }
-    if (headerFilters.serial) {
-      filtered = filtered.filter(item => item.serial_number?.toLowerCase().includes(headerFilters.serial.toLowerCase()));
-    }
-    if (headerFilters.status && headerFilters.status !== 'all') {
-      filtered = filtered.filter(item => item.status.toLowerCase().includes(headerFilters.status.toLowerCase()));
-    }
-    if (headerFilters.quantity.min || headerFilters.quantity.max) {
-      filtered = filtered.filter(item => {
-        const min = headerFilters.quantity.min ? parseInt(headerFilters.quantity.min) : null;
-        const max = headerFilters.quantity.max ? parseInt(headerFilters.quantity.max) : null;
-        if (min !== null && item.quantity < min) return false;
-        if (max !== null && item.quantity > max) return false;
-        return true;
-      });
-    }
-    if (headerFilters.daysSince.min || headerFilters.daysSince.max) {
-      filtered = filtered.filter(item => {
-        if (item.days_since_ordered === null) return false;
-        const min = headerFilters.daysSince.min ? parseInt(headerFilters.daysSince.min) : null;
-        const max = headerFilters.daysSince.max ? parseInt(headerFilters.daysSince.max) : null;
-        if (min !== null && item.days_since_ordered < min) return false;
-        if (max !== null && item.days_since_ordered > max) return false;
-        return true;
-      });
-    }
+      // Header filters
+      if (headerFilters.type && headerFilters.type !== 'all') {
+        filtered = filtered.filter(item => item.item_type.toLowerCase().includes(headerFilters.type.toLowerCase()));
+      }
+      if (headerFilters.asin) {
+        filtered = filtered.filter(item => item.asin?.toLowerCase().includes(headerFilters.asin.toLowerCase()));
+      }
+      if (headerFilters.sku) {
+        filtered = filtered.filter(item => item.sku?.toLowerCase().includes(headerFilters.sku.toLowerCase()));
+      }
+      if (headerFilters.serial) {
+        filtered = filtered.filter(item => item.serial_number?.toLowerCase().includes(headerFilters.serial.toLowerCase()));
+      }
+      if (headerFilters.status && headerFilters.status !== 'all') {
+        filtered = filtered.filter(item => item.status.toLowerCase().includes(headerFilters.status.toLowerCase()));
+      }
+      if (headerFilters.quantity.min || headerFilters.quantity.max) {
+        filtered = filtered.filter(item => {
+          const min = headerFilters.quantity.min ? parseInt(headerFilters.quantity.min) : null;
+          const max = headerFilters.quantity.max ? parseInt(headerFilters.quantity.max) : null;
+          if (min !== null && item.quantity < min) return false;
+          if (max !== null && item.quantity > max) return false;
+          return true;
+        });
+      }
+      if (headerFilters.daysSince.min || headerFilters.daysSince.max) {
+        filtered = filtered.filter(item => {
+          if (item.days_since_ordered === null) return false;
+          const min = headerFilters.daysSince.min ? parseInt(headerFilters.daysSince.min) : null;
+          const max = headerFilters.daysSince.max ? parseInt(headerFilters.daysSince.max) : null;
+          if (min !== null && item.days_since_ordered < min) return false;
+          if (max !== null && item.days_since_ordered > max) return false;
+          return true;
+        });
+      }
 
-    // Item type filter
-    if (filters.itemType !== 'all') {
-      filtered = filtered.filter(item => item.item_type === filters.itemType);
-      console.log('After item type filter:', filtered.length);
-    }
+      // Item type filter
+      if (filters.itemType !== 'all') {
+        filtered = filtered.filter(item => item.item_type === filters.itemType);
+        console.log('After item type filter:', filtered.length);
+      }
 
-    // Stock status filter
-    if (filters.stockStatus !== 'all') {
-      filtered = filtered.filter(item => {
-        switch (filters.stockStatus) {
-          case 'in-stock':
-            return item.quantity > 0;
-          case 'sold':
-            return item.status === 'sold' || item.quantity === 0;
-          default:
-            return true;
-        }
-      });
-      console.log('After stock status filter:', filtered.length);
-    }
+      // Stock status filter
+      if (filters.stockStatus !== 'all') {
+        filtered = filtered.filter(item => {
+          switch (filters.stockStatus) {
+            case 'in-stock':
+              return item.quantity > 0;
+            case 'sold':
+              return item.status === 'sold' || item.quantity === 0;
+            default:
+              return true;
+          }
+        });
+        console.log('After stock status filter:', filtered.length);
+      }
 
-    // Order status filter
-    if (filters.orderStatus !== 'all') {
-      filtered = filtered.filter(item => {
-        const daysSinceOrder = item.days_since_ordered;
+      // Order status filter
+      if (filters.orderStatus !== 'all') {
+        filtered = filtered.filter(item => {
+          const daysSinceOrder = item.days_since_ordered;
+          switch (filters.orderStatus) {
+            case 'ordered':
+              return daysSinceOrder !== null && daysSinceOrder >= 0;
+            case 'not-ordered':
+              return daysSinceOrder === null;
+            case 'overdue':
+              return daysSinceOrder !== null && daysSinceOrder > 30;
+            default:
+              return true;
+          }
+        });
+        console.log('After order status filter:', filtered.length);
+      }
+
+      // Date range filters
+      if (filters.dateRange.lastSoldFrom || filters.dateRange.lastSoldTo) {
+        filtered = filtered.filter(item => {
+          if (!item.last_sold_date) return false;
+          const soldDate = new Date(item.last_sold_date);
+          if (filters.dateRange.lastSoldFrom && soldDate < filters.dateRange.lastSoldFrom) return false;
+          if (filters.dateRange.lastSoldTo && soldDate > filters.dateRange.lastSoldTo) return false;
+          return true;
+        });
+        console.log('After last sold date filter:', filtered.length);
+      }
+      if (filters.dateRange.lastOrderFrom || filters.dateRange.lastOrderTo) {
+        filtered = filtered.filter(item => {
+          if (!item.last_order_date) return false;
+          const orderDate = new Date(item.last_order_date);
+          if (filters.dateRange.lastOrderFrom && orderDate < filters.dateRange.lastOrderFrom) return false;
+          if (filters.dateRange.lastOrderTo && orderDate > filters.dateRange.lastOrderTo) return false;
+          return true;
+        });
+        console.log('After last order date filter:', filtered.length);
+      }
+
+      // Stock range filter
+      if (filters.stockRange.min !== null || filters.stockRange.max !== null) {
+        filtered = filtered.filter(item => {
+          if (filters.stockRange.min !== null && item.quantity < filters.stockRange.min) return false;
+          if (filters.stockRange.max !== null && item.quantity > filters.stockRange.max) return false;
+          return true;
+        });
+        console.log('After stock range filter:', filtered.length);
+      }
+
+      // Days since order range filter
+      if (filters.daysSinceOrderRange.min !== null || filters.daysSinceOrderRange.max !== null) {
+        filtered = filtered.filter(item => {
+          if (item.days_since_ordered === null) return false;
+          if (filters.daysSinceOrderRange.min !== null && item.days_since_ordered < filters.daysSinceOrderRange.min) return false;
+          if (filters.daysSinceOrderRange.max !== null && item.days_since_ordered > filters.daysSinceOrderRange.max) return false;
+          return true;
+        });
+        console.log('After days since order range filter:', filtered.length);
+      }
+
+      // Apply sorting
+      if (sortConfig.key) {
+        filtered.sort((a, b) => {
+          const aValue = a[sortConfig.key!];
+          const bValue = b[sortConfig.key!];
+          if (aValue === null && bValue === null) return 0;
+          if (aValue === null) return 1;
+          if (bValue === null) return -1;
+          let comparison = 0;
+          if (typeof aValue === 'string' && typeof bValue === 'string') {
+            comparison = aValue.localeCompare(bValue);
+          } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+            comparison = aValue - bValue;
+          } else if (aValue && bValue && typeof aValue === 'string' && typeof bValue === 'string' && (sortConfig.key === 'last_sold_date' || sortConfig.key === 'last_order_date' || sortConfig.key === 'date_added')) {
+            comparison = new Date(aValue).getTime() - new Date(bValue).getTime();
+          } else {
+            comparison = String(aValue).localeCompare(String(bValue));
+          }
+          return sortConfig.direction === 'desc' ? -comparison : comparison;
+        });
+        console.log('After sorting:', filtered.length);
+      }
+      console.log('Final filtered items count:', filtered.length);
+      setFilteredItems(filtered);
+      setCurrentPage(1); // Reset to first page when filters change
+    }, filters.search ? 300 : 0); // Debounce search by 300ms, immediate for other filters
+
+    return () => clearTimeout(timeoutId);
+  }, [allInventoryItems, filters, headerFilters, sortConfig]);
         switch (filters.orderStatus) {
           case 'ordered':
             return daysSinceOrder !== null && daysSinceOrder >= 0;
@@ -1078,7 +1151,7 @@ export function Replenishment() {
     }
   };
 
-  // Sunsky order handlers
+  // Sunsky order handlers with SKU validation
   const handlePlaceOrderFromSunsky = async () => {
     if (selectedItems.size === 0) {
       toast({
@@ -1091,6 +1164,30 @@ export function Replenishment() {
 
     // Convert selected restock items to the format expected by SunskyOrderDialog
     const selectedRestockItems = pendingItems.filter(item => selectedItems.has(item.id));
+
+    // Validate SKUs before processing
+    const itemsWithoutSku = selectedRestockItems.filter(item => {
+      const extractedSku = extractSkuFromIdentifier(item.identifier);
+      const extractedModel = extractModelFromIdentifier(item.identifier);
+      return !(extractedSku || extractedModel);
+    });
+
+    if (itemsWithoutSku.length === selectedRestockItems.length) {
+      toast({
+        title: "No Valid SKUs Found",
+        description: "All selected items contain only Amazon ASINs which are not compatible with Sunsky. Please select items with valid SKU or model numbers.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (itemsWithoutSku.length > 0) {
+      toast({
+        title: `${itemsWithoutSku.length} Items Skipped`,
+        description: `Only items with valid SKUs will be processed (${selectedRestockItems.length - itemsWithoutSku.length} items).`,
+        variant: "default"
+      });
+    }
 
     // Calculate quantities based on units sold after last restock
     const orderItems = await Promise.all(selectedRestockItems.map(async item => {
@@ -1167,20 +1264,10 @@ export function Replenishment() {
     // Filter out null items (items without valid SKUs)
     const validOrderItems = orderItems.filter(item => item !== null);
     if (validOrderItems.length === 0) {
-      toast({
-        title: "No Valid SKUs Found",
-        description: "The selected items contain only Amazon ASINs which are not compatible with Sunsky. Please select items with valid SKU or model numbers.",
-        variant: "destructive"
-      });
+      // This shouldn't happen due to early validation, but keep as safety
       return;
     }
-    if (validOrderItems.length < selectedRestockItems.length) {
-      toast({
-        title: `${selectedRestockItems.length - validOrderItems.length} Items Skipped`,
-        description: "Some items were skipped because they only contain Amazon ASINs. Only items with valid SKUs will be processed.",
-        variant: "default"
-      });
-    }
+    
     setSunskyOrderItems(validOrderItems);
     setSunskyDialogOpen(true);
   };
