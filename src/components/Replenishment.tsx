@@ -77,14 +77,19 @@ interface AllInventoryItem {
   asin?: string;
   sku?: string;
   serial_number?: string;
+  title?: string | null;
   quantity: number;
   ordered_quantity?: number;
+  restock_quantity?: number | null;
   status: string;
   last_sold_date?: string | null;
   last_order_date?: string | null;
   days_since_ordered?: number | null;
   date_added: string;
   notes?: string;
+  ordered_at?: string | null;
+  sunsky_order_number?: string | null;
+  velocity_order_ref?: string | null;
 }
 interface InventoryMetrics {
   velocityScore: number;
@@ -381,7 +386,7 @@ export function Replenishment() {
   const loadAllInventoryItems = async () => {
     try {
       console.log('Starting loadAllInventoryItems for country:', selectedCountry);
-      const [asinAll] = await Promise.all([(supabase as any).from('asin_inventory').select('id, asin, serial_number, quantity, ordered_quantity, status, sku, last_restock_date, date_sold, date_added, notes, eligible_for_restock').eq('country', selectedCountry).eq('eligible_for_restock', true).eq('quantity', 0)]);
+      const [asinAll] = await Promise.all([(supabase as any).from('asin_inventory').select('id, asin, serial_number, quantity, ordered_quantity, status, sku, last_restock_date, date_sold, date_added, notes, eligible_for_restock, title, ordered_at, sunsky_order_number, restock_quantity, velocity_order_ref').eq('country', selectedCountry).eq('eligible_for_restock', true).eq('quantity', 0)]);
 
       // Get non-source items to exclude them
       const {
@@ -436,14 +441,24 @@ export function Replenishment() {
       const noStockItems = allEligibleItems.filter(item => item.status === 'no-stock').map(item => ({
         id: item.id,
         identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
+        asin: item.asin,
+        sku: item.sku,
+        serial_number: item.serial_number,
+        title: item.title,
         current_quantity: item.quantity,
+        ordered_quantity: item.ordered_quantity,
+        restock_quantity: item.restock_quantity,
         table_name: 'asin_inventory',
         status: item.status,
         date_sold: item.last_sold_date,
         last_restock_date: item.last_order_date,
         days_since_last_restock: item.days_since_ordered,
         date_added: item.date_added,
-        total_sold_units: totalSoldMap.get(item.id) || 0
+        total_sold_units: totalSoldMap.get(item.id) || 0,
+        ordered_at: item.ordered_at,
+        sunsky_order_number: item.sunsky_order_number,
+        notes: item.notes,
+        velocity_order_ref: item.velocity_order_ref
       }));
 
       // 2. Items with valid SKU and NOT 'no-stock' → Ready to Order tab
@@ -457,14 +472,24 @@ export function Replenishment() {
       }).map(item => ({
         id: item.id,
         identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
+        asin: item.asin,
+        sku: item.sku,
+        serial_number: item.serial_number,
+        title: item.title,
         current_quantity: item.quantity,
+        ordered_quantity: item.ordered_quantity,
+        restock_quantity: item.restock_quantity,
         table_name: 'asin_inventory',
         status: item.status,
         date_sold: item.last_sold_date,
         last_restock_date: item.last_order_date,
         days_since_last_restock: item.days_since_ordered,
         date_added: item.date_added,
-        total_sold_units: totalSoldMap.get(item.id) || 0
+        total_sold_units: totalSoldMap.get(item.id) || 0,
+        ordered_at: item.ordered_at,
+        sunsky_order_number: item.sunsky_order_number,
+        notes: item.notes,
+        velocity_order_ref: item.velocity_order_ref
       }));
 
       // 3. Items without valid SKU and NOT 'no-stock' → Out of Stock tab (no SKU to order)
@@ -477,14 +502,24 @@ export function Replenishment() {
       }).map(item => ({
         id: item.id,
         identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
+        asin: item.asin,
+        sku: item.sku,
+        serial_number: item.serial_number,
+        title: item.title,
         current_quantity: item.quantity,
+        ordered_quantity: item.ordered_quantity,
+        restock_quantity: item.restock_quantity,
         table_name: 'asin_inventory',
         status: item.status,
         date_sold: item.last_sold_date,
         last_restock_date: item.last_order_date,
         days_since_last_restock: item.days_since_ordered,
         date_added: item.date_added,
-        total_sold_units: totalSoldMap.get(item.id) || 0
+        total_sold_units: totalSoldMap.get(item.id) || 0,
+        ordered_at: item.ordered_at,
+        sunsky_order_number: item.sunsky_order_number,
+        notes: item.notes,
+        velocity_order_ref: item.velocity_order_ref
       }));
 
       // 4. Combine no-stock items with items lacking SKU for Out of Stock tab
@@ -492,15 +527,24 @@ export function Replenishment() {
       const orderedItemsData = allInventoryItems.filter(item => item.status === 'ordered').map(item => ({
         id: item.id,
         identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
+        asin: item.asin,
+        sku: item.sku,
+        serial_number: item.serial_number,
+        title: item.title,
         current_quantity: item.quantity,
         ordered_quantity: item.ordered_quantity,
+        restock_quantity: item.restock_quantity,
         table_name: 'asin_inventory',
         status: item.status,
         date_sold: item.last_sold_date,
         last_restock_date: item.last_order_date,
         days_since_last_restock: item.days_since_ordered,
         date_added: item.date_added,
-        total_sold_units: totalSoldMap.get(item.id) || 0
+        total_sold_units: totalSoldMap.get(item.id) || 0,
+        ordered_at: item.ordered_at,
+        sunsky_order_number: item.sunsky_order_number,
+        notes: item.notes,
+        velocity_order_ref: item.velocity_order_ref
       }));
       console.log('Setting allInventoryItems state with:', allInventoryItems.length, 'items');
       setAllInventoryItems(allInventoryItems);
