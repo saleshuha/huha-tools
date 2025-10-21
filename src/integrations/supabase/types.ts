@@ -4881,6 +4881,27 @@ export type Database = {
           velocity_score: number
         }[]
       }
+      get_replenishment_items_optimized: {
+        Args: { lookback_days?: number; p_country?: string; p_user_id: string }
+        Returns: {
+          asin: string
+          date_added: string
+          date_sold: string
+          eligible_for_restock: boolean
+          id: string
+          is_non_source: boolean
+          last_restock_date: string
+          ordered_at: string
+          ordered_quantity: number
+          quantity: number
+          serial_number: string
+          sku: string
+          status: Database["public"]["Enums"]["inventory_status"]
+          title: string
+          total_stock_in: number
+          total_stock_out: number
+        }[]
+      }
       get_restock_eligible_item_ids: {
         Args: { country_filter: string }
         Returns: {

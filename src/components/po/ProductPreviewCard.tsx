@@ -40,6 +40,15 @@ export const ProductPreviewCard: React.FC<ProductPreviewCardProps> = ({
   const { downloadSingleImage, isDownloading } = useSunskyImages();
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [currentThumbnail, setCurrentThumbnail] = useState(thumbnailUrl);
+
+  // Update thumbnail when props change
+  useEffect(() => {
+    console.log(`[${itemNo}] Thumbnail updated:`, thumbnailUrl);
+    setCurrentThumbnail(thumbnailUrl);
+    setImageLoaded(false);
+    setImageError(false);
+  }, [thumbnailUrl, itemNo]);
 
   const handleDownloadImages = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -54,26 +63,31 @@ export const ProductPreviewCard: React.FC<ProductPreviewCardProps> = ({
           className="relative aspect-square mb-3 bg-muted rounded-md overflow-hidden"
           onClick={onViewDetails}
         >
-          {imagesDownloaded && thumbnailUrl ? (
+          {imagesDownloaded && currentThumbnail ? (
             <>
               {!imageLoaded && !imageError && (
                 <Skeleton className="w-full h-full absolute inset-0" />
               )}
               <img
-                src={thumbnailUrl}
+                src={currentThumbnail}
                 alt={title}
                 className={`w-full h-full object-contain transition-opacity duration-300 ${
                   imageLoaded ? 'opacity-100' : 'opacity-0'
                 }`}
-                onLoad={() => setImageLoaded(true)}
-                onError={() => {
+                onLoad={() => {
+                  console.log(`[${itemNo}] Image loaded successfully`);
+                  setImageLoaded(true);
+                }}
+                onError={(e) => {
+                  console.error(`[${itemNo}] Image load error:`, currentThumbnail, e);
                   setImageError(true);
                   setImageLoaded(true);
                 }}
               />
               {imageError && (
-                <div className="absolute inset-0 flex items-center justify-center">
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
                   <Package className="w-12 h-12 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Image error</span>
                 </div>
               )}
             </>

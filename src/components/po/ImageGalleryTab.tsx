@@ -60,6 +60,8 @@ export const ImageGalleryTab: React.FC<ImageGalleryTabProps> = ({ selectedAPI })
   const handleBulkDownload = async () => {
     if (selectedItems.size === 0) return;
     
+    console.log('[ImageGallery] Starting bulk download for', selectedItems.size, 'items');
+    
     await downloadImages(Array.from(selectedItems), {
       apiId: selectedAPI
     });
@@ -67,8 +69,12 @@ export const ImageGalleryTab: React.FC<ImageGalleryTabProps> = ({ selectedAPI })
     // Clear selection after download
     setSelectedItems(new Set());
     
+    console.log('[ImageGallery] Download complete, refreshing SKUs');
+    
     // Refresh SKU list to show updated image status
     await refreshSKUs();
+    
+    console.log('[ImageGallery] SKUs refreshed');
   };
 
   const handleDownloadVisible = async () => {
@@ -78,11 +84,15 @@ export const ImageGalleryTab: React.FC<ImageGalleryTabProps> = ({ selectedAPI })
     
     if (itemsWithoutImages.length === 0) return;
     
+    console.log('[ImageGallery] Downloading images for visible items:', itemsWithoutImages);
+    
     await downloadImages(itemsWithoutImages, {
       apiId: selectedAPI
     });
     
+    console.log('[ImageGallery] Download complete, refreshing SKUs');
     await refreshSKUs();
+    console.log('[ImageGallery] SKUs refreshed');
   };
 
   const statsWithImages = sunskySKUs.filter(sku => sku.images_downloaded).length;
