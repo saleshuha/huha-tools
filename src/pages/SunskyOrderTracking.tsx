@@ -23,6 +23,8 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 import { calculateOrderProgress } from '@/utils/sunsky-progress';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 // Status configurations for orders and items with Sunsky numeric status mapping
 const statusColors = {
@@ -118,6 +120,8 @@ export default function SunskyOrderTrackingPage() {
     getOrderLabels,
     getSlowItems
   } = useSunskyOrders();
+
+  const { toast } = useToast();
 
   // Filter and sort orders with enhanced logic
   const filteredAndSortedOrders = useMemo(() => {
@@ -288,6 +292,43 @@ export default function SunskyOrderTrackingPage() {
     order.items?.some(item => isItemDelayed(item))
   ).length;
 
+  // Clear all orders function
+  const handleClearOrders = async () => {
+    if (!confirm(`Are you sure you want to delete ALL ${orders.length} synced orders? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('sunsky_orders')
+        .delete()
+        .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
+
+      if (error) throw error;
+
+      // Also clear items
+      await supabase
+        .from('sunsky_order_items')
+        .delete()
+        .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
+
+      toast({
+        title: 'Success',
+        description: `All ${orders.length} orders have been deleted from the database.`,
+      });
+
+      // Refresh the orders list
+      await fetchStoredOrders(false);
+    } catch (error: any) {
+      console.error('Error clearing orders:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to clear orders',
+        variant: 'destructive',
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
       {/* Enhanced Hero Header Section */}
@@ -341,6 +382,7 @@ export default function SunskyOrderTrackingPage() {
           onCredentialsChange={setSelectedCredentialId}
           onRefresh={() => syncOrdersFromAPI(selectedCredentialId, false)}
           onFullSync={() => syncOrdersFromAPI(selectedCredentialId, true)}
+          onClearOrders={handleClearOrders}
           loading={loading}
           syncing={syncing}
           totalOrders={orders.length}

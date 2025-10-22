@@ -18,6 +18,7 @@ interface TrackingToolbarProps {
   onCredentialsChange: (value: string | null) => void;
   onRefresh: () => void;
   onFullSync: () => void;
+  onClearOrders?: () => void;
   onExport?: () => void;
   onShowAnalytics?: () => void;
   loading: boolean;
@@ -35,6 +36,7 @@ export function TrackingToolbar({
   onCredentialsChange,
   onRefresh,
   onFullSync,
+  onClearOrders,
   onExport,
   onShowAnalytics,
   loading,
@@ -123,6 +125,17 @@ export function TrackingToolbar({
               <RefreshCw className={cn("h-4 w-4 mr-2", syncing && "animate-spin")} />
               Full Sync
             </Button>
+
+            {onClearOrders && totalOrders > 0 && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={onClearOrders}
+                disabled={syncing || loading}
+              >
+                Clear All Orders
+              </Button>
+            )}
           </div>
         </div>
 
