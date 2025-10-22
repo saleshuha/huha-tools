@@ -32,23 +32,25 @@ export const EnhancedStatCard: React.FC<EnhancedStatCardProps> = ({
       )}
       onClick={onClick}
     >
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Icon className={cn("h-4 w-4", `text-${colorClass}`)} />
-            <div>
-              <p className="text-sm text-muted-foreground">{title}</p>
-              <p className="text-xl font-bold mt-1">{typeof value === 'number' ? value.toLocaleString() : value}</p>
-            </div>
+      <CardContent className="p-6">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Icon className={cn("h-5 w-5", `text-${colorClass}`)} />
+            {trend && (
+              <div className={cn(
+                "text-xs font-medium",
+                trend.isPositive ? "text-green-500" : "text-red-500"
+              )}>
+                {trend.isPositive ? '↑' : '↓'} {Math.abs(trend.value)}%
+              </div>
+            )}
           </div>
-          {trend && (
-            <div className={cn(
-              "text-xs font-medium",
-              trend.isPositive ? "text-green-500" : "text-red-500"
-            )}>
-              {trend.isPositive ? '↑' : '↓'} {Math.abs(trend.value)}%
-            </div>
-          )}
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-muted-foreground leading-none">{title}</p>
+            <p className="text-3xl font-bold tracking-tight">
+              {typeof value === 'number' ? value.toLocaleString() : value}
+            </p>
+          </div>
         </div>
       </CardContent>
     </Card>
