@@ -200,7 +200,7 @@ export function AppSidebar() {
   }
 
   const isSourceSectionActive = () => {
-    return isActive("/sunsky-importer") || isActive("/sunsky-order-tracking")
+    return isActive("/sunsky-importer") || isActive("/sunsky-order-tracking") || isActive("/sunsky-api-docs") || isActive("/global-sources")
   }
 
   const [isToolsOpen, setIsToolsOpen] = useState(() => isToolsSectionActive())
@@ -561,7 +561,7 @@ export function AppSidebar() {
               )}
 
               {/* Source Section - only show when not collapsed */}
-              {!isCollapsed && (canAccessRoute('/sunsky-importer') || canAccessRoute('/sunsky-order-tracking')) && (
+              {!isCollapsed && (canAccessRoute('/sunsky-importer') || canAccessRoute('/sunsky-order-tracking') || canAccessRoute('/sunsky-api-docs') || canAccessRoute('/global-sources')) && (
                 <SidebarMenuItem>
                   <Collapsible open={isSourceOpen} onOpenChange={setIsSourceOpen}>
                     <CollapsibleTrigger asChild>
@@ -643,6 +643,27 @@ export function AppSidebar() {
                               <BookOpen className="h-4 w-4 flex-shrink-0 opacity-75" />
                               <span className="font-medium text-xs">
                                 Source API Documentation
+                              </span>
+                            </NavLink>
+                          </SidebarMenuButton>}
+
+                          {/* Global Sources */}
+                          {canAccessRoute('/global-sources') && <SidebarMenuButton
+                            asChild
+                            className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
+                              isActive("/global-sources")
+                                ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                                : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                            }`}
+                          >
+                            <NavLink 
+                              to="/global-sources" 
+                              end
+                              className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
+                            >
+                              <Building2 className="h-4 w-4 flex-shrink-0 opacity-75" />
+                              <span className="font-medium text-xs">
+                                Global Sources
                               </span>
                             </NavLink>
                           </SidebarMenuButton>}
