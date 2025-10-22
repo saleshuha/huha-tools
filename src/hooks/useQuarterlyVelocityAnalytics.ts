@@ -14,7 +14,7 @@ export interface VelocityAnalyticsItem {
   asin: string;
   sku: string;
   title: string;
-  serial_number?: string;
+  serial_number: string;
   current_quantity: number;
   total_added: number;
   total_sold: number;
