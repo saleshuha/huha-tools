@@ -29,8 +29,12 @@ export const SupplierContactActions = ({
     // Remove all non-numeric characters to get clean number
     const cleanNumber = whatsappNumber.replace(/\D/g, '');
     
+    console.log('🔍 WhatsApp Debug - Original number:', whatsappNumber);
+    console.log('🔍 WhatsApp Debug - Clean number:', cleanNumber);
+    
     // Ensure number has country code
     if (cleanNumber.length < 10) {
+      console.error('❌ WhatsApp Debug - Invalid number length:', cleanNumber.length);
       toast({
         title: 'Invalid phone number',
         description: 'Please ensure the WhatsApp number includes the country code',
@@ -43,11 +47,14 @@ export const SupplierContactActions = ({
     
     // Detect if mobile device
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    console.log('🔍 WhatsApp Debug - Is mobile:', isMobile);
     
     // Use appropriate URL scheme
     const url = isMobile 
       ? `whatsapp://send?phone=${cleanNumber}&text=${message}`
       : `https://wa.me/${cleanNumber}?text=${message}`;
+    
+    console.log('🔍 WhatsApp Debug - Generated URL:', url);
     
     // Create temporary anchor and click it (avoids popup blockers)
     const link = document.createElement('a');
@@ -55,8 +62,11 @@ export const SupplierContactActions = ({
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
     document.body.appendChild(link);
+    
+    console.log('🔍 WhatsApp Debug - Link created, attempting click...');
     link.click();
     document.body.removeChild(link);
+    console.log('✅ WhatsApp Debug - Click executed, link removed');
     
     // Show success feedback
     setWhatsappClicked(true);
@@ -66,6 +76,13 @@ export const SupplierContactActions = ({
       title: 'Opening WhatsApp',
       description: `Starting conversation with ${supplierName}`,
     });
+  };
+  
+  const getWhatsAppUrl = () => {
+    if (!whatsappNumber) return '';
+    const cleanNumber = whatsappNumber.replace(/\D/g, '');
+    const message = encodeURIComponent(`Hello ${supplierName}, I'm reaching out regarding our business collaboration.`);
+    return `https://wa.me/${cleanNumber}?text=${message}`;
   };
 
   const copyWhatsAppNumber = () => {
@@ -126,9 +143,22 @@ export const SupplierContactActions = ({
   return (
     <div className="space-y-3">
       {whatsappNumber && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <MessageCircle className="h-4 w-4" />
-          <span>{whatsappNumber}</span>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <MessageCircle className="h-4 w-4" />
+            <span>{whatsappNumber}</span>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            <span>Or click directly: </span>
+            <a 
+              href={getWhatsAppUrl()} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-primary hover:underline font-medium"
+            >
+              Open WhatsApp Web
+            </a>
+          </div>
         </div>
       )}
       
