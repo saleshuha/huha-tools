@@ -214,9 +214,12 @@ export const useSunskyOrders = () => {
     }
   };
 
-  // Sync orders from Sunsky API - incremental sync by default (last 30 days)
-  // Use fullSync=true to sync all orders (slower)
-  const syncOrdersFromAPI = async (credentialId?: string | null, fullSync: boolean = false) => {
+  // Sync orders from Sunsky API with optional date range
+  const syncOrdersFromAPI = async (
+    credentialId?: string | null, 
+    dateFrom?: Date | null, 
+    dateTo?: Date | null
+  ) => {
     setState(prev => ({ ...prev, syncing: true, error: null, progressCurrent: 0, progressTotal: 0, progressPercent: 0 }));
 
     try {
@@ -258,7 +261,19 @@ export const useSunskyOrders = () => {
         console.log('Using first available credential:', finalCredentialId);
       }
 
-      console.log('Syncing Sunsky orders with credential:', finalCredentialId);
+      // Format dates for Sunsky API (MM/dd/yyyy)
+      const formatDate = (date: Date) => {
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${month}/${day}/${year}`;
+      };
+
+      const dateRangeStr = dateFrom && dateTo 
+        ? `${formatDate(dateFrom)} to ${formatDate(dateTo)}`
+        : 'all time';
+
+      console.log('Syncing Sunsky orders with credential:', finalCredentialId, 'Date range:', dateRangeStr);
 
       // Get delivered orders already in database to skip them
       console.log('🔍 Checking for delivered orders already in database...');
@@ -269,31 +284,28 @@ export const useSunskyOrders = () => {
         .in('status', ['6', 'delivered']); // Status 6 = delivered
 
       if (deliveredError) {
-        console.warn('Failed to fetch delivered orders, continuing with full sync:', deliveredError);
+        console.warn('Failed to fetch delivered orders, continuing with sync:', deliveredError);
       }
 
       const deliveredOrderNumbers = new Set(deliveredOrdersData?.map((o: any) => o.number) || []);
       console.log(`📦 Found ${deliveredOrderNumbers.size} delivered orders in database to skip`);
-
-      // Determine sync strategy
-      const syncType = fullSync ? 'full' : 'incremental';
-      const dateFilter = fullSync ? null : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Last 30 days
       
-      console.log(`🌍 Fetching ${syncType} orders from Sunsky API...`);
+      console.log(`🌍 Fetching orders from Sunsky API for date range: ${dateRangeStr}...`);
       
       toast({
         title: 'Syncing Orders',
-        description: fullSync 
-          ? 'Fetching all orders from your Sunsky account (this may take a while)...'
-          : 'Fetching recent orders (last 30 days) from your Sunsky account...',
+        description: dateFrom && dateTo
+          ? `Fetching orders from ${dateRangeStr}...`
+          : 'Fetching all orders from your Sunsky account (this may take a while)...',
       });
 
       const { data, error } = await supabase.functions.invoke('sunsky-api', {
         body: {
-          action: fullSync ? 'getAllOrders' : 'getRecentOrders',
+          action: 'getAllOrders',
           apiId: finalCredentialId,
           skipDeliveredOrders: Array.from(deliveredOrderNumbers),
-          dateFrom: dateFilter?.toISOString()
+          gmtCreatedStart: dateFrom ? formatDate(dateFrom) : undefined,
+          gmtCreatedEnd: dateTo ? formatDate(dateTo) : undefined
         },
       });
 

@@ -13,6 +13,7 @@ import { DelayedItemsTab } from '@/components/sunsky/DelayedItemsTab';
 import { StatusMetricsCards } from '@/components/sunsky/tracking/StatusMetricsCards';
 import { TrackingToolbar } from '@/components/sunsky/tracking/TrackingToolbar';
 import { EnhancedOrderCard } from '@/components/sunsky/tracking/EnhancedOrderCard';
+import { DateRangeSyncDialog } from '@/components/sunsky/tracking/DateRangeSyncDialog';
 import { 
   Pagination,
   PaginationContent,
@@ -103,6 +104,7 @@ export default function SunskyOrderTrackingPage() {
   const [orderLabels, setOrderLabels] = useState<Map<string, any[]>>(new Map());
   const [selectedCredentialId, setSelectedCredentialId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [showSyncDialog, setShowSyncDialog] = useState(false);
   const itemsPerPage = 20;
 
   const { selectedCountry } = useCountry();
@@ -292,6 +294,12 @@ export default function SunskyOrderTrackingPage() {
     order.items?.some(item => isItemDelayed(item))
   ).length;
 
+  // Handle sync orders with date range
+  const handleSyncOrders = async (dateFrom: Date | null, dateTo: Date | null) => {
+    await syncOrdersFromAPI(selectedCredentialId, dateFrom, dateTo);
+    setShowSyncDialog(false);
+  };
+
   // Clear all orders function
   const handleClearOrders = async () => {
     if (!confirm(`Are you sure you want to delete ALL ${orders.length} synced orders? This action cannot be undone.`)) {
@@ -380,8 +388,7 @@ export default function SunskyOrderTrackingPage() {
           onSearchChange={setSearchTerm}
           selectedCredentials={selectedCredentialId}
           onCredentialsChange={setSelectedCredentialId}
-          onRefresh={() => syncOrdersFromAPI(selectedCredentialId, false)}
-          onFullSync={() => syncOrdersFromAPI(selectedCredentialId, true)}
+          onSyncOrders={() => setShowSyncDialog(true)}
           onClearOrders={handleClearOrders}
           loading={loading}
           syncing={syncing}
@@ -389,6 +396,14 @@ export default function SunskyOrderTrackingPage() {
           filteredOrders={filteredAndSortedOrders.length}
           delayedCount={delayedCount}
           credentials={credentials}
+        />
+
+        {/* Date Range Sync Dialog */}
+        <DateRangeSyncDialog
+          open={showSyncDialog}
+          onOpenChange={setShowSyncDialog}
+          onSync={handleSyncOrders}
+          isLoading={syncing}
         />
 
         {/* Tabs for Orders and Delayed Items */}

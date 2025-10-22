@@ -16,8 +16,7 @@ interface TrackingToolbarProps {
   onSearchChange: (value: string) => void;
   selectedCredentials: string | null;
   onCredentialsChange: (value: string | null) => void;
-  onRefresh: () => void;
-  onFullSync: () => void;
+  onSyncOrders: () => void;
   onClearOrders?: () => void;
   onExport?: () => void;
   onShowAnalytics?: () => void;
@@ -34,8 +33,7 @@ export function TrackingToolbar({
   onSearchChange,
   selectedCredentials,
   onCredentialsChange,
-  onRefresh,
-  onFullSync,
+  onSyncOrders,
   onClearOrders,
   onExport,
   onShowAnalytics,
@@ -107,23 +105,13 @@ export function TrackingToolbar({
             )}
 
             <Button
-              variant="outline"
-              size="sm"
-              onClick={onRefresh}
-              disabled={syncing || loading}
-            >
-              <RefreshCw className={cn("h-4 w-4 mr-2", syncing && "animate-spin")} />
-              Sync Recent
-            </Button>
-
-            <Button
               variant="default"
               size="sm"
-              onClick={onFullSync}
+              onClick={onSyncOrders}
               disabled={syncing || loading}
             >
               <RefreshCw className={cn("h-4 w-4 mr-2", syncing && "animate-spin")} />
-              Full Sync
+              Sync Orders
             </Button>
 
             {onClearOrders && totalOrders > 0 && (
