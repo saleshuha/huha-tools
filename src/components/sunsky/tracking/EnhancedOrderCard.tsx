@@ -122,17 +122,17 @@ export function EnhancedOrderCard({
                 <div className="flex items-center gap-3 flex-wrap">
                   <div className={cn(
                     "w-10 h-10 rounded-full flex items-center justify-center",
-                    progress.color === 'green' && 'bg-green-500/10',
-                    progress.color === 'blue' && 'bg-blue-500/10',
-                    progress.color === 'purple' && 'bg-purple-500/10',
-                    progress.color === 'orange' && 'bg-orange-500/10'
+                    progress.statusColor === 'bg-green-500' && 'bg-green-500/10',
+                    progress.statusColor === 'bg-blue-500' && 'bg-blue-500/10',
+                    progress.statusColor === 'bg-purple-500' && 'bg-purple-500/10',
+                    progress.statusColor === 'bg-orange-500' && 'bg-orange-500/10'
                   )}>
                     <StatusIcon className={cn(
                       "h-5 w-5",
-                      progress.color === 'green' && 'text-green-600',
-                      progress.color === 'blue' && 'text-blue-600',
-                      progress.color === 'purple' && 'text-purple-600',
-                      progress.color === 'orange' && 'text-orange-600'
+                      progress.statusColor === 'bg-green-500' && 'text-green-600',
+                      progress.statusColor === 'bg-blue-500' && 'text-blue-600',
+                      progress.statusColor === 'bg-purple-500' && 'text-purple-600',
+                      progress.statusColor === 'bg-orange-500' && 'text-orange-600'
                     )} />
                   </div>
                   
@@ -152,7 +152,9 @@ export function EnhancedOrderCard({
                 <SegmentedProgress
                   currentStep={progress.currentStep}
                   totalSteps={progress.totalSteps}
-                  status={String(order.status)}
+                  percentage={progress.percentage}
+                  statusLabel={progress.statusLabel}
+                  statusColor={progress.statusColor}
                   className="mt-2"
                 />
               </div>
