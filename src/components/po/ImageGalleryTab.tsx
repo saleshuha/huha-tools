@@ -26,6 +26,7 @@ export const ImageGalleryTab: React.FC<ImageGalleryTabProps> = ({ selectedAPI })
   const [filterStatus, setFilterStatus] = useState<'all' | 'with-images' | 'without-images'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+  const [jobRefreshTrigger, setJobRefreshTrigger] = useState(0);
 
   // Filter SKUs based on search and image status
   const filteredSKUs = sunskySKUs.filter(sku => {
@@ -68,6 +69,9 @@ export const ImageGalleryTab: React.FC<ImageGalleryTabProps> = ({ selectedAPI })
       apiId: selectedAPI
     });
     
+    // Trigger job history refresh
+    setJobRefreshTrigger(prev => prev + 1);
+    
     // Clear selection after download
     setSelectedItems(new Set());
     
@@ -91,6 +95,9 @@ export const ImageGalleryTab: React.FC<ImageGalleryTabProps> = ({ selectedAPI })
     await downloadImages(itemsWithoutImages, {
       apiId: selectedAPI
     });
+    
+    // Trigger job history refresh
+    setJobRefreshTrigger(prev => prev + 1);
     
     console.log('[ImageGallery] Download complete, refreshing SKUs');
     await refreshSKUs();

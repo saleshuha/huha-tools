@@ -57,10 +57,35 @@ export const useSunskyImages = (): UseSunskyImages => {
       });
       setDownloadProgress(new Map(newProgress));
 
-      // Call edge function
+      // Create job record first
+      const { data: job, error: jobError } = await supabase
+        .from('sunsky_import_jobs')
+        .insert({
+          type: 'image_download',
+          status: 'pending',
+          total_items: itemNos.length,
+          processed_items: 0,
+          success_count: 0,
+          error_count: 0,
+          criteria: { 
+            itemNos, 
+            size: options?.size || 800,
+            watermark: options?.watermark 
+          }
+        })
+        .select()
+        .single();
+
+      if (jobError) {
+        console.error('Failed to create job:', jobError);
+        throw new Error('Failed to create download job');
+      }
+
+      // Call edge function with jobId
       const { data, error } = await supabase.functions.invoke('sunsky-api', {
         body: {
           action: 'download_images',
+          jobId: job.id,
           itemNos,
           size: options?.size || 800,
           watermark: options?.watermark,

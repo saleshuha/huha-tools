@@ -522,15 +522,31 @@ async function handleTestCredentials(_params: any, key: string, secret: string) 
 async function handleDownloadImages(userId: string, params: any, key: string, secret: string) {
   console.log('📥 Download Images - Starting:', { userId, itemCount: params.itemNos?.length });
   
-  const { itemNos, size, watermark } = params;
+  const { itemNos, size, watermark, jobId } = params;
   
   if (!itemNos || !Array.isArray(itemNos) || itemNos.length === 0) {
     throw new Error('itemNos array is required');
+  }
+
+  // Update job status to processing if jobId provided
+  if (jobId) {
+    await supabase
+      .from('sunsky_import_jobs')
+      .update({
+        status: 'processing',
+        processed_items: 0,
+        success_count: 0,
+        error_count: 0
+      })
+      .eq('id', jobId);
   }
   
   console.log(`📦 Processing ${itemNos.length} items using Sunsky official image API`);
   
   const results = [];
+  let processedCount = 0;
+  let successCount = 0;
+  let errorCount = 0;
   
   for (const itemNo of itemNos) {
     try {
@@ -699,6 +715,21 @@ async function handleDownloadImages(userId: string, params: any, key: string, se
         imageCount: savedImagesCount
       });
       
+      processedCount++;
+      successCount++;
+      
+      // Update job progress
+      if (jobId) {
+        await supabase
+          .from('sunsky_import_jobs')
+          .update({
+            processed_items: processedCount,
+            success_count: successCount,
+            error_count: errorCount
+          })
+          .eq('id', jobId);
+      }
+      
       console.log(`✅ [${itemNo}] Complete: ${savedImagesCount} images saved`);
       
     } catch (error: any) {
@@ -708,19 +739,48 @@ async function handleDownloadImages(userId: string, params: any, key: string, se
         status: 'failed',
         error: error.message
       });
+      
+      processedCount++;
+      errorCount++;
+      
+      // Update job progress
+      if (jobId) {
+        await supabase
+          .from('sunsky_import_jobs')
+          .update({
+            processed_items: processedCount,
+            success_count: successCount,
+            error_count: errorCount
+          })
+          .eq('id', jobId);
+      }
     }
   }
   
-  const successCount = results.filter(r => r.status === 'success').length;
+  const finalSuccessCount = results.filter(r => r.status === 'success').length;
   
-  console.log(`✅ Download Complete: ${successCount}/${results.length} items processed successfully`);
+  // Mark job as completed
+  if (jobId) {
+    await supabase
+      .from('sunsky_import_jobs')
+      .update({
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        processed_items: results.length,
+        success_count: finalSuccessCount,
+        error_count: results.length - finalSuccessCount
+      })
+      .eq('id', jobId);
+  }
+  
+  console.log(`✅ Download Complete: ${finalSuccessCount}/${results.length} items processed successfully`);
   
   return {
     result: 'success',
     data: {
       total: results.length,
-      success: successCount,
-      failed: results.length - successCount,
+      success: finalSuccessCount,
+      failed: results.length - finalSuccessCount,
       results
     }
   };
