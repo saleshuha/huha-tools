@@ -22,6 +22,9 @@ interface TrackingToolbarProps {
   onShowAnalytics?: () => void;
   loading: boolean;
   syncing: boolean;
+  progressCurrent?: number;
+  progressTotal?: number;
+  progressPercent?: number;
   totalOrders: number;
   filteredOrders: number;
   delayedCount: number;
@@ -39,6 +42,9 @@ export function TrackingToolbar({
   onShowAnalytics,
   loading,
   syncing,
+  progressCurrent = 0,
+  progressTotal = 0,
+  progressPercent = 0,
   totalOrders,
   filteredOrders,
   delayedCount,
@@ -109,9 +115,27 @@ export function TrackingToolbar({
               size="sm"
               onClick={onSyncOrders}
               disabled={syncing || loading}
+              className="relative min-w-[140px]"
             >
               <RefreshCw className={cn("h-4 w-4 mr-2", syncing && "animate-spin")} />
-              Sync Orders
+              {syncing && progressTotal > 0 ? (
+                <span className="flex items-center gap-2">
+                  Syncing
+                  <span className="font-mono text-xs">
+                    {progressCurrent}/{progressTotal}
+                  </span>
+                </span>
+              ) : (
+                "Sync Orders"
+              )}
+              {syncing && progressTotal > 0 && (
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary/20 rounded-b overflow-hidden">
+                  <div 
+                    className="h-full bg-primary-foreground transition-all duration-300"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+              )}
             </Button>
 
             {onClearOrders && totalOrders > 0 && (

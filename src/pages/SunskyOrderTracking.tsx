@@ -392,6 +392,9 @@ export default function SunskyOrderTrackingPage() {
           onClearOrders={handleClearOrders}
           loading={loading}
           syncing={syncing}
+          progressCurrent={progressCurrent}
+          progressTotal={progressTotal}
+          progressPercent={progressPercent}
           totalOrders={orders.length}
           filteredOrders={filteredAndSortedOrders.length}
           delayedCount={delayedCount}
