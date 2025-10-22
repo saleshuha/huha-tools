@@ -136,7 +136,11 @@ export const useSKUManager = () => {
           country,
           product_data,
           created_at,
-          updated_at
+          updated_at,
+          thumbnail_url,
+          image_count,
+          images_downloaded,
+          images_download_date
         `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })

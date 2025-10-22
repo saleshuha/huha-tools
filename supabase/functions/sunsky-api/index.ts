@@ -511,7 +511,7 @@ async function handleTestCredentials(_params: any, key: string, secret: string) 
 }
 
 async function handleDownloadImages(userId: string, params: any, key: string, secret: string) {
-  console.log('📥 Download Images:', params);
+  console.log('📥 Download Images - Starting:', { userId, itemCount: params.itemNos?.length });
   
   const { itemNos } = params;
   
@@ -525,7 +525,7 @@ async function handleDownloadImages(userId: string, params: any, key: string, se
   
   for (const itemNo of itemNos) {
     try {
-      console.log(`🔍 Fetching details for ${itemNo}`);
+      console.log(`🔍 [${itemNo}] Fetching product details from Sunsky API`);
       
       // Get product details from Sunsky
       const productDetails = await callSunskyAPI('/openapi/product!detail.do', {
@@ -533,40 +533,63 @@ async function handleDownloadImages(userId: string, params: any, key: string, se
         itemNo
       }, key, secret);
       
+      console.log(`📦 [${itemNo}] Sunsky API response:`, JSON.stringify(productDetails).substring(0, 200));
+      
       const product = productDetails.data || productDetails;
       const imageUrls: string[] = [];
       
       // Extract thumbnail
       if (product.picUrl) {
         imageUrls.push(product.picUrl);
+        console.log(`🖼️ [${itemNo}] Found thumbnail: ${product.picUrl}`);
       }
       
       // Extract additional images
       if (product.images && Array.isArray(product.images)) {
-        imageUrls.push(...product.images.filter((url: string) => url && !imageUrls.includes(url)));
+        const additionalImages = product.images.filter((url: string) => url && !imageUrls.includes(url));
+        imageUrls.push(...additionalImages);
+        console.log(`🖼️ [${itemNo}] Found ${additionalImages.length} additional images`);
       }
       
-      console.log(`📸 Found ${imageUrls.length} images for ${itemNo}`);
+      console.log(`📸 [${itemNo}] Total images found: ${imageUrls.length}`);
+      
+      if (imageUrls.length === 0) {
+        console.warn(`⚠️ [${itemNo}] No images found in product data`);
+        results.push({
+          itemNo,
+          status: 'failed',
+          error: 'No images found'
+        });
+        continue;
+      }
       
       // Download and store each image
+      let savedImagesCount = 0;
       for (let i = 0; i < imageUrls.length; i++) {
         const imageUrl = imageUrls[i];
         const imageType = i === 0 ? 'thumbnail' : 'gallery';
         
         try {
+          console.log(`⬇️ [${itemNo}] Downloading image ${i + 1}/${imageUrls.length}: ${imageUrl.substring(0, 50)}...`);
+          
           // Download the image
           const imageResponse = await fetch(imageUrl);
           if (!imageResponse.ok) {
-            console.error(`❌ Failed to download image: ${imageUrl}`);
+            console.error(`❌ [${itemNo}] HTTP ${imageResponse.status} for image: ${imageUrl}`);
             continue;
           }
           
           const imageBlob = await imageResponse.blob();
           const imageBuffer = await imageBlob.arrayBuffer();
+          const imageSizeKB = (imageBuffer.byteLength / 1024).toFixed(2);
+          
+          console.log(`✅ [${itemNo}] Downloaded ${imageSizeKB}KB (${imageBlob.type})`);
           
           // Generate storage path
           const fileExt = imageUrl.split('.').pop()?.split('?')[0] || 'jpg';
           const storagePath = `sunsky-images/${userId}/${itemNo}/${imageType}_${i}.${fileExt}`;
+          
+          console.log(`📤 [${itemNo}] Uploading to storage: ${storagePath}`);
           
           // Upload to Supabase storage
           const { data: uploadData, error: uploadError } = await supabase.storage
@@ -577,17 +600,22 @@ async function handleDownloadImages(userId: string, params: any, key: string, se
             });
           
           if (uploadError) {
-            console.error(`❌ Failed to upload image to storage:`, uploadError);
+            console.error(`❌ [${itemNo}] Storage upload failed:`, JSON.stringify(uploadError));
             continue;
           }
+          
+          console.log(`✅ [${itemNo}] Uploaded to storage successfully`);
           
           // Get public URL
           const { data: { publicUrl } } = supabase.storage
             .from('product-images')
             .getPublicUrl(storagePath);
           
+          console.log(`🔗 [${itemNo}] Public URL: ${publicUrl}`);
+          
           // Save to database
-          const { error: dbError } = await supabase
+          console.log(`💾 [${itemNo}] Saving image record to database`);
+          const { data: dbData, error: dbError } = await supabase
             .from('sunsky_product_images')
             .upsert({
               user_id: userId,
@@ -600,45 +628,59 @@ async function handleDownloadImages(userId: string, params: any, key: string, se
               updated_at: new Date().toISOString()
             }, {
               onConflict: 'user_id,item_no,image_order'
-            });
+            })
+            .select();
           
           if (dbError) {
-            console.error(`❌ Failed to save image record:`, dbError);
+            console.error(`❌ [${itemNo}] Database insert failed:`, JSON.stringify(dbError));
+          } else {
+            console.log(`✅ [${itemNo}] Database record saved:`, dbData);
+            savedImagesCount++;
           }
           
-          console.log(`✅ Saved image ${i + 1}/${imageUrls.length} for ${itemNo}`);
+          console.log(`✅ [${itemNo}] Completed image ${i + 1}/${imageUrls.length}`);
           
         } catch (imgError: any) {
-          console.error(`❌ Error processing image ${imageUrl}:`, imgError);
+          console.error(`❌ [${itemNo}] Error processing image ${imageUrl}:`, imgError.message, imgError.stack);
         }
       }
       
       // Update sunsky_skus table
-      if (imageUrls.length > 0) {
-        const { error: updateError } = await supabase
+      if (savedImagesCount > 0) {
+        console.log(`🔄 [${itemNo}] Updating SKU record with ${savedImagesCount} images`);
+        
+        const { data: updateData, error: updateError } = await supabase
           .from('sunsky_skus')
           .update({
             thumbnail_url: imageUrls[0],
-            image_count: imageUrls.length,
+            image_count: savedImagesCount,
             images_downloaded: true,
+            images_download_date: new Date().toISOString(),
             updated_at: new Date().toISOString()
           })
           .eq('user_id', userId)
-          .eq('sku_code', itemNo);
+          .eq('sku_code', itemNo)
+          .select();
         
         if (updateError) {
-          console.error(`❌ Failed to update SKU record:`, updateError);
+          console.error(`❌ [${itemNo}] Failed to update SKU record:`, JSON.stringify(updateError));
+        } else {
+          console.log(`✅ [${itemNo}] SKU record updated:`, updateData);
         }
+      } else {
+        console.warn(`⚠️ [${itemNo}] No images saved, skipping SKU update`);
       }
       
       results.push({
         itemNo,
         status: 'success',
-        imageCount: imageUrls.length
+        imageCount: savedImagesCount
       });
       
+      console.log(`✅ [${itemNo}] Processing complete: ${savedImagesCount}/${imageUrls.length} images saved`);
+      
     } catch (error: any) {
-      console.error(`❌ Error processing ${itemNo}:`, error);
+      console.error(`❌ [${itemNo}] Fatal error:`, error.message, error.stack);
       results.push({
         itemNo,
         status: 'failed',
@@ -649,7 +691,8 @@ async function handleDownloadImages(userId: string, params: any, key: string, se
   
   const successCount = results.filter(r => r.status === 'success').length;
   
-  console.log(`✅ Completed image download: ${successCount}/${results.length} successful`);
+  console.log(`✅ Download Complete: ${successCount}/${results.length} items processed successfully`);
+  console.log(`📊 Results summary:`, JSON.stringify(results));
   
   return {
     result: 'success',
