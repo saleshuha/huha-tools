@@ -139,18 +139,29 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
   // Store validated items to avoid re-validation
   const [validatedItems, setValidatedItems] = useState<Set<string>>(new Set());
 
+  // Store whether we've already loaded credentials for this dialog session
+  const [credentialsLoaded, setCredentialsLoaded] = useState(false);
+
   // Load countries on mount
   useEffect(() => {
-    if (open && selectedOrders.length > 0) {
+    if (open && selectedOrders.length > 0 && !credentialsLoaded) {
       loadCountries();
       loadSavedAddresses();
       loadSunskyCredentials();
       initializeOrderItems();
+      setCredentialsLoaded(true);
       // Auto-populate site number with PO number
       const poNumber = selectedOrders[0]?.po_number || '';
       setOrderOptions(prev => ({ ...prev, siteNumber: poNumber }));
     }
-  }, [open, selectedOrders]);
+    
+    // Reset when dialog closes
+    if (!open) {
+      setCredentialsLoaded(false);
+      setStep('items');
+      setLoadingCredentials(false); // Ensure loading state is cleared
+    }
+  }, [open]);
 
   // Load saved addresses
   const loadSavedAddresses = async () => {
@@ -178,6 +189,12 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
 
   // Load Sunsky credentials
   const loadSunskyCredentials = async () => {
+    // Prevent multiple simultaneous calls
+    if (loadingCredentials) {
+      console.log('⏭️ Credentials already loading, skipping...');
+      return;
+    }
+    
     try {
       setLoadingCredentials(true);
       console.log('🔍 Loading Sunsky credentials...');
@@ -192,6 +209,7 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
         .from('sunsky_credentials')
         .select('id, name, key_last4, is_active, created_at')
         .eq('user_id', user.id)
+        .eq('is_active', true)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -204,16 +222,17 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
       setSunskyCredentials(credentials as any);
       
       // Auto-select the first credential if available
-      if (credentials.length > 0) {
+      if (credentials.length > 0 && !selectedCredentialId) {
         const credentialToSelect = credentials[0].id;
         console.log('🎯 Auto-selecting credential:', credentialToSelect);
         setSelectedCredentialId(credentialToSelect);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('💥 Failed to load Sunsky credentials:', error);
+      setSunskyCredentials([]); // Set empty array on error
       toast({
         title: "Failed to Load Sunsky Credentials",
-        description: error.message,
+        description: error?.message || "Unknown error occurred",
         variant: "destructive"
       });
     } finally {
