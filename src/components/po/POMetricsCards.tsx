@@ -1,6 +1,5 @@
-import { Package, CheckCircle, Clock, TrendingUp, AlertCircle, DollarSign } from 'lucide-react';
+import { Package, CheckCircle, Clock, TrendingUp, AlertCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 
 interface POMetricsCardsProps {
   totalItems: number;
@@ -26,149 +25,110 @@ export function POMetricsCards({
   const totalUnits = pendingUnits + fulfilledUnits;
   const fulfillmentPercentage = totalUnits > 0 ? (fulfilledUnits / totalUnits) * 100 : 0;
   const inventoryTotal = inStockCount + outOfStockCount + notFoundCount;
-  const inStockPercentage = inventoryTotal > 0 ? (inStockCount / inventoryTotal) * 100 : 0;
-
   const matchedInStockPercentage = totalItems > 0 ? (inStockCount / totalItems) * 100 : 0;
 
+  const metrics = [
+    {
+      label: 'Total Items',
+      value: totalItems,
+      percentage: `${totalUnits} units`,
+      icon: Package,
+      borderColor: 'border-l-blue-500',
+      bgColor: 'bg-blue-500/10',
+      iconBgColor: 'bg-blue-500/20',
+      textColor: 'text-blue-500'
+    },
+    {
+      label: 'Matched & In Stock',
+      value: inStockCount,
+      percentage: `${matchedInStockPercentage.toFixed(1)}% of total`,
+      icon: TrendingUp,
+      borderColor: 'border-l-green-500',
+      bgColor: 'bg-green-500/10',
+      iconBgColor: 'bg-green-500/20',
+      textColor: 'text-green-500'
+    },
+    {
+      label: 'Fulfilled',
+      value: fulfilledUnits,
+      percentage: `${fulfillmentPercentage.toFixed(1)}% done`,
+      icon: CheckCircle,
+      borderColor: 'border-l-emerald-500',
+      bgColor: 'bg-emerald-500/10',
+      iconBgColor: 'bg-emerald-500/20',
+      textColor: 'text-emerald-500'
+    },
+    {
+      label: 'Pending',
+      value: pendingUnits,
+      percentage: `${(100 - fulfillmentPercentage).toFixed(1)}% left`,
+      icon: Clock,
+      borderColor: 'border-l-yellow-500',
+      bgColor: 'bg-yellow-500/10',
+      iconBgColor: 'bg-yellow-500/20',
+      textColor: 'text-yellow-500'
+    },
+    {
+      label: 'In Stock',
+      value: inStockCount,
+      percentage: inventoryTotal > 0 ? `${((inStockCount / inventoryTotal) * 100).toFixed(0)}% available` : '0% available',
+      icon: CheckCircle,
+      borderColor: 'border-l-green-500',
+      bgColor: 'bg-green-500/10',
+      iconBgColor: 'bg-green-500/20',
+      textColor: 'text-green-500'
+    },
+    {
+      label: 'Out of Stock',
+      value: outOfStockCount,
+      percentage: inventoryTotal > 0 ? `${((outOfStockCount / inventoryTotal) * 100).toFixed(0)}% depleted` : '0% depleted',
+      icon: AlertCircle,
+      borderColor: 'border-l-orange-500',
+      bgColor: 'bg-orange-500/10',
+      iconBgColor: 'bg-orange-500/20',
+      textColor: 'text-orange-500'
+    },
+    {
+      label: 'Not Found',
+      value: notFoundCount,
+      percentage: inventoryTotal > 0 ? `${((notFoundCount / inventoryTotal) * 100).toFixed(0)}% unmatched` : '0% unmatched',
+      icon: Package,
+      borderColor: 'border-l-gray-500',
+      bgColor: 'bg-gray-500/10',
+      iconBgColor: 'bg-gray-500/20',
+      textColor: 'text-gray-500'
+    }
+  ];
+
   return (
-    <div className="flex gap-2 overflow-x-auto pb-2">
-      {/* Total Items Card */}
-      <Card className="flex-shrink-0 w-48 border-2 border-border/60 bg-card hover:shadow-medium transition-all">
-        <CardContent className="p-3">
-          <div className="flex items-start justify-between mb-2">
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Total Items</p>
-              <p className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">{totalItems}</p>
-              <p className="text-xs text-muted-foreground">{totalUnits} units</p>
-            </div>
-            <div className="h-10 w-10 rounded-lg bg-gradient-primary flex items-center justify-center shadow-soft">
-              <Package className="h-5 w-5 text-primary-foreground" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Matched In-Stock Card - NEW */}
-      <Card className="flex-shrink-0 w-48 border-2 border-success/40 bg-success/5 hover:shadow-medium transition-all">
-        <CardContent className="p-3">
-          <div className="flex items-start justify-between mb-2">
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Matched & In Stock</p>
-              <p className="text-2xl font-bold text-success">{inStockCount}</p>
-              <p className="text-xs text-success/80">{matchedInStockPercentage.toFixed(1)}% of total</p>
-            </div>
-            <div className="h-10 w-10 rounded-lg bg-success/20 flex items-center justify-center shadow-soft border border-success/30">
-              <TrendingUp className="h-5 w-5 text-success" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Fulfilled Card */}
-      <Card className="flex-shrink-0 w-48 border-2 border-border/60 bg-card hover:shadow-medium transition-all">
-        <CardContent className="p-3">
-          <div className="flex items-start justify-between mb-2">
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Fulfilled</p>
-              <p className="text-2xl font-bold bg-gradient-emerald bg-clip-text text-transparent">{fulfilledUnits}</p>
-              <p className="text-xs text-emerald">{fulfillmentPercentage.toFixed(1)}% done</p>
-            </div>
-            <div className="h-10 w-10 rounded-lg bg-gradient-emerald flex items-center justify-center shadow-soft">
-              <CheckCircle className="h-5 w-5 text-emerald-foreground" />
-            </div>
-          </div>
-          <Progress value={fulfillmentPercentage} className="h-1.5 bg-emerald/20" />
-        </CardContent>
-      </Card>
-
-      {/* Pending Card */}
-      <Card className="flex-shrink-0 w-48 border-2 border-border/60 bg-card hover:shadow-medium transition-all">
-        <CardContent className="p-3">
-          <div className="flex items-start justify-between mb-2">
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Pending</p>
-              <p className="text-2xl font-bold text-warning">{pendingUnits}</p>
-              <p className="text-xs text-warning/80">{(100 - fulfillmentPercentage).toFixed(1)}% left</p>
-            </div>
-            <div className="h-10 w-10 rounded-lg bg-warning/10 flex items-center justify-center shadow-soft border border-warning/20">
-              <Clock className="h-5 w-5 text-warning" />
-            </div>
-          </div>
-          <Progress value={100 - fulfillmentPercentage} className="h-1.5 bg-warning/20" />
-        </CardContent>
-      </Card>
-
-      {/* In Stock Card */}
-      <Card className="flex-shrink-0 w-48 border-2 border-border/60 bg-card hover:shadow-medium transition-all">
-        <CardContent className="p-3">
-          <div className="flex items-start justify-between mb-2">
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">In Stock</p>
-              <p className="text-2xl font-bold bg-gradient-emerald bg-clip-text text-transparent">{inStockCount}</p>
-              <p className="text-xs text-emerald">
-                {inventoryTotal > 0 ? `${((inStockCount / inventoryTotal) * 100).toFixed(0)}%` : '0%'} available
-              </p>
-            </div>
-            <div className="h-10 w-10 rounded-lg bg-gradient-emerald flex items-center justify-center shadow-soft">
-              <CheckCircle className="h-5 w-5 text-emerald-foreground" />
-            </div>
-          </div>
-          <div className="flex h-1.5 rounded-full overflow-hidden bg-muted">
-            <div 
-              className="bg-gradient-emerald transition-all duration-500" 
-              style={{ width: `${inventoryTotal > 0 ? (inStockCount / inventoryTotal) * 100 : 0}%` }}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Out of Stock Card */}
-      <Card className="flex-shrink-0 w-48 border-2 border-border/60 bg-card hover:shadow-medium transition-all">
-        <CardContent className="p-3">
-          <div className="flex items-start justify-between mb-2">
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Out of Stock</p>
-              <p className="text-2xl font-bold text-warning">{outOfStockCount}</p>
-              <p className="text-xs text-warning/80">
-                {inventoryTotal > 0 ? `${((outOfStockCount / inventoryTotal) * 100).toFixed(0)}%` : '0%'} depleted
-              </p>
-            </div>
-            <div className="h-10 w-10 rounded-lg bg-warning/10 flex items-center justify-center shadow-soft border border-warning/20">
-              <AlertCircle className="h-5 w-5 text-warning" />
-            </div>
-          </div>
-          <div className="flex h-1.5 rounded-full overflow-hidden bg-muted">
-            <div 
-              className="bg-warning transition-all duration-500" 
-              style={{ width: `${inventoryTotal > 0 ? (outOfStockCount / inventoryTotal) * 100 : 0}%` }}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Not Found Card */}
-      <Card className="flex-shrink-0 w-48 border-2 border-border/60 bg-card hover:shadow-medium transition-all">
-        <CardContent className="p-3">
-          <div className="flex items-start justify-between mb-2">
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Not Found</p>
-              <p className="text-2xl font-bold text-muted-foreground">{notFoundCount}</p>
-              <p className="text-xs text-muted-foreground/70">
-                {inventoryTotal > 0 ? `${((notFoundCount / inventoryTotal) * 100).toFixed(0)}%` : '0%'} unmatched
-              </p>
-            </div>
-            <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shadow-soft border border-border">
-              <Package className="h-5 w-5 text-muted-foreground" />
-            </div>
-          </div>
-          <div className="flex h-1.5 rounded-full overflow-hidden bg-muted">
-            <div 
-              className="bg-muted-foreground transition-all duration-500" 
-              style={{ width: `${inventoryTotal > 0 ? (notFoundCount / inventoryTotal) * 100 : 0}%` }}
-            />
-          </div>
-        </CardContent>
-      </Card>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
+      {metrics.map((metric, index) => {
+        const Icon = metric.icon;
+        return (
+          <Card
+            key={metric.label}
+            className={`h-20 ${metric.borderColor} border-l-4 ${metric.bgColor} hover:shadow-lg hover:scale-105 transition-all duration-300 animate-fade-in`}
+            style={{ animationDelay: `${index * 100}ms` }}
+          >
+            <CardContent className="p-3 h-full flex items-center justify-between">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-muted-foreground truncate mb-1">
+                  {metric.label}
+                </p>
+                <p className={`text-lg font-bold ${metric.textColor} mb-0.5`}>
+                  {metric.value.toLocaleString()}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {metric.percentage}
+                </p>
+              </div>
+              <div className={`w-6 h-6 rounded-full ${metric.iconBgColor} flex items-center justify-center flex-shrink-0 ml-2`}>
+                <Icon className={`h-3 w-3 ${metric.textColor}`} />
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }
