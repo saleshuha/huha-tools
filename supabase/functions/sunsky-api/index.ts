@@ -444,32 +444,32 @@ async function handleGetAllOrders(userId: string, params: any, key: string, secr
     orderParams.page = page;
     const result = await callSunskyAPI('/openapi/order!getOrderList.do', orderParams, key, secret);
     
-    console.log('📥 API Response structure:', {
-      hasData: !!result.data,
-      dataType: Array.isArray(result.data) ? 'array' : typeof result.data,
-      dataLength: Array.isArray(result.data) ? result.data.length : 'N/A',
-      total: result.total,
-      pageCount: result.pageCount,
-      resultKeys: Object.keys(result)
-    });
+    console.log('📥 Full API Response:', JSON.stringify(result, null, 2).substring(0, 500));
     
-    // Handle different response structures
+    // The response structure is: { result: "success", data: { list: [...], total: X, pageCount: Y } }
     let orders = [];
-    if (Array.isArray(result.data)) {
-      orders = result.data;
-    } else if (Array.isArray(result)) {
-      orders = result;
-    } else if (result.data && Array.isArray(result.data.orders)) {
-      orders = result.data.orders;
-    }
+    let total = 0;
+    let pageCount = 1;
     
-    const total = result.total || 0;
-    const pageCount = result.pageCount || 1;
+    if (result.data) {
+      // Extract the actual list from result.data
+      if (Array.isArray(result.data.list)) {
+        orders = result.data.list;
+      } else if (Array.isArray(result.data.orders)) {
+        orders = result.data.orders;
+      } else if (Array.isArray(result.data)) {
+        orders = result.data;
+      }
+      
+      // Extract pagination info
+      total = result.data.total || result.total || 0;
+      pageCount = result.data.pageCount || result.pageCount || 1;
+    }
     
     console.log(`📦 Page ${page}/${pageCount}: ${orders.length} orders (${total} total)`);
     
     if (!Array.isArray(orders)) {
-      console.error('❌ Orders is not an array:', orders);
+      console.error('❌ Orders is not an array. Response data keys:', Object.keys(result.data || {}));
       throw new Error('Invalid response format from Sunsky API - expected array of orders');
     }
     
