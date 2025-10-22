@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Search, Download, RefreshCw, Filter, Grid3x3, List } from 'lucide-react';
 import { ProductPreviewCard } from './ProductPreviewCard';
+import { ProductDetailsDialog } from './ProductDetailsDialog';
 import { useSKUManager } from '@/hooks/useSKUManager';
 import { useSunskyImages } from '@/hooks/useSunskyImages';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,6 +25,7 @@ export const ImageGalleryTab: React.FC<ImageGalleryTabProps> = ({ selectedAPI })
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [filterStatus, setFilterStatus] = useState<'all' | 'with-images' | 'without-images'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
 
   // Filter SKUs based on search and image status
   const filteredSKUs = sunskySKUs.filter(sku => {
@@ -271,11 +273,29 @@ export const ImageGalleryTab: React.FC<ImageGalleryTabProps> = ({ selectedAPI })
                 thumbnailUrl={sku.thumbnail_url || null}
                 imageCount={sku.image_count || 0}
                 imagesDownloaded={sku.images_downloaded || false}
+                onViewDetails={() => setSelectedProduct({
+                  itemNo: sku.sku_code,
+                  title: sku.title || sku.sku_code,
+                  price: Number(sku.cost) || 0,
+                  stock: 0,
+                  warehouse: sku.country || 'Unknown',
+                  leadTime: 'N/A',
+                  convertedPrice: Number(sku.cost) || 0,
+                  convertedCurrency: sku.currency,
+                  imageCount: sku.image_count || 0,
+                })}
               />
             </div>
           ))}
         </div>
       )}
+
+      {/* Product Details Dialog */}
+      <ProductDetailsDialog
+        open={selectedProduct !== null}
+        onOpenChange={(open) => !open && setSelectedProduct(null)}
+        product={selectedProduct}
+      />
     </div>
   );
 };
