@@ -38,17 +38,25 @@ export const SunskyCredentialsSelector: React.FC<SunskyCredentialsSelectorProps>
   const loadCredentials = async () => {
     try {
       setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
       const { data, error } = await supabase
-        .rpc('get_user_sunsky_credentials_secure');
+        .from('sunsky_credentials')
+        .select('id, name, key_last4, is_active')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
       
       if (error) throw error;
       
       setCredentials((data as any) || []);
       
       // Auto-select first active credential if none selected
-      if (!selectedCredentialId && data && (data as any).length > 0) {
-        const activeCredential = (data as any).find((cred: any) => cred.is_active);
-        const defaultCredential = activeCredential || (data as any)[0];
+      if (!selectedCredentialId && data && data.length > 0) {
+        const activeCredential = data.find((cred: any) => cred.is_active);
+        const defaultCredential = activeCredential || data[0];
         onCredentialSelect?.(defaultCredential.id);
       }
     } catch (error) {
