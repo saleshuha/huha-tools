@@ -1,9 +1,8 @@
-import { useState } from 'react';
-import { Filter, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Filter, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -36,7 +35,6 @@ export function POFilterPanel({
   onFilterChange,
   stats
 }: POFilterPanelProps) {
-  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const quickFilters = [{
     value: 'all',
     label: 'All Items',
@@ -102,104 +100,100 @@ export function POFilterPanel({
         
 
         {/* Advanced Filters */}
-        <Collapsible open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen} className="space-y-3">
-          <CollapsibleTrigger asChild>
-            <Button variant="outline" size="sm" className="w-full hover:bg-muted/50 transition-colors">
-              <span className="text-xs font-medium">Advanced Filters</span>
-              {isAdvancedOpen ? <ChevronUp className="h-3.5 w-3.5 ml-auto" /> : <ChevronDown className="h-3.5 w-3.5 ml-auto" />}
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-4 pt-4 animate-in slide-in-from-top-2 duration-300">
-            <div className="p-3 rounded-lg bg-muted/30 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {/* Inventory Status */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium">Inventory Status</Label>
-                  <Select value={filters.inventoryStatus} onValueChange={value => onFilterChange({
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 pb-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <span className="text-xs font-medium text-muted-foreground">Advanced Filters</span>
+          </div>
+          <div className="p-3 rounded-lg bg-muted/30 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Inventory Status */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Inventory Status</Label>
+                <Select value={filters.inventoryStatus} onValueChange={value => onFilterChange({
+                ...filters,
+                inventoryStatus: value as FilterState['inventoryStatus']
+              })}>
+                  <SelectTrigger className="h-9 bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="in-stock">✓ In Stock</SelectItem>
+                    <SelectItem value="out-of-stock">⏳ Out of Stock</SelectItem>
+                    <SelectItem value="not-found">❌ Not Found</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Has Tracking */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Tracking Info</Label>
+                <Select value={filters.hasTracking} onValueChange={value => onFilterChange({
+                ...filters,
+                hasTracking: value as FilterState['hasTracking']
+              })}>
+                  <SelectTrigger className="h-9 bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Items</SelectItem>
+                    <SelectItem value="yes">✓ With Tracking</SelectItem>
+                    <SelectItem value="no">❌ No Tracking</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Has Sunsky SKU */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Sunsky SKU</Label>
+                <Select value={filters.hasSunskySku} onValueChange={value => onFilterChange({
+                ...filters,
+                hasSunskySku: value as FilterState['hasSunskySku']
+              })}>
+                  <SelectTrigger className="h-9 bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Items</SelectItem>
+                    <SelectItem value="yes">✓ With Sunsky</SelectItem>
+                    <SelectItem value="no">❌ No Sunsky</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Quantity Range */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Quantity Range</Label>
+                <div className="flex gap-2">
+                  <Input type="number" placeholder="Min" className="h-9 bg-background" value={filters.quantityMin} onChange={e => onFilterChange({
                   ...filters,
-                  inventoryStatus: value as FilterState['inventoryStatus']
-                })}>
-                    <SelectTrigger className="h-9 bg-background">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="in-stock">✓ In Stock</SelectItem>
-                      <SelectItem value="out-of-stock">⏳ Out of Stock</SelectItem>
-                      <SelectItem value="not-found">❌ Not Found</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Has Tracking */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium">Tracking Info</Label>
-                  <Select value={filters.hasTracking} onValueChange={value => onFilterChange({
+                  quantityMin: e.target.value
+                })} />
+                  <Input type="number" placeholder="Max" className="h-9 bg-background" value={filters.quantityMax} onChange={e => onFilterChange({
                   ...filters,
-                  hasTracking: value as FilterState['hasTracking']
-                })}>
-                    <SelectTrigger className="h-9 bg-background">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Items</SelectItem>
-                      <SelectItem value="yes">✓ With Tracking</SelectItem>
-                      <SelectItem value="no">❌ No Tracking</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  quantityMax: e.target.value
+                })} />
                 </div>
+              </div>
 
-                {/* Has Sunsky SKU */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium">Sunsky SKU</Label>
-                  <Select value={filters.hasSunskySku} onValueChange={value => onFilterChange({
+              {/* Cost Range */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Cost Range</Label>
+                <div className="flex gap-2">
+                  <Input type="number" placeholder="Min" className="h-9 bg-background" value={filters.costMin} onChange={e => onFilterChange({
                   ...filters,
-                  hasSunskySku: value as FilterState['hasSunskySku']
-                })}>
-                    <SelectTrigger className="h-9 bg-background">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Items</SelectItem>
-                      <SelectItem value="yes">✓ With Sunsky</SelectItem>
-                      <SelectItem value="no">❌ No Sunsky</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Quantity Range */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium">Quantity Range</Label>
-                  <div className="flex gap-2">
-                    <Input type="number" placeholder="Min" className="h-9 bg-background" value={filters.quantityMin} onChange={e => onFilterChange({
-                    ...filters,
-                    quantityMin: e.target.value
-                  })} />
-                    <Input type="number" placeholder="Max" className="h-9 bg-background" value={filters.quantityMax} onChange={e => onFilterChange({
-                    ...filters,
-                    quantityMax: e.target.value
-                  })} />
-                  </div>
-                </div>
-
-                {/* Cost Range */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium">Cost Range</Label>
-                  <div className="flex gap-2">
-                    <Input type="number" placeholder="Min" className="h-9 bg-background" value={filters.costMin} onChange={e => onFilterChange({
-                    ...filters,
-                    costMin: e.target.value
-                  })} />
-                    <Input type="number" placeholder="Max" className="h-9 bg-background" value={filters.costMax} onChange={e => onFilterChange({
-                    ...filters,
-                    costMax: e.target.value
-                  })} />
-                  </div>
+                  costMin: e.target.value
+                })} />
+                  <Input type="number" placeholder="Max" className="h-9 bg-background" value={filters.costMax} onChange={e => onFilterChange({
+                  ...filters,
+                  costMax: e.target.value
+                })} />
                 </div>
               </div>
             </div>
-          </CollapsibleContent>
-        </Collapsible>
+          </div>
+        </div>
       </CardContent>
     </Card>;
 }
