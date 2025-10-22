@@ -63,19 +63,20 @@ export function POActionPanel({
             )}
           </div>
 
-          {/* Action Buttons - Maximum per row */}
-          {selectedCount === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-2">
-              Select items from the table to perform bulk actions
-            </p>
-          ) : (
+          {/* Action Buttons - Always Visible */}
+          <div className="space-y-2">
+            {selectedCount === 0 && (
+              <p className="text-xs text-muted-foreground text-center">
+                Select items to enable actions
+              </p>
+            )}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
               <Button
                 size="sm"
                 onClick={onBulkFromStock}
-                disabled={isUpdating || selectionType !== 'instock'}
+                disabled={isUpdating || selectedCount === 0 || selectionType !== 'instock'}
                 className="w-full bg-green-600 hover:bg-green-700 text-white disabled:bg-muted disabled:text-muted-foreground"
-                title={selectionType !== 'instock' ? 'Only available for in-stock items' : undefined}
+                title={selectedCount === 0 ? 'Select items first' : selectionType !== 'instock' ? 'Only for in-stock items' : undefined}
               >
                 <PackageCheck className="h-4 w-4 mr-1.5" />
                 <span className="hidden sm:inline">From Stock</span>
@@ -85,8 +86,9 @@ export function POActionPanel({
               <Button
                 size="sm"
                 onClick={onBulkMarkFromSupplier}
-                disabled={isUpdating}
+                disabled={isUpdating || selectedCount === 0}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white disabled:bg-muted disabled:text-muted-foreground"
+                title={selectedCount === 0 ? 'Select items first' : undefined}
               >
                 <Truck className="h-4 w-4 mr-1.5" />
                 <span className="hidden sm:inline">From Supplier</span>
@@ -97,9 +99,9 @@ export function POActionPanel({
                 variant="outline"
                 size="sm"
                 onClick={onOrderAtSunsky}
-                disabled={!hasSunskyCredentials || isUpdating}
+                disabled={!hasSunskyCredentials || isUpdating || selectedCount === 0}
                 className="w-full border-orange-500/30 hover:bg-orange-500/10 hover:border-orange-500 disabled:opacity-50"
-                title={!hasSunskyCredentials ? 'Sunsky credentials not configured' : undefined}
+                title={selectedCount === 0 ? 'Select items first' : !hasSunskyCredentials ? 'Sunsky credentials not configured' : undefined}
               >
                 <ShoppingCart className="h-4 w-4 mr-1.5" />
                 <span className="hidden sm:inline">Order Sunsky</span>
@@ -110,8 +112,9 @@ export function POActionPanel({
                 variant="outline"
                 size="sm"
                 onClick={onBulkTrackingUpdate}
-                disabled={isUpdating}
+                disabled={isUpdating || selectedCount === 0}
                 className="w-full"
+                title={selectedCount === 0 ? 'Select items first' : undefined}
               >
                 <Edit className="h-4 w-4 mr-1.5" />
                 <span className="hidden sm:inline">Update</span>
@@ -130,7 +133,7 @@ export function POActionPanel({
                 <span className="sm:hidden">All</span>
               </Button>
             </div>
-          )}
+          </div>
         </div>
       </CardContent>
     </Card>
