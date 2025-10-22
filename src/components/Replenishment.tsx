@@ -835,17 +835,43 @@ export function Replenishment() {
   // Load ordered items separately for analytics and display
   const loadOrderedItems = async () => {
     try {
-      const [asinOrdered] = await Promise.all([(supabase as any).from('asin_inventory').select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added').eq('country', selectedCountry).eq('status', 'ordered').eq('quantity', 0).eq('eligible_for_restock', true)]);
+      const [asinOrdered] = await Promise.all([(supabase as any).from('asin_inventory').select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added, ordered_at, ordered_quantity, restock_quantity, title, sunsky_order_number, velocity_order_ref').eq('country', selectedCountry).eq('status', 'ordered').eq('quantity', 0).eq('eligible_for_restock', true)]);
       if (asinOrdered.error) throw asinOrdered.error;
+      
+      // Get total sold units for each item
+      const inventoryIds = ((asinOrdered.data as any) || []).map((item: any) => item.id);
+      const { data: stockChanges } = await (supabase as any)
+        .from('stock_changes')
+        .select('inventory_id, change_amount')
+        .in('inventory_id', inventoryIds)
+        .lt('change_amount', 0);
+      
+      const totalSoldMap = new Map<string, number>();
+      ((stockChanges as any) || []).forEach((change: any) => {
+        const currentTotal = totalSoldMap.get(change.inventory_id) || 0;
+        totalSoldMap.set(change.inventory_id, currentTotal + Math.abs(change.change_amount));
+      });
+      
       const orderedItemsData = [...((asinOrdered.data as any) || []).map((item: any) => ({
         id: item.id,
         identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
+        asin: item.asin,
+        sku: item.sku,
+        serial_number: item.serial_number,
+        title: item.title,
         current_quantity: item.quantity,
+        ordered_quantity: item.ordered_quantity,
+        restock_quantity: item.restock_quantity,
         table_name: 'asin_inventory',
         status: item.status,
         date_sold: item.date_sold,
         last_restock_date: item.last_restock_date,
-        days_since_last_restock: item.last_restock_date ? Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null
+        days_since_last_restock: item.last_restock_date ? Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null,
+        date_added: item.date_added,
+        ordered_at: item.ordered_at,
+        sunsky_order_number: item.sunsky_order_number,
+        velocity_order_ref: item.velocity_order_ref,
+        total_sold_units: totalSoldMap.get(item.id) || 0
       }))];
       return orderedItemsData;
     } catch (error: any) {
