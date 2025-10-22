@@ -180,26 +180,44 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
   const loadSunskyCredentials = async () => {
     try {
       setLoadingCredentials(true);
-      const { data, error } = await supabase
-        .rpc('get_user_sunsky_credentials_secure');
-
-      if (error) throw error;
+      console.log('🔍 Loading Sunsky credentials...');
       
-      const credentials = (data as any) || [];
+      // Query sunsky_credentials table directly
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      const { data, error } = await supabase
+        .from('sunsky_credentials')
+        .select('id, name, key_last4, is_active, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ Error loading credentials:', error);
+        throw error;
+      }
+      
+      console.log('✅ Loaded credentials:', data?.length || 0);
+      const credentials = data || [];
       setSunskyCredentials(credentials as any);
       
       // Auto-select the first credential if available
       if (credentials.length > 0) {
-        setSelectedCredentialId(credentials[0].id);
+        const credentialToSelect = credentials[0].id;
+        console.log('🎯 Auto-selecting credential:', credentialToSelect);
+        setSelectedCredentialId(credentialToSelect);
       }
     } catch (error) {
-      console.error('Failed to load Sunsky credentials:', error);
+      console.error('💥 Failed to load Sunsky credentials:', error);
       toast({
         title: "Failed to Load Sunsky Credentials",
         description: error.message,
         variant: "destructive"
       });
     } finally {
+      console.log('✅ Credentials loading complete');
       setLoadingCredentials(false);
     }
   };
