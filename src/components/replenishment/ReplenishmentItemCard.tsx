@@ -141,7 +141,7 @@ export function ReplenishmentItemCard({
 
           {/* Metrics Section - Grid Layout */}
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-3 text-xs">
-            {/* Sales Metrics */}
+            {/* Total Sold Units */}
             {item.total_sold_units !== undefined && (
               <div className="flex items-center gap-1.5">
                 <TrendingUp className="w-3.5 h-3.5 text-primary" />
@@ -152,38 +152,34 @@ export function ReplenishmentItemCard({
               </div>
             )}
 
-            {averageDailySales && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center gap-1.5 cursor-help">
-                      <TrendingUp className="w-3.5 h-3.5 text-primary" />
-                      <div>
-                        <div className="text-muted-foreground">Avg Daily</div>
-                        <div className="font-semibold">{averageDailySales} units/day</div>
-                      </div>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Average sales per day based on {daysInInventory} days</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-
+            {/* Total Days in Inventory */}
             {daysInInventory !== null && (
               <div className="flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5 text-primary" />
                 <div>
-                  <div className="text-muted-foreground">In Inventory</div>
+                  <div className="text-muted-foreground">Days in Inventory</div>
                   <div className="font-semibold">{daysInInventory} days</div>
                 </div>
               </div>
             )}
 
-            {/* Order Information */}
+            {/* Last Item Sold Days */}
+            {item.date_sold && (
+              <div className="flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-primary" />
+                <div>
+                  <div className="text-muted-foreground">Last Sold</div>
+                  <div className="font-semibold">
+                    {Math.floor((Date.now() - new Date(item.date_sold).getTime()) / (1000 * 60 * 60 * 24))} days ago
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Order Information - Only for ordered items */}
             {item.status === 'ordered' && (
               <>
+                {/* Order Date */}
                 {item.ordered_at && (
                   <div className="flex items-center gap-1.5">
                     <Calendar className="w-3.5 h-3.5 text-green-600" />
@@ -194,16 +190,7 @@ export function ReplenishmentItemCard({
                   </div>
                 )}
 
-                {daysSinceOrder !== null && (
-                  <div className="flex items-center gap-1.5">
-                    <Truck className="w-3.5 h-3.5 text-green-600" />
-                    <div>
-                      <div className="text-muted-foreground">Days in Transit</div>
-                      <div className="font-semibold">{daysSinceOrder} days</div>
-                    </div>
-                  </div>
-                )}
-
+                {/* Order Qty */}
                 <div className="flex items-center gap-1.5">
                   <Package className="w-3.5 h-3.5 text-green-600" />
                   <div>
@@ -214,46 +201,13 @@ export function ReplenishmentItemCard({
                   </div>
                 </div>
 
-                {item.sunsky_order_number && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex items-center gap-1.5 col-span-2 lg:col-span-1 cursor-pointer hover:text-primary">
-                          <ShoppingCart className="w-3.5 h-3.5" />
-                          <div>
-                            <div className="text-muted-foreground">Order #</div>
-                            <div className="font-semibold font-mono truncate">{item.sunsky_order_number}</div>
-                          </div>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Sunsky Order: {item.sunsky_order_number}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
-              </>
-            )}
-
-            {/* Stock Information for non-ordered items */}
-            {item.status !== 'ordered' && (
-              <>
-                {item.last_restock_date && (
+                {/* Days in Transit */}
+                {daysSinceOrder !== null && (
                   <div className="flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-primary" />
+                    <Truck className="w-3.5 h-3.5 text-green-600" />
                     <div>
-                      <div className="text-muted-foreground">Last Restock</div>
-                      <div className="font-semibold">{format(new Date(item.last_restock_date), 'MMM dd, yyyy')}</div>
-                    </div>
-                  </div>
-                )}
-
-                {item.days_since_last_restock !== null && (
-                  <div className="flex items-center gap-1.5">
-                    <AlertTriangle className="w-3.5 h-3.5 text-orange-500" />
-                    <div>
-                      <div className="text-muted-foreground">Since Restock</div>
-                      <div className="font-semibold">{item.days_since_last_restock} days</div>
+                      <div className="text-muted-foreground">Days in Transit</div>
+                      <div className="font-semibold">{daysSinceOrder} days</div>
                     </div>
                   </div>
                 )}
