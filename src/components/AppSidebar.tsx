@@ -1,4 +1,4 @@
-import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, TrendingDown, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart, Globe, ExternalLink, Eye, Trash2, Settings, Tag, FileSpreadsheet, Truck, Palette, ShoppingBag, Printer } from "lucide-react"
+import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, TrendingDown, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart, Globe, ExternalLink, Eye, Trash2, Settings, Tag, FileSpreadsheet, Truck, Palette, ShoppingBag, Printer, BookOpen } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import { Capacitor } from "@capacitor/core"
@@ -592,25 +592,45 @@ export function AppSidebar() {
                       </SidebarMenuButton>}
                       
                       {/* Source Order Tracking */}
-                      {canAccessRoute('/sunsky-order-tracking') && <SidebarMenuButton
-                        asChild
-                        className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
-                          isActive("/sunsky-order-tracking")
-                            ? "bg-primary/90 text-primary-foreground shadow-sm" 
-                            : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
-                        }`}
-                      >
-                        <NavLink 
-                          to="/sunsky-order-tracking" 
-                          end
-                          className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
-                        >
-                          <Truck className="h-4 w-4 flex-shrink-0 opacity-75" />
-                          <span className="font-medium text-xs">
-                            Source Order Tracking
-                          </span>
-                        </NavLink>
-                      </SidebarMenuButton>}
+                          {canAccessRoute('/sunsky-order-tracking') && <SidebarMenuButton
+                            asChild
+                            className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
+                              isActive("/sunsky-order-tracking")
+                                ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                                : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                            }`}
+                          >
+                            <NavLink 
+                              to="/sunsky-order-tracking" 
+                              end
+                              className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
+                            >
+                              <Truck className="h-4 w-4 flex-shrink-0 opacity-75" />
+                              <span className="font-medium text-xs">
+                                Source Order Tracking
+                              </span>
+                            </NavLink>
+                          </SidebarMenuButton>}
+
+                          {canAccessRoute('/sunsky-api-docs') && <SidebarMenuButton
+                            asChild
+                            className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
+                              isActive("/sunsky-api-docs")
+                                ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                                : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                            }`}
+                          >
+                            <NavLink 
+                              to="/sunsky-api-docs" 
+                              end
+                              className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
+                            >
+                              <BookOpen className="h-4 w-4 flex-shrink-0 opacity-75" />
+                              <span className="font-medium text-xs">
+                                Source API Documentation
+                              </span>
+                            </NavLink>
+                          </SidebarMenuButton>}
                     </CollapsibleContent>
                   </Collapsible>
                 </SidebarMenuItem>

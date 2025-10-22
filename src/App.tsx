@@ -56,6 +56,7 @@ import BulkColumnEditor from "./pages/BulkColumnEditor";
 import SunskySKUImporterPage from "./pages/SunskySKUImporter";
 import SunskyOrderTrackingPage from "./pages/SunskyOrderTracking";
 import SunskyOrderDetails from "./pages/SunskyOrderDetails";
+import SunskyApiDocumentation from "./pages/SunskyApiDocumentation";
 import NoonFileCleaner from "./pages/NoonFileCleaner";
 import AmazonVendorCentral from "./pages/AmazonVendorCentral";
 import LabelDesigner from "./pages/LabelDesigner";
@@ -266,10 +267,11 @@ const App = () => {
                         <Route path="/velocity-analytics" element={<VelocityAnalyticsSimple />} />
                         <Route path="/po-tracker" element={<POTrackerPage />} />
                         <Route path="/po-details/:poNumber" element={<PODetailsPage />} />
-                        <Route path="/add-sku" element={<AddSKUPageWrapper />} />
+                         <Route path="/add-sku" element={<AddSKUPageWrapper />} />
                          <Route path="/sunsky-importer" element={<SunskySKUImporterPage />} />
                          <Route path="/sunsky-order-tracking" element={<SunskyOrderTrackingPage />} />
                          <Route path="/sunsky-order-details/:orderNumber" element={<SunskyOrderDetails />} />
+                         <Route path="/sunsky-api-docs" element={<SunskyApiDocumentation />} />
                          <Route path="/source-order-tracking" element={<SunskyOrderTrackingPage />} />
                          <Route path="/noon-order-processing" element={<NoonOrderProcessingPage />} />
                          <Route path="/noon-order-tracking" element={<NoonOrderTrackingPage />} />
