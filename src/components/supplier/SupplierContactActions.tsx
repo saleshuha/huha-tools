@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
-import { MessageCircle, MessageSquare, Mail, Phone, ExternalLink, Copy } from 'lucide-react';
+import { MessageCircle, MessageSquare, Mail, Phone, ExternalLink, Copy, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useState } from 'react';
 
 interface SupplierContactActionsProps {
   whatsappNumber?: string;
@@ -20,6 +21,7 @@ export const SupplierContactActions = ({
   supplierName,
 }: SupplierContactActionsProps) => {
   const { toast } = useToast();
+  const [whatsappClicked, setWhatsappClicked] = useState(false);
 
   const handleWhatsApp = () => {
     if (!whatsappNumber) return;
@@ -39,8 +41,13 @@ export const SupplierContactActions = ({
     
     const message = encodeURIComponent(`Hello ${supplierName}, I'm reaching out regarding our business collaboration.`);
     
-    // Always use wa.me (works on both mobile and desktop)
-    const url = `https://wa.me/${cleanNumber}?text=${message}`;
+    // Detect if mobile device
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    // Use appropriate URL scheme
+    const url = isMobile 
+      ? `whatsapp://send?phone=${cleanNumber}&text=${message}`
+      : `https://wa.me/${cleanNumber}?text=${message}`;
     
     // Create temporary anchor and click it (avoids popup blockers)
     const link = document.createElement('a');
@@ -50,6 +57,25 @@ export const SupplierContactActions = ({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    
+    // Show success feedback
+    setWhatsappClicked(true);
+    setTimeout(() => setWhatsappClicked(false), 3000);
+    
+    toast({
+      title: 'Opening WhatsApp',
+      description: `Starting conversation with ${supplierName}`,
+    });
+  };
+
+  const copyWhatsAppNumber = () => {
+    if (!whatsappNumber) return;
+    
+    navigator.clipboard.writeText(whatsappNumber);
+    toast({
+      title: 'WhatsApp number copied',
+      description: `${whatsappNumber} has been copied to clipboard`,
+    });
   };
 
   const handleWeChat = () => {
@@ -98,18 +124,46 @@ export const SupplierContactActions = ({
   };
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="space-y-3">
       {whatsappNumber && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleWhatsApp}
-          className="gap-2"
-        >
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <MessageCircle className="h-4 w-4" />
-          WhatsApp
-        </Button>
+          <span>{whatsappNumber}</span>
+        </div>
       )}
+      
+      <div className="flex flex-wrap gap-2">
+        {whatsappNumber && (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleWhatsApp}
+              className="gap-2"
+            >
+              {whatsappClicked ? (
+                <>
+                  <Check className="h-4 w-4" />
+                  Opened
+                </>
+              ) : (
+                <>
+                  <MessageCircle className="h-4 w-4" />
+                  WhatsApp
+                </>
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={copyWhatsAppNumber}
+              className="gap-2"
+            >
+              <Copy className="h-4 w-4" />
+              Copy Number
+            </Button>
+          </>
+        )}
       
       {wechatId && (
         <Button
@@ -159,6 +213,7 @@ export const SupplierContactActions = ({
           Website
         </Button>
       )}
+      </div>
     </div>
   );
 };
