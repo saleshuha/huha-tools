@@ -31,149 +31,104 @@ export function POActionPanel({
   return (
     <Card className="border-border/40 bg-card">
       <CardContent className="p-4">
-        <div className="space-y-3">
-          {/* Step 1: Selection Status */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
-                  1
-                </div>
-                <h3 className="font-semibold text-xs">Selection</h3>
-              </div>
+        <div className="space-y-4">
+          {/* Selection Status */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
               {selectedCount > 0 && (
-                <Badge variant="secondary" className="bg-primary/10 text-primary text-xs">
+                <Badge variant="secondary" className="bg-primary/10 text-primary">
                   {selectedCount} item{selectedCount !== 1 ? 's' : ''} selected
                 </Badge>
               )}
+              {selectedCount > 0 && selectionType === 'instock' && (
+                <span className="text-xs text-green-600 dark:text-green-400">📦 In-stock</span>
+              )}
+              {selectedCount > 0 && selectionType === 'outstock' && (
+                <span className="text-xs text-orange-600 dark:text-orange-400">🔄 Out-of-stock</span>
+              )}
+              {selectedCount > 0 && !selectionType && (
+                <span className="text-xs text-blue-600 dark:text-blue-400">📋 Mixed</span>
+              )}
             </div>
-            {selectedCount === 0 && (
-              <p className="text-xs text-muted-foreground ml-10">
-                Select items from the table below to perform bulk actions
-              </p>
-            )}
             {selectedCount > 0 && (
-              <div className="ml-10 text-xs">
-                {selectionType === 'instock' && (
-                  <div className="text-green-700 dark:text-green-400">
-                    📦 In-stock items selected - ready for fulfillment
-                  </div>
-                )}
-                {selectionType === 'outstock' && (
-                  <div className="text-orange-700 dark:text-orange-400">
-                    🔄 Out-of-stock items selected - requires ordering
-                  </div>
-                )}
-                {!selectionType && (
-                  <div className="text-blue-700 dark:text-blue-400">
-                    📋 Mixed selection (in-stock and out-of-stock)
-                  </div>
-                )}
-              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClearSelection}
+                className="text-muted-foreground hover:text-destructive h-8"
+              >
+                <Trash2 className="h-3 w-3 mr-1" />
+                Clear
+              </Button>
             )}
           </div>
 
-          {/* Step 2: Actions */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
-                2
-              </div>
-              <h3 className="font-semibold text-xs">Choose Action</h3>
-            </div>
+          {/* Action Buttons - Maximum per row */}
+          {selectedCount === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-2">
+              Select items from the table to perform bulk actions
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+              <Button
+                size="sm"
+                onClick={onBulkFromStock}
+                disabled={isUpdating || selectionType !== 'instock'}
+                className="w-full bg-green-600 hover:bg-green-700 text-white disabled:bg-muted disabled:text-muted-foreground"
+                title={selectionType !== 'instock' ? 'Only available for in-stock items' : undefined}
+              >
+                <PackageCheck className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">From Stock</span>
+                <span className="sm:hidden">Stock</span>
+              </Button>
 
-            <div className="ml-9 space-y-2">
-              {/* Primary Actions */}
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground font-medium">Primary Actions</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <Button
-                    size="sm"
-                    onClick={onBulkFromStock}
-                    disabled={isUpdating || selectedCount === 0 || selectionType !== 'instock'}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white disabled:bg-muted disabled:text-muted-foreground transition-all"
-                  >
-                    <PackageCheck className="h-4 w-4 mr-2" />
-                    Fulfill From Stock ({selectedCount})
-                  </Button>
+              <Button
+                size="sm"
+                onClick={onBulkMarkFromSupplier}
+                disabled={isUpdating}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white disabled:bg-muted disabled:text-muted-foreground"
+              >
+                <Truck className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">From Supplier</span>
+                <span className="sm:hidden">Supplier</span>
+              </Button>
 
-                  <Button
-                    size="sm"
-                    onClick={onBulkMarkFromSupplier}
-                    disabled={isUpdating || selectedCount === 0}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white disabled:bg-muted disabled:text-muted-foreground transition-all"
-                  >
-                    <Truck className="h-4 w-4 mr-2" />
-                    Mark From Supplier ({selectedCount})
-                  </Button>
-                </div>
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onOrderAtSunsky}
+                disabled={!hasSunskyCredentials || isUpdating}
+                className="w-full border-orange-500/30 hover:bg-orange-500/10 hover:border-orange-500 disabled:opacity-50"
+                title={!hasSunskyCredentials ? 'Sunsky credentials not configured' : undefined}
+              >
+                <ShoppingCart className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">Order Sunsky</span>
+                <span className="sm:hidden">Sunsky</span>
+              </Button>
 
-              {/* Secondary Actions */}
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground font-medium">Secondary Actions</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={onOrderAtSunsky}
-                    disabled={!hasSunskyCredentials || isUpdating || selectedCount === 0}
-                    className="w-full border-orange-500/30 hover:bg-orange-500/10 hover:border-orange-500 transition-all"
-                  >
-                    <ShoppingCart className="h-4 w-4 mr-2" />
-                    Order at Sunsky ({selectedCount})
-                  </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onBulkTrackingUpdate}
+                disabled={isUpdating}
+                className="w-full"
+              >
+                <Edit className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">Update</span>
+                <span className="sm:hidden">Edit</span>
+              </Button>
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={onBulkTrackingUpdate}
-                    disabled={isUpdating || selectedCount === 0}
-                    className="w-full transition-all"
-                  >
-                    <Edit className="h-4 w-4 mr-2" />
-                    Update Selected ({selectedCount})
-                  </Button>
-                </div>
-              </div>
-
-              {/* Batch Actions */}
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground font-medium">Batch Actions</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onBulkUpdateAll}
-                  disabled={isUpdating}
-                  className="w-full transition-all"
-                >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Update All Items
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Step 3: Clear Selection */}
-          {selectedCount > 0 && (
-            <div className="space-y-1.5 pt-3 border-t border-border/40">
-              <div className="flex items-center gap-2">
-                <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
-                  3
-                </div>
-                <h3 className="font-semibold text-xs">Reset</h3>
-              </div>
-              <div className="ml-9">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onClearSelection}
-                  className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Clear Selection
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onBulkUpdateAll}
+                disabled={isUpdating}
+                className="w-full col-span-2 sm:col-span-1"
+              >
+                <CheckCircle className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">Update All</span>
+                <span className="sm:hidden">All</span>
+              </Button>
             </div>
           )}
         </div>
