@@ -2445,13 +2445,6 @@ export const POTracker = () => {
                               }
                               return null;
                             })()}
-                                       {!isClosedPO && <Button variant="outline" size="sm" onClick={() => {
-                              if (confirm(`Are you sure you want to close PO ${poNumber}? This action cannot be undone.`)) {
-                                handleClosePO(poNumber);
-                              }
-                            }} className="text-red-600 hover:text-red-700 text-xs px-2 py-1 h-7">
-                                          Close
-                                        </Button>}
                                    </div>
                                  </div>
                              </div>;
