@@ -420,6 +420,127 @@ async function handleGetOrderDetails(params: any, key: string, secret: string) {
   };
 }
 
+async function handleGetAllOrders(userId: string, params: any, key: string, secret: string) {
+  console.log('📋 Get All Orders and Sync to Database');
+  
+  const orderParams: Record<string, any> = {
+    page: 1,
+    pageSize: 100 // Max allowed
+  };
+  
+  // Add date filters if provided
+  if (params.gmtCreatedStart) orderParams.gmtCreatedStart = params.gmtCreatedStart;
+  if (params.gmtCreatedEnd) orderParams.gmtCreatedEnd = params.gmtCreatedEnd;
+  
+  const skipOrderNumbers = new Set(params.skipDeliveredOrders || []);
+  const allOrders = [];
+  let page = 1;
+  let hasMore = true;
+  
+  // Fetch all pages
+  while (hasMore) {
+    orderParams.page = page;
+    const result = await callSunskyAPI('/openapi/order!getOrderList.do', orderParams, key, secret);
+    
+    const orders = result.data || [];
+    const total = result.total || 0;
+    const pageCount = result.pageCount || 0;
+    
+    console.log(`📦 Page ${page}/${pageCount}: ${orders.length} orders (${total} total)`);
+    
+    for (const order of orders) {
+      if (!skipOrderNumbers.has(order.number)) {
+        allOrders.push(order);
+      }
+    }
+    
+    hasMore = page < pageCount;
+    page++;
+    
+    if (page > 100) { // Safety limit
+      console.warn('⚠️ Reached page limit of 100');
+      break;
+    }
+  }
+  
+  console.log(`✅ Fetched ${allOrders.length} orders (${skipOrderNumbers.size} skipped)`);
+  
+  // Now save orders to database with their items
+  for (const order of allOrders) {
+    try {
+      // Fetch order details to get items
+      const detailsResult = await callSunskyAPI('/openapi/order!getOrderDetails.do', { number: order.number }, key, secret);
+      const fullOrder = detailsResult.data || detailsResult;
+      
+      // Save order to database
+      const { error: orderError } = await supabase
+        .from('sunsky_orders')
+        .upsert({
+          user_id: userId,
+          number: fullOrder.number,
+          status: String(fullOrder.status),
+          site_number: fullOrder.siteNumber,
+          gmt_created: fullOrder.gmtCreated,
+          total: fullOrder.totalAmount,
+          currency: 'USD',
+          shipping_company: fullOrder.deliveryAddress?.shippingWay?.name,
+          tracking_number: fullOrder.trackingNumber,
+          tracking_url: fullOrder.deliveryAddress?.shippingWay?.queryUrl,
+          raw: fullOrder,
+          status_last_updated_at: new Date().toISOString(),
+          last_synced_at: new Date().toISOString(),
+          sunsky_credentials_id: params.apiId
+        }, {
+          onConflict: 'user_id,number'
+        });
+      
+      if (orderError) {
+        console.error(`❌ Error saving order ${order.number}:`, orderError);
+        continue;
+      }
+      
+      // Save order items
+      if (fullOrder.detailList && fullOrder.detailList.length > 0) {
+        const items = fullOrder.detailList.map((item: any) => ({
+          user_id: userId,
+          order_number: fullOrder.number,
+          sku_code: item.itemNo,
+          model_number: item.itemNo,
+          title: item.title,
+          quantity: item.qty,
+          unit_price: item.price,
+          currency: 'USD',
+          item_status: '0',
+          status_last_updated_at: new Date().toISOString(),
+          last_synced_at: new Date().toISOString(),
+          raw: item
+        }));
+        
+        const { error: itemsError } = await supabase
+          .from('sunsky_order_items')
+          .upsert(items, {
+            onConflict: 'user_id,order_number,sku_code'
+          });
+        
+        if (itemsError) {
+          console.error(`❌ Error saving items for order ${order.number}:`, itemsError);
+        }
+      }
+      
+    } catch (err) {
+      console.error(`❌ Error processing order ${order.number}:`, err);
+    }
+  }
+  
+  return {
+    result: 'success',
+    data: {
+      orders: allOrders,
+      skippedCount: skipOrderNumbers.size
+    }
+  };
+}
+
 async function handleGetPricesAndFreights(params: any, key: string, secret: string) {
   console.log('💰 Get Prices and Freights:', params);
   
@@ -1004,6 +1125,7 @@ serve(async (req: Request) => {
       case 'getPricesAndFreights':
       case 'createOrder':
       case 'getOrders':
+      case 'getAllOrders':
       case 'getOrderDetails':
       case 'testCredentials':
       case 'download_images': {
@@ -1041,6 +1163,10 @@ serve(async (req: Request) => {
           
           case 'getOrders':
             result = await handleGetOrders(params, credentials.key, credentials.secret);
+            break;
+          
+          case 'getAllOrders':
+            result = await handleGetAllOrders(user.id, params, credentials.key, credentials.secret);
             break;
           
           case 'getOrderDetails':
