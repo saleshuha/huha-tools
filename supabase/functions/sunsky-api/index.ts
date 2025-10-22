@@ -519,58 +519,72 @@ async function handleDownloadImages(userId: string, params: any, key: string, se
     throw new Error('itemNos array is required');
   }
   
-  console.log(`📦 Processing ${itemNos.length} items for image download`);
+  console.log(`📦 Processing ${itemNos.length} items for image download using Sunsky CDN`);
   
   const results = [];
   
   for (const itemNo of itemNos) {
     try {
-      console.log(`🔍 [${itemNo}] Fetching product details from Sunsky API`);
+      console.log(`🔍 [${itemNo}] Generating Sunsky CDN image URLs`);
       
-      // Get product details from Sunsky
-      const productDetails = await callSunskyAPI('/openapi/product!detail.do', {
-        lang: 'en',
-        itemNo
-      }, key, secret);
-      
-      console.log(`📦 [${itemNo}] Sunsky API response:`, JSON.stringify(productDetails).substring(0, 200));
-      
-      const product = productDetails.data || productDetails;
       const imageUrls: string[] = [];
+      const baseUrl = `https://img.myipadbox.com/sec_item/${itemNo}`;
       
-      // Extract thumbnail
-      if (product.picUrl) {
-        imageUrls.push(product.picUrl);
-        console.log(`🖼️ [${itemNo}] Found thumbnail: ${product.picUrl}`);
-      }
+      // Generate predictable image URLs (main + additional images)
+      const possibleUrls = [
+        `${baseUrl}.jpg`,      // Main image
+        `${baseUrl}_1.jpg`,    // Additional images
+        `${baseUrl}_2.jpg`,
+        `${baseUrl}_3.jpg`,
+        `${baseUrl}_4.jpg`,
+        `${baseUrl}_5.jpg`,
+        `${baseUrl}_6.jpg`,
+        `${baseUrl}_7.jpg`,
+        `${baseUrl}_8.jpg`,
+        `${baseUrl}_9.jpg`
+      ];
       
-      // Extract additional images
-      if (product.images && Array.isArray(product.images)) {
-        const additionalImages = product.images.filter((url: string) => url && !imageUrls.includes(url));
-        imageUrls.push(...additionalImages);
-        console.log(`🖼️ [${itemNo}] Found ${additionalImages.length} additional images`);
+      console.log(`🔎 [${itemNo}] Testing ${possibleUrls.length} possible image URLs`);
+      
+      // Test each URL to see if image exists
+      for (const url of possibleUrls) {
+        try {
+          const headResponse = await fetch(url, { 
+            method: 'HEAD',
+            headers: { 'Accept': 'image/*' }
+          });
+          
+          if (headResponse.ok && headResponse.headers.get('content-type')?.startsWith('image/')) {
+            imageUrls.push(url);
+            console.log(`✅ [${itemNo}] Found image: ${url}`);
+          }
+        } catch (e) {
+          // Image doesn't exist, skip silently
+        }
       }
       
       console.log(`📸 [${itemNo}] Total images found: ${imageUrls.length}`);
       
       if (imageUrls.length === 0) {
-        console.warn(`⚠️ [${itemNo}] No images found in product data`);
+        console.warn(`⚠️ [${itemNo}] No images available on Sunsky CDN`);
         results.push({
           itemNo,
           status: 'failed',
-          error: 'No images found'
+          error: 'No images available on CDN'
         });
         continue;
       }
       
       // Download and store each image
       let savedImagesCount = 0;
+      let thumbnailPublicUrl = '';
+      
       for (let i = 0; i < imageUrls.length; i++) {
         const imageUrl = imageUrls[i];
         const imageType = i === 0 ? 'thumbnail' : 'gallery';
         
         try {
-          console.log(`⬇️ [${itemNo}] Downloading image ${i + 1}/${imageUrls.length}: ${imageUrl.substring(0, 50)}...`);
+          console.log(`⬇️ [${itemNo}] Downloading image ${i + 1}/${imageUrls.length}: ${imageUrl}`);
           
           // Download the image
           const imageResponse = await fetch(imageUrl);
@@ -586,16 +600,15 @@ async function handleDownloadImages(userId: string, params: any, key: string, se
           console.log(`✅ [${itemNo}] Downloaded ${imageSizeKB}KB (${imageBlob.type})`);
           
           // Generate storage path
-          const fileExt = imageUrl.split('.').pop()?.split('?')[0] || 'jpg';
-          const storagePath = `sunsky-images/${userId}/${itemNo}/${imageType}_${i}.${fileExt}`;
+          const storagePath = `sunsky-images/${userId}/${itemNo}/image_${i}.jpg`;
           
           console.log(`📤 [${itemNo}] Uploading to storage: ${storagePath}`);
           
           // Upload to Supabase storage
-          const { data: uploadData, error: uploadError } = await supabase.storage
+          const { error: uploadError } = await supabase.storage
             .from('product-images')
             .upload(storagePath, imageBuffer, {
-              contentType: imageBlob.type || 'image/jpeg',
+              contentType: 'image/jpeg',
               upsert: true
             });
           
@@ -613,9 +626,14 @@ async function handleDownloadImages(userId: string, params: any, key: string, se
           
           console.log(`🔗 [${itemNo}] Public URL: ${publicUrl}`);
           
+          // Store first image's public URL as thumbnail
+          if (i === 0) {
+            thumbnailPublicUrl = publicUrl;
+          }
+          
           // Save to database
           console.log(`💾 [${itemNo}] Saving image record to database`);
-          const { data: dbData, error: dbError } = await supabase
+          const { error: dbError } = await supabase
             .from('sunsky_product_images')
             .upsert({
               user_id: userId,
@@ -628,44 +646,42 @@ async function handleDownloadImages(userId: string, params: any, key: string, se
               updated_at: new Date().toISOString()
             }, {
               onConflict: 'user_id,item_no,image_order'
-            })
-            .select();
+            });
           
           if (dbError) {
             console.error(`❌ [${itemNo}] Database insert failed:`, JSON.stringify(dbError));
           } else {
-            console.log(`✅ [${itemNo}] Database record saved:`, dbData);
+            console.log(`✅ [${itemNo}] Database record saved`);
             savedImagesCount++;
           }
           
           console.log(`✅ [${itemNo}] Completed image ${i + 1}/${imageUrls.length}`);
           
         } catch (imgError: any) {
-          console.error(`❌ [${itemNo}] Error processing image ${imageUrl}:`, imgError.message, imgError.stack);
+          console.error(`❌ [${itemNo}] Error processing image ${imageUrl}:`, imgError.message);
         }
       }
       
-      // Update sunsky_skus table
+      // Update sunsky_skus table with thumbnail from our storage
       if (savedImagesCount > 0) {
         console.log(`🔄 [${itemNo}] Updating SKU record with ${savedImagesCount} images`);
         
-        const { data: updateData, error: updateError } = await supabase
+        const { error: updateError } = await supabase
           .from('sunsky_skus')
           .update({
-            thumbnail_url: imageUrls[0],
+            thumbnail_url: thumbnailPublicUrl,
             image_count: savedImagesCount,
             images_downloaded: true,
             images_download_date: new Date().toISOString(),
             updated_at: new Date().toISOString()
           })
           .eq('user_id', userId)
-          .eq('sku_code', itemNo)
-          .select();
+          .eq('sku_code', itemNo);
         
         if (updateError) {
           console.error(`❌ [${itemNo}] Failed to update SKU record:`, JSON.stringify(updateError));
         } else {
-          console.log(`✅ [${itemNo}] SKU record updated:`, updateData);
+          console.log(`✅ [${itemNo}] SKU record updated with thumbnail: ${thumbnailPublicUrl}`);
         }
       } else {
         console.warn(`⚠️ [${itemNo}] No images saved, skipping SKU update`);
@@ -680,7 +696,7 @@ async function handleDownloadImages(userId: string, params: any, key: string, se
       console.log(`✅ [${itemNo}] Processing complete: ${savedImagesCount}/${imageUrls.length} images saved`);
       
     } catch (error: any) {
-      console.error(`❌ [${itemNo}] Fatal error:`, error.message, error.stack);
+      console.error(`❌ [${itemNo}] Fatal error:`, error.message);
       results.push({
         itemNo,
         status: 'failed',
