@@ -1732,24 +1732,24 @@ export function OrderProcessor() {
 
                   <div className="border border-primary/20 rounded-lg overflow-hidden shadow-soft bg-card">
             <Table>
-              <TableHeader>
-                <TableRow>
+              <TableHeader className="bg-gradient-to-r from-muted/80 to-muted/60 sticky top-0 z-10 border-b-2 border-primary/20">
+                <TableRow className="hover:bg-transparent">
                   <SortableTableHeader
                     label="Order ID"
                     sortKey="orderId"
                     currentSort={sortColumn}
                     currentDirection={sortDirection}
                     onSort={handleSort}
-                    className="bg-gradient-to-r from-primary/10 to-primary/5 sticky top-0 z-10"
+                    className="font-semibold text-foreground"
                   />
-                  <TableHead className="min-w-[300px] bg-gradient-to-r from-primary/10 to-primary/5 sticky top-0 z-10">Product Details</TableHead>
+                  <TableHead className="min-w-[300px] font-semibold text-foreground">Product Details</TableHead>
                   <SortableTableHeader
                     label="Order Qty"
                     sortKey="itemQuantity"
                     currentSort={sortColumn}
                     currentDirection={sortDirection}
                     onSort={handleSort}
-                    className="bg-gradient-to-r from-primary/10 to-primary/5 sticky top-0 z-10"
+                    className="font-semibold text-foreground"
                   />
                   <SortableTableHeader
                     label="Order Date"
@@ -1757,10 +1757,10 @@ export function OrderProcessor() {
                     currentSort={sortColumn}
                     currentDirection={sortDirection}
                     onSort={handleSort}
-                    className="bg-gradient-to-r from-primary/10 to-primary/5 sticky top-0 z-10"
+                    className="font-semibold text-foreground"
                   />
-                  <TableHead className="bg-gradient-to-r from-primary/10 to-primary/5 sticky top-0 z-10">Matched With</TableHead>
-                  <TableHead className="bg-gradient-to-r from-primary/10 to-primary/5 sticky top-0 z-10">Available Stock</TableHead>
+                  <TableHead className="font-semibold text-foreground">Matched With</TableHead>
+                  <TableHead className="font-semibold text-foreground">Available Stock</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1779,7 +1779,6 @@ export function OrderProcessor() {
                         ${viewMode === 'compact' ? 'h-10' : 'h-14'}
                         ${index % 2 === 0 ? 'bg-background' : 'bg-muted/20'}
                         hover:bg-primary/5 hover:shadow-sm transition-all duration-150
-                        border-l-2 border-l-transparent hover:border-l-primary/50
                       `}
                     >
                       <TableCell className="font-mono text-xs">{order.orderId}</TableCell>
@@ -1864,9 +1863,9 @@ export function OrderProcessor() {
 
             <TabsContent value="processed" className="space-y-4">
               {/* Search Bar for Processed Orders */}
-              <Card className="p-4 bg-gradient-to-r from-success/5 via-card to-success/5 border-success/20">
+              <Card className="p-4 bg-gradient-to-r from-primary/5 via-card to-accent/5 border-primary/20">
                 <div className="flex items-center gap-2 mb-4">
-                  <Search className="w-4 h-4 text-success" />
+                  <Search className="w-4 h-4 text-primary" />
                   <h4 className="font-semibold text-foreground">Search Processed Orders</h4>
                   <Badge variant="secondary" className="ml-auto text-xs">
                     {filteredProcessedOrders.length} results
@@ -1891,10 +1890,10 @@ export function OrderProcessor() {
                   </div>
 
                   {/* Enhanced Table */}
-                  <div className="border border-success/20 rounded-lg overflow-hidden shadow-soft bg-card">
+                  <div className="border border-primary/20 rounded-lg overflow-hidden shadow-soft bg-card">
                     <div className="overflow-x-auto">
                       <Table>
-                        <TableHeader className="bg-gradient-to-r from-success/10 to-success/5 sticky top-0 z-10 border-b-2 border-success/20">
+                        <TableHeader className="bg-gradient-to-r from-muted/80 to-muted/60 sticky top-0 z-10 border-b-2 border-primary/20">
                           <TableRow className="hover:bg-transparent">
                             <TableHead className="font-semibold text-foreground">Serial #</TableHead>
                             <TableHead className="font-semibold text-foreground">Order Number</TableHead>
@@ -1930,9 +1929,8 @@ export function OrderProcessor() {
                                   key={`${order.order_number}-${index}`}
                                   className={`
                                     ${rowClass}
-                                    ${index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}
-                                    hover:bg-muted/50 hover:shadow-sm transition-all duration-150
-                                    border-l-4 border-l-success
+                                    ${index % 2 === 0 ? 'bg-background' : 'bg-muted/20'}
+                                    hover:bg-primary/5 hover:shadow-sm transition-all duration-150
                                   `}
                                 >
                                   <TableCell className="text-xs font-mono text-muted-foreground font-medium">
@@ -1993,7 +1991,7 @@ export function OrderProcessor() {
                     </div>
                     
                     {filteredProcessedOrders.length > itemsPerPage && (
-                      <div className="p-3 text-center text-sm text-muted-foreground border-t bg-success/5">
+                      <div className="p-3 text-center text-sm text-muted-foreground border-t bg-muted/20">
                         Showing first {itemsPerPage} records out of {filteredProcessedOrders.length} total
                       </div>
                     )}
