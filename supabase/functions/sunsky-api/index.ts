@@ -1204,6 +1204,21 @@ serve(async (req: Request) => {
         result = await handleListApiKeys(user.id, supabaseClient);
         break;
       
+      case 'getCredentialsStatus':
+        // Check if user has any active credentials
+        const { data: credentialsCheck, error: credCheckError } = await supabase
+          .from('sunsky_credentials')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .limit(1);
+        
+        result = {
+          result: 'success',
+          hasCredentials: credentialsCheck && credentialsCheck.length > 0
+        };
+        break;
+      
       // Handle ping/connection test
       case 'ping':
         result = { result: 'success', message: 'Edge function is running' };
