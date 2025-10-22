@@ -1206,6 +1206,7 @@ serve(async (req: Request) => {
       
       case 'getCredentialsStatus':
         // Check if user has any active credentials
+        console.log('🔍 Checking credentials status for user:', user.id);
         const { data: credentialsCheck, error: credCheckError } = await supabase
           .from('sunsky_credentials')
           .select('id')
@@ -1213,10 +1214,17 @@ serve(async (req: Request) => {
           .eq('is_active', true)
           .limit(1);
         
+        console.log('📊 Credentials check result:', { 
+          hasData: !!credentialsCheck, 
+          count: credentialsCheck?.length || 0,
+          error: credCheckError 
+        });
+        
         result = {
           result: 'success',
           hasCredentials: credentialsCheck && credentialsCheck.length > 0
         };
+        console.log('✅ Returning credentials status:', result);
         break;
       
       // Handle ping/connection test

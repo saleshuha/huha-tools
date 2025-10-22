@@ -1782,16 +1782,28 @@ export default function PODetailsPage() {
   // Check if user has Sunsky credentials
   const checkSunskyCredentials = async () => {
     try {
+      console.log('🔍 Checking Sunsky credentials...');
       const response = await supabase.functions.invoke('sunsky-api', {
         body: {
           action: 'getCredentialsStatus'
         }
       });
+      console.log('📦 Sunsky credentials response:', response);
+      if (response.error) {
+        console.error('❌ Error response from function:', response.error);
+        setHasSunskyCredentials(false);
+        return;
+      }
       if (response.data?.result === 'success') {
+        console.log('✅ Has credentials:', response.data.hasCredentials);
         setHasSunskyCredentials(response.data.hasCredentials);
+      } else {
+        console.warn('⚠️ Unexpected response format:', response.data);
+        setHasSunskyCredentials(false);
       }
     } catch (error) {
       console.error('Error checking Sunsky credentials:', error);
+      setHasSunskyCredentials(false);
     }
   };
 
