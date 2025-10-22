@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.5";
 import { crypto } from "https://deno.land/std@0.190.0/crypto/mod.ts";
+import JSZip from "https://esm.sh/jszip@3.10.1";
 
 console.log('🚀 Sunsky API Edge Function - Clean Implementation');
 
@@ -135,12 +136,13 @@ async function callSunskyAPI(
   endpoint: string,
   params: Record<string, any>,
   key: string,
-  secret: string
+  secret: string,
+  expectBinary = false
 ) {
   const baseUrl = 'https://open.sunsky-online.com';
   const url = `${baseUrl}${endpoint}`;
   
-  console.log(`📡 Calling Sunsky API: ${endpoint}`);
+  console.log(`📡 Calling Sunsky API: ${endpoint}${expectBinary ? ' (binary response)' : ''}`);
   
   // Generate signature
   const signature = await generateSignature(params, key, secret);
@@ -157,7 +159,6 @@ async function callSunskyAPI(
   }
   
   console.log('📤 Request params:', Object.keys(params));
-  console.log('📤 Form data being sent:', formData.toString());
   
   // Make request
   const response = await fetch(url, {
@@ -168,12 +169,20 @@ async function callSunskyAPI(
     body: formData.toString()
   });
   
-  const responseText = await response.text();
-  console.log(`📥 Response status: ${response.status}, length: ${responseText.length}`);
+  console.log(`📥 Response status: ${response.status}, content-type: ${response.headers.get('content-type')}`);
   
   if (!response.ok) {
-    throw new Error(`Sunsky API error: ${response.status} ${responseText}`);
+    const errorText = await response.text();
+    throw new Error(`Sunsky API error: ${response.status} ${errorText}`);
   }
+  
+  // For binary responses (like ZIP files), return the response object
+  if (expectBinary) {
+    return response;
+  }
+  
+  // For JSON responses, parse the text
+  const responseText = await response.text();
   
   try {
     const data = JSON.parse(responseText);
@@ -513,102 +522,103 @@ async function handleTestCredentials(_params: any, key: string, secret: string) 
 async function handleDownloadImages(userId: string, params: any, key: string, secret: string) {
   console.log('📥 Download Images - Starting:', { userId, itemCount: params.itemNos?.length });
   
-  const { itemNos } = params;
+  const { itemNos, size, watermark } = params;
   
   if (!itemNos || !Array.isArray(itemNos) || itemNos.length === 0) {
     throw new Error('itemNos array is required');
   }
   
-  console.log(`📦 Processing ${itemNos.length} items for image download using Sunsky CDN`);
+  console.log(`📦 Processing ${itemNos.length} items using Sunsky official image API`);
   
   const results = [];
   
   for (const itemNo of itemNos) {
     try {
-      console.log(`🔍 [${itemNo}] Generating Sunsky CDN image URLs`);
+      console.log(`🔍 [${itemNo}] Fetching images from Sunsky API`);
       
-      const imageUrls: string[] = [];
-      const baseUrl = `https://img.myipadbox.com/sec_item/${itemNo}`;
+      // Call Sunsky's official image API - returns ZIP file
+      const imageParams = {
+        itemNo: itemNo,
+        size: size || 800,
+        watermark: watermark || ''
+      };
       
-      // Generate predictable image URLs (main + additional images)
-      const possibleUrls = [
-        `${baseUrl}.jpg`,      // Main image
-        `${baseUrl}_1.jpg`,    // Additional images
-        `${baseUrl}_2.jpg`,
-        `${baseUrl}_3.jpg`,
-        `${baseUrl}_4.jpg`,
-        `${baseUrl}_5.jpg`,
-        `${baseUrl}_6.jpg`,
-        `${baseUrl}_7.jpg`,
-        `${baseUrl}_8.jpg`,
-        `${baseUrl}_9.jpg`
-      ];
+      const response = await callSunskyAPI(
+        '/openapi/product!getImages.do',
+        imageParams,
+        key,
+        secret,
+        true // Expect binary response
+      );
       
-      console.log(`🔎 [${itemNo}] Testing ${possibleUrls.length} possible image URLs`);
-      
-      // Test each URL to see if image exists
-      for (const url of possibleUrls) {
-        try {
-          const headResponse = await fetch(url, { 
-            method: 'HEAD',
-            headers: { 'Accept': 'image/*' }
-          });
-          
-          if (headResponse.ok && headResponse.headers.get('content-type')?.startsWith('image/')) {
-            imageUrls.push(url);
-            console.log(`✅ [${itemNo}] Found image: ${url}`);
-          }
-        } catch (e) {
-          // Image doesn't exist, skip silently
-        }
-      }
-      
-      console.log(`📸 [${itemNo}] Total images found: ${imageUrls.length}`);
-      
-      if (imageUrls.length === 0) {
-        console.warn(`⚠️ [${itemNo}] No images available on Sunsky CDN`);
+      // Check if response is successful
+      if (!response.ok) {
+        console.warn(`⚠️ [${itemNo}] No images available (${response.status})`);
         results.push({
           itemNo,
           status: 'failed',
-          error: 'No images available on CDN'
+          error: 'No images available for this product'
         });
         continue;
       }
       
-      // Download and store each image
+      // Get ZIP file data
+      console.log(`📦 [${itemNo}] Downloading ZIP file`);
+      const zipData = await response.arrayBuffer();
+      const zipSizeKB = (zipData.byteLength / 1024).toFixed(2);
+      console.log(`✅ [${itemNo}] Downloaded ZIP: ${zipSizeKB}KB`);
+      
+      // Extract images from ZIP
+      console.log(`📂 [${itemNo}] Extracting images from ZIP`);
+      const zip = await JSZip.loadAsync(zipData);
+      
+      // Get all image files from ZIP
+      const imageFiles = Object.keys(zip.files).filter(name => 
+        !zip.files[name].dir && name.match(/\.(jpg|jpeg|png|gif)$/i)
+      );
+      
+      console.log(`📸 [${itemNo}] Found ${imageFiles.length} images in ZIP`);
+      
+      if (imageFiles.length === 0) {
+        console.warn(`⚠️ [${itemNo}] ZIP file contains no images`);
+        results.push({
+          itemNo,
+          status: 'failed',
+          error: 'ZIP file contains no images'
+        });
+        continue;
+      }
+      
+      // Process each image
       let savedImagesCount = 0;
       let thumbnailPublicUrl = '';
       
-      for (let i = 0; i < imageUrls.length; i++) {
-        const imageUrl = imageUrls[i];
+      for (let i = 0; i < imageFiles.length; i++) {
+        const fileName = imageFiles[i];
         const imageType = i === 0 ? 'thumbnail' : 'gallery';
         
         try {
-          console.log(`⬇️ [${itemNo}] Downloading image ${i + 1}/${imageUrls.length}: ${imageUrl}`);
+          console.log(`🖼️ [${itemNo}] Processing image ${i + 1}/${imageFiles.length}: ${fileName}`);
           
-          // Download the image
-          const imageResponse = await fetch(imageUrl);
-          if (!imageResponse.ok) {
-            console.error(`❌ [${itemNo}] HTTP ${imageResponse.status} for image: ${imageUrl}`);
-            continue;
-          }
+          // Extract image data
+          const imageBlob = await zip.files[fileName].async('arraybuffer');
+          const imageSizeKB = (imageBlob.byteLength / 1024).toFixed(2);
+          console.log(`✅ [${itemNo}] Extracted ${imageSizeKB}KB`);
           
-          const imageBlob = await imageResponse.blob();
-          const imageBuffer = await imageBlob.arrayBuffer();
-          const imageSizeKB = (imageBuffer.byteLength / 1024).toFixed(2);
-          
-          console.log(`✅ [${itemNo}] Downloaded ${imageSizeKB}KB (${imageBlob.type})`);
+          // Determine file extension
+          const ext = fileName.split('.').pop()?.toLowerCase() || 'jpg';
+          const contentType = ext === 'png' ? 'image/png' : 'image/jpeg';
           
           // Generate storage path
-          const storagePath = `sunsky-images/${userId}/${itemNo}/image_${i}.jpg`;
+          const storagePath = `sunsky-images/${userId}/${itemNo}/image_${i}.${ext}`;
           
           console.log(`📤 [${itemNo}] Uploading to storage: ${storagePath}`);
           
           // Upload to Supabase storage
           const { error: uploadError } = await supabase.storage
             .from('product-images')
-            .upload(storagePath, imageBuffer, {
-              contentType: 'image/jpeg',
+            .upload(storagePath, imageBlob, {
+              contentType: contentType,
               upsert: true
             });
           
@@ -617,7 +627,7 @@ async function handleDownloadImages(userId: string, params: any, key: string, se
             continue;
           }
           
-          console.log(`✅ [${itemNo}] Uploaded to storage successfully`);
+          console.log(`✅ [${itemNo}] Uploaded successfully`);
           
           // Get public URL
           const { data: { publicUrl } } = supabase.storage
@@ -638,7 +648,7 @@ async function handleDownloadImages(userId: string, params: any, key: string, se
             .upsert({
               user_id: userId,
               item_no: itemNo,
-              image_url: imageUrl,
+              image_url: `sunsky-zip/${fileName}`,
               storage_path: storagePath,
               image_order: i,
               image_type: imageType,
@@ -655,14 +665,12 @@ async function handleDownloadImages(userId: string, params: any, key: string, se
             savedImagesCount++;
           }
           
-          console.log(`✅ [${itemNo}] Completed image ${i + 1}/${imageUrls.length}`);
-          
         } catch (imgError: any) {
-          console.error(`❌ [${itemNo}] Error processing image ${imageUrl}:`, imgError.message);
+          console.error(`❌ [${itemNo}] Error processing image ${fileName}:`, imgError.message);
         }
       }
       
-      // Update sunsky_skus table with thumbnail from our storage
+      // Update sunsky_skus table
       if (savedImagesCount > 0) {
         console.log(`🔄 [${itemNo}] Updating SKU record with ${savedImagesCount} images`);
         
@@ -681,10 +689,8 @@ async function handleDownloadImages(userId: string, params: any, key: string, se
         if (updateError) {
           console.error(`❌ [${itemNo}] Failed to update SKU record:`, JSON.stringify(updateError));
         } else {
-          console.log(`✅ [${itemNo}] SKU record updated with thumbnail: ${thumbnailPublicUrl}`);
+          console.log(`✅ [${itemNo}] SKU record updated`);
         }
-      } else {
-        console.warn(`⚠️ [${itemNo}] No images saved, skipping SKU update`);
       }
       
       results.push({
@@ -693,7 +699,7 @@ async function handleDownloadImages(userId: string, params: any, key: string, se
         imageCount: savedImagesCount
       });
       
-      console.log(`✅ [${itemNo}] Processing complete: ${savedImagesCount}/${imageUrls.length} images saved`);
+      console.log(`✅ [${itemNo}] Complete: ${savedImagesCount} images saved`);
       
     } catch (error: any) {
       console.error(`❌ [${itemNo}] Fatal error:`, error.message);
@@ -708,7 +714,6 @@ async function handleDownloadImages(userId: string, params: any, key: string, se
   const successCount = results.filter(r => r.status === 'success').length;
   
   console.log(`✅ Download Complete: ${successCount}/${results.length} items processed successfully`);
-  console.log(`📊 Results summary:`, JSON.stringify(results));
   
   return {
     result: 'success',
