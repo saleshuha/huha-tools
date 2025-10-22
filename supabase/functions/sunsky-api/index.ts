@@ -421,7 +421,9 @@ async function handleGetOrderDetails(params: any, key: string, secret: string) {
 }
 
 async function handleGetAllOrders(userId: string, params: any, key: string, secret: string) {
-  console.log('📋 Get All Orders and Sync to Database');
+  console.log('📋 Get All Orders and Sync to Database', {
+    dateRange: params.gmtCreatedStart ? `${params.gmtCreatedStart} to ${params.gmtCreatedEnd}` : 'All time'
+  });
   
   const orderParams: Record<string, any> = {
     page: 1,
@@ -442,11 +444,34 @@ async function handleGetAllOrders(userId: string, params: any, key: string, secr
     orderParams.page = page;
     const result = await callSunskyAPI('/openapi/order!getOrderList.do', orderParams, key, secret);
     
-    const orders = result.data || [];
+    console.log('📥 API Response structure:', {
+      hasData: !!result.data,
+      dataType: Array.isArray(result.data) ? 'array' : typeof result.data,
+      dataLength: Array.isArray(result.data) ? result.data.length : 'N/A',
+      total: result.total,
+      pageCount: result.pageCount,
+      resultKeys: Object.keys(result)
+    });
+    
+    // Handle different response structures
+    let orders = [];
+    if (Array.isArray(result.data)) {
+      orders = result.data;
+    } else if (Array.isArray(result)) {
+      orders = result;
+    } else if (result.data && Array.isArray(result.data.orders)) {
+      orders = result.data.orders;
+    }
+    
     const total = result.total || 0;
-    const pageCount = result.pageCount || 0;
+    const pageCount = result.pageCount || 1;
     
     console.log(`📦 Page ${page}/${pageCount}: ${orders.length} orders (${total} total)`);
+    
+    if (!Array.isArray(orders)) {
+      console.error('❌ Orders is not an array:', orders);
+      throw new Error('Invalid response format from Sunsky API - expected array of orders');
+    }
     
     for (const order of orders) {
       if (!skipOrderNumbers.has(order.number)) {
@@ -454,7 +479,7 @@ async function handleGetAllOrders(userId: string, params: any, key: string, secr
       }
     }
     
-    hasMore = page < pageCount;
+    hasMore = page < pageCount && orders.length > 0;
     page++;
     
     if (page > 100) { // Safety limit
