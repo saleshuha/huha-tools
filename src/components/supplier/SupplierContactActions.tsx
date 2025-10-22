@@ -1,7 +1,6 @@
 import { Button } from '@/components/ui/button';
-import { MessageCircle, MessageSquare, Mail, Phone, ExternalLink, Copy, Check } from 'lucide-react';
+import { MessageCircle, MessageSquare, Mail, Phone, ExternalLink, Copy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useState } from 'react';
 
 interface SupplierContactActionsProps {
   whatsappNumber?: string;
@@ -21,78 +20,18 @@ export const SupplierContactActions = ({
   supplierName,
 }: SupplierContactActionsProps) => {
   const { toast } = useToast();
-  const [whatsappClicked, setWhatsappClicked] = useState(false);
-  const [cooldownSeconds, setCooldownSeconds] = useState(0);
 
-  const handleWhatsApp = () => {
-    if (!whatsappNumber || cooldownSeconds > 0) return;
-    
-    // Remove all non-numeric characters to get clean number
-    const cleanNumber = whatsappNumber.replace(/\D/g, '');
-    
-    console.log('🔍 WhatsApp Debug - Original number:', whatsappNumber);
-    console.log('🔍 WhatsApp Debug - Clean number:', cleanNumber);
-    
-    // Ensure number has country code
-    if (cleanNumber.length < 10) {
-      console.error('❌ WhatsApp Debug - Invalid number length:', cleanNumber.length);
-      toast({
-        title: 'Invalid phone number',
-        description: 'Please ensure the WhatsApp number includes the country code',
-        variant: 'destructive',
-      });
-      return;
-    }
-    
-    // Detect if mobile device
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    console.log('🔍 WhatsApp Debug - Is mobile:', isMobile);
-    
-    // Use alternative WhatsApp Web URL format (better rate limits) - no pre-filled message
-    const url = isMobile 
-      ? `whatsapp://send?phone=${cleanNumber}`
-      : `https://web.whatsapp.com/send?phone=${cleanNumber}`;
-    
-    console.log('🔍 WhatsApp Debug - Generated URL:', url);
-    
-    // Create temporary anchor and click it (avoids popup blockers)
-    const link = document.createElement('a');
-    link.href = url;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    document.body.appendChild(link);
-    
-    console.log('🔍 WhatsApp Debug - Link created, attempting click...');
-    link.click();
-    document.body.removeChild(link);
-    console.log('✅ WhatsApp Debug - Click executed, link removed');
-    
-    // Show success feedback
-    setWhatsappClicked(true);
-    setTimeout(() => setWhatsappClicked(false), 3000);
-    
-    // Start 60-second cooldown to prevent rate limiting
-    setCooldownSeconds(60);
-    const cooldownInterval = setInterval(() => {
-      setCooldownSeconds((prev) => {
-        if (prev <= 1) {
-          clearInterval(cooldownInterval);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    
-    toast({
-      title: 'Opening WhatsApp',
-      description: `Starting conversation with ${supplierName}`,
-    });
-  };
-  
   const getWhatsAppUrl = () => {
     if (!whatsappNumber) return '';
     const cleanNumber = whatsappNumber.replace(/\D/g, '');
-    return `https://web.whatsapp.com/send?phone=${cleanNumber}`;
+    
+    // Validate number has country code
+    if (cleanNumber.length < 10) {
+      return '';
+    }
+    
+    // Use official WhatsApp API endpoint (better rate limits and compatibility)
+    return `https://api.whatsapp.com/send?phone=${cleanNumber}`;
   };
 
   const copyWhatsAppNumber = () => {
@@ -153,51 +92,29 @@ export const SupplierContactActions = ({
   return (
     <div className="space-y-3">
       {whatsappNumber && (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <MessageCircle className="h-4 w-4" />
-            <span>{whatsappNumber}</span>
-          </div>
-          <div className="text-xs text-muted-foreground">
-            <span>Or click directly: </span>
-            <a 
-              href={getWhatsAppUrl()} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-primary hover:underline font-medium"
-            >
-              Open WhatsApp Web
-            </a>
-          </div>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <MessageCircle className="h-4 w-4" />
+          <span>{whatsappNumber}</span>
         </div>
       )}
       
       <div className="flex flex-wrap gap-2">
-        {whatsappNumber && (
+        {whatsappNumber && getWhatsAppUrl() && (
           <>
             <Button
               variant="outline"
               size="sm"
-              onClick={handleWhatsApp}
-              disabled={cooldownSeconds > 0}
-              className="gap-2"
+              asChild
             >
-              {cooldownSeconds > 0 ? (
-                <>
-                  <MessageCircle className="h-4 w-4" />
-                  Wait {cooldownSeconds}s
-                </>
-              ) : whatsappClicked ? (
-                <>
-                  <Check className="h-4 w-4" />
-                  Opened
-                </>
-              ) : (
-                <>
-                  <MessageCircle className="h-4 w-4" />
-                  WhatsApp
-                </>
-              )}
+              <a
+                href={getWhatsAppUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="gap-2"
+              >
+                <MessageCircle className="h-4 w-4" />
+                Open WhatsApp
+              </a>
             </Button>
             <Button
               variant="ghost"
