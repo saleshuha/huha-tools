@@ -24,17 +24,35 @@ export const SupplierContactActions = ({
   const handleWhatsApp = () => {
     if (!whatsappNumber) return;
     
-    // Remove non-numeric characters
+    // Remove all non-numeric characters to get clean number
     const cleanNumber = whatsappNumber.replace(/\D/g, '');
+    
+    // Ensure number has country code
+    if (cleanNumber.length < 10) {
+      toast({
+        title: 'Invalid phone number',
+        description: 'Please ensure the WhatsApp number includes the country code',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     const message = encodeURIComponent(`Hello ${supplierName}, I'm reaching out regarding our business collaboration.`);
     
-    // Try mobile deep link first, fall back to web
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    const url = isMobile 
-      ? `whatsapp://send?phone=${cleanNumber}&text=${message}`
-      : `https://wa.me/${cleanNumber}?text=${message}`;
+    // Always use wa.me (works on both mobile and desktop)
+    const url = `https://wa.me/${cleanNumber}?text=${message}`;
     
-    window.open(url, '_blank');
+    // Open in new window
+    const whatsappWindow = window.open(url, '_blank', 'noopener,noreferrer');
+    
+    // Check if popup was blocked
+    if (!whatsappWindow) {
+      toast({
+        title: 'Popup blocked',
+        description: 'Please allow popups for this site to open WhatsApp',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleWeChat = () => {
