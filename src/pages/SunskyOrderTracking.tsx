@@ -1,27 +1,28 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSunskyOrders } from '@/hooks/useSunskyOrders';
+import { useSunskyCredentials } from '@/hooks/useSunskyCredentials';
 import { useCountry } from '@/contexts/CountryContext';
-import { HuhaHeader01 } from '@/components/ui/huha-header-01';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import { 
-  ExternalLink, Search, RefreshCw, ChevronDown, ChevronUp,
-  Package, Clock, Truck, CheckCircle, AlertTriangle, AlertCircle, Eye,
-  Filter, Calendar, TrendingUp, Users
+  Package, RefreshCw
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { SunskyCredentialsSelector } from '@/components/SunskyCredentialsSelector';
-import { SegmentedProgress } from '@/components/sunsky/SegmentedProgress';
-import { ItemStatusBadge } from '@/components/sunsky/ItemStatusBadge';
 import { DelayedItemsTab } from '@/components/sunsky/DelayedItemsTab';
-import { calculateOrderProgress, calculateItemsProgress, getDaysInStatus, isItemDelayed } from '@/utils/sunsky-progress';
+import { StatusMetricsCards } from '@/components/sunsky/tracking/StatusMetricsCards';
+import { TrackingToolbar } from '@/components/sunsky/tracking/TrackingToolbar';
+import { EnhancedOrderCard } from '@/components/sunsky/tracking/EnhancedOrderCard';
+import { 
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
+import { calculateOrderProgress } from '@/utils/sunsky-progress';
 
 // Status configurations for orders and items with Sunsky numeric status mapping
 const statusColors = {
@@ -93,22 +94,17 @@ interface SlowItem {
 }
 
 export default function SunskyOrderTrackingPage() {
-  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [slowItems, setSlowItems] = useState<SlowItem[]>([]);
-  const [showOnlyPOLinked, setShowOnlyPOLinked] = useState(false);
-  const [showInFlightOnly, setShowInFlightOnly] = useState(false);
   const [loadingLabels, setLoadingLabels] = useState<Set<string>>(new Set());
   const [orderLabels, setOrderLabels] = useState<Map<string, any[]>>(new Map());
   const [selectedCredentialId, setSelectedCredentialId] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'updated' | 'created' | 'status' | 'value'>('updated');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
   const { selectedCountry } = useCountry();
+  const { credentials } = useSunskyCredentials();
   const {
     orders,
     loading,
@@ -133,55 +129,19 @@ export default function SunskyOrderTrackingPage() {
           item.sku_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           item.title?.toLowerCase().includes(searchTerm.toLowerCase())
         );
-      
-      const readableStatus = getReadableStatus(order.status || 'pending');
-      const matchesStatus = selectedStatus === 'all' || 
-                           readableStatus === selectedStatus ||
-                           order.status === selectedStatus;
 
-      // In-flight filter (exclude delivered orders)
-      const isInFlight = readableStatus !== 'delivered';
-      const matchesInFlight = !showInFlightOnly || isInFlight;
-
-      return matchesSearch && matchesStatus && matchesInFlight;
+      return matchesSearch;
     });
 
-    // Sort orders
+    // Sort by most recent
     filtered.sort((a, b) => {
-      let aValue: any, bValue: any;
-
-      switch (sortBy) {
-        case 'updated':
-          aValue = new Date(a.updated_at || a.created_at).getTime();
-          bValue = new Date(b.updated_at || b.created_at).getTime();
-          break;
-        case 'created':
-          aValue = new Date(a.gmt_created || a.created_at).getTime();
-          bValue = new Date(b.gmt_created || b.created_at).getTime();
-          break;
-        case 'status':
-          const aProgress = calculateOrderProgress(a.status);
-          const bProgress = calculateOrderProgress(b.status);
-          aValue = aProgress.currentStep;
-          bValue = bProgress.currentStep;
-          break;
-        case 'value':
-          aValue = a.total || 0;
-          bValue = b.total || 0;
-          break;
-        default:
-          return 0;
-      }
-
-      if (sortDirection === 'asc') {
-        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-      } else {
-        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
-      }
+      const aDate = new Date(a.updated_at || a.created_at).getTime();
+      const bDate = new Date(b.updated_at || b.created_at).getTime();
+      return bDate - aDate;
     });
 
     return filtered;
-  }, [orders, searchTerm, selectedStatus, showInFlightOnly, sortBy, sortDirection]);
+  }, [orders, searchTerm]);
 
   // Pagination
   const paginatedOrders = useMemo(() => {
@@ -204,10 +164,10 @@ export default function SunskyOrderTrackingPage() {
   }, []);
 
   useEffect(() => {
-    // Always fetch all available orders from Sunsky (not filtered by PO linkage) 
-    fetchStoredOrders(showOnlyPOLinked);
+    // Always fetch all available orders from Sunsky
+    fetchStoredOrders(false);
     loadSlowItems();
-  }, [showOnlyPOLinked]);
+  }, []);
 
   // Toggle order expansion and fetch items if missing using correct credential
   const toggleOrderExpansion = async (orderNumber: string) => {
@@ -329,115 +289,162 @@ export default function SunskyOrderTrackingPage() {
   ).length;
 
   return (
-    <div className="min-h-screen bg-gradient-surface">
-      <HuhaHeader01
-        icon={<Package className="w-5 h-5 text-primary-foreground" />}
-        title="Sunsky Order Tracking (Global)"
-        subtitle={`Track ALL Sunsky orders and monitor item delivery status for ${selectedCountry}`}
-      />
-      <div className="glass-container mx-6 my-4 p-8 animate-fade-in">
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Button 
-                onClick={() => syncOrdersFromAPI(selectedCredentialId, false)}
-                disabled={syncing}
-                variant="default"
-                className="bg-gradient-primary hover:bg-gradient-primary/90"
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-                Sync Recent Orders
-              </Button>
-              <Button 
-                onClick={() => syncOrdersFromAPI(selectedCredentialId, true)}
-                disabled={syncing}
-                variant="outline"
-                size="sm"
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-                Full Sync
-              </Button>
-              <SunskyCredentialsSelector
-                selectedCredentialId={selectedCredentialId}
-                onCredentialSelect={setSelectedCredentialId}
-              />
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
+      {/* Enhanced Hero Header Section */}
+      <div className="relative overflow-hidden border-b bg-gradient-to-r from-primary/10 via-primary/5 to-transparent">
+        <div className="absolute inset-0 bg-grid-white/10 bg-[size:20px_20px] [mask-image:radial-gradient(white,transparent_70%)]" />
+        <div className="absolute top-10 left-10 w-20 h-20 bg-primary/20 rounded-full blur-xl animate-float" />
+        <div className="absolute bottom-10 right-10 w-32 h-32 bg-accent/20 rounded-full blur-xl animate-float-delayed" />
+        
+        <div className="container mx-auto px-6 py-12 relative z-10">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary/50 flex items-center justify-center shadow-lg">
+              <Package className="h-7 w-7 text-primary-foreground" />
             </div>
-          </div>
-
-          {/* Progress bar for syncing */}
-          {syncing && (
-            <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-blue-700 flex items-center gap-2">
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                  Fetching ALL orders from Sunsky API...
-                </span>
-                <span className="text-sm text-blue-600 font-mono">
-                  {progressCurrent}/{progressTotal} ({progressPercent}%)
-                </span>
-              </div>
-              <Progress value={progressPercent} className="h-2" />
-              <p className="text-xs text-blue-600 mt-1">
-                This will fetch all orders from your Sunsky account, not just app-related orders
+            <div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                Sunsky Order Tracking
+              </h1>
+              <p className="text-muted-foreground">
+                Track all Sunsky orders and monitor item delivery status for {selectedCountry}
               </p>
             </div>
-          )}
+          </div>
+        </div>
+      </div>
 
-          {/* Tabs for Orders and Delayed Items */}
-          <Tabs defaultValue="orders" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="orders" className="flex items-center gap-2">
-                <Package className="h-4 w-4" />
-                Orders ({filteredAndSortedOrders.length})
-              </TabsTrigger>
-              <TabsTrigger value="delayed" className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4" />
-                Delayed Items ({slowItems.length})
-              </TabsTrigger>
-            </TabsList>
+      <div className="container mx-auto px-6 py-8 space-y-8">
+        {/* Progress bar for syncing */}
+        {syncing && (
+          <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 rounded-lg border border-blue-200 dark:border-blue-800 shadow-sm animate-fade-in">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-blue-700 dark:text-blue-300 flex items-center gap-2">
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                Fetching orders from Sunsky API...
+              </span>
+              <span className="text-sm text-blue-600 dark:text-blue-400 font-mono">
+                {progressCurrent}/{progressTotal} ({progressPercent}%)
+              </span>
+            </div>
+            <Progress value={progressPercent} className="h-2" />
+          </div>
+        )}
 
-            <TabsContent value="orders" className="mt-6">
-              {/* Filters */}
-              <div className="mb-6 space-y-4">
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search orders by number, PO numbers, or status..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                  <select
-                    value={selectedStatus}
-                    onChange={(e) => setSelectedStatus(e.target.value)}
-                    className="px-3 py-2 border border-input rounded-md bg-background text-sm min-w-40"
-                  >
-                    <option value="all">All Status</option>
-                    <option value="pending">Pending</option>
-                    <option value="unpaid">Unpaid</option>
-                    <option value="ordered">Ordered</option>
-                    <option value="paid">Paid</option>
-                    <option value="shipped">Shipped</option>
-                    <option value="delivered">Delivered</option>
-                    <option value="cancelled">Cancelled</option>
-                    <option value="error">Error</option>
-                    <option value="api_error">API Error</option>
-                  </select>
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm font-medium">View:</label>
-                    <select
-                      value={showOnlyPOLinked ? 'po-linked' : 'all-orders'}
-                      onChange={(e) => setShowOnlyPOLinked(e.target.value === 'po-linked')}
-                      className="px-3 py-2 border border-input rounded-md bg-background text-sm"
-                    >
-                      <option value="all-orders">All Sunsky Orders ({orders.length})</option>
-                      <option value="po-linked">PO-Linked Only</option>
-                    </select>
-                  </div>
-                </div>
+        {/* Status Metrics Cards */}
+        <StatusMetricsCards metrics={orderStats} className="animate-fade-in" />
+
+        {/* Enhanced Toolbar */}
+        <TrackingToolbar
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          selectedCredentials={selectedCredentialId}
+          onCredentialsChange={setSelectedCredentialId}
+          onRefresh={() => syncOrdersFromAPI(selectedCredentialId, false)}
+          onFullSync={() => syncOrdersFromAPI(selectedCredentialId, true)}
+          loading={loading}
+          syncing={syncing}
+          totalOrders={orders.length}
+          filteredOrders={filteredAndSortedOrders.length}
+          delayedCount={delayedCount}
+          credentials={credentials}
+        />
+
+        {/* Tabs for Orders and Delayed Items */}
+        <Tabs defaultValue="orders" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="orders" className="flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              Orders ({filteredAndSortedOrders.length})
+            </TabsTrigger>
+            <TabsTrigger value="delayed" className="flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              Delayed Items ({slowItems.length})
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="orders" className="mt-6 space-y-4">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="h-8 w-8 animate-spin text-primary mr-3" />
+                <span className="text-muted-foreground">Loading orders...</span>
               </div>
+            ) : filteredAndSortedOrders.length === 0 ? (
+              <div className="text-center py-12">
+                <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+                <h3 className="text-lg font-semibold mb-2">No Orders Found</h3>
+                <p className="text-muted-foreground mb-4">
+                  No orders match your current search criteria
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Enhanced Order Cards */}
+                {paginatedOrders.map((order) => (
+                  <EnhancedOrderCard
+                    key={order.id}
+                    order={order}
+                    isExpanded={expandedOrders.has(order.number)}
+                    onToggleExpand={() => toggleOrderExpansion(order.number)}
+                    onTrack={() => order.tracking_url && handleTrackingClick(order.tracking_url)}
+                    onGetLabels={() => handleGetLabels(order.number)}
+                    isLoadingLabels={loadingLabels.has(order.number)}
+                    labels={orderLabels.get(order.number)}
+                  />
+                ))}
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <Pagination className="mt-6">
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                        />
+                      </PaginationItem>
+                      
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum;
+                        if (totalPages <= 5) {
+                          pageNum = i + 1;
+                        } else if (currentPage <= 3) {
+                          pageNum = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNum = totalPages - 4 + i;
+                        } else {
+                          pageNum = currentPage - 2 + i;
+                        }
+                        
+                        return (
+                          <PaginationItem key={pageNum}>
+                            <PaginationLink
+                              onClick={() => setCurrentPage(pageNum)}
+                              isActive={currentPage === pageNum}
+                              className="cursor-pointer"
+                            >
+                              {pageNum}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      })}
+
+                      {totalPages > 5 && currentPage < totalPages - 2 && (
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      )}
+
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                          className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                )}
+              </>
+            )}
 
               {/* Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
