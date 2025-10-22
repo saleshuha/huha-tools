@@ -60,7 +60,9 @@ export default function PODetailsPage() {
   const {
     toast
   } = useToast();
-  const { productImages } = useProductImages();
+  const {
+    productImages
+  } = useProductImages();
   const [loading, setLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [inventoryData, setInventoryData] = useState<{
@@ -110,7 +112,7 @@ export default function PODetailsPage() {
 
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   // Filter state
   const [filters, setFilters] = useState<FilterState>({
     quickFilter: 'all',
@@ -121,7 +123,7 @@ export default function PODetailsPage() {
     costMin: '',
     costMax: '',
     hasTracking: 'all',
-    hasSunskySku: 'all',
+    hasSunskySku: 'all'
   });
 
   // Table state management (pagination, view mode, columns)
@@ -134,9 +136,8 @@ export default function PODetailsPage() {
     setItemsPerPage,
     setViewMode,
     setVisibleColumns,
-    resetToPage1,
+    resetToPage1
   } = usePOTableState();
-  
   console.log('PODetailsPage: Rendering with poNumber:', poNumber);
   console.log('PODetailsPage: poOrders:', poOrders);
   useEffect(() => {
@@ -355,12 +356,7 @@ export default function PODetailsPage() {
     console.log('🔄 Building inventory match cache for', ordersWithImages.length, 'orders');
     const cache = new Map<string, any>();
     ordersWithImages.forEach(order => {
-      const match = findInventoryMatch(
-        order.asin,
-        order.sunsky_sku?.sku_code,
-        order.sku_code,
-        order.model_number
-      );
+      const match = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
       cache.set(order.id, match);
     });
     console.log('✅ Inventory cache built with', cache.size, 'entries');
@@ -377,10 +373,8 @@ export default function PODetailsPage() {
     return [...ordersWithImages].sort((a, b) => {
       const inventoryMatchA = inventoryMatchCache.get(a.id);
       const inventoryMatchB = inventoryMatchCache.get(b.id);
-
       const hasStockA = inventoryMatchA && inventoryMatchA.quantity > 0;
       const hasStockB = inventoryMatchB && inventoryMatchB.quantity > 0;
-
       return hasStockB ? hasStockA ? 0 : 1 : hasStockA ? -1 : 0;
     });
   }, [ordersWithImages, inventoryMatchCache]);
@@ -388,52 +382,43 @@ export default function PODetailsPage() {
   // Filter orders based on search term and filters (memoized for performance with cache)
   const filteredOrders = useMemo(() => {
     return sortedMatchedOrders.filter(order => {
-    // Search filter
-    if (searchTerm.trim()) {
-      const searchLower = searchTerm.toLowerCase();
-      const matchesSearch = 
-        order.asin?.toLowerCase().includes(searchLower) || 
-        order.title?.toLowerCase().includes(searchLower) || 
-        order.sku_code?.toLowerCase().includes(searchLower) || 
-        order.model_number?.toLowerCase().includes(searchLower) || 
-        order.sunsky_sku?.sku_code?.toLowerCase().includes(searchLower);
-      if (!matchesSearch) return false;
-    }
+      // Search filter
+      if (searchTerm.trim()) {
+        const searchLower = searchTerm.toLowerCase();
+        const matchesSearch = order.asin?.toLowerCase().includes(searchLower) || order.title?.toLowerCase().includes(searchLower) || order.sku_code?.toLowerCase().includes(searchLower) || order.model_number?.toLowerCase().includes(searchLower) || order.sunsky_sku?.sku_code?.toLowerCase().includes(searchLower);
+        if (!matchesSearch) return false;
+      }
 
-    // Use cached inventory match
-    const inventoryMatch = inventoryMatchCache.get(order.id);
-    
-    // Quick filter
-    if (filters.quickFilter === 'in-stock' && (!inventoryMatch || inventoryMatch.quantity === 0)) return false;
-    if (filters.quickFilter === 'out-of-stock' && inventoryMatch && inventoryMatch.quantity > 0) return false;
-    if (filters.quickFilter === 'pending' && order.status !== 'pending') return false;
-    if (filters.quickFilter === 'closed' && order.status !== 'closed') return false;
-    if (filters.quickFilter === 'with-sunsky' && !order.sunsky_sku?.sku_code) return false;
-    if (filters.quickFilter === 'no-tracking' && order.tracking_number) return false;
+      // Use cached inventory match
+      const inventoryMatch = inventoryMatchCache.get(order.id);
 
-    // Advanced filters
-    if (filters.inventoryStatus !== 'all') {
-      if (filters.inventoryStatus === 'in-stock' && (!inventoryMatch || inventoryMatch.quantity === 0)) return false;
-      if (filters.inventoryStatus === 'out-of-stock' && inventoryMatch && inventoryMatch.quantity > 0) return false;
-      if (filters.inventoryStatus === 'not-found' && inventoryMatch) return false;
-    }
+      // Quick filter
+      if (filters.quickFilter === 'in-stock' && (!inventoryMatch || inventoryMatch.quantity === 0)) return false;
+      if (filters.quickFilter === 'out-of-stock' && inventoryMatch && inventoryMatch.quantity > 0) return false;
+      if (filters.quickFilter === 'pending' && order.status !== 'pending') return false;
+      if (filters.quickFilter === 'closed' && order.status !== 'closed') return false;
+      if (filters.quickFilter === 'with-sunsky' && !order.sunsky_sku?.sku_code) return false;
+      if (filters.quickFilter === 'no-tracking' && order.tracking_number) return false;
 
-    if (filters.hasTracking !== 'all') {
-      if (filters.hasTracking === 'yes' && !order.tracking_number) return false;
-      if (filters.hasTracking === 'no' && order.tracking_number) return false;
-    }
-
-    if (filters.hasSunskySku !== 'all') {
-      if (filters.hasSunskySku === 'yes' && !order.sunsky_sku?.sku_code) return false;
-      if (filters.hasSunskySku === 'no' && order.sunsky_sku?.sku_code) return false;
-    }
-
-    if (filters.quantityMin && order.quantity < parseInt(filters.quantityMin)) return false;
-    if (filters.quantityMax && order.quantity > parseInt(filters.quantityMax)) return false;
-    if (filters.costMin && (order.unit_cost || 0) < parseFloat(filters.costMin)) return false;
-    if (filters.costMax && (order.unit_cost || 0) > parseFloat(filters.costMax)) return false;
-
-    return true;
+      // Advanced filters
+      if (filters.inventoryStatus !== 'all') {
+        if (filters.inventoryStatus === 'in-stock' && (!inventoryMatch || inventoryMatch.quantity === 0)) return false;
+        if (filters.inventoryStatus === 'out-of-stock' && inventoryMatch && inventoryMatch.quantity > 0) return false;
+        if (filters.inventoryStatus === 'not-found' && inventoryMatch) return false;
+      }
+      if (filters.hasTracking !== 'all') {
+        if (filters.hasTracking === 'yes' && !order.tracking_number) return false;
+        if (filters.hasTracking === 'no' && order.tracking_number) return false;
+      }
+      if (filters.hasSunskySku !== 'all') {
+        if (filters.hasSunskySku === 'yes' && !order.sunsky_sku?.sku_code) return false;
+        if (filters.hasSunskySku === 'no' && order.sunsky_sku?.sku_code) return false;
+      }
+      if (filters.quantityMin && order.quantity < parseInt(filters.quantityMin)) return false;
+      if (filters.quantityMax && order.quantity > parseInt(filters.quantityMax)) return false;
+      if (filters.costMin && (order.unit_cost || 0) < parseFloat(filters.costMin)) return false;
+      if (filters.costMax && (order.unit_cost || 0) > parseFloat(filters.costMax)) return false;
+      return true;
     });
   }, [matchedOrders, searchTerm, filters, findInventoryMatch]);
 
@@ -441,7 +426,6 @@ export default function PODetailsPage() {
   const paginatedOrders = useMemo(() => {
     return getPaginatedItems(filteredOrders, currentPage, itemsPerPage);
   }, [filteredOrders, currentPage, itemsPerPage]);
-
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
 
   // Reset to page 1 when filters or search changes
@@ -472,20 +456,21 @@ export default function PODetailsPage() {
 
   // Inventory distribution stats using cache
   const inventoryStats = useMemo(() => {
-    return sortedMatchedOrders.reduce(
-      (acc, order) => {
-        const inventoryMatch = inventoryMatchCache.get(order.id);
-        if (!inventoryMatch) {
-          acc.notFound++;
-        } else if (inventoryMatch.quantity > 0) {
-          acc.inStock++;
-        } else {
-          acc.outOfStock++;
-        }
-        return acc;
-      },
-      { inStock: 0, outOfStock: 0, notFound: 0 }
-    );
+    return sortedMatchedOrders.reduce((acc, order) => {
+      const inventoryMatch = inventoryMatchCache.get(order.id);
+      if (!inventoryMatch) {
+        acc.notFound++;
+      } else if (inventoryMatch.quantity > 0) {
+        acc.inStock++;
+      } else {
+        acc.outOfStock++;
+      }
+      return acc;
+    }, {
+      inStock: 0,
+      outOfStock: 0,
+      notFound: 0
+    });
   }, [sortedMatchedOrders, inventoryMatchCache]);
 
   // Filter panel stats
@@ -496,7 +481,7 @@ export default function PODetailsPage() {
     pending: statusProgress.pending,
     closed: statusProgress.closed,
     withSunsky: matchedOrders.filter(o => o.sunsky_sku?.sku_code).length,
-    noTracking: matchedOrders.filter(o => !o.tracking_number).length,
+    noTracking: matchedOrders.filter(o => !o.tracking_number).length
   };
 
   // Calculate progress percentage
@@ -912,7 +897,7 @@ export default function PODetailsPage() {
   };
 
   // Handle select all/none with smart logic
-   const handleSelectAll = () => {
+  const handleSelectAll = () => {
     if (selectedItems.size === filteredOrders.length) {
       // Deselect all
       setSelectedItems(new Set());
@@ -1663,99 +1648,81 @@ export default function PODetailsPage() {
 
       // Record comprehensive stock changes for PO fulfillment
       if (inventoryMatch.type === 'ASIN') {
-        const { data: asinRecords } = await supabase
-          .from('asin_inventory')
-          .select('*')
-          .eq('asin', inventoryMatch.identifier)
-          .eq('user_id', userId)
-          .gt('quantity', 0);
-        
+        const {
+          data: asinRecords
+        } = await supabase.from('asin_inventory').select('*').eq('asin', inventoryMatch.identifier).eq('user_id', userId).gt('quantity', 0);
         if (asinRecords) {
           let remainingToRecord = quantityToUse;
           const stockChangePromises = [];
-          
           for (const record of asinRecords) {
             if (remainingToRecord <= 0) break;
             const deductedQty = Math.min(remainingToRecord, record.quantity + remainingToRecord);
             const previousQty = record.quantity + deductedQty;
-            
-            stockChangePromises.push(
-              supabase.from('stock_changes').insert({
-                user_id: userId,
-                inventory_type: 'asin',
-                inventory_id: record.id,
-                asin: record.asin,
-                serial_number: record.serial_number,
-                previous_quantity: previousQty,
-                new_quantity: record.quantity,
-                change_amount: -deductedQty,
-                change_reason: 'PO Fulfillment',
-                reference_type: 'po_order',
-                reference_id: order.id,
-                reference_number: order.po_number,
-                fulfillment_source: 'stock',
-                notes: `Fulfilled PO ${order.po_number} - ${deductedQty} units deducted`,
-                metadata: {
-                  asin: order.asin,
-                  sku_code: order.sku_code,
-                  model_number: order.model_number,
-                  title: order.title,
-                  unit_cost: order.unit_cost,
-                  total_cost: order.total_cost,
-                  po_status: 'closed'
-                }
-              })
-            );
+            stockChangePromises.push(supabase.from('stock_changes').insert({
+              user_id: userId,
+              inventory_type: 'asin',
+              inventory_id: record.id,
+              asin: record.asin,
+              serial_number: record.serial_number,
+              previous_quantity: previousQty,
+              new_quantity: record.quantity,
+              change_amount: -deductedQty,
+              change_reason: 'PO Fulfillment',
+              reference_type: 'po_order',
+              reference_id: order.id,
+              reference_number: order.po_number,
+              fulfillment_source: 'stock',
+              notes: `Fulfilled PO ${order.po_number} - ${deductedQty} units deducted`,
+              metadata: {
+                asin: order.asin,
+                sku_code: order.sku_code,
+                model_number: order.model_number,
+                title: order.title,
+                unit_cost: order.unit_cost,
+                total_cost: order.total_cost,
+                po_status: 'closed'
+              }
+            }));
             remainingToRecord -= deductedQty;
           }
-          
           await Promise.all(stockChangePromises);
         }
       } else {
-        const { data: skuRecords } = await supabase
-          .from('sku_inventory')
-          .select('*')
-          .eq('sku_number', inventoryMatch.identifier)
-          .eq('user_id', userId)
-          .gt('quantity', 0);
-        
+        const {
+          data: skuRecords
+        } = await supabase.from('sku_inventory').select('*').eq('sku_number', inventoryMatch.identifier).eq('user_id', userId).gt('quantity', 0);
         if (skuRecords) {
           let remainingToRecord = quantityToUse;
           const stockChangePromises = [];
-          
           for (const record of skuRecords) {
             if (remainingToRecord <= 0) break;
             const deductedQty = Math.min(remainingToRecord, record.quantity + remainingToRecord);
             const previousQty = record.quantity + deductedQty;
-            
-            stockChangePromises.push(
-              supabase.from('stock_changes').insert({
-                user_id: userId,
-                inventory_type: 'sku',
-                inventory_id: record.id,
-                sku_number: record.sku_number,
-                previous_quantity: previousQty,
-                new_quantity: record.quantity,
-                change_amount: -deductedQty,
-                change_reason: 'PO Fulfillment',
-                reference_type: 'po_order',
-                reference_id: order.id,
-                reference_number: order.po_number,
-                fulfillment_source: 'stock',
-                notes: `Fulfilled PO ${order.po_number} - ${deductedQty} units deducted`,
-                metadata: {
-                  sku_code: order.sku_code,
-                  model_number: order.model_number,
-                  title: order.title,
-                  unit_cost: order.unit_cost,
-                  total_cost: order.total_cost,
-                  po_status: 'closed'
-                }
-              })
-            );
+            stockChangePromises.push(supabase.from('stock_changes').insert({
+              user_id: userId,
+              inventory_type: 'sku',
+              inventory_id: record.id,
+              sku_number: record.sku_number,
+              previous_quantity: previousQty,
+              new_quantity: record.quantity,
+              change_amount: -deductedQty,
+              change_reason: 'PO Fulfillment',
+              reference_type: 'po_order',
+              reference_id: order.id,
+              reference_number: order.po_number,
+              fulfillment_source: 'stock',
+              notes: `Fulfilled PO ${order.po_number} - ${deductedQty} units deducted`,
+              metadata: {
+                sku_code: order.sku_code,
+                model_number: order.model_number,
+                title: order.title,
+                unit_cost: order.unit_cost,
+                total_cost: order.total_cost,
+                po_status: 'closed'
+              }
+            }));
             remainingToRecord -= deductedQty;
           }
-          
           await Promise.all(stockChangePromises);
         }
       }
@@ -1865,15 +1832,9 @@ export default function PODetailsPage() {
         title: "Sunsky Credentials Required",
         description: "Configure your Sunsky API credentials to place orders",
         variant: "destructive",
-        action: (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => window.open('/sunsky-importer', '_blank')}
-          >
+        action: <Button variant="outline" size="sm" onClick={() => window.open('/sunsky-importer', '_blank')}>
             Open SKU Importer
           </Button>
-        )
       });
       return;
     }
@@ -2128,19 +2089,13 @@ export default function PODetailsPage() {
         </div>
       </div>;
   }
-  return (
-    <div className="min-h-screen bg-gradient-surface">
+  return <div className="min-h-screen bg-gradient-surface">
       <div className="glass-container mx-2 my-2 p-4 animate-fade-in max-w-full">
         {/* Enhanced Header Section */}
         <div className="mb-4 pb-3 border-b border-border/60">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3">
-              <Button 
-                variant="outline" 
-                onClick={() => navigate('/po-tracker')} 
-                className="hover-scale transition-all duration-200 bg-card"
-                size="sm"
-              >
+              <Button variant="outline" onClick={() => navigate('/po-tracker')} className="hover-scale transition-all duration-200 bg-card" size="sm">
                 <ArrowLeft className="h-4 w-4 mr-1" />
                 Back
               </Button>
@@ -2163,43 +2118,31 @@ export default function PODetailsPage() {
               <POTableColumnManager columns={visibleColumns} onColumnsChange={setVisibleColumns} />
               
               {/* Export Dialog */}
-              <POExportDialog
-                onExport={(options) => {
-                  console.log('Export with options:', options);
-                  // Will integrate with existing export logic
-                  handleExportPO();
-                }}
-                totalItems={sortedMatchedOrders.length}
-                filteredItems={filteredOrders.length}
-                selectedItems={selectedItems.size}
-              />
+              <POExportDialog onExport={options => {
+              console.log('Export with options:', options);
+              // Will integrate with existing export logic
+              handleExportPO();
+            }} totalItems={sortedMatchedOrders.length} filteredItems={filteredOrders.length} selectedItems={selectedItems.size} />
               
-              <Button
-                variant="ghost" 
-                size="sm"
-                onClick={async () => {
-                  setLoading(true);
-                  try {
-                    await Promise.all([fetchPOOrders(true), fetchInventoryData()]);
-                    toast({
-                      title: "Success",
-                      description: "PO data refreshed"
-                    });
-                  } catch (error) {
-                    console.error('Error refreshing PO data:', error);
-                    toast({
-                      title: "Error",
-                      description: "Failed to refresh PO data",
-                      variant: "destructive"
-                    });
-                  } finally {
-                    setLoading(false);
-                  }
-                }} 
-                disabled={loading} 
-                title="Refresh data"
-                className="h-8 w-8 p-0"
-              >
+              <Button variant="ghost" size="sm" onClick={async () => {
+              setLoading(true);
+              try {
+                await Promise.all([fetchPOOrders(true), fetchInventoryData()]);
+                toast({
+                  title: "Success",
+                  description: "PO data refreshed"
+                });
+              } catch (error) {
+                console.error('Error refreshing PO data:', error);
+                toast({
+                  title: "Error",
+                  description: "Failed to refresh PO data",
+                  variant: "destructive"
+                });
+              } finally {
+                setLoading(false);
+              }
+            }} disabled={loading} title="Refresh data" className="h-8 w-8 p-0">
                 <RotateCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               </Button>
             </div>
@@ -2208,131 +2151,75 @@ export default function PODetailsPage() {
 
         {/* Metrics Dashboard */}
         <div className="mb-3">
-          <POMetricsCards
-            totalItems={totalItems}
-            pendingUnits={pendingUnits}
-            fulfilledUnits={fulfilledUnits}
-            totalValue={totalValue}
-            currency={currency}
-            inStockCount={inventoryStats.inStock}
-            outOfStockCount={inventoryStats.outOfStock}
-            notFoundCount={inventoryStats.notFound}
-          />
+          <POMetricsCards totalItems={totalItems} pendingUnits={pendingUnits} fulfilledUnits={fulfilledUnits} totalValue={totalValue} currency={currency} inStockCount={inventoryStats.inStock} outOfStockCount={inventoryStats.outOfStock} notFoundCount={inventoryStats.notFound} />
         </div>
 
         {/* Filter Panel */}
         <div className="mb-3">
-          <POFilterPanel
-            filters={filters}
-            onFilterChange={setFilters}
-            stats={filterStats}
-          />
+          <POFilterPanel filters={filters} onFilterChange={setFilters} stats={filterStats} />
         </div>
 
         {/* Action Control Center */}
         <div className="mb-3">
-          <POActionPanel
-            selectedCount={selectedItems.size}
-            selectionType={selectionType}
-            isUpdating={isUpdating}
-            onBulkFromStock={() => {
-              const dialog = document.querySelector('[data-bulk-from-stock-dialog]') as HTMLElement;
-              if (dialog) dialog.click();
-            }}
-            onBulkMarkFromSupplier={() => {
-              const dialog = document.querySelector('[data-bulk-from-supplier-dialog]') as HTMLElement;
-              if (dialog) dialog.click();
-            }}
-            onOrderAtSunsky={() => setSunskyOrderDialogOpen(true)}
-            onBulkTrackingUpdate={() => {
-              const dialog = document.querySelector('[data-bulk-tracking-dialog]') as HTMLElement;
-              if (dialog) dialog.click();
-            }}
-            onBulkUpdateAll={() => {
-              const dialog = document.querySelector('[data-bulk-update-all-dialog]') as HTMLElement;
-              if (dialog) dialog.click();
-            }}
-            onClearSelection={() => {
-              setSelectedItems(new Set());
-              setSelectionType(null);
-            }}
-            hasSunskyCredentials={hasSunskyCredentials}
-          />
+          <POActionPanel selectedCount={selectedItems.size} selectionType={selectionType} isUpdating={isUpdating} onBulkFromStock={() => {
+          const dialog = document.querySelector('[data-bulk-from-stock-dialog]') as HTMLElement;
+          if (dialog) dialog.click();
+        }} onBulkMarkFromSupplier={() => {
+          const dialog = document.querySelector('[data-bulk-from-supplier-dialog]') as HTMLElement;
+          if (dialog) dialog.click();
+        }} onOrderAtSunsky={() => setSunskyOrderDialogOpen(true)} onBulkTrackingUpdate={() => {
+          const dialog = document.querySelector('[data-bulk-tracking-dialog]') as HTMLElement;
+          if (dialog) dialog.click();
+        }} onBulkUpdateAll={() => {
+          const dialog = document.querySelector('[data-bulk-update-all-dialog]') as HTMLElement;
+          if (dialog) dialog.click();
+        }} onClearSelection={() => {
+          setSelectedItems(new Set());
+          setSelectionType(null);
+        }} hasSunskyCredentials={hasSunskyCredentials} />
         </div>
 
         {/* Search Bar */}
         <div className="mb-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by ASIN, Title, SKU, or Model Number..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 h-9"
-            />
-            {searchTerm && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
-                onClick={() => setSearchTerm('')}
-              >
+            <Input placeholder="Search by ASIN, Title, SKU, or Model Number..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10 h-9" />
+            {searchTerm && <Button variant="ghost" size="sm" className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0" onClick={() => setSearchTerm('')}>
                 <X className="h-3 w-3" />
-              </Button>
-            )}
+              </Button>}
           </div>
-          {filteredOrders.length < sortedMatchedOrders.length && (
-            <p className="text-xs text-muted-foreground mt-1.5">
+          {filteredOrders.length < sortedMatchedOrders.length && <p className="text-xs text-muted-foreground mt-1.5">
               Showing {filteredOrders.length} of {sortedMatchedOrders.length} items
-            </p>
-          )}
+            </p>}
         </div>
 
         {/* Enhanced Table */}
         <div className="mb-2" id="po-table-container">
-          <EnhancedPOTable
-            orders={paginatedOrders}
-            selectedItems={selectedItems}
-            onItemSelect={handleItemSelect}
-            onSelectAll={handleSelectAll}
-            onIndividualAction={(order, action) => {
-              if (action === 'edit') {
-                setSelectedOrder(order);
-                setIndividualTrackingData({
-                  supplier_order_number: order.supplier_order_number || '',
-                  tracking_number: order.tracking_number || '',
-                  tracking_url: order.tracking_url || ''
-                });
-              } else if (action === 'stock') {
-                markAsOrderedFromInventory(order.id);
-              }
-            }}
-            findInventoryMatch={(asin, sunskySku, poSku, modelNumber) => {
-              // Use cached inventory match for performance
-              const order = paginatedOrders.find(o => o.asin === asin);
-              return order ? inventoryMatchCache.get(order.id) || null : null;
-            }}
-            viewMode={viewMode}
-            visibleColumns={visibleColumns}
-          />
+          <EnhancedPOTable orders={paginatedOrders} selectedItems={selectedItems} onItemSelect={handleItemSelect} onSelectAll={handleSelectAll} onIndividualAction={(order, action) => {
+          if (action === 'edit') {
+            setSelectedOrder(order);
+            setIndividualTrackingData({
+              supplier_order_number: order.supplier_order_number || '',
+              tracking_number: order.tracking_number || '',
+              tracking_url: order.tracking_url || ''
+            });
+          } else if (action === 'stock') {
+            markAsOrderedFromInventory(order.id);
+          }
+        }} findInventoryMatch={(asin, sunskySku, poSku, modelNumber) => {
+          // Use cached inventory match for performance
+          const order = paginatedOrders.find(o => o.asin === asin);
+          return order ? inventoryMatchCache.get(order.id) || null : null;
+        }} viewMode={viewMode} visibleColumns={visibleColumns} />
         </div>
 
         {/* Pagination */}
-        {filteredOrders.length > 0 && (
-          <div className="mb-4">
-            <POTablePagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              totalItems={filteredOrders.length}
-              itemsPerPage={itemsPerPage}
-              onPageChange={(page) => {
-                setCurrentPage(page);
-                scrollToTop('po-table-container');
-              }}
-              onItemsPerPageChange={setItemsPerPage}
-            />
-          </div>
-        )}
+        {filteredOrders.length > 0 && <div className="mb-4">
+            <POTablePagination currentPage={currentPage} totalPages={totalPages} totalItems={filteredOrders.length} itemsPerPage={itemsPerPage} onPageChange={page => {
+          setCurrentPage(page);
+          scrollToTop('po-table-container');
+        }} onItemsPerPageChange={setItemsPerPage} />
+          </div>}
 
         {/* Preview From Stock Dialog */}
         <Dialog>
@@ -2350,76 +2237,76 @@ export default function PODetailsPage() {
             </DialogHeader>
             <div className="space-y-4">
               {(() => {
-                const fromStockItems = matchedOrders.filter(order => {
-                  const isTracked = itemsMarkedFromStock.has(order.id);
-                  return isTracked;
-                });
+              const fromStockItems = matchedOrders.filter(order => {
+                const isTracked = itemsMarkedFromStock.has(order.id);
+                return isTracked;
+              });
 
-                  // Debug specific ASINs that user mentioned
-                  const specificAsins = ['B0DYGGNWP5', 'B0DYG4TT9H'];
-                  const asinOrders = matchedOrders.filter(order => specificAsins.includes(order.asin));
-                  console.log('🔍 Preview From Stock Debug (All Tracked Items):', {
-                    totalOrders: matchedOrders.length,
-                    itemsMarkedFromStockSet: Array.from(itemsMarkedFromStock),
-                    fromStockItemsFound: fromStockItems.length,
-                    fromStockItems: fromStockItems.map(o => ({
-                      id: o.id,
-                      asin: o.asin,
-                      sku: o.sku_code,
-                      quantity: o.quantity,
-                      status: o.status,
-                      notes: o.notes?.substring(0, 100),
-                      isPartial: o.notes?.includes('Partial fulfillment from stock')
-                    }))
-                  });
-                  console.log('🎯 Specific ASINs Debug:', {
-                    searchingFor: specificAsins,
-                    foundOrders: asinOrders.map(o => ({
-                      id: o.id,
-                      asin: o.asin,
-                      sku: o.sku_code,
-                      quantity: o.quantity,
-                      status: o.status,
-                      notes: o.notes,
-                      isTracked: itemsMarkedFromStock.has(o.id),
-                      inFromStockItems: fromStockItems.some(item => item.id === o.id)
-                    }))
-                  });
+              // Debug specific ASINs that user mentioned
+              const specificAsins = ['B0DYGGNWP5', 'B0DYG4TT9H'];
+              const asinOrders = matchedOrders.filter(order => specificAsins.includes(order.asin));
+              console.log('🔍 Preview From Stock Debug (All Tracked Items):', {
+                totalOrders: matchedOrders.length,
+                itemsMarkedFromStockSet: Array.from(itemsMarkedFromStock),
+                fromStockItemsFound: fromStockItems.length,
+                fromStockItems: fromStockItems.map(o => ({
+                  id: o.id,
+                  asin: o.asin,
+                  sku: o.sku_code,
+                  quantity: o.quantity,
+                  status: o.status,
+                  notes: o.notes?.substring(0, 100),
+                  isPartial: o.notes?.includes('Partial fulfillment from stock')
+                }))
+              });
+              console.log('🎯 Specific ASINs Debug:', {
+                searchingFor: specificAsins,
+                foundOrders: asinOrders.map(o => ({
+                  id: o.id,
+                  asin: o.asin,
+                  sku: o.sku_code,
+                  quantity: o.quantity,
+                  status: o.status,
+                  notes: o.notes,
+                  isTracked: itemsMarkedFromStock.has(o.id),
+                  inFromStockItems: fromStockItems.some(item => item.id === o.id)
+                }))
+              });
 
-                  // Also log all orders that contain EDA006069619A for debugging
-                  const edaOrders = matchedOrders.filter(o => o.sku_code?.includes('EDA006069619A') || o.sunsky_sku?.sku_code?.includes('EDA006069619A') || o.model_number?.includes('EDA006069619A'));
-                  if (edaOrders.length > 0) {
-                    console.log('📦 EDA006069619A Orders Found:', edaOrders.map(o => ({
-                      id: o.id,
-                      sku: o.sku_code,
-                      quantity: o.quantity,
-                      status: o.status,
-                      notes: o.notes,
-                      isMarkedFromStock: itemsMarkedFromStock.has(o.id),
-                      isPartialFulfillment: o.notes?.includes('Partial fulfillment from stock')
-                    })));
-                  }
-                  if (fromStockItems.length === 0) {
-                    return <div className="text-center py-8">
+              // Also log all orders that contain EDA006069619A for debugging
+              const edaOrders = matchedOrders.filter(o => o.sku_code?.includes('EDA006069619A') || o.sunsky_sku?.sku_code?.includes('EDA006069619A') || o.model_number?.includes('EDA006069619A'));
+              if (edaOrders.length > 0) {
+                console.log('📦 EDA006069619A Orders Found:', edaOrders.map(o => ({
+                  id: o.id,
+                  sku: o.sku_code,
+                  quantity: o.quantity,
+                  status: o.status,
+                  notes: o.notes,
+                  isMarkedFromStock: itemsMarkedFromStock.has(o.id),
+                  isPartialFulfillment: o.notes?.includes('Partial fulfillment from stock')
+                })));
+              }
+              if (fromStockItems.length === 0) {
+                return <div className="text-center py-8">
                           <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                           <p className="text-muted-foreground">No items fulfilled from stock found</p>
                           <p className="text-sm text-muted-foreground mt-2">
                             Items that have been marked as fulfilled from stock will appear here
                           </p>
                         </div>;
-                  }
+              }
 
-                  // Return the mapped items as an array
-                  return fromStockItems.map(order => {
-                    const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
+              // Return the mapped items as an array
+              return fromStockItems.map(order => {
+                const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
 
-                    // Parse fulfillment info from notes
-                    const isPartialFulfillment = order.notes?.includes('Partial fulfillment from stock');
-                    const originalQtyMatch = order.notes?.match(/Original quantity: (\d+) pcs/);
-                    const originalQuantity = originalQtyMatch ? parseInt(originalQtyMatch[1]) : order.quantity;
-                    const fulfilledFromStock = order.quantity; // Current quantity is what was fulfilled from stock
-                    const remainingQuantity = originalQuantity - fulfilledFromStock;
-                    return <Card key={order.id}>
+                // Parse fulfillment info from notes
+                const isPartialFulfillment = order.notes?.includes('Partial fulfillment from stock');
+                const originalQtyMatch = order.notes?.match(/Original quantity: (\d+) pcs/);
+                const originalQuantity = originalQtyMatch ? parseInt(originalQtyMatch[1]) : order.quantity;
+                const fulfilledFromStock = order.quantity; // Current quantity is what was fulfilled from stock
+                const remainingQuantity = originalQuantity - fulfilledFromStock;
+                return <Card key={order.id}>
                         <CardContent className="p-4">
                           <div className="grid grid-cols-2 gap-4">
                             <div>
@@ -2455,8 +2342,8 @@ export default function PODetailsPage() {
                            </div>
                          </CardContent>
                        </Card>;
-                  });
-                })()}
+              });
+            })()}
                 </div>
                 <DialogFooter className="gap-2">
                   <Button onClick={handlePrintFromStockDetails} variant="outline" className="gap-2">
@@ -2477,217 +2364,7 @@ export default function PODetailsPage() {
          
 
          {/* Action Control Center */}
-         <div className="space-y-6 mb-8">
-          {/* Instructions */}
-          {selectedItems.size === 0}
-
-          {/* Selection Status */}
-          {selectedItems.size > 0 && <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-emerald-100 dark:bg-emerald-800 rounded-full">
-                  <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
-                </div>
-                <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 dark:bg-emerald-800 dark:text-emerald-100">
-                  {selectedItems.size} items selected
-                </Badge>
-              </div>
-              <div className="text-xs text-emerald-700 dark:text-emerald-300">
-                {selectionType === 'instock' ? '📦 In-stock items selected' : selectionType === 'outstock' ? '🔄 Out-of-stock items selected' : '📋 Mixed selection'}
-              </div>
-            </div>}
-
-          {/* Action Button Groups */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-            
-            {/* Bulk From Stock - with confirmation dialog */}
-            {selectionType === 'instock' && <Dialog>
-                <DialogTrigger asChild>
-                  <Button size="sm" className="w-full bg-green-600 hover:bg-green-700 text-white disabled:bg-green-300 disabled:cursor-not-allowed transition-all duration-200 hover-scale" disabled={isUpdating || selectedItems.size === 0}>
-                    <PackageCheck className="h-4 w-4 mr-2" />
-                    Bulk From Stock ({selectedItems.size})
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Bulk From Stock Fulfillment</DialogTitle>
-                    <DialogDescription>
-                      Fulfill {selectedItems.size} selected items from inventory stock. This will:
-                      <br />• Deduct quantities from your inventory
-                      <br />• Mark items as fulfilled from stock
-                      <br />• Update order status accordingly
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
-                      <h4 className="font-semibold text-green-800 dark:text-green-200 mb-3">
-                        Items to fulfill from stock:
-                      </h4>
-                      <div className="space-y-2">
-                        {Array.from(selectedItems).map(orderId => {
-                      const order = matchedOrders.find(o => o.id === orderId);
-                      if (!order) return null;
-                      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
-                      const availableStock = inventoryMatch?.quantity || 0;
-                      const fulfillQuantity = Math.min(order.quantity, availableStock);
-                      return <div key={orderId} className="flex items-center justify-between text-sm">
-                              <div>
-                                <span className="font-mono font-medium">{order.asin}</span>
-                                {order.title && <span className="text-muted-foreground ml-2">
-                                    {order.title.substring(0, 50)}...
-                                  </span>}
-                              </div>
-                              <div className="text-right">
-                                <div className="font-semibold text-green-700 dark:text-green-300">
-                                  {fulfillQuantity} of {order.quantity} units
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  Stock: {availableStock} available
-                                </div>
-                              </div>
-                            </div>;
-                    })}
-                      </div>
-                    </div>
-                    
-                    <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg">
-                      <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
-                        <AlertTriangle className="h-4 w-4" />
-                        <span className="text-sm font-medium">Important:</span>
-                      </div>
-                      <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
-                        This action will immediately deduct inventory quantities and cannot be easily undone. 
-                        Please verify the items and quantities before proceeding.
-                      </p>
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline">
-                      Cancel
-                    </Button>
-                    <Button onClick={handleBulkMarkFromInventory} disabled={isUpdating} className="bg-green-600 hover:bg-green-700">
-                      {isUpdating ? <>
-                          <Clock className="h-4 w-4 mr-2 animate-spin" />
-                          Processing...
-                        </> : <>
-                          <PackageCheck className="h-4 w-4 mr-2" />
-                          Fulfill from Stock
-                        </>}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>}
-            
-            <Button size="sm" variant="outline" className="w-full transition-all duration-200" onClick={handleBulkMarkFromSupplier} disabled={isUpdating || selectedItems.size === 0}>
-              <Truck className="h-4 w-4 mr-2" />
-              Mark From Supplier
-            </Button>
-            
-            <Button size="sm" className="w-full bg-orange-600 hover:bg-orange-700 text-white disabled:bg-orange-300 disabled:cursor-not-allowed transition-all duration-200" onClick={handleOpenSunskyOrder} disabled={isUpdating || selectedItems.size === 0 || !sortedMatchedOrders.filter(order => selectedItems.has(order.id) && order.sunsky_sku).length}>
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Order at Sunsky
-            </Button>
-            
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button size="sm" variant="outline" className="w-full transition-all duration-200" disabled={selectedItems.size === 0}>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Update Selected
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md bg-background border shadow-lg">
-                <DialogHeader>
-                  <DialogTitle>Bulk Update Tracking</DialogTitle>
-                  <DialogDescription>
-                    Update tracking information for {selectedItems.size} selected items
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="bulk-selected-supplier-order">Supplier Order Number</Label>
-                    <Input id="bulk-selected-supplier-order" value={bulkTrackingInfo.supplier_order_number} onChange={e => setBulkTrackingInfo({
-                    ...bulkTrackingInfo,
-                    supplier_order_number: e.target.value
-                  })} placeholder="Enter supplier order number" />
-                  </div>
-                  <div>
-                    <Label htmlFor="bulk-selected-tracking-number">Tracking Number</Label>
-                    <Input id="bulk-selected-tracking-number" value={bulkTrackingInfo.tracking_number} onChange={e => setBulkTrackingInfo({
-                    ...bulkTrackingInfo,
-                    tracking_number: e.target.value
-                  })} placeholder="Enter tracking number" />
-                  </div>
-                  <div>
-                    <Label htmlFor="bulk-selected-tracking-url">Tracking URL</Label>
-                    <Input id="bulk-selected-tracking-url" value={bulkTrackingInfo.tracking_url} onChange={e => setBulkTrackingInfo({
-                    ...bulkTrackingInfo,
-                    tracking_url: e.target.value
-                  })} placeholder="Enter tracking URL" />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button onClick={handleBulkTrackingUpdateSelected} disabled={isUpdating}>
-                    {isUpdating ? 'Updating...' : 'Update Selected Items'}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button size="sm" variant="outline" className="w-full transition-all duration-200">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Update All Items
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Bulk Update Tracking</DialogTitle>
-                  <DialogDescription>
-                    Update tracking information for all {matchedOrders.length} items in this PO
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="bulk-supplier-order">Supplier Order Number</Label>
-                    <Input id="bulk-supplier-order" value={bulkTrackingData.supplier_order_number} onChange={e => setBulkTrackingData({
-                    ...bulkTrackingData,
-                    supplier_order_number: e.target.value
-                  })} placeholder="Enter supplier order number" />
-                  </div>
-                  <div>
-                    <Label htmlFor="bulk-tracking-number">Tracking Number</Label>
-                    <Input id="bulk-tracking-number" value={bulkTrackingData.tracking_number} onChange={e => setBulkTrackingData({
-                    ...bulkTrackingData,
-                    tracking_number: e.target.value
-                  })} placeholder="Enter tracking number" />
-                  </div>
-                  <div>
-                    <Label htmlFor="bulk-tracking-url">Tracking URL</Label>
-                    <Input id="bulk-tracking-url" value={bulkTrackingData.tracking_url} onChange={e => setBulkTrackingData({
-                    ...bulkTrackingData,
-                    tracking_url: e.target.value
-                  })} placeholder="Enter tracking URL" />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button onClick={handleBulkTrackingUpdate} disabled={isUpdating}>
-                    {isUpdating ? 'Updating...' : 'Update All Items'}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-          
-          <div className="flex justify-end">
-            <Button size="sm" variant="outline" className="border-red-200 hover:bg-red-50 hover:border-red-300 hover:text-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200" onClick={() => {
-            setSelectedItems(new Set());
-            setSelectionType(null);
-          }} disabled={selectedItems.size === 0}>
-              <X className="h-4 w-4 mr-2" />
-              Clear Selection
-            </Button>
-          </div>
-        </div>
+         
 
         {/* Individual Tracking Dialog */}
         <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
@@ -2744,6 +2421,5 @@ export default function PODetailsPage() {
         });
       }} />
       </div>
-    </div>
-  );
+    </div>;
 }
