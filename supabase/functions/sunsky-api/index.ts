@@ -453,7 +453,9 @@ async function handleGetAllOrders(userId: string, params: any, key: string, secr
     
     if (result.data) {
       // Extract the actual list from result.data
-      if (Array.isArray(result.data.list)) {
+      if (Array.isArray(result.data.result)) {
+        orders = result.data.result;  // Sunsky API returns orders here
+      } else if (Array.isArray(result.data.list)) {
         orders = result.data.list;
       } else if (Array.isArray(result.data.orders)) {
         orders = result.data.orders;
