@@ -406,13 +406,14 @@ async function handleGetOrders(params: any, key: string, secret: string) {
 }
 
 async function handleGetOrderDetails(params: any, key: string, secret: string) {
-  console.log('📄 Get Order Details:', params.number);
+  const orderNumber = params.orderNumber || params.number;
+  console.log('📄 Get Order Details:', orderNumber);
   
-  if (!params.number) {
+  if (!orderNumber) {
     throw new Error('order number is required');
   }
   
-  const result = await callSunskyAPI('/openapi/order!getOrderDetails.do', { number: params.number }, key, secret);
+  const result = await callSunskyAPI('/openapi/order!getOrderDetails.do', { number: orderNumber }, key, secret);
   
   return {
     result: 'success',
