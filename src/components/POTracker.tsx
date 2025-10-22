@@ -2105,9 +2105,6 @@ export const POTracker = () => {
           {/* PHASE 4: Export All Metrics Button */}
           
 
-          {/* PHASE 5: Status Breakdown Popover */}
-          {comprehensiveMetrics?.status_breakdown}
-
           {/* Active filter indicator */}
           {selectedMetricFilter && <div className="flex items-center gap-2 p-3 bg-primary/10 rounded-md">
               <Filter className="h-4 w-4 text-primary" />
