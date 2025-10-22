@@ -22,9 +22,10 @@ export const SupplierContactActions = ({
 }: SupplierContactActionsProps) => {
   const { toast } = useToast();
   const [whatsappClicked, setWhatsappClicked] = useState(false);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
 
   const handleWhatsApp = () => {
-    if (!whatsappNumber) return;
+    if (!whatsappNumber || cooldownSeconds > 0) return;
     
     // Remove all non-numeric characters to get clean number
     const cleanNumber = whatsappNumber.replace(/\D/g, '');
@@ -49,10 +50,10 @@ export const SupplierContactActions = ({
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     console.log('🔍 WhatsApp Debug - Is mobile:', isMobile);
     
-    // Use appropriate URL scheme
+    // Use alternative WhatsApp Web URL format (better rate limits)
     const url = isMobile 
       ? `whatsapp://send?phone=${cleanNumber}&text=${message}`
-      : `https://wa.me/${cleanNumber}?text=${message}`;
+      : `https://web.whatsapp.com/send?phone=${cleanNumber}&text=${message}`;
     
     console.log('🔍 WhatsApp Debug - Generated URL:', url);
     
@@ -72,6 +73,18 @@ export const SupplierContactActions = ({
     setWhatsappClicked(true);
     setTimeout(() => setWhatsappClicked(false), 3000);
     
+    // Start 60-second cooldown to prevent rate limiting
+    setCooldownSeconds(60);
+    const cooldownInterval = setInterval(() => {
+      setCooldownSeconds((prev) => {
+        if (prev <= 1) {
+          clearInterval(cooldownInterval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
     toast({
       title: 'Opening WhatsApp',
       description: `Starting conversation with ${supplierName}`,
@@ -82,7 +95,7 @@ export const SupplierContactActions = ({
     if (!whatsappNumber) return '';
     const cleanNumber = whatsappNumber.replace(/\D/g, '');
     const message = encodeURIComponent(`Hello ${supplierName}, I'm reaching out regarding our business collaboration.`);
-    return `https://wa.me/${cleanNumber}?text=${message}`;
+    return `https://web.whatsapp.com/send?phone=${cleanNumber}&text=${message}`;
   };
 
   const copyWhatsAppNumber = () => {
@@ -169,9 +182,15 @@ export const SupplierContactActions = ({
               variant="outline"
               size="sm"
               onClick={handleWhatsApp}
+              disabled={cooldownSeconds > 0}
               className="gap-2"
             >
-              {whatsappClicked ? (
+              {cooldownSeconds > 0 ? (
+                <>
+                  <MessageCircle className="h-4 w-4" />
+                  Wait {cooldownSeconds}s
+                </>
+              ) : whatsappClicked ? (
                 <>
                   <Check className="h-4 w-4" />
                   Opened
