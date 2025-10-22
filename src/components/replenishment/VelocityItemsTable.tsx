@@ -25,7 +25,7 @@ interface VelocityItemsTableProps {
   mode?: 'ready' | 'ordered';
 }
 
-type SortField = 'asin' | 'sku' | 'serial_number' | 'title' | 'stock' | 'added' | 'sold' | 'recommended' | 'velocity_ref' | 'ordered_qty';
+type SortField = 'asin' | 'sku' | 'title' | 'stock' | 'added' | 'sold' | 'recommended' | 'velocity_ref' | 'ordered_qty';
 type SortDirection = 'asc' | 'desc' | null;
 
 export function VelocityItemsTable({
@@ -85,11 +85,6 @@ export function VelocityItemsTable({
       case 'sku': {
         const aVal = (a.sku || '').toLowerCase();
         const bVal = (b.sku || '').toLowerCase();
-        return multiplier * aVal.localeCompare(bVal);
-      }
-      case 'serial_number': {
-        const aVal = (a.serial_number || '').toLowerCase();
-        const bVal = (b.serial_number || '').toLowerCase();
         return multiplier * aVal.localeCompare(bVal);
       }
       case 'title': {
@@ -158,7 +153,6 @@ export function VelocityItemsTable({
             <TableHead className="w-20">Image</TableHead>
             <SortableHeader field="asin">ASIN</SortableHeader>
             <SortableHeader field="sku">SKU</SortableHeader>
-            <SortableHeader field="serial_number">SN</SortableHeader>
             <SortableHeader field="title">Title</SortableHeader>
             <SortableHeader field="stock">Stock</SortableHeader>
             <SortableHeader field="added">Added</SortableHeader>
@@ -182,7 +176,7 @@ export function VelocityItemsTable({
         <TableBody>
           {sortedItems.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={mode === 'ready' ? 11 : 14} className="h-32 text-center">
+              <TableCell colSpan={mode === 'ready' ? 10 : 13} className="h-32 text-center">
                 <div className="flex flex-col items-center justify-center text-muted-foreground">
                   <Package className="w-12 h-12 mb-2 opacity-50" />
                   <p className="text-sm">No items found</p>
@@ -223,7 +217,6 @@ export function VelocityItemsTable({
                   </TableCell>
                   <TableCell className="font-mono text-xs">{item.asin}</TableCell>
                   <TableCell className="font-mono text-xs">{item.sku || '-'}</TableCell>
-                  <TableCell className="font-mono text-xs">{item.serial_number || '-'}</TableCell>
                   <TableCell className="max-w-xs truncate text-xs" title={item.title}>
                     {item.title || '-'}
                   </TableCell>
