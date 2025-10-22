@@ -44,16 +44,14 @@ export const SupplierContactActions = ({
       return;
     }
     
-    const message = encodeURIComponent(`Hello ${supplierName}, I'm reaching out regarding our business collaboration.`);
-    
     // Detect if mobile device
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     console.log('🔍 WhatsApp Debug - Is mobile:', isMobile);
     
-    // Use alternative WhatsApp Web URL format (better rate limits)
+    // Use alternative WhatsApp Web URL format (better rate limits) - no pre-filled message
     const url = isMobile 
-      ? `whatsapp://send?phone=${cleanNumber}&text=${message}`
-      : `https://web.whatsapp.com/send?phone=${cleanNumber}&text=${message}`;
+      ? `whatsapp://send?phone=${cleanNumber}`
+      : `https://web.whatsapp.com/send?phone=${cleanNumber}`;
     
     console.log('🔍 WhatsApp Debug - Generated URL:', url);
     
@@ -94,8 +92,7 @@ export const SupplierContactActions = ({
   const getWhatsAppUrl = () => {
     if (!whatsappNumber) return '';
     const cleanNumber = whatsappNumber.replace(/\D/g, '');
-    const message = encodeURIComponent(`Hello ${supplierName}, I'm reaching out regarding our business collaboration.`);
-    return `https://web.whatsapp.com/send?phone=${cleanNumber}&text=${message}`;
+    return `https://web.whatsapp.com/send?phone=${cleanNumber}`;
   };
 
   const copyWhatsAppNumber = () => {
