@@ -489,13 +489,11 @@ export const usePOOrders = () => {
               currentBatchId: batchId
             });
             
-            // CRITICAL FIX: Only consider as update if:
-            // 1. Within 24 hours AND
-            // 2. Has batch_id AND it matches current batch (strict match)
-            const isSameBatch = existingOrder.batch_id && existingOrder.batch_id === batchId;
-            const isRecent = hoursSinceCreation < 24;
+            // CRITICAL FIX: Only consider as update/skip if:
+            // Within 20 days (480 hours) of creation
+            const isRecent = hoursSinceCreation < 480; // 20 days
             
-            if (isRecent && isSameBatch) {
+            if (isRecent) {
               console.log(`🔍 Treating as potential update (recent + same batch)`);
               
               const hasChanges = 
@@ -516,7 +514,7 @@ export const usePOOrders = () => {
                   changeDetails.push(`cost: ${existingOrder.unit_cost}→${newOrderData.unit_cost}`);
                 }
                 
-                console.log(`🔄 UPDATE recent order: ${dbLookupKey} - within 24hrs, changes: ${changeDetails.join(', ')}`);
+                console.log(`🔄 UPDATE recent order: ${dbLookupKey} - within 20 days, changes: ${changeDetails.join(', ')}`);
                 results.changes.push(`${po}/${primarySku}: ${changeDetails.join(', ')}`);
                 
                 itemGroups.set(identity, {
@@ -529,21 +527,15 @@ export const usePOOrders = () => {
                 setUploadStats(prev => ({ ...prev, updated: results.updated }));
                 shouldInsertAsNew = false;
               } else {
-                console.log(`✓ SKIP duplicate: ${dbLookupKey} - same data within 24hrs`);
+                console.log(`✓ SKIP duplicate: ${dbLookupKey} - same data within 20 days`);
                 results.unchanged++;
                 setUploadStats(prev => ({ ...prev, unchanged: results.unchanged }));
                 shouldInsertAsNew = false;
               }
             } else {
               // Always insert as NEW if:
-              // - Different batch
-              // - No batch_id on existing order
-              // - Older than 24 hours
-              const reason = !existingOrder.batch_id 
-                ? 'existing order has no batch_id' 
-                : !isSameBatch 
-                  ? 'different batch' 
-                  : `${Math.floor(hoursSinceCreation)}hrs old`;
+              // - Older than 20 days
+              const reason = `${Math.floor(hoursSinceCreation)}hrs old (>20 days)`;
               console.log(`✨ Treating as NEW order (${reason})`);
             }
           }
