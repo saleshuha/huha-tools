@@ -142,53 +142,54 @@ export function ReplenishmentItemCard({
           {/* Metrics Section - Grid Layout */}
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-3 text-xs">
             {/* Total Sold Units */}
-            {item.total_sold_units !== undefined && (
-              <div className="flex items-center gap-1.5">
-                <TrendingUp className="w-3.5 h-3.5 text-primary" />
-                <div>
-                  <div className="text-muted-foreground">Total Sold</div>
-                  <div className="font-semibold">{item.total_sold_units} units</div>
+            <div className="flex items-center gap-1.5">
+              <TrendingUp className="w-3.5 h-3.5 text-primary" />
+              <div>
+                <div className="text-muted-foreground">Total Sold</div>
+                <div className="font-semibold">
+                  {item.total_sold_units !== undefined ? `${item.total_sold_units} units` : 'N/A'}
                 </div>
               </div>
-            )}
+            </div>
 
             {/* Total Days in Inventory */}
-            {daysInInventory !== null && (
-              <div className="flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-primary" />
-                <div>
-                  <div className="text-muted-foreground">Days in Inventory</div>
-                  <div className="font-semibold">{daysInInventory} days</div>
+            <div className="flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-primary" />
+              <div>
+                <div className="text-muted-foreground">Days in Inventory</div>
+                <div className="font-semibold">
+                  {daysInInventory !== null ? `${daysInInventory} days` : 'N/A'}
                 </div>
               </div>
-            )}
+            </div>
 
             {/* Last Item Sold Days */}
-            {item.date_sold && (
-              <div className="flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-primary" />
-                <div>
-                  <div className="text-muted-foreground">Last Sold</div>
-                  <div className="font-semibold">
-                    {Math.floor((Date.now() - new Date(item.date_sold).getTime()) / (1000 * 60 * 60 * 24))} days ago
-                  </div>
+            <div className="flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-primary" />
+              <div>
+                <div className="text-muted-foreground">Last Sold</div>
+                <div className="font-semibold">
+                  {item.date_sold 
+                    ? `${Math.floor((Date.now() - new Date(item.date_sold).getTime()) / (1000 * 60 * 60 * 24))} days ago`
+                    : 'N/A'
+                  }
                 </div>
               </div>
-            )}
+            </div>
 
             {/* Order Information - Only for ordered items */}
             {item.status === 'ordered' && (
               <>
                 {/* Order Date */}
-                {item.ordered_at && (
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-green-600" />
-                    <div>
-                      <div className="text-muted-foreground">Order Date</div>
-                      <div className="font-semibold">{format(new Date(item.ordered_at), 'MMM dd, yyyy')}</div>
+                <div className="flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-green-600" />
+                  <div>
+                    <div className="text-muted-foreground">Order Date</div>
+                    <div className="font-semibold">
+                      {item.ordered_at ? format(new Date(item.ordered_at), 'MMM dd, yyyy') : 'N/A'}
                     </div>
                   </div>
-                )}
+                </div>
 
                 {/* Order Qty */}
                 <div className="flex items-center gap-1.5">
@@ -196,21 +197,21 @@ export function ReplenishmentItemCard({
                   <div>
                     <div className="text-muted-foreground">Order Qty</div>
                     <div className="font-semibold">
-                      {item.restock_quantity || item.ordered_quantity || 0} units
+                      {item.restock_quantity || item.ordered_quantity || 'N/A'} {(item.restock_quantity || item.ordered_quantity) ? 'units' : ''}
                     </div>
                   </div>
                 </div>
 
                 {/* Days in Transit */}
-                {daysSinceOrder !== null && (
-                  <div className="flex items-center gap-1.5">
-                    <Truck className="w-3.5 h-3.5 text-green-600" />
-                    <div>
-                      <div className="text-muted-foreground">Days in Transit</div>
-                      <div className="font-semibold">{daysSinceOrder} days</div>
+                <div className="flex items-center gap-1.5">
+                  <Truck className="w-3.5 h-3.5 text-green-600" />
+                  <div>
+                    <div className="text-muted-foreground">Days in Transit</div>
+                    <div className="font-semibold">
+                      {daysSinceOrder !== null ? `${daysSinceOrder} days` : 'N/A'}
                     </div>
                   </div>
-                )}
+                </div>
               </>
             )}
           </div>
