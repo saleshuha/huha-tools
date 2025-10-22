@@ -3845,6 +3845,149 @@ export type Database = {
         }
         Relationships: []
       }
+      supplier_contacts: {
+        Row: {
+          contact_name: string
+          created_at: string
+          email: string | null
+          id: string
+          is_primary: boolean | null
+          notes: string | null
+          phone_number: string | null
+          position: string | null
+          supplier_id: string
+          updated_at: string
+          user_id: string
+          wechat_id: string | null
+          whatsapp_number: string | null
+        }
+        Insert: {
+          contact_name: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_primary?: boolean | null
+          notes?: string | null
+          phone_number?: string | null
+          position?: string | null
+          supplier_id: string
+          updated_at?: string
+          user_id: string
+          wechat_id?: string | null
+          whatsapp_number?: string | null
+        }
+        Update: {
+          contact_name?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_primary?: boolean | null
+          notes?: string | null
+          phone_number?: string | null
+          position?: string | null
+          supplier_id?: string
+          updated_at?: string
+          user_id?: string
+          wechat_id?: string | null
+          whatsapp_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_contacts_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suppliers: {
+        Row: {
+          average_delivery_days: number | null
+          business_type: string | null
+          company_name: string | null
+          contact_person: string | null
+          country: string
+          created_at: string
+          email: string | null
+          id: string
+          is_active: boolean | null
+          is_verified: boolean | null
+          lead_time_days: number | null
+          minimum_order_quantity: number | null
+          notes: string | null
+          payment_terms: string | null
+          phone_number: string | null
+          product_categories: Json | null
+          profile_link: string | null
+          rating: number | null
+          supplier_name: string
+          tags: Json | null
+          total_orders: number | null
+          updated_at: string
+          user_id: string
+          website_url: string | null
+          wechat_id: string | null
+          whatsapp_number: string | null
+        }
+        Insert: {
+          average_delivery_days?: number | null
+          business_type?: string | null
+          company_name?: string | null
+          contact_person?: string | null
+          country: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_verified?: boolean | null
+          lead_time_days?: number | null
+          minimum_order_quantity?: number | null
+          notes?: string | null
+          payment_terms?: string | null
+          phone_number?: string | null
+          product_categories?: Json | null
+          profile_link?: string | null
+          rating?: number | null
+          supplier_name: string
+          tags?: Json | null
+          total_orders?: number | null
+          updated_at?: string
+          user_id: string
+          website_url?: string | null
+          wechat_id?: string | null
+          whatsapp_number?: string | null
+        }
+        Update: {
+          average_delivery_days?: number | null
+          business_type?: string | null
+          company_name?: string | null
+          contact_person?: string | null
+          country?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_verified?: boolean | null
+          lead_time_days?: number | null
+          minimum_order_quantity?: number | null
+          notes?: string | null
+          payment_terms?: string | null
+          phone_number?: string | null
+          product_categories?: Json | null
+          profile_link?: string | null
+          rating?: number | null
+          supplier_name?: string
+          tags?: Json | null
+          total_orders?: number | null
+          updated_at?: string
+          user_id?: string
+          website_url?: string | null
+          wechat_id?: string | null
+          whatsapp_number?: string | null
+        }
+        Relationships: []
+      }
       sync_status: {
         Row: {
           created_at: string

@@ -1,4 +1,4 @@
-import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, TrendingDown, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart, Globe, ExternalLink, Eye, Trash2, Settings, Tag, FileSpreadsheet, Truck, Palette, ShoppingBag, Printer, BookOpen } from "lucide-react"
+import { File, Files, Calculator, Archive, ChevronDown, FolderOpen, Package, Wrench, LogOut, Home, Users, TrendingUp, TrendingDown, Merge, Edit3, Database, CreditCard, Upload, BarChart3, DollarSign, Store, ShoppingCart, Globe, ExternalLink, Eye, Trash2, Settings, Tag, FileSpreadsheet, Truck, Palette, ShoppingBag, Printer, BookOpen, Building2, Info } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import { useState } from "react"
 import { Capacitor } from "@capacitor/core"
@@ -83,6 +83,21 @@ const poTrackerItems = [
     title: "Source Product Importer",
     url: "/sunsky-importer",
     icon: Globe
+  },
+  {
+    title: "Source Order Tracking",
+    url: "/sunsky-order-tracking",
+    icon: Package
+  },
+  {
+    title: "Source API Documentation",
+    url: "/sunsky-api-docs",
+    icon: BookOpen
+  },
+  {
+    title: "Global Sources",
+    url: "/global-sources",
+    icon: Building2
   }
 ]
 

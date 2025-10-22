@@ -57,6 +57,7 @@ import SunskySKUImporterPage from "./pages/SunskySKUImporter";
 import SunskyOrderTrackingPage from "./pages/SunskyOrderTracking";
 import SunskyOrderDetails from "./pages/SunskyOrderDetails";
 import SunskyApiDocumentation from "./pages/SunskyApiDocumentation";
+import GlobalSources from "./pages/GlobalSources";
 import NoonFileCleaner from "./pages/NoonFileCleaner";
 import AmazonVendorCentral from "./pages/AmazonVendorCentral";
 import LabelDesigner from "./pages/LabelDesigner";
@@ -272,6 +273,7 @@ const App = () => {
                          <Route path="/sunsky-order-tracking" element={<SunskyOrderTrackingPage />} />
                          <Route path="/sunsky-order-details/:orderNumber" element={<SunskyOrderDetails />} />
                          <Route path="/sunsky-api-docs" element={<SunskyApiDocumentation />} />
+                         <Route path="/global-sources" element={<GlobalSources />} />
                          <Route path="/source-order-tracking" element={<SunskyOrderTrackingPage />} />
                          <Route path="/noon-order-processing" element={<NoonOrderProcessingPage />} />
                          <Route path="/noon-order-tracking" element={<NoonOrderTrackingPage />} />
