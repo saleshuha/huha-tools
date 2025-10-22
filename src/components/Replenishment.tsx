@@ -418,6 +418,7 @@ export function Replenishment() {
         asin: item.asin,
         sku: item.sku,
         serial_number: item.serial_number,
+        title: item.title,
         quantity: item.quantity,
         ordered_quantity: item.ordered_quantity,
         status: item.status,
