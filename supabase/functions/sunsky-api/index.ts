@@ -526,7 +526,7 @@ async function handleGetAllOrders(userId: string, params: any, key: string, secr
         continue;
       }
       
-      // Save order items
+      // Save order items and fetch their images
       if (fullOrder.detailList && fullOrder.detailList.length > 0) {
         const items = fullOrder.detailList.map((item: any) => ({
           user_id: userId,
@@ -551,6 +551,71 @@ async function handleGetAllOrders(userId: string, params: any, key: string, secr
         
         if (itemsError) {
           console.error(`❌ Error saving items for order ${order.number}:`, itemsError);
+        }
+        
+        // Fetch and save product images for each item
+        for (const item of fullOrder.detailList) {
+          try {
+            console.log(`🖼️ Fetching images for ${item.itemNo}...`);
+            
+            // Get product details with images
+            const itemDetailsResult = await callSunskyAPI('/openapi/item!getItemDetail.do', {
+              itemNo: item.itemNo
+            }, key, secret);
+            
+            const itemDetails = itemDetailsResult.data || itemDetailsResult;
+            
+            // Extract images from the response
+            let images: any[] = [];
+            if (itemDetails.imageList && Array.isArray(itemDetails.imageList)) {
+              images = itemDetails.imageList;
+            } else if (itemDetails.images && Array.isArray(itemDetails.images)) {
+              images = itemDetails.images;
+            } else if (itemDetails.data?.imageList && Array.isArray(itemDetails.data.imageList)) {
+              images = itemDetails.data.imageList;
+            }
+            
+            // Save images to database
+            if (images.length > 0) {
+              const imageRecords = images.map((img: any, index: number) => {
+                let imageUrl = '';
+                if (typeof img === 'string') {
+                  imageUrl = img;
+                } else if (img.url) {
+                  imageUrl = img.url;
+                } else if (img.imageUrl) {
+                  imageUrl = img.imageUrl;
+                }
+                
+                return {
+                  user_id: userId,
+                  item_no: item.itemNo,
+                  image_url: imageUrl,
+                  image_order: index,
+                  image_type: index === 0 ? 'main' : 'additional',
+                  download_status: 'pending'
+                };
+              }).filter(record => record.image_url); // Only keep records with valid URLs
+              
+              if (imageRecords.length > 0) {
+                const { error: imageError } = await supabase
+                  .from('sunsky_product_images')
+                  .upsert(imageRecords, {
+                    onConflict: 'user_id,item_no,image_order',
+                    ignoreDuplicates: true
+                  });
+                
+                if (imageError) {
+                  console.error(`❌ Error saving images for ${item.itemNo}:`, imageError);
+                } else {
+                  console.log(`✅ Saved ${imageRecords.length} images for ${item.itemNo}`);
+                }
+              }
+            }
+          } catch (imgError) {
+            console.error(`⚠️ Failed to fetch images for ${item.itemNo}:`, imgError);
+            // Don't fail the whole order sync if image fetch fails
+          }
         }
       }
       

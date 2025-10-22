@@ -2,11 +2,8 @@ import React from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import {
   ExternalLink,
-  ChevronDown,
-  ChevronUp,
   Package,
   Clock,
   Truck,
@@ -15,9 +12,7 @@ import {
   Eye
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { SegmentedProgress } from '@/components/sunsky/SegmentedProgress';
-import { ItemStatusBadge } from '@/components/sunsky/ItemStatusBadge';
 import { calculateOrderProgress } from '@/utils/sunsky-progress';
 
 interface OrderItem {
@@ -46,13 +41,9 @@ interface SunskyOrder {
 
 interface EnhancedOrderCardProps {
   order: SunskyOrder;
-  isExpanded: boolean;
-  onToggleExpand: () => void;
-  onViewDetails?: () => void;
+  onViewDetails: () => void;
   onTrack?: () => void;
-  onGetLabels?: () => void;
-  isLoadingLabels?: boolean;
-  labels?: any[];
+  productImages?: Map<string, string[]>;
 }
 
 const statusIcons: Record<string, any> = {
@@ -82,17 +73,18 @@ const getReadableStatus = (status: string | number): string => {
 
 export function EnhancedOrderCard({
   order,
-  isExpanded,
-  onToggleExpand,
   onViewDetails,
   onTrack,
-  onGetLabels,
-  isLoadingLabels,
-  labels
+  productImages
 }: EnhancedOrderCardProps) {
   const StatusIcon = statusIcons[String(order.status)] || Package;
   const progress = calculateOrderProgress(order.status);
   const hasItems = order.items && order.items.length > 0;
+  
+  // Get first 3 item images for thumbnails
+  const thumbnails = order.items?.slice(0, 3).map(item => 
+    productImages?.get(item.sku_code)?.[0]
+  ).filter(Boolean) || [];
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
@@ -113,201 +105,105 @@ export function EnhancedOrderCard({
   };
 
   return (
-    <Collapsible open={isExpanded} onOpenChange={onToggleExpand}>
-      <Card className="hover:shadow-lg transition-all duration-300 border-2 hover:border-primary/30 bg-gradient-to-br from-card to-card/50">
-        <CollapsibleTrigger asChild>
-          <CardHeader className="cursor-pointer hover:bg-accent/5 transition-colors">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 space-y-2">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <div className={cn(
-                    "w-10 h-10 rounded-full flex items-center justify-center",
-                    progress.statusColor === 'bg-green-500' && 'bg-green-500/10',
-                    progress.statusColor === 'bg-blue-500' && 'bg-blue-500/10',
-                    progress.statusColor === 'bg-purple-500' && 'bg-purple-500/10',
-                    progress.statusColor === 'bg-orange-500' && 'bg-orange-500/10'
-                  )}>
-                    <StatusIcon className={cn(
-                      "h-5 w-5",
-                      progress.statusColor === 'bg-green-500' && 'text-green-600',
-                      progress.statusColor === 'bg-blue-500' && 'text-blue-600',
-                      progress.statusColor === 'bg-purple-500' && 'text-purple-600',
-                      progress.statusColor === 'bg-orange-500' && 'text-orange-600'
-                    )} />
-                  </div>
-                  
-                  <div>
-                    <h3 className="font-semibold text-lg flex items-center gap-2">
-                      {order.number}
-                      <Badge variant="outline" className="text-xs">
-                        {getReadableStatus(order.status)}
-                      </Badge>
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      Created: {formatDate(order.gmt_created || order.created_at)}
-                    </p>
-                  </div>
-                </div>
-
-                <SegmentedProgress
-                  currentStep={progress.currentStep}
-                  totalSteps={progress.totalSteps}
-                  percentage={progress.percentage}
-                  statusLabel={progress.statusLabel}
-                  statusColor={progress.statusColor}
-                  className="mt-2"
-                />
+    <Card className="hover:shadow-lg transition-all duration-300 border-2 hover:border-primary/30 bg-gradient-to-br from-card to-card/50 cursor-pointer"
+      onClick={onViewDetails}>
+      <CardHeader>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 space-y-2">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className={cn(
+                "w-10 h-10 rounded-full flex items-center justify-center",
+                progress.statusColor === 'bg-green-500' && 'bg-green-500/10',
+                progress.statusColor === 'bg-blue-500' && 'bg-blue-500/10',
+                progress.statusColor === 'bg-purple-500' && 'bg-purple-500/10',
+                progress.statusColor === 'bg-orange-500' && 'bg-orange-500/10'
+              )}>
+                <StatusIcon className={cn(
+                  "h-5 w-5",
+                  progress.statusColor === 'bg-green-500' && 'text-green-600',
+                  progress.statusColor === 'bg-blue-500' && 'text-blue-600',
+                  progress.statusColor === 'bg-purple-500' && 'text-purple-600',
+                  progress.statusColor === 'bg-orange-500' && 'text-orange-600'
+                )} />
               </div>
-
-              <div className="flex flex-col items-end gap-2">
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-primary">
-                    {formatCurrency(order.total || 0, order.currency)}
-                  </div>
-                  {hasItems && (
-                    <div className="text-xs text-muted-foreground">
-                      {order.items.length} item{order.items.length !== 1 ? 's' : ''}
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {order.tracking_url && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onTrack?.();
-                      }}
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                  )}
-                  
-                  {isExpanded ? (
-                    <ChevronUp className="h-5 w-5 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
-                  )}
-                </div>
-              </div>
-            </div>
-          </CardHeader>
-        </CollapsibleTrigger>
-
-        <CollapsibleContent>
-          <CardContent className="pt-0 space-y-4">
-            {/* Order Info */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
+              
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Order Number</p>
-                <p className="font-mono text-sm font-semibold">{order.number}</p>
-              </div>
-              {order.tracking_number && (
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Tracking</p>
-                  <p className="font-mono text-sm font-semibold">{order.tracking_number}</p>
-                </div>
-              )}
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Updated</p>
-                <p className="text-sm">{formatDate(order.updated_at || order.created_at)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Total</p>
-                <p className="text-sm font-semibold">{formatCurrency(order.total || 0, order.currency)}</p>
+                <h3 className="font-semibold text-lg flex items-center gap-2">
+                  {order.number}
+                  <Badge variant="outline" className="text-xs">
+                    {getReadableStatus(order.status)}
+                  </Badge>
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Created: {formatDate(order.gmt_created || order.created_at)}
+                </p>
               </div>
             </div>
 
-            {/* Items List */}
-            {hasItems && (
-              <div className="space-y-2">
-                <h4 className="font-semibold text-sm flex items-center gap-2">
-                  <Package className="h-4 w-4" />
-                  Order Items ({order.items.length})
-                </h4>
-                <div className="space-y-2">
-                  {order.items.map((item, idx) => (
-                    <div
-                      key={item.id || idx}
-                      className="flex items-center justify-between p-3 bg-card border rounded-lg hover:bg-accent/5 transition-colors"
-                    >
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">{item.title}</p>
-                        <p className="text-xs text-muted-foreground font-mono">{item.sku_code}</p>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        {item.item_status && (
-                          <ItemStatusBadge status={item.item_status} />
-                        )}
-                        <div className="text-right">
-                          <p className="text-sm font-semibold">
-                            {formatCurrency(item.total || 0, order.currency)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Qty: {item.quantity || 1}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+            <SegmentedProgress
+              currentStep={progress.currentStep}
+              totalSteps={progress.totalSteps}
+              percentage={progress.percentage}
+              statusLabel={progress.statusLabel}
+              statusColor={progress.statusColor}
+              className="mt-2"
+            />
+            
+            {/* Product Thumbnails */}
+            {thumbnails.length > 0 && (
+              <div className="flex gap-2 mt-3">
+                {thumbnails.map((url, idx) => (
+                  <img
+                    key={idx}
+                    src={url}
+                    alt={`Product ${idx + 1}`}
+                    className="w-12 h-12 object-cover rounded border border-border"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ))}
+                {hasItems && order.items!.length > 3 && (
+                  <div className="w-12 h-12 rounded border border-border bg-muted flex items-center justify-center text-xs text-muted-foreground">
+                    +{order.items!.length - 3}
+                  </div>
+                )}
               </div>
             )}
+          </div>
 
-            {/* Action Buttons */}
-            <div className="flex items-center gap-2 pt-2">
-              {onViewDetails && (
-                <Button variant="outline" size="sm" onClick={onViewDetails}>
-                  <Eye className="h-4 w-4 mr-2" />
-                  View Details
+          <div className="flex flex-col items-end gap-2">
+            <div className="text-right">
+              <div className="text-2xl font-bold text-primary">
+                {formatCurrency(order.total || 0, order.currency)}
+              </div>
+              {hasItems && (
+                <div className="text-xs text-muted-foreground">
+                  {order.items.length} item{order.items.length !== 1 ? 's' : ''}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              {order.tracking_url && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onTrack?.();
+                  }}
+                >
+                  <ExternalLink className="h-4 w-4" />
                 </Button>
               )}
               
-              {order.tracking_url && onTrack && (
-                <Button variant="outline" size="sm" onClick={onTrack}>
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Track Package
-                </Button>
-              )}
-
-              {onGetLabels && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onGetLabels}
-                  disabled={isLoadingLabels}
-                >
-                  <Package className="h-4 w-4 mr-2" />
-                  {isLoadingLabels ? 'Loading...' : labels?.length ? 'View Labels' : 'Get Labels'}
-                </Button>
-              )}
+              <Button variant="outline" size="sm" onClick={onViewDetails}>
+                <Eye className="h-4 w-4 mr-2" />
+                View Details
+              </Button>
             </div>
-
-            {/* Labels */}
-            {labels && labels.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="font-semibold text-sm">Shipping Labels</h4>
-                <div className="grid grid-cols-2 gap-2">
-                  {labels.map((label, idx) => (
-                    <Button
-                      key={idx}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.open(label.url || label.label_url, '_blank')}
-                      className="justify-start"
-                    >
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      Label {idx + 1}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </CollapsibleContent>
-      </Card>
-    </Collapsible>
+          </div>
+        </div>
+      </CardHeader>
+    </Card>
   );
 }

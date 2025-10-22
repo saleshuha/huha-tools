@@ -17,11 +17,13 @@ interface TrackingToolbarProps {
   selectedCredentials: string | null;
   onCredentialsChange: (value: string | null) => void;
   onSyncOrders: () => void;
+  onRefresh?: () => void;
   onClearOrders?: () => void;
   onExport?: () => void;
   onShowAnalytics?: () => void;
   loading: boolean;
   syncing: boolean;
+  refreshing?: boolean;
   progressCurrent?: number;
   progressTotal?: number;
   progressPercent?: number;
@@ -37,11 +39,13 @@ export function TrackingToolbar({
   selectedCredentials,
   onCredentialsChange,
   onSyncOrders,
+  onRefresh,
   onClearOrders,
   onExport,
   onShowAnalytics,
   loading,
   syncing,
+  refreshing = false,
   progressCurrent = 0,
   progressTotal = 0,
   progressPercent = 0,
@@ -100,6 +104,18 @@ export function TrackingToolbar({
               <Button variant="outline" size="sm" onClick={onShowAnalytics}>
                 <BarChart3 className="h-4 w-4 mr-2" />
                 Analytics
+              </Button>
+            )}
+
+            {onRefresh && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={onRefresh}
+                disabled={refreshing || syncing || loading}
+              >
+                <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
+                Refresh
               </Button>
             )}
 

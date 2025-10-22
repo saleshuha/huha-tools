@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { calculateOrderProgress, getOrderSteps, calculateItemsProgress } from '@/utils/sunsky-progress';
 import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function SunskyOrderDetails() {
   const { orderNumber } = useParams<{ orderNumber: string }>();
@@ -19,6 +20,7 @@ export default function SunskyOrderDetails() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [orderLabels, setOrderLabels] = useState<any[]>([]);
+  const [productImages, setProductImages] = useState<Map<string, any[]>>(new Map());
 
   const {
     orders,
@@ -35,6 +37,40 @@ export default function SunskyOrderDetails() {
       setLoading(false);
     }
   }, [orderNumber, order]);
+  
+  // Load product images
+  useEffect(() => {
+    if (order?.items && order.items.length > 0) {
+      loadProductImages();
+    }
+  }, [order]);
+  
+  const loadProductImages = async () => {
+    if (!order?.items) return;
+    
+    const { data: user } = await supabase.auth.getUser();
+    if (!user.user) return;
+    
+    const uniqueSkus = [...new Set(order.items.map(item => item.sku_code))];
+    
+    const { data: images } = await supabase
+      .from('sunsky_product_images')
+      .select('*')
+      .eq('user_id', user.user.id)
+      .in('item_no', uniqueSkus)
+      .order('image_order');
+    
+    if (images) {
+      const imageMap = new Map<string, any[]>();
+      images.forEach(img => {
+        if (!imageMap.has(img.item_no)) {
+          imageMap.set(img.item_no, []);
+        }
+        imageMap.get(img.item_no)!.push(img);
+      });
+      setProductImages(imageMap);
+    }
+  };
 
   const loadOrderDetails = async () => {
     if (!orderNumber) return;
@@ -457,6 +493,21 @@ export default function SunskyOrderDetails() {
                           )}
                         </div>
                       </div>
+                      
+                      {/* Product Images */}
+                      {productImages.get(item.sku_code) && productImages.get(item.sku_code)!.length > 0 && (
+                        <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
+                          {productImages.get(item.sku_code)!.map((img, idx) => (
+                            <img
+                              key={idx}
+                              src={img.image_url}
+                              alt={`${item.title} - Image ${idx + 1}`}
+                              className="h-20 w-20 object-cover rounded border border-border hover:scale-105 transition-transform cursor-pointer"
+                              onClick={() => window.open(img.image_url, '_blank')}
+                            />
+                          ))}
+                        </div>
+                      )}
                       
                       <div className="space-y-2">
                         <div className="flex items-center justify-between text-xs">

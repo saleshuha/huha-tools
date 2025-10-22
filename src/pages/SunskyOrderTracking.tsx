@@ -98,14 +98,15 @@ interface SlowItem {
 
 export default function SunskyOrderTrackingPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [slowItems, setSlowItems] = useState<SlowItem[]>([]);
-  const [loadingLabels, setLoadingLabels] = useState<Set<string>>(new Set());
-  const [orderLabels, setOrderLabels] = useState<Map<string, any[]>>(new Map());
   const [selectedCredentialId, setSelectedCredentialId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [showSyncDialog, setShowSyncDialog] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [productImages, setProductImages] = useState<Map<string, string[]>>(new Map());
   const itemsPerPage = 20;
+  
+  const navigate = useNavigate();
 
   const { selectedCountry } = useCountry();
   const { credentials } = useSunskyCredentials();
@@ -173,28 +174,43 @@ export default function SunskyOrderTrackingPage() {
     // Always fetch all available orders from Sunsky
     fetchStoredOrders(false);
     loadSlowItems();
+    loadProductImages();
   }, []);
-
-  // Toggle order expansion and fetch items if missing using correct credential
-  const toggleOrderExpansion = async (orderNumber: string) => {
-    const newExpanded = new Set(expandedOrders);
-    if (newExpanded.has(orderNumber)) {
-      newExpanded.delete(orderNumber);
-    } else {
-      newExpanded.add(orderNumber);
-      
-      // Find the order and its credential ID
-      const order = orders.find(o => o.number === orderNumber);
-      const credentialId = order?.sunsky_credentials_id;
-      
-      // Fetch order details if items are missing, using the correct credential
-      if (!order?.items || order.items.length === 0) {
-        await getOrderDetails(orderNumber, true, credentialId);
-      }
-    }
+  
+  // Load product images for visible orders
+  const loadProductImages = async () => {
+    const uniqueSkus = new Set<string>();
+    paginatedOrders.forEach(order => {
+      order.items?.forEach(item => uniqueSkus.add(item.sku_code));
+    });
     
-    setExpandedOrders(newExpanded);
+    if (uniqueSkus.size === 0) return;
+    
+    const { data: user } = await supabase.auth.getUser();
+    if (!user.user) return;
+    
+    const { data: images } = await supabase
+      .from('sunsky_product_images')
+      .select('item_no, image_url, image_order')
+      .eq('user_id', user.user.id)
+      .in('item_no', Array.from(uniqueSkus))
+      .order('image_order');
+    
+    if (images) {
+      const imageMap = new Map<string, string[]>();
+      images.forEach(img => {
+        if (!imageMap.has(img.item_no)) {
+          imageMap.set(img.item_no, []);
+        }
+        imageMap.get(img.item_no)!.push(img.image_url);
+      });
+      setProductImages(imageMap);
+    }
   };
+  
+  useEffect(() => {
+    loadProductImages();
+  }, [paginatedOrders]);
 
   // Format date helper
   const formatDate = (dateString: string | null) => {
@@ -247,20 +263,25 @@ export default function SunskyOrderTrackingPage() {
     window.open(url, '_blank');
   };
 
-  // Handle labels fetch
-  const handleGetLabels = async (orderNumber: string) => {
-    setLoadingLabels(prev => new Set(prev).add(orderNumber));
+  // Handle refresh
+  const handleRefresh = async () => {
+    setRefreshing(true);
     try {
-      const labels = await getOrderLabels(orderNumber);
-      setOrderLabels(prev => new Map(prev).set(orderNumber, labels || []));
-    } catch (error) {
-      console.error('Failed to fetch labels:', error);
-    } finally {
-      setLoadingLabels(prev => {
-        const updated = new Set(prev);
-        updated.delete(orderNumber);
-        return updated;
+      await fetchStoredOrders(false);
+      await loadSlowItems();
+      toast({
+        title: 'Refreshed',
+        description: 'Order data has been reloaded from database.',
       });
+    } catch (error: any) {
+      console.error('Error refreshing:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to refresh orders',
+        variant: 'destructive',
+      });
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -389,9 +410,11 @@ export default function SunskyOrderTrackingPage() {
           selectedCredentials={selectedCredentialId}
           onCredentialsChange={setSelectedCredentialId}
           onSyncOrders={() => setShowSyncDialog(true)}
+          onRefresh={handleRefresh}
           onClearOrders={handleClearOrders}
           loading={loading}
           syncing={syncing}
+          refreshing={refreshing}
           progressCurrent={progressCurrent}
           progressTotal={progressTotal}
           progressPercent={progressPercent}
@@ -443,12 +466,9 @@ export default function SunskyOrderTrackingPage() {
                   <EnhancedOrderCard
                     key={order.id}
                     order={order}
-                    isExpanded={expandedOrders.has(order.number)}
-                    onToggleExpand={() => toggleOrderExpansion(order.number)}
+                    onViewDetails={() => navigate(`/sunsky-order-details/${order.number}`)}
                     onTrack={() => order.tracking_url && handleTrackingClick(order.tracking_url)}
-                    onGetLabels={() => handleGetLabels(order.number)}
-                    isLoadingLabels={loadingLabels.has(order.number)}
-                    labels={orderLabels.get(order.number)}
+                    productImages={productImages}
                   />
                 ))}
 
