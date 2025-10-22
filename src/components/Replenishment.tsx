@@ -32,6 +32,10 @@ import { SunskyOrderDialog } from './SunskyOrderDialog';
 interface RestockItem {
   id: string;
   identifier: string;
+  asin?: string;
+  sku?: string;
+  serial_number?: string;
+  title?: string | null;
   current_quantity: number;
   table_name: string;
   days_since_last_restock: number | null;
@@ -295,13 +299,17 @@ export function Replenishment() {
       const {
         data,
         error
-      } = await ((supabase as any).from('non_source_items').select('*').eq('country', selectedCountry).order('marked_at', {
+      } = await ((supabase as any).from('non_source_items').select('id, asin, serial_number, sku, title, marked_at').eq('country', selectedCountry).order('marked_at', {
         ascending: false
       }));
       if (error) throw error;
       const nonSourceItemsData = ((data as any) || []).map((item: any) => ({
         id: item.id,
         identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
+        asin: item.asin,
+        sku: item.sku,
+        serial_number: item.serial_number,
+        title: item.title,
         current_quantity: 0,
         table_name: 'non_source_items' as const,
         status: 'non-source',
@@ -328,7 +336,7 @@ export function Replenishment() {
         data: nonSourceData
       } = await ((supabase as any).from('non_source_items').select('asin, serial_number').eq('country', selectedCountry));
       const nonSourceIdentifiers = new Set(((nonSourceData as any) || []).map((item: any) => `${item.asin}-${item.serial_number}`));
-      const asinQuery = (supabase as any).from('asin_inventory').select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added, eligible_for_restock').eq('country', selectedCountry).eq('eligible_for_restock', true).eq('quantity', 0).neq('status', 'no-stock').neq('status', 'ordered');
+      const asinQuery = (supabase as any).from('asin_inventory').select('id, asin, serial_number, quantity, status, sku, last_restock_date, date_sold, date_added, eligible_for_restock, title').eq('country', selectedCountry).eq('eligible_for_restock', true).eq('quantity', 0).neq('status', 'no-stock').neq('status', 'ordered');
       const [asinResult] = await Promise.all([asinQuery]);
       if (asinResult.error) throw asinResult.error;
 
@@ -358,6 +366,10 @@ export function Replenishment() {
         return {
           id: item.id,
           identifier: `${item.asin} (${item.serial_number})${item.sku ? ` | SKU: ${item.sku}` : ''}`,
+          asin: item.asin,
+          sku: item.sku,
+          serial_number: item.serial_number,
+          title: item.title,
           current_quantity: item.quantity,
           table_name: 'asin_inventory',
           status: item.status,
