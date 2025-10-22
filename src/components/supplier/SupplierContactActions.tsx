@@ -42,17 +42,14 @@ export const SupplierContactActions = ({
     // Always use wa.me (works on both mobile and desktop)
     const url = `https://wa.me/${cleanNumber}?text=${message}`;
     
-    // Open in new window
-    const whatsappWindow = window.open(url, '_blank', 'noopener,noreferrer');
-    
-    // Check if popup was blocked
-    if (!whatsappWindow) {
-      toast({
-        title: 'Popup blocked',
-        description: 'Please allow popups for this site to open WhatsApp',
-        variant: 'destructive',
-      });
-    }
+    // Create temporary anchor and click it (avoids popup blockers)
+    const link = document.createElement('a');
+    link.href = url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleWeChat = () => {
