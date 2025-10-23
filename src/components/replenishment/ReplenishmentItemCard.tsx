@@ -140,7 +140,7 @@ export function ReplenishmentItemCard({
           </div>
 
           {/* Metrics Section - Grid Layout */}
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-3 text-xs">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3 text-xs">
             {/* Total Sold Units */}
             <div className="flex items-center gap-1.5">
               <TrendingUp className="w-3.5 h-3.5 text-primary" />
@@ -173,6 +173,17 @@ export function ReplenishmentItemCard({
                     ? `${Math.floor((Date.now() - new Date(item.date_sold).getTime()) / (1000 * 60 * 60 * 24))} days ago`
                     : 'N/A'
                   }
+                </div>
+              </div>
+            </div>
+
+            {/* Sunsky Order Quantity */}
+            <div className="flex items-center gap-1.5">
+              <ShoppingCart className="w-3.5 h-3.5 text-primary" />
+              <div>
+                <div className="text-muted-foreground">Sunsky Qty</div>
+                <div className="font-semibold">
+                  {item.restock_quantity || item.ordered_quantity || 'N/A'} {(item.restock_quantity || item.ordered_quantity) ? 'units' : ''}
                 </div>
               </div>
             </div>
