@@ -43,6 +43,8 @@ interface RestockItem {
   date_sold?: string | null;
   last_restock_date?: string | null;
   restock_quantity?: number | null;
+  date_added?: string;
+  total_sold_units?: number;
   // Enhanced velocity fields
   sales_velocity?: number;
   velocity_category?: 'Fast Moving' | 'Medium Moving' | 'Slow Moving' | 'No Sales';
@@ -85,6 +87,7 @@ interface AllInventoryItem {
   quantity: number;
   ordered_quantity?: number;
   restock_quantity?: number | null;
+  recommended_reorder_quantity?: number;
   status: string;
   last_sold_date?: string | null;
   last_order_date?: string | null;
@@ -327,6 +330,45 @@ export function Replenishment() {
       });
     }
   };
+  // Calculate recommended order quantity based on total sales history
+  const calculateRecommendedQuantity = async (item: RestockItem): Promise<number> => {
+    try {
+      let stockChangesQuery;
+      if (item.table_name === 'asin_inventory') {
+        stockChangesQuery = (supabase as any)
+          .from('stock_changes')
+          .select('change_amount')
+          .eq('inventory_id', item.id)
+          .eq('inventory_type', 'asin')
+          .lt('change_amount', 0); // Only negative changes (sales)
+      } else {
+        stockChangesQuery = (supabase as any)
+          .from('stock_changes')
+          .select('change_amount')
+          .eq('inventory_id', item.id)
+          .eq('inventory_type', 'sku')
+          .lt('change_amount', 0); // Only negative changes (sales)
+      }
+
+      // Count ALL sales from first stock/restock until now (no date filtering)
+      const { data: stockChanges } = await stockChangesQuery;
+      
+      if (stockChanges && stockChanges.length > 0) {
+        // Sum all negative changes (units sold) from beginning
+        const unitsSold = stockChanges.reduce((sum: number, change: any) => 
+          sum + Math.abs(change.change_amount), 0
+        );
+        // Formula: MAX(1, CEIL(Total Units Sold / 2))
+        return Math.max(1, Math.ceil(unitsSold / 2));
+      }
+      
+      return 1; // Default minimum quantity
+    } catch (error) {
+      console.error('Error calculating recommended quantity for item:', item.id, error);
+      return 1; // Fall back to default
+    }
+  };
+
   const loadRestockItems = async () => {
     try {
       console.log('Loading restock items for country:', selectedCountry);
@@ -380,10 +422,18 @@ export function Replenishment() {
           total_sold_units: totalSoldUnits.get(item.id) || 0
         };
       });
-      const allItems = [...asinItems];
-      console.log('Processed restock items:', allItems);
-      setRestockItems(allItems);
-      console.log('Set restock items for', selectedCountry, ':', allItems.length, 'items');
+      
+      // Calculate recommended quantities for all items in parallel
+      const itemsWithRecommendedQty = await Promise.all(
+        asinItems.map(async (item) => {
+          const recommended_reorder_quantity = await calculateRecommendedQuantity(item);
+          return { ...item, recommended_reorder_quantity };
+        })
+      );
+      
+      console.log('Processed restock items with recommended quantities:', itemsWithRecommendedQty);
+      setRestockItems(itemsWithRecommendedQty);
+      console.log('Set restock items for', selectedCountry, ':', itemsWithRecommendedQty.length, 'items');
     } catch (error: any) {
       console.error('Error loading restock items:', error);
       toast({
@@ -412,26 +462,56 @@ export function Replenishment() {
       console.log('Raw ASIN data:', asinAll.data);
 
       // Process ASIN items into AllInventoryItem format (excluding non-source items)
-      const asinItems: AllInventoryItem[] = ((asinAll.data as any) || []).filter((item: any) => !nonSourceIdentifiers.has(`${item.asin}-${item.serial_number}`)).map((item: any) => ({
-        id: item.id,
-        item_type: 'ASIN' as const,
-        asin: item.asin,
-        sku: item.sku,
-        serial_number: item.serial_number,
-        title: item.title,
-        quantity: item.quantity,
-        ordered_quantity: item.ordered_quantity,
-        restock_quantity: item.restock_quantity,
-        status: item.status,
-        last_sold_date: item.date_sold,
-        last_order_date: item.last_restock_date,
-        days_since_ordered: item.last_restock_date ? Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null,
-        date_added: item.date_added,
-        notes: item.notes,
-        ordered_at: item.ordered_at,
-        sunsky_order_number: item.sunsky_order_number,
-        velocity_order_ref: item.velocity_order_ref
-      }));
+      const asinItemsRaw = ((asinAll.data as any) || []).filter((item: any) => 
+        !nonSourceIdentifiers.has(`${item.asin}-${item.serial_number}`)
+      );
+
+      // Calculate recommended quantities for each item in parallel
+      const asinItems: AllInventoryItem[] = await Promise.all(
+        asinItemsRaw.map(async (item: any) => {
+          // Create temporary RestockItem for calculation
+          const tempItem: RestockItem = {
+            id: item.id,
+            identifier: `${item.asin} (${item.serial_number})`,
+            asin: item.asin,
+            sku: item.sku,
+            serial_number: item.serial_number,
+            title: item.title,
+            current_quantity: item.quantity,
+            table_name: 'asin_inventory',
+            status: item.status,
+            date_sold: item.date_sold,
+            last_restock_date: item.last_restock_date,
+            days_since_last_restock: null,
+            date_added: item.date_added,
+            total_sold_units: 0
+          };
+
+          const recommended_reorder_quantity = await calculateRecommendedQuantity(tempItem);
+
+          return {
+            id: item.id,
+            item_type: 'ASIN' as const,
+            asin: item.asin,
+            sku: item.sku,
+            serial_number: item.serial_number,
+            title: item.title,
+            quantity: item.quantity,
+            ordered_quantity: item.ordered_quantity,
+            restock_quantity: item.restock_quantity,
+            recommended_reorder_quantity,
+            status: item.status,
+            last_sold_date: item.date_sold,
+            last_order_date: item.last_restock_date,
+            days_since_ordered: item.last_restock_date ? Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null,
+            date_added: item.date_added,
+            notes: item.notes,
+            ordered_at: item.ordered_at,
+            sunsky_order_number: item.sunsky_order_number,
+            velocity_order_ref: item.velocity_order_ref
+          };
+        })
+      );
       const allInventoryItems = [...asinItems];
       console.log('Processed inventory items:', allInventoryItems);
       console.log('Total items count:', allInventoryItems.length);
@@ -1229,18 +1309,14 @@ export function Replenishment() {
           stockChangesQuery = (supabase as any).from('stock_changes').select('change_amount, created_at').eq('inventory_id', item.id).eq('inventory_type', 'sku').lt('change_amount', 0); // Only negative changes (sales)
         }
 
-        // If there's a last restock date, only count sales after that date
-        if (item.days_since_last_restock !== null) {
-          const lastRestockDate = new Date(Date.now() - item.days_since_last_restock * 24 * 60 * 60 * 1000);
-          stockChangesQuery = stockChangesQuery.gte('created_at', lastRestockDate.toISOString());
-        }
+        // Count ALL sales from first stock/restock until now (no date filtering)
         const {
           data: stockChanges
         } = await stockChangesQuery;
         if (stockChanges && stockChanges.length > 0) {
-          // Sum all negative changes (units sold)
+          // Sum all negative changes (units sold from beginning)
           const unitsSold = stockChanges.reduce((sum, change) => sum + Math.abs(change.change_amount), 0);
-          // Calculate quantity as half of units sold after last restock, minimum 1
+          // Formula: MAX(1, CEIL(Total Units Sold / 2))
           calculatedQty = Math.max(1, Math.ceil(unitsSold / 2));
         }
 
@@ -1261,7 +1337,7 @@ export function Replenishment() {
         status: 'pending',
         model_number: extractedModel,
         title: `Restock for ${item.identifier}`,
-        notes: sunskySku ? `Replenishment order - Qty: ${calculatedQty} (based on sales after last restock) - Search by ${extractedSku ? 'SKU' : 'Model'}: ${sunskySku}` : `Replenishment order for out of stock item - No valid Sunsky SKU found (contains Amazon ASIN)`,
+        notes: sunskySku ? `Replenishment order - Qty: ${calculatedQty} (based on total sales history) - Search by ${extractedSku ? 'SKU' : 'Model'}: ${sunskySku}` : `Replenishment order for out of stock item - No valid Sunsky SKU found (contains Amazon ASIN)`,
         sunsky_sku: sunskySku,
         // Use valid SKU/model, avoiding Amazon ASINs
         itemNo: sunskySku,
