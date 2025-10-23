@@ -124,18 +124,18 @@ export function useVelocityAnalytics() {
   };
 
   const getUrgencyColor = (score: number): "default" | "destructive" | "secondary" | "outline" => {
-    if (score >= 90) return 'destructive';
-    if (score >= 70) return 'secondary';
-    if (score >= 50) return 'default';
-    return 'outline';
+    if (score >= 90) return 'destructive'; // Red - Critical
+    if (score >= 70) return 'secondary';   // Orange - Warning
+    if (score >= 50) return 'default';     // Blue - Info
+    return 'outline';                      // Gray - Low priority
   };
 
   const getVelocityColor = (category: string): "default" | "destructive" | "secondary" | "outline" => {
     switch (category) {
-      case 'Fast Moving': return 'default';
-      case 'Medium Moving': return 'secondary';
-      case 'Slow Moving': return 'outline';
-      case 'No Sales': return 'destructive';
+      case 'Fast Moving': return 'default';      // Green/Primary
+      case 'Medium Moving': return 'secondary';   // Blue
+      case 'Slow Moving': return 'outline';       // Orange
+      case 'No Sales': return 'destructive';      // Red
       default: return 'outline';
     }
   };

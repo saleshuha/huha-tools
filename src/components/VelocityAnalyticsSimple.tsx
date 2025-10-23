@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQuarterlyVelocityAnalytics, type VelocityAnalyticsItem } from "@/hooks/useQuarterlyVelocityAnalytics";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,7 @@ export function VelocityAnalyticsSimple() {
   
   // State
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
@@ -47,23 +48,23 @@ export function VelocityAnalyticsSimple() {
   const [adjustProgress, setAdjustProgress] = useState(0);
   const [currentAdjustingItem, setCurrentAdjustingItem] = useState<{ asin: string; oldQty: number; newQty: number } | null>(null);
   const [proceedToOrder, setProceedToOrder] = useState(false);
+
+  // Debounce search input for better performance (300ms delay)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
   
-  // Memoized filtering and sorting
+  // Memoized filtering and sorting (optimized with debounced search)
   const { readyToOrderItems, orderedItems, sortedFilteredItems } = useMemo(() => {
-    console.log('🔍 Filtering items:', {
-      totalItems: items.length,
-      itemsWithOverrides: items.filter(i => i.manual_override !== undefined && i.manual_override !== null).length,
-      itemsWithZeroOverride: items.filter(i => i.manual_override === 0).length,
-      sampleItems: items.slice(0, 3).map(i => ({
-        asin: i.asin,
-        manual_override: i.manual_override,
-        recommended_quantity: i.recommended_quantity
-      }))
-    });
-    
-    // Apply search filter (local items already filtered at database level)
+    // Apply search filter using debounced search term
     const searchFiltered = items.filter(item => {
-      const searchLower = searchTerm.toLowerCase();
+      if (!debouncedSearchTerm) return true;
+      
+      const searchLower = debouncedSearchTerm.toLowerCase();
       return (
         item.asin.toLowerCase().includes(searchLower) || 
         (item.sku?.toLowerCase() || "").includes(searchLower) || 
@@ -79,15 +80,6 @@ export function VelocityAnalyticsSimple() {
     const ordered = searchFiltered.filter(item => 
       item.manual_override === 0
     );
-    
-    console.log('📊 Filter results:', {
-      readyCount: ready.length,
-      orderedCount: ordered.length,
-      orderedSample: ordered.slice(0, 3).map(i => ({
-        asin: i.asin,
-        manual_override: i.manual_override
-      }))
-    });
     
     // Get current tab items
     const currentItems = activeTab === "ready" ? ready : ordered;
@@ -111,7 +103,7 @@ export function VelocityAnalyticsSimple() {
       orderedItems: ordered,
       sortedFilteredItems: sorted
     };
-  }, [items, searchTerm, activeTab, sortBy]);
+  }, [items, debouncedSearchTerm, activeTab, sortBy]);
   
   // Pagination
   const totalPages = Math.ceil(sortedFilteredItems.length / itemsPerPage);
@@ -127,11 +119,10 @@ export function VelocityAnalyticsSimple() {
     // Don't reset selections when changing tabs
   };
   
-  const handleSearchChange = (value: string) => {
+  const handleSearchChange = useCallback((value: string) => {
     setSearchTerm(value);
     setCurrentPage(1);
-    // Don't reset selections when searching
-  };
+  }, []);
   
   const handleItemsPerPageChange = (value: number) => {
     setItemsPerPage(value);

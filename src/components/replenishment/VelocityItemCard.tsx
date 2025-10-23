@@ -3,8 +3,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Package, Edit2, Check, X, RotateCcw, ShoppingCart, TrendingUp, TrendingDown } from 'lucide-react';
 import type { VelocityAnalyticsItem } from '@/hooks/useQuarterlyVelocityAnalytics';
+import { useState } from 'react';
 
 interface VelocityItemCardProps {
   item: VelocityAnalyticsItem;
@@ -39,6 +41,7 @@ export function VelocityItemCard({
   showCheckbox = true,
   showActions = true
 }: VelocityItemCardProps) {
+  const [imageLoading, setImageLoading] = useState(true);
   const displayQty = item.manual_override ?? item.recommended_quantity;
   const hasOverride = item.manual_override !== undefined && item.manual_override !== null;
   const isOutOfStock = item.current_quantity === 0;
@@ -55,17 +58,26 @@ export function VelocityItemCard({
           </div>
         )}
         
-        {/* Image */}
-        <div className="flex-shrink-0">
+        {/* Image with Loading State */}
+        <div className="flex-shrink-0 relative">
           {imageUrl ? (
-            <img 
-              src={imageUrl} 
-              alt={item.asin}
-              className="w-20 h-20 object-contain rounded-md border border-border bg-white p-1"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="80" height="80" fill="none"%3E%3Crect width="80" height="80" fill="%23f3f4f6"/%3E%3Cpath d="M40 38a4 4 0 100-8 4 4 0 000 8zM28 48l8-8 8 8 12-12v20H28V48z" fill="%239ca3af"/%3E%3C/svg%3E';
-              }}
-            />
+            <>
+              {imageLoading && (
+                <Skeleton className="w-20 h-20 rounded-md border absolute" />
+              )}
+              <img 
+                src={imageUrl} 
+                alt={item.asin}
+                className={`w-20 h-20 object-contain rounded-md border border-border bg-white p-1 transition-opacity ${
+                  imageLoading ? 'opacity-0' : 'opacity-100'
+                }`}
+                onLoad={() => setImageLoading(false)}
+                onError={(e) => {
+                  setImageLoading(false);
+                  (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="80" height="80" fill="none"%3E%3Crect width="80" height="80" fill="%23f3f4f6"/%3E%3Cpath d="M40 38a4 4 0 100-8 4 4 0 000 8zM28 48l8-8 8 8 12-12v20H28V48z" fill="%239ca3af"/%3E%3C/svg%3E';
+                }}
+              />
+            </>
           ) : (
             <div className="w-20 h-20 bg-muted rounded-md flex items-center justify-center border border-border">
               <Package className="w-8 h-8 text-muted-foreground" />
@@ -92,14 +104,14 @@ export function VelocityItemCard({
             </Badge>
           </div>
 
-          {/* Metrics */}
+          {/* Metrics with Enhanced Colors */}
           <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
             <div className="flex items-center gap-1 text-muted-foreground">
-              <TrendingUp className="w-3 h-3" />
+              <TrendingUp className="w-3 h-3 text-green-600 dark:text-green-400" />
               <span>Added: <strong className="text-foreground">{item.total_added}</strong></span>
             </div>
             <div className="flex items-center gap-1 text-muted-foreground">
-              <TrendingDown className="w-3 h-3" />
+              <TrendingDown className="w-3 h-3 text-red-600 dark:text-red-400" />
               <span>Sold: <strong className="text-foreground">{item.total_sold}</strong></span>
             </div>
           </div>

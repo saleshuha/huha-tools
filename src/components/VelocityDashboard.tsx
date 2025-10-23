@@ -410,57 +410,65 @@ export function VelocityDashboard() {
       {/* Summary Cards - Clickable to filter */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card 
-          className={`cursor-pointer hover:shadow-md transition-all ${selectedCategory === 'Fast Moving' ? 'ring-2 ring-primary' : ''}`}
+          className={`cursor-pointer hover-scale transition-all border-l-4 border-l-green-500 bg-gradient-to-br from-green-50/50 to-transparent dark:from-green-950/20 ${selectedCategory === 'Fast Moving' ? 'ring-2 ring-primary' : ''}`}
           onClick={() => setSelectedCategory(selectedCategory === 'Fast Moving' ? 'all' : 'Fast Moving')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Fast Moving</CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-600" />
+            <div className="p-2 rounded-full bg-green-100 dark:bg-green-900/30">
+              <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{velocityMetrics.fastMovingItems}</div>
+            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{velocityMetrics.fastMovingItems}</div>
             <p className="text-xs text-muted-foreground">High velocity items</p>
           </CardContent>
         </Card>
 
         <Card 
-          className={`cursor-pointer hover:shadow-md transition-all ${selectedCategory === 'Medium Moving' ? 'ring-2 ring-primary' : ''}`}
+          className={`cursor-pointer hover-scale transition-all border-l-4 border-l-blue-500 bg-gradient-to-br from-blue-50/50 to-transparent dark:from-blue-950/20 ${selectedCategory === 'Medium Moving' ? 'ring-2 ring-primary' : ''}`}
           onClick={() => setSelectedCategory(selectedCategory === 'Medium Moving' ? 'all' : 'Medium Moving')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Medium Moving</CardTitle>
-            <Activity className="h-4 w-4 text-blue-600" />
+            <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/30">
+              <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{velocityMetrics.mediumMovingItems}</div>
+            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{velocityMetrics.mediumMovingItems}</div>
             <p className="text-xs text-muted-foreground">Moderate velocity items</p>
           </CardContent>
         </Card>
 
         <Card 
-          className={`cursor-pointer hover:shadow-md transition-all ${selectedCategory === 'Slow Moving' ? 'ring-2 ring-primary' : ''}`}
+          className={`cursor-pointer hover-scale transition-all border-l-4 border-l-orange-500 bg-gradient-to-br from-orange-50/50 to-transparent dark:from-orange-950/20 ${selectedCategory === 'Slow Moving' ? 'ring-2 ring-primary' : ''}`}
           onClick={() => setSelectedCategory(selectedCategory === 'Slow Moving' ? 'all' : 'Slow Moving')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Slow Moving</CardTitle>
-            <TrendingDown className="h-4 w-4 text-orange-600" />
+            <div className="p-2 rounded-full bg-orange-100 dark:bg-orange-900/30">
+              <TrendingUp className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{velocityMetrics.slowMovingItems}</div>
+            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{velocityMetrics.slowMovingItems}</div>
             <p className="text-xs text-muted-foreground">Low velocity items</p>
           </CardContent>
         </Card>
 
         <Card 
-          className={`cursor-pointer hover:shadow-md transition-all ${selectedCategory === 'No Sales' ? 'ring-2 ring-primary' : ''}`}
+          className={`cursor-pointer hover-scale transition-all border-l-4 border-l-red-500 bg-gradient-to-br from-red-50/50 to-transparent dark:from-red-950/20 ${selectedCategory === 'No Sales' ? 'ring-2 ring-primary' : ''}`}
           onClick={() => setSelectedCategory(selectedCategory === 'No Sales' ? 'all' : 'No Sales')}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">No Sales</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-red-600" />
+            <div className="p-2 rounded-full bg-red-100 dark:bg-red-900/30">
+              <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{velocityMetrics.noSalesItems}</div>
+            <div className="text-2xl font-bold text-red-600 dark:text-red-400">{velocityMetrics.noSalesItems}</div>
             <p className="text-xs text-muted-foreground">Items with no sales</p>
           </CardContent>
         </Card>
