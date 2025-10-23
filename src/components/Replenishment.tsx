@@ -519,19 +519,27 @@ export function Replenishment() {
       // Separate items based on eligibility for restocking
       const allEligibleItems = allInventoryItems.filter(item => item.status !== 'ordered');
 
-      // Get stock changes for all items to calculate total sold units
+      // Get stock changes for all items to calculate total sold units and last sale dates
       const allItemIds = allEligibleItems.map(item => item.id);
       const { data: stockChanges } = await (supabase as any)
         .from('stock_changes')
-        .select('inventory_id, change_amount')
+        .select('inventory_id, change_amount, created_at')
         .in('inventory_id', allItemIds)
-        .lt('change_amount', 0);
+        .lt('change_amount', 0)
+        .order('created_at', { ascending: false });
 
-      // Create map of total sold units per item
+      // Create map of total sold units and last sale date per item
       const totalSoldMap = new Map<string, number>();
+      const lastSaleDateMap = new Map<string, string>();
       (stockChanges || []).forEach((change: any) => {
+        // Track total sold units
         const current = totalSoldMap.get(change.inventory_id) || 0;
         totalSoldMap.set(change.inventory_id, current + Math.abs(change.change_amount));
+        
+        // Track last sale date (most recent negative change)
+        if (!lastSaleDateMap.has(change.inventory_id)) {
+          lastSaleDateMap.set(change.inventory_id, change.created_at);
+        }
       });
 
       // 1. Items with status='no-stock' → Out of Stock tab
@@ -548,7 +556,7 @@ export function Replenishment() {
         recommended_reorder_quantity: item.recommended_reorder_quantity,
         table_name: 'asin_inventory',
         status: item.status,
-        date_sold: item.last_sold_date,
+        date_sold: lastSaleDateMap.get(item.id) || item.last_sold_date,
         last_restock_date: item.last_order_date,
         days_since_last_restock: item.days_since_ordered,
         date_added: item.date_added,
@@ -580,7 +588,7 @@ export function Replenishment() {
         recommended_reorder_quantity: item.recommended_reorder_quantity,
         table_name: 'asin_inventory',
         status: item.status,
-        date_sold: item.last_sold_date,
+        date_sold: lastSaleDateMap.get(item.id) || item.last_sold_date,
         last_restock_date: item.last_order_date,
         days_since_last_restock: item.days_since_ordered,
         date_added: item.date_added,
@@ -611,7 +619,7 @@ export function Replenishment() {
         recommended_reorder_quantity: item.recommended_reorder_quantity,
         table_name: 'asin_inventory',
         status: item.status,
-        date_sold: item.last_sold_date,
+        date_sold: lastSaleDateMap.get(item.id) || item.last_sold_date,
         last_restock_date: item.last_order_date,
         days_since_last_restock: item.days_since_ordered,
         date_added: item.date_added,
@@ -637,7 +645,7 @@ export function Replenishment() {
         recommended_reorder_quantity: item.recommended_reorder_quantity,
         table_name: 'asin_inventory',
         status: item.status,
-        date_sold: item.last_sold_date,
+        date_sold: lastSaleDateMap.get(item.id) || item.last_sold_date,
         last_restock_date: item.last_order_date,
         days_since_last_restock: item.days_since_ordered,
         date_added: item.date_added,
