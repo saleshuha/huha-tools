@@ -177,16 +177,18 @@ export function ReplenishmentItemCard({
               </div>
             </div>
 
-            {/* Sunsky Order Quantity */}
-            <div className="flex items-center gap-1.5">
-              <ShoppingCart className="w-3.5 h-3.5 text-primary" />
-              <div>
-                <div className="text-muted-foreground">Sunsky Qty</div>
-                <div className="font-semibold">
-                  {item.restock_quantity || item.ordered_quantity || 'N/A'} {(item.restock_quantity || item.ordered_quantity) ? 'units' : ''}
+            {/* Sunsky Order Quantity - Show when available */}
+            {(item.restock_quantity || item.ordered_quantity) && (
+              <div className="flex items-center gap-1.5">
+                <ShoppingCart className="w-3.5 h-3.5 text-primary" />
+                <div>
+                  <div className="text-muted-foreground">Sunsky Qty</div>
+                  <div className="font-semibold">
+                    {item.restock_quantity || item.ordered_quantity} units
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Order Information - Only for ordered items */}
             {item.status === 'ordered' && (
