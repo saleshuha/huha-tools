@@ -421,12 +421,16 @@ export function Replenishment() {
         title: item.title,
         quantity: item.quantity,
         ordered_quantity: item.ordered_quantity,
+        restock_quantity: item.restock_quantity,
         status: item.status,
         last_sold_date: item.date_sold,
         last_order_date: item.last_restock_date,
         days_since_ordered: item.last_restock_date ? Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null,
         date_added: item.date_added,
-        notes: item.notes
+        notes: item.notes,
+        ordered_at: item.ordered_at,
+        sunsky_order_number: item.sunsky_order_number,
+        velocity_order_ref: item.velocity_order_ref
       }));
       const allInventoryItems = [...asinItems];
       console.log('Processed inventory items:', allInventoryItems);
