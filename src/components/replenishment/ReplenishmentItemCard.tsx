@@ -191,11 +191,11 @@ export function ReplenishmentItemCard({
                   </div>
                 </div>
 
-                {/* Order Qty */}
+                {/* Recommended Qty */}
                 <div className="flex items-center gap-1.5">
                   <Package className="w-3.5 h-3.5 text-green-600" />
                   <div>
-                    <div className="text-muted-foreground">Order Qty</div>
+                    <div className="text-muted-foreground">Recommended Qty</div>
                     <div className="font-semibold">
                       {item.restock_quantity || item.ordered_quantity || 'N/A'} {(item.restock_quantity || item.ordered_quantity) ? 'units' : ''}
                     </div>
