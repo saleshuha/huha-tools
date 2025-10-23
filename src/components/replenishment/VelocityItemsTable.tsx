@@ -168,7 +168,6 @@ export function VelocityItemsTable({
                 <TableHead>Sunsky Order</TableHead>
                 <SortableHeader field="ordered_qty">Ordered Qty</SortableHeader>
                 <TableHead>Ordered At</TableHead>
-                {showActions && <TableHead className="text-right">Actions</TableHead>}
               </>
             )}
           </TableRow>
@@ -176,7 +175,7 @@ export function VelocityItemsTable({
         <TableBody>
           {sortedItems.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={mode === 'ready' ? 10 : 13} className="h-32 text-center">
+              <TableCell colSpan={mode === 'ready' ? 10 : 12} className="h-32 text-center">
                 <div className="flex flex-col items-center justify-center text-muted-foreground">
                   <Package className="w-12 h-12 mb-2 opacity-50" />
                   <p className="text-sm">No items found</p>
@@ -309,19 +308,6 @@ export function VelocityItemsTable({
                       <TableCell className="text-xs">
                         {item.ordered_at ? new Date(item.ordered_at).toLocaleDateString() : '-'}
                       </TableCell>
-                      {showActions && (
-                        <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => onClearOverride(item.asin_id)}
-                            className="gap-1 h-7 text-xs"
-                          >
-                            <RotateCcw className="w-3 h-3" />
-                            Restore
-                          </Button>
-                        </TableCell>
-                      )}
                     </>
                   )}
                 </TableRow>
