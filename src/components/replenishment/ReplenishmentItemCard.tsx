@@ -181,9 +181,9 @@ export function ReplenishmentItemCard({
             <div className="flex items-center gap-1.5">
               <ShoppingCart className="w-3.5 h-3.5 text-primary" />
               <div>
-                <div className="text-muted-foreground">Sunsky Qty</div>
+                <div className="text-muted-foreground">Order Qty</div>
                 <div className="font-semibold">
-                  {item.restock_quantity || item.ordered_quantity || 0} units
+                  {item.restock_quantity || 0} units
                 </div>
               </div>
             </div>
