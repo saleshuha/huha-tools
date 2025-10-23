@@ -178,13 +178,13 @@ export function ReplenishmentItemCard({
               </div>
             </div>
 
-            {/* Sunsky Order Quantity */}
+            {/* System Recommended Order Quantity */}
             <div className="flex items-center gap-1.5">
               <ShoppingCart className="w-3.5 h-3.5 text-primary" />
               <div>
-                <div className="text-muted-foreground">Order Qty</div>
+                <div className="text-muted-foreground">Recommended Qty</div>
                 <div className="font-semibold">
-                  {item.recommended_reorder_quantity || item.restock_quantity || 0} units
+                  {item.recommended_reorder_quantity || 0} units
                 </div>
               </div>
             </div>
