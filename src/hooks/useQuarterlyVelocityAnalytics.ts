@@ -42,7 +42,7 @@ export function useQuarterlyVelocityAnalytics() {
       setLoading(true);
       
       // Parallelize all data fetching for better performance (~50% faster)
-      const [velocityResult, overridesResult, exportModesResult] = await Promise.all([
+      const [velocityResult, overridesResult, exportModesResult, orderInfoResult] = await Promise.all([
         supabase.rpc('get_quarterly_velocity_analysis', {
           country_filter: selectedCountry,
           lookback_years: lookbackYears
@@ -51,7 +51,9 @@ export function useQuarterlyVelocityAnalytics() {
         ((supabase as any)
           .from('export_mode_preferences')
           .select('item_id, export_mode')
-          .eq('item_type', 'asin_inventory'))
+          .eq('item_type', 'asin_inventory')),
+        // Fetch order-related fields from asin_inventory
+        supabase.from('asin_inventory').select('id, velocity_order_ref, sunsky_order_number, ordered_quantity, ordered_at')
       ]);
 
       if (velocityResult.error) throw velocityResult.error;
@@ -63,6 +65,9 @@ export function useQuarterlyVelocityAnalytics() {
       if (exportModesResult.error) {
         console.error('Error loading export modes:', exportModesResult.error);
       }
+      if (orderInfoResult.error) {
+        console.error('Error loading order info:', orderInfoResult.error);
+      }
 
       // Create maps for quick lookup
       const overridesMap = new Map(
@@ -73,13 +78,40 @@ export function useQuarterlyVelocityAnalytics() {
         ((exportModesResult.data as any) || []).map((m: any) => [m.item_id, m.export_mode])
       );
 
-      // Merge overrides and export modes with analytics data, filter to only global items
+      // Create map for order information by asin_id
+      const orderInfoMap = new Map<string, {
+        velocity_order_ref?: string;
+        sunsky_order_number?: string;
+        ordered_quantity?: number;
+        ordered_at?: string;
+      }>(
+        ((orderInfoResult.data as any) || []).map((o: any) => [o.id, {
+          velocity_order_ref: o.velocity_order_ref,
+          sunsky_order_number: o.sunsky_order_number,
+          ordered_quantity: o.ordered_quantity,
+          ordered_at: o.ordered_at
+        }])
+      );
+
+      // Merge all data with analytics data, filter to only global items
       const itemsWithOverrides = ((velocityResult.data || []) as any)
-        .map((item: any) => ({
-          ...item,
-          manual_override: overridesMap.get(item.asin_id),
-          export_mode: exportModesMap.get(item.asin_id) || 'global'
-        }))
+        .map((item: any) => {
+          const orderInfo = orderInfoMap.get(item.asin_id) || {
+            velocity_order_ref: undefined,
+            sunsky_order_number: undefined,
+            ordered_quantity: undefined,
+            ordered_at: undefined
+          };
+          return {
+            ...item,
+            manual_override: overridesMap.get(item.asin_id),
+            export_mode: exportModesMap.get(item.asin_id) || 'global',
+            velocity_order_ref: orderInfo.velocity_order_ref,
+            sunsky_order_number: orderInfo.sunsky_order_number,
+            ordered_quantity: orderInfo.ordered_quantity,
+            ordered_at: orderInfo.ordered_at
+          };
+        })
         .filter((item: any) => item.export_mode === 'global');
 
       setItems(itemsWithOverrides);
