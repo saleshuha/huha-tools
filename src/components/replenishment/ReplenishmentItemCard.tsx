@@ -16,6 +16,7 @@ interface ReplenishmentItemCardProps {
     current_quantity: number;
     ordered_quantity?: number;
     restock_quantity?: number | null;
+    recommended_reorder_quantity?: number;
     status: string;
     date_sold?: string | null;
     last_restock_date?: string | null;
@@ -183,7 +184,7 @@ export function ReplenishmentItemCard({
               <div>
                 <div className="text-muted-foreground">Order Qty</div>
                 <div className="font-semibold">
-                  {item.restock_quantity || 0} units
+                  {item.recommended_reorder_quantity || item.restock_quantity || 0} units
                 </div>
               </div>
             </div>
