@@ -32,6 +32,18 @@ export interface InventoryMetrics {
     totalActiveItems: number;
     criticalStockItems: number;
   };
+  // Dashboard aggregate fields
+  totalActiveAsins: number;
+  totalActiveSkus: number;
+  inStockItems: number;
+  outOfStockItems: number;
+  totalAsinQuantity: number;
+  totalSkuQuantity: number;
+  soldAsin30Days: number;
+  soldSku30Days: number;
+  missingSkuCount: number;
+  missingTitleCount: number;
+  missingImageCount: number;
 }
 
 export function useInventoryAnalytics() {
@@ -44,7 +56,18 @@ export function useInventoryAnalytics() {
       recommendedReorderLevel: 0,
       totalActiveItems: 0,
       criticalStockItems: 0
-    }
+    },
+    totalActiveAsins: 0,
+    totalActiveSkus: 0,
+    inStockItems: 0,
+    outOfStockItems: 0,
+    totalAsinQuantity: 0,
+    totalSkuQuantity: 0,
+    soldAsin30Days: 0,
+    soldSku30Days: 0,
+    missingSkuCount: 0,
+    missingTitleCount: 0,
+    missingImageCount: 0
   });
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -147,6 +170,60 @@ export function useInventoryAnalytics() {
       const totalActiveItems = asinItems?.length || 0;
       const criticalStockItems = (asinItems as any)?.filter((item: any) => item.quantity <= 1).length || 0;
 
+      // Calculate aggregate dashboard metrics
+      let asinCountQuery = supabase
+        .from('asin_inventory')
+        .select('id, quantity, sku, title', { count: 'exact' })
+        .neq('status', 'sold');
+      
+      let skuCountQuery = supabase
+        .from('sku_inventory')
+        .select('id, quantity', { count: 'exact' });
+
+      if (country) {
+        asinCountQuery = asinCountQuery.eq('country', country);
+        skuCountQuery = skuCountQuery.eq('country', country);
+      }
+
+      const [
+        { data: allAsins, count: totalAsins },
+        { data: allSkus, count: totalSkus },
+        { data: inStockAsins },
+        { data: outOfStockAsins },
+        { data: missingSkuAsins },
+        { data: missingTitleAsins }
+      ] = await Promise.all([
+        asinCountQuery,
+        skuCountQuery,
+        supabase.from('asin_inventory').select('id').eq('status', 'in-stock').eq('country', country || ''),
+        supabase.from('asin_inventory').select('id').or('quantity.eq.0,quantity.is.null').neq('status', 'sold').eq('country', country || ''),
+        supabase.from('asin_inventory').select('id').or('sku.is.null,sku.eq.').eq('country', country || ''),
+        supabase.from('asin_inventory').select('id').or('title.is.null,title.eq.').eq('country', country || '')
+      ]);
+
+      // Calculate total quantities
+      const totalAsinQuantity = (allAsins as any)?.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) || 0;
+      const totalSkuQuantity = (allSkus as any)?.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) || 0;
+
+      // Count missing images (ASINs without images in product_images table)
+      const { data: asinIds } = await supabase
+        .from('asin_inventory')
+        .select('id')
+        .eq('country', country || '');
+      
+      const asinIdsArray = (asinIds as any)?.map((a: any) => a.id) || [];
+      
+      let missingImageCount = 0;
+      if (asinIdsArray.length > 0) {
+        const { data: imagesData } = await supabase
+          .from('product_images')
+          .select('asin_id')
+          .in('asin_id', asinIdsArray);
+        
+        const asinIdsWithImages = new Set((imagesData as any)?.map((img: any) => img.asin_id) || []);
+        missingImageCount = asinIdsArray.filter((id: string) => !asinIdsWithImages.has(id)).length;
+      }
+
       setInventoryMetrics({
         salesTracking,
         restockTracking,
@@ -155,7 +232,18 @@ export function useInventoryAnalytics() {
           recommendedReorderLevel: Math.ceil(salesTracking['30d'] / 30 * 14), // 14 days of stock
           totalActiveItems,
           criticalStockItems
-        }
+        },
+        totalActiveAsins: totalAsins || 0,
+        totalActiveSkus: totalSkus || 0,
+        inStockItems: inStockAsins?.length || 0,
+        outOfStockItems: outOfStockAsins?.length || 0,
+        totalAsinQuantity,
+        totalSkuQuantity,
+        soldAsin30Days: salesTracking['30d'] || 0,
+        soldSku30Days: 0, // TODO: Implement SKU sold tracking if needed
+        missingSkuCount: missingSkuAsins?.length || 0,
+        missingTitleCount: missingTitleAsins?.length || 0,
+        missingImageCount
       });
 
     } catch (error: any) {

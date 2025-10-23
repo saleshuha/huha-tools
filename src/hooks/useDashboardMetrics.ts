@@ -5,6 +5,7 @@ import { useQuarterlyVelocityAnalytics } from './useQuarterlyVelocityAnalytics';
 import { usePOMetrics } from './usePOMetrics';
 import { useAmazonOrders } from './useAmazonOrders';
 import { usePaymentTerms } from './usePaymentTerms';
+import { supabase } from '@/integrations/supabase/client';
 
 export function useDashboardMetrics() {
   const { selectedCountry } = useCountry();
@@ -13,25 +14,41 @@ export function useDashboardMetrics() {
   // Load all data sources
   const { inventoryMetrics, loading: inventoryLoading, loadAnalytics: reloadInventory } = useInventoryAnalytics();
   const { items: velocityItems, loading: velocityLoading, loadAnalytics: reloadVelocity } = useQuarterlyVelocityAnalytics();
-  const { metrics: poMetrics, totals: poTotals, isLoading: poLoading, fetchMetrics: reloadPO } = usePOMetrics();
+  const { metrics: poMetrics, totals: poTotals, isLoading: poLoading, fetchMetrics: reloadPO, fetchTotals: reloadPOTotals } = usePOMetrics();
   const { metrics: fulfillmentMetrics, loading: fulfillmentLoading, refetch: reloadFulfillment } = useAmazonOrders();
   const { paymentTerms } = usePaymentTerms();
 
   const isLoading = inventoryLoading || velocityLoading || poLoading || fulfillmentLoading;
 
+  // Load all data on mount
+  useEffect(() => {
+    const initializeData = async () => {
+      await Promise.all([
+        reloadInventory(selectedCountry),
+        reloadVelocity(2), // Load 2 years of velocity data
+        reloadPO(),
+        reloadPOTotals(),
+        reloadFulfillment()
+      ]);
+      setLastUpdated(new Date());
+    };
+    
+    initializeData();
+  }, [selectedCountry]);
+
   // Process inventory metrics
   const inventoryData = inventoryMetrics ? {
-    totalAsins: inventoryMetrics.salesTracking?.totalActiveAsins || 0,
-    totalSkus: inventoryMetrics.salesTracking?.totalActiveSkus || 0,
-    inStockCount: inventoryMetrics.restockTracking?.inStockItems || 0,
-    outOfStockCount: inventoryMetrics.restockTracking?.outOfStockItems || 0,
-    totalAsinUnits: inventoryMetrics.salesTracking?.totalAsinQuantity || 0,
-    totalSkuUnits: inventoryMetrics.salesTracking?.totalSkuQuantity || 0,
-    soldAsinUnits: inventoryMetrics.salesTracking?.soldAsin30Days || 0,
-    soldSkuUnits: inventoryMetrics.salesTracking?.soldSku30Days || 0,
-    missingSku: 0, // Not available in current metrics
-    missingTitle: 0,
-    missingImage: 0,
+    totalAsins: inventoryMetrics.totalActiveAsins || 0,
+    totalSkus: inventoryMetrics.totalActiveSkus || 0,
+    inStockCount: inventoryMetrics.inStockItems || 0,
+    outOfStockCount: inventoryMetrics.outOfStockItems || 0,
+    totalAsinUnits: inventoryMetrics.totalAsinQuantity || 0,
+    totalSkuUnits: inventoryMetrics.totalSkuQuantity || 0,
+    soldAsinUnits: inventoryMetrics.soldAsin30Days || 0,
+    soldSkuUnits: inventoryMetrics.soldSku30Days || 0,
+    missingSku: inventoryMetrics.missingSkuCount || 0,
+    missingTitle: inventoryMetrics.missingTitleCount || 0,
+    missingImage: inventoryMetrics.missingImageCount || 0,
   } : null;
 
   // Process velocity metrics
@@ -57,8 +74,57 @@ export function useDashboardMetrics() {
   } : null;
 
   // Process PO metrics
+  const [poTimeline, setPoTimeline] = useState({ thisWeek: 0, thisMonth: 0, delayed: 0 });
+
+  // Calculate PO timeline on mount and when metrics change
+  useEffect(() => {
+    const calculatePOTimeline = async () => {
+      try {
+        const now = new Date();
+        const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const monthFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+        const [
+          { count: thisWeekCount },
+          { count: thisMonthCount },
+          { count: delayedCount }
+        ] = await Promise.all([
+          supabase
+            .from('po_orders')
+            .select('*', { count: 'exact', head: true })
+            .gte('expected_delivery_date', now.toISOString())
+            .lte('expected_delivery_date', weekFromNow.toISOString())
+            .neq('status', 'delivered'),
+          supabase
+            .from('po_orders')
+            .select('*', { count: 'exact', head: true })
+            .gte('expected_delivery_date', now.toISOString())
+            .lte('expected_delivery_date', monthFromNow.toISOString())
+            .neq('status', 'delivered'),
+          supabase
+            .from('po_orders')
+            .select('*', { count: 'exact', head: true })
+            .lt('expected_delivery_date', now.toISOString())
+            .neq('status', 'delivered')
+        ]);
+
+        setPoTimeline({
+          thisWeek: thisWeekCount || 0,
+          thisMonth: thisMonthCount || 0,
+          delayed: delayedCount || 0
+        });
+      } catch (error) {
+        console.error('Error calculating PO timeline:', error);
+      }
+    };
+
+    if (poMetrics) {
+      calculatePOTimeline();
+    }
+  }, [poMetrics]);
+
   const poData = poMetrics && poTotals ? {
-    activeOrders: poTotals.totalRecords || 0,
+    activeOrders: poTotals.activeRecords || 0,
     activeQuantity: poTotals.activeQuantity || 0,
     uniquePOs: poMetrics.uniquePONumbers || 0,
     statusBreakdown: {
@@ -79,11 +145,7 @@ export function useDashboardMetrics() {
         value: 0 
       },
     },
-    timeline: {
-      thisWeek: 0, // Would need to calculate from DB
-      thisMonth: 0,
-      delayed: 0,
-    },
+    timeline: poTimeline,
   } : null;
 
   // Process fulfillment metrics
@@ -97,9 +159,18 @@ export function useDashboardMetrics() {
     overdueValue: fulfillmentMetrics.overdueValue || 0,
     overdueCount: fulfillmentMetrics.overduePayments || 0,
     upcomingPayments: {
-      next7Days: { count: 0, value: 0 },
-      next30Days: { count: 0, value: 0 },
-      next90Days: { count: 0, value: 0 },
+      next7Days: { 
+        count: fulfillmentMetrics.upcomingPayments?.next7Days || 0, 
+        value: 0 
+      },
+      next30Days: { 
+        count: fulfillmentMetrics.upcomingPayments?.next30Days || 0, 
+        value: 0 
+      },
+      next90Days: { 
+        count: fulfillmentMetrics.upcomingPayments?.next90Days || 0, 
+        value: 0 
+      },
     },
     creditDays,
   } : null;
@@ -109,6 +180,7 @@ export function useDashboardMetrics() {
       reloadInventory(selectedCountry),
       reloadVelocity(2),
       reloadPO(),
+      reloadPOTotals(),
       reloadFulfillment()
     ]);
     setLastUpdated(new Date());
