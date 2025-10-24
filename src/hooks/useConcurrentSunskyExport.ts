@@ -261,7 +261,7 @@ export const useConcurrentSunskyExport = () => {
 
       // Track progress updates
       const progressTracker = new Map<string, ConcurrentExportProgress>();
-      const emptyPagesCount = useRef(0);
+      let emptyPagesCount = 0;
       
       // Calculate overall progress more frequently with dynamic recalculation
       const onApiProgress = async (progress: ConcurrentExportProgress) => {
