@@ -131,7 +131,7 @@ export const useConcurrentSunskyExport = () => {
           const response = await callSunskyAPI('searchProducts', searchParams, apiKey.id);
           
           if ((response?.success === true || response?.result === 'success') && response?.data) {
-            const pageProducts = response.data.products ?? response.data.result ?? [];
+            const pageProducts = response.data.products?.result ?? response.data.result ?? [];
             
             // Stop immediately if we get no products (end of data)
             if (!pageProducts || pageProducts.length === 0) {
@@ -228,13 +228,13 @@ export const useConcurrentSunskyExport = () => {
       let estimatedPages = 50; // Default conservative estimate
       
       if ((estimateResponse?.success === true || estimateResponse?.result === 'success') && estimateResponse?.data) {
-        const total = estimateResponse.data.total ?? estimateResponse.data.totalResults;
+        const total = estimateResponse.data.products?.total ?? estimateResponse.data.total ?? estimateResponse.data.totalResults;
         if (total) {
           estimatedTotal = total;
           estimatedPages = Math.ceil(estimatedTotal / config.pageSize);
-        } else if (estimateResponse.data.products?.length > 0) {
+        } else if (estimateResponse.data.products?.result?.length > 0 || estimateResponse.data.result?.length > 0) {
           // For unlimited exports, use a high estimate if no total is provided
-          const firstPageCount = estimateResponse.data.products.length;
+          const firstPageCount = estimateResponse.data.products?.result?.length ?? estimateResponse.data.result?.length ?? 0;
           if (firstPageCount === config.pageSize) {
             // For unlimited exports, start with a high estimate and let the API discovery handle the rest
             estimatedPages = config.maxPages === Number.MAX_SAFE_INTEGER ? 10000 : 100;
@@ -386,8 +386,9 @@ export const useConcurrentSunskyExport = () => {
           try {
             const altParams = { ...estimateParams, status: 1 };
             const altResponse = await callSunskyAPI('searchProducts', altParams, config.apiKeys[0].id);
-            if (altResponse?.data?.total > 0 || altResponse?.data?.products?.length > 0) {
-              const count = altResponse.data.total || altResponse.data.products.length;
+            const altTotal = altResponse?.data?.products?.total ?? altResponse?.data?.total ?? 0;
+            if (altTotal > 0 || altResponse?.data?.products?.result?.length > 0) {
+              const count = altTotal || altResponse.data.products?.result?.length || 0;
               suggestions.push(`✓ Try Status "Valid" - found ${count.toLocaleString()} products`);
             }
           } catch (e) {
@@ -401,8 +402,9 @@ export const useConcurrentSunskyExport = () => {
             const altParams = { ...estimateParams };
             delete altParams.categoryId;
             const altResponse = await callSunskyAPI('searchProducts', altParams, config.apiKeys[0].id);
-            if (altResponse?.data?.total > 0) {
-              suggestions.push(`✓ Try "All Categories" - found ${altResponse.data.total.toLocaleString()} products`);
+            const altTotal = altResponse?.data?.products?.total ?? altResponse?.data?.total ?? 0;
+            if (altTotal > 0) {
+              suggestions.push(`✓ Try "All Categories" - found ${altTotal.toLocaleString()} products`);
             }
           } catch (e) {
             console.warn('Could not check All Categories alternative:', e);

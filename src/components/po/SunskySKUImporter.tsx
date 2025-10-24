@@ -4330,8 +4330,9 @@ export const SunskySKUImporter: React.FC = () => {
                         
                         const response = await callSunskyAPI('searchProducts', previewParams, apiId);
                         
-                        if (response?.data?.total > 0 || response?.data?.products?.length > 0) {
-                          const count = response.data.total || response.data.products.length;
+                        const total = response?.data?.products?.total ?? response?.data?.total ?? 0;
+                        if (total > 0 || response?.data?.products?.result?.length > 0) {
+                          const count = total || response.data.products?.result?.length || 0;
                           setPreviewCount(count);
                           toast({
                             title: "Products Found",
