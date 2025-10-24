@@ -1072,9 +1072,10 @@ export const SunskySKUImporter: React.FC = () => {
   };
 
   // Download results as Excel
-  const downloadExportResults = () => {
-    if (!exportResults) return;
-    generateLegacyExcelFile(exportResults);
+  const downloadExportResults = (customResults?: typeof exportResults) => {
+    const resultsToDownload = customResults || exportResults;
+    if (!resultsToDownload) return;
+    generateLegacyExcelFile(resultsToDownload);
   };
 
   // Load available APIs
@@ -4222,9 +4223,6 @@ export const SunskySKUImporter: React.FC = () => {
                   {isExporting || isConcurrentExporting ? 'Exporting...' : 'Export Now'}
                 </Button>
                 
-                </div>
-              </div>
-                
                 <Button onClick={async () => {
                   console.log('🔥🔥🔥 RUN IN BACKGROUND BUTTON CLICKED!!!');
                   if (!runInBackground) {
@@ -4490,18 +4488,17 @@ export const SunskySKUImporter: React.FC = () => {
                           Estimated: ~{exportTotalItems} items
                         </span>}
                       
-                      {/* Partial Download Button */}
                       {isConcurrentExporting && concurrentExportResults?.products.length > 0 && (
                         <Button 
                           variant="outline" 
                           size="sm"
                           onClick={() => {
                             const partialResults = {
-                              ...concurrentExportResults,
+                              products: concurrentExportResults.products,
+                              categories: concurrentExportResults.categoriesMap,
                               totalFound: concurrentExportResults.products.length
                             };
                             
-                            // Use existing download function
                             downloadExportResults(partialResults);
                             
                             toast({
@@ -4548,6 +4545,7 @@ export const SunskySKUImporter: React.FC = () => {
                     </div>
                   </div>
                 </div>}
+              </div>
 
               {exportResults && <div className="space-y-4 mt-6">
                   <div className="grid grid-cols-3 gap-4">
@@ -4570,7 +4568,7 @@ export const SunskySKUImporter: React.FC = () => {
                   </div>
 
                   <div className="flex justify-center">
-                    <Button onClick={downloadExportResults} className="w-48">
+                    <Button onClick={() => downloadExportResults()} className="w-48">
                       <Download className="h-4 w-4 mr-2" />
                       Download Excel Report
                     </Button>
