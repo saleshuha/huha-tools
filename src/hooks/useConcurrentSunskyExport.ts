@@ -132,21 +132,25 @@ export const useConcurrentSunskyExport = () => {
           
           if ((response?.success === true || response?.result === 'success') && response?.data) {
             const pageProducts = response.data.products?.result ?? response.data.result ?? [];
+            const totalInResponse = response.data.products?.total ?? response.data.total ?? 0;
             
-            // Stop immediately if we get no products (end of data)
+            console.log(`📊 API ${apiKey.name} page ${currentPage}:`, {
+              productsReceived: pageProducts.length,
+              expectedPageSize: config.pageSize,
+              totalAvailable: totalInResponse,
+              isPartialPage: pageProducts.length < config.pageSize
+            });
+            
+            // Stop only if we get no products (end of data)
             if (!pageProducts || pageProducts.length === 0) {
-              console.log(`API ${apiKey.name} reached end of data at page ${currentPage} (no products)`);
+              console.log(`✅ API ${apiKey.name} finished at page ${currentPage} - no more products`);
               break;
             }
             
             results.push(...pageProducts);
             updateProgress('processing');
             
-            // Stop if we got fewer results than expected (end of data)
-            if (pageProducts.length < config.pageSize) {
-              console.log(`API ${apiKey.name} reached end of data at page ${currentPage} (partial page: ${pageProducts.length})`);
-              break;
-            }
+            console.log(`📄 API ${apiKey.name} page ${currentPage}: ${pageProducts.length} products (total: ${results.length})`);
           } else {
             console.warn(`API ${apiKey.name} page ${currentPage} returned no data or error`);
             // If we get no data, we might have reached the end
@@ -161,6 +165,12 @@ export const useConcurrentSunskyExport = () => {
 
         currentPage++;
         pagesProcessed++;
+        
+        // Safety check: if we've processed way more pages than expected, something is wrong
+        if (pagesProcessed > pageRange.maxPages * 1.5) {
+          console.warn(`⚠️ API ${apiKey.name} exceeded expected page count, stopping`);
+          break;
+        }
         
         // Rate limiting delay - reduce for unlimited exports
         await new Promise(resolve => setTimeout(resolve, 50)); // Reduced from 100ms
@@ -647,18 +657,18 @@ export const useConcurrentSunskyExport = () => {
           
         } catch (error) {
           console.error('Failed to complete background task with file:', error);
-          // Still mark as completed even if file generation fails
+          // Mark as failed when file generation fails
           await ((supabase as any)
             .from('background_tasks')
             .update({ 
               progress: 100,
               total_items: allProducts.length,
-              status: 'completed',
+              status: 'failed',
+              completed_at: new Date().toISOString(),
               metadata: {
-                currentStatus: completionMessage,
-                totalProcessed: allProducts.length,
-                completedAt: new Date().toISOString(),
-                error: `File generation failed: ${error.message}`
+                error: `Failed to process results: ${error.message}`,
+                totalProducts: allProducts.length,
+                failedAt: new Date().toISOString()
               }
             })
             .eq('id', backgroundTaskId));
