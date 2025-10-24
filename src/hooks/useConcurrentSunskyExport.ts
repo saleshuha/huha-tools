@@ -89,8 +89,15 @@ export const useConcurrentSunskyExport = () => {
     const results: any[] = [];
     let currentPage = pageRange.startPage;
     let pagesProcessed = 0;
+    let emptyPagesCount = 0;
 
-    const updateProgress = (status: ConcurrentExportProgress['status'], error?: string) => {
+    const updateProgress = (status: ConcurrentExportProgress['status'], error?: string, isEmpty: boolean = false) => {
+      if (isEmpty) {
+        emptyPagesCount++;
+      } else {
+        emptyPagesCount = 0; // Reset if we find products
+      }
+      
       const progress: ConcurrentExportProgress = {
         apiKeyId: apiKey.id,
         apiKeyName: apiKey.name,
@@ -254,8 +261,9 @@ export const useConcurrentSunskyExport = () => {
 
       // Track progress updates
       const progressTracker = new Map<string, ConcurrentExportProgress>();
+      const emptyPagesCount = useRef(0);
       
-      // Calculate overall progress more frequently
+      // Calculate overall progress more frequently with dynamic recalculation
       const onApiProgress = async (progress: ConcurrentExportProgress) => {
         progressTracker.set(progress.apiKeyId, progress);
         
@@ -264,16 +272,33 @@ export const useConcurrentSunskyExport = () => {
           prev.map(p => p.apiKeyId === progress.apiKeyId ? progress : p)
         );
         
+        // Track empty pages across all APIs
+        const totalProcessed = Array.from(progressTracker.values())
+          .reduce((sum, p) => sum + (p as ConcurrentExportProgress).processedItems, 0);
+        
         // Calculate overall progress based on completed pages across all APIs
         const totalPagesProcessed = Array.from(progressTracker.values())
           .reduce((sum, p) => sum + (p as ConcurrentExportProgress).currentPage, 0);
         const totalPagesExpected = config.apiKeys.reduce((sum, api) => 
           sum + (pageDistribution[api.id]?.maxPages || 0), 0);
-        const overallPercent = totalPagesExpected > 0 ? 
-          Math.min(95, (totalPagesProcessed / totalPagesExpected) * 100) : 0;
         
-        const totalProcessed = Array.from(progressTracker.values())
-          .reduce((sum, p) => sum + (p as ConcurrentExportProgress).processedItems, 0);
+        // Check if we're hitting empty pages consecutively
+        const completedAPIs = Array.from(progressTracker.values())
+          .filter(p => p.status === 'completed');
+        const emptyAPIs = completedAPIs.filter(p => p.processedItems === 0);
+        
+        let overallPercent;
+        if (emptyAPIs.length >= 2 && totalProcessed > 0) {
+          // Multiple APIs hitting empty pages, we're near the end
+          overallPercent = 95;
+        } else if (completedAPIs.length === config.apiKeys.length) {
+          // All APIs completed
+          overallPercent = 100;
+        } else {
+          // Normal calculation but cap at 90% until we know we're truly done
+          overallPercent = totalPagesExpected > 0 ? 
+            Math.min(90, (totalPagesProcessed / totalPagesExpected) * 100) : 0;
+        }
         
         setOverallProgress(overallPercent);
         const statusText = `Processing: ${totalProcessed} products found, ${totalPagesProcessed}/${totalPagesExpected} pages...`;
@@ -353,18 +378,51 @@ export const useConcurrentSunskyExport = () => {
           `Page Size: ${config.pageSize}`
         ];
         
+        // Smart filter suggestions - check alternatives
         const suggestions = [];
+        
+        // Try status 1 if they selected something else
         if (config.status !== 1) {
-          suggestions.push('• Try Status: Valid (status 1)');
+          try {
+            const altParams = { ...estimateParams, status: 1 };
+            const altResponse = await callSunskyAPI('searchProducts', altParams, config.apiKeys[0].id);
+            if (altResponse?.data?.total > 0 || altResponse?.data?.products?.length > 0) {
+              const count = altResponse.data.total || altResponse.data.products.length;
+              suggestions.push(`✓ Try Status "Valid" - found ${count.toLocaleString()} products`);
+            }
+          } catch (e) {
+            console.warn('Could not check Status 1 alternative:', e);
+          }
         }
+        
+        // Try all categories if they have a filter
         if (config.categoryId) {
-          suggestions.push('• Try All Categories');
+          try {
+            const altParams = { ...estimateParams };
+            delete altParams.categoryId;
+            const altResponse = await callSunskyAPI('searchProducts', altParams, config.apiKeys[0].id);
+            if (altResponse?.data?.total > 0) {
+              suggestions.push(`✓ Try "All Categories" - found ${altResponse.data.total.toLocaleString()} products`);
+            }
+          } catch (e) {
+            console.warn('Could not check All Categories alternative:', e);
+          }
         }
-        if ([2, 4].includes(config.status)) {
-          suggestions.push('• Status "Deleted" and "Hidden" often have no products');
+        
+        // Add general suggestions
+        if (suggestions.length === 0) {
+          if (config.status !== 1) {
+            suggestions.push('• Try Status: Valid (status 1)');
+          }
+          if (config.categoryId) {
+            suggestions.push('• Try All Categories');
+          }
+          if ([2, 4].includes(config.status)) {
+            suggestions.push('• Status "Deleted" and "Hidden" often have no products');
+          }
         }
 
-        const errorMessage = `No products found with these filters:\n\n${filterDetails.join('\n')}\n\nSuggestions:\n${suggestions.join('\n')}`;
+        const errorMessage = `No products found with these filters:\n\n${filterDetails.join('\n')}${suggestions.length > 0 ? '\n\nSuggested alternatives:\n' + suggestions.join('\n') : ''}`;
         
         setExportStatus('No products found - check filters');
         setOverallProgress(0);
@@ -374,7 +432,7 @@ export const useConcurrentSunskyExport = () => {
           title: "No Data Found",
           description: errorMessage,
           variant: "destructive",
-          duration: 10000
+          duration: 12000
         });
         
         // Mark background task as failed if provided
@@ -387,7 +445,13 @@ export const useConcurrentSunskyExport = () => {
                 completed_at: new Date().toISOString(),
                 metadata: {
                   error: 'No products found matching criteria',
-                  filters: filterDetails,
+                  filters: {
+                    status: config.status,
+                    statusLabel: getStatusLabel(config.status),
+                    categoryId: config.categoryId,
+                    pageSize: config.pageSize
+                  },
+                  suggestions,
                   totalProcessed: 0,
                   lastUpdate: new Date().toISOString()
                 }

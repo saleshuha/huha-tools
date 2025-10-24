@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
-import { Search, Plus, Download, AlertCircle, CheckCircle2, Package, Globe, Calendar, RefreshCw, Filter, Grid, List, Settings, Eye, Save, RotateCcw, Play, Pause, X, PauseCircle, PlayCircle, XCircle, Trash2, ChevronDown, Database, Wifi, Ban, SkipForward } from "lucide-react";
+import { Search, Plus, Download, AlertCircle, CheckCircle2, Package, Globe, Calendar, RefreshCw, Filter, Grid, List, Settings, Eye, Save, RotateCcw, Play, Pause, X, PauseCircle, PlayCircle, XCircle, Trash2, ChevronDown, Database, Wifi, Ban, SkipForward, Check, Zap, Clock } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -409,6 +409,8 @@ export const SunskySKUImporter: React.FC = () => {
   const [availableExportColumns, setAvailableExportColumns] = useState<string[]>(['itemNo', 'name', 'brandName', 'price', 'stock', 'status', 'leadTime', 'warehouse', 'moq', 'categoryId', 'description', 'unitWeight', 'packQty', 'unitLength', 'unitWidth', 'unitHeight', 'packWeight', 'packLength', 'packWidth', 'packHeight', 'barcode', 'orgPrice', 'priceExpired', 'picCount', 'baseImgCount', 'videoUrl', 'gmtListed', 'gmtModified', 'oem', 'withLogo', 'containsBattery']);
   const [selectedExportAPIs, setSelectedExportAPIs] = useState<string[]>([]);
   const [runInBackground, setRunInBackground] = useState<boolean>(false);
+  const [fetchingPreview, setFetchingPreview] = useState<boolean>(false);
+  const [previewCount, setPreviewCount] = useState<number | null>(null);
 
   // SKU table column management - match search results headers
   const [skuTableHeaders, setSkuTableHeaders] = useState<string[]>(['sku_code', 'title', 'cost', 'currency', 'weight', 'country', 'created_at']);
@@ -3848,6 +3850,67 @@ export const SunskySKUImporter: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Filter Presets */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Quick Presets</Label>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedExportStatus(1);
+                      setExportCategory('all');
+                      setExportSubCategory('all');
+                      setExportPageSize(100);
+                      toast({
+                        title: "Preset Applied",
+                        description: "Filters set to: All Valid Products",
+                        variant: "default"
+                      });
+                    }}
+                  >
+                    <Check className="h-3 w-3 mr-1" />
+                    All Valid
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedExportStatus(3);
+                      setExportCategory('all');
+                      setExportSubCategory('all');
+                      setExportPageSize(100);
+                      toast({
+                        title: "Preset Applied",
+                        description: "Filters set to: Out of Stock Products",
+                        variant: "default"
+                      });
+                    }}
+                  >
+                    <XCircle className="h-3 w-3 mr-1" />
+                    Out of Stock
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedExportStatus(1);
+                      setExportCategory('all');
+                      setExportSubCategory('all');
+                      setExportPageSize(20);
+                      toast({
+                        title: "Preset Applied",
+                        description: "Filters set to: Quick Test (20 items)",
+                        variant: "default"
+                      });
+                    }}
+                  >
+                    <Zap className="h-3 w-3 mr-1" />
+                    Quick Test
+                  </Button>
+                </div>
+              </div>
+              
               {/* Export Configuration */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {/* Product Status */}
@@ -3984,14 +4047,121 @@ export const SunskySKUImporter: React.FC = () => {
                 </DropdownMenu>
               </div>
 
-              {/* Export Actions */}
-              <div className="flex items-center gap-4">
-                {/* Debug info */}
-                <div className="text-xs text-muted-foreground">
-                  Debug: runInBackground={runInBackground.toString()}, hasCredentials={hasCredentials.toString()}
+              {/* Preview & Export Actions */}
+              <div className="space-y-4">
+                {/* Preview Count Section */}
+                <div className="flex items-center gap-4">
+                  <Button 
+                    onClick={async () => {
+                      setFetchingPreview(true);
+                      try {
+                        let effectiveCategoryId = undefined;
+                        if (exportSubCategory !== 'all') {
+                          effectiveCategoryId = parseInt(exportSubCategory);
+                        } else if (exportCategory !== 'all') {
+                          effectiveCategoryId = parseInt(exportCategory);
+                        }
+                        
+                        const previewParams: any = {
+                          page: 1,
+                          pageSize: 1,
+                          status: selectedExportStatus,
+                          lang: 'en'
+                        };
+                        if (effectiveCategoryId) {
+                          previewParams.categoryId = effectiveCategoryId;
+                        }
+                        
+                        const apiId = selectedExportAPIs.length > 0 
+                          ? selectedExportAPIs[0] 
+                          : availableAPIs.find(api => api.is_active)?.id;
+                          
+                        if (!apiId) {
+                          toast({
+                            title: "No API Key Available",
+                            description: "Please ensure at least one API key is active",
+                            variant: "destructive"
+                          });
+                          return;
+                        }
+                        
+                        const response = await callSunskyAPI('searchProducts', previewParams, apiId);
+                        
+                        if (response?.data?.total > 0 || response?.data?.products?.length > 0) {
+                          const count = response.data.total || response.data.products.length;
+                          setPreviewCount(count);
+                          toast({
+                            title: "Products Found",
+                            description: `Approximately ${count.toLocaleString()} products match your filters`,
+                            variant: "default"
+                          });
+                        } else {
+                          setPreviewCount(0);
+                          toast({
+                            title: "No Products Found",
+                            description: "No products match your current filter combination. Try different filters.",
+                            variant: "destructive"
+                          });
+                        }
+                      } catch (error) {
+                        console.error('Preview failed:', error);
+                        toast({
+                          title: "Preview Failed",
+                          description: "Could not fetch product count: " + (error as Error).message,
+                          variant: "destructive"
+                        });
+                      } finally {
+                        setFetchingPreview(false);
+                      }
+                    }}
+                    variant="outline"
+                    disabled={fetchingPreview || !hasCredentials}
+                  >
+                    {fetchingPreview ? (
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Search className="h-4 w-4 mr-2" />
+                    )}
+                    Preview Count
+                  </Button>
+                  
+                  {previewCount !== null && (
+                    <div className="flex items-center gap-4 text-sm">
+                      <div className="text-muted-foreground">
+                        ~{previewCount.toLocaleString()} products match your filters
+                      </div>
+                      {previewCount > 0 && (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          Estimated time: {(() => {
+                            const apiCount = selectedExportAPIs.length > 0 
+                              ? selectedExportAPIs.length 
+                              : availableAPIs.filter(a => a.is_active).length;
+                            const totalPages = Math.ceil(previewCount / exportPageSize);
+                            const secondsPerRequest = 3;
+                            const effectiveSeconds = (totalPages * secondsPerRequest) / apiCount;
+                            const minutes = Math.floor(effectiveSeconds / 60);
+                            const seconds = Math.floor(effectiveSeconds % 60);
+                            
+                            if (minutes > 60) {
+                              const hours = Math.floor(minutes / 60);
+                              const remainingMins = minutes % 60;
+                              return `~${hours}h ${remainingMins}m`;
+                            } else if (minutes > 0) {
+                              return `~${minutes}m ${seconds}s`;
+                            } else {
+                              return `~${seconds}s`;
+                            }
+                          })()}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 
-                <Button onClick={() => {
+                {/* Export Button */}
+                <div className="flex items-center gap-4">
+                  <Button onClick={() => {
                   // Direct foreground export without the old function
                   if (!hasCredentials) {
                     toast({
@@ -4051,6 +4221,9 @@ export const SunskySKUImporter: React.FC = () => {
                   {isExporting || isConcurrentExporting ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
                   {isExporting || isConcurrentExporting ? 'Exporting...' : 'Export Now'}
                 </Button>
+                
+                </div>
+              </div>
                 
                 <Button onClick={async () => {
                   console.log('🔥🔥🔥 RUN IN BACKGROUND BUTTON CLICKED!!!');
@@ -4313,9 +4486,36 @@ export const SunskySKUImporter: React.FC = () => {
                   <div className="flex items-center justify-between text-sm">
                     <p className="text-muted-foreground">{isConcurrentExporting ? concurrentExportStatus : exportStatus}</p>
                     <div className="flex items-center gap-4">
-                      {exportTotalItems > 0 && !isConcurrentExporting && <span className="text-primary font-medium">
+                  {exportTotalItems > 0 && !isConcurrentExporting && <span className="text-primary font-medium">
                           Estimated: ~{exportTotalItems} items
                         </span>}
+                      
+                      {/* Partial Download Button */}
+                      {isConcurrentExporting && concurrentExportResults?.products.length > 0 && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            const partialResults = {
+                              ...concurrentExportResults,
+                              totalFound: concurrentExportResults.products.length
+                            };
+                            
+                            // Use existing download function
+                            downloadExportResults(partialResults);
+                            
+                            toast({
+                              title: "Partial Results Downloaded",
+                              description: `Downloaded ${partialResults.products.length} products found so far. Export continues in background.`,
+                              variant: "default"
+                            });
+                          }}
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          Download {concurrentExportResults.products.length} Found So Far
+                        </Button>
+                      )}
+                      
                       {isConcurrentExporting && concurrentExportProgress.length > 0 && <div className="space-y-1">
                           <span className="text-xs text-muted-foreground">API Progress:</span>
                           {concurrentExportProgress.map((apiProgress, index) => {
