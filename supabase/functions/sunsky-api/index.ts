@@ -237,6 +237,7 @@ async function handleSearchProducts(params: any, key: string, secret: string) {
     data: {
       products: result.data || [],
       total: result.total || 0,
+      totalResults: result.total || 0, // Add for compatibility
       pageCount: result.pageCount || 0,
       page: searchParams.page,
       pageSize: searchParams.pageSize

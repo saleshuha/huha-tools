@@ -721,7 +721,9 @@ export const SunskySKUImporter: React.FC = () => {
       let totalProcessed = 0;
       let estimatedTotal = 0;
       let hasMore = true;
-      const perKeyDelay = 250; // 250ms delay per API key for level 9 limits
+      // Sunsky Level 9 rate limit: 200 requests per 10 minutes = 1 request every 3 seconds
+      // With multiple API keys, we can parallelize: effectiveDelay = 3000ms / apiCount
+      const perKeyDelay = Math.max(250, 3000 / apiIds.length); // Minimum 250ms, respects rate limit with multiple keys
       let currentApiIndex = 0;
       let isCancelled = false;
       updateProgress(5, 'Fetching categories...');
@@ -3856,12 +3858,22 @@ export const SunskySKUImporter: React.FC = () => {
                       <SelectValue placeholder="Select status to export" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">Valid</SelectItem>
-                      <SelectItem value="2">Deleted</SelectItem>
+                      <SelectItem value="1">Valid ✓</SelectItem>
+                      <SelectItem value="2">Deleted ⚠️</SelectItem>
                       <SelectItem value="3">Out of Stock</SelectItem>
-                      <SelectItem value="4">Hidden (too old)</SelectItem>
+                      <SelectItem value="4">Hidden (too old) ⚠️</SelectItem>
                     </SelectContent>
                   </Select>
+                  {[2, 4].includes(selectedExportStatus) && (
+                    <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 border border-warning/20">
+                      <AlertCircle className="h-4 w-4 text-warning mt-0.5 flex-shrink-0" />
+                      <p className="text-xs text-warning">
+                        {selectedExportStatus === 2 
+                          ? 'Status "Deleted" may have no products available for export.'
+                          : 'Status "Hidden (too old)" rarely returns data. Try Status "Valid" instead.'}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Category Filter */}

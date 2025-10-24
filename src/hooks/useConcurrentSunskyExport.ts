@@ -337,15 +337,44 @@ export const useConcurrentSunskyExport = () => {
       
       // Check if we actually found any products
       if (allProducts.length === 0) {
-        const noDataMessage = `No products found matching the criteria. Export cancelled.`;
-        setExportStatus(noDataMessage);
+        const getStatusLabel = (status: number) => {
+          const labels: Record<number, string> = {
+            1: 'Valid',
+            2: 'Deleted',
+            3: 'Out of Stock',
+            4: 'Hidden (too old)'
+          };
+          return labels[status] || `Status ${status}`;
+        };
+
+        const filterDetails = [
+          `Status: ${getStatusLabel(config.status)}`,
+          config.categoryId ? `Category ID: ${config.categoryId}` : 'All Categories',
+          `Page Size: ${config.pageSize}`
+        ];
+        
+        const suggestions = [];
+        if (config.status !== 1) {
+          suggestions.push('• Try Status: Valid (status 1)');
+        }
+        if (config.categoryId) {
+          suggestions.push('• Try All Categories');
+        }
+        if ([2, 4].includes(config.status)) {
+          suggestions.push('• Status "Deleted" and "Hidden" often have no products');
+        }
+
+        const errorMessage = `No products found with these filters:\n\n${filterDetails.join('\n')}\n\nSuggestions:\n${suggestions.join('\n')}`;
+        
+        setExportStatus('No products found - check filters');
         setOverallProgress(0);
         setIsExporting(false);
         
         toast({
           title: "No Data Found",
-          description: "No products were found matching your export criteria. Please check your filters and try again.",
-          variant: "destructive"
+          description: errorMessage,
+          variant: "destructive",
+          duration: 10000
         });
         
         // Mark background task as failed if provided
@@ -358,6 +387,7 @@ export const useConcurrentSunskyExport = () => {
                 completed_at: new Date().toISOString(),
                 metadata: {
                   error: 'No products found matching criteria',
+                  filters: filterDetails,
                   totalProcessed: 0,
                   lastUpdate: new Date().toISOString()
                 }
