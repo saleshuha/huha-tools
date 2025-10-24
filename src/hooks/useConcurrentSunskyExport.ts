@@ -156,6 +156,12 @@ export const useConcurrentSunskyExport = () => {
             }
             
             results.push(...pageProducts);
+            
+            // Update partial data ref incrementally so cancellation can save progress
+            if (partialDataRef.current[exportId]) {
+              partialDataRef.current[exportId].products.push(...pageProducts);
+            }
+            
             updateProgress('processing');
             
             console.log(`📄 API ${apiKey.name} page ${currentPage}: ${pageProducts.length} products (total: ${results.length})`);
@@ -366,11 +372,11 @@ export const useConcurrentSunskyExport = () => {
         )
       );
 
-      // Wait for all API keys to complete
+      // Wait for all API keys to complete (or cancelled)
       const apiResults = await Promise.all(apiPromises);
       
-      // Combine all results
-      const allProducts = apiResults.flat();
+      // Get products from partialDataRef (which was updated incrementally)
+      const allProducts = partialDataRef.current[exportId]?.products || apiResults.flat();
       
       // Organize products by category
       const categoriesMap = new Map<number, { name: string; products: any[] }>();
@@ -385,9 +391,8 @@ export const useConcurrentSunskyExport = () => {
         categoriesMap.get(categoryId)?.products.push(product);
       });
       
-      // Update partial data with results
+      // Update categoriesMap in partial data
       if (partialDataRef.current[exportId]) {
-        partialDataRef.current[exportId].products = allProducts;
         partialDataRef.current[exportId].categoriesMap = categoriesMap;
       }
       
@@ -395,16 +400,8 @@ export const useConcurrentSunskyExport = () => {
       if (cancellationRef.current[exportId]) {
         setExportStatus('Processing cancellation...');
         
-        // Save partial results if we have any
-        if (allProducts.length > 0) {
-          await cancelExport(
-            exportId, 
-            allProducts, 
-            categoriesMap, 
-            backgroundTaskId, 
-            config
-          );
-        }
+        // cancelExport will use partialDataRef automatically
+        await cancelExport(exportId);
         
         setIsExporting(false);
         delete partialDataRef.current[exportId];
@@ -770,26 +767,33 @@ export const useConcurrentSunskyExport = () => {
     cancellationRef.current[exportId] = true;
     setExportStatus('Stopping export and saving partial results...');
     
+    // If no partial data provided, try to get it from partialDataRef
+    const partialData = partialDataRef.current[exportId];
+    const productsToSave = partialProducts || partialData?.products || [];
+    const categoriesMapToUse = categoriesMap || partialData?.categoriesMap || new Map();
+    const taskId = backgroundTaskId || partialData?.backgroundTaskId;
+    const configToUse = config || partialData?.config;
+    
     // If we have partial data, save it as a downloadable export
-    if (partialProducts && partialProducts.length > 0 && backgroundTaskId && config) {
+    if (productsToSave.length > 0 && taskId && configToUse) {
       try {
-        console.log('💾 Saving partial results:', partialProducts.length, 'products');
+        console.log('💾 Saving partial results:', productsToSave.length, 'products');
         
         // Generate Excel file from partial data
         const { generateExcelFile } = await import('@/utils/excelExport');
-        const categoryName = categoriesMap && config.categoryId ? 
-          categoriesMap.get(config.categoryId)?.name || 'All Categories' : 
+        const categoryName = categoriesMapToUse && configToUse.categoryId ? 
+          categoriesMapToUse.get(configToUse.categoryId)?.name || 'All Categories' : 
           'All Categories';
         
         const fileName = await generateExcelFile({
-          data: partialProducts,
-          categoriesMap: categoriesMap || new Map(),
+          data: productsToSave,
+          categoriesMap: categoriesMapToUse,
           config: {
-            status: config.status,
+            status: configToUse.status,
             categoryName,
-            columns: config.columns,
-            apiKeys: config.apiKeys.length,
-            pageSize: config.pageSize
+            columns: configToUse.columns,
+            apiKeys: configToUse.apiKeys.length,
+            pageSize: configToUse.pageSize
           },
           fileName: `sunsky_partial_export_${new Date().toISOString().split('T')[0]}.xlsx`,
           saveToStorage: true
@@ -810,7 +814,7 @@ export const useConcurrentSunskyExport = () => {
               completed_at: new Date().toISOString(),
               metadata: {
                 fileName,
-                totalProducts: partialProducts.length,
+                totalProducts: productsToSave.length,
                 fileSize: fileData?.size || 0,
                 completedAt: new Date().toISOString(),
                 downloadableResults: true,
@@ -818,18 +822,18 @@ export const useConcurrentSunskyExport = () => {
                 isCancelled: true
               } 
             } as any)
-            .eq('id', backgroundTaskId);
+            .eq('id', taskId);
           
           toast({
             title: "Export Stopped",
-            description: `Saved ${partialProducts.length} products collected so far. Check Background Tasks to download.`,
+            description: `Saved ${productsToSave.length} products collected so far. Check Background Tasks to download.`,
           });
         }
       } catch (error) {
         console.error('Failed to save partial results:', error);
         toast({
           title: "Export Stopped",
-          description: `Export cancelled. Collected ${partialProducts.length} products but failed to save file.`,
+          description: `Export cancelled. Collected ${productsToSave.length} products but failed to save file.`,
           variant: "destructive"
         });
       }
@@ -840,6 +844,11 @@ export const useConcurrentSunskyExport = () => {
         variant: "destructive"
       });
     }
+    
+    setIsExporting(false);
+    setExportProgress([]);
+    setOverallProgress(0);
+    setExportStatus('');
   }, [toast]);
 
   // Reconnect to active background tasks on page load
