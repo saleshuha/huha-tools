@@ -51,6 +51,33 @@ export function useDashboardMetrics() {
     missingImage: inventoryMetrics.missingImageCount || 0,
   } : null;
 
+  // Calculate 7-day sales from stock_changes (not cumulative total_sold)
+  const [weekSales, setWeekSales] = useState({ total: 0, daily: 0 });
+
+  useEffect(() => {
+    const calculate7DaySales = async () => {
+      try {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        
+        const { data, error } = await supabase
+          .from('stock_changes')
+          .select('change_amount')
+          .eq('change_type', 'sale')
+          .gte('created_at', sevenDaysAgo.toISOString());
+        
+        if (!error && data) {
+          const total = data.reduce((sum, item) => sum + Math.abs(item.change_amount || 0), 0);
+          setWeekSales({ total, daily: total / 7 });
+        }
+      } catch (error) {
+        console.error('Error calculating 7-day sales:', error);
+      }
+    };
+    
+    calculate7DaySales();
+  }, []);
+
   // Process velocity metrics
   const velocityData = velocityItems ? {
     fastMoving: velocityItems.filter(item => (item.velocity_score || 0) > 70).length,
@@ -69,57 +96,100 @@ export function useDashboardMetrics() {
         title: item.title || '',
         recommendation: item.manual_override || item.recommended_quantity || 0
       })),
-    weekSales: velocityItems.reduce((sum, item) => sum + (item.total_sold || 0), 0),
-    avgDailySales: velocityItems.reduce((sum, item) => sum + (item.total_sold || 0), 0) / 7,
+    weekSales: weekSales.total,
+    avgDailySales: weekSales.daily,
   } : null;
 
-  // Process PO metrics
+  // Process PO metrics with monetary values
   const [poTimeline, setPoTimeline] = useState({ thisWeek: 0, thisMonth: 0, delayed: 0 });
+  const [poStatusValues, setPoStatusValues] = useState({
+    pending: 0,
+    ordered: 0,
+    shipped: 0,
+    delivered: 0
+  });
 
-  // Calculate PO timeline on mount and when metrics change
+  // Calculate PO timeline and status values
   useEffect(() => {
-    const calculatePOTimeline = async () => {
+    const calculatePOData = async () => {
       try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
         const now = new Date();
         const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
         const monthFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-        const [
-          { count: thisWeekCount },
-          { count: thisMonthCount },
-          { count: delayedCount }
-        ] = await Promise.all([
+        // Parallel queries for timeline
+        const [weekData, monthData, delayedData] = await Promise.all([
           supabase
             .from('po_orders')
-            .select('*', { count: 'exact', head: true })
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', user.id)
             .gte('expected_delivery_date', now.toISOString())
             .lte('expected_delivery_date', weekFromNow.toISOString())
             .neq('status', 'delivered'),
           supabase
             .from('po_orders')
-            .select('*', { count: 'exact', head: true })
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', user.id)
             .gte('expected_delivery_date', now.toISOString())
             .lte('expected_delivery_date', monthFromNow.toISOString())
             .neq('status', 'delivered'),
           supabase
             .from('po_orders')
-            .select('*', { count: 'exact', head: true })
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', user.id)
             .lt('expected_delivery_date', now.toISOString())
             .neq('status', 'delivered')
         ]);
 
         setPoTimeline({
-          thisWeek: thisWeekCount || 0,
-          thisMonth: thisMonthCount || 0,
-          delayed: delayedCount || 0
+          thisWeek: weekData.count || 0,
+          thisMonth: monthData.count || 0,
+          delayed: delayedData.count || 0
+        });
+
+        // Calculate monetary values for each status
+        const statusQueries = await Promise.all([
+          supabase
+            .from('po_orders')
+            .select('price, quantity')
+            .eq('user_id', user.id)
+            .eq('status', 'pending'),
+          supabase
+            .from('po_orders')
+            .select('price, quantity')
+            .eq('user_id', user.id)
+            .eq('status', 'ordered'),
+          supabase
+            .from('po_orders')
+            .select('price, quantity')
+            .eq('user_id', user.id)
+            .eq('status', 'shipped'),
+          supabase
+            .from('po_orders')
+            .select('price, quantity')
+            .eq('user_id', user.id)
+            .eq('status', 'delivered')
+        ]);
+
+        const calculateValue = (data: any[]) => 
+          data?.reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 0)), 0) || 0;
+
+        setPoStatusValues({
+          pending: calculateValue(statusQueries[0].data),
+          ordered: calculateValue(statusQueries[1].data),
+          shipped: calculateValue(statusQueries[2].data),
+          delivered: calculateValue(statusQueries[3].data)
         });
       } catch (error) {
-        console.error('Error calculating PO timeline:', error);
+        console.error('Error calculating PO data:', error);
       }
     };
 
     if (poMetrics) {
-      calculatePOTimeline();
+      calculatePOData();
     }
   }, [poMetrics]);
 
@@ -130,25 +200,92 @@ export function useDashboardMetrics() {
     statusBreakdown: {
       pending: { 
         count: poMetrics.pendingOrders || 0, 
-        value: 0 // Would need to calculate from DB
+        value: poStatusValues.pending
       },
       ordered: { 
         count: poMetrics.orderedOrders || 0, 
-        value: 0 
+        value: poStatusValues.ordered
       },
       shipped: { 
         count: poMetrics.shippedOrders || 0, 
-        value: 0 
+        value: poStatusValues.shipped
       },
       delivered: { 
         count: poTotals.deliveredRecords || 0, 
-        value: 0 
+        value: poStatusValues.delivered
       },
     },
     timeline: poTimeline,
   } : null;
 
-  // Process fulfillment metrics
+  // Process fulfillment metrics with upcoming payment values
+  const [upcomingPaymentValues, setUpcomingPaymentValues] = useState({
+    next7Days: 0,
+    next30Days: 0,
+    next90Days: 0
+  });
+
+  useEffect(() => {
+    const calculateUpcomingPayments = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const creditDays = selectedCountry === 'UAE' ? 60 : 45;
+        const now = new Date();
+        const next7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const next30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        const next90Days = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+
+        // Calculate payment due dates
+        const [data7, data30, data90] = await Promise.all([
+          supabase
+            .from('orders')
+            .select('invoice_amount')
+            .eq('user_id', user.id)
+            .eq('country', selectedCountry)
+            .neq('payment_status', 'Paid')
+            .not('invoice_date', 'is', null)
+            .gte('invoice_date', new Date(now.getTime() - creditDays * 24 * 60 * 60 * 1000).toISOString())
+            .lte('invoice_date', new Date(next7Days.getTime() - creditDays * 24 * 60 * 60 * 1000).toISOString()),
+          supabase
+            .from('orders')
+            .select('invoice_amount')
+            .eq('user_id', user.id)
+            .eq('country', selectedCountry)
+            .neq('payment_status', 'Paid')
+            .not('invoice_date', 'is', null)
+            .gte('invoice_date', new Date(now.getTime() - creditDays * 24 * 60 * 60 * 1000).toISOString())
+            .lte('invoice_date', new Date(next30Days.getTime() - creditDays * 24 * 60 * 60 * 1000).toISOString()),
+          supabase
+            .from('orders')
+            .select('invoice_amount')
+            .eq('user_id', user.id)
+            .eq('country', selectedCountry)
+            .neq('payment_status', 'Paid')
+            .not('invoice_date', 'is', null)
+            .gte('invoice_date', new Date(now.getTime() - creditDays * 24 * 60 * 60 * 1000).toISOString())
+            .lte('invoice_date', new Date(next90Days.getTime() - creditDays * 24 * 60 * 60 * 1000).toISOString())
+        ]);
+
+        const sumInvoices = (data: any) => 
+          data?.reduce((sum: number, item: any) => sum + (item.invoice_amount || 0), 0) || 0;
+
+        setUpcomingPaymentValues({
+          next7Days: sumInvoices(data7.data),
+          next30Days: sumInvoices(data30.data),
+          next90Days: sumInvoices(data90.data)
+        });
+      } catch (error) {
+        console.error('Error calculating upcoming payment values:', error);
+      }
+    };
+
+    if (fulfillmentMetrics) {
+      calculateUpcomingPayments();
+    }
+  }, [fulfillmentMetrics, selectedCountry]);
+
   const creditDays = selectedCountry === 'UAE' ? 60 : 45;
   const fulfillmentData = fulfillmentMetrics ? {
     totalValue: fulfillmentMetrics.totalValue || 0,
@@ -161,15 +298,15 @@ export function useDashboardMetrics() {
     upcomingPayments: {
       next7Days: { 
         count: fulfillmentMetrics.upcomingPayments?.next7Days || 0, 
-        value: 0 
+        value: upcomingPaymentValues.next7Days
       },
       next30Days: { 
         count: fulfillmentMetrics.upcomingPayments?.next30Days || 0, 
-        value: 0 
+        value: upcomingPaymentValues.next30Days
       },
       next90Days: { 
         count: fulfillmentMetrics.upcomingPayments?.next90Days || 0, 
-        value: 0 
+        value: upcomingPaymentValues.next90Days
       },
     },
     creditDays,

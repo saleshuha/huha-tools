@@ -86,19 +86,17 @@ export function useInventoryAnalytics() {
         const startDate = new Date(now);
         startDate.setDate(startDate.getDate() - days);
 
-        // Query ASIN inventory for sold items (eligible for restock only)
-        let asinQuery = supabase
-          .from('asin_inventory')
-          .select('id')
-          .eq('status', 'sold')
-          .eq('eligible_for_restock', true)
-          .gte('date_sold', startDate.toISOString());
+        // Query stock_changes for actual quantities sold (sales are negative changes)
+        let soldQuery = supabase
+          .from('stock_changes')
+          .select('change_amount')
+          .eq('change_type', 'sale')
+          .gte('created_at', startDate.toISOString());
 
-        if (country) {
-          asinQuery = asinQuery.eq('country', country);
-        }
-
-        const { data: asinSold } = await asinQuery;
+        // Note: Cannot filter stock_changes by country directly
+        // Country filtering happens at inventory level, not stock_changes level
+        
+        const { data: soldData } = await soldQuery;
 
         // Query stock changes for restocked items (positive changes)
         let stockChangesQuery = supabase
@@ -145,8 +143,8 @@ export function useInventoryAnalytics() {
           var totalRestocked = asinTotal + stockChangesTotal;
         }
 
-        // Calculate totals (only ASIN inventory now)
-        const totalSold = asinSold?.length || 0;
+        // Calculate total quantity sold (change_amount is negative for sales, so take absolute value)
+        const totalSold = soldData?.reduce((sum, item) => sum + Math.abs(item.change_amount || 0), 0) || 0;
 
         salesTracking[`${days}d`] = totalSold;
         restockTracking[`${days}d`] = totalRestocked;
@@ -265,9 +263,7 @@ export function useInventoryAnalytics() {
     }
   };
 
-  useEffect(() => {
-    loadAnalytics();
-  }, []);
+  // Removed auto-load useEffect - let useDashboardMetrics orchestrate loading to prevent race conditions
 
   return {
     restockItems,

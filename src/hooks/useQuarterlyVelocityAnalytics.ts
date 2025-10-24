@@ -209,9 +209,7 @@ export function useQuarterlyVelocityAnalytics() {
     }
   };
 
-  useEffect(() => {
-    loadAnalytics();
-  }, [selectedCountry]);
+  // Removed auto-load useEffect - let useDashboardMetrics orchestrate loading to prevent race conditions
 
   return {
     items,
