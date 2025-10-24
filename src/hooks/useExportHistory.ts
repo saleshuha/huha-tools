@@ -284,8 +284,17 @@ export const useExportHistory = () => {
       )
       .subscribe();
 
+    // Listen for manual refresh events
+    const handleManualRefresh = () => {
+      console.log('🔄 Manual export history refresh triggered');
+      fetchExportHistory();
+    };
+
+    window.addEventListener('refresh-export-history', handleManualRefresh);
+
     return () => {
       supabase.removeChannel(channel);
+      window.removeEventListener('refresh-export-history', handleManualRefresh);
     };
   }, [fetchExportHistory]);
 

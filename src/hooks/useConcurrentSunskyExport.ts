@@ -862,6 +862,9 @@ export const useConcurrentSunskyExport = () => {
     
     // If we have partial data, save it as a downloadable export
     if (productsToSave.length > 0 && taskId && configToUse) {
+      let fileName: string | null = null;
+      let fileData: Blob | null = null;
+
       try {
         console.log('💾 Saving partial results:', productsToSave.length, 'products');
         
@@ -871,7 +874,7 @@ export const useConcurrentSunskyExport = () => {
           categoriesMapToUse.get(configToUse.categoryId)?.name || 'All Categories' : 
           'All Categories';
         
-        const fileName = await generateExcelFile({
+        fileName = await generateExcelFile({
           data: productsToSave,
           categoriesMap: categoriesMapToUse,
           config: {
@@ -886,96 +889,183 @@ export const useConcurrentSunskyExport = () => {
         });
         
         if (fileName) {
-          // Get file blob for size
-          const { data: fileData } = await supabase.storage
+          console.log('✅ File generated successfully:', fileName);
+          
+          // Verify file exists in storage
+          const { data: downloadedFile, error: checkError } = await supabase.storage
             .from('exports')
             .download(fileName);
           
-          // Update background task with downloadable file
-          await supabase
-            .from('background_tasks')
-            .update({ 
-              progress: 100,
-              status: 'cancelled',
-              completed_at: new Date().toISOString(),
-              metadata: {
-                fileName,
-                totalProducts: productsToSave.length,
-                fileSize: fileData?.size || 0,
-                completedAt: new Date().toISOString(),
-                downloadableResults: true,
-                message: 'Export stopped by user - partial results saved',
-                isCancelled: true
-              } 
-            } as any)
-            .eq('id', taskId);
-          
-          // Update export_history entry to cancelled
-          const exportHistoryId = exportHistoryIdRef.current[exportId];
-          console.log('📝 Updating export_history entry to cancelled...', {
-            exportHistoryId,
-            taskId,
-            fileName,
-            productsCount: productsToSave.length,
-            fileSize: fileData?.size
-          });
-          
-          if (exportHistoryId) {
-            let retryCount = 0;
-            const maxRetries = 3;
+          if (checkError || !downloadedFile) {
+            console.error('❌ File not found in storage after upload:', checkError);
+            fileName = null; // Reset if file doesn't actually exist
+          } else {
+            fileData = downloadedFile;
+            console.log('✅ File verified in storage, size:', fileData.size);
+          }
+        }
+      } catch (fileError) {
+        console.error('❌ Failed to generate or save export file:', fileError);
+        fileName = null;
+        fileData = null;
+        // Don't throw - we still want to update export_history even without file
+      }
+
+      try {
+        
+        // Update background task with downloadable file (only if taskId exists)
+        if (taskId) {
+          try {
+            await supabase
+              .from('background_tasks')
+              .update({ 
+                progress: 100,
+                status: 'cancelled',
+                completed_at: new Date().toISOString(),
+                metadata: {
+                  fileName: fileName || undefined,
+                  totalProducts: productsToSave.length,
+                  fileSize: fileData?.size || 0,
+                  completedAt: new Date().toISOString(),
+                  downloadableResults: !!fileName,
+                  message: fileName ? 
+                    'Export stopped by user - partial results saved' : 
+                    'Export stopped by user - file save failed',
+                  isCancelled: true
+                } 
+              } as any)
+              .eq('id', taskId);
             
-            while (retryCount < maxRetries) {
-              try {
-                const { error: updateError } = await supabase
-                  .from('export_history')
-                  .update({
-                    total_items: productsToSave.length,
-                    status: 'cancelled',
-                    file_path: fileName,
-                    file_size: fileData?.size || 0,
-                    metadata: {
-                      partial_export: true,
-                      cancelled_at: new Date().toISOString(),
-                      downloadableResults: true
-                    }
-                  } as any)
-                  .eq('id', exportHistoryId);
+            console.log('✅ Background task updated to cancelled');
+          } catch (taskError) {
+            console.error('❌ Failed to update background task (non-critical):', taskError);
+            // Continue anyway - export_history is more important
+          }
+        }
+        
+        // Update export_history entry to cancelled
+        let exportHistoryId = exportHistoryIdRef.current[exportId];
+        
+        // Fallback: Query database if ref lookup fails
+        if (!exportHistoryId) {
+          console.warn('⚠️ exportHistoryId not found in ref, querying database...');
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data: recentExport } = await supabase
+              .from('export_history')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('status', 'processing')
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .single();
+            
+            if (recentExport) {
+              exportHistoryId = recentExport.id;
+              console.log('✅ Found exportHistoryId via database fallback:', exportHistoryId);
+            }
+          }
+        }
+        console.log('📝 Updating export_history entry to cancelled...', {
+          exportHistoryId,
+          exportId,
+          taskId,
+          fileName,
+          productsCount: productsToSave.length
+        });
+        
+        if (exportHistoryId) {
+          let retryCount = 0;
+          const maxRetries = 3;
+          
+          while (retryCount < maxRetries) {
+            try {
+              // Fetch existing metadata to preserve important fields
+              const { data: existingEntry } = await supabase
+                .from('export_history')
+                .select('metadata')
+                .eq('id', exportHistoryId)
+                .single();
 
-                if (updateError) {
-                  console.error('❌ Export history update error:', updateError);
-                  retryCount++;
-                  if (retryCount < maxRetries) {
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                    continue;
+              const existingMetadata = (existingEntry?.metadata as any) || {};
+
+              const { error: updateError } = await supabase
+                .from('export_history')
+                .update({
+                  total_items: productsToSave.length,
+                  status: 'cancelled',
+                  file_path: fileName,
+                  file_size: fileData?.size || 0,
+                  metadata: {
+                    ...existingMetadata, // Preserve exportNumber, categoryName, started_at, background
+                    partial_export: true,
+                    cancelled_at: new Date().toISOString(),
+                    downloadableResults: !!fileName,
+                    productsSaved: productsToSave.length
                   }
-                  throw updateError;
-                }
+                } as any)
+                .eq('id', exportHistoryId);
 
-                console.log('✅ Export history updated to cancelled:', exportHistoryId);
-                break;
-              } catch (historyError) {
-                if (retryCount >= maxRetries) {
-                  console.error('Failed to update export_history entry after retries:', historyError);
-                  toast({
-                    title: "Warning",
-                    description: "Partial results saved but failed to update export history. Check Background Tasks.",
-                    variant: "destructive"
-                  });
+              if (updateError) {
+                console.error('❌ Export history update error:', updateError);
+                retryCount++;
+                if (retryCount < maxRetries) {
+                  await new Promise(resolve => setTimeout(resolve, 500)); // Wait before retry
+                  continue;
                 }
+                throw updateError;
+              }
+
+              console.log('✅ Export history updated to cancelled:', exportHistoryId);
+              break; // Success, exit retry loop
+            } catch (historyError) {
+              if (retryCount >= maxRetries) {
+                console.error('Failed to update export_history entry after retries:', historyError);
+                
+                // Last resort: Force status to cancelled even without other fields
+                try {
+                  await supabase
+                    .from('export_history')
+                    .update({ status: 'cancelled' } as any)
+                    .eq('id', exportHistoryId);
+                  
+                  console.log('✅ Forced status update to cancelled (minimal)');
+                } catch (finalError) {
+                  console.error('❌ Even final status update failed:', finalError);
+                }
+                
+                toast({
+                  title: "Warning",
+                  description: "Export stopped but failed to save complete details. Refreshing history...",
+                  variant: "destructive"
+                });
+                
+                // Trigger manual refresh to sync UI with database
+                setTimeout(() => {
+                  window.dispatchEvent(new CustomEvent('refresh-export-history'));
+                }, 500);
               }
             }
           }
-          
+        }
+        
+        if (fileName) {
           toast({
             title: "Export Stopped",
-            description: `Saved ${productsToSave.length} products collected so far. Check Background Tasks to download.`,
+            description: `Saved ${productsToSave.length} products collected so far. Check Export History to download.`,
+          });
+        } else {
+          toast({
+            title: "Export Stopped",
+            description: `Export cancelled. Collected ${productsToSave.length} products but failed to save file.`,
+            variant: "destructive"
           });
         }
       } catch (error) {
-        console.error('Failed to save partial results:', error);
+        console.error('Failed to update export status:', error);
         toast({
           title: "Export Stopped",
-          description: `Export cancelled. Collected ${productsToSave.length} products but failed to save file.`,
+          description: `Export cancelled with ${productsToSave.length} products collected.`,
           variant: "destructive"
         });
       }
