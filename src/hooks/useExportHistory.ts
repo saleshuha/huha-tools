@@ -240,9 +240,53 @@ export const useExportHistory = () => {
     }
   }, [exportHistory, toast]);
 
-  // Load history on mount
+  // Load history on mount and subscribe to real-time updates
   useEffect(() => {
     fetchExportHistory();
+
+    // Subscribe to real-time updates on export_history table
+    const channel = supabase
+      .channel('export-history-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'export_history'
+        },
+        (payload) => {
+          console.log('📡 Realtime export_history update:', payload);
+          
+          if (payload.eventType === 'INSERT') {
+            const newEntry = payload.new as any;
+            setExportHistory(prev => {
+              // Check if entry already exists
+              if (prev.some(e => e.id === newEntry.id)) {
+                return prev;
+              }
+              const updated = [newEntry, ...prev];
+              return updated.slice(0, MAX_HISTORY_ENTRIES);
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedEntry = payload.new as any;
+            setExportHistory(prev =>
+              prev.map(entry =>
+                entry.id === updatedEntry.id ? updatedEntry : entry
+              )
+            );
+          } else if (payload.eventType === 'DELETE') {
+            const deletedEntry = payload.old as any;
+            setExportHistory(prev =>
+              prev.filter(entry => entry.id !== deletedEntry.id)
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [fetchExportHistory]);
 
   return {

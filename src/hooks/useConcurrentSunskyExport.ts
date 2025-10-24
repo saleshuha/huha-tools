@@ -41,6 +41,7 @@ export const useConcurrentSunskyExport = () => {
   
   const cancellationRef = useRef<{ [exportId: string]: boolean }>({});
   const apiCallQueue = useRef<{ [apiKeyId: string]: Array<() => Promise<any>> }>({});
+  const exportHistoryIdRef = useRef<{ [exportId: string]: string }>({});
   const partialDataRef = useRef<{ 
     [exportId: string]: { 
       products: any[], 
@@ -239,6 +240,44 @@ export const useConcurrentSunskyExport = () => {
     setExportProgress(initialProgress);
 
     try {
+      // Create export_history entry immediately
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      console.log('📝 Creating export_history entry at start...');
+      const { data: historyEntry, error: historyError } = await supabase
+        .from('export_history')
+        .insert({
+          user_id: user.id,
+          export_type: 'status_export',
+          filters: {
+            status: config.status,
+            categoryId: config.categoryId,
+            apiKeys: config.apiKeys,
+            columns: config.columns,
+            maxPages: config.maxPages,
+            pageSize: config.pageSize
+          },
+          total_items: 0,
+          status: 'processing',
+          background_task_id: backgroundTaskId,
+          metadata: {
+            started_at: new Date().toISOString(),
+            background: !!backgroundTaskId
+          }
+        } as any)
+        .select()
+        .single();
+
+      if (historyError) {
+        console.error('❌ Failed to create export_history entry:', historyError);
+      } else {
+        exportHistoryIdRef.current[exportId] = historyEntry.id;
+        console.log('✅ Export history entry created:', historyEntry.id);
+      }
+
       // Get estimated total by making a quick call with the first API
       setExportStatus('Estimating total products...');
       setOverallProgress(5);
@@ -357,6 +396,30 @@ export const useConcurrentSunskyExport = () => {
           } catch (error) {
             console.error('Failed to update background task:', error);
           }
+        }
+
+        // Update export_history in real-time
+        const exportHistoryId = exportHistoryIdRef.current[exportId];
+        if (exportHistoryId) {
+          (async () => {
+            try {
+              await supabase
+                .from('export_history')
+                .update({
+                  total_items: totalProcessed,
+                  metadata: {
+                    started_at: new Date().toISOString(),
+                    background: !!backgroundTaskId,
+                    lastUpdate: new Date().toISOString(),
+                    totalProcessed,
+                    progress: Math.round(overallPercent)
+                  }
+                } as any)
+                .eq('id', exportHistoryId);
+            } catch (err) {
+              console.error('Failed to update export_history:', err);
+            }
+          })();
         }
       };
 
@@ -626,39 +689,33 @@ export const useConcurrentSunskyExport = () => {
             throw new Error('Unable to get user for export history');
           }
           
-          const { data: historyEntry, error: historyError } = await supabase
-            .from('export_history')
-            .insert({
-              user_id: user.id,
-              export_type: 'status_export',
-              filters: {
-                status: config.status,
-                categoryId: config.categoryId,
-                categoryName: categoriesMap.has(config.categoryId || 0) ? categoriesMap.get(config.categoryId || 0)?.name : 'All Categories',
-                apiKeys: config.apiKeys,
-                columns: config.columns,
-                maxPages: config.maxPages,
-                pageSize: config.pageSize
-              },
-              total_items: allProducts.length,
-              status: 'completed',
-              file_path: fileName,
-              file_size: blob.size,
-              background_task_id: backgroundTaskId,
-              metadata: {
-                background: true,
-                categories: categoriesMap.size,
-                concurrent: true,
-                apiKeys: config.apiKeys.length
-              }
-            } as any)
-            .select()
-            .single();
+          // Update export_history to completed
+          const exportHistoryId = exportHistoryIdRef.current[exportId];
+          if (exportHistoryId) {
+            const { error: historyError } = await supabase
+              .from('export_history')
+              .update({
+                total_items: allProducts.length,
+                status: 'completed',
+                file_path: fileName,
+                file_size: blob.size,
+                metadata: {
+                  started_at: new Date().toISOString(),
+                  completed_at: new Date().toISOString(),
+                  background: true,
+                  categories: categoriesMap.size,
+                  concurrent: true,
+                  apiKeys: config.apiKeys.length,
+                  downloadableResults: true
+                }
+              } as any)
+              .eq('id', exportHistoryId);
 
-          if (historyError) {
-            console.error('Failed to create export history:', historyError);
-          } else {
-            console.log('✅ Export history entry created:', historyEntry);
+            if (historyError) {
+              console.error('Failed to update export history:', historyError);
+            } else {
+              console.log('✅ Export history updated to completed');
+            }
           }
 
           // Update background task with completion and file info
@@ -764,6 +821,7 @@ export const useConcurrentSunskyExport = () => {
       setCurrentExportId(null);
       delete cancellationRef.current[exportId];
       delete partialDataRef.current[exportId];
+      delete exportHistoryIdRef.current[exportId];
     }
   };
 
@@ -829,56 +887,47 @@ export const useConcurrentSunskyExport = () => {
             } as any)
             .eq('id', taskId);
           
-          // Create export_history entry for cancelled export
-          console.log('📝 Creating export_history entry for cancelled export...', {
+          // Update export_history entry to cancelled
+          const exportHistoryId = exportHistoryIdRef.current[exportId];
+          console.log('📝 Updating export_history entry to cancelled...', {
+            exportHistoryId,
             taskId,
             fileName,
             productsCount: productsToSave.length,
             fileSize: fileData?.size
           });
           
-          try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-              const { data: insertData, error: insertError } = await supabase
+          if (exportHistoryId) {
+            try {
+              const { error: updateError } = await supabase
                 .from('export_history')
-                .insert({
-                  user_id: user.id,
-                  export_type: 'status_export',
-                  filters: {
-                    status: configToUse.status,
-                    categoryId: configToUse.categoryId,
-                    apiKeys: configToUse.apiKeys,
-                    columns: configToUse.columns,
-                    cancelled: true
-                  },
+                .update({
                   total_items: productsToSave.length,
                   status: 'cancelled',
                   file_path: fileName,
                   file_size: fileData?.size || 0,
-                  background_task_id: taskId,
                   metadata: {
                     partial_export: true,
-                    cancelled_at: new Date().toISOString()
+                    cancelled_at: new Date().toISOString(),
+                    downloadableResults: true
                   }
-                })
-                .select()
-                .single();
+                } as any)
+                .eq('id', exportHistoryId);
 
-              if (insertError) {
-                console.error('❌ Export history insert error:', insertError);
-                throw insertError;
+              if (updateError) {
+                console.error('❌ Export history update error:', updateError);
+                throw updateError;
               }
 
-              console.log('✅ Export history entry created:', insertData?.id);
+              console.log('✅ Export history updated to cancelled:', exportHistoryId);
+            } catch (historyError) {
+              console.error('Failed to update export_history entry:', historyError);
+              toast({
+                title: "Warning",
+                description: "Partial results saved but failed to update export history. Check Background Tasks.",
+                variant: "destructive"
+              });
             }
-          } catch (historyError) {
-            console.error('Failed to create export_history entry:', historyError);
-            toast({
-              title: "Warning",
-              description: "Partial results saved but failed to add to export history. Check Background Tasks.",
-              variant: "destructive"
-            });
           }
           
           toast({
