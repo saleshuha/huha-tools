@@ -830,10 +830,17 @@ export const useConcurrentSunskyExport = () => {
             .eq('id', taskId);
           
           // Create export_history entry for cancelled export
+          console.log('📝 Creating export_history entry for cancelled export...', {
+            taskId,
+            fileName,
+            productsCount: productsToSave.length,
+            fileSize: fileData?.size
+          });
+          
           try {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-              await supabase
+              const { data: insertData, error: insertError } = await supabase
                 .from('export_history')
                 .insert({
                   user_id: user.id,
@@ -854,12 +861,24 @@ export const useConcurrentSunskyExport = () => {
                     partial_export: true,
                     cancelled_at: new Date().toISOString()
                   }
-                });
-              
-              console.log('✅ Export history entry created for cancelled export');
+                })
+                .select()
+                .single();
+
+              if (insertError) {
+                console.error('❌ Export history insert error:', insertError);
+                throw insertError;
+              }
+
+              console.log('✅ Export history entry created:', insertData?.id);
             }
           } catch (historyError) {
             console.error('Failed to create export_history entry:', historyError);
+            toast({
+              title: "Warning",
+              description: "Partial results saved but failed to add to export history. Check Background Tasks.",
+              variant: "destructive"
+            });
           }
           
           toast({

@@ -4413,6 +4413,8 @@ export const SunskySKUImporter: React.FC = () => {
                     onClick={async () => {
                       if (currentExportId) {
                         await cancelConcurrentExport(currentExportId);
+                        // Wait for database write to propagate
+                        await new Promise(resolve => setTimeout(resolve, 500));
                         // Refresh export history to show the cancelled export
                         await fetchExportHistory();
                       }

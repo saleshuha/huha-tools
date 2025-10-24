@@ -36,7 +36,12 @@ export const useExportHistory = () => {
         .order('created_at', { ascending: false })
         .limit(MAX_HISTORY_ENTRIES);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error fetching export history:', error);
+        throw error;
+      }
+
+      console.log('✅ Fetched export history:', data?.length, 'entries');
 
       const historyEntries = ((data as any) || []).map((entry: any) => ({
         ...entry,
