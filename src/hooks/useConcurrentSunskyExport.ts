@@ -36,6 +36,7 @@ export const useConcurrentSunskyExport = () => {
   const [overallProgress, setOverallProgress] = useState(0);
   const [exportStatus, setExportStatus] = useState('');
   const [exportResults, setExportResults] = useState<ExportResult | null>(null);
+  const [currentExportId, setCurrentExportId] = useState<string | null>(null);
   const { toast } = useToast();
   
   const cancellationRef = useRef<{ [exportId: string]: boolean }>({});
@@ -207,8 +208,9 @@ export const useConcurrentSunskyExport = () => {
   const startConcurrentExport = async (config: ExportConfig, backgroundTaskId?: string): Promise<string> => {
     const exportId = `export-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
-    setIsExporting(true);
-    setExportResults(null);
+      setIsExporting(true);
+      setExportResults(null);
+      setCurrentExportId(exportId);
     setOverallProgress(0);
     setExportStatus('Initializing concurrent export...');
     
@@ -758,12 +760,14 @@ export const useConcurrentSunskyExport = () => {
       throw error;
     } finally {
       setIsExporting(false);
+      setCurrentExportId(null);
       delete cancellationRef.current[exportId];
       delete partialDataRef.current[exportId];
     }
   };
 
   const cancelExport = useCallback(async (exportId: string, partialProducts?: any[], categoriesMap?: Map<number, { name: string; products: any[] }>, backgroundTaskId?: string, config?: ExportConfig) => {
+    console.log('🛑 Cancel requested for export:', exportId);
     cancellationRef.current[exportId] = true;
     setExportStatus('Stopping export and saving partial results...');
     
@@ -994,6 +998,7 @@ export const useConcurrentSunskyExport = () => {
     exportStatus,
     exportResults,
     startConcurrentExport,
-    cancelExport
+    cancelExport,
+    currentExportId,
   };
 };

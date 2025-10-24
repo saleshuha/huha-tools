@@ -273,7 +273,8 @@ export const SunskySKUImporter: React.FC = () => {
     overallProgress: concurrentOverallProgress,
     exportStatus: concurrentExportStatus,
     exportResults: concurrentExportResults,
-    cancelExport: cancelConcurrentExport
+    cancelExport: cancelConcurrentExport,
+    currentExportId
   } = useConcurrentSunskyExport();
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -4409,8 +4410,8 @@ export const SunskySKUImporter: React.FC = () => {
                 {(isExporting || isConcurrentExporting) && (
                   <Button 
                     onClick={() => {
-                      if (concurrentExportResults?.exportId) {
-                        cancelConcurrentExport(concurrentExportResults.exportId);
+                      if (currentExportId) {
+                        cancelConcurrentExport(currentExportId);
                       }
                     }}
                     variant="destructive"
