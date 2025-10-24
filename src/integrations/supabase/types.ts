@@ -4515,10 +4515,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      cleanup_po_duplicates: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
+      cleanup_po_duplicates: { Args: never; Returns: number }
       count_restock_eligible_items: {
         Args: { country_filter: string }
         Returns: number
@@ -4709,6 +4706,12 @@ export type Database = {
           updated_at: string
           user_id: string
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "po_orders"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_all_po_orders_with_sku_data: {
         Args: { user_id_param: string }
@@ -4743,7 +4746,7 @@ export type Database = {
         }[]
       }
       get_all_user_sunsky_orders: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           created_at: string
           currency: string
@@ -4808,17 +4811,28 @@ export type Database = {
           urgency_level: string
         }[]
       }
-      get_items_needing_restock: {
-        Args: Record<PropertyKey, never> | { country_filter?: string }
-        Returns: {
-          current_quantity: number
-          days_since_last_restock: number
-          identifier: string
-          item_id: string
-          status: string
-          table_name: string
-        }[]
-      }
+      get_items_needing_restock:
+        | {
+            Args: { country_filter?: string }
+            Returns: {
+              current_quantity: number
+              days_since_last_restock: number
+              identifier: string
+              item_id: string
+              status: string
+              table_name: string
+            }[]
+          }
+        | {
+            Args: never
+            Returns: {
+              current_quantity: number
+              days_since_last_restock: number
+              identifier: string
+              item_id: string
+              table_name: string
+            }[]
+          }
       get_job_item_stats: {
         Args: { job_id_param: string }
         Returns: {
@@ -5064,7 +5078,7 @@ export type Database = {
         }[]
       }
       get_sunsky_orders_with_po_relations: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           created_at: string
           currency: string
@@ -5140,7 +5154,7 @@ export type Database = {
         Returns: Database["public"]["Enums"]["app_role"][]
       }
       get_user_sunsky_credentials_secure: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           api_key: string
           api_secret: string
@@ -5161,10 +5175,7 @@ export type Database = {
         }
         Returns: boolean
       }
-      is_user_admin: {
-        Args: { user_id: string }
-        Returns: boolean
-      }
+      is_user_admin: { Args: { user_id: string }; Returns: boolean }
       log_security_event: {
         Args: {
           p_action: string
@@ -5213,7 +5224,7 @@ export type Database = {
         }[]
       }
       update_no_stock_statuses: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           no_stock_count: number
           still_sold_count: number

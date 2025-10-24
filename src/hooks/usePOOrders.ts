@@ -470,10 +470,9 @@ export const usePOOrders = () => {
           };
 
           // Check if exists in database using ONLY po_key + item_key
+          // CRITICAL: Always prevent duplicates by treating ANY existing record as an update candidate
           const existingOrder = existingOrdersMap.get(dbLookupKey);
           
-          // NEW LOGIC: Only treat as "update" if it's from a recent batch (within 24 hours)
-          // Otherwise, treat as a NEW separate order
           let shouldInsertAsNew = true;
           
           if (existingOrder) {
@@ -489,9 +488,9 @@ export const usePOOrders = () => {
               currentBatchId: batchId
             });
             
-            // CRITICAL FIX: Only consider as update/skip if:
-            // Within 20 days (480 hours) of creation
-            const isRecent = hoursSinceCreation < 480; // 20 days
+            // STRICT DUPLICATE PREVENTION: Always skip or update existing records
+            // regardless of age to prevent any duplicates
+            const isRecent = true; // Always treat as recent to prevent duplicates
             
             if (isRecent) {
               console.log(`🔍 Treating as potential update (recent + same batch)`);
