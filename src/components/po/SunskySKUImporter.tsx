@@ -253,6 +253,7 @@ export const SunskySKUImporter: React.FC = () => {
   const {
     addExportEntry,
     updateExportEntry,
+    fetchExportHistory,
     exportHistory: savedExportHistory
   } = useExportHistory();
   const {
@@ -4409,9 +4410,11 @@ export const SunskySKUImporter: React.FC = () => {
                 {/* Stop Button - only shown when exporting */}
                 {(isExporting || isConcurrentExporting) && (
                   <Button 
-                    onClick={() => {
+                    onClick={async () => {
                       if (currentExportId) {
-                        cancelConcurrentExport(currentExportId);
+                        await cancelConcurrentExport(currentExportId);
+                        // Refresh export history to show the cancelled export
+                        await fetchExportHistory();
                       }
                     }}
                     variant="destructive"
