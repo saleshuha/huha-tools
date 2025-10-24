@@ -219,7 +219,7 @@ async function handleSearchProducts(params: any, key: string, secret: string) {
   const searchParams: Record<string, any> = {
     lang: params.lang || 'en',
     page: params.page || 1,
-    pageSize: Math.min(params.pageSize || 10, 100),
+    pageSize: Math.min(params.pageSize || 100, 100),
     status: params.status || 1
   };
   
