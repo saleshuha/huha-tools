@@ -4140,10 +4140,10 @@ export const SunskySKUImporter: React.FC = () => {
                       setSelectedExportStatus(1);
                       setExportCategory('all');
                       setExportSubCategory('all');
-                      setExportPageSize(20);
+                      setExportPageSize(100);
                       toast({
                         title: "Preset Applied",
-                        description: "Filters set to: Quick Test (20 items)",
+                        description: "Filters set to: Quick Test (100 items)",
                         variant: "default"
                       });
                     }}

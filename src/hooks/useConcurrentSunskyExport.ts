@@ -229,19 +229,13 @@ export const useConcurrentSunskyExport = () => {
       
       if ((estimateResponse?.success === true || estimateResponse?.result === 'success') && estimateResponse?.data) {
         const total = estimateResponse.data.products?.total ?? estimateResponse.data.total ?? estimateResponse.data.totalResults;
-        if (total) {
+        if (total && total > 0) {
           estimatedTotal = total;
           estimatedPages = Math.ceil(estimatedTotal / config.pageSize);
-        } else if (estimateResponse.data.products?.result?.length > 0 || estimateResponse.data.result?.length > 0) {
-          // For unlimited exports, use a high estimate if no total is provided
-          const firstPageCount = estimateResponse.data.products?.result?.length ?? estimateResponse.data.result?.length ?? 0;
-          if (firstPageCount === config.pageSize) {
-            // For unlimited exports, start with a high estimate and let the API discovery handle the rest
-            estimatedPages = config.maxPages === Number.MAX_SAFE_INTEGER ? 10000 : 100;
-          } else {
-            estimatedPages = 1; // Partial page suggests this might be all data
-          }
-          estimatedTotal = firstPageCount * estimatedPages;
+          console.log(`📊 Found ${estimatedTotal} products, need ${estimatedPages} pages`);
+        } else {
+          // Fallback if no total - use conservative estimate
+          estimatedPages = 1000; // Start with 1000 pages, let API discovery handle rest
         }
       }
 
@@ -622,8 +616,9 @@ export const useConcurrentSunskyExport = () => {
                 fileName,
                 totalProducts: allProducts.length,
                 fileSize: blob.size,
-                completedAt: new Date().toISOString()
-              } 
+                completedAt: new Date().toISOString(),
+                downloadableResults: true
+              }
             } as any)
             .eq('id', backgroundTaskId);
 
