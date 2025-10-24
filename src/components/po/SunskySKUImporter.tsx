@@ -4403,34 +4403,50 @@ export const SunskySKUImporter: React.FC = () => {
                   )}
                 </div>
                 
-                {/* Export Button */}
-                <div className="flex items-center gap-4">
+              {/* Export Button */}
+              <div className="flex items-center gap-4">
+                {/* Stop Button - only shown when exporting */}
+                {(isExporting || isConcurrentExporting) && (
                   <Button 
-                    onClick={handleExportClick} 
-                    disabled={isExporting || isConcurrentExporting || !hasCredentials} 
-                    className="flex-1"
+                    onClick={() => {
+                      if (concurrentExportResults?.exportId) {
+                        cancelConcurrentExport(concurrentExportResults.exportId);
+                      }
+                    }}
+                    variant="destructive"
+                    className="flex items-center gap-2"
                   >
-                  {isExporting || isConcurrentExporting ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
-                  {isExporting || isConcurrentExporting ? 'Exporting...' : 'Export Now'}
-                </Button>
+                    <XCircle className="h-4 w-4" />
+                    Stop Export
+                  </Button>
+                )}
                 
                 <Button 
-                  onClick={handleBackgroundExportClick} 
-                  disabled={isExporting || isConcurrentExporting || !hasCredentials || !runInBackground || !selectedExportStatus} 
-                  variant="secondary" 
-                  className="flex items-center gap-2 min-w-[200px]"
+                  onClick={handleExportClick} 
+                  disabled={isExporting || isConcurrentExporting || !hasCredentials} 
+                  className="flex-1"
                 >
-                  {isExporting ? <>
-                      <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Creating Task...
-                    </> : isConcurrentExporting ? <>
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                      Processing...
-                    </> : <>
-                      <Play className="h-4 w-4" />
-                      Run in Background
-                    </>}
-                </Button>
+                {isExporting || isConcurrentExporting ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
+                {isExporting || isConcurrentExporting ? 'Exporting...' : 'Export Now'}
+              </Button>
+              
+              <Button 
+                onClick={handleBackgroundExportClick} 
+                disabled={isExporting || isConcurrentExporting || !hasCredentials || !runInBackground || !selectedExportStatus} 
+                variant="secondary" 
+                className="flex items-center gap-2 min-w-[200px]"
+              >
+                {isExporting ? <>
+                    <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Creating Task...
+                  </> : isConcurrentExporting ? <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Processing...
+                  </> : <>
+                    <Play className="h-4 w-4" />
+                    Run in Background
+                  </>}
+              </Button>
 
                 {/* Test Task Button for debugging */}
                 <Button onClick={async e => {

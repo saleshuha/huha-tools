@@ -40,6 +40,14 @@ export const useConcurrentSunskyExport = () => {
   
   const cancellationRef = useRef<{ [exportId: string]: boolean }>({});
   const apiCallQueue = useRef<{ [apiKeyId: string]: Array<() => Promise<any>> }>({});
+  const partialDataRef = useRef<{ 
+    [exportId: string]: { 
+      products: any[], 
+      categoriesMap: Map<number, { name: string; products: any[] }>,
+      backgroundTaskId?: string,
+      config?: ExportConfig
+    } 
+  }>({});
 
   const callSunskyAPI = async (action: string, params: any, apiKeyId: string) => {
     try {
@@ -200,8 +208,14 @@ export const useConcurrentSunskyExport = () => {
     
     console.log('🚀 Starting concurrent export:', { exportId, backgroundTaskId });
     
-    // Initialize cancellation flag
+    // Initialize cancellation flag and partial data tracking
     cancellationRef.current[exportId] = false;
+    partialDataRef.current[exportId] = {
+      products: [],
+      categoriesMap: new Map(),
+      backgroundTaskId,
+      config
+    };
     
     // Initialize progress tracking for each API key
     const initialProgress: ConcurrentExportProgress[] = config.apiKeys.map(api => ({
@@ -355,14 +369,48 @@ export const useConcurrentSunskyExport = () => {
       // Wait for all API keys to complete
       const apiResults = await Promise.all(apiPromises);
       
-      if (cancellationRef.current[exportId]) {
-        setExportStatus('Export cancelled by user');
-        setIsExporting(false);
-        return exportId;
-      }
-
       // Combine all results
       const allProducts = apiResults.flat();
+      
+      // Organize products by category
+      const categoriesMap = new Map<number, { name: string; products: any[] }>();
+      allProducts.forEach(product => {
+        const categoryId = product.categoryId || 0;
+        if (!categoriesMap.has(categoryId)) {
+          categoriesMap.set(categoryId, { 
+            name: product.categoryName || 'Uncategorized', 
+            products: [] 
+          });
+        }
+        categoriesMap.get(categoryId)?.products.push(product);
+      });
+      
+      // Update partial data with results
+      if (partialDataRef.current[exportId]) {
+        partialDataRef.current[exportId].products = allProducts;
+        partialDataRef.current[exportId].categoriesMap = categoriesMap;
+      }
+      
+      // Check for cancellation AFTER collecting results
+      if (cancellationRef.current[exportId]) {
+        setExportStatus('Processing cancellation...');
+        
+        // Save partial results if we have any
+        if (allProducts.length > 0) {
+          await cancelExport(
+            exportId, 
+            allProducts, 
+            categoriesMap, 
+            backgroundTaskId, 
+            config
+          );
+        }
+        
+        setIsExporting(false);
+        delete partialDataRef.current[exportId];
+        return exportId;
+      }
+      
       
       // Check if we actually found any products
       if (allProducts.length === 0) {
@@ -471,9 +519,7 @@ export const useConcurrentSunskyExport = () => {
         return exportId;
       }
       
-      const categoriesMap = new Map<number, { name: string; products: any[] }>();
-      
-      // Organize products by category
+      // categoriesMap already created above (line 376), so we just organize products by category here
       allProducts.forEach(product => {
         const categoryId = product.categoryId || 0;
         if (!categoriesMap.has(categoryId)) {
@@ -716,18 +762,84 @@ export const useConcurrentSunskyExport = () => {
     } finally {
       setIsExporting(false);
       delete cancellationRef.current[exportId];
+      delete partialDataRef.current[exportId];
     }
   };
 
-  const cancelExport = useCallback((exportId: string) => {
+  const cancelExport = useCallback(async (exportId: string, partialProducts?: any[], categoriesMap?: Map<number, { name: string; products: any[] }>, backgroundTaskId?: string, config?: ExportConfig) => {
     cancellationRef.current[exportId] = true;
-    setExportStatus('Cancelling export...');
+    setExportStatus('Stopping export and saving partial results...');
     
-    toast({
-      title: "Export Cancelled",
-      description: "Export cancellation requested",
-      variant: "destructive"
-    });
+    // If we have partial data, save it as a downloadable export
+    if (partialProducts && partialProducts.length > 0 && backgroundTaskId && config) {
+      try {
+        console.log('💾 Saving partial results:', partialProducts.length, 'products');
+        
+        // Generate Excel file from partial data
+        const { generateExcelFile } = await import('@/utils/excelExport');
+        const categoryName = categoriesMap && config.categoryId ? 
+          categoriesMap.get(config.categoryId)?.name || 'All Categories' : 
+          'All Categories';
+        
+        const fileName = await generateExcelFile({
+          data: partialProducts,
+          categoriesMap: categoriesMap || new Map(),
+          config: {
+            status: config.status,
+            categoryName,
+            columns: config.columns,
+            apiKeys: config.apiKeys.length,
+            pageSize: config.pageSize
+          },
+          fileName: `sunsky_partial_export_${new Date().toISOString().split('T')[0]}.xlsx`,
+          saveToStorage: true
+        });
+        
+        if (fileName) {
+          // Get file blob for size
+          const { data: fileData } = await supabase.storage
+            .from('exports')
+            .download(fileName);
+          
+          // Update background task with downloadable file
+          await supabase
+            .from('background_tasks')
+            .update({ 
+              progress: 100,
+              status: 'cancelled',
+              completed_at: new Date().toISOString(),
+              metadata: {
+                fileName,
+                totalProducts: partialProducts.length,
+                fileSize: fileData?.size || 0,
+                completedAt: new Date().toISOString(),
+                downloadableResults: true,
+                message: 'Export stopped by user - partial results saved',
+                isCancelled: true
+              } 
+            } as any)
+            .eq('id', backgroundTaskId);
+          
+          toast({
+            title: "Export Stopped",
+            description: `Saved ${partialProducts.length} products collected so far. Check Background Tasks to download.`,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to save partial results:', error);
+        toast({
+          title: "Export Stopped",
+          description: `Export cancelled. Collected ${partialProducts.length} products but failed to save file.`,
+          variant: "destructive"
+        });
+      }
+    } else {
+      toast({
+        title: "Export Stopped",
+        description: "Export cancellation requested",
+        variant: "destructive"
+      });
+    }
   }, [toast]);
 
   // Reconnect to active background tasks on page load
