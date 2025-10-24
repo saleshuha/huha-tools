@@ -644,6 +644,7 @@ export const useConcurrentSunskyExport = () => {
               status: 'completed',
               file_path: fileName,
               file_size: blob.size,
+              background_task_id: backgroundTaskId,
               metadata: {
                 background: true,
                 categories: categoriesMap.size,
@@ -827,6 +828,39 @@ export const useConcurrentSunskyExport = () => {
               } 
             } as any)
             .eq('id', taskId);
+          
+          // Create export_history entry for cancelled export
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              await supabase
+                .from('export_history')
+                .insert({
+                  user_id: user.id,
+                  export_type: 'status_export',
+                  filters: {
+                    status: configToUse.status,
+                    categoryId: configToUse.categoryId,
+                    apiKeys: configToUse.apiKeys,
+                    columns: configToUse.columns,
+                    cancelled: true
+                  },
+                  total_items: productsToSave.length,
+                  status: 'cancelled',
+                  file_path: fileName,
+                  file_size: fileData?.size || 0,
+                  background_task_id: taskId,
+                  metadata: {
+                    partial_export: true,
+                    cancelled_at: new Date().toISOString()
+                  }
+                });
+              
+              console.log('✅ Export history entry created for cancelled export');
+            }
+          } catch (historyError) {
+            console.error('Failed to create export_history entry:', historyError);
+          }
           
           toast({
             title: "Export Stopped",
