@@ -16,7 +16,7 @@ export interface ExportHistoryEntry {
   metadata?: any; // Allow any type from database
 }
 
-const MAX_HISTORY_ENTRIES = 10;
+const MAX_HISTORY_ENTRIES = 50;
 
 export const useExportHistory = () => {
   const [exportHistory, setExportHistory] = useState<ExportHistoryEntry[]>([]);

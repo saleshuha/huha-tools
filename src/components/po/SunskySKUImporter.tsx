@@ -254,7 +254,8 @@ export const SunskySKUImporter: React.FC = () => {
     addExportEntry,
     updateExportEntry,
     fetchExportHistory,
-    exportHistory: savedExportHistory
+    exportHistory: savedExportHistory,
+    downloadExportFile
   } = useExportHistory();
   const {
     tasks: persistentTasks,
@@ -4691,21 +4692,24 @@ export const SunskySKUImporter: React.FC = () => {
                       Export History
                     </CardTitle>
                     <CardDescription>
-                      Recent export activities (last 10) - Click for details
+                      Recent export activities (last 50) - Click for details
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
-                      {savedExportHistory.map(entry => <div key={entry.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => {
+                      {savedExportHistory.map(entry => <div key={entry.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg hover:bg-muted/50 cursor-pointer transition-all duration-300 animate-in fade-in slide-in-from-left-2" onClick={() => {
                       setSelectedExportEntry(entry);
                       setShowExportHistoryDialog(true);
                     }}>
                           <div className="flex items-center gap-3">
-                            <div className={`h-3 w-3 rounded-full ${entry.status === 'completed' ? 'bg-green-500' : entry.status === 'processing' ? 'bg-blue-500 animate-pulse' : entry.status === 'cancelled' ? 'bg-yellow-500' : 'bg-red-500'}`} />
-                             <div>
-                                <div className="font-medium text-sm">
-                                  {(entry.metadata as any)?.categoryName || 'Export'} - {entry.total_items.toLocaleString()} items
-                                </div>
+                             <div className={`h-3 w-3 rounded-full ${entry.status === 'completed' ? 'bg-green-500' : entry.status === 'processing' ? 'bg-blue-500 animate-pulse' : entry.status === 'cancelled' ? 'bg-yellow-500' : 'bg-red-500'}`} />
+                              <div>
+                                 <div className="font-medium text-sm">
+                                   <span className="font-mono text-primary mr-2">
+                                     {(entry.metadata as any)?.exportNumber || `#${entry.id.slice(0, 8)}`}
+                                   </span>
+                                   {(entry.metadata as any)?.categoryName || 'Export'} - {entry.total_items.toLocaleString()} items
+                                 </div>
                                 <div className="text-xs text-muted-foreground">
                                   {new Date(entry.created_at).toLocaleString()}
                                   {(entry.metadata as any)?.apiKeys?.length > 0 && ` • ${(entry.metadata as any).apiKeys.length} API keys`}
@@ -4714,14 +4718,27 @@ export const SunskySKUImporter: React.FC = () => {
                                 </div>
                              </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant={entry.status === 'completed' ? 'default' : entry.status === 'processing' ? 'secondary' : entry.status === 'cancelled' ? 'outline' : 'destructive'}>
-                              {entry.status}
-                            </Badge>
-                             {entry.error_message && <Badge variant="destructive" className="text-xs max-w-32 truncate">
-                                 Error
-                               </Badge>}
-                          </div>
+                           <div className="flex items-center gap-2">
+                             <Badge variant={entry.status === 'completed' ? 'default' : entry.status === 'processing' ? 'secondary' : entry.status === 'cancelled' ? 'outline' : 'destructive'}>
+                               {entry.status}
+                             </Badge>
+                              {entry.file_path && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    downloadExportFile(entry);
+                                  }}
+                                  className="h-7 px-2"
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {entry.error_message && <Badge variant="destructive" className="text-xs max-w-32 truncate">
+                                  Error
+                                </Badge>}
+                           </div>
                         </div>)}
                     </div>
                   </CardContent>

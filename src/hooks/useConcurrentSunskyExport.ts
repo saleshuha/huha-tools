@@ -247,6 +247,7 @@ export const useConcurrentSunskyExport = () => {
       }
 
       console.log('📝 Creating export_history entry at start...');
+      const exportNumber = `EXP-${Date.now().toString().slice(-8)}`;
       const { data: historyEntry, error: historyError } = await supabase
         .from('export_history')
         .insert({
@@ -265,7 +266,9 @@ export const useConcurrentSunskyExport = () => {
           background_task_id: backgroundTaskId,
           metadata: {
             started_at: new Date().toISOString(),
-            background: !!backgroundTaskId
+            background: !!backgroundTaskId,
+            exportNumber,
+            categoryName: 'Loading...'
           }
         } as any)
         .select()
@@ -459,6 +462,23 @@ export const useConcurrentSunskyExport = () => {
       // Update categoriesMap in partial data
       if (partialDataRef.current[exportId]) {
         partialDataRef.current[exportId].categoriesMap = categoriesMap;
+      }
+      
+      // Update export_history with category name
+      const exportHistoryId = exportHistoryIdRef.current[exportId];
+      if (exportHistoryId && historyEntry) {
+        const categoryName = config.categoryId ? 
+          categoriesMap.get(config.categoryId)?.name || 'All Categories' : 
+          'All Categories';
+        await supabase
+          .from('export_history')
+          .update({
+            metadata: {
+              ...(historyEntry.metadata || {}),
+              categoryName
+            }
+          } as any)
+          .eq('id', exportHistoryId);
       }
       
       // Check for cancellation AFTER collecting results
@@ -821,7 +841,10 @@ export const useConcurrentSunskyExport = () => {
       setCurrentExportId(null);
       delete cancellationRef.current[exportId];
       delete partialDataRef.current[exportId];
-      delete exportHistoryIdRef.current[exportId];
+      // Delay deleting exportHistoryIdRef to allow cancelExport to complete
+      setTimeout(() => {
+        delete exportHistoryIdRef.current[exportId];
+      }, 1000);
     }
   };
 
@@ -898,35 +921,48 @@ export const useConcurrentSunskyExport = () => {
           });
           
           if (exportHistoryId) {
-            try {
-              const { error: updateError } = await supabase
-                .from('export_history')
-                .update({
-                  total_items: productsToSave.length,
-                  status: 'cancelled',
-                  file_path: fileName,
-                  file_size: fileData?.size || 0,
-                  metadata: {
-                    partial_export: true,
-                    cancelled_at: new Date().toISOString(),
-                    downloadableResults: true
+            let retryCount = 0;
+            const maxRetries = 3;
+            
+            while (retryCount < maxRetries) {
+              try {
+                const { error: updateError } = await supabase
+                  .from('export_history')
+                  .update({
+                    total_items: productsToSave.length,
+                    status: 'cancelled',
+                    file_path: fileName,
+                    file_size: fileData?.size || 0,
+                    metadata: {
+                      partial_export: true,
+                      cancelled_at: new Date().toISOString(),
+                      downloadableResults: true
+                    }
+                  } as any)
+                  .eq('id', exportHistoryId);
+
+                if (updateError) {
+                  console.error('❌ Export history update error:', updateError);
+                  retryCount++;
+                  if (retryCount < maxRetries) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    continue;
                   }
-                } as any)
-                .eq('id', exportHistoryId);
+                  throw updateError;
+                }
 
-              if (updateError) {
-                console.error('❌ Export history update error:', updateError);
-                throw updateError;
+                console.log('✅ Export history updated to cancelled:', exportHistoryId);
+                break;
+              } catch (historyError) {
+                if (retryCount >= maxRetries) {
+                  console.error('Failed to update export_history entry after retries:', historyError);
+                  toast({
+                    title: "Warning",
+                    description: "Partial results saved but failed to update export history. Check Background Tasks.",
+                    variant: "destructive"
+                  });
+                }
               }
-
-              console.log('✅ Export history updated to cancelled:', exportHistoryId);
-            } catch (historyError) {
-              console.error('Failed to update export_history entry:', historyError);
-              toast({
-                title: "Warning",
-                description: "Partial results saved but failed to update export history. Check Background Tasks.",
-                variant: "destructive"
-              });
             }
           }
           
