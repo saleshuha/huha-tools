@@ -29,6 +29,7 @@ const DEFAULT_COLUMNS: ColumnConfig[] = [
   { id: 'checkbox', label: 'Select', visible: true, required: true },
   { id: 'title', label: 'Product Information', visible: true, required: true },
   { id: 'quantity', label: 'Quantity', visible: true },
+  { id: 'total_across_pos', label: 'Total in POs', visible: true },
   { id: 'status', label: 'Status', visible: true },
   { id: 'inventory', label: 'Inventory', visible: true },
   { id: 'tracking', label: 'Tracking', visible: true },

@@ -16,6 +16,7 @@ import { truncateText } from '@/utils/po-table-helpers';
 
 interface EnhancedPOTableProps {
   orders: any[];
+  allPOOrders?: any[];
   selectedItems: Set<string>;
   onItemSelect: (itemId: string) => void;
   onSelectAll: () => void;
@@ -27,6 +28,7 @@ interface EnhancedPOTableProps {
 
 export function EnhancedPOTable({
   orders,
+  allPOOrders = [],
   selectedItems,
   onItemSelect,
   onSelectAll,
@@ -72,6 +74,19 @@ export function EnhancedPOTable({
   };
 
   const classes = getViewModeClasses();
+
+  // Calculate total quantity of an ASIN across all active POs
+  const getTotalQtyAcrossAllPOs = (asin: string): number => {
+    if (!asin || !allPOOrders || allPOOrders.length === 0) return 0;
+    
+    return allPOOrders
+      .filter(po => 
+        po.asin === asin && 
+        po.status !== 'cancelled' && 
+        po.status !== 'closed'
+      )
+      .reduce((total, po) => total + (po.quantity || 0), 0);
+  };
 
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { color: string; icon: any }> = {
@@ -137,6 +152,20 @@ export function EnhancedPOTable({
               {isColumnVisible('quantity') && (
                 <TableHead className={`font-semibold uppercase tracking-wide text-muted-foreground text-center ${classes.header}`}>
                   {viewMode === 'compact' ? 'Qty' : 'ASN Qty'}
+                </TableHead>
+              )}
+              {isColumnVisible('total_across_pos') && (
+                <TableHead className={`font-semibold uppercase tracking-wide text-muted-foreground text-center ${classes.header}`}>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        {viewMode === 'compact' ? 'All POs' : 'Total in POs'}
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Total quantity across all active POs</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </TableHead>
               )}
               {isColumnVisible('quantity') && (
@@ -270,6 +299,27 @@ export function EnhancedPOTable({
                       <div className={`inline-flex items-center justify-center ${viewMode === 'compact' ? 'h-6 w-6' : 'h-8 w-8'} rounded-full bg-muted font-bold ${classes.title}`}>
                         {orderQuantity}
                       </div>
+                    </TableCell>
+                  )}
+
+                  {isColumnVisible('total_across_pos') && (
+                    <TableCell className={`text-center ${classes.cell}`}>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <div className={`inline-flex items-center justify-center ${viewMode === 'compact' ? 'h-6 w-6' : 'h-8 w-8'} rounded-full bg-blue-500/10 border border-blue-500/20 font-bold ${classes.title}`}>
+                              <span className="text-blue-700 dark:text-blue-400">
+                                {getTotalQtyAcrossAllPOs(order.asin)}
+                              </span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs">
+                              Total quantity of {order.asin} across all active POs
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </TableCell>
                   )}
 

@@ -2255,7 +2255,7 @@ export default function PODetailsPage() {
 
         {/* Enhanced Table */}
         <div className="mb-2" id="po-table-container">
-          <EnhancedPOTable orders={paginatedOrders} selectedItems={selectedItems} onItemSelect={handleItemSelect} onSelectAll={handleSelectAll} onIndividualAction={(order, action) => {
+          <EnhancedPOTable orders={paginatedOrders} allPOOrders={poOrders} selectedItems={selectedItems} onItemSelect={handleItemSelect} onSelectAll={handleSelectAll} onIndividualAction={(order, action) => {
           if (action === 'edit') {
             setSelectedOrder(order);
             setIndividualTrackingData({
