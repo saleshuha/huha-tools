@@ -4743,40 +4743,70 @@ export const SunskySKUImporter: React.FC = () => {
                                             onClick={async (e) => {
                                               e.stopPropagation();
                                               toast({
-                                                title: "Checking for file...",
-                                                description: "Looking for export file in storage",
+                                                title: "Searching for file...",
+                                                description: "Checking sunsky-exports storage bucket",
                                               });
                                               
-                                              const possiblePath = `exports/${profile?.id}/${entry.id}.xlsx`;
-                                              const { data, error } = await supabase.storage
-                                                .from('exports')
-                                                .download(possiblePath);
+                                              let foundFile = false;
                                               
-                                              if (!error && data) {
-                                                await supabase
-                                                  .from('export_history')
-                                                  .update({ file_path: possiblePath })
-                                                  .eq('id', entry.id);
+                                              try {
+                                                // List all files in user's folder in sunsky-exports bucket
+                                                const { data: files, error: listError } = await supabase.storage
+                                                  .from('sunsky-exports')
+                                                  .list(`${profile?.id}/`);
                                                 
-                                                const url = URL.createObjectURL(data);
-                                                const a = document.createElement('a');
-                                                a.href = url;
-                                                a.download = `export_${entry.id}.xlsx`;
-                                                document.body.appendChild(a);
-                                                a.click();
-                                                document.body.removeChild(a);
-                                                URL.revokeObjectURL(url);
-                                                
-                                                toast({
-                                                  title: "Download Started",
-                                                  description: "File recovered and download started",
-                                                });
-                                                
-                                                fetchExportHistory();
-                                              } else {
+                                                if (!listError && files && files.length > 0) {
+                                                  // Find file created around the export timestamp
+                                                  const exportDate = new Date(entry.created_at);
+                                                  const matchingFile = files.find(file => {
+                                                    const fileDate = new Date(file.created_at);
+                                                    const timeDiff = Math.abs(fileDate.getTime() - exportDate.getTime());
+                                                    return timeDiff < 300000; // Within 5 minutes
+                                                  });
+                                                  
+                                                  if (matchingFile) {
+                                                    const fullPath = `${profile?.id}/${matchingFile.name}`;
+                                                    
+                                                    // Download the file
+                                                    const { data, error } = await supabase.storage
+                                                      .from('sunsky-exports')
+                                                      .download(fullPath);
+                                                    
+                                                    if (!error && data) {
+                                                      // Update database with found path
+                                                      await supabase
+                                                        .from('export_history')
+                                                        .update({ file_path: fullPath })
+                                                        .eq('id', entry.id);
+                                                      
+                                                      // Trigger download
+                                                      const url = URL.createObjectURL(data);
+                                                      const a = document.createElement('a');
+                                                      a.href = url;
+                                                      a.download = matchingFile.name;
+                                                      document.body.appendChild(a);
+                                                      a.click();
+                                                      document.body.removeChild(a);
+                                                      URL.revokeObjectURL(url);
+                                                      
+                                                      toast({
+                                                        title: "File Recovered!",
+                                                        description: `Downloaded: ${matchingFile.name}`,
+                                                      });
+                                                      
+                                                      foundFile = true;
+                                                      fetchExportHistory();
+                                                    }
+                                                  }
+                                                }
+                                              } catch (err) {
+                                                console.error('Search failed:', err);
+                                              }
+                                              
+                                              if (!foundFile) {
                                                 toast({
                                                   title: "File Not Found",
-                                                  description: "Export file could not be located. Please re-run the export.",
+                                                  description: "Could not locate export file in storage. The file may have been deleted.",
                                                   variant: "destructive"
                                                 });
                                               }
