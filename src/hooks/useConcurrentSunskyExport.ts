@@ -891,17 +891,17 @@ export const useConcurrentSunskyExport = () => {
         if (fileName) {
           console.log('✅ File generated successfully:', fileName);
           
-          // Verify file exists in storage
+          // Verify file exists in sunsky-exports bucket
           const { data: downloadedFile, error: checkError } = await supabase.storage
-            .from('exports')
+            .from('sunsky-exports')
             .download(fileName);
           
           if (checkError || !downloadedFile) {
-            console.error('❌ File not found in storage after upload:', checkError);
+            console.error('❌ File not found in sunsky-exports bucket:', checkError);
             fileName = null; // Reset if file doesn't actually exist
           } else {
             fileData = downloadedFile;
-            console.log('✅ File verified in storage, size:', fileData.size);
+            console.log('✅ File verified in sunsky-exports bucket, size:', fileData.size);
           }
         }
       } catch (fileError) {

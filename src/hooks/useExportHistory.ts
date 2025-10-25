@@ -154,7 +154,7 @@ export const useExportHistory = () => {
     if (!entry.file_path) {
       toast({
         title: "Error",
-        description: "No file available for download",
+        description: "No file available for download from sunsky-exports bucket",
         variant: "destructive"
       });
       return;
@@ -162,7 +162,7 @@ export const useExportHistory = () => {
 
     try {
       const { data, error } = await supabase.storage
-        .from('exports')
+        .from('sunsky-exports')
         .download(entry.file_path);
 
       if (error) throw error;
@@ -185,7 +185,7 @@ export const useExportHistory = () => {
       console.error('Error downloading export file:', error);
       toast({
         title: "Download Failed",
-        description: "Failed to download export file",
+        description: "Failed to download export file from sunsky-exports bucket",
         variant: "destructive"
       });
     }
@@ -212,7 +212,7 @@ export const useExportHistory = () => {
       // Delete file from storage if it exists
       if (entry?.file_path) {
         await supabase.storage
-          .from('exports')
+          .from('sunsky-exports')
           .remove([entry.file_path]);
       }
 
