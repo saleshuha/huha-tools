@@ -13,6 +13,8 @@ interface SunskyCredential {
 }
 
 Deno.serve(async (req) => {
+  console.log('🚀 process-po-background function invoked:', new Date().toISOString());
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
