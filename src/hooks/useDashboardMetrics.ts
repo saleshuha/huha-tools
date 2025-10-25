@@ -9,32 +9,43 @@ import { supabase } from '@/integrations/supabase/client';
 
 export function useDashboardMetrics() {
   const { selectedCountry } = useCountry();
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [loadSecondary, setLoadSecondary] = useState(false);
 
-  // Load all data sources
+  // Load inventory data immediately (priority)
   const { inventoryMetrics, loading: inventoryLoading, loadAnalytics: reloadInventory } = useInventoryAnalytics();
+  
+  // Load secondary data sources only after inventory
   const { items: velocityItems, loading: velocityLoading, loadAnalytics: reloadVelocity } = useQuarterlyVelocityAnalytics();
   const { metrics: poMetrics, totals: poTotals, isLoading: poLoading, fetchMetrics: reloadPO, fetchTotals: reloadPOTotals } = usePOMetrics();
   const { metrics: fulfillmentMetrics, loading: fulfillmentLoading, refetch: reloadFulfillment } = useAmazonOrders();
-  const { paymentTerms } = usePaymentTerms();
 
-  const isLoading = inventoryLoading || velocityLoading || poLoading || fulfillmentLoading;
+  const isLoadingInventory = inventoryLoading;
+  const isLoadingSecondary = velocityLoading || poLoading || fulfillmentLoading;
 
-  // Load all data on mount
+  // Load inventory first, then secondary data
   useEffect(() => {
     const initializeData = async () => {
-      await Promise.all([
-        reloadInventory(selectedCountry),
-        reloadVelocity(2), // Load 2 years of velocity data
-        reloadPO(),
-        reloadPOTotals(),
-        reloadFulfillment()
-      ]);
-      setLastUpdated(new Date());
+      // Load inventory first (fastest query)
+      await reloadInventory(selectedCountry);
+      
+      // Then load secondary data in background
+      setLoadSecondary(true);
     };
     
     initializeData();
   }, [selectedCountry]);
+
+  // Load secondary data after inventory is ready
+  useEffect(() => {
+    if (loadSecondary && !inventoryLoading) {
+      Promise.all([
+        reloadVelocity(0.25), // Load only 3 months instead of 2 years
+        reloadPO(),
+        reloadPOTotals(),
+        reloadFulfillment()
+      ]);
+    }
+  }, [loadSecondary, inventoryLoading]);
 
   // Process inventory metrics
   const inventoryData = inventoryMetrics ? {
@@ -313,14 +324,13 @@ export function useDashboardMetrics() {
   } : null;
 
   const refreshAll = async () => {
+    await reloadInventory(selectedCountry);
     await Promise.all([
-      reloadInventory(selectedCountry),
-      reloadVelocity(2),
+      reloadVelocity(0.25),
       reloadPO(),
       reloadPOTotals(),
       reloadFulfillment()
     ]);
-    setLastUpdated(new Date());
   };
 
   return {
@@ -328,8 +338,8 @@ export function useDashboardMetrics() {
     velocityMetrics: velocityData,
     poMetrics: poData,
     fulfillmentMetrics: fulfillmentData,
-    isLoading,
-    lastUpdated,
+    isLoadingInventory,
+    isLoadingSecondary,
     refreshAll
   };
 }

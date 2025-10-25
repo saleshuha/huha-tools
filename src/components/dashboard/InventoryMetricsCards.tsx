@@ -29,9 +29,9 @@ export const InventoryMetricsCards: React.FC<InventoryMetricsCardsProps> = ({
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-        {[...Array(5)].map((_, i) => (
-          <Skeleton key={i} className="h-40" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {[...Array(3)].map((_, i) => (
+          <Skeleton key={i} className="h-32" />
         ))}
       </div>
     );
@@ -39,12 +39,10 @@ export const InventoryMetricsCards: React.FC<InventoryMetricsCardsProps> = ({
 
   if (!metrics) return null;
 
-  const sellThroughRate = metrics.totalAsinUnits > 0 
-    ? ((metrics.soldAsinUnits / metrics.totalAsinUnits) * 100).toFixed(1)
-    : 0;
+  const dataIssues = metrics.missingSku + metrics.missingTitle + metrics.missingImage;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       <MetricCard
         title="Active Items"
         value={metrics.totalAsins + metrics.totalSkus}
@@ -56,39 +54,23 @@ export const InventoryMetricsCards: React.FC<InventoryMetricsCardsProps> = ({
       
       <MetricCard
         title="Stock Status"
-        value={metrics.inStockCount}
+        value={`${metrics.inStockCount} / ${metrics.inStockCount + metrics.outOfStockCount}`}
         subtitle={`${metrics.outOfStockCount} out of stock`}
         icon={Activity}
         gradient="bg-gradient-to-br from-green-500 to-emerald-600"
         onClick={() => navigate('/inventory')}
       />
       
-      <MetricCard
-        title="Total Units"
-        value={metrics.totalAsinUnits + metrics.totalSkuUnits}
-        subtitle={`ASIN: ${metrics.totalAsinUnits}, SKU: ${metrics.totalSkuUnits}`}
-        icon={BarChart3}
-        gradient="bg-gradient-to-br from-purple-500 to-purple-600"
-        onClick={() => navigate('/inventory')}
-      />
-      
-      <MetricCard
-        title="Sold Units (30d)"
-        value={metrics.soldAsinUnits + metrics.soldSkuUnits}
-        subtitle={`${sellThroughRate}% sell-through rate`}
-        icon={TrendingUp}
-        gradient="bg-gradient-to-br from-green-500 to-teal-600"
-        onClick={() => navigate('/inventory')}
-      />
-      
-      <MetricCard
-        title="Data Quality"
-        value={metrics.missingSku + metrics.missingTitle + metrics.missingImage}
-        subtitle={`${metrics.missingSku} SKU, ${metrics.missingTitle} Title, ${metrics.missingImage} Image`}
-        icon={AlertTriangle}
-        gradient="bg-gradient-to-br from-orange-500 to-orange-600"
-        onClick={() => navigate('/inventory')}
-      />
+      {dataIssues > 0 && (
+        <MetricCard
+          title="Data Issues"
+          value={dataIssues}
+          subtitle="Items need attention"
+          icon={AlertTriangle}
+          gradient="bg-gradient-to-br from-orange-500 to-orange-600"
+          onClick={() => navigate('/inventory')}
+        />
+      )}
     </div>
   );
 };

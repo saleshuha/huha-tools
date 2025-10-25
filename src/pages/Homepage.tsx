@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { InventoryMetricsCards } from '@/components/dashboard/InventoryMetricsCards';
-import { VelocityMetricsCards } from '@/components/dashboard/VelocityMetricsCards';
-import { POMetricsCards } from '@/components/dashboard/POMetricsCards';
-import { FulfillmentMetricsCards } from '@/components/dashboard/FulfillmentMetricsCards';
-import { QuickActionsPanel } from '@/components/dashboard/QuickActionsPanel';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
+import { Skeleton } from '@/components/ui/skeleton';
+
+// Lazy load secondary metrics
+const VelocityMetricsCards = lazy(() => import('@/components/dashboard/VelocityMetricsCards').then(m => ({ default: m.VelocityMetricsCards })));
+const POMetricsCards = lazy(() => import('@/components/dashboard/POMetricsCards').then(m => ({ default: m.POMetricsCards })));
+const FulfillmentMetricsCards = lazy(() => import('@/components/dashboard/FulfillmentMetricsCards').then(m => ({ default: m.FulfillmentMetricsCards })));
 
 export default function Homepage() {
   const {
@@ -13,81 +15,59 @@ export default function Homepage() {
     velocityMetrics,
     poMetrics,
     fulfillmentMetrics,
-    isLoading,
-    lastUpdated,
+    isLoadingInventory,
+    isLoadingSecondary,
     refreshAll
   } = useDashboardMetrics();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-      {/* Enhanced Background Effects */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-gradient-to-br from-blue-400/10 to-indigo-400/10 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-gradient-to-br from-purple-400/10 to-blue-400/10 rounded-full blur-3xl"></div>
-        <div className="absolute top-1/2 right-0 w-64 h-64 bg-gradient-to-br from-indigo-400/5 to-purple-400/5 rounded-full blur-2xl"></div>
-      </div>
+    <div className="min-h-screen bg-background">
+      <DashboardHeader 
+        onRefresh={refreshAll}
+        isRefreshing={isLoadingInventory}
+      />
 
-      <div className="relative z-10">
-        {/* Dashboard Header */}
-        <DashboardHeader 
-          onRefresh={refreshAll}
-          isRefreshing={isLoading}
-          lastUpdated={lastUpdated}
-        />
+      <div className="container mx-auto px-6 py-6 space-y-6">
+        {/* Inventory Overview - Loads First */}
+        <section>
+          <h2 className="text-xl font-semibold mb-3">Inventory</h2>
+          <InventoryMetricsCards 
+            metrics={inventoryMetrics}
+            loading={isLoadingInventory}
+          />
+        </section>
 
-        {/* Main Dashboard Content */}
-        <div className="container mx-auto px-6 py-8 space-y-8">
-          {/* Section 1: Inventory Overview */}
-          <section>
-            <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-              📦 Instock Inventory Overview
-            </h2>
-            <InventoryMetricsCards 
-              metrics={inventoryMetrics}
-              loading={isLoading}
-            />
-          </section>
-
-          {/* Section 2: Sales & Replenishment + PO Tracker + Fulfillment */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Velocity Analytics - Right Column */}
-            <section className="lg:col-span-1">
-              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-                ⚡ Sales & Replenishment
-              </h2>
+        {/* Secondary Metrics - Lazy Loaded */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Suspense fallback={<Skeleton className="h-96" />}>
+            <section>
+              <h2 className="text-xl font-semibold mb-3">Sales & Velocity</h2>
               <VelocityMetricsCards 
                 metrics={velocityMetrics}
-                loading={isLoading}
+                loading={isLoadingSecondary}
               />
             </section>
+          </Suspense>
 
-            {/* PO Tracker - Middle */}
-            <section className="lg:col-span-1">
-              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-                📋 Purchase Orders
-              </h2>
+          <Suspense fallback={<Skeleton className="h-96" />}>
+            <section>
+              <h2 className="text-xl font-semibold mb-3">Purchase Orders</h2>
               <POMetricsCards 
                 metrics={poMetrics}
-                loading={isLoading}
+                loading={isLoadingSecondary}
               />
             </section>
+          </Suspense>
 
-            {/* Fulfillment & Payments - Right */}
-            <section className="lg:col-span-1">
-              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-                💰 Fulfillment & Payments
-              </h2>
+          <Suspense fallback={<Skeleton className="h-96" />}>
+            <section>
+              <h2 className="text-xl font-semibold mb-3">Payments</h2>
               <FulfillmentMetricsCards 
                 metrics={fulfillmentMetrics}
-                loading={isLoading}
+                loading={isLoadingSecondary}
               />
             </section>
-          </div>
-
-          {/* Quick Actions Panel */}
-          <section>
-            <QuickActionsPanel />
-          </section>
+          </Suspense>
         </div>
       </div>
     </div>

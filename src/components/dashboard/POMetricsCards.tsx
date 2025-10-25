@@ -40,79 +40,37 @@ export const POMetricsCards: React.FC<POMetricsCardsProps> = ({
   const totalValue = Object.values(metrics.statusBreakdown).reduce((sum, status) => sum + status.value, 0);
 
   return (
-    <Card className="hover:shadow-lg transition-all duration-300 cursor-pointer" onClick={() => navigate('/po-tracker')}>
+    <Card className="hover:border-primary/50 transition-colors cursor-pointer" onClick={() => navigate('/po-tracker')}>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileText className="w-5 h-5 text-blue-500" />
-          Purchase Orders Overview
+        <CardTitle className="text-base flex items-center gap-2">
+          <FileText className="w-4 h-4" />
+          Purchase Orders
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Summary Stats */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="text-center">
-            <p className="text-2xl font-bold">{metrics.activeOrders}</p>
-            <p className="text-xs text-muted-foreground">Active Orders</p>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <p className="text-muted-foreground">Active Orders</p>
+            <p className="text-xl font-bold">{metrics.activeOrders}</p>
           </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold">{metrics.activeQuantity.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground">Active Qty</p>
+          <div>
+            <p className="text-muted-foreground">Total Value</p>
+            <p className="text-xl font-bold">${totalValue.toLocaleString()}</p>
           </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold">${totalValue.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground">Total Value</p>
+          <div>
+            <p className="text-muted-foreground">Ordered</p>
+            <p className="text-lg font-semibold text-blue-600">{metrics.statusBreakdown.ordered.count}</p>
           </div>
-        </div>
-
-        {/* Status Breakdown */}
-        <div className="space-y-3">
-          <p className="text-sm font-semibold text-muted-foreground">Status Breakdown</p>
-          <div className="space-y-2">
-            <StatusBar 
-              label="Pending" 
-              count={metrics.statusBreakdown.pending.count}
-              value={metrics.statusBreakdown.pending.value}
-              color="bg-yellow-500"
-              percentage={(metrics.statusBreakdown.pending.count / metrics.activeOrders) * 100}
-            />
-            <StatusBar 
-              label="Ordered" 
-              count={metrics.statusBreakdown.ordered.count}
-              value={metrics.statusBreakdown.ordered.value}
-              color="bg-blue-500"
-              percentage={(metrics.statusBreakdown.ordered.count / metrics.activeOrders) * 100}
-            />
-            <StatusBar 
-              label="Shipped" 
-              count={metrics.statusBreakdown.shipped.count}
-              value={metrics.statusBreakdown.shipped.value}
-              color="bg-purple-500"
-              percentage={(metrics.statusBreakdown.shipped.count / metrics.activeOrders) * 100}
-            />
-            <StatusBar 
-              label="Delivered" 
-              count={metrics.statusBreakdown.delivered.count}
-              value={metrics.statusBreakdown.delivered.value}
-              color="bg-green-500"
-              percentage={(metrics.statusBreakdown.delivered.count / metrics.activeOrders) * 100}
-            />
+          <div>
+            <p className="text-muted-foreground">Shipped</p>
+            <p className="text-lg font-semibold text-purple-600">{metrics.statusBreakdown.shipped.count}</p>
           </div>
         </div>
-
-        {/* Delivery Timeline */}
-        <div className="flex items-center justify-between pt-4 border-t">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm">Arriving:</span>
+        {metrics.timeline.delayed > 0 && (
+          <div className="pt-3 border-t">
+            <p className="text-sm text-red-600 font-semibold">{metrics.timeline.delayed} delayed orders</p>
           </div>
-          <div className="flex items-center gap-4 text-sm">
-            <span><span className="font-semibold">{metrics.timeline.thisWeek}</span> this week</span>
-            <span><span className="font-semibold">{metrics.timeline.thisMonth}</span> this month</span>
-            {metrics.timeline.delayed > 0 && (
-              <span className="text-red-600 font-semibold">{metrics.timeline.delayed} late</span>
-            )}
-          </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   );

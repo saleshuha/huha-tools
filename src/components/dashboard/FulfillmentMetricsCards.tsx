@@ -36,74 +36,38 @@ export const FulfillmentMetricsCards: React.FC<FulfillmentMetricsCardsProps> = (
   if (!metrics) return null;
 
   return (
-    <Card className="hover:shadow-lg transition-all duration-300 cursor-pointer" onClick={() => navigate('/amazon-fulfillment-tracker')}>
+    <Card className="hover:border-primary/50 transition-colors cursor-pointer" onClick={() => navigate('/amazon-fulfillment-tracker')}>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <DollarSign className="w-5 h-5 text-green-500" />
-          Fulfillment Payments Dashboard
+        <CardTitle className="text-base flex items-center gap-2">
+          <DollarSign className="w-4 h-4" />
+          Payments
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Payment Summary */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="text-center">
-            <p className="text-2xl font-bold">${metrics.totalValue.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground">Total</p>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <p className="text-muted-foreground">Total Value</p>
+            <p className="text-xl font-bold">${metrics.totalValue.toLocaleString()}</p>
           </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-green-600">${metrics.paidValue.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground">Paid ({metrics.paidCount})</p>
+          <div>
+            <p className="text-muted-foreground">Pending</p>
+            <p className="text-xl font-bold text-amber-600">${metrics.pendingValue.toLocaleString()}</p>
           </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-amber-600">${metrics.pendingValue.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground">Pending ({metrics.pendingCount})</p>
-          </div>
-        </div>
-
-        {metrics.overdueValue > 0 && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-red-700 dark:text-red-400">Overdue Payments</span>
-              <span className="text-lg font-bold text-red-600 dark:text-red-400">
-                ${metrics.overdueValue.toLocaleString()}
-              </span>
+          {metrics.overdueValue > 0 && (
+            <div className="col-span-2">
+              <p className="text-muted-foreground">Overdue</p>
+              <p className="text-xl font-bold text-red-600">${metrics.overdueValue.toLocaleString()}</p>
+              <p className="text-xs text-muted-foreground">{metrics.overdueCount} orders</p>
             </div>
-            <p className="text-xs text-red-600 dark:text-red-400 mt-1">{metrics.overdueCount} orders</p>
+          )}
+          <div>
+            <p className="text-muted-foreground">Next 7 Days</p>
+            <p className="text-lg font-semibold">${metrics.upcomingPayments.next7Days.value.toLocaleString()}</p>
           </div>
-        )}
-
-        {/* Upcoming Payments */}
-        <div className="space-y-3">
-          <p className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-            <Calendar className="w-4 h-4" />
-            Upcoming Payments
-          </p>
-          <div className="space-y-2">
-            <PaymentRow 
-              label="Next 7 days" 
-              count={metrics.upcomingPayments.next7Days.count}
-              value={metrics.upcomingPayments.next7Days.value}
-            />
-            <PaymentRow 
-              label="Next 30 days" 
-              count={metrics.upcomingPayments.next30Days.count}
-              value={metrics.upcomingPayments.next30Days.value}
-            />
-            <PaymentRow 
-              label="Next 90 days" 
-              count={metrics.upcomingPayments.next90Days.count}
-              value={metrics.upcomingPayments.next90Days.value}
-            />
+          <div>
+            <p className="text-muted-foreground">Next 30 Days</p>
+            <p className="text-lg font-semibold">${metrics.upcomingPayments.next30Days.value.toLocaleString()}</p>
           </div>
-        </div>
-
-        {/* Credit Info */}
-        <div className="flex items-center justify-between pt-4 border-t">
-          <div className="flex items-center gap-2">
-            <CreditCard className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm">Credit Period:</span>
-          </div>
-          <span className="font-semibold">{metrics.creditDays} days</span>
         </div>
       </CardContent>
     </Card>
