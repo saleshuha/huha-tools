@@ -85,55 +85,6 @@ export const generateExcelFile = async (options: ExcelExportOptions): Promise<st
     const productsSheet = XLSX.utils.aoa_to_sheet(productsData);
     XLSX.utils.book_append_sheet(workbook, productsSheet, 'All Products');
 
-    // Create category-specific sheets (top 10 categories)
-    const sortedCategories = Array.from(categoriesMap.entries())
-      .sort(([,a], [,b]) => b.products.length - a.products.length)
-      .slice(0, 10);
-
-    // Track used sheet names to prevent duplicates
-    const usedSheetNames = new Set(['Summary', 'All Products']);
-
-    sortedCategories.forEach(([categoryId, categoryInfo]) => {
-      const categoryData = [config.columns];
-      
-      categoryInfo.products.forEach((product: any) => {
-        const row = config.columns.map(column => {
-          switch (column) {
-            case 'status':
-              return getProductStatusText(product.status);
-            case 'dimensions':
-              return `${product.unitLength || ''}x${product.unitWidth || ''}x${product.unitHeight || ''}`;
-            case 'pack_dimensions':
-              return `${product.packLength || ''}x${product.packWidth || ''}x${product.packHeight || ''}`;
-            case 'category':
-              return categoryInfo.name;
-            case 'price':
-              return product.price ? `$${product.price}` : '';
-            case 'weight':
-              return product.weight ? `${product.weight}g` : '';
-            default:
-              return product[column] || '';
-          }
-        });
-        categoryData.push(row);
-      });
-
-      const categorySheet = XLSX.utils.aoa_to_sheet(categoryData);
-      
-      // Generate unique sheet name
-      let baseSheetName = (categoryInfo.name || 'Uncategorized').substring(0, 30).replace(/[\\/*?:"<>|]/g, '');
-      let sheetName = baseSheetName;
-      let counter = 1;
-      
-      // Append counter if name already exists
-      while (usedSheetNames.has(sheetName)) {
-        sheetName = `${baseSheetName.substring(0, 27)}_${counter}`;
-        counter++;
-      }
-      
-      usedSheetNames.add(sheetName);
-      XLSX.utils.book_append_sheet(workbook, categorySheet, sheetName);
-    });
 
     // Generate the file
     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
