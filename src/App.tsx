@@ -17,11 +17,8 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { CountrySwitcher } from "@/components/CountrySwitcher";
 import { BackgroundTasksPanel } from "@/components/BackgroundTasksPanel";
 import { ThemeColorWidget } from "@/components/theme/ThemeColorWidget";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { QZTrayStatusIndicator } from "@/components/QZTrayStatusIndicator";
-import { Activity } from "lucide-react";
-import { useBackgroundTasks } from "@/contexts/BackgroundTasksContext";
+import { HeaderTasksButton } from "@/components/HeaderTasksButton";
 import Index from "./pages/Index";
 
 import ExcelMapperPage from "./pages/ExcelMapper";
@@ -143,7 +140,6 @@ const App = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [showBackgroundTasks, setShowBackgroundTasks] = useState(false);
-  const { activeTasks } = useBackgroundTasks();
   const isNative = Capacitor.isNativePlatform();
 
   useEffect(() => {
@@ -228,23 +224,7 @@ const App = () => {
                         </div>
                          <div className="flex items-center gap-2">
                            <QZTrayStatusIndicator />
-                           <Button
-                             variant="outline"
-                             size="sm"
-                             onClick={() => setShowBackgroundTasks(true)}
-                             className="flex items-center gap-2 relative"
-                           >
-                             <Activity className="h-4 w-4" />
-                             Tasks
-                             {activeTasks.length > 0 && (
-                               <Badge 
-                                 variant="destructive" 
-                                 className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
-                               >
-                                 {activeTasks.length}
-                               </Badge>
-                             )}
-                           </Button>
+                           <HeaderTasksButton onClick={() => setShowBackgroundTasks(true)} />
                           <ThemeColorWidget />
                           <CountrySwitcher />
                         </div>
