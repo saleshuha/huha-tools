@@ -305,8 +305,8 @@ const App = () => {
                     </main>
                   </div>
                 </div>
-                <FloatingProgressIndicator />
-                <BackgroundTasksPanel 
+                {/* FloatingProgressIndicator removed - using header Tasks button instead */}
+                <BackgroundTasksPanel
                   isOpen={showBackgroundTasks} 
                   onClose={() => setShowBackgroundTasks(false)} 
                 />
