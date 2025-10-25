@@ -4320,21 +4320,11 @@ export const SunskySKUImporter: React.FC = () => {
                     onClick={async () => {
                       setFetchingPreview(true);
                       try {
-                        let effectiveCategoryId = undefined;
+                        let categoryIds: number[] = [];
                         if (exportSubCategory.length > 0) {
-                          effectiveCategoryId = exportSubCategory.map(id => parseInt(id));
+                          categoryIds = exportSubCategory.map(id => parseInt(id));
                         } else if (exportCategory.length > 0) {
-                          effectiveCategoryId = exportCategory.map(id => parseInt(id));
-                        }
-                        
-                        const previewParams: any = {
-                          page: 1,
-                          pageSize: 1,
-                          status: selectedExportStatus,
-                          lang: 'en'
-                        };
-                        if (effectiveCategoryId) {
-                          previewParams.categoryId = effectiveCategoryId;
+                          categoryIds = exportCategory.map(id => parseInt(id));
                         }
                         
                         const apiId = selectedExportAPIs.length > 0 
@@ -4350,15 +4340,39 @@ export const SunskySKUImporter: React.FC = () => {
                           return;
                         }
                         
-                        const response = await callSunskyAPI('searchProducts', previewParams, apiId);
+                        // If multiple categories selected, sum their counts
+                        let totalCount = 0;
+                        if (categoryIds.length > 0) {
+                          for (const categoryId of categoryIds) {
+                            const previewParams: any = {
+                              page: 1,
+                              pageSize: 1,
+                              status: selectedExportStatus,
+                              lang: 'en',
+                              categoryId
+                            };
+                            
+                            const response = await callSunskyAPI('searchProducts', previewParams, apiId);
+                            const count = response?.data?.products?.total ?? response?.data?.total ?? 0;
+                            totalCount += count;
+                          }
+                        } else {
+                          // No category filter - get all products
+                          const previewParams: any = {
+                            page: 1,
+                            pageSize: 1,
+                            status: selectedExportStatus,
+                            lang: 'en'
+                          };
+                          const response = await callSunskyAPI('searchProducts', previewParams, apiId);
+                          totalCount = response?.data?.products?.total ?? response?.data?.total ?? 0;
+                        }
                         
-                        const total = response?.data?.products?.total ?? response?.data?.total ?? 0;
-                        if (total > 0 || response?.data?.products?.result?.length > 0) {
-                          const count = total || response.data.products?.result?.length || 0;
-                          setPreviewCount(count);
+                        if (totalCount > 0) {
+                          setPreviewCount(totalCount);
                           toast({
                             title: "Products Found",
-                            description: `Approximately ${count.toLocaleString()} products match your filters`,
+                            description: `Approximately ${totalCount.toLocaleString()} products match your filters`,
                             variant: "default"
                           });
                         } else {
