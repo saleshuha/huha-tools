@@ -53,6 +53,7 @@ export const useConcurrentSunskyExport = () => {
   /**
    * Start a background export using the Edge Function.
    * This export will survive page refreshes and runs entirely on the server.
+   * Uses direct fetch() to bypass Lovable proxy issues.
    * 
    * @param config - Export configuration including filters, columns, and API keys
    * @returns Promise with taskId and historyId for tracking
@@ -65,39 +66,58 @@ export const useConcurrentSunskyExport = () => {
         throw new Error('You must be logged in to export data');
       }
 
-      // Call the Edge Function to start server-side processing
-      console.log('🚀 Calling process-po-background with config:', {
+      // Prepare request body
+      const requestBody = {
+        action: 'startExport',
+        config: {
+          categoryId: config.categoryId,
+          selectedExportStatus: config.status,
+          exportPageSize: config.pageSize,
+          selectedExportColumns: config.columns,
+          categoryName: config.categoryId ? 'Selected Category' : 'All Categories',
+          statusText: getStatusText(config.status)
+        },
+        availableAPIs: config.apiKeys.map(api => ({
+          id: api.id,
+          name: api.name,
+          is_active: true
+        }))
+      };
+
+      console.log('🚀 Calling process-po-background directly with fetch():', {
         categoryId: config.categoryId,
         status: config.status,
         pageSize: config.pageSize,
         apiKeysCount: config.apiKeys.length
       });
 
-      const { data, error } = await supabase.functions.invoke('process-po-background', {
-        body: {
-          action: 'startExport',
-          config: {
-            categoryId: config.categoryId,
-            selectedExportStatus: config.status,
-            exportPageSize: config.pageSize,
-            selectedExportColumns: config.columns,
-            categoryName: config.categoryId ? 'Selected Category' : 'All Categories',
-            statusText: getStatusText(config.status)
+      // Use direct fetch() to bypass Lovable proxy
+      const SUPABASE_URL = 'https://vfqqlifvhooefxvvyebm.supabase.co';
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmcXFsaWZ2aG9vZWZ4dnZ5ZWJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MzY1OTgsImV4cCI6MjA2ODAxMjU5OH0.u-iIilnOACJTo_3AUCkmhREXdVV84JmbswtM_-NJJBM';
+      
+      const response = await fetch(
+        `${SUPABASE_URL}/functions/v1/process-po-background`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON_KEY
           },
-          availableAPIs: config.apiKeys.map(api => ({
-            id: api.id,
-            name: api.name,
-            is_active: true
-          }))
+          body: JSON.stringify(requestBody)
         }
-      });
+      );
 
-      console.log('📥 Edge function response:', { data, error });
+      console.log('📥 Direct fetch response status:', response.status);
 
-      if (error) {
-        console.error('❌ Edge function error:', error);
-        throw new Error(`Edge Function error: ${error.message || JSON.stringify(error)}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Edge function error response:', errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText || 'Unknown error'}`);
       }
+
+      const data = await response.json();
+      console.log('📥 Edge function response data:', data);
 
       if (!data?.taskId || !data?.historyId) {
         throw new Error('Invalid response from export service');
