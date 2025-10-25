@@ -11,8 +11,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
-import { Search, Plus, Download, AlertCircle, CheckCircle2, Package, Globe, Calendar, RefreshCw, Filter, Grid, List, Settings, Eye, Save, RotateCcw, Play, Pause, X, PauseCircle, PlayCircle, XCircle, Trash2, ChevronDown, Database, Wifi, Ban, SkipForward, Check, Zap, Clock } from "lucide-react";
+import { Search, Plus, Download, AlertCircle, CheckCircle2, Package, Globe, Calendar, RefreshCw, Filter, Grid, List, Settings, Eye, Save, RotateCcw, Play, Pause, X, PauseCircle, PlayCircle, XCircle, Trash2, ChevronDown, Database, Wifi, Ban, SkipForward, Check, Zap, Clock, RotateCcwIcon } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
@@ -4718,43 +4719,119 @@ export const SunskySKUImporter: React.FC = () => {
                                   {entry.file_path && ` • ${entry.file_size ? formatBytes(entry.file_size) : 'File ready'}`}
                                 </div>
                              </div>
-                          </div>
-                           <div className="flex items-center gap-2">
-                             <Badge variant={entry.status === 'completed' ? 'default' : entry.status === 'processing' ? 'secondary' : entry.status === 'cancelled' ? 'outline' : 'destructive'}>
-                               {entry.status}
-                             </Badge>
-                              {entry.status === 'processing' && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    fixStuckExport(entry.id);
-                                  }}
-                                  className="h-7 px-2 text-xs"
-                                  title="Fix stuck export status"
-                                >
-                                  <RefreshCw className="h-3 w-3 mr-1" />
-                                  Fix
-                                </Button>
-                              )}
-                              {entry.file_path && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    downloadExportFile(entry);
-                                  }}
-                                  className="h-7 px-2"
-                                >
-                                  <Download className="h-4 w-4" />
-                                </Button>
-                              )}
-                              {entry.error_message && <Badge variant="destructive" className="text-xs max-w-32 truncate">
-                                  Error
-                                </Badge>}
                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant={entry.status === 'completed' ? 'default' : entry.status === 'processing' ? 'secondary' : entry.status === 'cancelled' ? 'outline' : 'destructive'}>
+                                {entry.status}
+                              </Badge>
+                              
+                              {/* Warning for cancelled exports without files */}
+                              {entry.status === 'cancelled' && !entry.file_path && entry.total_items > 0 && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <AlertCircle className="h-4 w-4 text-yellow-500" />
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-xs">
+                                      <p>Export was stopped before file could be saved. {entry.total_items} items were processed but data was not persisted.</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                              
+                               {entry.status === 'processing' && (
+                                 <Button
+                                   size="sm"
+                                   variant="outline"
+                                   onClick={(e) => {
+                                     e.stopPropagation();
+                                     fixStuckExport(entry.id);
+                                   }}
+                                   className="h-7 px-2 text-xs"
+                                   title="Fix stuck export status"
+                                 >
+                                   <RefreshCw className="h-3 w-3 mr-1" />
+                                   Fix
+                                 </Button>
+                               )}
+                               
+                               {/* Download button - enabled only if file exists */}
+                               {entry.file_path ? (
+                                 <Button
+                                   size="sm"
+                                   variant="ghost"
+                                   onClick={(e) => {
+                                     e.stopPropagation();
+                                     downloadExportFile(entry);
+                                   }}
+                                   className="h-7 px-2"
+                                 >
+                                   <Download className="h-4 w-4" />
+                                 </Button>
+                               ) : entry.status === 'cancelled' && entry.total_items > 0 && (
+                                 <TooltipProvider>
+                                   <Tooltip>
+                                     <TooltipTrigger asChild>
+                                       <Button
+                                         size="sm"
+                                         variant="ghost"
+                                         disabled
+                                         className="h-7 px-2 opacity-50 cursor-not-allowed"
+                                       >
+                                         <Download className="h-4 w-4" />
+                                       </Button>
+                                     </TooltipTrigger>
+                                     <TooltipContent>
+                                       <p>File was not saved before export was stopped</p>
+                                     </TooltipContent>
+                                   </Tooltip>
+                                 </TooltipProvider>
+                               )}
+                               
+                               {/* Re-export button for failed/cancelled exports with filters */}
+                               {(entry.status === 'cancelled' || entry.status === 'error') && (entry.metadata as any)?.filters && (
+                                 <TooltipProvider>
+                                   <Tooltip>
+                                     <TooltipTrigger asChild>
+                                       <Button
+                                         size="sm"
+                                         variant="outline"
+                                         onClick={(e) => {
+                                           e.stopPropagation();
+                                           const filters = (entry.metadata as any).filters;
+                                           // Restore filters from metadata
+                                           if (filters.categoryId) setSelectedCategory(filters.categoryId.toString());
+                                           if (filters.subCategoryId) setSelectedSubCategory(filters.subCategoryId.toString());
+                                           if (filters.brand) setSelectedBrand(filters.brand);
+                                           if (filters.keyword) setSearchTerm(filters.keyword);
+                                           if (filters.status !== undefined) setSelectedExportStatus(filters.status);
+                                           if (filters.priceMin) setPriceMin(filters.priceMin.toString());
+                                           if (filters.priceMax) setPriceMax(filters.priceMax.toString());
+                                           if (filters.stockMin) setStockMin(filters.stockMin.toString());
+                                           if (filters.leadTimeLevel) setLeadTimeLevel(filters.leadTimeLevel.toString());
+                                           
+                                           toast({
+                                             title: "Filters restored",
+                                             description: "Export filters have been applied. Click 'Start Export' to re-run.",
+                                           });
+                                         }}
+                                         className="h-7 px-2 text-xs"
+                                       >
+                                         <RotateCcwIcon className="h-3 w-3 mr-1" />
+                                         Re-export
+                                       </Button>
+                                     </TooltipTrigger>
+                                     <TooltipContent>
+                                       <p>Restore filters and re-run this export</p>
+                                     </TooltipContent>
+                                   </Tooltip>
+                                 </TooltipProvider>
+                               )}
+                               
+                               {entry.error_message && <Badge variant="destructive" className="text-xs max-w-32 truncate">
+                                   Error
+                                 </Badge>}
+                            </div>
                         </div>)}
                     </div>
                   </CardContent>

@@ -864,51 +864,78 @@ export const useConcurrentSunskyExport = () => {
     if (productsToSave.length > 0 && configToUse) {
       let fileName: string | null = null;
       let fileData: Blob | null = null;
+      let uploadAttempts = 0;
+      const MAX_UPLOAD_ATTEMPTS = 3;
 
-      try {
-        console.log('💾 Saving partial results:', productsToSave.length, 'products');
+      // Move file generation OUTSIDE try-catch for better resilience
+      console.log('💾 Saving partial results:', productsToSave.length, 'products');
+      
+      // Generate Excel file from partial data
+      const { generateExcelFile } = await import('@/utils/excelExport');
+      const categoryName = categoriesMapToUse && configToUse.categoryId ? 
+        categoriesMapToUse.get(configToUse.categoryId)?.name || 'All Categories' : 
+        'All Categories';
+      
+      // Retry upload logic with exponential backoff
+      while (uploadAttempts < MAX_UPLOAD_ATTEMPTS && !fileName) {
+        uploadAttempts++;
         
-        // Generate Excel file from partial data
-        const { generateExcelFile } = await import('@/utils/excelExport');
-        const categoryName = categoriesMapToUse && configToUse.categoryId ? 
-          categoriesMapToUse.get(configToUse.categoryId)?.name || 'All Categories' : 
-          'All Categories';
-        
-        fileName = await generateExcelFile({
-          data: productsToSave,
-          categoriesMap: categoriesMapToUse,
-          config: {
-            status: configToUse.status,
-            categoryName,
-            columns: configToUse.columns,
-            apiKeys: configToUse.apiKeys.length,
-            pageSize: configToUse.pageSize
-          },
-          fileName: `sunsky_partial_export_${new Date().toISOString().split('T')[0]}.xlsx`,
-          saveToStorage: true
-        });
-        
-        if (fileName) {
-          console.log('✅ File generated successfully:', fileName);
+        try {
+          console.log(`📤 Upload attempt ${uploadAttempts}/${MAX_UPLOAD_ATTEMPTS}`);
           
-          // Verify file exists in sunsky-exports bucket
-          const { data: downloadedFile, error: checkError } = await supabase.storage
-            .from('sunsky-exports')
-            .download(fileName);
+          fileName = await generateExcelFile({
+            data: productsToSave,
+            categoriesMap: categoriesMapToUse,
+            config: {
+              status: configToUse.status,
+              categoryName,
+              columns: configToUse.columns,
+              apiKeys: configToUse.apiKeys.length,
+              pageSize: configToUse.pageSize
+            },
+            fileName: `sunsky_partial_export_${new Date().toISOString().split('T')[0]}_${Date.now()}.xlsx`,
+            saveToStorage: true
+          });
           
-          if (checkError || !downloadedFile) {
-            console.error('❌ File not found in sunsky-exports bucket:', checkError);
-            fileName = null; // Reset if file doesn't actually exist
+          if (fileName) {
+            console.log('✅ File generated successfully:', fileName);
+            
+            // Verify file exists in sunsky-exports bucket
+            const { data: downloadedFile, error: checkError } = await supabase.storage
+              .from('sunsky-exports')
+              .download(fileName);
+            
+            if (checkError || !downloadedFile) {
+              console.error(`❌ File verification failed (attempt ${uploadAttempts}):`, checkError);
+              fileName = null; // Reset and retry
+              
+              if (uploadAttempts < MAX_UPLOAD_ATTEMPTS) {
+                // Wait before retry with exponential backoff
+                await new Promise(resolve => setTimeout(resolve, 1000 * uploadAttempts));
+              }
+            } else {
+              fileData = downloadedFile;
+              console.log('✅ File verified in sunsky-exports bucket, size:', fileData.size);
+              break; // Success - exit retry loop
+            }
+          }
+        } catch (fileError) {
+          console.error(`❌ Upload attempt ${uploadAttempts} failed:`, fileError);
+          fileName = null;
+          
+          if (uploadAttempts < MAX_UPLOAD_ATTEMPTS) {
+            // Wait before retry
+            await new Promise(resolve => setTimeout(resolve, 1000 * uploadAttempts));
           } else {
-            fileData = downloadedFile;
-            console.log('✅ File verified in sunsky-exports bucket, size:', fileData.size);
+            // Final attempt failed
+            console.error('❌ All upload attempts exhausted. File will not be available for download.');
           }
         }
-      } catch (fileError) {
-        console.error('❌ Failed to generate or save export file:', fileError);
-        fileName = null;
-        fileData = null;
-        // Don't throw - we still want to update export_history even without file
+      }
+      
+      // Log final outcome
+      if (!fileName) {
+        console.warn('⚠️ File save failed after all retry attempts. Export data will be saved to database without downloadable file.');
       }
 
       try {
