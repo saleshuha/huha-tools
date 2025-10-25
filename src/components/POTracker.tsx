@@ -1122,11 +1122,11 @@ export const POTracker = () => {
     // Matched - items with sunsky_sku
     const matchedOrders = poOrders.filter(order => order.sunsky_sku !== null);
 
-    // Placed - items with placed or received status
-    const placedOrders = poOrders.filter(order => ['placed', 'received'].includes(order.status));
+    // Placed - items with supplier_order_number (placed to Sunsky source)
+    const placedOrders = poOrders.filter(order => order.supplier_order_number);
 
-    // Pending - items with pending status and matched
-    const pendingOrders = poOrders.filter(order => order.status === 'pending' && order.sunsky_sku !== null);
+    // Pending - items with sunsky_sku but NO supplier_order_number (matched but not placed to source)
+    const pendingOrders = poOrders.filter(order => order.sunsky_sku && !order.supplier_order_number);
 
     // Calculate quantities
     const inStockQty = inStockOrders.reduce((sum, o) => sum + (o.quantity || 0), 0);
