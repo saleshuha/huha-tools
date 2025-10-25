@@ -1110,66 +1110,7 @@ export const useConcurrentSunskyExport = () => {
     setExportStatus('');
   }, [toast]);
 
-  // Reconnect to active background tasks on page load
-  useEffect(() => {
-    const reconnectToActiveTasks = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        // Find active export tasks
-        const { data: activeTasks, error } = await ((supabase as any)
-          .from('background_tasks')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('type', 'concurrent_export')
-          .eq('status', 'processing')
-          .order('created_at', { ascending: false })
-          .limit(1));
-
-        if (error) {
-          console.error('Failed to check for active tasks:', error);
-          return;
-        }
-
-        if (activeTasks && activeTasks.length > 0) {
-          const activeTask = activeTasks[0];
-          console.log('🔄 Reconnecting to active export task:', (activeTask as any).id);
-          
-          // Update state to show we're reconnecting to an active export
-          setIsExporting(true);
-          setOverallProgress((activeTask as any).progress || 0);
-          
-          const metadata = (activeTask as any).metadata as any || {};
-          setExportStatus(metadata.currentStatus || 'Reconnecting to active export...');
-          
-          // Show progress if available
-          if (metadata.totalProcessed && metadata.totalPagesProcessed && metadata.totalPagesExpected) {
-            // Create a simple progress indicator
-            const mockProgress: ConcurrentExportProgress[] = [{
-              apiKeyId: 'reconnecting',
-              apiKeyName: 'Reconnecting...',
-              currentPage: metadata.totalPagesProcessed || 0,
-              totalPages: metadata.totalPagesExpected || 0,
-              processedItems: metadata.totalProcessed || 0,
-              status: 'processing',
-              lastUpdate: new Date()
-            }];
-            setExportProgress(mockProgress);
-          }
-
-          toast({
-            title: "Reconnected to Export",
-            description: "Found an ongoing background export. Progress will continue updating.",
-          });
-        }
-      } catch (error) {
-        console.error('Failed to reconnect to active tasks:', error);
-      }
-    };
-
-    reconnectToActiveTasks();
-  }, [toast]);
+  // Note: Reconnection logic removed - background tasks run in edge functions and don't need frontend reconnection
 
   // Listen for background task updates
   useEffect(() => {

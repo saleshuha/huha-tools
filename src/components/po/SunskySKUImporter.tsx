@@ -823,55 +823,40 @@ export const SunskySKUImporter: React.FC = () => {
         exportSubCategory
       });
 
-      const taskData = {
-        type: 'sunsky_export',
-        status: 'queued',
-        progress: 0,
-        total_items: 0,
-        user_id: user.id,
-        metadata: {
-          exportConfig: {
-            status: selectedExportStatus,
-            categoryId: exportSubCategory !== 'all' ? parseInt(exportSubCategory) : exportCategory !== 'all' ? parseInt(exportCategory) : undefined,
-            pageSize: exportPageSize,
-            maxPages: Number.MAX_SAFE_INTEGER,
-            columns: selectedExportColumns,
-            apiKeys: apiKeysWithNames,
-            statusText: getProductStatusText(selectedExportStatus),
-            categoryName
-          },
-          categoryName,
-          statusText: getProductStatusText(selectedExportStatus),
-          apiKeysCount: apiKeysWithNames.length,
-          startTime: new Date().toISOString()
-        }
+      // Transform config to match edge function expectations
+      const exportConfig = {
+        selectedExportStatus: selectedExportStatus,
+        categoryId: exportSubCategory !== 'all' ? parseInt(exportSubCategory) : exportCategory !== 'all' ? parseInt(exportCategory) : undefined,
+        exportPageSize: exportPageSize,
+        selectedExportColumns: selectedExportColumns,
+        categoryName,
+        statusText: getProductStatusText(selectedExportStatus)
       };
       
-      console.log('💾 Creating background task with data:', taskData);
-      const { data: task, error: taskError } = await supabase.from('background_tasks').insert([taskData] as any).select().single();
-      if (taskError) {
-        console.error('❌ Failed to create background task:', taskError);
-        throw new Error(`Failed to create background task: ${taskError.message}`);
-      }
-      if (!task) {
-        throw new Error('Failed to create background task: No data returned');
-      }
-      console.log('✅ Background task created successfully:', task);
+      console.log('🚀 Calling edge function for background export...');
+      console.log('📋 Export Config:', exportConfig);
+      console.log('🔑 Available APIs:', apiKeysWithNames);
 
-      console.log('🔄 Updating task to processing status...');
-      const { error: updateError } = await supabase.from('background_tasks').update({
-        status: 'processing',
-        metadata: {
-          ...((task as any)?.metadata || {}),
-          processingStarted: new Date().toISOString()
+      // Call edge function to handle everything
+      const { data: response, error: functionError } = await supabase.functions.invoke('process-po-background', {
+        body: {
+          action: 'startExport',
+          config: exportConfig,
+          availableAPIs: apiKeysWithNames
         }
-      }).eq('id', (task as any)?.id);
-      
-      if (updateError) {
-        console.error('❌ Failed to update task status:', updateError);
-        throw new Error(`Failed to update task status: ${updateError.message}`);
+      });
+
+      if (functionError) {
+        console.error('❌ Edge function error:', functionError);
+        throw new Error(`Failed to start background export: ${functionError.message}`);
       }
-      console.log('🚀 Task marked as processing, starting concurrent export...');
+
+      if (!response?.success) {
+        console.error('❌ Edge function returned error:', response);
+        throw new Error(response?.error || 'Failed to start background export');
+      }
+
+      console.log('✅ Background export started successfully:', response);
 
       toast({
         title: "🚀 Background Export Started",
@@ -879,38 +864,17 @@ export const SunskySKUImporter: React.FC = () => {
         duration: 5000
       });
 
-      const exportConfig = taskData.metadata.exportConfig;
-      console.log('🎯 Starting concurrent export with config:', exportConfig);
-      console.log('🎯 Starting concurrent export with task ID:', (task as any)?.id);
-
-      const exportPromise = startConcurrentExport(exportConfig, (task as any)?.id);
-
-      exportPromise.then(() => {
-        console.log('✅ Concurrent export completed successfully for task:', (task as any)?.id);
+      // Refresh tasks to show the new one
+      setTimeout(() => {
         fetchTasks();
-      }).catch(error => {
-        console.error('❌ Concurrent export failed for task:', (task as any)?.id, error);
-        supabase.from('background_tasks').update({
-          status: 'failed',
-          metadata: {
-            ...((task as any)?.metadata || {}),
-            error: error.message || 'Export failed',
-            failedAt: new Date().toISOString()
-          }
-        }).eq('id', (task as any)?.id).then(() => {
-          console.log('❌ Task marked as failed in database');
-          fetchTasks();
-        });
-      });
+      }, 1000);
 
-      console.log('🔄 Refreshing tasks list to show new task...');
-      await fetchTasks();
-      console.log('🎉 Background export initiated successfully, Task ID:', (task as any)?.id);
-    } catch (error) {
-      console.error('💥 Background export error:', error);
+      fetchExportHistory();
+    } catch (error: any) {
+      console.error('❌ Background export failed:', error);
       toast({
-        title: "❌ Background Export Failed",
-        description: error.message || "Failed to start background processing",
+        title: "Export Failed",
+        description: error.message || "Failed to start background export",
         variant: "destructive"
       });
     } finally {
@@ -928,9 +892,9 @@ export const SunskySKUImporter: React.FC = () => {
     categories,
     exportPageSize,
     selectedExportColumns,
-    startConcurrentExport,
     fetchTasks,
-    profile?.id
+    fetchExportHistory,
+    toast
   ]);
 
   // Process Export functionality for concurrent processing

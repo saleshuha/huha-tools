@@ -89,12 +89,17 @@ Deno.serve(async (req) => {
           status: 'queued',
           progress: 0,
           processed_items: 0,
+          total_items: 0,
           metadata: {
-            ...config,
+            exportConfig: config,
             selectedAPIs: availableAPIs,
             exportType: 'background',
             persistent: true,
-            historyId: historyId
+            historyId: historyId,
+            categoryName: config.categoryName,
+            statusText: config.statusText,
+            apiKeysCount: availableAPIs.length,
+            startTime: new Date().toISOString()
           }
         })
       
@@ -113,10 +118,12 @@ Deno.serve(async (req) => {
           export_type: 'sunsky_status_export',
           filters: config,
           status: 'queued',
+          total_items: 0,
           metadata: {
             selectedAPIs: availableAPIs,
             concurrent: true,
-            background: true
+            background: true,
+            exportConfig: config
           }
         })
       
@@ -126,7 +133,7 @@ Deno.serve(async (req) => {
       }
       
       // Start background export without waiting
-      EdgeRuntime.waitUntil(processSunskyExportBackground(userClient, user.id, taskId, historyId, config, availableAPIs))
+      EdgeRuntime.waitUntil(processSunskyExportBackground(serviceClient, user.id, taskId, historyId, config, availableAPIs))
       
       return new Response(
         JSON.stringify({ 
@@ -630,6 +637,9 @@ async function callSunskyAPI(action: string, data: any, credentials: SunskyCrede
 
 // Background export processing function  
 async function processSunskyExportBackground(supabaseClient: any, userId: string, taskId: string, historyId: string, config: any, availableAPIs: any[]) {
+  let lastProgressUpdate = Date.now()
+  const PROGRESS_UPDATE_INTERVAL = 2000 // Update every 2 seconds
+  
   try {
     console.log(`Background export started for task ${taskId}`)
     
@@ -675,6 +685,7 @@ async function processSunskyExportBackground(supabaseClient: any, userId: string
     let allProducts: any[] = []
     let totalProcessed = 0
     let totalPages = 0
+    const failedAPIs: string[] = []
 
     // Calculate total pages across all APIs
     for (const creds of fullCredentials) {
@@ -693,6 +704,7 @@ async function processSunskyExportBackground(supabaseClient: any, userId: string
         }
       } catch (error) {
         console.error(`Error getting page count for API ${creds.id}:`, error)
+        failedAPIs.push(creds.name || creds.id)
       }
     }
 
@@ -709,13 +721,26 @@ async function processSunskyExportBackground(supabaseClient: any, userId: string
         .eq('id', historyId)
     ])
 
-    // Process each API
+    // Process each API (continue even if one fails)
     for (const creds of fullCredentials) {
       try {
         let currentPage = 1
         let hasMorePages = true
+        let apiProcessedCount = 0
 
         while (hasMorePages) {
+          // Check for cancellation
+          const { data: taskStatus } = await supabaseClient
+            .from('background_tasks')
+            .select('status')
+            .eq('id', taskId)
+            .single()
+          
+          if (taskStatus?.status === 'cancelled') {
+            console.log(`Export cancelled by user, stopping processing for task ${taskId}`)
+            throw new Error('Export cancelled by user')
+          }
+
           try {
             const response = await callSunskyAPI('searchProducts', {
               categoryId: config.categoryId,
@@ -803,46 +828,73 @@ async function processSunskyExportBackground(supabaseClient: any, userId: string
       }
     }
 
-    // Create and upload export file
+    // Create and upload export file with retry logic
     let filePath = null
     let fileSize = 0
     if (allProducts.length > 0) {
-      try {
-        // Create CSV content
-        const headers = config.selectedExportColumns || ['itemNo', 'name', 'price', 'convertedPrice']
-        const csvContent = [
-          headers.join(','),
-          ...allProducts.map(product => 
-            headers.map(header => {
-              let value = product[header] || ''
-              if (typeof value === 'string' && value.includes(',')) {
-                value = `"${value}"`
-              }
-              return value
-            }).join(',')
-          )
-        ].join('\n')
-
-        // Upload to user's folder in exports bucket
-        const fileName = `${userId}/export-${taskId}-${Date.now()}.csv`
-        const { data: uploadData, error: uploadError } = await supabaseClient.storage
-          .from('exports')
-          .upload(fileName, csvContent, {
-            contentType: 'text/csv'
-          })
-
-        if (!uploadError && uploadData) {
-          filePath = uploadData.path
-          fileSize = new Blob([csvContent]).size
-        } else {
-          console.error('Upload error:', uploadError)
+      const csvContent = (() => {
+        try {
+          const headers = config.selectedExportColumns || ['itemNo', 'name', 'price', 'convertedPrice']
+          return [
+            headers.join(','),
+            ...allProducts.map(product => 
+              headers.map(header => {
+                let value = product[header] || ''
+                if (typeof value === 'string' && value.includes(',')) {
+                  value = `"${value}"`
+                }
+                return value
+              }).join(',')
+            )
+          ].join('\n')
+        } catch (error) {
+          console.error('Error creating CSV content:', error)
+          return null
         }
-      } catch (error) {
-        console.error('Error creating export file:', error)
+      })()
+
+      if (csvContent) {
+        const fileName = `${userId}/export-${taskId}-${Date.now()}.csv`
+        let uploadSuccess = false
+        
+        // Retry upload 3 times with exponential backoff
+        for (let attempt = 1; attempt <= 3 && !uploadSuccess; attempt++) {
+          try {
+            console.log(`Upload attempt ${attempt}/3 for file ${fileName}`)
+            const { data: uploadData, error: uploadError } = await supabaseClient.storage
+              .from('sunsky-exports')
+              .upload(fileName, csvContent, {
+                contentType: 'text/csv',
+                upsert: true
+              })
+
+            if (!uploadError && uploadData) {
+              filePath = uploadData.path
+              fileSize = new Blob([csvContent]).size
+              uploadSuccess = true
+              console.log(`✅ File uploaded successfully: ${filePath}`)
+            } else {
+              console.error(`Upload attempt ${attempt} failed:`, uploadError)
+              if (attempt < 3) {
+                // Wait before retry (exponential backoff: 1s, 2s, 4s)
+                await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt - 1) * 1000))
+              }
+            }
+          } catch (uploadError) {
+            console.error(`Upload attempt ${attempt} threw error:`, uploadError)
+            if (attempt < 3) {
+              await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt - 1) * 1000))
+            }
+          }
+        }
+
+        if (!uploadSuccess) {
+          console.warn('⚠️ All upload attempts failed, but continuing to save progress')
+        }
       }
     }
 
-    // Mark both records as completed
+    // Mark both records as completed (always update with what we have)
     await Promise.all([
       supabaseClient
         .from('background_tasks')
@@ -852,12 +904,13 @@ async function processSunskyExportBackground(supabaseClient: any, userId: string
           processed_items: allProducts.length,
           completed_at: new Date().toISOString(),
           metadata: {
-            ...config,
-            availableAPIs,
+            exportConfig: config,
+            selectedAPIs: availableAPIs,
             exportType: 'background',
             persistent: true,
             totalProducts: allProducts.length,
-            filePath
+            filePath,
+            failedAPIs: failedAPIs.length > 0 ? failedAPIs : undefined
           }
         })
         .eq('id', taskId),
@@ -869,41 +922,53 @@ async function processSunskyExportBackground(supabaseClient: any, userId: string
           file_path: filePath,
           file_size: fileSize,
           metadata: {
-            ...config,
-            availableAPIs,
+            exportConfig: config,
+            selectedAPIs: availableAPIs,
             concurrent: true,
             background: true,
             totalProducts: allProducts.length,
-            completed: true
+            completed: true,
+            failedAPIs: failedAPIs.length > 0 ? failedAPIs : undefined,
+            downloadableResults: filePath ? true : false
           }
         })
         .eq('id', historyId)
     ])
 
-    console.log(`Background export completed for task ${taskId}: ${allProducts.length} products`)
+    console.log(`✅ Background export completed for task ${taskId}: ${allProducts.length} products${failedAPIs.length > 0 ? `, ${failedAPIs.length} APIs failed` : ''}`)
 
   } catch (error) {
-    console.error(`Background export failed for task ${taskId}:`, error)
+    console.error(`❌ Background export failed for task ${taskId}:`, error)
     
-    // Mark both records as failed
+    // Mark both records as failed - but save any partial results
     const errorMessage = error instanceof Error ? error.message : String(error)
+    const wasCancelled = errorMessage.includes('cancelled')
     
     await Promise.all([
       supabaseClient
         .from('background_tasks')
         .update({
-          status: 'failed',
+          status: wasCancelled ? 'cancelled' : 'failed',
+          progress: allProducts.length > 0 ? 100 : 0,
+          processed_items: allProducts.length,
           completed_at: new Date().toISOString(),
           metadata: {
-            error: errorMessage
+            error: errorMessage,
+            totalProducts: allProducts.length,
+            failedAPIs: failedAPIs.length > 0 ? failedAPIs : undefined
           }
         })
         .eq('id', taskId),
       supabaseClient
         .from('export_history')
         .update({
-          status: 'failed',
-          error_message: errorMessage
+          status: wasCancelled ? 'cancelled' : 'failed',
+          total_items: allProducts.length,
+          error_message: errorMessage,
+          metadata: {
+            totalProducts: allProducts.length,
+            failedAPIs: failedAPIs.length > 0 ? failedAPIs : undefined
+          }
         })
         .eq('id', historyId)
     ])
