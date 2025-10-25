@@ -317,12 +317,12 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
                     </div>
                   )}
                   
-                  {/* Pending - Show if partial fulfillment */}
-                  {item.fulfilledFromStock && item.supplierQuantity > 0 && (
+                  {/* Pending - Always show if there's stock fulfillment */}
+                  {item.fulfilledFromStock && (
                     <div className="print-item-quantity-item print-pending">
                       <div className="print-item-quantity-label">⚠ PENDING</div>
                       <div className="print-item-quantity-main">
-                        {item.supplierQuantity}
+                        {item.supplierQuantity || 0}
                       </div>
                     </div>
                   )}
