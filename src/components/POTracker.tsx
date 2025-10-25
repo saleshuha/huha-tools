@@ -68,6 +68,9 @@ export interface POOrder {
   // Consolidation properties for merged ASIN view
   _isConsolidated?: boolean;
   _consolidatedOrders?: POOrder[];
+  // Workspace-specific local properties (not saved to DB)
+  _localFromStock?: boolean;
+  _localStockQuantity?: number;
 }
 interface POGroup {
   poNumber: string;

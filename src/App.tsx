@@ -31,6 +31,7 @@ import UserManagementPage from "./pages/UserManagement";
 import ReplenishmentPage from "./pages/Replenishment";
 import OrderProcessingPage from "./pages/OrderProcessing";
 import POTrackerPage from "./pages/POTracker";
+import POPrintWorkspace from "./pages/POPrintWorkspace";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import ExcelEditorPage from "./pages/ExcelEditor";
@@ -259,6 +260,7 @@ const App = () => {
                         <Route path="/velocity-analytics" element={<VelocityAnalyticsSimple />} />
                         <Route path="/po-tracker" element={<POTrackerPage />} />
                         <Route path="/po-details/:poNumber" element={<PODetailsPage />} />
+                        <Route path="/po-print-workspace" element={<POPrintWorkspace />} />
                          <Route path="/add-sku" element={<AddSKUPageWrapper />} />
                          <Route path="/sunsky-importer" element={<SunskySKUImporterPage />} />
                          <Route path="/sunsky-order-tracking" element={<SunskyOrderTrackingPage />} />

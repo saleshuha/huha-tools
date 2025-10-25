@@ -1,5 +1,6 @@
 // Print dialog for PO items with preview and options
 import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -14,10 +15,11 @@ import { POPrintDocument } from './POPrintDocument';
 import { generateBulkPOLabelsZPL } from '@/utils/po-label-printer';
 import { useProductImages } from '@/hooks/useProductImages';
 import { useToast } from '@/hooks/use-toast';
-import { Printer, Download, FileText, Tag, Loader2, Package, Search, TableIcon } from 'lucide-react';
+import { Printer, Download, FileText, Tag, Loader2, Package, Search, TableIcon, ExternalLink } from 'lucide-react';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { useReactToPrint } from 'react-to-print';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import Papa from 'papaparse';
 
 interface POPrintDialogProps {
   open: boolean;
@@ -42,6 +44,7 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set(Array.from({ length: orders.length }, (_, i) => i)));
   const [isPrinting, setIsPrinting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const navigate = useNavigate();
   
   const printRef = useRef<HTMLDivElement>(null);
   const { getImageByAsin } = useProductImages();
@@ -250,6 +253,33 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
       title: "CSV Exported",
       description: `Exported ${printItems.length} items without images`,
     });
+  };
+
+  const handleOpenWorkspace = () => {
+    const selectedOrders = orders.filter((_, index) => selectedItems.has(index));
+    
+    if (selectedOrders.length === 0) {
+      toast({
+        title: 'No items selected',
+        description: 'Please select at least one item to open in workspace',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    navigate('/po-print-workspace', {
+      state: {
+        orders: selectedOrders,
+        settings: {
+          printFormat,
+          includeImages,
+          bulkAggregate,
+          copies
+        }
+      }
+    });
+    
+    onOpenChange(false);
   };
 
   const totalQuantity = printItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -616,6 +646,16 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
         <DialogFooter className="flex-shrink-0">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
+          </Button>
+          
+          <Button 
+            variant="secondary" 
+            onClick={handleOpenWorkspace}
+            disabled={printItems.length === 0}
+            className="bg-blue-500/10 text-blue-700 hover:bg-blue-500/20 border border-blue-500/20"
+          >
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Open in Workspace
           </Button>
           
           <Button variant="outline" onClick={handleExportCSV} disabled={printItems.length === 0}>
