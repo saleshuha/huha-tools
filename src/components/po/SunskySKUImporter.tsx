@@ -839,16 +839,83 @@ export const SunskySKUImporter: React.FC = () => {
       console.log('📋 Export Config:', exportConfig);
       console.log('🔑 Available APIs:', apiKeysWithNames);
 
-      // Call edge function to handle everything
-      const { data: response, error: functionError } = await supabase.functions.invoke('process-po-background', {
-        body: {
-          action: 'startExport',
-          config: exportConfig,
-          availableAPIs: apiKeysWithNames
-        }
-      });
+      // Call edge function with fallback mechanism
+      let response, functionError;
 
-      // Fix 1: Detailed logging
+      try {
+        // Try the normal Supabase client method first
+        console.log('🔄 Attempting supabase.functions.invoke...');
+        
+        const result = await supabase.functions.invoke('process-po-background', {
+          body: {
+            action: 'startExport',
+            config: exportConfig,
+            availableAPIs: apiKeysWithNames
+          }
+        });
+        
+        response = result.data;
+        functionError = result.error;
+        
+        console.log('✅ supabase.functions.invoke succeeded');
+        
+      } catch (invokeError: any) {
+        console.warn('⚠️ supabase.functions.invoke failed (likely preview environment), trying direct fetch fallback...', {
+          error: invokeError.message,
+          type: invokeError.constructor.name
+        });
+        
+        // Fallback to direct fetch for Lovable preview environment
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session?.access_token) {
+          throw new Error('No authentication token available for fallback fetch');
+        }
+        
+        try {
+          console.log('🔄 Attempting direct fetch to edge function...');
+          
+          const fetchResponse = await fetch(
+            'https://vfqqlifvhooefxvvyebm.supabase.co/functions/v1/process-po-background',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+                'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmcXFsaWZ2aG9vZWZ4dnZ5ZWJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MzY1OTgsImV4cCI6MjA2ODAxMjU5OH0.u-iIilnOACJTo_3AUCkmhREXdVV84JmbswtM_-NJJBM'
+              },
+              body: JSON.stringify({
+                action: 'startExport',
+                config: exportConfig,
+                availableAPIs: apiKeysWithNames
+              })
+            }
+          );
+          
+          console.log('📡 Direct fetch response status:', fetchResponse.status);
+          
+          if (!fetchResponse.ok) {
+            const errorText = await fetchResponse.text();
+            console.error('❌ Edge function returned error:', errorText);
+            throw new Error(`Edge function returned ${fetchResponse.status}: ${errorText}`);
+          }
+          
+          response = await fetchResponse.json();
+          functionError = null;
+          
+          console.log('✅ Direct fetch succeeded:', response);
+          
+        } catch (fetchError: any) {
+          console.error('❌ Direct fetch also failed:', {
+            message: fetchError.message,
+            stack: fetchError.stack
+          });
+          
+          throw new Error(`Both invoke and direct fetch failed: ${fetchError.message}`);
+        }
+      }
+
+      // Detailed logging
       console.log('📡 Function invocation result:', { 
         response, 
         functionError,
