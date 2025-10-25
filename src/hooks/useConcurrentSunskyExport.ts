@@ -696,18 +696,30 @@ export const useConcurrentSunskyExport = () => {
           const excelBuffer = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' });
           const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
           
-          // Create file name
+          // Create file name and path
           const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
           const fileName = `sunsky-export-${timestamp}.xlsx`;
-          
-          // Create export history entry
-          console.log('📝 Creating export history entry...');
-          
-          // Get user ID
           const { data: { user }, error: userError } = await supabase.auth.getUser();
           if (userError || !user) {
-            throw new Error('Unable to get user for export history');
+            throw new Error('Unable to get user for export');
           }
+          const filePath = `${user.id}/${fileName}`;
+          
+          // Upload to Supabase Storage
+          console.log('📤 Uploading file to Supabase Storage:', filePath);
+          const { error: uploadError } = await supabase.storage
+            .from('sunsky-exports')
+            .upload(filePath, blob, {
+              contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              upsert: false
+            });
+
+          if (uploadError) {
+            console.error('Failed to upload to storage:', uploadError);
+            throw new Error(`Failed to upload file: ${uploadError.message}`);
+          }
+
+          console.log('✅ File uploaded successfully to storage:', filePath);
           
           // Update export_history to completed
           const exportHistoryId = exportHistoryIdRef.current[exportId];
@@ -717,7 +729,7 @@ export const useConcurrentSunskyExport = () => {
               .update({
                 total_items: allProducts.length,
                 status: 'completed',
-                file_path: fileName,
+                file_path: filePath,
                 file_size: blob.size,
                 metadata: {
                   started_at: new Date().toISOString(),
@@ -747,6 +759,7 @@ export const useConcurrentSunskyExport = () => {
               completed_at: new Date().toISOString(),
               metadata: {
                 fileName,
+                filePath,
                 totalProducts: allProducts.length,
                 fileSize: blob.size,
                 completedAt: new Date().toISOString(),
@@ -759,24 +772,10 @@ export const useConcurrentSunskyExport = () => {
             taskId: backgroundTaskId,
             totalProducts: allProducts.length,
             fileName,
+            filePath,
             fileSize: blob.size
           });
-
-          // Generate download link via edge function
-          try {
-            const { data: downloadData, error: downloadError } = await supabase.functions.invoke(
-              'generate-export-download', 
-              { body: { taskId: backgroundTaskId } }
-            );
-            
-            if (downloadError) {
-              console.error('Download generation failed:', downloadError);
-            } else {
-              console.log('✅ Download generation triggered successfully');
-            }
-          } catch (downloadErr) {
-            console.error('Failed to trigger download generation:', downloadErr);
-          }
+          
           
         } catch (error) {
           console.error('Failed to complete background task with file:', error);

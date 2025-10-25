@@ -792,15 +792,13 @@ export const SunskySKUImporter: React.FC = () => {
 
     setIsExporting(true);
     try {
-      console.log('🚀 Starting background export process...');
+      console.log('🚀 Starting client-side background export process...');
 
-      // Fix 2: Check authentication status
+      // Check authentication
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (sessionError || !session) {
         throw new Error('You must be logged in to export data');
       }
-
-      console.log('✅ User authenticated:', session.user.id);
 
       const apiIds = selectedExportAPIs.length > 0 ? selectedExportAPIs : availableAPIs.filter(api => api.is_active).map(api => api.id);
       if (apiIds.length === 0) {
@@ -815,136 +813,51 @@ export const SunskySKUImporter: React.FC = () => {
           name: api?.name || `API ${id.substring(0, 8)}`
         };
       });
-      
-      console.log('📋 Export Configuration:', {
+
+      // Create background task record
+      const taskId = crypto.randomUUID();
+      const { error: taskError } = await supabase.from('background_tasks').insert({
+        id: taskId,
+        user_id: session.user.id,
+        type: 'sunsky_export',
+        status: 'processing',
+        progress: 0,
+        processed_items: 0,
+        total_items: 0,
+        metadata: {
+          categoryName,
+          status: selectedExportStatus,
+          statusText: getProductStatusText(selectedExportStatus),
+          apiKeysCount: apiKeysWithNames.length,
+          startTime: new Date().toISOString()
+        }
+      });
+
+      if (taskError) {
+        throw new Error(`Failed to create background task: ${taskError.message}`);
+      }
+
+      console.log('✅ Background task created:', taskId);
+
+      // Start client-side export using the hook
+      const exportPromise = startConcurrentExport({
         status: selectedExportStatus,
-        categoryName,
-        apiKeysCount: apiKeysWithNames.length,
-        columns: selectedExportColumns.length,
-        exportCategory,
-        exportSubCategory
-      });
-
-      // Transform config to match edge function expectations
-      const exportConfig = {
-        selectedExportStatus: selectedExportStatus,
         categoryId: exportSubCategory !== 'all' ? parseInt(exportSubCategory) : exportCategory !== 'all' ? parseInt(exportCategory) : undefined,
-        exportPageSize: exportPageSize,
-        selectedExportColumns: selectedExportColumns,
-        categoryName,
-        statusText: getProductStatusText(selectedExportStatus)
-      };
-      
-      console.log('🚀 Calling edge function for background export...');
-      console.log('📋 Export Config:', exportConfig);
-      console.log('🔑 Available APIs:', apiKeysWithNames);
-
-      // Call edge function with fallback mechanism
-      let response, functionError;
-
-      try {
-        // Try the normal Supabase client method first
-        console.log('🔄 Attempting supabase.functions.invoke...');
-        
-        const result = await supabase.functions.invoke('process-po-background', {
-          body: {
-            action: 'startExport',
-            config: exportConfig,
-            availableAPIs: apiKeysWithNames
-          }
-        });
-        
-        response = result.data;
-        functionError = result.error;
-        
-        console.log('✅ supabase.functions.invoke succeeded');
-        
-      } catch (invokeError: any) {
-        console.warn('⚠️ supabase.functions.invoke failed (likely preview environment), trying direct fetch fallback...', {
-          error: invokeError.message,
-          type: invokeError.constructor.name
-        });
-        
-        // Fallback to direct fetch for Lovable preview environment
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session?.access_token) {
-          throw new Error('No authentication token available for fallback fetch');
-        }
-        
-        try {
-          console.log('🔄 Attempting direct fetch to edge function...');
-          
-          const fetchResponse = await fetch(
-            'https://vfqqlifvhooefxvvyebm.supabase.co/functions/v1/process-po-background',
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${session.access_token}`,
-                'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmcXFsaWZ2aG9vZWZ4dnZ5ZWJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MzY1OTgsImV4cCI6MjA2ODAxMjU5OH0.u-iIilnOACJTo_3AUCkmhREXdVV84JmbswtM_-NJJBM'
-              },
-              body: JSON.stringify({
-                action: 'startExport',
-                config: exportConfig,
-                availableAPIs: apiKeysWithNames
-              })
-            }
-          );
-          
-          console.log('📡 Direct fetch response status:', fetchResponse.status);
-          
-          if (!fetchResponse.ok) {
-            const errorText = await fetchResponse.text();
-            console.error('❌ Edge function returned error:', errorText);
-            throw new Error(`Edge function returned ${fetchResponse.status}: ${errorText}`);
-          }
-          
-          response = await fetchResponse.json();
-          functionError = null;
-          
-          console.log('✅ Direct fetch succeeded:', response);
-          
-        } catch (fetchError: any) {
-          console.error('❌ Direct fetch also failed:', {
-            message: fetchError.message,
-            stack: fetchError.stack
-          });
-          
-          throw new Error(`Both invoke and direct fetch failed: ${fetchError.message}`);
-        }
-      }
-
-      // Detailed logging
-      console.log('📡 Function invocation result:', { 
-        response, 
-        functionError,
-        timestamp: new Date().toISOString()
-      });
-
-      if (functionError) {
-        console.error('❌ Edge function error details:', {
-          message: functionError.message,
-          status: functionError.status,
-          context: functionError.context,
-          stack: functionError.stack,
-          name: functionError.name
-        });
-        
-        throw new Error(`Failed to start background export: ${functionError.message || 'Unknown error'}`);
-      }
-
-      if (!response?.success) {
-        console.error('❌ Edge function returned error:', response);
-        throw new Error(response?.error || 'Failed to start background export');
-      }
-
-      console.log('✅ Background export started successfully:', response);
+        pageSize: exportPageSize,
+        maxPages: 999999,
+        columns: selectedExportColumns,
+        apiKeys: apiKeysWithNames
+      }, taskId);
 
       toast({
         title: "🚀 Background Export Started",
         description: `Task created successfully! Using ${apiKeysWithNames.length} API keys. Check the Tasks tab for progress.`,
         duration: 5000
+      });
+
+      // Don't await - let it run in background
+      exportPromise.catch(error => {
+        console.error('Background export failed:', error);
       });
 
       // Refresh tasks to show the new one
@@ -977,6 +890,7 @@ export const SunskySKUImporter: React.FC = () => {
     selectedExportColumns,
     fetchTasks,
     fetchExportHistory,
+    startConcurrentExport,
     toast
   ]);
 
