@@ -1175,14 +1175,22 @@ export const useConcurrentSunskyExport = () => {
         }
         
         if (fileName) {
+          // Case A: File uploaded to storage successfully
           toast({
             title: "Export Stopped",
             description: `Saved ${productsToSave.length} products collected so far. Check Export History to download.`,
           });
-        } else {
+        } else if (taskId) {
+          // Case B: File upload failed BUT we stored in metadata
           toast({
             title: "Export Stopped",
-            description: `Export cancelled. Collected ${productsToSave.length} products but failed to save file.`,
+            description: `Saved ${productsToSave.length} products. File will be generated when you download from Tasks panel.`,
+          });
+        } else {
+          // Case C: Complete failure
+          toast({
+            title: "Export Stopped",
+            description: `Export cancelled. Collected ${productsToSave.length} products but failed to save.`,
             variant: "destructive"
           });
         }
