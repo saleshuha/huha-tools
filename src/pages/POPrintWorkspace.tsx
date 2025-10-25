@@ -404,7 +404,7 @@ export default function POPrintWorkspace() {
                             <img 
                               src={order._workspaceImageUrl} 
                               alt={order.title || 'Product'}
-                              className="w-10 h-10 object-cover rounded border shrink-0"
+                              className="w-10 h-10 object-contain rounded border shrink-0"
                               onError={(e) => {
                                 e.currentTarget.style.display = 'none';
                               }}
