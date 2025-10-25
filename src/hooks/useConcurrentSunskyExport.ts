@@ -47,7 +47,8 @@ export const useConcurrentSunskyExport = () => {
       products: any[], 
       categoriesMap: Map<number, { name: string; products: any[] }>,
       backgroundTaskId?: string,
-      config?: ExportConfig
+      config?: ExportConfig,
+      cancelExportTriggered?: boolean
     } 
   }>({});
 
@@ -108,6 +109,24 @@ export const useConcurrentSunskyExport = () => {
           console.log('🛑 Task cancelled in database:', backgroundTaskId);
           if (exportId) {
             cancellationRef.current[exportId] = true; // Set shared flag for all workers
+            
+            // NEW: Trigger cancelExport to save partial data
+            const partialData = partialDataRef.current[exportId];
+            if (partialData && !partialData.cancelExportTriggered) {
+              // Mark as triggered to prevent duplicate calls
+              partialData.cancelExportTriggered = true;
+              
+              console.log('💾 Triggering automatic save of partial data on cancellation');
+              
+              // Call cancelExport in background to save partial results
+              cancelExport(
+                exportId,
+                partialData.products,
+                partialData.categoriesMap,
+                backgroundTaskId,
+                partialData.config
+              ).catch(err => console.error('Failed to save partial export:', err));
+            }
           }
           return true;
         }
@@ -915,6 +934,11 @@ export const useConcurrentSunskyExport = () => {
     const taskId = backgroundTaskId || partialData?.backgroundTaskId;
     const configToUse = config || partialData?.config;
     
+    // Defensive check for taskId
+    if (!taskId) {
+      console.warn('⚠️ No taskId available for cancellation - will still attempt to save to export_history');
+    }
+    
     // If we have partial data, save it as a downloadable export
     if (productsToSave.length > 0 && configToUse) {
       let fileName: string | null = null;
@@ -1195,8 +1219,8 @@ export const useConcurrentSunskyExport = () => {
             title: "Export Stopped",
             description: `Saved ${productsToSave.length} products collected so far. Check Export History to download.`,
           });
-        } else if (taskId) {
-          // Case B: File upload failed BUT we stored in metadata
+        } else if (taskId || productsToSave.length > 0) {
+          // Case B: File upload failed BUT we stored in metadata OR we have products
           toast({
             title: "Export Stopped",
             description: `Saved ${productsToSave.length} products. File will be generated when you download from Tasks panel.`,
