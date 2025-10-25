@@ -344,8 +344,8 @@ function TaskCard({
                 )}
               </div>
               <div className="flex gap-2">
-                {/* Download button for completed export tasks */}
-                {task.status === 'completed' && 
+                {/* Download button for completed or cancelled export tasks */}
+                {(task.status === 'completed' || task.status === 'cancelled') && 
                  (task.metadata as any)?.downloadableResults && 
                  (task.name.includes('Export') || task.name.includes('export')) && (
                   <BackgroundExportDownloadButton 
