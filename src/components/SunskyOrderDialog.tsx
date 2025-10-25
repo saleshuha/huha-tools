@@ -130,7 +130,6 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
   const [orderOptions, setOrderOptions] = useState({
     siteNumber: '',
     useBalanceOnly: false,
-    lockStock: false,
     vatNumber: '',
     eoriNumber: '',
     iossNumber: '',
@@ -1583,28 +1582,6 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
                   ))}
                 </div>
               )}
-
-              {shippingMethods.length > 0 && (
-                <Card className="mt-4 p-4 bg-muted/30 border-primary/20">
-                  <div className="flex items-start space-x-3">
-                    <Checkbox
-                      id="lockStock"
-                      checked={orderOptions.lockStock}
-                      onCheckedChange={(checked) => 
-                        setOrderOptions({...orderOptions, lockStock: !!checked})
-                      }
-                    />
-                    <div className="flex-1">
-                      <Label htmlFor="lockStock" className="font-medium cursor-pointer">
-                        Lock Stock (Reserve Inventory)
-                      </Label>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        When enabled, items will be reserved in Sunsky's warehouse immediately to prevent stock shortages
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-              )}
             </div>
           )}
 
@@ -1657,7 +1634,7 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
                     <CardTitle className="text-base">Order Options</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="siteNumber">Site Number (Optional)</Label>
                         <Input
@@ -1667,24 +1644,12 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
                           placeholder="Enter site number or PO number"
                         />
                       </div>
-                      <div className="flex flex-col gap-3">
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            checked={orderOptions.useBalanceOnly}
-                            onCheckedChange={(checked) => setOrderOptions({...orderOptions, useBalanceOnly: !!checked})}
-                          />
-                          <Label>Use balance only</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            checked={orderOptions.lockStock}
-                            onCheckedChange={(checked) => setOrderOptions({...orderOptions, lockStock: !!checked})}
-                          />
-                          <Label>Lock Stock (Reserve Inventory)</Label>
-                          {orderOptions.lockStock && (
-                            <Badge variant="secondary" className="text-xs">Active</Badge>
-                          )}
-                        </div>
+                      <div className="flex items-center space-x-2 pt-6">
+                        <Checkbox
+                          checked={orderOptions.useBalanceOnly}
+                          onCheckedChange={(checked) => setOrderOptions({...orderOptions, useBalanceOnly: !!checked})}
+                        />
+                        <Label>Use balance only</Label>
                       </div>
                     </div>
                   </CardContent>

@@ -456,7 +456,6 @@ const signature = md5(signatureString);`;
             parameters={[
               { name: 'siteNumber', type: 'string', required: false, description: 'Your reference number (max 32 chars)' },
               { name: 'useBalanceOnly', type: 'boolean', required: false, description: 'Require sufficient balance (default: false)' },
-              { name: 'lockStock', type: 'boolean', required: false, description: 'Reserve inventory immediately to prevent stock issues (default: false)' },
               { name: 'deliveryAddress.countryId', type: 'number', required: true, description: 'Country ID' },
               { name: 'deliveryAddress.state', type: 'string', required: true, description: 'State/province (max 40 chars)' },
               { name: 'deliveryAddress.city', type: 'string', required: true, description: 'City (max 40 chars)' },
