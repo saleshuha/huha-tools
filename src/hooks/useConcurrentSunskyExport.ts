@@ -89,12 +89,43 @@ export const useConcurrentSunskyExport = () => {
     return distribution;
   };
 
+  const checkTaskCancellation = async (backgroundTaskId?: string, exportId?: string): Promise<boolean> => {
+    // Check in-memory cancellation first
+    if (exportId && cancellationRef.current[exportId]) {
+      return true;
+    }
+    
+    // Check database if we have a background task ID
+    if (backgroundTaskId) {
+      try {
+        const { data, error } = await supabase
+          .from('background_tasks')
+          .select('status')
+          .eq('id', backgroundTaskId)
+          .single();
+        
+        if (!error && data && data.status === 'cancelled') {
+          console.log('🛑 Task cancelled in database:', backgroundTaskId);
+          if (exportId) {
+            cancellationRef.current[exportId] = true;
+          }
+          return true;
+        }
+      } catch (error) {
+        console.error('Error checking task cancellation:', error);
+      }
+    }
+    
+    return false;
+  };
+
   const processAPIKeyPages = async (
     apiKey: { id: string; name: string },
     pageRange: { startPage: number; maxPages: number },
     config: ExportConfig,
     exportId: string,
-    onProgress: (progress: ConcurrentExportProgress) => void
+    onProgress: (progress: ConcurrentExportProgress) => void,
+    backgroundTaskId?: string
   ): Promise<any[]> => {
     const results: any[] = [];
     let currentPage = pageRange.startPage;
@@ -124,7 +155,14 @@ export const useConcurrentSunskyExport = () => {
     updateProgress('processing');
 
     try {
-      while (pagesProcessed < pageRange.maxPages && !cancellationRef.current[exportId]) {
+      while (pagesProcessed < pageRange.maxPages) {
+        // Check for cancellation (both in-memory and database)
+        const isCancelled = await checkTaskCancellation(backgroundTaskId, exportId);
+        if (isCancelled) {
+          console.log(`🛑 API ${apiKey.name} stopping due to cancellation`);
+          break;
+        }
+        
         const searchParams: any = {
           page: currentPage,
           pageSize: config.pageSize,
@@ -375,6 +413,19 @@ export const useConcurrentSunskyExport = () => {
         // Update background task if provided
         if (backgroundTaskId) {
           try {
+            // Check if task was cancelled before updating
+            const { data: taskCheck } = await supabase
+              .from('background_tasks')
+              .select('status')
+              .eq('id', backgroundTaskId)
+              .single();
+            
+            // Don't update if task is already cancelled
+            if (taskCheck?.status === 'cancelled') {
+              console.log('⚠️ Skipping update - task already cancelled');
+              return;
+            }
+            
             await ((supabase as any)
               .from('background_tasks')
               .update({ 
@@ -436,7 +487,8 @@ export const useConcurrentSunskyExport = () => {
           pageDistribution[apiKey.id] || { startPage: 1, maxPages: 0 },
           config,
           exportId,
-          onApiProgress
+          onApiProgress,
+          backgroundTaskId
         )
       );
 
