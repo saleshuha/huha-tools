@@ -794,11 +794,13 @@ export const SunskySKUImporter: React.FC = () => {
     try {
       console.log('🚀 Starting background export process...');
 
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) {
-        throw new Error('Authentication required');
+      // Fix 2: Check authentication status
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        throw new Error('You must be logged in to export data');
       }
-      console.log('✅ User authenticated:', user.id);
+
+      console.log('✅ User authenticated:', session.user.id);
 
       const apiIds = selectedExportAPIs.length > 0 ? selectedExportAPIs : availableAPIs.filter(api => api.is_active).map(api => api.id);
       if (apiIds.length === 0) {
@@ -846,9 +848,23 @@ export const SunskySKUImporter: React.FC = () => {
         }
       });
 
+      // Fix 1: Detailed logging
+      console.log('📡 Function invocation result:', { 
+        response, 
+        functionError,
+        timestamp: new Date().toISOString()
+      });
+
       if (functionError) {
-        console.error('❌ Edge function error:', functionError);
-        throw new Error(`Failed to start background export: ${functionError.message}`);
+        console.error('❌ Edge function error details:', {
+          message: functionError.message,
+          status: functionError.status,
+          context: functionError.context,
+          stack: functionError.stack,
+          name: functionError.name
+        });
+        
+        throw new Error(`Failed to start background export: ${functionError.message || 'Unknown error'}`);
       }
 
       if (!response?.success) {
