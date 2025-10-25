@@ -2264,7 +2264,7 @@ export default function PODetailsPage() {
               tracking_url: order.tracking_url || ''
             });
           } else if (action === 'stock') {
-            markAsOrderedFromInventory(order.id);
+            markAsOrderedFromInventory(order);
           }
         }} findInventoryMatch={(asin, sunskySku, poSku, modelNumber) => {
           // Use cached inventory match for performance
