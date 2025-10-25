@@ -28,6 +28,11 @@ export interface BackgroundTask {
     successfulMatches?: number;
     failedItems?: number;
     details?: string;
+    // Export progress metadata
+    currentStatus?: string;
+    totalPagesExpected?: number;
+    totalPagesProcessed?: number;
+    lastUpdate?: string;
   };
 }
 
@@ -76,7 +81,24 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
   const taskIdCounter = useRef(0);
   const cancellationFlags = useRef<Map<string, boolean>>(new Map());
 
-  // Load persisted tasks from database on mount
+  // Helper function to map database task to BackgroundTask format
+  const mapDatabaseTaskToBackgroundTask = (dbTask: any): BackgroundTask => {
+    return {
+      id: dbTask.id,
+      type: dbTask.type as BackgroundTask['type'],
+      name: `${dbTask.type} - ${dbTask.metadata?.exportType || 'Task'}`,
+      progress: dbTask.progress || 0,
+      status: dbTask.status === 'failed' ? 'error' : (dbTask.status as BackgroundTask['status']),
+      totalItems: dbTask.total_items || 0,
+      processedItems: dbTask.processed_items || 0,
+      startTime: new Date(dbTask.created_at),
+      endTime: dbTask.completed_at ? new Date(dbTask.completed_at) : undefined,
+      canCancel: dbTask.status === 'processing' || dbTask.status === 'pending',
+      metadata: dbTask.metadata || {}
+    };
+  };
+
+  // Load persisted tasks from database on mount and subscribe to realtime updates
   useEffect(() => {
     const loadPersistedTasks = async () => {
       try {
@@ -98,20 +120,7 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
         if (error) throw error;
 
         if (data && data.length > 0) {
-          const persistedTasks: BackgroundTask[] = data.map(dbTask => ({
-            id: (dbTask as any)?.id,
-            type: (dbTask as any)?.type as BackgroundTask['type'],
-            name: `${(dbTask as any)?.type} - ${((dbTask as any)?.metadata as any)?.exportType || 'Task'}`,
-            progress: (dbTask as any)?.progress || 0,
-            status: (dbTask as any)?.status as BackgroundTask['status'],
-            totalItems: (dbTask as any)?.total_items || 0,
-            processedItems: (dbTask as any)?.processed_items || 0,
-            startTime: new Date((dbTask as any)?.created_at),
-            endTime: (dbTask as any)?.completed_at ? new Date((dbTask as any)?.completed_at) : undefined,
-            canCancel: (dbTask as any)?.status === 'processing' || (dbTask as any)?.status === 'pending',
-            metadata: ((dbTask as any)?.metadata as any) || {}
-          }));
-
+          const persistedTasks: BackgroundTask[] = data.map(mapDatabaseTaskToBackgroundTask);
           setTasks(persistedTasks);
         }
       } catch (error) {
@@ -120,6 +129,41 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
     };
 
     loadPersistedTasks();
+
+    // Subscribe to realtime changes on background_tasks table
+    const channel = supabase
+      .channel('background_tasks_realtime')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'background_tasks'
+        },
+        (payload) => {
+          console.log('📡 Background task realtime update:', payload);
+          
+          if (payload.eventType === 'INSERT') {
+            const newTask = mapDatabaseTaskToBackgroundTask(payload.new);
+            setTasks(prev => {
+              // Avoid duplicates
+              if (prev.some(t => t.id === newTask.id)) return prev;
+              return [newTask, ...prev];
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedTask = mapDatabaseTaskToBackgroundTask(payload.new);
+            setTasks(prev => prev.map(task => 
+              task.id === updatedTask.id ? updatedTask : task
+            ));
+          } else if (payload.eventType === 'DELETE') {
+            setTasks(prev => prev.filter(task => task.id !== payload.old.id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
   }, []);
 
   const addTask = useCallback((task: Omit<BackgroundTask, 'id' | 'startTime'>) => {

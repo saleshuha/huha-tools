@@ -72,6 +72,13 @@ export function FloatingProgressIndicator() {
                     </div>
                     <Progress value={currentTask.progress} className="h-2" />
                     
+                    {/* Show detailed progress from metadata */}
+                    {currentTask.metadata?.currentStatus && (
+                      <p className="text-xs text-muted-foreground mt-1 truncate">
+                        {currentTask.metadata.currentStatus}
+                      </p>
+                    )}
+                    
                     {/* Thread indicators */}
                     {currentTask.threads && currentTask.threads.length > 1 && (
                       <div className="flex gap-1 mt-2">
