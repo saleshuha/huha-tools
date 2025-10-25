@@ -117,7 +117,7 @@ export default function PODetailsPage() {
   const [filters, setFilters] = useState<FilterState>({
     quickFilter: 'all',
     status: [],
-    inventoryStatus: 'all',
+    inventoryStatus: [],
     quantityMin: '',
     quantityMax: '',
     costMin: '',
@@ -400,11 +400,34 @@ export default function PODetailsPage() {
       if (filters.quickFilter === 'with-sunsky' && !order.sunsky_sku?.sku_code) return false;
       if (filters.quickFilter === 'no-tracking' && order.tracking_number) return false;
 
-      // Advanced filters
-      if (filters.inventoryStatus !== 'all') {
-        if (filters.inventoryStatus === 'in-stock' && (!inventoryMatch || inventoryMatch.quantity === 0)) return false;
-        if (filters.inventoryStatus === 'out-of-stock' && inventoryMatch && inventoryMatch.quantity > 0) return false;
-        if (filters.inventoryStatus === 'not-found' && inventoryMatch) return false;
+      // Advanced filters - Inventory Status (multi-select)
+      if (filters.inventoryStatus.length > 0) {
+        let matchesInventoryStatus = false;
+        
+        for (const status of filters.inventoryStatus) {
+          if (status === 'in-stock' && inventoryMatch && inventoryMatch.quantity > 0) {
+            matchesInventoryStatus = true;
+            break;
+          }
+          if (status === 'out-of-stock' && inventoryMatch && inventoryMatch.quantity === 0) {
+            matchesInventoryStatus = true;
+            break;
+          }
+          if (status === 'not-found' && !inventoryMatch) {
+            matchesInventoryStatus = true;
+            break;
+          }
+          if (status === 'pending' && order.status === 'pending') {
+            matchesInventoryStatus = true;
+            break;
+          }
+          if (status === 'closed' && order.status === 'closed') {
+            matchesInventoryStatus = true;
+            break;
+          }
+        }
+        
+        if (!matchesInventoryStatus) return false;
       }
       if (filters.hasTracking !== 'all') {
         if (filters.hasTracking === 'yes' && !order.tracking_number) return false;

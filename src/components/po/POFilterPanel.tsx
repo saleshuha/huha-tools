@@ -1,15 +1,17 @@
-import { Filter, X } from 'lucide-react';
+import { Filter, X, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+
 export type FilterState = {
   quickFilter: 'all' | 'in-stock' | 'out-of-stock' | 'pending' | 'closed' | 'with-sunsky' | 'no-tracking';
   status: string[];
-  inventoryStatus: 'all' | 'in-stock' | 'out-of-stock' | 'not-found';
+  inventoryStatus: string[];
   quantityMin: string;
   quantityMax: string;
   costMin: string;
@@ -81,7 +83,7 @@ export function POFilterPanel({
     onFilterChange({
       quickFilter: 'all',
       status: [],
-      inventoryStatus: 'all',
+      inventoryStatus: [],
       quantityMin: '',
       quantityMax: '',
       costMin: '',
@@ -90,7 +92,23 @@ export function POFilterPanel({
       hasSunskySku: 'all'
     });
   };
-  const hasActiveFilters = filters.quickFilter !== 'all' || filters.status.length > 0 || filters.inventoryStatus !== 'all' || filters.quantityMin || filters.quantityMax || filters.costMin || filters.costMax || filters.hasTracking !== 'all' || filters.hasSunskySku !== 'all';
+
+  const handleInventoryStatusToggle = (status: string) => {
+    const newStatus = filters.inventoryStatus.includes(status)
+      ? filters.inventoryStatus.filter(s => s !== status)
+      : [...filters.inventoryStatus, status];
+    onFilterChange({ ...filters, inventoryStatus: newStatus });
+  };
+
+  const inventoryStatusOptions = [
+    { value: 'in-stock', label: '✓ In Stock', color: 'text-green-700 dark:text-green-400' },
+    { value: 'out-of-stock', label: '⏳ Out of Stock', color: 'text-orange-700 dark:text-orange-400' },
+    { value: 'not-found', label: '❌ Not Found', color: 'text-gray-700 dark:text-gray-400' },
+    { value: 'pending', label: '⏰ Pending', color: 'text-yellow-700 dark:text-yellow-400' },
+    { value: 'closed', label: '✅ Closed', color: 'text-blue-700 dark:text-blue-400' },
+  ];
+
+  const hasActiveFilters = filters.quickFilter !== 'all' || filters.status.length > 0 || filters.inventoryStatus.length > 0 || filters.quantityMin || filters.quantityMax || filters.costMin || filters.costMax || filters.hasTracking !== 'all' || filters.hasSunskySku !== 'all';
   return <Card className="border-border/40 bg-card/50 backdrop-blur-sm">
       <CardContent className="p-4 space-y-4">
         {/* Header with Clear Button */}
@@ -107,23 +125,56 @@ export function POFilterPanel({
           </div>
           <div className="p-3 rounded-lg bg-muted/30 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* Inventory Status */}
+              {/* Inventory Status - Multi-select */}
               <div className="space-y-2">
                 <Label className="text-xs font-medium">Inventory Status</Label>
-                <Select value={filters.inventoryStatus} onValueChange={value => onFilterChange({
-                ...filters,
-                inventoryStatus: value as FilterState['inventoryStatus']
-              })}>
-                  <SelectTrigger className="h-9 bg-background">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="in-stock">✓ In Stock</SelectItem>
-                    <SelectItem value="out-of-stock">⏳ Out of Stock</SelectItem>
-                    <SelectItem value="not-found">❌ Not Found</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      className="h-9 w-full justify-between bg-background hover:bg-background"
+                    >
+                      <span className="text-sm">
+                        {filters.inventoryStatus.length === 0 
+                          ? 'All Status' 
+                          : `${filters.inventoryStatus.length} selected`}
+                      </span>
+                      <ChevronDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-3 bg-popover border-border z-50" align="start">
+                    <div className="space-y-3">
+                      <div className="text-xs font-medium text-muted-foreground mb-2">
+                        Select inventory statuses
+                      </div>
+                      {inventoryStatusOptions.map((option) => (
+                        <div key={option.value} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`inv-status-${option.value}`}
+                            checked={filters.inventoryStatus.includes(option.value)}
+                            onCheckedChange={() => handleInventoryStatusToggle(option.value)}
+                          />
+                          <Label
+                            htmlFor={`inv-status-${option.value}`}
+                            className={`text-sm cursor-pointer ${option.color}`}
+                          >
+                            {option.label}
+                          </Label>
+                        </div>
+                      ))}
+                      {filters.inventoryStatus.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full text-xs"
+                          onClick={() => onFilterChange({ ...filters, inventoryStatus: [] })}
+                        >
+                          Clear Selection
+                        </Button>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               {/* Has Tracking */}
