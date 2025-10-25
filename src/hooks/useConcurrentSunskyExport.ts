@@ -1031,7 +1031,7 @@ export const useConcurrentSunskyExport = () => {
               .from('background_tasks')
               .update({ 
                 progress: 100,
-                status: 'completed', // Mark as completed since we have the data
+                status: 'cancelled', // Keep as cancelled even though we have the data
                 completed_at: new Date().toISOString(),
                 metadata: {
                   totalProducts: productsToSave.length,
@@ -1076,13 +1076,13 @@ export const useConcurrentSunskyExport = () => {
                 completed_at: new Date().toISOString(),
                 metadata: {
                   fileName: fileName,
+                  downloadReady: true,
                   totalProducts: productsToSave.length,
                   fileSize: fileData?.size || 0,
                   completedAt: new Date().toISOString(),
-                  downloadableResults: true,
                   message: 'Export stopped by user - partial results saved',
                   isCancelled: true
-                } 
+                }
               } as any)
               .eq('id', taskId);
             

@@ -90,6 +90,9 @@ export const generateExcelFile = async (options: ExcelExportOptions): Promise<st
       .sort(([,a], [,b]) => b.products.length - a.products.length)
       .slice(0, 10);
 
+    // Track used sheet names to prevent duplicates
+    const usedSheetNames = new Set(['Summary', 'All Products']);
+
     sortedCategories.forEach(([categoryId, categoryInfo]) => {
       const categoryData = [config.columns];
       
@@ -116,7 +119,19 @@ export const generateExcelFile = async (options: ExcelExportOptions): Promise<st
       });
 
       const categorySheet = XLSX.utils.aoa_to_sheet(categoryData);
-      const sheetName = categoryInfo.name.substring(0, 30).replace(/[\\/*?:"<>|]/g, '');
+      
+      // Generate unique sheet name
+      let baseSheetName = (categoryInfo.name || 'Uncategorized').substring(0, 30).replace(/[\\/*?:"<>|]/g, '');
+      let sheetName = baseSheetName;
+      let counter = 1;
+      
+      // Append counter if name already exists
+      while (usedSheetNames.has(sheetName)) {
+        sheetName = `${baseSheetName.substring(0, 27)}_${counter}`;
+        counter++;
+      }
+      
+      usedSheetNames.add(sheetName);
       XLSX.utils.book_append_sheet(workbook, categorySheet, sheetName);
     });
 
