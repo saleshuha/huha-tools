@@ -44,24 +44,44 @@ export default function POPrintWorkspace() {
     initialSettings.bulkAggregate || false
   );
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'default' | 'qty-high' | 'qty-low'>('qty-high');
 
   // Filter orders based on search
   const filteredOrders = useMemo(() => {
     if (!searchQuery.trim()) return workspaceOrders;
     const query = searchQuery.toLowerCase();
-    return workspaceOrders.filter(order => 
-      order.asin?.toLowerCase().includes(query) ||
-      order.title?.toLowerCase().includes(query) ||
-      order.sku_code?.toLowerCase().includes(query) ||
-      order.po_number?.toLowerCase().includes(query)
-    );
+    return workspaceOrders.filter(order => {
+      const searchableText = [
+        order.asin,
+        order.title,
+        order.sku_code,
+        order.po_number,
+        order.model_number,
+        order.serial_number,
+        order.external_id
+      ]
+        .filter(Boolean)
+        .map(str => str.toLowerCase())
+        .join(' ');
+      
+      return searchableText.includes(query);
+    });
   }, [workspaceOrders, searchQuery]);
 
-  // Convert workspace orders to print items
+  // Convert workspace orders to print items with sorting
   const printItems = useMemo(() => {
     const selected = workspaceOrders.filter((_, index) => selectedItems.has(index));
-    return convertWorkspaceOrdersToPrintItems(selected, bulkAggregate);
-  }, [workspaceOrders, selectedItems, bulkAggregate]);
+    let items = convertWorkspaceOrdersToPrintItems(selected, bulkAggregate);
+    
+    // Apply sorting
+    if (sortBy === 'qty-high') {
+      items = [...items].sort((a, b) => b.quantity - a.quantity);
+    } else if (sortBy === 'qty-low') {
+      items = [...items].sort((a, b) => a.quantity - b.quantity);
+    }
+    
+    return items;
+  }, [workspaceOrders, selectedItems, bulkAggregate, sortBy]);
 
   // Workspace-specific operations (all in-memory)
   const handleQuantityChange = (index: number, newQty: number) => {
@@ -327,12 +347,25 @@ export default function POPrintWorkspace() {
               <Switch checked={bulkAggregate} onCheckedChange={setBulkAggregate} />
             </div>
 
-            <div className="pt-2 border-t">
+            <div className="pt-2 border-t space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold">Sort Preview By</Label>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="h-7 text-xs border rounded-md px-2 bg-background"
+                >
+                  <option value="default">Original Order</option>
+                  <option value="qty-high">Qty: High → Low</option>
+                  <option value="qty-low">Qty: Low → High</option>
+                </select>
+              </div>
+              
               <Input 
-                placeholder="Search items..."
+                placeholder="Search: ASIN, SKU, Serial #, Model #, Title..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-9"
+                className="h-8"
               />
             </div>
 
@@ -353,108 +386,106 @@ export default function POPrintWorkspace() {
           
           {/* Item List with Edit Controls */}
           <ScrollArea className="flex-1">
-            <div className="p-4 space-y-2">
+            <div className="p-3 space-y-1.5">
               {filteredOrders.map((order, index) => {
                 const actualIndex = workspaceOrders.indexOf(order);
                 return (
-                  <Card key={actualIndex} className="p-3">
+                  <Card key={actualIndex} className="p-2 hover:bg-accent/5 transition-colors">
                     <div className="flex items-start gap-2">
                       <Checkbox 
                         checked={selectedItems.has(actualIndex)}
                         onCheckedChange={() => toggleItem(actualIndex)}
-                        className="mt-1"
+                        className="mt-0.5"
                       />
                       
-                      <div className="flex-1 space-y-3 min-w-0">
+                      <div className="flex-1 space-y-2 min-w-0">
                         <div className="flex items-start gap-2">
-                          {order._workspaceImageUrl && (
+                          {order._workspaceImageUrl ? (
                             <img 
                               src={order._workspaceImageUrl} 
                               alt={order.title || 'Product'}
-                              className="w-12 h-12 object-cover rounded border shrink-0"
+                              className="w-10 h-10 object-cover rounded border shrink-0"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                              }}
                             />
+                          ) : (
+                            <div className="w-10 h-10 flex items-center justify-center bg-muted rounded border shrink-0 text-[10px] text-muted-foreground">
+                              No Img
+                            </div>
                           )}
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium line-clamp-2" title={order.title}>
+                            <div className="text-xs font-medium line-clamp-2 leading-tight" title={order.title}>
                               {order.title || 'No Title'}
                             </div>
-                            <div className="text-xs text-muted-foreground space-y-1 mt-1">
+                            <div className="text-[10px] text-muted-foreground space-y-0.5 mt-0.5">
                               <div>ASIN: {order.asin || 'N/A'}</div>
+                              {order.sku_code && <div>SKU: {order.sku_code}</div>}
+                              {order.serial_number && <div>SN: {order.serial_number}</div>}
+                              {order.model_number && <div>Model: {order.model_number}</div>}
                               <div>PO: {order.po_number}</div>
                             </div>
                           </div>
                         </div>
                         
-                        <div className="space-y-2">
+                        <div className="grid grid-cols-3 gap-1.5">
                           <div>
-                            <Label className="text-xs">Total Quantity</Label>
+                            <Label className="text-[10px] text-muted-foreground">Total</Label>
                             <Input 
                               type="number"
                               value={order.quantity}
                               onChange={(e) => handleQuantityChange(actualIndex, parseInt(e.target.value) || 1)}
-                              className="h-8 w-full"
+                              className="h-7 text-xs"
                               min={1}
                             />
                           </div>
                           
-                          <div className="space-y-2">
-                            <Label className="text-xs font-semibold">Stock Fulfillment</Label>
-                            
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <Label className="text-xs text-muted-foreground">From Stock</Label>
-                                <Input 
-                                  type="number"
-                                  value={order._localStockQuantity || 0}
-                                  onChange={(e) => {
-                                    const stockQty = parseInt(e.target.value) || 0;
-                                    handleStockQuantityChange(actualIndex, stockQty);
-                                  }}
-                                  className="h-8 text-xs"
-                                  min={0}
-                                  max={order.quantity}
-                                  placeholder="0"
-                                />
-                              </div>
-                              
-                              <div>
-                                <Label className="text-xs text-muted-foreground">From Supplier</Label>
-                                <div className="h-8 flex items-center px-3 bg-muted rounded-md text-xs font-medium">
-                                  {order.quantity - (order._localStockQuantity || 0)}
-                                </div>
-                              </div>
+                          <div>
+                            <Label className="text-[10px] text-muted-foreground">Stock</Label>
+                            <Input 
+                              type="number"
+                              value={order._localStockQuantity || 0}
+                              onChange={(e) => {
+                                const stockQty = parseInt(e.target.value) || 0;
+                                handleStockQuantityChange(actualIndex, stockQty);
+                              }}
+                              className="h-7 text-xs"
+                              min={0}
+                              max={order.quantity}
+                              placeholder="0"
+                            />
+                          </div>
+                          
+                          <div>
+                            <Label className="text-[10px] text-muted-foreground">Pending</Label>
+                            <div className="h-7 flex items-center px-2 bg-muted rounded-md text-xs font-medium">
+                              {order.quantity - (order._localStockQuantity || 0)}
                             </div>
-                            
-                            {order._localFromStock && (
-                              <div className="p-2 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded text-xs space-y-1">
-                                <div className="flex justify-between">
-                                  <span className="text-muted-foreground">Total:</span>
-                                  <span className="font-semibold">{order.quantity}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-green-700 dark:text-green-400">✓ From Stock:</span>
-                                  <span className="font-semibold text-green-700 dark:text-green-400">{order._localStockQuantity}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-amber-700 dark:text-amber-400">⚠ Pending:</span>
-                                  <span className="font-semibold text-amber-700 dark:text-amber-400">
-                                    {order.quantity - (order._localStockQuantity || 0)}
-                                  </span>
-                                </div>
-                              </div>
-                            )}
                           </div>
                         </div>
+                        
+                        {order._localFromStock && (
+                          <div className="px-2 py-1 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded text-[10px] flex items-center justify-between gap-2">
+                            <span className="text-green-700 dark:text-green-400 font-medium">
+                              ✓ {order._localStockQuantity} from stock
+                            </span>
+                            {order.quantity - (order._localStockQuantity || 0) > 0 && (
+                              <span className="text-amber-700 dark:text-amber-400 font-medium">
+                                ⚠ {order.quantity - (order._localStockQuantity || 0)} pending
+                              </span>
+                            )}
+                          </div>
+                        )}
                         
                         {/* Remove Button */}
                         <Button 
                           size="sm" 
                           variant="ghost"
                           onClick={() => handleRemoveItem(actualIndex)}
-                          className="h-7 text-xs text-destructive hover:text-destructive w-full"
+                          className="h-6 text-[10px] text-destructive hover:bg-destructive/10 w-full"
                         >
                           <Trash2 className="h-3 w-3 mr-1" />
-                          Remove from Workspace
+                          Remove
                         </Button>
                       </div>
                     </div>

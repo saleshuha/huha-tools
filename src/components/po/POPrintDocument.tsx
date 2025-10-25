@@ -175,10 +175,65 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
             border-top: 1px solid #ddd;
           }
           
-          .print-item-quantity {
-            font-size: 24px;
+          .print-item-quantity-section {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+          }
+          
+          .print-item-quantity-main {
+            font-size: 32px;
             font-weight: bold;
             color: #000;
+            line-height: 1;
+          }
+          
+          .print-item-quantity-label {
+            font-size: 11px;
+            color: #666;
+            font-weight: normal;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          
+          .print-item-breakdown {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #e0e0e0;
+          }
+          
+          .print-item-breakdown-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+          }
+          
+          .print-item-breakdown-label {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+          }
+          
+          .print-item-breakdown-value {
+            font-size: 20px;
+            font-weight: bold;
+            line-height: 1;
+          }
+          
+          .print-from-stock {
+            color: #28a745;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          
+          .print-pending {
+            color: #ff6b35;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
           }
           
           .print-item-po {
@@ -254,21 +309,35 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
               </div>
               
               <div className="print-item-info">
-                <div>
-                  <div style={{ fontSize: '11px', color: '#666', marginBottom: '3px' }}>
-                    Quantity
-                  </div>
-                  <div className="print-item-quantity">
-                    {item.quantity}
+                <div className="print-item-quantity-section">
+                  {/* Main Total Quantity */}
+                  <div>
+                    <div className="print-item-quantity-label">Total Quantity</div>
+                    <div className="print-item-quantity-main">
+                      {item.quantity}
+                    </div>
                   </div>
                   
-                  {/* Stock breakdown */}
-                  {item.fulfilledFromStock && item.stockQuantity > 0 && (
-                    <div style={{ fontSize: '10px', color: '#28a745', marginTop: '6px', lineHeight: '1.4' }}>
-                      ✓ From Stock: {item.stockQuantity}
+                  {/* Stock Breakdown - Always show if partial fulfillment */}
+                  {item.fulfilledFromStock && (
+                    <div className="print-item-breakdown">
+                      <div className="print-item-breakdown-item">
+                        <div className="print-item-breakdown-label print-from-stock">
+                          ✓ FROM STOCK
+                        </div>
+                        <div className="print-item-breakdown-value print-from-stock">
+                          {item.stockQuantity}
+                        </div>
+                      </div>
+                      
                       {item.supplierQuantity > 0 && (
-                        <div style={{ color: '#666', marginTop: '2px' }}>
-                          ⚠ From Supplier: {item.supplierQuantity}
+                        <div className="print-item-breakdown-item">
+                          <div className="print-item-breakdown-label print-pending">
+                            ⚠ PENDING
+                          </div>
+                          <div className="print-item-breakdown-value print-pending">
+                            {item.supplierQuantity}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -276,7 +345,7 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
                   
                   {/* Serial numbers */}
                   {item.serialNumber && (
-                    <div style={{ fontSize: '9px', color: '#666', marginTop: '6px' }}>
+                    <div style={{ fontSize: '9px', color: '#666', marginTop: '8px' }}>
                       SN: {item.serialNumber}
                     </div>
                   )}
