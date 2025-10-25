@@ -25,6 +25,19 @@ function generatePOLabelElements(
   const elements: LabelElement[] = [];
   let yOffset = 50;
 
+  // Stock indicator if fulfilled from stock
+  if (item.fulfilledFromStock) {
+    elements.push({
+      type: 'text',
+      x: 50,
+      y: yOffset,
+      content: '✓ FROM STOCK',
+      fontSize: 14,
+      fontFamily: 'Arial'
+    });
+    yOffset += 40;
+  }
+
   // Title section
   elements.push({
     type: 'text',
@@ -143,6 +156,44 @@ function generatePOLabelElements(
     fontSize: 12,
     fontFamily: 'Arial'
   });
+
+  // Stock quantity breakdown if applicable
+  if (item.fulfilledFromStock && item.stockQuantity) {
+    yOffset += 30;
+    elements.push({
+      type: 'text',
+      x: 50,
+      y: yOffset,
+      content: `Stock Qty: ${item.stockQuantity}`,
+      fontSize: 12,
+      fontFamily: 'Arial'
+    });
+    
+    if (item.supplierQuantity > 0) {
+      yOffset += 25;
+      elements.push({
+        type: 'text',
+        x: 50,
+        y: yOffset,
+        content: `Supplier Qty: ${item.supplierQuantity}`,
+        fontSize: 12,
+        fontFamily: 'Arial'
+      });
+    }
+  }
+
+  // Serial numbers if available
+  if (item.serialNumber) {
+    yOffset += 30;
+    elements.push({
+      type: 'text',
+      x: 50,
+      y: yOffset,
+      content: `SN: ${item.serialNumber}`,
+      fontSize: 10,
+      fontFamily: 'Arial'
+    });
+  }
 
   return elements;
 }

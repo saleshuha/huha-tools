@@ -9,6 +9,14 @@ export interface POPrintItem {
   imageUrl?: string;
   model_number?: string;
   sku_code?: string;
+  
+  // Stock fulfillment tracking
+  fulfilledFromStock?: boolean;
+  stockQuantity?: number;         // Quantity from stock
+  supplierQuantity?: number;       // Quantity from supplier
+  inventorySource?: string;        // "ASIN" | "SKU" | "SKU-ASIN"
+  serialNumber?: string;           // Serial/bin numbers used
+  fulfillmentNotes?: string;       // Notes about fulfillment
 }
 
 /**

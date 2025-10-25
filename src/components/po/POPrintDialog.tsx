@@ -85,6 +85,13 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
     return filteredOrdersWithIndices.map(({ order }) => order);
   }, [filteredOrdersWithIndices]);
 
+  // Helper to extract stock quantity from order notes
+  const extractStockQuantity = (notes?: string): number => {
+    if (!notes) return 0;
+    const match = notes.match(/Fulfilled from stock:\s*(\d+)/);
+    return match ? parseInt(match[1]) : 0;
+  };
+
   // Prepare print items based on selection and aggregation
   const printItems = React.useMemo(() => {
     const selectedOrders = orders.filter((_, index) => selectedItems.has(index));
@@ -96,12 +103,26 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
       items = convertOrdersToPrintItems(selectedOrders);
     }
 
-    // Add images if available and sort by quantity (high to low)
+    // Add images and stock fulfillment data, then sort by quantity (high to low)
     return items
-      .map(item => ({
-        ...item,
-        imageUrl: getImageByAsin(item.asin)?.image_url
-      }))
+      .map(item => {
+        // Find matching order to extract stock metadata
+        const matchingOrder = selectedOrders.find(o => o.asin === item.asin) as any;
+        const stockMeta = matchingOrder?._stockFulfillment;
+        const stockQty = extractStockQuantity(matchingOrder?.notes);
+        
+        return {
+          ...item,
+          imageUrl: getImageByAsin(item.asin)?.image_url,
+          // Add stock tracking
+          fulfilledFromStock: stockMeta?.isFromStock || stockQty > 0 || false,
+          stockQuantity: stockQty || stockMeta?.stockQuantity || 0,
+          supplierQuantity: stockMeta?.supplierQuantity || (stockQty > 0 ? Math.max(0, item.quantity - stockQty) : item.quantity),
+          inventorySource: stockMeta?.inventoryMatch?.type,
+          serialNumber: stockMeta?.inventoryMatch?.serialNumber,
+          fulfillmentNotes: matchingOrder?.notes
+        };
+      })
       .sort((a, b) => b.quantity - a.quantity);
   }, [orders, selectedItems, mode, bulkAggregate, getImageByAsin]);
 
@@ -508,31 +529,50 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
                                        )}
                                      </TableCell>
                                    )}
-                                  <TableCell className="border-r border-gray-300">
-                                    <div className="space-y-1.5">
-                                      <div className="font-bold text-base">
-                                        {item.asin}
-                                      </div>
-                                      <div className="text-sm line-clamp-2">
-                                        {item.title || 'N/A'}
-                                      </div>
-                                      {item.sku_code && (
-                                        <div className="text-xs text-gray-600">
-                                          SKU: {item.sku_code}
-                                        </div>
-                                      )}
-                                      {item.model_number && (
-                                        <div className="text-xs text-gray-600">
-                                          Model: {item.model_number}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell className="text-center border-r border-gray-300">
-                                    <div className="text-2xl font-bold">
-                                      {item.quantity}
-                                    </div>
-                                  </TableCell>
+                                   <TableCell className="border-r border-gray-300">
+                                     <div className="space-y-1.5">
+                                       <div className="flex items-center gap-2">
+                                         <div className="font-bold text-base">
+                                           {item.asin}
+                                         </div>
+                                         {item.fulfilledFromStock && (
+                                           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-500/10 text-green-700 border border-green-500/20">
+                                             ✓ From Stock
+                                           </span>
+                                         )}
+                                       </div>
+                                       <div className="text-sm line-clamp-2">
+                                         {item.title || 'N/A'}
+                                       </div>
+                                       {item.sku_code && (
+                                         <div className="text-xs text-gray-600">
+                                           SKU: {item.sku_code}
+                                         </div>
+                                       )}
+                                       {item.model_number && (
+                                         <div className="text-xs text-gray-600">
+                                           Model: {item.model_number}
+                                         </div>
+                                       )}
+                                     </div>
+                                   </TableCell>
+                                   <TableCell className="text-center border-r border-gray-300">
+                                     <div className="space-y-1">
+                                       <div className="text-2xl font-bold">
+                                         {item.quantity}
+                                       </div>
+                                       {item.fulfilledFromStock && item.stockQuantity > 0 && (
+                                         <div className="text-xs text-green-600">
+                                           Stock: {item.stockQuantity}
+                                         </div>
+                                       )}
+                                       {item.supplierQuantity > 0 && item.fulfilledFromStock && (
+                                         <div className="text-xs text-amber-600">
+                                           Supplier: {item.supplierQuantity}
+                                         </div>
+                                       )}
+                                     </div>
+                                   </TableCell>
                                   <TableCell className="border-r border-gray-300">
                                     <div className="text-xs font-bold break-words">
                                       {item.poNumbers}

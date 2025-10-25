@@ -76,6 +76,21 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
             position: relative;
           }
           
+          .print-stock-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #28a745;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: bold;
+            z-index: 10;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          
           .print-item-number {
             background: #000;
             color: white;
@@ -193,6 +208,13 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
         <div className="print-items">
           {items.map((item, index) => (
             <div key={`${item.asin}-${index}`} className="print-item">
+              {/* Stock indicator badge */}
+              {item.fulfilledFromStock && (
+                <div className="print-stock-badge">
+                  ✓ FROM STOCK
+                </div>
+              )}
+              
               <div className="print-item-header">
                 {includeImages ? (
                   item.imageUrl ? (
@@ -239,6 +261,25 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
                   <div className="print-item-quantity">
                     {item.quantity}
                   </div>
+                  
+                  {/* Stock breakdown */}
+                  {item.fulfilledFromStock && item.stockQuantity > 0 && (
+                    <div style={{ fontSize: '10px', color: '#28a745', marginTop: '6px', lineHeight: '1.4' }}>
+                      ✓ From Stock: {item.stockQuantity}
+                      {item.supplierQuantity > 0 && (
+                        <div style={{ color: '#666', marginTop: '2px' }}>
+                          ⚠ From Supplier: {item.supplierQuantity}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Serial numbers */}
+                  {item.serialNumber && (
+                    <div style={{ fontSize: '9px', color: '#666', marginTop: '6px' }}>
+                      SN: {item.serialNumber}
+                    </div>
+                  )}
                 </div>
                 <div className="print-item-po">
                   <div style={{ fontWeight: 'bold', marginBottom: '3px' }}>

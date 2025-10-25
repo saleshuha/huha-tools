@@ -1961,14 +1961,27 @@ export default function PODetailsPage() {
       'inventory_status': 'Inventory Status',
       'expected_delivery': 'Expected Delivery'
     };
+    
+    // Helper to extract stock quantity from notes
+    const extractStockQuantity = (notes?: string): number => {
+      if (!notes) return 0;
+      const match = notes.match(/Fulfilled from stock:\s*(\d+)/);
+      return match ? parseInt(match[1]) : 0;
+    };
+    
     const headers = columns.map(col => columnLabels[col] || col).join('</th><th>');
     const rows = orders.map(order => {
       const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number);
       const inventoryStatus = inventoryMatch ? `${inventoryMatch.status} (Qty: ${inventoryMatch.quantity})` : 'Not in inventory';
+      const isFromStock = itemsMarkedFromStock.has(order.id);
+      const stockQty = extractStockQuantity(order.notes);
+      const supplierQty = stockQty > 0 ? Math.max(0, order.quantity - stockQty) : order.quantity;
+      
       const cellData = columns.map(col => {
         switch (col) {
           case 'asin':
-            return order.asin || '-';
+            const asinHtml = order.asin || '-';
+            return isFromStock ? `${asinHtml} <span class="stock-badge">✓ FROM STOCK</span>` : asinHtml;
           case 'title':
             return order.title || '-';
           case 'model_number':
@@ -1976,7 +1989,14 @@ export default function PODetailsPage() {
           case 'sku_code':
             return order.sunsky_sku?.sku_code || order.sku_code || '-';
           case 'quantity':
-            return order.quantity || '0';
+            let qtyHtml = order.quantity || '0';
+            if (isFromStock && stockQty > 0) {
+              qtyHtml += `<br><small class="stock-qty">✓ Stock: ${stockQty}</small>`;
+              if (supplierQty > 0) {
+                qtyHtml += `<br><small class="supplier-qty">⚠ Supplier: ${supplierQty}</small>`;
+              }
+            }
+            return qtyHtml;
           case 'unit_cost':
             return order.unit_cost ? `$${order.unit_cost}` : '-';
           case 'total_cost':
@@ -1995,7 +2015,8 @@ export default function PODetailsPage() {
             return '-';
         }
       });
-      return `<tr><td>${cellData.join('</td><td>')}</td></tr>`;
+      const rowClass = isFromStock ? 'from-stock-row' : '';
+      return `<tr class="${rowClass}"><td>${cellData.join('</td><td>')}</td></tr>`;
     }).join('');
     return `
       <!DOCTYPE html>
@@ -2034,6 +2055,28 @@ export default function PODetailsPage() {
             tr:nth-child(even) { 
               background-color: #f9fafb; 
             }
+            .from-stock-row {
+              background-color: #d4edda !important;
+            }
+            .stock-badge {
+              background: #28a745;
+              color: white;
+              padding: 2px 6px;
+              border-radius: 3px;
+              font-size: 9px;
+              font-weight: bold;
+              margin-left: 6px;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            .stock-qty {
+              color: #28a745;
+              font-weight: bold;
+            }
+            .supplier-qty {
+              color: #ff9800;
+              font-weight: bold;
+            }
             .summary {
               background-color: #eff6ff;
               padding: 15px;
@@ -2046,6 +2089,10 @@ export default function PODetailsPage() {
               .summary { break-inside: avoid; }
               table { font-size: 10px; }
               th, td { padding: 6px 8px; }
+              .from-stock-row {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
             }
           </style>
         </head>
