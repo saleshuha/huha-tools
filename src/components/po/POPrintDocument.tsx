@@ -177,8 +177,15 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
           
           .print-item-quantity-section {
             display: flex;
+            flex-direction: row;
+            gap: 16px;
+            align-items: flex-end;
+          }
+          
+          .print-item-quantity-item {
+            display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 4px;
           }
           
           .print-item-quantity-main {
@@ -189,51 +196,33 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
           }
           
           .print-item-quantity-label {
-            font-size: 11px;
-            color: #666;
-            font-weight: normal;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-          }
-          
-          .print-item-breakdown {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-            margin-top: 8px;
-            padding-top: 8px;
-            border-top: 1px solid #e0e0e0;
-          }
-          
-          .print-item-breakdown-item {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-          }
-          
-          .print-item-breakdown-label {
             font-size: 9px;
+            color: #666;
+            font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            font-weight: 600;
           }
           
-          .print-item-breakdown-value {
-            font-size: 20px;
-            font-weight: bold;
-            line-height: 1;
-          }
-          
-          .print-from-stock {
+          .print-from-stock .print-item-quantity-main {
             color: #28a745;
+            font-size: 28px;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
           
-          .print-pending {
+          .print-from-stock .print-item-quantity-label {
+            color: #28a745;
+          }
+          
+          .print-pending .print-item-quantity-main {
             color: #ff6b35;
+            font-size: 28px;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
+          }
+          
+          .print-pending .print-item-quantity-label {
+            color: #ff6b35;
           }
           
           .print-item-po {
@@ -310,42 +299,37 @@ export const POPrintDocument = React.forwardRef<HTMLDivElement, POPrintDocumentP
               
               <div className="print-item-info">
                 <div className="print-item-quantity-section">
-                  {/* Main Total Quantity */}
-                  <div>
-                    <div className="print-item-quantity-label">Total Quantity</div>
+                  {/* Total Quantity */}
+                  <div className="print-item-quantity-item">
+                    <div className="print-item-quantity-label">TOTAL</div>
                     <div className="print-item-quantity-main">
                       {item.quantity}
                     </div>
                   </div>
                   
-                  {/* Stock Breakdown - Always show if partial fulfillment */}
+                  {/* From Stock - Show if fulfilled */}
                   {item.fulfilledFromStock && (
-                    <div className="print-item-breakdown">
-                      <div className="print-item-breakdown-item">
-                        <div className="print-item-breakdown-label print-from-stock">
-                          ✓ FROM STOCK
-                        </div>
-                        <div className="print-item-breakdown-value print-from-stock">
-                          {item.stockQuantity}
-                        </div>
+                    <div className="print-item-quantity-item print-from-stock">
+                      <div className="print-item-quantity-label">✓ FROM STOCK</div>
+                      <div className="print-item-quantity-main">
+                        {item.stockQuantity}
                       </div>
-                      
-                      {item.supplierQuantity > 0 && (
-                        <div className="print-item-breakdown-item">
-                          <div className="print-item-breakdown-label print-pending">
-                            ⚠ PENDING
-                          </div>
-                          <div className="print-item-breakdown-value print-pending">
-                            {item.supplierQuantity}
-                          </div>
-                        </div>
-                      )}
+                    </div>
+                  )}
+                  
+                  {/* Pending - Show if partial fulfillment */}
+                  {item.fulfilledFromStock && item.supplierQuantity > 0 && (
+                    <div className="print-item-quantity-item print-pending">
+                      <div className="print-item-quantity-label">⚠ PENDING</div>
+                      <div className="print-item-quantity-main">
+                        {item.supplierQuantity}
+                      </div>
                     </div>
                   )}
                   
                   {/* Serial numbers */}
                   {item.serialNumber && (
-                    <div style={{ fontSize: '9px', color: '#666', marginTop: '8px' }}>
+                    <div style={{ fontSize: '9px', color: '#666', marginLeft: 'auto', alignSelf: 'flex-end' }}>
                       SN: {item.serialNumber}
                     </div>
                   )}
