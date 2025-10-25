@@ -66,6 +66,13 @@ export const useConcurrentSunskyExport = () => {
       }
 
       // Call the Edge Function to start server-side processing
+      console.log('🚀 Calling process-po-background with config:', {
+        categoryId: config.categoryId,
+        status: config.status,
+        pageSize: config.pageSize,
+        apiKeysCount: config.apiKeys.length
+      });
+
       const { data, error } = await supabase.functions.invoke('process-po-background', {
         body: {
           action: 'startExport',
@@ -85,8 +92,11 @@ export const useConcurrentSunskyExport = () => {
         }
       });
 
+      console.log('📥 Edge function response:', { data, error });
+
       if (error) {
-        throw error;
+        console.error('❌ Edge function error:', error);
+        throw new Error(`Edge Function error: ${error.message || JSON.stringify(error)}`);
       }
 
       if (!data?.taskId || !data?.historyId) {
@@ -103,10 +113,19 @@ export const useConcurrentSunskyExport = () => {
         historyId: data.historyId
       };
     } catch (error) {
-      console.error('Failed to start background export:', error);
+      console.error('❌ Failed to start background export:', error);
+      
+      // Extract more details from the error
+      let errorMessage = 'Failed to start export';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'object' && error !== null) {
+        errorMessage = JSON.stringify(error);
+      }
+      
       toast({
         title: "Export Failed",
-        description: error instanceof Error ? error.message : 'Failed to start export',
+        description: errorMessage,
         variant: "destructive"
       });
       throw error;
