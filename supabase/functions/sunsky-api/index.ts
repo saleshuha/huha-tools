@@ -344,6 +344,7 @@ async function handleCreateOrder(params: any, key: string, secret: string) {
   
   // Optional fields
   if (orderData.siteNumber) orderParams.siteNumber = orderData.siteNumber;
+  if (orderData.lockStock !== undefined) orderParams.lockStock = orderData.lockStock;
   if (orderData.vatNumber) orderParams.vatNumber = orderData.vatNumber;
   if (orderData.eoriNumber) orderParams.eoriNumber = orderData.eoriNumber;
   if (orderData.iossNumber) orderParams.iossNumber = orderData.iossNumber;
