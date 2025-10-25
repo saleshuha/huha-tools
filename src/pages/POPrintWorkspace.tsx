@@ -71,12 +71,20 @@ export default function POPrintWorkspace() {
     );
   };
   
-  const handleMarkFromStock = (index: number) => {
+  const handleStockQuantityChange = (index: number, stockQty: number) => {
     setWorkspaceOrders(orders => 
-      orders.map((o, i) => i === index 
-        ? {...o, _localFromStock: !o._localFromStock, _localStockQuantity: o.quantity}
-        : o
-      )
+      orders.map((o, i) => {
+        if (i !== index) return o;
+        
+        // Validate stock quantity
+        const validStockQty = Math.max(0, Math.min(stockQty, o.quantity));
+        
+        return {
+          ...o, 
+          _localFromStock: validStockQty > 0,
+          _localStockQuantity: validStockQty
+        };
+      })
     );
   };
   
@@ -357,43 +365,86 @@ export default function POPrintWorkspace() {
                         className="mt-1"
                       />
                       
-                      <div className="flex-1 space-y-2 min-w-0">
-                        <div className="text-sm font-medium truncate" title={order.title}>
-                          {order.title || 'No Title'}
-                        </div>
-                        <div className="text-xs text-muted-foreground space-y-1">
-                          <div>ASIN: {order.asin || 'N/A'}</div>
-                          <div>PO: {order.po_number}</div>
-                        </div>
-                        
-                        {/* Editable Quantity */}
-                        <div className="flex items-center gap-2">
-                          <Label className="text-xs">Qty:</Label>
-                          <Input 
-                            type="number"
-                            value={order.quantity}
-                            onChange={(e) => handleQuantityChange(actualIndex, parseInt(e.target.value) || 1)}
-                            className="h-7 w-20"
-                            min={1}
-                          />
-                        </div>
-                        
-                        {/* Local Stock Marking */}
-                        <Button 
-                          size="sm" 
-                          variant={order._localFromStock ? "default" : "outline"}
-                          onClick={() => handleMarkFromStock(actualIndex)}
-                          className="h-7 text-xs w-full"
-                        >
-                          {order._localFromStock ? (
-                            <>
-                              <Check className="h-3 w-3 mr-1" />
-                              From Stock
-                            </>
-                          ) : (
-                            'Mark From Stock'
+                      <div className="flex-1 space-y-3 min-w-0">
+                        <div className="flex items-start gap-2">
+                          {order._workspaceImageUrl && (
+                            <img 
+                              src={order._workspaceImageUrl} 
+                              alt={order.title || 'Product'}
+                              className="w-12 h-12 object-cover rounded border shrink-0"
+                            />
                           )}
-                        </Button>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium line-clamp-2" title={order.title}>
+                              {order.title || 'No Title'}
+                            </div>
+                            <div className="text-xs text-muted-foreground space-y-1 mt-1">
+                              <div>ASIN: {order.asin || 'N/A'}</div>
+                              <div>PO: {order.po_number}</div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <div>
+                            <Label className="text-xs">Total Quantity</Label>
+                            <Input 
+                              type="number"
+                              value={order.quantity}
+                              onChange={(e) => handleQuantityChange(actualIndex, parseInt(e.target.value) || 1)}
+                              className="h-8 w-full"
+                              min={1}
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label className="text-xs font-semibold">Stock Fulfillment</Label>
+                            
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <Label className="text-xs text-muted-foreground">From Stock</Label>
+                                <Input 
+                                  type="number"
+                                  value={order._localStockQuantity || 0}
+                                  onChange={(e) => {
+                                    const stockQty = parseInt(e.target.value) || 0;
+                                    handleStockQuantityChange(actualIndex, stockQty);
+                                  }}
+                                  className="h-8 text-xs"
+                                  min={0}
+                                  max={order.quantity}
+                                  placeholder="0"
+                                />
+                              </div>
+                              
+                              <div>
+                                <Label className="text-xs text-muted-foreground">From Supplier</Label>
+                                <div className="h-8 flex items-center px-3 bg-muted rounded-md text-xs font-medium">
+                                  {order.quantity - (order._localStockQuantity || 0)}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {order._localFromStock && (
+                              <div className="p-2 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded text-xs space-y-1">
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Total:</span>
+                                  <span className="font-semibold">{order.quantity}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-green-700 dark:text-green-400">✓ From Stock:</span>
+                                  <span className="font-semibold text-green-700 dark:text-green-400">{order._localStockQuantity}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-amber-700 dark:text-amber-400">⚠ Pending:</span>
+                                  <span className="font-semibold text-amber-700 dark:text-amber-400">
+                                    {order.quantity - (order._localStockQuantity || 0)}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                         
                         {/* Remove Button */}
                         <Button 
@@ -417,7 +468,34 @@ export default function POPrintWorkspace() {
         {/* Right Panel: Live Preview */}
         <div className="flex-1 bg-muted/30 overflow-auto">
           <div className="p-8">
-            <div className="max-w-4xl mx-auto bg-white shadow-lg rounded-lg overflow-hidden">
+            {/* Summary Card */}
+            <Card className="mb-6 p-4 max-w-4xl mx-auto">
+              <h3 className="font-semibold mb-3">Print Summary</h3>
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <div>
+                  <div className="text-muted-foreground">Total Items</div>
+                  <div className="text-2xl font-bold">{printItems.length}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Total Quantity</div>
+                  <div className="text-2xl font-bold">
+                    {printItems.reduce((sum, item) => sum + item.quantity, 0)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">From Stock</div>
+                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                    {printItems.reduce((sum, item) => sum + (item.stockQuantity || 0), 0)}
+                  </div>
+                  <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    Pending: {printItems.reduce((sum, item) => sum + (item.supplierQuantity || 0), 0)}
+                  </div>
+                </div>
+              </div>
+            </Card>
+            
+            {/* Print Document */}
+            <div className="max-w-4xl mx-auto bg-white dark:bg-card shadow-lg rounded-lg overflow-hidden">
               {printFormat === 'document' ? (
                 <div id="print-preview-content">
                   <POPrintDocument 

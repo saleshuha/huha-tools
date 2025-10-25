@@ -267,9 +267,15 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
       return;
     }
 
+    // Enrich orders with image URLs before passing to workspace
+    const enrichedOrders = selectedOrders.map(order => ({
+      ...order,
+      _workspaceImageUrl: getImageByAsin(order.asin)?.image_url
+    }));
+    
     navigate('/po-print-workspace', {
       state: {
-        orders: selectedOrders,
+        orders: enrichedOrders,
         settings: {
           printFormat,
           includeImages,

@@ -71,6 +71,7 @@ export interface POOrder {
   // Workspace-specific local properties (not saved to DB)
   _localFromStock?: boolean;
   _localStockQuantity?: number;
+  _workspaceImageUrl?: string;
 }
 interface POGroup {
   poNumber: string;

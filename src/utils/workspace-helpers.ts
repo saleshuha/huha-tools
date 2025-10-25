@@ -31,8 +31,12 @@ export function convertWorkspaceOrdersToPrintItems(
       sum + (o._localStockQuantity || 0), 0
     );
     
+    // Get image URL from workspace data
+    const imageUrl = matchingOrders.find(o => o._workspaceImageUrl)?._workspaceImageUrl;
+    
     return {
       ...item,
+      imageUrl: imageUrl,
       fulfilledFromStock: hasLocalStock,
       stockQuantity: totalLocalStockQty,
       supplierQuantity: hasLocalStock ? item.quantity - totalLocalStockQty : item.quantity,
