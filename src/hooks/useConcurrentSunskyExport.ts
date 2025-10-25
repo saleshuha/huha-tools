@@ -986,13 +986,58 @@ export const useConcurrentSunskyExport = () => {
       
       // Log final outcome
       if (!fileName) {
-        console.warn('⚠️ File save failed after all retry attempts. Export data will be saved to database without downloadable file.');
+        console.warn('⚠️ File save failed after all retry attempts. Storing results in metadata for download.');
+        
+        // Fallback: Store products directly in task metadata for client-side Excel generation
+        // Limit to reasonable size (e.g., first 10,000 products) to avoid metadata size limits
+        const productsForMetadata = productsToSave.slice(0, 10000);
+        const categoriesArray = Array.from(categoriesMapToUse.entries()).map(([id, cat]) => ({
+          id,
+          name: cat.name,
+          count: cat.products.length
+        }));
+        
+        if (taskId) {
+          try {
+            await supabase
+              .from('background_tasks')
+              .update({ 
+                progress: 100,
+                status: 'completed', // Mark as completed since we have the data
+                completed_at: new Date().toISOString(),
+                metadata: {
+                  totalProducts: productsToSave.length,
+                  completedAt: new Date().toISOString(),
+                  downloadableResults: {
+                    products: productsForMetadata,
+                    totalFound: productsToSave.length,
+                    categories: categoriesArray
+                  },
+                  exportConfig: {
+                    columns: configToUse.columns,
+                    status: configToUse.status,
+                    categoryName
+                  },
+                  fileName: `sunsky_export_${new Date().toISOString().split('T')[0]}_${Date.now()}.xlsx`,
+                  message: productsToSave.length > 10000 ? 
+                    `Export completed with ${productsToSave.length.toLocaleString()} products (showing first 10,000 in download)` :
+                    `Export completed with ${productsToSave.length.toLocaleString()} products`,
+                  isCancelled: true,
+                  storedInMetadata: true
+                } 
+              } as any)
+              .eq('id', taskId);
+            
+            console.log('✅ Results stored in task metadata for download');
+          } catch (taskError) {
+            console.error('❌ Failed to store results in metadata:', taskError);
+          }
+        }
       }
 
       try {
-        
-        // Update background task with downloadable file (only if taskId exists)
-        if (taskId) {
+        // Update background task with downloadable file (only if taskId exists and we didn't already update it)
+        if (taskId && fileName) {
           try {
             await supabase
               .from('background_tasks')
@@ -1001,20 +1046,18 @@ export const useConcurrentSunskyExport = () => {
                 status: 'cancelled',
                 completed_at: new Date().toISOString(),
                 metadata: {
-                  fileName: fileName || undefined,
+                  fileName: fileName,
                   totalProducts: productsToSave.length,
                   fileSize: fileData?.size || 0,
                   completedAt: new Date().toISOString(),
-                  downloadableResults: !!fileName,
-                  message: fileName ? 
-                    'Export stopped by user - partial results saved' : 
-                    'Export stopped by user - file save failed',
+                  downloadableResults: true,
+                  message: 'Export stopped by user - partial results saved',
                   isCancelled: true
                 } 
               } as any)
               .eq('id', taskId);
             
-            console.log('✅ Background task updated to cancelled');
+            console.log('✅ Background task updated to cancelled with file');
           } catch (taskError) {
             console.error('❌ Failed to update background task (non-critical):', taskError);
             // Continue anyway - export_history is more important
