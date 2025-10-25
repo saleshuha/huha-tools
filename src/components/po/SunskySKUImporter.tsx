@@ -14,6 +14,7 @@ import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import { Search, Plus, Download, AlertCircle, CheckCircle2, Package, Globe, Calendar, RefreshCw, Filter, Grid, List, Settings, Eye, Save, RotateCcw, Play, Pause, X, PauseCircle, PlayCircle, XCircle, Trash2, ChevronDown, Database, Wifi, Ban, SkipForward, Check, Zap, Clock, RotateCcwIcon } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
@@ -408,8 +409,8 @@ export const SunskySKUImporter: React.FC = () => {
   }>>([]);
 
   // Enhanced export features
-  const [exportCategory, setExportCategory] = useState<string>('all');
-  const [exportSubCategory, setExportSubCategory] = useState<string>('all');
+  const [exportCategory, setExportCategory] = useState<string[]>([]);
+  const [exportSubCategory, setExportSubCategory] = useState<string[]>([]);
   const [exportPageSize, setExportPageSize] = useState<number>(100);
   const [searchPageSize, setSearchPageSize] = useState<number>(50);
   const [selectedExportColumns, setSelectedExportColumns] = useState<string[]>(['itemNo', 'name', 'brandName', 'price', 'stock', 'status', 'leadTime', 'warehouse', 'moq']);
@@ -436,7 +437,11 @@ export const SunskySKUImporter: React.FC = () => {
     if (concurrentExportResults && !isExporting && isConcurrentExporting === false) {
       const handleConcurrentExportComplete = async () => {
         try {
-          const categoryName = exportCategory === 'all' ? 'All Categories' : categories.find(c => c.id.toString() === exportCategory)?.name || 'Unknown';
+          const categoryName = exportCategory.length === 0 
+            ? 'All Categories' 
+            : exportCategory.length === 1 
+              ? categories.find(c => c.id.toString() === exportCategory[0])?.name || 'Unknown'
+              : `${exportCategory.length} categories`;
           const apiKeysWithNames = availableAPIs.filter(api => api.is_active).map(api => ({
             id: api.id,
             name: api.name
@@ -452,7 +457,7 @@ export const SunskySKUImporter: React.FC = () => {
               export_type: 'status_export',
               filters: {
                 status: selectedExportStatus,
-                categoryId: exportSubCategory !== 'all' ? parseInt(exportSubCategory) : exportCategory !== 'all' ? parseInt(exportCategory) : undefined,
+                categoryId: exportSubCategory.length > 0 ? exportSubCategory.map(id => parseInt(id)) : exportCategory.length > 0 ? exportCategory.map(id => parseInt(id)) : undefined,
                 categoryName,
                 columns: selectedExportColumns,
                 pageSize: exportPageSize,
@@ -539,7 +544,11 @@ export const SunskySKUImporter: React.FC = () => {
         processed: apiProgress.processedItems || 0,
         total: apiProgress.totalPages || 0,
         apiKey: apiProgress.apiKeyId,
-        categoryId: exportSubCategory !== 'all' ? exportSubCategory : exportCategory
+        categoryId: exportSubCategory.length > 0 
+          ? exportSubCategory.join(',') 
+          : exportCategory.length > 0 
+            ? exportCategory.join(',') 
+            : 'all'
       }));
 
       // Calculate total processed items across all APIs
@@ -742,7 +751,7 @@ export const SunskySKUImporter: React.FC = () => {
     
     const exportConfig = {
       status: selectedExportStatus,
-      categoryId: exportSubCategory !== 'all' ? parseInt(exportSubCategory) : exportCategory !== 'all' ? parseInt(exportCategory) : undefined,
+      categoryId: exportSubCategory.length > 0 ? exportSubCategory.map(id => parseInt(id)) : exportCategory.length > 0 ? exportCategory.map(id => parseInt(id)) : undefined,
       pageSize: exportPageSize,
       maxPages: Number.MAX_SAFE_INTEGER,
       columns: selectedExportColumns,
@@ -810,7 +819,7 @@ export const SunskySKUImporter: React.FC = () => {
       // Use the new server-side export function
       await startBackgroundExport({
         status: selectedExportStatus,
-        categoryId: exportSubCategory !== 'all' ? parseInt(exportSubCategory) : exportCategory !== 'all' ? parseInt(exportCategory) : undefined,
+        categoryId: exportSubCategory.length > 0 ? exportSubCategory.map(id => parseInt(id)) : exportCategory.length > 0 ? exportCategory.map(id => parseInt(id)) : undefined,
         pageSize: exportPageSize,
         maxPages: Number.MAX_SAFE_INTEGER,
         columns: selectedExportColumns,
@@ -895,10 +904,10 @@ export const SunskySKUImporter: React.FC = () => {
       });
 
       // Get subcategories if needed
-      if (exportCategory !== 'all' && exportSubCategory === 'all') {
+      if (exportCategory.length === 1 && exportSubCategory.length === 0) {
         updateProgress(10, 'Fetching subcategories...');
         const subCatsResponse = await callSunskyAPI('getCategories', {
-          parentId: exportCategory,
+          parentId: exportCategory[0],
           mode: 'subcategories',
           modifiedSince: ''
         }, apiIds[0]);
@@ -913,7 +922,13 @@ export const SunskySKUImporter: React.FC = () => {
         }
       }
       const statusText = getProductStatusText(selectedExportStatus);
-      const categoryText = exportCategory !== 'all' ? exportSubCategory !== 'all' ? subCategories.find(c => c.id.toString() === exportSubCategory)?.name || 'Unknown Subcategory' : categories.find(c => c.id.toString() === exportCategory)?.name || 'Unknown Category' : 'All Categories';
+      const categoryText = exportCategory.length === 0 
+        ? 'All Categories'
+        : exportSubCategory.length > 0
+          ? `${exportSubCategory.length} subcategories`
+          : exportCategory.length === 1
+            ? categories.find(c => c.id.toString() === exportCategory[0])?.name || 'Unknown Category'
+            : `${exportCategory.length} categories`;
       updateProgress(15, `Getting total product count for ${statusText} products from ${categoryText}...`);
 
       // First, get the total count by fetching page 1 with small pageSize
@@ -922,10 +937,10 @@ export const SunskySKUImporter: React.FC = () => {
       try {
         // Determine effective category ID for filtering
         let effectiveCategoryId = undefined;
-        if (exportSubCategory !== 'all') {
-          effectiveCategoryId = parseInt(exportSubCategory);
-        } else if (exportCategory !== 'all') {
-          effectiveCategoryId = parseInt(exportCategory);
+        if (exportSubCategory.length > 0) {
+          effectiveCategoryId = exportSubCategory.map(id => parseInt(id));
+        } else if (exportCategory.length > 0) {
+          effectiveCategoryId = exportCategory.map(id => parseInt(id));
         }
         const countParams: any = {
           page: 1,
@@ -980,10 +995,10 @@ export const SunskySKUImporter: React.FC = () => {
 
           // Determine effective category ID for filtering
           let effectiveCategoryId = undefined;
-          if (exportSubCategory !== 'all') {
-            effectiveCategoryId = parseInt(exportSubCategory);
-          } else if (exportCategory !== 'all') {
-            effectiveCategoryId = parseInt(exportCategory);
+          if (exportSubCategory.length > 0) {
+            effectiveCategoryId = exportSubCategory.map(id => parseInt(id));
+          } else if (exportCategory.length > 0) {
+            effectiveCategoryId = exportCategory.map(id => parseInt(id));
           }
           const searchParams: any = {
             page: currentPage,
@@ -1137,7 +1152,13 @@ export const SunskySKUImporter: React.FC = () => {
       const workbook = XLSX.utils.book_new();
 
       // Create summary sheet
-      const categoryText = exportCategory !== 'all' ? exportSubCategory !== 'all' ? subCategories.find(c => c.id.toString() === exportSubCategory)?.name || 'Unknown Subcategory' : categories.find(c => c.id.toString() === exportCategory)?.name || 'Unknown Category' : 'All Categories';
+      const categoryText = exportCategory.length === 0 
+        ? 'All Categories'
+        : exportSubCategory.length > 0
+          ? `${exportSubCategory.length} subcategories`
+          : exportCategory.length === 1
+            ? categories.find(c => c.id.toString() === exportCategory[0])?.name || 'Unknown Category'
+            : `${exportCategory.length} categories`;
       const summaryData = [['Export Summary'], ['Status', getProductStatusText(selectedExportStatus)], ['Category Filter', categoryText], ['Total Products', results.totalFound.toString()], ['Total Categories', results.categoriesMap.size.toString()], ['Export Date', new Date().toLocaleString()], ['Page Size', exportPageSize.toString()], ['API Keys Used', selectedExportAPIs.length || availableAPIs.filter(api => api.is_active).length], [], ['Category', 'Product Count']];
       results.categoriesMap.forEach((category: any, categoryId: number) => {
         summaryData.push([category.name, category.products.length.toString()]);
@@ -4005,8 +4026,8 @@ export const SunskySKUImporter: React.FC = () => {
                     size="sm"
                     onClick={() => {
                       setSelectedExportStatus(1);
-                      setExportCategory('all');
-                      setExportSubCategory('all');
+                      setExportCategory([]);
+                      setExportSubCategory([]);
                       setExportPageSize(100);
                       toast({
                         title: "Preset Applied",
@@ -4023,8 +4044,8 @@ export const SunskySKUImporter: React.FC = () => {
                     size="sm"
                     onClick={() => {
                       setSelectedExportStatus(3);
-                      setExportCategory('all');
-                      setExportSubCategory('all');
+                      setExportCategory([]);
+                      setExportSubCategory([]);
                       setExportPageSize(100);
                       toast({
                         title: "Preset Applied",
@@ -4041,8 +4062,8 @@ export const SunskySKUImporter: React.FC = () => {
                     size="sm"
                     onClick={() => {
                       setSelectedExportStatus(1);
-                      setExportCategory('all');
-                      setExportSubCategory('all');
+                      setExportCategory([]);
+                      setExportSubCategory([]);
                       setExportPageSize(100);
                       toast({
                         title: "Preset Applied",
@@ -4085,40 +4106,138 @@ export const SunskySKUImporter: React.FC = () => {
                   )}
                 </div>
 
-                {/* Category Filter */}
+                {/* Category Filter - Multi-Select */}
                 <div className="space-y-2">
-                  <Label htmlFor="export-category">Category</Label>
-                  <Select value={exportCategory} onValueChange={setExportCategory}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Categories</SelectItem>
-                      {categories.map(category => <SelectItem key={category.id} value={category.id.toString()}>
-                          {category.name}
-                        </SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Label>Categories</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-between">
+                        {exportCategory.length === 0 
+                          ? 'All Categories' 
+                          : `${exportCategory.length} selected`}
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 p-0 bg-popover" align="start">
+                      <div className="max-h-64 overflow-y-auto p-2 space-y-1">
+                        <div className="flex items-center space-x-2 px-2 py-1.5 hover:bg-muted/50 rounded-sm">
+                          <Checkbox 
+                            id="all-categories"
+                            checked={exportCategory.length === 0}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setExportCategory([]);
+                                setExportSubCategory([]);
+                              }
+                            }}
+                          />
+                          <Label htmlFor="all-categories" className="flex-1 cursor-pointer text-sm font-normal">
+                            All Categories
+                          </Label>
+                        </div>
+                        <Separator />
+                        {categories.map(category => (
+                          <div key={category.id} className="flex items-center space-x-2 px-2 py-1.5 hover:bg-muted/50 rounded-sm">
+                            <Checkbox 
+                              id={`category-${category.id}`}
+                              checked={exportCategory.includes(category.id.toString())}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setExportCategory([...exportCategory, category.id.toString()]);
+                                } else {
+                                  setExportCategory(exportCategory.filter(id => id !== category.id.toString()));
+                                  setExportSubCategory(exportSubCategory.filter(subId => {
+                                    const subCat = subCategories.find(s => s.id.toString() === subId);
+                                    return subCat?.parentId !== category.id;
+                                  }));
+                                }
+                              }}
+                            />
+                            <Label htmlFor={`category-${category.id}`} className="flex-1 cursor-pointer text-sm font-normal">
+                              {category.name}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
-                {/* Subcategory Filter */}
+                {/* Subcategory Filter - Multi-Select */}
                 <div className="space-y-2">
-                  <Label htmlFor="export-subcategory">Subcategory</Label>
-                  <Select value={exportSubCategory} onValueChange={setExportSubCategory} disabled={exportCategory === 'all'}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select subcategory" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Subcategories</SelectItem>
-                      {subCategories.map(category => <SelectItem key={category.id} value={category.id.toString()}>
-                          {category.name}
-                        </SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  {exportCategory !== 'all' && <Button variant="outline" size="sm" onClick={() => loadSubCategories(exportCategory, selectedSearchAPI)} disabled={fetchingSubCategories} className="w-full mt-2">
-                      {fetchingSubCategories ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                  <Label>Subcategories</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        className="w-full justify-between"
+                        disabled={exportCategory.length === 0}
+                      >
+                        {exportSubCategory.length === 0 
+                          ? 'All Subcategories' 
+                          : `${exportSubCategory.length} selected`}
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 p-0 bg-popover" align="start">
+                      <div className="max-h-64 overflow-y-auto p-2 space-y-1">
+                        <div className="flex items-center space-x-2 px-2 py-1.5 hover:bg-muted/50 rounded-sm">
+                          <Checkbox 
+                            id="all-subcategories"
+                            checked={exportSubCategory.length === 0}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setExportSubCategory([]);
+                              }
+                            }}
+                          />
+                          <Label htmlFor="all-subcategories" className="flex-1 cursor-pointer text-sm font-normal">
+                            All Subcategories
+                          </Label>
+                        </div>
+                        <Separator />
+                        {subCategories
+                          .filter(subCat => 
+                            exportCategory.length === 0 || 
+                            exportCategory.includes(subCat.parentId?.toString() || '')
+                          )
+                          .map(subCat => (
+                            <div key={subCat.id} className="flex items-center space-x-2 px-2 py-1.5 hover:bg-muted/50 rounded-sm">
+                              <Checkbox 
+                                id={`subcategory-${subCat.id}`}
+                                checked={exportSubCategory.includes(subCat.id.toString())}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setExportSubCategory([...exportSubCategory, subCat.id.toString()]);
+                                  } else {
+                                    setExportSubCategory(exportSubCategory.filter(id => id !== subCat.id.toString()));
+                                  }
+                                }}
+                              />
+                              <Label htmlFor={`subcategory-${subCat.id}`} className="flex-1 cursor-pointer text-sm font-normal">
+                                {subCat.name}
+                              </Label>
+                            </div>
+                          ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  {exportCategory.length === 1 && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => loadSubCategories(exportCategory[0], selectedSearchAPI)} 
+                      disabled={fetchingSubCategories} 
+                      className="w-full mt-2"
+                    >
+                      {fetchingSubCategories ? (
+                        <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                      )}
                       Load Subcategories
-                    </Button>}
+                    </Button>
+                  )}
                 </div>
 
                 {/* Page Size */}
@@ -4202,10 +4321,10 @@ export const SunskySKUImporter: React.FC = () => {
                       setFetchingPreview(true);
                       try {
                         let effectiveCategoryId = undefined;
-                        if (exportSubCategory !== 'all') {
-                          effectiveCategoryId = parseInt(exportSubCategory);
-                        } else if (exportCategory !== 'all') {
-                          effectiveCategoryId = parseInt(exportCategory);
+                        if (exportSubCategory.length > 0) {
+                          effectiveCategoryId = exportSubCategory.map(id => parseInt(id));
+                        } else if (exportCategory.length > 0) {
+                          effectiveCategoryId = exportCategory.map(id => parseInt(id));
                         }
                         
                         const previewParams: any = {
@@ -4600,38 +4719,99 @@ export const SunskySKUImporter: React.FC = () => {
                                  </Button>
                                )}
                                
-                               {/* Download button - enabled only if file exists */}
-                               {entry.file_path ? (
-                                 <Button
-                                   size="sm"
-                                   variant="ghost"
-                                   onClick={(e) => {
-                                     e.stopPropagation();
-                                     downloadExportFile(entry);
-                                   }}
-                                   className="h-7 px-2"
-                                 >
-                                   <Download className="h-4 w-4" />
-                                 </Button>
-                               ) : entry.status === 'cancelled' && entry.total_items > 0 && (
-                                 <TooltipProvider>
-                                   <Tooltip>
-                                     <TooltipTrigger asChild>
-                                       <Button
-                                         size="sm"
-                                         variant="ghost"
-                                         disabled
-                                         className="h-7 px-2 opacity-50 cursor-not-allowed"
-                                       >
-                                         <Download className="h-4 w-4" />
-                                       </Button>
-                                     </TooltipTrigger>
-                                     <TooltipContent>
-                                       <p>File was not saved before export was stopped</p>
-                                     </TooltipContent>
-                                   </Tooltip>
-                                 </TooltipProvider>
-                               )}
+                                {/* Download button - show for completed exports */}
+                                {entry.status === 'completed' && entry.total_items > 0 ? (
+                                  entry.file_path ? (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        downloadExportFile(entry);
+                                      }}
+                                      className="h-7 px-2"
+                                    >
+                                      <Download className="h-4 w-4" />
+                                    </Button>
+                                  ) : (
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={async (e) => {
+                                              e.stopPropagation();
+                                              toast({
+                                                title: "Checking for file...",
+                                                description: "Looking for export file in storage",
+                                              });
+                                              
+                                              const possiblePath = `exports/${profile?.id}/${entry.id}.xlsx`;
+                                              const { data, error } = await supabase.storage
+                                                .from('exports')
+                                                .download(possiblePath);
+                                              
+                                              if (!error && data) {
+                                                await supabase
+                                                  .from('export_history')
+                                                  .update({ file_path: possiblePath })
+                                                  .eq('id', entry.id);
+                                                
+                                                const url = URL.createObjectURL(data);
+                                                const a = document.createElement('a');
+                                                a.href = url;
+                                                a.download = `export_${entry.id}.xlsx`;
+                                                document.body.appendChild(a);
+                                                a.click();
+                                                document.body.removeChild(a);
+                                                URL.revokeObjectURL(url);
+                                                
+                                                toast({
+                                                  title: "Download Started",
+                                                  description: "File recovered and download started",
+                                                });
+                                                
+                                                fetchExportHistory();
+                                              } else {
+                                                toast({
+                                                  title: "File Not Found",
+                                                  description: "Export file could not be located. Please re-run the export.",
+                                                  variant: "destructive"
+                                                });
+                                              }
+                                            }}
+                                            className="h-7 px-2 text-xs"
+                                          >
+                                            <Download className="h-3 w-3 mr-1" />
+                                            Recover
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>File path missing - click to search storage</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  )
+                                ) : entry.status === 'cancelled' && entry.total_items > 0 ? (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          disabled
+                                          className="h-7 px-2 opacity-50 cursor-not-allowed"
+                                        >
+                                          <Download className="h-4 w-4" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>File was not saved before export was stopped</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                ) : null}
                                
                                {/* Re-export button for failed/cancelled exports with filters */}
                                {(entry.status === 'cancelled' || entry.status === 'error') && (entry.metadata as any)?.filters && (

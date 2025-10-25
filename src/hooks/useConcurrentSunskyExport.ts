@@ -15,7 +15,7 @@ export interface ConcurrentExportProgress {
 
 export interface ExportConfig {
   status: number;
-  categoryId?: number;
+  categoryId?: number | number[];
   pageSize: number;
   maxPages: number;
   columns: string[];
@@ -655,9 +655,13 @@ export const useConcurrentSunskyExport = () => {
       // Update export_history with category name
       const exportHistoryId = exportHistoryIdRef.current[exportId];
       if (exportHistoryId && historyEntry) {
-        const categoryName = config.categoryId ? 
-          categoriesMap.get(config.categoryId)?.name || 'All Categories' : 
-          'All Categories';
+        const categoryName = config.categoryId 
+          ? Array.isArray(config.categoryId)
+            ? config.categoryId.length === 1
+              ? categoriesMap.get(config.categoryId[0])?.name || 'All Categories'
+              : `${config.categoryId.length} categories`
+            : categoriesMap.get(config.categoryId)?.name || 'All Categories'
+          : 'All Categories';
         await supabase
           .from('export_history')
           .update({
