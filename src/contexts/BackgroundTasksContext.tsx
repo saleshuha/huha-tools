@@ -98,73 +98,8 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
     };
   };
 
-  // Load persisted tasks from database on mount and subscribe to realtime updates
-  useEffect(() => {
-    const loadPersistedTasks = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        // Load active tasks and recently completed tasks (last 24 hours)
-        const oneDayAgo = new Date();
-        oneDayAgo.setDate(oneDayAgo.getDate() - 1);
-
-        const { data, error } = await supabase
-          .from('background_tasks')
-          .select('*')
-          .eq('user_id', user.id)
-          .or(`status.in.(processing,pending),and(status.in.(completed,error,cancelled),created_at.gte.${oneDayAgo.toISOString()})`)
-          .order('created_at', { ascending: false })
-          .limit(20);
-
-        if (error) throw error;
-
-        if (data && data.length > 0) {
-          const persistedTasks: BackgroundTask[] = data.map(mapDatabaseTaskToBackgroundTask);
-          setTasks(persistedTasks);
-        }
-      } catch (error) {
-        console.error('Failed to load persisted tasks:', error);
-      }
-    };
-
-    loadPersistedTasks();
-
-    // Subscribe to realtime changes on background_tasks table
-    const channel = supabase
-      .channel('background_tasks_realtime')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'background_tasks'
-        },
-        (payload) => {
-          console.log('📡 Background task realtime update:', payload);
-          
-          if (payload.eventType === 'INSERT') {
-            const newTask = mapDatabaseTaskToBackgroundTask(payload.new);
-            setTasks(prev => {
-              // Avoid duplicates
-              if (prev.some(t => t.id === newTask.id)) return prev;
-              return [newTask, ...prev];
-            });
-          } else if (payload.eventType === 'UPDATE') {
-            const updatedTask = mapDatabaseTaskToBackgroundTask(payload.new);
-            setTasks(prev => prev.map(task => 
-              task.id === updatedTask.id ? updatedTask : task
-            ));
-          } else if (payload.eventType === 'DELETE') {
-            setTasks(prev => prev.filter(task => task.id !== payload.old.id));
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      channel.unsubscribe();
-    };
-  }, []);
+  // Note: Task loading removed from here - usePersistentBackgroundTasks is now the single source of truth
+  // This context only manages in-memory tasks and persistence operations
 
   const addTask = useCallback((task: Omit<BackgroundTask, 'id' | 'startTime'>) => {
     const id = `task_${Date.now()}_${++taskIdCounter.current}`;

@@ -107,7 +107,7 @@ export const useConcurrentSunskyExport = () => {
         if (!error && data && data.status === 'cancelled') {
           console.log('🛑 Task cancelled in database:', backgroundTaskId);
           if (exportId) {
-            cancellationRef.current[exportId] = true;
+            cancellationRef.current[exportId] = true; // Set shared flag for all workers
           }
           return true;
         }
@@ -156,11 +156,13 @@ export const useConcurrentSunskyExport = () => {
 
     try {
       while (pagesProcessed < pageRange.maxPages) {
-        // Check for cancellation (both in-memory and database)
-        const isCancelled = await checkTaskCancellation(backgroundTaskId, exportId);
-        if (isCancelled) {
-          console.log(`🛑 API ${apiKey.name} stopping due to cancellation`);
-          break;
+        // Check for cancellation more frequently (every 10 pages or at start)
+        if (pagesProcessed === 0 || pagesProcessed % 10 === 0) {
+          const isCancelled = await checkTaskCancellation(backgroundTaskId, exportId);
+          if (isCancelled) {
+            console.log(`🛑 API ${apiKey.name} stopping due to cancellation at page ${currentPage}`);
+            break;
+          }
         }
         
         const searchParams: any = {
@@ -413,16 +415,18 @@ export const useConcurrentSunskyExport = () => {
         // Update background task if provided
         if (backgroundTaskId) {
           try {
-            // Check if task was cancelled before updating
+            // Check if task is in terminal state before updating
             const { data: taskCheck } = await supabase
               .from('background_tasks')
               .select('status')
               .eq('id', backgroundTaskId)
               .single();
             
-            // Don't update if task is already cancelled
-            if (taskCheck?.status === 'cancelled') {
-              console.log('⚠️ Skipping update - task already cancelled');
+            // Don't update if already in terminal state (cancelled, completed, failed)
+            if (taskCheck?.status === 'cancelled' || 
+                taskCheck?.status === 'completed' || 
+                taskCheck?.status === 'failed') {
+              console.log('⚠️ Skipping update - task in terminal state:', taskCheck.status);
               return;
             }
             

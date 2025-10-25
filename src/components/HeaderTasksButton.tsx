@@ -1,14 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Activity } from "lucide-react";
-import { useBackgroundTasks } from "@/contexts/BackgroundTasksContext";
+import { usePersistentBackgroundTasks } from "@/hooks/usePersistentBackgroundTasks";
 
 interface HeaderTasksButtonProps {
   onClick: () => void;
 }
 
 export function HeaderTasksButton({ onClick }: HeaderTasksButtonProps) {
-  const { activeTasks } = useBackgroundTasks();
+  const { activeTasks } = usePersistentBackgroundTasks();
 
   return (
     <Button

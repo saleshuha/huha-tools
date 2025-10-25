@@ -26,7 +26,7 @@ interface BackgroundTasksPanelProps {
 }
 
 export function BackgroundTasksPanel({ isOpen, onClose }: BackgroundTasksPanelProps) {
-  const { tasks, activeTasks, removeTask, cancelTask, clearCompletedTasks } = useBackgroundTasks();
+  // Use only persistent tasks as single source of truth
   const { 
     tasks: persistentTasks, 
     activeTasks: persistentActiveTasks, 
@@ -40,7 +40,7 @@ export function BackgroundTasksPanel({ isOpen, onClose }: BackgroundTasksPanelPr
 
   if (!isOpen) return null;
 
-  // Combine both types of tasks - map persistent task statuses to BackgroundTask statuses
+  // Map persistent task statuses to BackgroundTask statuses
   const mapPersistentStatus = (status: string): BackgroundTask['status'] => {
     switch (status) {
       case 'queued': return 'pending';
@@ -52,7 +52,7 @@ export function BackgroundTasksPanel({ isOpen, onClose }: BackgroundTasksPanelPr
     }
   };
 
-  const persistentTasksAsBackground = persistentTasks.map(t => ({
+  const allTasks = persistentTasks.map(t => ({
     id: t.id,
     name: t.type === 'sunsky_export' ? 'Sunsky Background Export' : t.type,
     status: mapPersistentStatus(t.status),
@@ -64,10 +64,9 @@ export function BackgroundTasksPanel({ isOpen, onClose }: BackgroundTasksPanelPr
     endTime: t.completed_at ? new Date(t.completed_at) : undefined,
     canCancel: ['processing', 'queued'].includes(t.status),
     metadata: t.metadata || {},
-    isPersistent: true
-  } as BackgroundTask & { isPersistent: boolean }));
+    type: t.type as BackgroundTask['type']
+  } as BackgroundTask));
   
-  const allTasks = [...tasks, ...persistentTasksAsBackground];
   const allActiveTasks = allTasks.filter(t => t.status === 'processing' || t.status === 'pending');
 
 
@@ -139,11 +138,18 @@ export function BackgroundTasksPanel({ isOpen, onClose }: BackgroundTasksPanelPr
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <CardTitle className="text-xl font-semibold">Background Tasks</CardTitle>
           <div className="flex items-center gap-2">
-            {allTasks.length > 0 && (
+            {allTasks.filter(t => t.status === 'completed' || t.status === 'error' || t.status === 'cancelled').length > 0 && (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={clearCompletedTasks}
+                onClick={async () => {
+                  const completedIds = allTasks
+                    .filter(t => t.status === 'completed' || t.status === 'error' || t.status === 'cancelled')
+                    .map(t => t.id);
+                  for (const id of completedIds) {
+                    await deletePersistentTask(id);
+                  }
+                }}
                 className="flex items-center gap-2"
               >
                 <Trash2 className="h-4 w-4" />
@@ -176,20 +182,8 @@ export function BackgroundTasksPanel({ isOpen, onClose }: BackgroundTasksPanelPr
                         task={task}
                         isExpanded={expandedTasks.has(task.id)}
                         onToggleExpand={() => toggleTaskExpansion(task.id)}
-                        onRemove={() => {
-                          if ((task as any).isPersistent) {
-                            deletePersistentTask(task.id);
-                          } else {
-                            removeTask(task.id);
-                          }
-                        }}
-                        onCancel={task.canCancel ? () => {
-                          if ((task as any).isPersistent) {
-                            cancelPersistentTask(task.id);
-                          } else {
-                            cancelTask(task.id);
-                          }
-                        } : undefined}
+                        onRemove={() => deletePersistentTask(task.id)}
+                        onCancel={task.canCancel ? () => cancelPersistentTask(task.id) : undefined}
                         getStatusIcon={getStatusIcon}
                         getStatusBadge={getStatusBadge}
                         getThreadStatusColor={getThreadStatusColor}
@@ -213,20 +207,8 @@ export function BackgroundTasksPanel({ isOpen, onClose }: BackgroundTasksPanelPr
                           task={task}
                           isExpanded={expandedTasks.has(task.id)}
                           onToggleExpand={() => toggleTaskExpansion(task.id)}
-                          onRemove={() => {
-                            if ((task as any).isPersistent) {
-                              deletePersistentTask(task.id);
-                            } else {
-                              removeTask(task.id);
-                            }
-                          }}
-                          onCancel={task.canCancel ? () => {
-                            if ((task as any).isPersistent) {
-                              cancelPersistentTask(task.id);
-                            } else {
-                              cancelTask(task.id);
-                            }
-                          } : undefined}
+                          onRemove={() => deletePersistentTask(task.id)}
+                          onCancel={task.canCancel ? () => cancelPersistentTask(task.id) : undefined}
                           getStatusIcon={getStatusIcon}
                           getStatusBadge={getStatusBadge}
                           getThreadStatusColor={getThreadStatusColor}
