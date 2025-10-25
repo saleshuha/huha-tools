@@ -1036,6 +1036,8 @@ export const useConcurrentSunskyExport = () => {
                 metadata: {
                   totalProducts: productsToSave.length,
                   completedAt: new Date().toISOString(),
+                  downloadReady: true,
+                  fileName: `sunsky_export_${new Date().toISOString().split('T')[0]}_${Date.now()}.xlsx`,
                   downloadableResults: {
                     products: productsForMetadata,
                     totalFound: productsToSave.length,
@@ -1046,7 +1048,6 @@ export const useConcurrentSunskyExport = () => {
                     status: configToUse.status,
                     categoryName
                   },
-                  fileName: `sunsky_export_${new Date().toISOString().split('T')[0]}_${Date.now()}.xlsx`,
                   message: productsToSave.length > 10000 ? 
                     `Export completed with ${productsToSave.length.toLocaleString()} products (showing first 10,000 in download)` :
                     `Export completed with ${productsToSave.length.toLocaleString()} products`,
@@ -1157,6 +1158,7 @@ export const useConcurrentSunskyExport = () => {
                     ...existingMetadata, // Preserve exportNumber, categoryName, started_at, background
                     partial_export: true,
                     cancelled_at: new Date().toISOString(),
+                    downloadReady: true,
                     downloadableResults: true, // Always true - either file or metadata
                     productsSaved: productsToSave.length,
                     // Store products if no file was saved

@@ -85,7 +85,7 @@ export function BackgroundExportDownloadButton({
     }
   };
 
-  const isReady = taskMetadata?.downloadReady || taskMetadata?.fileName;
+  const isReady = taskMetadata?.downloadReady || taskMetadata?.fileName || taskMetadata?.downloadableResults;
   const totalProducts = taskMetadata?.downloadableResults?.totalFound || taskMetadata?.totalProducts || 0;
 
   if (!isReady) {
