@@ -39,7 +39,7 @@ export function useDashboardMetrics() {
   useEffect(() => {
     if (loadSecondary && !inventoryLoading) {
       Promise.all([
-        reloadVelocity(0.25), // Load only 3 months instead of 2 years
+        reloadVelocity(1), // Load 1 year instead of 2 years
         reloadPO(),
         reloadPOTotals(),
         reloadFulfillment()
@@ -326,7 +326,7 @@ export function useDashboardMetrics() {
   const refreshAll = async () => {
     await reloadInventory(selectedCountry);
     await Promise.all([
-      reloadVelocity(0.25),
+      reloadVelocity(1),
       reloadPO(),
       reloadPOTotals(),
       reloadFulfillment()
