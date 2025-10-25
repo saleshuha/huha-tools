@@ -861,7 +861,7 @@ export const useConcurrentSunskyExport = () => {
     const configToUse = config || partialData?.config;
     
     // If we have partial data, save it as a downloadable export
-    if (productsToSave.length > 0 && taskId && configToUse) {
+    if (productsToSave.length > 0 && configToUse) {
       let fileName: string | null = null;
       let fileData: Blob | null = null;
 

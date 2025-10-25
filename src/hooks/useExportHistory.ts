@@ -240,6 +240,72 @@ export const useExportHistory = () => {
     }
   }, [exportHistory, toast]);
 
+  const fixStuckExport = useCallback(async (exportId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "Error",
+          description: "You must be logged in",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Get current export entry
+      const { data: stuckExport, error: fetchError } = await supabase
+        .from('export_history')
+        .select('*')
+        .eq('id', exportId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      if (stuckExport && stuckExport.status === 'processing') {
+        // Update to cancelled status
+        const { error: updateError } = await supabase
+          .from('export_history')
+          .update({ 
+            status: 'cancelled',
+            metadata: {
+              ...stuckExport.metadata,
+              cancelled_at: new Date().toISOString(),
+              manual_cleanup: true
+            }
+          } as any)
+          .eq('id', exportId);
+
+        if (updateError) throw updateError;
+
+        // Update local state
+        setExportHistory(prev => 
+          prev.map(entry => 
+            entry.id === exportId 
+              ? { ...entry, status: 'cancelled' as const }
+              : entry
+          )
+        );
+
+        toast({
+          title: "Success",
+          description: "Export status has been corrected to 'cancelled'"
+        });
+
+        // Trigger refresh to ensure UI is synced
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('refresh-export-history'));
+        }, 500);
+      }
+    } catch (error) {
+      console.error('Error fixing stuck export:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fix export status",
+        variant: "destructive"
+      });
+    }
+  }, [toast]);
+
   // Load history on mount and subscribe to real-time updates
   useEffect(() => {
     fetchExportHistory();
@@ -306,6 +372,7 @@ export const useExportHistory = () => {
     updateExportEntry,
     downloadExportFile,
     rerunExport,
-    deleteExportEntry
+    deleteExportEntry,
+    fixStuckExport
   };
 };

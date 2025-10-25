@@ -255,7 +255,8 @@ export const SunskySKUImporter: React.FC = () => {
     updateExportEntry,
     fetchExportHistory,
     exportHistory: savedExportHistory,
-    downloadExportFile
+    downloadExportFile,
+    fixStuckExport
   } = useExportHistory();
   const {
     tasks: persistentTasks,
@@ -4722,6 +4723,21 @@ export const SunskySKUImporter: React.FC = () => {
                              <Badge variant={entry.status === 'completed' ? 'default' : entry.status === 'processing' ? 'secondary' : entry.status === 'cancelled' ? 'outline' : 'destructive'}>
                                {entry.status}
                              </Badge>
+                              {entry.status === 'processing' && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    fixStuckExport(entry.id);
+                                  }}
+                                  className="h-7 px-2 text-xs"
+                                  title="Fix stuck export status"
+                                >
+                                  <RefreshCw className="h-3 w-3 mr-1" />
+                                  Fix
+                                </Button>
+                              )}
                               {entry.file_path && (
                                 <Button
                                   size="sm"
