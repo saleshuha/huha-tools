@@ -1114,6 +1114,14 @@ export const useConcurrentSunskyExport = () => {
 
               const existingMetadata = (existingEntry?.metadata as any) || {};
 
+              // If no file was saved, store products in metadata for client-side Excel generation
+              const productsForMetadata = productsToSave.slice(0, 10000);
+              const categoriesArray = Array.from(categoriesMapToUse.entries()).map(([id, cat]) => ({
+                id,
+                name: cat.name,
+                count: cat.products.length
+              }));
+
               const { error: updateError } = await supabase
                 .from('export_history')
                 .update({
@@ -1125,8 +1133,15 @@ export const useConcurrentSunskyExport = () => {
                     ...existingMetadata, // Preserve exportNumber, categoryName, started_at, background
                     partial_export: true,
                     cancelled_at: new Date().toISOString(),
-                    downloadableResults: !!fileName,
-                    productsSaved: productsToSave.length
+                    downloadableResults: true, // Always true - either file or metadata
+                    productsSaved: productsToSave.length,
+                    // Store products if no file was saved
+                    ...(!fileName && {
+                      products: productsForMetadata,
+                      categories: categoriesArray,
+                      storedInMetadata: true,
+                      fileName: `sunsky_partial_export_${new Date().toISOString().split('T')[0]}_${Date.now()}.xlsx`
+                    })
                   }
                 } as any)
                 .eq('id', exportHistoryId);
