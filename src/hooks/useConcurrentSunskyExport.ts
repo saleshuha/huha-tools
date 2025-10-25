@@ -38,6 +38,80 @@ export const useConcurrentSunskyExport = () => {
   const [exportResults, setExportResults] = useState<ExportResult | null>(null);
   const [currentExportId, setCurrentExportId] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // Helper function to get status text
+  const getStatusText = (status: number): string => {
+    switch (status) {
+      case 1: return 'Valid';
+      case 2: return 'Deleted';
+      case 3: return 'Out of stock';
+      case 4: return 'Hidden (too old)';
+      default: return `Status ${status}`;
+    }
+  };
+
+  /**
+   * Start a background export using the Edge Function.
+   * This export will survive page refreshes and runs entirely on the server.
+   * 
+   * @param config - Export configuration including filters, columns, and API keys
+   * @returns Promise with taskId and historyId for tracking
+   */
+  const startBackgroundExport = async (config: ExportConfig): Promise<{ taskId: string; historyId: string }> => {
+    try {
+      // Validate user authentication
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        throw new Error('You must be logged in to export data');
+      }
+
+      // Call the Edge Function to start server-side processing
+      const { data, error } = await supabase.functions.invoke('process-po-background', {
+        body: {
+          action: 'startExport',
+          config: {
+            categoryId: config.categoryId,
+            selectedExportStatus: config.status,
+            exportPageSize: config.pageSize,
+            selectedExportColumns: config.columns,
+            categoryName: config.categoryId ? 'Selected Category' : 'All Categories',
+            statusText: getStatusText(config.status)
+          },
+          availableAPIs: config.apiKeys.map(api => ({
+            id: api.id,
+            name: api.name,
+            is_active: true
+          }))
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data?.taskId || !data?.historyId) {
+        throw new Error('Invalid response from export service');
+      }
+
+      toast({
+        title: "Export Started",
+        description: "Your export is running in the background. You can close this page or refresh - the export will continue.",
+      });
+
+      return {
+        taskId: data.taskId,
+        historyId: data.historyId
+      };
+    } catch (error) {
+      console.error('Failed to start background export:', error);
+      toast({
+        title: "Export Failed",
+        description: error instanceof Error ? error.message : 'Failed to start export',
+        variant: "destructive"
+      });
+      throw error;
+    }
+  };
   
   const cancellationRef = useRef<{ [exportId: string]: boolean }>({});
   const apiCallQueue = useRef<{ [apiKeyId: string]: Array<() => Promise<any>> }>({});
@@ -1341,6 +1415,7 @@ export const useConcurrentSunskyExport = () => {
     exportStatus,
     exportResults,
     startConcurrentExport,
+    startBackgroundExport, // New: Server-side export that survives page refreshes
     cancelExport,
     currentExportId,
   };
