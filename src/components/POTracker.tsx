@@ -2073,32 +2073,99 @@ export const POTracker = () => {
           {/* PHASE 6: Enhanced responsive grid layout */}
         <div className="flex gap-3 overflow-x-auto pb-2">
           <div className="flex gap-3 min-w-max">
-            {/* Total Items Card */}
-            <POMetricsCard title={viewMode === 'grouped' ? 'Unique POs' : 'Line Items'} icon={Package} value={viewMode === 'grouped' ? comprehensiveMetrics?.unique_po_numbers || groupedPOOrders.length : comprehensiveMetrics?.total_line_items || poOrders.length} subValue={viewMode === 'grouped' ? `${comprehensiveMetrics?.total_line_items || poOrders.length} items` : `${comprehensiveMetrics?.total_quantity || poOrders.reduce((sum, order) => sum + (order.quantity || 0), 0)} units`} isLoading={isLoadingComprehensiveMetrics} colorClass="from-primary/5" borderColorClass="border-l-primary" textColorClass="text-primary" tooltipText="Total purchase orders or line items" />
+            {/* 1. Total PO Numbers */}
+            <POMetricsCard 
+              title="Total POs" 
+              icon={FileText}
+              value={comprehensiveMetrics?.unique_po_numbers || groupedPOOrders.length}
+              subValue={`${comprehensiveMetrics?.total_line_items || poOrders.length} items`}
+              isLoading={isLoadingComprehensiveMetrics}
+              colorClass="from-blue-500/5"
+              borderColorClass="border-l-blue-500"
+              textColorClass="text-blue-600"
+              tooltipText="Unique PO numbers and total line items"
+            />
 
-            {/* PHASE 2: In Stock Card - Enhanced with click and export */}
-            <POMetricsCard title="In Stock" icon={TrendingUp} value={calculatedMetrics.inStock.count} subValue={`${calculatedMetrics.inStock.qty} units`} percentage={calculateMetricPercentage(calculatedMetrics.inStock.count, poOrders.length)} onClick={() => handleMetricClick('in-stock')} onExport={() => handleExportMetric('in-stock')} isExporting={exportingMetric === 'in-stock'} isActive={selectedMetricFilter === 'in-stock'} colorClass="from-success/5" borderColorClass="border-l-success" textColorClass="text-success" tooltipText="Click to show only in-stock items" />
+            {/* 2. Total Items & Units */}
+            <POMetricsCard 
+              title="Total Items" 
+              icon={Package}
+              value={comprehensiveMetrics?.total_line_items || poOrders.length}
+              subValue={`${comprehensiveMetrics?.total_quantity || poOrders.reduce((sum, order) => sum + (order.quantity || 0), 0)} units`}
+              isLoading={isLoadingComprehensiveMetrics}
+              colorClass="from-primary/5"
+              borderColorClass="border-l-primary"
+              textColorClass="text-primary"
+              tooltipText="Total line items and their total units"
+            />
 
-            {/* PHASE 2: Out of Stock Card - New */}
-            <POMetricsCard title="Out of Stock" icon={AlertTriangle} value={calculatedMetrics.outOfStock.count} subValue={`${calculatedMetrics.outOfStock.qty} units`} percentage={calculateMetricPercentage(calculatedMetrics.outOfStock.count, poOrders.length)} onClick={() => handleMetricClick('out-of-stock')} onExport={() => handleExportMetric('out-of-stock')} isExporting={exportingMetric === 'out-of-stock'} isActive={selectedMetricFilter === 'out-of-stock'} colorClass="from-destructive/5" borderColorClass="border-l-destructive" textColorClass="text-destructive" tooltipText="Click to show out-of-stock items" />
+            {/* 3. Items In Stock */}
+            <POMetricsCard 
+              title="Items In Stock" 
+              icon={TrendingUp}
+              value={calculatedMetrics.inStock.count}
+              subValue={`${calculatedMetrics.inStock.qty} units`}
+              percentage={calculateMetricPercentage(calculatedMetrics.inStock.count, poOrders.length)}
+              onClick={() => handleMetricClick('in-stock')}
+              onExport={() => handleExportMetric('in-stock')}
+              isExporting={exportingMetric === 'in-stock'}
+              isActive={selectedMetricFilter === 'in-stock'}
+              colorClass="from-green-500/5"
+              borderColorClass="border-l-green-500"
+              textColorClass="text-green-600"
+              tooltipText="Items with inventory stock available"
+            />
 
-            {/* PHASE 2: Not Matched Card - New */}
-            <POMetricsCard title="Not Matched" icon={Search} value={calculatedMetrics.notMatched.count} subValue={`${calculatedMetrics.notMatched.qty} units`} percentage={calculateMetricPercentage(calculatedMetrics.notMatched.count, poOrders.length)} onClick={() => handleMetricClick('not-matched')} onExport={() => handleExportMetric('not-matched')} isExporting={exportingMetric === 'not-matched'} isActive={selectedMetricFilter === 'not-matched'} colorClass="from-muted/5" borderColorClass="border-l-muted-foreground" textColorClass="text-muted-foreground" tooltipText="Click to show unmatched items" />
+            {/* 4. Matched with Sunsky */}
+            <POMetricsCard 
+              title="Matched (Sunsky)" 
+              icon={CheckCircle}
+              value={calculatedMetrics.matched.count}
+              subValue={`${calculatedMetrics.matched.qty} units`}
+              percentage={calculateMetricPercentage(calculatedMetrics.matched.count, poOrders.length)}
+              onClick={() => handleMetricClick('matched')}
+              onExport={() => handleExportMetric('matched')}
+              isExporting={exportingMetric === 'matched'}
+              isActive={selectedMetricFilter === 'matched'}
+              colorClass="from-purple-500/5"
+              borderColorClass="border-l-purple-500"
+              textColorClass="text-purple-600"
+              tooltipText="Items matched with Sunsky source"
+            />
 
-            {/* Matched Card - Enhanced */}
-            <POMetricsCard title="Matched" icon={CheckCircle} value={calculatedMetrics.matched.count} subValue={`${calculatedMetrics.matched.qty} units`} percentage={calculateMetricPercentage(calculatedMetrics.matched.count, poOrders.length)} onClick={() => handleMetricClick('matched')} onExport={() => handleExportMetric('matched')} isExporting={exportingMetric === 'matched'} isActive={selectedMetricFilter === 'matched'} colorClass="from-green-500/5" borderColorClass="border-l-green-500" textColorClass="text-green-600" tooltipText="Click to show matched items" />
+            {/* 5. Placed Orders */}
+            <POMetricsCard 
+              title="Placed to Source" 
+              icon={Truck}
+              value={calculatedMetrics.placed.count}
+              subValue={`${calculatedMetrics.placed.qty} units`}
+              percentage={calculateMetricPercentage(calculatedMetrics.placed.count, poOrders.length)}
+              onClick={() => handleMetricClick('placed')}
+              onExport={() => handleExportMetric('placed')}
+              isExporting={exportingMetric === 'placed'}
+              isActive={selectedMetricFilter === 'placed'}
+              colorClass="from-blue-500/5"
+              borderColorClass="border-l-blue-500"
+              textColorClass="text-blue-600"
+              tooltipText="Orders placed or received from source"
+            />
 
-            {/* Placed Card - Enhanced */}
-            <POMetricsCard title="Placed" icon={Truck} value={calculatedMetrics.placed.count} subValue={`${calculatedMetrics.placed.qty} units`} percentage={calculateMetricPercentage(calculatedMetrics.placed.count, poOrders.length)} onClick={() => handleMetricClick('placed')} onExport={() => handleExportMetric('placed')} isExporting={exportingMetric === 'placed'} isActive={selectedMetricFilter === 'placed'} colorClass="from-blue-500/5" borderColorClass="border-l-blue-500" textColorClass="text-blue-600" tooltipText="Click to show placed orders" />
-
-            {/* Pending Card - Enhanced */}
-            <POMetricsCard title="Pending" icon={Clock} value={calculatedMetrics.pending.count} subValue={`${calculatedMetrics.pending.qty} units`} percentage={calculateMetricPercentage(calculatedMetrics.pending.count, poOrders.length)} onClick={() => handleMetricClick('pending')} onExport={() => handleExportMetric('pending')} isExporting={exportingMetric === 'pending'} isActive={selectedMetricFilter === 'pending'} colorClass="from-orange-500/5" borderColorClass="border-l-orange-500" textColorClass="text-orange-600" tooltipText="Click to show pending orders" />
-
-            {/* PHASE 2: Fulfillment Rate Card - New */}
-            <POMetricsCard title="Fulfillment Rate" icon={calculatedMetrics.fulfillmentRate >= 50 ? TrendingUp : TrendingDown} value={`${calculatedMetrics.fulfillmentRate.toFixed(1)}%`} subValue={`${calculatedMetrics.placed.count} / ${calculatedMetrics.matched.count}`} percentage={calculatedMetrics.fulfillmentRate} colorClass={calculatedMetrics.fulfillmentRate >= 75 ? 'from-success/5' : calculatedMetrics.fulfillmentRate >= 50 ? 'from-blue-500/5' : 'from-orange-500/5'} borderColorClass={calculatedMetrics.fulfillmentRate >= 75 ? 'border-l-success' : calculatedMetrics.fulfillmentRate >= 50 ? 'border-l-blue-500' : 'border-l-orange-500'} textColorClass={calculatedMetrics.fulfillmentRate >= 75 ? 'text-success' : calculatedMetrics.fulfillmentRate >= 50 ? 'text-blue-600' : 'text-orange-600'} tooltipText="Placed orders / Matched orders ratio" />
-
-            {/* PHASE 2: Total Value Card - New (if cost data available) */}
-            {calculatedMetrics.totalValue > 0 && <POMetricsCard title="Total Value" icon={DollarSign} value={`$${calculatedMetrics.totalValue.toLocaleString()}`} subValue={`Pending: $${calculatedMetrics.pending.value.toLocaleString()}`} colorClass="from-purple-500/5" borderColorClass="border-l-purple-500" textColorClass="text-purple-600" tooltipText="Total monetary value of all orders" />}
+            {/* 6. Pending Orders */}
+            <POMetricsCard 
+              title="Pending to Source" 
+              icon={Clock}
+              value={calculatedMetrics.pending.count}
+              subValue={`${calculatedMetrics.pending.qty} units`}
+              percentage={calculateMetricPercentage(calculatedMetrics.pending.count, poOrders.length)}
+              onClick={() => handleMetricClick('pending')}
+              onExport={() => handleExportMetric('pending')}
+              isExporting={exportingMetric === 'pending'}
+              isActive={selectedMetricFilter === 'pending'}
+              colorClass="from-orange-500/5"
+              borderColorClass="border-l-orange-500"
+              textColorClass="text-orange-600"
+              tooltipText="Pending orders to source (matched but not placed)"
+            />
           </div>
         </div>
 
