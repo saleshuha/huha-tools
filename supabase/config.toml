@@ -45,3 +45,6 @@ verify_jwt = true
 
 [functions.delete-user]
 verify_jwt = true
+
+[functions.cleanup-old-exports]
+verify_jwt = false

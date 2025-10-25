@@ -257,7 +257,8 @@ export const SunskySKUImporter: React.FC = () => {
     fetchExportHistory,
     exportHistory: savedExportHistory,
     downloadExportFile,
-    fixStuckExport
+    fixStuckExport,
+    toggleKeepForever
   } = useExportHistory();
   const {
     tasks: persistentTasks,
@@ -5099,7 +5100,14 @@ export const SunskySKUImporter: React.FC = () => {
 
       <ReAuthDialog open={showClearAuthDialog} onOpenChange={setShowClearAuthDialog} onSuccess={clearAllSKUs} title="Clear All SKUs - Authentication Required" description="This action will permanently delete all imported SKUs. Please confirm your identity to proceed." />
 
-      <ExportHistoryDialog entry={selectedExportEntry} isOpen={showExportHistoryDialog} onClose={() => setShowExportHistoryDialog(false)} onDownload={handleExportHistoryDownload} onRerun={handleExportHistoryRerun} />
+      <ExportHistoryDialog 
+        entry={selectedExportEntry} 
+        isOpen={showExportHistoryDialog} 
+        onClose={() => setShowExportHistoryDialog(false)} 
+        onDownload={handleExportHistoryDownload} 
+        onRerun={handleExportHistoryRerun}
+        onToggleKeepForever={toggleKeepForever}
+      />
       </div>
     </div>;
 };

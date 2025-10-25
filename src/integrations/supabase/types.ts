@@ -496,6 +496,7 @@ export type Database = {
           file_size: number | null
           filters: Json
           id: string
+          keep_forever: boolean
           metadata: Json
           status: string
           total_items: number | null
@@ -511,6 +512,7 @@ export type Database = {
           file_size?: number | null
           filters?: Json
           id?: string
+          keep_forever?: boolean
           metadata?: Json
           status?: string
           total_items?: number | null
@@ -526,6 +528,7 @@ export type Database = {
           file_size?: number | null
           filters?: Json
           id?: string
+          keep_forever?: boolean
           metadata?: Json
           status?: string
           total_items?: number | null

@@ -11,6 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { 
   Download, 
   Clock, 
@@ -23,9 +25,11 @@ import {
   Settings,
   Users,
   Tag,
-  Package
+  Package,
+  Shield,
+  Trash2
 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, differenceInDays } from 'date-fns';
 import { ExportHistoryEntry } from '@/hooks/useExportHistory';
 
 interface ExportHistoryDialogProps {
@@ -34,6 +38,7 @@ interface ExportHistoryDialogProps {
   onClose: () => void;
   onDownload: (entry: ExportHistoryEntry) => void;
   onRerun: (entry: ExportHistoryEntry) => void;
+  onToggleKeepForever?: (id: string, currentValue: boolean) => void;
 }
 
 export function ExportHistoryDialog({ 
@@ -41,12 +46,16 @@ export function ExportHistoryDialog({
   isOpen, 
   onClose, 
   onDownload, 
-  onRerun 
+  onRerun,
+  onToggleKeepForever
 }: ExportHistoryDialogProps) {
   if (!entry) return null;
 
   const metadata = entry.metadata || {};
   const filters = entry.filters || {};
+  
+  const daysUntilDeletion = entry.keep_forever ? null : Math.max(0, 30 - differenceInDays(new Date(), new Date(entry.created_at)));
+  const isExpiringSoon = daysUntilDeletion !== null && daysUntilDeletion <= 7;
   
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -117,10 +126,44 @@ export function ExportHistoryDialog({
                     <Package className="h-5 w-5" />
                     Export Overview
                   </div>
-                  {getStatusBadge(entry.status)}
+                  <div className="flex items-center gap-2">
+                    {entry.keep_forever ? (
+                      <Badge variant="default" className="gap-1">
+                        <Shield className="h-3 w-3" />
+                        Kept Forever
+                      </Badge>
+                    ) : (
+                      <Badge variant={isExpiringSoon ? "destructive" : "secondary"} className="gap-1">
+                        <Trash2 className="h-3 w-3" />
+                        {daysUntilDeletion === 0 ? 'Expires Today' : `Expires in ${daysUntilDeletion}d`}
+                      </Badge>
+                    )}
+                    {getStatusBadge(entry.status)}
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Keep Forever Toggle */}
+                {onToggleKeepForever && (
+                  <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                    <div className="space-y-1">
+                      <Label htmlFor="keep-forever" className="text-sm font-medium flex items-center gap-2">
+                        <Shield className="h-4 w-4" />
+                        Keep Export Permanently
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        {entry.keep_forever 
+                          ? "This export will never be automatically deleted"
+                          : "Enable to prevent automatic deletion after 30 days"}
+                      </p>
+                    </div>
+                    <Switch
+                      id="keep-forever"
+                      checked={entry.keep_forever || false}
+                      onCheckedChange={() => onToggleKeepForever(entry.id, entry.keep_forever || false)}
+                    />
+                  </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-1">
                     <div className="text-sm font-medium text-muted-foreground">Export Type</div>

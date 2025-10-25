@@ -14,6 +14,7 @@ export interface ExportHistoryEntry {
   error_message?: string;
   created_at: string; // Database returns string
   metadata?: any; // Allow any type from database
+  keep_forever?: boolean;
 }
 
 const MAX_HISTORY_ENTRIES = 50;
@@ -205,6 +206,37 @@ export const useExportHistory = () => {
     }
   }, [toast]);
 
+  const toggleKeepForever = useCallback(async (id: string, currentValue: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('export_history')
+        .update({ keep_forever: !currentValue })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setExportHistory(prev => 
+        prev.map(entry => 
+          entry.id === id ? { ...entry, keep_forever: !currentValue } : entry
+        )
+      );
+
+      toast({
+        title: !currentValue ? "Export saved permanently" : "Auto-cleanup enabled",
+        description: !currentValue 
+          ? "This export will not be automatically deleted" 
+          : "This export will be deleted after 30 days"
+      });
+    } catch (error) {
+      console.error('Error toggling keep_forever:', error);
+      toast({
+        title: "Failed to update export",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  }, [toast]);
+
   const deleteExportEntry = useCallback(async (id: string) => {
     try {
       const entry = exportHistory.find(e => e.id === id);
@@ -373,6 +405,7 @@ export const useExportHistory = () => {
     downloadExportFile,
     rerunExport,
     deleteExportEntry,
-    fixStuckExport
+    fixStuckExport,
+    toggleKeepForever
   };
 };
