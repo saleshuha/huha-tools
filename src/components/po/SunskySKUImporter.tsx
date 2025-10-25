@@ -2039,7 +2039,7 @@ export const SunskySKUImporter: React.FC = () => {
       const {
         data,
         error
-      } = await supabase.storage.from('exports').download(entry.file_path);
+      } = await supabase.storage.from('sunsky-exports').download(entry.file_path);
       if (error) throw error;
 
       // Create download link
