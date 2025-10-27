@@ -642,6 +642,9 @@ export const POTracker = () => {
       supabase.removeChannel(channel);
     };
   }, [selectedCountry, fetchPOOrders, toast]);
+
+  // Function to handle bulk PO closing
+  const handleBulkClosePOs = async (poNumbers: string[]) => {
     setIsClosingPOs(true);
     try {
       const {
@@ -4590,11 +4593,11 @@ export const POTracker = () => {
                                        <span className="text-xs font-medium">{isPrintStatusUpdating ? 'Updating...' : 'Mark Printed'}</span>
                                      </div>
                                     </Button>
-                                  </div>
-                                </TableCell>
-                               </TableRow>
-                             </React.Fragment>
-                      );
+                                   </div>
+                                 </TableCell>
+                                </TableRow>
+                              </React.Fragment>;
+                        });
                     })()}
                        </TableBody>
                      </Table>
