@@ -75,9 +75,7 @@ export default function POTrackerPage() {
             </Button>
           )}
         </div>
-        <div className="container mx-auto">
-          <POTracker />
-        </div>
+        <POTracker />
       </div>
     </div>
   );

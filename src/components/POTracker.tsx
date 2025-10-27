@@ -4095,7 +4095,7 @@ export const POTracker = () => {
                       </div>
                     </div>
                 </CardHeader>
-                <CardContent className="p-6">
+                <CardContent className="px-3 py-4 lg:px-4">
                   {/* Enhanced Search Bar with Printed Filter */}
                   <div className="mb-6 space-y-4">
                     <div className="flex gap-2">
@@ -4201,8 +4201,8 @@ export const POTracker = () => {
                   </div>
                   
                   {/* Enhanced Table Container with Borders and Grid */}
-                  <div className="rounded-xl border-2 border-border overflow-hidden shadow-medium bg-gradient-to-b from-background to-background/50">
-                    <Table>
+                  <div className="rounded-xl border-2 border-border overflow-x-auto shadow-medium bg-gradient-to-b from-background to-background/50">
+                    <Table className="w-full table-fixed">
                       <TableHeader className="bg-gradient-to-r from-primary/10 to-accent/10 border-b-2 border-border">
                         <TableRow className="hover:bg-muted/50 border-b border-border">
                           <TableHead className="w-12 font-semibold border-r border-border/50 bg-muted/20">
@@ -4216,7 +4216,7 @@ export const POTracker = () => {
                               <span className="text-foreground">Image</span>
                             </div>
                           </TableHead>
-                          <TableHead className={`cursor-pointer hover:bg-muted/50 select-none w-32 font-semibold transition-colors border-r border-border/50 bg-muted/20 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('sku_code')}>
+                          <TableHead className={`cursor-pointer hover:bg-muted/50 select-none min-w-[140px] max-w-[180px] font-semibold transition-colors border-r border-border/50 bg-muted/20 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('sku_code')}>
                             <div className="flex items-center gap-2">
                               <div className="w-2 h-2 bg-primary rounded-full"></div>
                               <span className="text-foreground">SKU/Model</span>
@@ -4226,7 +4226,7 @@ export const POTracker = () => {
                               {originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' && <Badge variant="outline" className="text-xs ml-auto">Original Order</Badge>}
                             </div>
                           </TableHead>
-                          <TableHead className={`cursor-pointer hover:bg-muted/50 select-none font-semibold transition-colors border-r border-border/50 bg-muted/20 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('combined_title')}>
+                          <TableHead className={`cursor-pointer hover:bg-muted/50 select-none min-w-[300px] max-w-[400px] font-semibold transition-colors border-r border-border/50 bg-muted/20 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('combined_title')}>
                             <div className="flex items-center gap-2">
                               <div className="w-2 h-2 bg-accent rounded-full"></div>
                               <span className="text-foreground">Title & ASIN</span>
@@ -4235,7 +4235,7 @@ export const POTracker = () => {
                                 </div>}
                             </div>
                           </TableHead>
-                          <TableHead className="font-semibold border-r border-border/50 bg-muted/20">
+                          <TableHead className="min-w-[120px] max-w-[180px] font-semibold border-r border-border/50 bg-muted/20">
                             <div className="flex items-center gap-2">
                               <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
                               <span className="text-foreground">Ship To</span>
@@ -4250,19 +4250,19 @@ export const POTracker = () => {
                                 </div>}
                             </div>
                           </TableHead>
-                           <TableHead className="w-32 font-semibold border-r border-border/50 bg-muted/20">
+                           <TableHead className="min-w-[120px] font-semibold border-r border-border/50 bg-muted/20">
                              <div className="flex items-center gap-2">
                                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                                <span className="text-foreground">Print Status</span>
                              </div>
                            </TableHead>
-                           <TableHead className="w-24 font-semibold border-r border-border/50 bg-muted/20">
+                           <TableHead className="min-w-[100px] font-semibold border-r border-border/50 bg-muted/20">
                              <div className="flex items-center gap-2">
                                <div className="w-2 h-2 bg-sky rounded-full"></div>
                                <span className="text-foreground">Print Qty</span>
                              </div>
                            </TableHead>
-                           <TableHead className="font-semibold border-r border-border/50 bg-muted/20">
+                           <TableHead className="min-w-[120px] font-semibold border-r border-border/50 bg-muted/20">
                              <div className="flex items-center gap-2">
                                <div className="w-2 h-2 bg-cyan rounded-full"></div>
                                <span className="text-foreground">Status</span>
@@ -4271,7 +4271,7 @@ export const POTracker = () => {
                                </Badge>
                              </div>
                            </TableHead>
-                           <TableHead className="font-semibold bg-muted/20">
+                           <TableHead className="min-w-[100px] font-semibold bg-muted/20">
                              <div className="flex items-center gap-2">
                                <div className="w-2 h-2 bg-secondary rounded-full"></div>
                                <span className="text-foreground">Actions</span>
