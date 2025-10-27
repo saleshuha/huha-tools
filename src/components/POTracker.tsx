@@ -70,6 +70,7 @@ export interface POOrder {
   // Consolidation properties for merged ASIN view
   _isConsolidated?: boolean;
   _consolidatedOrders?: POOrder[];
+  _partiallyPrinted?: boolean;
   // Workspace-specific local properties (not saved to DB)
   _localFromStock?: boolean;
   _localStockQuantity?: number;
@@ -1891,7 +1892,8 @@ export const POTracker = () => {
       
       toast({
         title: "Print status updated",
-        description: `${selectedOrders.length} item(s) marked as printed`,
+        description: `${selectedOrders.length} item(s) marked as printed. Check the Print Status column for details.`,
+        duration: 5000,
       });
     } catch (error) {
       console.error('Print error:', error);
@@ -4172,6 +4174,12 @@ export const POTracker = () => {
                                   ↑
                                 </div>}
                             </div>
+                          </TableHead>
+                           <TableHead className="w-32 font-semibold border-r border-border/50 bg-muted/20">
+                             <div className="flex items-center gap-2">
+                               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                               <span className="text-foreground">Print Status</span>
+                             </div>
                            </TableHead>
                            <TableHead className="w-24 font-semibold border-r border-border/50 bg-muted/20">
                              <div className="flex items-center gap-2">
@@ -4290,12 +4298,18 @@ export const POTracker = () => {
                             totalQuantity
                           });
 
+                          // Calculate print status
+                          const allPrinted = group.every(order => order.is_printed === true);
+                          const anyPrinted = group.some(order => order.is_printed === true);
+
                           // Return consolidated order
                           return {
                             ...baseOrder,
                             id: consolidatedId,
                             quantity: totalQuantity,
                             printed_quantity: totalPrintedQuantity,
+                            is_printed: allPrinted,
+                            _partiallyPrinted: anyPrinted && !allPrinted,
                             ship_to_location: shipToLocations.length > 1 ? `Multiple (${shipToLocations.length})` : shipToLocations[0] || baseOrder.ship_to_location,
                             notes: `Consolidated from ${poNumbers.length} PO(s): ${poNumbers.join(', ')}`,
                             // Store original orders for reference
@@ -4362,7 +4376,7 @@ export const POTracker = () => {
                       const paginatedOrders = ordersToDisplay.slice(startIndex, endIndex);
                       return paginatedOrders.map((order, index) => {
                         return <React.Fragment key={order.id}>
-                              <TableRow className={`group hover:bg-gradient-to-r hover:from-primary/10 hover:to-accent/10 transition-all duration-300 border-b border-border ${selectedForPrint.has(order.id) ? 'bg-primary/10 border-primary/30' : ''} ${index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}`}>
+                              <TableRow className={`group hover:bg-gradient-to-r hover:from-primary/10 hover:to-accent/10 transition-all duration-300 border-b border-border ${selectedForPrint.has(order.id) ? 'bg-primary/10 border-primary/30' : ''} ${order.printed_quantity >= order.quantity ? 'bg-green-50 dark:bg-green-950/20' : ''} ${order._partiallyPrinted ? 'bg-yellow-50 dark:bg-yellow-950/20' : ''} ${index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}`}>
                                 {/* Enhanced Checkbox Cell */}
                                 <TableCell className="w-12 border-r border-border/50 bg-background/50">
                                    <div className="flex items-center justify-center">
@@ -4660,11 +4674,30 @@ export const POTracker = () => {
                                               </div>}
                                           </div>}
                                      </div>
-                                  </div>
-                                </TableCell>
+                                   </div>
+                                 </TableCell>
 
-                                  {/* Enhanced Print Qty Cell */}
-                                  <TableCell className="w-24 border-r border-border/50">
+                                 {/* Print Status Cell */}
+                                 <TableCell className="w-32 border-r border-border/50">
+                                   <div className="flex items-center justify-center">
+                                     {order.printed_quantity > 0 ? (
+                                       <Badge 
+                                         variant={order.printed_quantity >= order.quantity ? "default" : "secondary"}
+                                         className={order.printed_quantity >= order.quantity ? "bg-green-500 hover:bg-green-600 text-white" : "bg-yellow-500 hover:bg-yellow-600 text-white"}
+                                       >
+                                         <Printer className="h-3 w-3 mr-1" />
+                                         {order.printed_quantity}/{order.quantity}
+                                       </Badge>
+                                     ) : (
+                                       <Badge variant="outline" className="text-muted-foreground border-muted">
+                                         Not Printed
+                                       </Badge>
+                                     )}
+                                   </div>
+                                 </TableCell>
+
+                                   {/* Enhanced Print Qty Cell */}
+                                   <TableCell className="w-24 border-r border-border/50">
                                     <div className="flex items-center gap-2">
                                       {(() => {
                                   // Check if this item (or its consolidated items) are selected
