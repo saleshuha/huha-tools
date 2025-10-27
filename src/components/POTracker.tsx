@@ -1109,6 +1109,14 @@ export const POTracker = () => {
     }
   }, [poOrders?.length, isLoading]); // Only depend on length, not the functions
 
+  // Auto-expand Print Configuration when entering print step
+  useEffect(() => {
+    if (labelsStep === 'print') {
+      console.log('📋 Auto-expanding Print Configuration (entered print step)');
+      setIsPrintConfigCollapsed(false);
+    }
+  }, [labelsStep]);
+
   // Fetch inventory data for matching - Fetch ALL inventory across all countries
   const fetchInventoryData = useCallback(async () => {
     console.log('🔄 fetchInventoryData called, profile:', profile?.id);
@@ -3447,10 +3455,10 @@ export const POTracker = () => {
                       </div>
                       <div>
                         <CardTitle className="text-lg font-semibold text-foreground">
-                          Print Configuration
+                          Print Settings
                         </CardTitle>
                         <p className="text-sm text-muted-foreground mt-1">
-                          Customize your label printing settings and preview
+                          Customize template, quality, and advanced options (optional)
                         </p>
                       </div>
                     </div>
@@ -3746,198 +3754,198 @@ export const POTracker = () => {
                       </div>
                     </TabsContent>
                   </Tabs>
+                </CardContent>}
 
-                  {/* Enhanced Action Toolbar */}
-                  <div className="mt-6 pt-6 border-t border-border/30">
-                    {/* Status and Printer Section */}
-                    <div className="flex items-center justify-between mb-4 p-4 bg-gradient-to-r from-muted/30 to-muted/50 rounded-lg border border-border/30">
-                      <div className="flex items-center gap-4">
-                        {qzConnected && availablePrinters.length > 0 && <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 bg-success rounded-full animate-glow-pulse"></div>
-                              <Label className="text-sm font-medium">Printer:</Label>
-                            </div>
-                            <Select value={selectedPrinter} onValueChange={setSelectedPrinter}>
-                              <SelectTrigger className="w-[220px] bg-background/70 border-border/50 hover:border-primary/50">
-                                <SelectValue placeholder="Select printer" />
-                              </SelectTrigger>
-                              <SelectContent className="bg-popover border shadow-medium z-50">
-                                {availablePrinters.map(printer => <SelectItem key={printer} value={printer} className="hover:bg-accent/50">
-                                    <div className="flex items-center gap-2">
-                                      <Printer className="h-3 w-3" />
-                                      {printer}
-                                    </div>
-                                  </SelectItem>)}
-                              </SelectContent>
-                            </Select>
+                {/* Print Action Section - Always Visible */}
+                <CardContent className="p-6 border-t border-border/30 bg-gradient-to-b from-card/80 to-card">
+                  {/* Status and Printer Section */}
+                  <div className="flex items-center justify-between mb-4 p-4 bg-gradient-to-r from-muted/30 to-muted/50 rounded-lg border border-border/30">
+                    <div className="flex items-center gap-4">
+                      {qzConnected && availablePrinters.length > 0 && <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 bg-success rounded-full animate-glow-pulse"></div>
+                            <Label className="text-sm font-medium">Printer:</Label>
+                          </div>
+                          <Select value={selectedPrinter} onValueChange={setSelectedPrinter}>
+                            <SelectTrigger className="w-[220px] bg-background/70 border-border/50 hover:border-primary/50">
+                              <SelectValue placeholder="Select printer" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-popover border shadow-medium z-50">
+                              {availablePrinters.map(printer => <SelectItem key={printer} value={printer} className="hover:bg-accent/50">
+                                  <div className="flex items-center gap-2">
+                                    <Printer className="h-3 w-3" />
+                                    {printer}
+                                  </div>
+                                </SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>}
+
+                      <Badge variant={qzConnected ? 'default' : 'destructive'} className={`text-xs font-medium ${qzConnected ? 'bg-success/10 text-success-foreground' : ''}`}>
+                        {qzConnected ? <div className="flex items-center gap-1">
+                            <div className="w-1.5 h-1.5 bg-success rounded-full"></div>
+                            QZ Connected ({availablePrinters.length} printers)
+                          </div> : <div className="flex items-center gap-1">
+                            <div className="w-1.5 h-1.5 bg-destructive rounded-full"></div>
+                            QZ Disconnected
                           </div>}
-
-                        <Badge variant={qzConnected ? 'default' : 'destructive'} className={`text-xs font-medium ${qzConnected ? 'bg-success/10 text-success-foreground' : ''}`}>
-                          {qzConnected ? <div className="flex items-center gap-1">
-                              <div className="w-1.5 h-1.5 bg-success rounded-full"></div>
-                              QZ Connected ({availablePrinters.length} printers)
-                            </div> : <div className="flex items-center gap-1">
-                              <div className="w-1.5 h-1.5 bg-destructive rounded-full"></div>
-                              QZ Disconnected
-                            </div>}
-                        </Badge>
-                      </div>
-
-                      {/* Quick Stats */}
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <div className="w-2 h-2 bg-primary rounded-full"></div>
-                          {selectedForPrint.size} selected
-                        </div>
-                      </div>
+                      </Badge>
                     </div>
 
-                     {/* Primary Action Buttons */}
-                    <div className="flex items-center justify-between p-4 border-2 border-border rounded-lg bg-card/50">
-                      {(() => {
-                    console.log('🎨 Rendering action buttons with selectedForPrint.size:', selectedForPrint.size);
-                    return <>
-                      <div className="flex items-center gap-3">
-                        {/* Preview Button */}
-                        <Button variant="outline" size="lg" disabled={selectedForPrint.size === 0} className="group hover:shadow-soft transition-all border-2 border-border hover:border-primary" onClick={() => console.log('Preview clicked with selection:', selectedForPrint.size)}>
-                          <div className="flex items-center gap-2">
-                            <div className="p-1 bg-accent/10 rounded group-hover:bg-accent/20 transition-colors">
-                              <div className="w-3 h-3 bg-accent rounded-sm"></div>
-                            </div>
-                            Preview Labels
-                          </div>
-                        </Button>
-
-                        {/* Download Button */}
-                        <Button variant="outline" size="lg" onClick={() => {
-                          console.log('Download clicked with selection:', selectedForPrint.size);
-                          handleDownloadZPL();
-                        }} disabled={selectedForPrint.size === 0} className="group hover:shadow-soft transition-all border-2 border-border hover:border-primary">
-                          <div className="flex items-center gap-2">
-                            <Download className="h-4 w-4 group-hover:scale-110 transition-transform" />
-                            Download ZPL
-                            {selectedForPrint.size > 0 && <Badge variant="secondary" className="ml-1 text-xs">
-                                {selectedForPrint.size}
-                              </Badge>}
-                          </div>
-                        </Button>
+                    {/* Quick Stats */}
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 bg-primary rounded-full"></div>
+                        {selectedForPrint.size} selected
                       </div>
-                      
-                      {/* Print Requirements Checklist */}
-                      <Card className="border-border/50 bg-gradient-to-br from-card/50 to-card/30 backdrop-blur-sm mb-4">
-                        <CardContent className="p-4">
-                          <div className="flex items-center gap-4">
-                            <div className="text-sm font-medium text-muted-foreground">Print Requirements:</div>
-                            <div className="flex items-center gap-6">
-                              <div className="flex items-center gap-2">
-                                {selectedForPrint.size > 0 ? (
-                                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                ) : (
-                                  <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                                )}
-                                <span className={`text-sm ${selectedForPrint.size > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
-                                  Items Selected: {selectedForPrint.size}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {qzConnected ? (
-                                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                ) : (
-                                  <AlertCircle className="h-4 w-4 text-warning" />
-                                )}
-                                <span className={`text-sm ${qzConnected ? 'text-foreground' : 'text-warning-foreground'}`}>
-                                  QZ Tray {qzConnected ? 'Connected' : 'Not Connected'}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {selectedPrinter ? (
-                                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                ) : (
-                                  <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                                )}
-                                <span className={`text-sm ${selectedPrinter ? 'text-foreground' : 'text-muted-foreground'}`}>
-                                  Printer: {selectedPrinter || 'Not Selected'}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
+                    </div>
+                  </div>
 
-                      {/* Primary Print Button */}
-                      {(() => {
-                        const isPrintDisabled = selectedForPrint.size === 0 || !qzConnected || !selectedPrinter || isPrinting || isPrintStatusUpdating;
-                        const disabledReason = isPrintDisabled ? (
-                          selectedForPrint.size === 0 ? 'No items selected' :
-                          !qzConnected ? 'QZ Tray not connected' :
-                          !selectedPrinter ? 'No printer selected' :
-                          isPrinting ? 'Currently printing' :
-                          isPrintStatusUpdating ? 'Updating print status' : 'Unknown'
-                        ) : 'Ready to print';
-                        
-                        console.log('🎯 Print Button State:', {
-                          isPrintDisabled,
-                          selectedCount: selectedForPrint.size,
-                          qzConnected,
-                          selectedPrinter,
-                          isPrinting,
-                          isPrintStatusUpdating,
+                  {/* Print Requirements Checklist */}
+                  <Card className="border-border/50 bg-gradient-to-br from-card/50 to-card/30 backdrop-blur-sm mb-4">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-4">
+                        <div className="text-sm font-medium text-muted-foreground">Print Requirements:</div>
+                        <div className="flex items-center gap-6">
+                          <div className="flex items-center gap-2">
+                            {selectedForPrint.size > 0 ? (
+                              <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                            )}
+                            <span className={`text-sm ${selectedForPrint.size > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
+                              Items Selected: {selectedForPrint.size}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {qzConnected ? (
+                              <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <AlertCircle className="h-4 w-4 text-warning" />
+                            )}
+                            <span className={`text-sm ${qzConnected ? 'text-foreground' : 'text-warning-foreground'}`}>
+                              QZ Tray {qzConnected ? 'Connected' : 'Not Connected'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {selectedPrinter ? (
+                              <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                            )}
+                            <span className={`text-sm ${selectedPrinter ? 'text-foreground' : 'text-muted-foreground'}`}>
+                              Printer: {selectedPrinter || 'Not Selected'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                   {/* Primary Action Buttons */}
+                  <div className="flex items-center justify-between p-4 border-2 border-border rounded-lg bg-card/50">
+                    {(() => {
+                  console.log('🎨 Rendering action buttons with selectedForPrint.size:', selectedForPrint.size);
+                  return <>
+                    <div className="flex items-center gap-3">
+                      {/* Preview Button */}
+                      <Button variant="outline" size="lg" disabled={selectedForPrint.size === 0} className="group hover:shadow-soft transition-all border-2 border-border hover:border-primary" onClick={() => console.log('Preview clicked with selection:', selectedForPrint.size)}>
+                        <div className="flex items-center gap-2">
+                          <div className="p-1 bg-accent/10 rounded group-hover:bg-accent/20 transition-colors">
+                            <div className="w-3 h-3 bg-accent rounded-sm"></div>
+                          </div>
+                          Preview Labels
+                        </div>
+                      </Button>
+
+                      {/* Download Button */}
+                      <Button variant="outline" size="lg" onClick={() => {
+                        console.log('Download clicked with selection:', selectedForPrint.size);
+                        handleDownloadZPL();
+                      }} disabled={selectedForPrint.size === 0} className="group hover:shadow-soft transition-all border-2 border-border hover:border-primary">
+                        <div className="flex items-center gap-2">
+                          <Download className="h-4 w-4 group-hover:scale-110 transition-transform" />
+                          Download ZPL
+                          {selectedForPrint.size > 0 && <Badge variant="secondary" className="ml-1 text-xs">
+                              {selectedForPrint.size}
+                            </Badge>}
+                        </div>
+                      </Button>
+                    </div>
+                    
+                    {/* Primary Print Button */}
+                    {(() => {
+                      const isPrintDisabled = selectedForPrint.size === 0 || !qzConnected || !selectedPrinter || isPrinting || isPrintStatusUpdating;
+                      const disabledReason = isPrintDisabled ? (
+                        selectedForPrint.size === 0 ? 'No items selected' :
+                        !qzConnected ? 'QZ Tray not connected' :
+                        !selectedPrinter ? 'No printer selected' :
+                        isPrinting ? 'Currently printing' :
+                        isPrintStatusUpdating ? 'Updating print status' : 'Unknown'
+                      ) : 'Ready to print';
+                      
+                      console.log('🎯 Print Button State:', {
+                        isPrintDisabled,
+                        selectedCount: selectedForPrint.size,
+                        qzConnected,
+                        selectedPrinter,
+                        isPrinting,
+                        isPrintStatusUpdating,
+                        reason: disabledReason
+                      });
+                      
+                      return <Button size="lg" onClick={() => {
+                        console.log('🖨️ Print clicked:', {
+                          selection: selectedForPrint.size,
+                          qz: qzConnected,
+                          printer: selectedPrinter,
                           reason: disabledReason
                         });
-                        
-                        return <Button size="lg" onClick={() => {
-                          console.log('🖨️ Print clicked:', {
-                            selection: selectedForPrint.size,
-                            qz: qzConnected,
-                            printer: selectedPrinter,
-                            reason: disabledReason
-                          });
-                          handleDirectPrint();
-                        }} disabled={isPrintDisabled} className="bg-primary hover:bg-primary-dark text-primary-foreground shadow-glow hover:shadow-accent-glow transition-all group min-w-[180px] border-2 border-primary-dark">
-                        {isPrinting ? <div className="flex items-center gap-2">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            <span>Printing...</span>
-                            <div className="w-2 h-2 bg-background/50 rounded-full animate-bounce"></div>
-                          </div> : isPrintStatusUpdating ? <div className="flex items-center gap-2">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            <span>Updating status...</span>
-                          </div> : <div className="flex items-center gap-2">
-                            <Printer className="h-4 w-4 group-hover:scale-110 transition-transform" />
-                            <span>Print Labels</span>
-                            {selectedForPrint.size > 0 && <Badge variant="secondary" className="ml-1 bg-background/20 text-primary-foreground">
-                                {selectedForPrint.size}
-                              </Badge>}
-                          </div>}
-                      </Button>;
-                      })()}
-                          </>;
-                  })()}
-                    </div>
-
-                    {/* Connection Status Alert */}
-                    {!qzConnected && <div className="mt-4 p-4 bg-gradient-to-r from-warning/10 to-warning/5 border border-warning/20 rounded-lg animate-fade-in">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 bg-warning/10 rounded-lg">
-                              <AlertCircle className="h-4 w-4 text-warning" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-warning-foreground">
-                                QZ Tray Connection Required
-                              </p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Labels will be downloaded instead of printed directly
-                              </p>
-                            </div>
-                          </div>
-                          <Button variant="outline" size="sm" onClick={initializeQZ} className="hover:bg-warning/10 hover:border-warning/30">
-                            <RefreshCw className="h-4 w-4 mr-2" />
-                            Connect QZ Tray
-                          </Button>
-                        </div>
-                      </div>}
+                        handleDirectPrint();
+                      }} disabled={isPrintDisabled} className="bg-primary hover:bg-primary-dark text-primary-foreground shadow-glow hover:shadow-accent-glow transition-all group min-w-[180px] border-2 border-primary-dark">
+                      {isPrinting ? <div className="flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>Printing...</span>
+                          <div className="w-2 h-2 bg-background/50 rounded-full animate-bounce"></div>
+                        </div> : isPrintStatusUpdating ? <div className="flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>Updating status...</span>
+                        </div> : <div className="flex items-center gap-2">
+                          <Printer className="h-4 w-4 group-hover:scale-110 transition-transform" />
+                          <span>Print Labels</span>
+                          {selectedForPrint.size > 0 && <Badge variant="secondary" className="ml-1 bg-background/20 text-primary-foreground">
+                              {selectedForPrint.size}
+                            </Badge>}
+                        </div>}
+                    </Button>;
+                    })()}
+                        </>;
+                })()}
                   </div>
-                </CardContent>}
+
+                  {/* Connection Status Alert */}
+                  {!qzConnected && <div className="mt-4 p-4 bg-gradient-to-r from-warning/10 to-warning/5 border border-warning/20 rounded-lg animate-fade-in">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-warning/10 rounded-lg">
+                            <AlertCircle className="h-4 w-4 text-warning" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-warning-foreground">
+                              QZ Tray Connection Required
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Labels will be downloaded instead of printed directly
+                            </p>
+                          </div>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={initializeQZ} className="hover:bg-warning/10 hover:border-warning/30">
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Connect QZ Tray
+                        </Button>
+                      </div>
+                    </div>}
+                </CardContent>
               </Card>
 
               {/* Enhanced Items Selection Table */}
