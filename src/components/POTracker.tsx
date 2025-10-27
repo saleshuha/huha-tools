@@ -1675,11 +1675,27 @@ export const POTracker = () => {
 
   const clearSavedSelection = useCallback(() => {
     try {
+      // Clear from localStorage
       localStorage.removeItem('poTracker_lastSelectedPOs');
+      
+      // Also clear the current selection state
+      setSelectedPOsForLabels(new Set());
+      
       toast({
-        title: "Saved selection cleared",
-        description: "Your previously saved PO selection has been cleared.",
+        title: "Selection cleared",
+        description: "Your saved and current PO selections have been cleared.",
         variant: "default"
+      });
+      
+      // Track the action
+      trackAction({
+        category: 'Amazon',
+        subcategory: 'PO Tracker',
+        actionName: 'clear_saved_selection',
+        actionType: 'selection_clear',
+        metadata: {
+          had_active_selection: selectedPOsForLabels.size > 0
+        }
       });
     } catch (error) {
       console.error('Failed to clear saved POs:', error);
@@ -1689,7 +1705,7 @@ export const POTracker = () => {
         variant: "destructive"
       });
     }
-  }, [toast]);
+  }, [toast, trackAction, selectedPOsForLabels.size]);
 
   const groupedPOOrders = useMemo(() => {
     console.log('📦 GROUPING START:', {
