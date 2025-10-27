@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -3770,10 +3771,13 @@ export const POTracker = () => {
                       </div>
                       
                       {/* Primary Print Button */}
-                      <Button size="lg" onClick={() => {
-                        console.log('Print clicked with selection:', selectedForPrint.size, 'QZ:', qzConnected, 'Printer:', selectedPrinter);
-                        handleDirectPrint();
-                      }} disabled={selectedForPrint.size === 0 || !qzConnected || !selectedPrinter || isPrinting || isPrintStatusUpdating} className="bg-primary hover:bg-primary-dark text-primary-foreground shadow-glow hover:shadow-accent-glow transition-all group min-w-[180px] border-2 border-primary-dark">
+                      {(() => {
+                        const isPrintDisabled = selectedForPrint.size === 0 || !qzConnected || !selectedPrinter || isPrinting || isPrintStatusUpdating;
+                        console.log('🎯 Print Button State:', { isPrintDisabled, size: selectedForPrint.size, qzConnected, selectedPrinter });
+                        return <Button size="lg" onClick={() => {
+                          console.log('Print clicked with selection:', selectedForPrint.size, 'QZ:', qzConnected, 'Printer:', selectedPrinter);
+                          handleDirectPrint();
+                        }} disabled={isPrintDisabled} className="bg-primary hover:bg-primary-dark text-primary-foreground shadow-glow hover:shadow-accent-glow transition-all group min-w-[180px] border-2 border-primary-dark">
                         {isPrinting ? <div className="flex items-center gap-2">
                             <Loader2 className="h-4 w-4 animate-spin" />
                             <span>Printing...</span>
@@ -3788,7 +3792,8 @@ export const POTracker = () => {
                                 {selectedForPrint.size}
                               </Badge>}
                           </div>}
-                      </Button>
+                      </Button>;
+                      })()}
                           </>;
                   })()}
                     </div>
@@ -4234,7 +4239,7 @@ export const POTracker = () => {
                                 {/* Enhanced Checkbox Cell */}
                                 <TableCell className="w-12 border-r border-border/50 bg-background/50">
                                    <div className="flex items-center justify-center">
-                                     <input type="checkbox" checked={order._isConsolidated ? (order._consolidatedOrders && order._consolidatedOrders.length > 0 ? order._consolidatedOrders.every((o: any) => selectedForPrint.has(o.id)) : selectedForPrint.has(order.id)) : selectedForPrint.has(order.id)} onChange={e => {
+                                     <Checkbox checked={order._isConsolidated ? (order._consolidatedOrders && order._consolidatedOrders.length > 0 ? order._consolidatedOrders.every((o: any) => selectedForPrint.has(o.id)) : selectedForPrint.has(order.id)) : selectedForPrint.has(order.id)} onCheckedChange={checked => {
                                   const newSelected = new Map(selectedForPrint);
                                   console.log('🔘 Checkbox clicked:', {
                                     orderId: order.id,
@@ -4242,13 +4247,13 @@ export const POTracker = () => {
                                     isConsolidated: order._isConsolidated,
                                     hasConsolidatedOrders: !!order._consolidatedOrders,
                                     consolidatedOrdersCount: order._consolidatedOrders?.length || 0,
-                                    checked: e.target.checked,
+                                    checked: checked,
                                     currentSize: selectedForPrint.size
                                   });
                                   if (order._isConsolidated) {
                                     // For consolidated items, select/deselect all underlying orders
                                     if (order._consolidatedOrders && order._consolidatedOrders.length > 0) {
-                                      if (e.target.checked) {
+                                      if (checked) {
                                         order._consolidatedOrders.forEach((o: any) => newSelected.set(o.id, 1));
                                         console.log('✅ Added consolidated orders:', order._consolidatedOrders.map((o: any) => o.id));
                                       } else {
@@ -4262,7 +4267,7 @@ export const POTracker = () => {
                                         asin: order.asin,
                                         fallbackToConsolidatedId: true
                                       });
-                                      if (e.target.checked) {
+                                      if (checked) {
                                         newSelected.set(order.id, 1);
                                         console.log('✅ Added consolidated order (fallback):', order.id);
                                       } else {
@@ -4271,7 +4276,7 @@ export const POTracker = () => {
                                       }
                                     }
                                   } else {
-                                    if (e.target.checked) {
+                                    if (checked) {
                                       newSelected.set(order.id, 1); // Default quantity of 1
                                       console.log('✅ Added single order:', order.id);
                                     } else {
@@ -4283,8 +4288,8 @@ export const POTracker = () => {
                                     newSize: newSelected.size,
                                     selectedIds: Array.from(newSelected.keys())
                                   });
-                                  setSelectedForPrint(newSelected);
-                                }} className="h-4 w-4 rounded border-border accent-primary group-hover:scale-110 transition-transform" />
+                                  setSelectedForPrint(prev => new Map(newSelected));
+                                }} className="group-hover:scale-110 transition-transform" />
                                   </div>
                                 </TableCell>
 
