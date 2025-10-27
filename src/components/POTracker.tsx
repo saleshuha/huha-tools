@@ -555,19 +555,23 @@ export const POTracker = () => {
     }
   };
   const loadPrinters = async () => {
+    console.log('🖨️ Loading printers...');
     try {
       const printers = await qzConnectionManager.getPrinters();
+      console.log('✅ Printers loaded:', { count: printers.length, printers });
       setAvailablePrinters(printers);
 
       // Set default printer
       const defaultPrinter = await qzConnectionManager.getDefaultPrinter();
+      console.log('🎯 Default printer:', defaultPrinter);
       if (defaultPrinter) {
         setSelectedPrinter(defaultPrinter);
       } else if (printers.length > 0) {
         setSelectedPrinter(printers[0]);
+        console.log('📌 Using first available printer:', printers[0]);
       }
     } catch (error) {
-      console.error('Failed to load printers:', error);
+      console.error('❌ Failed to load printers:', error);
       setAvailablePrinters([]);
     }
   };
@@ -1024,27 +1028,76 @@ export const POTracker = () => {
       }))
     });
   }, [poOrders, isLoading, selectedCountry]);
+
+  // Listen to QZ Tray connection status changes
+  useEffect(() => {
+    const handleConnectionChange = (connected: boolean) => {
+      console.log('🔌 QZ Tray connection status changed:', { connected });
+      setQzConnected(connected);
+      if (connected) {
+        loadPrinters();
+      }
+    };
+
+    qzConnectionManager.addConnectionListener(handleConnectionChange);
+    
+    // Check initial connection status
+    const initialStatus = qzConnectionManager.getConnectionStatus();
+    console.log('🔌 Initial QZ Tray status:', initialStatus);
+    setQzConnected(initialStatus);
+
+    return () => {
+      qzConnectionManager.removeConnectionListener(handleConnectionChange);
+    };
+  }, []);
+
+  // Log QZ and printer state changes
+  useEffect(() => {
+    console.log('📋 Print Requirements State:', {
+      qzConnected,
+      selectedPrinter,
+      availablePrinters: availablePrinters.length,
+      selectedItemsCount: selectedForPrint.size,
+      canPrint: qzConnected && selectedPrinter && selectedForPrint.size > 0
+    });
+  }, [qzConnected, selectedPrinter, availablePrinters, selectedForPrint.size]);
   const initializeQZ = async () => {
+    console.log('🔌 Initializing QZ Tray connection...');
     try {
       const connected = await qzConnectionManager.connect();
+      console.log('🔌 QZ Tray connection result:', { connected });
+      setQzConnected(connected);
+      
       if (connected) {
         const printers = await qzConnectionManager.getPrinters();
+        console.log('🖨️ QZ Tray printers found:', { count: printers.length, printers });
         setAvailablePrinters(printers);
 
         // Set default printer
         const defaultPrinter = await qzConnectionManager.getDefaultPrinter();
+        console.log('🎯 QZ Tray default printer:', defaultPrinter);
         if (defaultPrinter) {
           setSelectedPrinter(defaultPrinter);
         } else if (printers.length > 0) {
           setSelectedPrinter(printers[0]);
+          console.log('📌 QZ Tray using first printer:', printers[0]);
         }
         toast({
           title: "QZ Tray Connected",
           description: `Found ${printers.length} printer(s)`
         });
+      } else {
+        console.warn('⚠️ QZ Tray connection failed - print button will be disabled');
+        setQzConnected(false);
       }
     } catch (error) {
-      console.error('Failed to connect to QZ Tray:', error);
+      console.error('❌ Failed to connect to QZ Tray:', error);
+      setQzConnected(false);
+      toast({
+        title: "QZ Tray Connection Failed",
+        description: "Make sure QZ Tray is running and try again",
+        variant: "destructive"
+      });
     }
   };
 
@@ -3770,12 +3823,75 @@ export const POTracker = () => {
                         </Button>
                       </div>
                       
+                      {/* Print Requirements Checklist */}
+                      <Card className="border-border/50 bg-gradient-to-br from-card/50 to-card/30 backdrop-blur-sm mb-4">
+                        <CardContent className="p-4">
+                          <div className="flex items-center gap-4">
+                            <div className="text-sm font-medium text-muted-foreground">Print Requirements:</div>
+                            <div className="flex items-center gap-6">
+                              <div className="flex items-center gap-2">
+                                {selectedForPrint.size > 0 ? (
+                                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                ) : (
+                                  <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                                )}
+                                <span className={`text-sm ${selectedForPrint.size > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
+                                  Items Selected: {selectedForPrint.size}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {qzConnected ? (
+                                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                ) : (
+                                  <AlertCircle className="h-4 w-4 text-warning" />
+                                )}
+                                <span className={`text-sm ${qzConnected ? 'text-foreground' : 'text-warning-foreground'}`}>
+                                  QZ Tray {qzConnected ? 'Connected' : 'Not Connected'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {selectedPrinter ? (
+                                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                ) : (
+                                  <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                                )}
+                                <span className={`text-sm ${selectedPrinter ? 'text-foreground' : 'text-muted-foreground'}`}>
+                                  Printer: {selectedPrinter || 'Not Selected'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
                       {/* Primary Print Button */}
                       {(() => {
                         const isPrintDisabled = selectedForPrint.size === 0 || !qzConnected || !selectedPrinter || isPrinting || isPrintStatusUpdating;
-                        console.log('🎯 Print Button State:', { isPrintDisabled, size: selectedForPrint.size, qzConnected, selectedPrinter });
+                        const disabledReason = isPrintDisabled ? (
+                          selectedForPrint.size === 0 ? 'No items selected' :
+                          !qzConnected ? 'QZ Tray not connected' :
+                          !selectedPrinter ? 'No printer selected' :
+                          isPrinting ? 'Currently printing' :
+                          isPrintStatusUpdating ? 'Updating print status' : 'Unknown'
+                        ) : 'Ready to print';
+                        
+                        console.log('🎯 Print Button State:', {
+                          isPrintDisabled,
+                          selectedCount: selectedForPrint.size,
+                          qzConnected,
+                          selectedPrinter,
+                          isPrinting,
+                          isPrintStatusUpdating,
+                          reason: disabledReason
+                        });
+                        
                         return <Button size="lg" onClick={() => {
-                          console.log('Print clicked with selection:', selectedForPrint.size, 'QZ:', qzConnected, 'Printer:', selectedPrinter);
+                          console.log('🖨️ Print clicked:', {
+                            selection: selectedForPrint.size,
+                            qz: qzConnected,
+                            printer: selectedPrinter,
+                            reason: disabledReason
+                          });
                           handleDirectPrint();
                         }} disabled={isPrintDisabled} className="bg-primary hover:bg-primary-dark text-primary-foreground shadow-glow hover:shadow-accent-glow transition-all group min-w-[180px] border-2 border-primary-dark">
                         {isPrinting ? <div className="flex items-center gap-2">
