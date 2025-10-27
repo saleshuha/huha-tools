@@ -4066,6 +4066,60 @@ export type Database = {
         }
         Relationships: []
       }
+      taxonomy_events: {
+        Row: {
+          action_name: string | null
+          category: string
+          component_name: string | null
+          created_at: string
+          duration_ms: number | null
+          event_type: string
+          id: string
+          metadata: Json | null
+          page_route: string
+          page_title: string | null
+          session_id: string
+          subcategory: string
+          tab_id: string | null
+          tab_title: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action_name?: string | null
+          category: string
+          component_name?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          page_route: string
+          page_title?: string | null
+          session_id: string
+          subcategory: string
+          tab_id?: string | null
+          tab_title?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action_name?: string | null
+          category?: string
+          component_name?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          page_route?: string
+          page_title?: string | null
+          session_id?: string
+          subcategory?: string
+          tab_id?: string | null
+          tab_title?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       template_stores: {
         Row: {
           created_at: string

@@ -33,6 +33,7 @@ import { useNavigate } from 'react-router-dom';
 import { PrintService } from '@/services/print-service';
 import { LabelDoc, LabelDataset, LabelElement, LabelSize } from '@/types/label';
 import { exportMetricToCSV, exportAllMetrics, calculateMetricPercentage } from '@/utils/po-metrics-export';
+import { useTaxonomy } from '@/hooks/useTaxonomy';
 export interface POOrder {
   id: string;
   user_id: string;
@@ -552,6 +553,7 @@ export const POTracker = () => {
     refreshImages
   } = useProductImages();
   const { toast } = useToast();
+  const { trackTabChange, trackAction } = useTaxonomy();
   const queryClient = useQueryClient();
   // Function to handle bulk PO closing
   const handleBulkClosePOs = async (poNumbers: string[]) => {
@@ -2086,7 +2088,19 @@ export const POTracker = () => {
       </div>
 
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs value={activeTab} onValueChange={(newTab) => {
+        trackTabChange({
+          category: 'Amazon',
+          subcategory: 'PO Tracker',
+          fromTab: activeTab,
+          toTab: newTab,
+          tabTitle: newTab === 'overview' ? 'PO Overview' : 
+                   newTab === 'upload' ? 'Uploads' : 
+                   newTab === 'labels' ? 'Print Labels' : 
+                   newTab === 'reports' ? 'Reports' : newTab
+        });
+        setActiveTab(newTab);
+      }} className="w-full">
         <TabsList className="grid w-full grid-cols-5 h-12 bg-muted/30 rounded-lg p-1 border border-border shadow-soft">
           <TabsTrigger value="overview" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
             <Package className="h-4 w-4" />

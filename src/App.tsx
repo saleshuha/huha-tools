@@ -12,6 +12,7 @@ import type { User, Session } from "@supabase/supabase-js";
 import { CountryProvider } from "@/contexts/CountryContext";
 import { BackgroundTasksProvider } from "@/contexts/BackgroundTasksContext";
 import { ThemeConfigProvider } from "@/contexts/ThemeConfigContext";
+import { TaxonomyProvider } from "@/contexts/TaxonomyContext";
 import { FloatingProgressIndicator } from "@/components/FloatingProgressIndicator";
 import { AppSidebar } from "@/components/AppSidebar";
 import { CountrySwitcher } from "@/components/CountrySwitcher";
@@ -197,6 +198,7 @@ const App = () => {
               <ThemeConfigProvider>
                 <CountryProvider>
                   <BackgroundTasksProvider>
+                    <TaxonomyProvider>
             <Toaster />
             <Sonner />
             <BrowserRouter>
@@ -314,6 +316,7 @@ const App = () => {
                 />
               </SidebarProvider>
             </BrowserRouter>
+                    </TaxonomyProvider>
                   </BackgroundTasksProvider>
                 </CountryProvider>
               </ThemeConfigProvider>

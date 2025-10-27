@@ -2,12 +2,14 @@ import { POTracker } from '@/components/POTracker';
 import { ShoppingCart, RefreshCw } from 'lucide-react';
 import { HuhaHeader01 } from '@/components/ui/huha-header-01';
 import { useUserProfile } from '@/hooks/useUserProfile';
+import { useTaxonomy } from '@/hooks/useTaxonomy';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function POTrackerPage() {
   const { profile, loading: profileLoading } = useUserProfile();
+  const { trackPageView } = useTaxonomy();
   const [authChecked, setAuthChecked] = useState(false);
   const [userAuth, setUserAuth] = useState<any>(null);
 
@@ -25,6 +27,19 @@ export default function POTrackerPage() {
     };
     checkAuth();
   }, [profile, profileLoading]);
+
+  // Track page view
+  useEffect(() => {
+    trackPageView({
+      category: 'Amazon',
+      subcategory: 'PO Tracker',
+      pageRoute: '/po-tracker',
+      pageTitle: 'Amazon Retail - Purchase Orders',
+      metadata: {
+        features: ['bulk_import', 'print_labels', 'export', 'analytics', 'sunsky_matching']
+      }
+    });
+  }, [trackPageView]);
 
   const handleHardRefresh = () => {
     console.log('🔄 Hard refreshing page...');
