@@ -1,5 +1,5 @@
 // POTracker component for Amazon purchase orders - updated
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -1794,6 +1794,9 @@ export const POTracker = () => {
     return paginated;
   }, [groupedPOOrders, startIndex, endIndex, currentPage, itemsPerPage]);
 
+  // Ref to store current ordersToDisplay for print operations
+  const ordersToDisplayRef = useRef<POOrder[]>([]);
+
   // Handle print functionality with advanced settings
   const handleDirectPrint = async () => {
     if (!qzConnected) {
@@ -1822,16 +1825,67 @@ export const POTracker = () => {
     }
     setIsPrinting(true);
     try {
-      const selectedOrders = poOrders.filter(order => selectedForPrint.has(order.id));
+      // Detect consolidated vs regular orders
+      const selectedOrders: POOrder[] = [];
+      const consolidatedSelections = new Map<string, { qty: number, orders: POOrder[] }>();
 
-      // Generate ZPL for each selected item using selected template
+      for (const [orderId, quantity] of selectedForPrint.entries()) {
+        if (orderId.startsWith('consolidated-')) {
+          // Find the consolidated order from the display list
+          const displayedOrder = ordersToDisplayRef.current.find(o => o.id === orderId);
+          if (displayedOrder?._consolidatedOrders) {
+            consolidatedSelections.set(orderId, {
+              qty: quantity,
+              orders: displayedOrder._consolidatedOrders
+            });
+            // Add all underlying orders
+            selectedOrders.push(...displayedOrder._consolidatedOrders);
+          }
+        } else {
+          // Regular order
+          const order = poOrders.find(o => o.id === orderId);
+          if (order) selectedOrders.push(order);
+        }
+      }
+
+      console.log('🖨️ Print selections:', {
+        consolidated: consolidatedSelections.size,
+        regular: selectedOrders.length - Array.from(consolidatedSelections.values()).reduce((sum, c) => sum + c.orders.length, 0)
+      });
+
+      // Generate ZPL for each selected item
       let allZPLCodes: string[] = [];
+      const processedConsolidatedGroups = new Set<string>();
+
       for (const order of selectedOrders) {
-        const customQuantity = selectedForPrint.get(order.id) || 1;
-        const copies = printSettings.copiesByQuantity ? customQuantity : customQuantity;
-        for (let i = 0; i < copies; i++) {
-          let zplCode = generateZPLFromTemplate(order, printSettings);
-          allZPLCodes.push(zplCode);
+        // Check if this order belongs to a consolidated group
+        const consolidatedEntry = Array.from(consolidatedSelections.entries()).find(([_, data]) =>
+          data.orders.some(o => o.id === order.id)
+        );
+
+        if (consolidatedEntry) {
+          const [consolidatedId, { qty: consolidatedQty }] = consolidatedEntry;
+          
+          // Only process this consolidated group once
+          if (processedConsolidatedGroups.has(consolidatedId)) {
+            continue;
+          }
+          processedConsolidatedGroups.add(consolidatedId);
+          
+          console.log(`📦 Printing consolidated item ${consolidatedId}: ${consolidatedQty} copies`);
+          
+          // Print based on consolidated quantity
+          for (let i = 0; i < consolidatedQty; i++) {
+            let zplCode = generateZPLFromTemplate(order, printSettings);
+            allZPLCodes.push(zplCode);
+          }
+        } else {
+          // Regular non-consolidated order
+          const customQuantity = selectedForPrint.get(order.id) || 1;
+          for (let i = 0; i < customQuantity; i++) {
+            let zplCode = generateZPLFromTemplate(order, printSettings);
+            allZPLCodes.push(zplCode);
+          }
         }
       }
 
@@ -1840,10 +1894,10 @@ export const POTracker = () => {
         throw new Error("No labels generated");
       }
 
-      // Set printer darkness
       const darknessCommand = `~SD${printSettings.darkness.toString().padStart(2, '0')}`;
       const finalZPL = darknessCommand + '\n' + allZPLCodes.join('\n');
       await qzConnectionManager.print(finalZPL, selectedPrinter);
+      
       toast({
         title: "Labels printed successfully",
         description: `Printed ${allZPLCodes.length} labels to ${selectedPrinter}`
@@ -1855,26 +1909,47 @@ export const POTracker = () => {
       setIsPrintStatusUpdating(true);
       
       const updatePromises = selectedOrders.map(async order => {
-        const customQuantity = selectedForPrint.get(order.id) || 1;
-        const copies = printSettings.copiesByQuantity ? customQuantity : customQuantity;
-        const newPrintedQuantity = (order.printed_quantity || 0) + copies;
-        console.log(`  📌 Order ${order.id}: ${order.printed_quantity || 0} + ${copies} = ${newPrintedQuantity}`);
-        const {
-          error
-        } = await supabase.from('po_orders').update({
+        // Check if this order is part of a consolidated group
+        const consolidatedEntry = Array.from(consolidatedSelections.entries()).find(([_, data]) =>
+          data.orders.some(o => o.id === order.id)
+        );
+
+        let copiesToRecord: number;
+        
+        if (consolidatedEntry) {
+          const [_, { qty: consolidatedQty, orders: underlyingOrders }] = consolidatedEntry;
+          
+          // Distribute the consolidated quantity proportionally
+          const totalQuantity = underlyingOrders.reduce((sum, o) => sum + (o.quantity || 0), 0);
+          const proportion = (order.quantity || 0) / totalQuantity;
+          copiesToRecord = Math.round(consolidatedQty * proportion);
+          
+          console.log(`  📦 Consolidated order ${order.id}: Recording ${copiesToRecord}/${consolidatedQty} (${(proportion * 100).toFixed(1)}% of total)`);
+        } else {
+          // Regular order
+          copiesToRecord = selectedForPrint.get(order.id) || 1;
+        }
+        
+        const newPrintedQuantity = (order.printed_quantity || 0) + copiesToRecord;
+        console.log(`  📌 Order ${order.id}: ${order.printed_quantity || 0} + ${copiesToRecord} = ${newPrintedQuantity}`);
+        
+        const { error } = await supabase.from('po_orders').update({
           is_printed: true,
           printed_quantity: newPrintedQuantity
         }).eq('id', order.id);
+        
         if (error) {
           console.error(`  ❌ Failed to update order ${order.id}:`, error);
           throw error;
         }
+        
         return {
           success: true,
           orderId: order.id,
           newPrintedQuantity
         };
       });
+      
       const results = await Promise.all(updatePromises);
       console.log('✅ Database updates completed:', results);
 
@@ -4244,6 +4319,7 @@ export const POTracker = () => {
 
                       // NEW: Consolidate orders by ASIN when multiple POs are selected
                       let ordersToDisplay: POOrder[] = ordersForSelectedPOs;
+                      
                       if (selectedPOsList.length > 1 && consolidatedViewMode === 'merged') {
                         console.log('🔄 CONSOLIDATING: Multiple POs selected, merging items by ASIN');
 
@@ -4317,6 +4393,10 @@ export const POTracker = () => {
                             _isConsolidated: true
                           };
                         });
+                        
+                        // Update ref for print operations
+                        ordersToDisplayRef.current = ordersToDisplay;
+                        
                         console.log('🔄 CONSOLIDATION RESULT:', {
                           originalCount: ordersForSelectedPOs.length,
                           consolidatedCount: ordersToDisplay.length,
@@ -4324,6 +4404,8 @@ export const POTracker = () => {
                         });
                       } else {
                         console.log('📋 Single PO selected, no consolidation needed');
+                        // Update ref for print operations (non-consolidated view)
+                        ordersToDisplayRef.current = ordersToDisplay;
                       }
 
                       // Apply sorting to labels tab (only if not preserving original order)
