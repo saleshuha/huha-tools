@@ -601,6 +601,16 @@ export const POTracker = () => {
   const { toast } = useToast();
   const { trackTabChange, trackAction, trackPageView } = useTaxonomy();
   const queryClient = useQueryClient();
+  
+  // Debug: Log selectedForPrint changes
+  useEffect(() => {
+    console.log('🖨️ PRINT SELECTION STATE CHANGED:', {
+      size: selectedForPrint.size,
+      selectedIds: Array.from(selectedForPrint.keys()),
+      printButtonDisabled: selectedForPrint.size === 0 || !qzConnected || !selectedPrinter
+    });
+  }, [selectedForPrint, qzConnected, selectedPrinter]);
+  
   // Persist presets to localStorage whenever they change
   useEffect(() => {
     try {
@@ -4108,6 +4118,13 @@ export const POTracker = () => {
                           asinGroups.get(key)!.push(order);
                         });
 
+                        console.log('📦 ASIN Groups:', Array.from(asinGroups.entries()).map(([asin, orders]) => ({
+                          asin,
+                          count: orders.length,
+                          orderIds: orders.map(o => o.id),
+                          poNumbers: orders.map(o => o.po_number)
+                        })));
+
                         // Create consolidated orders
                         ordersToDisplay = Array.from(asinGroups.values()).map((group): POOrder => {
                           if (group.length === 1) {
@@ -4130,11 +4147,21 @@ export const POTracker = () => {
                           // Collect all ship-to locations
                           const shipToLocations = [...new Set(group.map(o => o.ship_to_location).filter(Boolean))];
 
+                          const consolidatedId = `consolidated-${baseOrder.asin}-${group.map(o => o.id).join('-')}`;
+
+                          console.log(`🔗 CONSOLIDATED ${baseOrder.asin}:`, {
+                            consolidatedId,
+                            asin: baseOrder.asin,
+                            underlyingOrderCount: group.length,
+                            underlyingOrderIds: group.map(o => o.id),
+                            poNumbers,
+                            totalQuantity
+                          });
+
                           // Return consolidated order
                           return {
                             ...baseOrder,
-                            id: `consolidated-${baseOrder.asin}-${group.map(o => o.id).join('-')}`,
-                            // Unique consolidated ID
+                            id: consolidatedId,
                             quantity: totalQuantity,
                             printed_quantity: totalPrintedQuantity,
                             ship_to_location: shipToLocations.length > 1 ? `Multiple (${shipToLocations.length})` : shipToLocations[0] || baseOrder.ship_to_location,
@@ -4206,23 +4233,42 @@ export const POTracker = () => {
                               <TableRow className={`group hover:bg-gradient-to-r hover:from-primary/10 hover:to-accent/10 transition-all duration-300 border-b border-border ${selectedForPrint.has(order.id) ? 'bg-primary/10 border-primary/30' : ''} ${index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}`}>
                                 {/* Enhanced Checkbox Cell */}
                                 <TableCell className="w-12 border-r border-border/50 bg-background/50">
-                                  <div className="flex items-center justify-center">
-                                     <input type="checkbox" checked={order._isConsolidated ? order._consolidatedOrders.every((o: any) => selectedForPrint.has(o.id)) : selectedForPrint.has(order.id)} onChange={e => {
+                                   <div className="flex items-center justify-center">
+                                     <input type="checkbox" checked={order._isConsolidated ? (order._consolidatedOrders && order._consolidatedOrders.length > 0 ? order._consolidatedOrders.every((o: any) => selectedForPrint.has(o.id)) : selectedForPrint.has(order.id)) : selectedForPrint.has(order.id)} onChange={e => {
                                   const newSelected = new Map(selectedForPrint);
                                   console.log('🔘 Checkbox clicked:', {
                                     orderId: order.id,
+                                    asin: order.asin,
                                     isConsolidated: order._isConsolidated,
+                                    hasConsolidatedOrders: !!order._consolidatedOrders,
+                                    consolidatedOrdersCount: order._consolidatedOrders?.length || 0,
                                     checked: e.target.checked,
                                     currentSize: selectedForPrint.size
                                   });
                                   if (order._isConsolidated) {
                                     // For consolidated items, select/deselect all underlying orders
-                                    if (e.target.checked) {
-                                      order._consolidatedOrders.forEach((o: any) => newSelected.set(o.id, 1));
-                                      console.log('✅ Added consolidated orders:', order._consolidatedOrders.map((o: any) => o.id));
+                                    if (order._consolidatedOrders && order._consolidatedOrders.length > 0) {
+                                      if (e.target.checked) {
+                                        order._consolidatedOrders.forEach((o: any) => newSelected.set(o.id, 1));
+                                        console.log('✅ Added consolidated orders:', order._consolidatedOrders.map((o: any) => o.id));
+                                      } else {
+                                        order._consolidatedOrders.forEach((o: any) => newSelected.delete(o.id));
+                                        console.log('❌ Removed consolidated orders:', order._consolidatedOrders.map((o: any) => o.id));
+                                      }
                                     } else {
-                                      order._consolidatedOrders.forEach((o: any) => newSelected.delete(o.id));
-                                      console.log('❌ Removed consolidated orders:', order._consolidatedOrders.map((o: any) => o.id));
+                                      // FALLBACK: _consolidatedOrders missing, use consolidated order ID
+                                      console.warn('⚠️ Consolidated order missing _consolidatedOrders array:', {
+                                        orderId: order.id,
+                                        asin: order.asin,
+                                        fallbackToConsolidatedId: true
+                                      });
+                                      if (e.target.checked) {
+                                        newSelected.set(order.id, 1);
+                                        console.log('✅ Added consolidated order (fallback):', order.id);
+                                      } else {
+                                        newSelected.delete(order.id);
+                                        console.log('❌ Removed consolidated order (fallback):', order.id);
+                                      }
                                     }
                                   } else {
                                     if (e.target.checked) {
