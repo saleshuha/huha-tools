@@ -588,7 +588,7 @@ export const POTracker = () => {
     refreshImages
   } = useProductImages();
   const { toast } = useToast();
-  const { trackTabChange, trackAction } = useTaxonomy();
+  const { trackTabChange, trackAction, trackPageView } = useTaxonomy();
   const queryClient = useQueryClient();
   // Track page view
   useEffect(() => {
@@ -2291,9 +2291,10 @@ export const POTracker = () => {
             </div>
           </div>
         </Card>
-      </div>;
+      </div>
   }
-  return <div className="space-y-6">
+  return (
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-semibold mb-2">Purchase Order Dashboard</h2>
