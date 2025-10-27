@@ -198,10 +198,10 @@ const App = () => {
               <ThemeConfigProvider>
                 <CountryProvider>
                   <BackgroundTasksProvider>
-                    <TaxonomyProvider>
             <Toaster />
             <Sonner />
             <BrowserRouter>
+                    <TaxonomyProvider>
               <SidebarProvider>
                 <div className="min-h-screen flex w-full">
                   <AppSidebar />
@@ -315,8 +315,8 @@ const App = () => {
                   onClose={() => setShowBackgroundTasks(false)} 
                 />
               </SidebarProvider>
-            </BrowserRouter>
                     </TaxonomyProvider>
+            </BrowserRouter>
                   </BackgroundTasksProvider>
                 </CountryProvider>
               </ThemeConfigProvider>
