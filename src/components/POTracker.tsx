@@ -103,7 +103,18 @@ export const POTracker = () => {
   // Print Labels state - Two-step flow
   const [labelsStep, setLabelsStep] = useState<'list' | 'print'>('list');
   const [selectedPOForLabels, setSelectedPOForLabels] = useState<string | null>(null);
-  const [selectedPOsForLabels, setSelectedPOsForLabels] = useState<Set<string>>(new Set()); // Multi-select
+  const [selectedPOsForLabels, setSelectedPOsForLabels] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem('poTracker_lastSelectedPOs');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return new Set(parsed);
+      }
+    } catch (error) {
+      console.error('Failed to load last selected POs:', error);
+    }
+    return new Set();
+  }); // Multi-select with localStorage persistence
   const [labelSearchQuery, setLabelSearchQuery] = useState('');
   const [debouncedLabelSearch, setDebouncedLabelSearch] = useState('');
   const [searchType, setSearchType] = useState<'all' | 'asin' | 'sku' | 'serial' | 'title' | 'po_number'>('all');
@@ -322,6 +333,15 @@ export const POTracker = () => {
       console.error('Failed to save disabled POs state:', error);
     }
   }, [disabledPOs]);
+
+  // Save selected POs for labels to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('poTracker_lastSelectedPOs', JSON.stringify(Array.from(selectedPOsForLabels)));
+    } catch (error) {
+      console.error('Failed to save selected POs:', error);
+    }
+  }, [selectedPOsForLabels]);
   useEffect(() => {
     // Set up connection listener
     const handleConnectionChange = (connected: boolean) => {
@@ -1572,6 +1592,97 @@ export const POTracker = () => {
     }));
     return poGroups;
   }, [poOrders, labelEligibleOrders, labelSearchQuery, searchQuery, activeTab, selectedCountry]);
+
+  // Helper functions for saved PO selection (defined after filteredPOGroups)
+  const getSavedSelectedPOs = useCallback((): string[] => {
+    try {
+      const stored = localStorage.getItem('poTracker_lastSelectedPOs');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (error) {
+      console.error('Failed to load saved POs:', error);
+    }
+    return [];
+  }, []);
+
+  const loadLastSelection = useCallback(() => {
+    const savedPOs = getSavedSelectedPOs();
+    if (savedPOs.length === 0) {
+      toast({
+        title: "No saved selection",
+        description: "You don't have any previously selected POs.",
+        variant: "default"
+      });
+      return;
+    }
+
+    // Filter saved POs to only include those that exist and are not closed
+    const availableSavedPOs = savedPOs.filter(poNumber => {
+      const poGroup = filteredPOGroups.find(g => g.poNumber === poNumber);
+      if (!poGroup) return false;
+      const isClosedPO = poGroup.orders.every(order => order.status === 'closed');
+      return !isClosedPO;
+    });
+
+    if (availableSavedPOs.length === 0) {
+      toast({
+        title: "Selection unavailable",
+        description: "None of the previously selected POs are currently available.",
+        variant: "default"
+      });
+      return;
+    }
+
+    setSelectedPOsForLabels(new Set(availableSavedPOs));
+
+    // Track the action
+    trackAction({
+      category: 'Amazon',
+      subcategory: 'PO Tracker',
+      actionName: 'load_last_selection',
+      actionType: 'selection_restore',
+      metadata: {
+        saved_count: savedPOs.length,
+        restored_count: availableSavedPOs.length,
+        filtered_count: savedPOs.length - availableSavedPOs.length
+      }
+    });
+
+    // Show notification
+    if (availableSavedPOs.length === savedPOs.length) {
+      toast({
+        title: "Selection restored",
+        description: `Loaded ${availableSavedPOs.length} PO${availableSavedPOs.length !== 1 ? 's' : ''} from last session.`,
+        variant: "default"
+      });
+    } else {
+      toast({
+        title: "Selection partially restored",
+        description: `Loaded ${availableSavedPOs.length} of ${savedPOs.length} POs (${savedPOs.length - availableSavedPOs.length} no longer available).`,
+        variant: "default"
+      });
+    }
+  }, [filteredPOGroups, getSavedSelectedPOs, toast, trackAction]);
+
+  const clearSavedSelection = useCallback(() => {
+    try {
+      localStorage.removeItem('poTracker_lastSelectedPOs');
+      toast({
+        title: "Saved selection cleared",
+        description: "Your previously saved PO selection has been cleared.",
+        variant: "default"
+      });
+    } catch (error) {
+      console.error('Failed to clear saved POs:', error);
+      toast({
+        title: "Error",
+        description: "Failed to clear saved selection.",
+        variant: "destructive"
+      });
+    }
+  }, [toast]);
+
   const groupedPOOrders = useMemo(() => {
     console.log('📦 GROUPING START:', {
       filteredOrdersCount: filteredOrders.length,
@@ -2813,36 +2924,85 @@ export const POTracker = () => {
               </CardHeader>
               <CardContent>
                  <div className="space-y-4">
-                     {/* Search Bar and Controls */}
-                      <div className="flex items-center gap-4">
-                        <div className="relative flex-1">
-                          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground z-10" />
-                           <Input placeholder="Search PO number, ASIN, model, serial number..." value={labelSearchQuery} onChange={e => {
+                      {/* Search Bar and Controls */}
+                       <div className="flex items-center gap-4">
+                         <div className="relative flex-1">
+                           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground z-10" />
+                            <Input placeholder="Search PO number, ASIN, model, serial number..." value={labelSearchQuery} onChange={e => {
                     console.log('Label search query changed to:', e.target.value);
                     setLabelSearchQuery(e.target.value);
                   }} className="pl-9 pr-20 border-2 border-border focus:border-primary" />
-                         {isSearching && <Loader2 className="absolute right-10 top-1/2 h-4 w-4 -translate-y-1/2 text-primary animate-spin z-10" />}
-                         {labelSearchQuery && <Button variant="ghost" size="sm" className="absolute right-1 top-1/2 h-6 w-6 p-0 -translate-y-1/2" onClick={() => {
+                          {isSearching && <Loader2 className="absolute right-10 top-1/2 h-4 w-4 -translate-y-1/2 text-primary animate-spin z-10" />}
+                          {labelSearchQuery && <Button variant="ghost" size="sm" className="absolute right-1 top-1/2 h-6 w-6 p-0 -translate-y-1/2" onClick={() => {
                     console.log('Clearing label search');
                     setLabelSearchQuery('');
                   }}>
-                            <X className="h-3 w-3" />
-                          </Button>}
-                      </div>
-                      <Badge variant="outline" className="text-xs">
-                        {filteredPOGroups.length} PO{filteredPOGroups.length !== 1 ? 's' : ''}
-                      </Badge>
-                    </div>
+                             <X className="h-3 w-3" />
+                           </Button>}
+                       </div>
+                       
+                       {/* Load Last Selection Button */}
+                       {(() => {
+                         const savedPOs = getSavedSelectedPOs();
+                         const hasSavedSelection = savedPOs.length > 0;
+                         const availableCount = savedPOs.filter(poNumber => {
+                           const poGroup = filteredPOGroups.find(g => g.poNumber === poNumber);
+                           if (!poGroup) return false;
+                           const isClosedPO = poGroup.orders.every(order => order.status === 'closed');
+                           return !isClosedPO;
+                         }).length;
+
+                         if (!hasSavedSelection || availableCount === 0) return null;
+
+                         return (
+                           <div className="flex items-center gap-2">
+                             <Button
+                               variant="outline"
+                               size="sm"
+                               onClick={loadLastSelection}
+                               className="border-primary/30 hover:border-primary"
+                             >
+                               <Clock className="h-4 w-4 mr-2" />
+                               Load Last Selection
+                               <Badge variant="secondary" className="ml-2">
+                                 {availableCount}
+                               </Badge>
+                             </Button>
+                             <Button
+                               variant="ghost"
+                               size="sm"
+                               onClick={clearSavedSelection}
+                               className="text-muted-foreground hover:text-foreground"
+                               title="Clear saved selection"
+                             >
+                               <X className="h-4 w-4" />
+                             </Button>
+                           </div>
+                         );
+                       })()}
+                       
+                       <Badge variant="outline" className="text-xs">
+                         {filteredPOGroups.length} PO{filteredPOGroups.length !== 1 ? 's' : ''}
+                       </Badge>
+                     </div>
 
                      {/* Multi-select Controls */}
                      {selectedPOsForLabels.size > 0 && <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border">
                          <div className="flex items-center gap-2">
-                           <Badge variant="secondary">
-                             {selectedPOsForLabels.size} PO{selectedPOsForLabels.size !== 1 ? 's' : ''} selected
-                           </Badge>
-                           <Button variant="ghost" size="sm" onClick={() => setSelectedPOsForLabels(new Set())}>
-                             Clear selection
-                           </Button>
+                            <Badge variant="secondary">
+                              {selectedPOsForLabels.size} PO{selectedPOsForLabels.size !== 1 ? 's' : ''} selected
+                            </Badge>
+                            <Button variant="ghost" size="sm" onClick={() => {
+                              setSelectedPOsForLabels(new Set());
+                              // Also clear from localStorage
+                              try {
+                                localStorage.removeItem('poTracker_lastSelectedPOs');
+                              } catch (error) {
+                                console.error('Failed to clear saved selection:', error);
+                              }
+                            }}>
+                              Clear selection
+                            </Button>
                          </div>
                           <div className="flex items-center gap-2">
                             <Button variant="outline" disabled={selectedPOsForLabels.size === 0 || Array.from(selectedPOsForLabels).every(poNumber => {
