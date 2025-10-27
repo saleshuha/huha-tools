@@ -27,7 +27,7 @@ import { usePOOrders } from '@/hooks/usePOOrders';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useCountry } from '@/contexts/CountryContext';
 import { useProductImages } from '@/hooks/useProductImages';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { PrintService } from '@/services/print-service';
@@ -227,6 +227,7 @@ export const POTracker = () => {
   const [isPrinting, setIsPrinting] = useState(false);
   const [printingItems, setPrintingItems] = useState<Set<string>>(new Set());
   const [preventTableReorder, setPreventTableReorder] = useState(false);
+  const [isPrintStatusUpdating, setIsPrintStatusUpdating] = useState(false);
 
   // Print Dialog State
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
@@ -550,9 +551,8 @@ export const POTracker = () => {
     isLoading: imagesLoading,
     refreshImages
   } = useProductImages();
-  const {
-    toast
-  } = useToast();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   // Function to handle bulk PO closing
   const handleBulkClosePOs = async (poNumbers: string[]) => {
     setIsClosingPOs(true);
@@ -1667,12 +1667,15 @@ export const POTracker = () => {
       });
 
       // Update printed quantities for each order in database
-      console.log('🖨️ Updating print status for', selectedOrders.length, 'orders');
+      console.group('🖨️ Bulk Print Status Update');
+      console.log('📝 Updating print status for', selectedOrders.length, 'orders');
+      setIsPrintStatusUpdating(true);
+      
       const updatePromises = selectedOrders.map(async order => {
         const customQuantity = selectedForPrint.get(order.id) || 1;
         const copies = printSettings.copiesByQuantity ? customQuantity : customQuantity;
         const newPrintedQuantity = (order.printed_quantity || 0) + copies;
-        console.log(`🖨️ Updating order ${order.id}: printed_quantity ${order.printed_quantity || 0} + ${copies} = ${newPrintedQuantity}`);
+        console.log(`  📌 Order ${order.id}: ${order.printed_quantity || 0} + ${copies} = ${newPrintedQuantity}`);
         const {
           error
         } = await supabase.from('po_orders').update({
@@ -1680,7 +1683,7 @@ export const POTracker = () => {
           printed_quantity: newPrintedQuantity
         }).eq('id', order.id);
         if (error) {
-          console.error(`❌ Failed to update order ${order.id}:`, error);
+          console.error(`  ❌ Failed to update order ${order.id}:`, error);
           throw error;
         }
         return {
@@ -1690,12 +1693,26 @@ export const POTracker = () => {
         };
       });
       const results = await Promise.all(updatePromises);
-      console.log('🖨️ Database updates completed:', results);
+      console.log('✅ Database updates completed:', results);
 
-      // Force refresh to get updated data and maintain current view state
+      // Add delay before refresh to ensure database propagation
+      console.log('⏳ Waiting for database propagation...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Force refresh and invalidate queries
+      console.log('🔄 Refreshing data from database...');
+      queryClient.invalidateQueries({ queryKey: ['po-orders'] });
       await fetchPOOrders(true);
-      console.log('🖨️ Data refresh completed');
+      console.log('✅ Data refresh completed');
+      console.groupEnd();
+
       setSelectedForPrint(new Map());
+      setIsPrintStatusUpdating(false);
+      
+      toast({
+        title: "Print status updated",
+        description: `${selectedOrders.length} item(s) marked as printed`,
+      });
     } catch (error) {
       console.error('Print error:', error);
       toast({
@@ -1957,22 +1974,42 @@ export const POTracker = () => {
       });
 
       // Update printed quantity in database
+      console.group('🖨️ Single Print Status Update');
+      setIsPrintStatusUpdating(true);
+      
       const newPrintedQuantity = (order.printed_quantity || 0) + copies;
-      console.log(`🖨️ Single print: Updating order ${order.id}: printed_quantity ${order.printed_quantity || 0} + ${copies} = ${newPrintedQuantity}`);
+      console.log(`📝 Updating order ${order.id}: ${order.printed_quantity || 0} + ${copies} = ${newPrintedQuantity}`);
+      
       const {
         error
       } = await supabase.from('po_orders').update({
         is_printed: true,
         printed_quantity: newPrintedQuantity
       }).eq('id', order.id);
+      
       if (error) {
-        console.error(`❌ Failed to update single order ${order.id}:`, error);
+        console.error(`❌ Failed to update order ${order.id}:`, error);
         throw error;
       }
-      console.log('🖨️ Single print: Database update completed, refreshing data...');
-      // Force refresh to get updated data
+      console.log('✅ Database update completed');
+
+      // Add delay before refresh to ensure database propagation
+      console.log('⏳ Waiting for database propagation...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Force refresh and invalidate queries
+      console.log('🔄 Refreshing data from database...');
+      queryClient.invalidateQueries({ queryKey: ['po-orders'] });
       await fetchPOOrders(true);
-      console.log('🖨️ Single print: Data refresh completed');
+      console.log('✅ Data refresh completed');
+      console.groupEnd();
+      
+      setIsPrintStatusUpdating(false);
+      
+      toast({
+        title: "Print status updated",
+        description: `Item marked as printed (${newPrintedQuantity}/${order.quantity})`,
+      });
     } catch (error) {
       console.error('Print error:', error);
       toast({
@@ -3406,11 +3443,14 @@ export const POTracker = () => {
                       <Button size="lg" onClick={() => {
                         console.log('Print clicked with selection:', selectedForPrint.size, 'QZ:', qzConnected, 'Printer:', selectedPrinter);
                         handleDirectPrint();
-                      }} disabled={selectedForPrint.size === 0 || !qzConnected || !selectedPrinter || isPrinting} className="bg-primary hover:bg-primary-dark text-primary-foreground shadow-glow hover:shadow-accent-glow transition-all group min-w-[180px] border-2 border-primary-dark">
+                      }} disabled={selectedForPrint.size === 0 || !qzConnected || !selectedPrinter || isPrinting || isPrintStatusUpdating} className="bg-primary hover:bg-primary-dark text-primary-foreground shadow-glow hover:shadow-accent-glow transition-all group min-w-[180px] border-2 border-primary-dark">
                         {isPrinting ? <div className="flex items-center gap-2">
                             <Loader2 className="h-4 w-4 animate-spin" />
                             <span>Printing...</span>
                             <div className="w-2 h-2 bg-background/50 rounded-full animate-bounce"></div>
+                          </div> : isPrintStatusUpdating ? <div className="flex items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span>Updating status...</span>
                           </div> : <div className="flex items-center gap-2">
                             <Printer className="h-4 w-4 group-hover:scale-110 transition-transform" />
                             <span>Print Labels</span>
@@ -3725,10 +3765,10 @@ export const POTracker = () => {
                           return order.po_number?.toLowerCase().includes(lowerTerm) || order.sku_code?.toLowerCase().includes(lowerTerm) || order.asin?.toLowerCase().includes(lowerTerm) || order.model_number?.toLowerCase().includes(lowerTerm) || order.title?.toLowerCase().includes(lowerTerm) || order.serial_number?.toLowerCase().includes(lowerTerm);
                         });
                       }).filter(order => {
-                        // Apply printed status filter
+                        // Apply printed status filter with null safety
                         if (printedFilter === 'all') return true;
                         if (printedFilter === 'printed') return order.is_printed === true;
-                        if (printedFilter === 'not-printed') return !order.is_printed;
+                        if (printedFilter === 'not-printed') return order.is_printed !== true;
                         return true;
                       });
 
@@ -4213,6 +4253,10 @@ export const POTracker = () => {
                                    <Button variant="outline" size="sm" onClick={async () => {
                                   const printQty = selectedForPrint.get(order.id) || 1;
                                   try {
+                                    setIsPrintStatusUpdating(true);
+                                    console.group('✅ Mark as Printed');
+                                    console.log('Marking order', order.id, 'as printed with quantity:', printQty);
+                                    
                                     // Update printed quantity without actual printing
                                     const newPrintedQty = (order.printed_quantity || 0) + printQty;
                                     const {
@@ -4221,14 +4265,25 @@ export const POTracker = () => {
                                       printed_quantity: newPrintedQty,
                                       is_printed: true
                                     }).eq('id', order.id);
+                                    
                                     if (error) throw error;
+                                    console.log('✅ Database updated successfully');
+
                                     toast({
                                       title: "Marked as Printed",
                                       description: `${printQty} labels marked as printed for ${order.asin || order.sku_code}`
                                     });
 
+                                    // Add delay before refresh
+                                    console.log('⏳ Waiting for database propagation...');
+                                    await new Promise(resolve => setTimeout(resolve, 500));
+                                    
                                     // Refresh the orders
-                                    fetchPOOrders();
+                                    console.log('🔄 Refreshing data...');
+                                    queryClient.invalidateQueries({ queryKey: ['po-orders'] });
+                                    await fetchPOOrders(true);
+                                    console.log('✅ Refresh complete');
+                                    console.groupEnd();
                                   } catch (error) {
                                     console.error('Error marking as printed:', error);
                                     toast({
@@ -4236,11 +4291,13 @@ export const POTracker = () => {
                                       description: "Failed to mark as printed",
                                       variant: "destructive"
                                     });
+                                  } finally {
+                                    setIsPrintStatusUpdating(false);
                                   }
-                                }} disabled={!selectedForPrint.has(order.id) || !selectedForPrint.get(order.id) || selectedForPrint.get(order.id) <= 0} className="w-full border-2 border-green-300 hover:bg-green-50 hover:border-green-400 hover:text-green-700 text-green-600 transition-all duration-300">
+                                }} disabled={!selectedForPrint.has(order.id) || !selectedForPrint.get(order.id) || selectedForPrint.get(order.id) <= 0 || isPrintStatusUpdating} className="w-full border-2 border-green-300 hover:bg-green-50 hover:border-green-400 hover:text-green-700 text-green-600 transition-all duration-300">
                                      <div className="flex items-center gap-2">
-                                       <CheckCircle className="h-3 w-3" />
-                                       <span className="text-xs font-medium">Mark Printed</span>
+                                       {isPrintStatusUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
+                                       <span className="text-xs font-medium">{isPrintStatusUpdating ? 'Updating...' : 'Mark Printed'}</span>
                                      </div>
                                     </Button>
                                   </div>
