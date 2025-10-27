@@ -1617,23 +1617,31 @@ export const POTracker = () => {
       return;
     }
 
-    // Filter saved POs to only include those that exist and are not closed
+    // Clear search to ensure all POs are visible
+    setLabelSearchQuery('');
+
+    // Check saved POs against ALL poOrders (not filtered)
     const availableSavedPOs = savedPOs.filter(poNumber => {
-      const poGroup = filteredPOGroups.find(g => g.poNumber === poNumber);
-      if (!poGroup) return false;
-      const isClosedPO = poGroup.orders.every(order => order.status === 'closed');
+      // Check if PO exists in current data
+      const poExists = poOrders.some(order => order.po_number === poNumber);
+      if (!poExists) return false;
+      
+      // Check if PO is not completely closed
+      const poOrdersForThis = poOrders.filter(order => order.po_number === poNumber);
+      const isClosedPO = poOrdersForThis.every(order => order.status === 'closed');
       return !isClosedPO;
     });
 
     if (availableSavedPOs.length === 0) {
       toast({
         title: "Selection unavailable",
-        description: "None of the previously selected POs are currently available.",
+        description: "None of the previously selected POs are currently available (they may be closed or deleted).",
         variant: "default"
       });
       return;
     }
 
+    // Restore selection
     setSelectedPOsForLabels(new Set(availableSavedPOs));
 
     // Track the action
@@ -1652,18 +1660,18 @@ export const POTracker = () => {
     // Show notification
     if (availableSavedPOs.length === savedPOs.length) {
       toast({
-        title: "Selection restored",
+        title: "✅ Selection restored",
         description: `Loaded ${availableSavedPOs.length} PO${availableSavedPOs.length !== 1 ? 's' : ''} from last session.`,
         variant: "default"
       });
     } else {
       toast({
-        title: "Selection partially restored",
+        title: "⚠️ Selection partially restored",
         description: `Loaded ${availableSavedPOs.length} of ${savedPOs.length} POs (${savedPOs.length - availableSavedPOs.length} no longer available).`,
         variant: "default"
       });
     }
-  }, [filteredPOGroups, getSavedSelectedPOs, toast, trackAction]);
+  }, [poOrders, getSavedSelectedPOs, toast, trackAction, setLabelSearchQuery]);
 
   const clearSavedSelection = useCallback(() => {
     try {
@@ -2941,45 +2949,48 @@ export const POTracker = () => {
                            </Button>}
                        </div>
                        
-                       {/* Load Last Selection Button */}
-                       {(() => {
-                         const savedPOs = getSavedSelectedPOs();
-                         const hasSavedSelection = savedPOs.length > 0;
-                         const availableCount = savedPOs.filter(poNumber => {
-                           const poGroup = filteredPOGroups.find(g => g.poNumber === poNumber);
-                           if (!poGroup) return false;
-                           const isClosedPO = poGroup.orders.every(order => order.status === 'closed');
-                           return !isClosedPO;
-                         }).length;
+                        {/* Load Last Selection Button */}
+                        {(() => {
+                          const savedPOs = getSavedSelectedPOs();
+                          const hasSavedSelection = savedPOs.length > 0;
+                          
+                          // Check against ALL poOrders, not filtered
+                          const availableCount = savedPOs.filter(poNumber => {
+                            const poExists = poOrders.some(order => order.po_number === poNumber);
+                            if (!poExists) return false;
+                            const poOrdersForThis = poOrders.filter(order => order.po_number === poNumber);
+                            const isClosedPO = poOrdersForThis.every(order => order.status === 'closed');
+                            return !isClosedPO;
+                          }).length;
 
-                         if (!hasSavedSelection || availableCount === 0) return null;
+                          if (!hasSavedSelection || availableCount === 0) return null;
 
-                         return (
-                           <div className="flex items-center gap-2">
-                             <Button
-                               variant="outline"
-                               size="sm"
-                               onClick={loadLastSelection}
-                               className="border-primary/30 hover:border-primary"
-                             >
-                               <Clock className="h-4 w-4 mr-2" />
-                               Load Last Selection
-                               <Badge variant="secondary" className="ml-2">
-                                 {availableCount}
-                               </Badge>
-                             </Button>
-                             <Button
-                               variant="ghost"
-                               size="sm"
-                               onClick={clearSavedSelection}
-                               className="text-muted-foreground hover:text-foreground"
-                               title="Clear saved selection"
-                             >
-                               <X className="h-4 w-4" />
-                             </Button>
-                           </div>
-                         );
-                       })()}
+                          return (
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={loadLastSelection}
+                                className="border-primary/30 hover:border-primary"
+                              >
+                                <Clock className="h-4 w-4 mr-2" />
+                                Load Last Selection
+                                <Badge variant="secondary" className="ml-2">
+                                  {availableCount}
+                                </Badge>
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={clearSavedSelection}
+                                className="text-muted-foreground hover:text-foreground"
+                                title="Clear saved selection"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          );
+                        })()}
                        
                        <Badge variant="outline" className="text-xs">
                          {filteredPOGroups.length} PO{filteredPOGroups.length !== 1 ? 's' : ''}
