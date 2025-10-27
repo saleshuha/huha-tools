@@ -139,7 +139,18 @@ export const POTracker = () => {
     createdAt: string;
     lastUsed?: string;
   }
-  const [savedPresets, setSavedPresets] = useState<POSelectionPreset[]>([]);
+  const [savedPresets, setSavedPresets] = useState<POSelectionPreset[]>(() => {
+    // Load saved presets from localStorage on mount
+    try {
+      const stored = localStorage.getItem('po-selection-presets');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (error) {
+      console.error('Failed to load saved presets:', error);
+    }
+    return [];
+  });
   const [showPresetsDialog, setShowPresetsDialog] = useState(false);
   const [presetNameInput, setPresetNameInput] = useState('');
   const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
@@ -590,6 +601,15 @@ export const POTracker = () => {
   const { toast } = useToast();
   const { trackTabChange, trackAction, trackPageView } = useTaxonomy();
   const queryClient = useQueryClient();
+  // Persist presets to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem('po-selection-presets', JSON.stringify(savedPresets));
+    } catch (error) {
+      console.error('Failed to save presets to localStorage:', error);
+    }
+  }, [savedPresets]);
+
   // Track page view
   useEffect(() => {
     trackPageView({
