@@ -131,6 +131,19 @@ export const POTracker = () => {
   const [isDeletingPOs, setIsDeletingPOs] = useState(false);
   const [bulkDeleteStep, setBulkDeleteStep] = useState<'input' | 'confirm'>('input');
 
+  // PO Selection Presets state
+  interface POSelectionPreset {
+    id: string;
+    name: string;
+    poNumbers: string[];
+    createdAt: string;
+    lastUsed?: string;
+  }
+  const [savedPresets, setSavedPresets] = useState<POSelectionPreset[]>([]);
+  const [showPresetsDialog, setShowPresetsDialog] = useState(false);
+  const [presetNameInput, setPresetNameInput] = useState('');
+  const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
+
   // Debounce main search query (300ms delay)
   useEffect(() => {
     setIsSearching(true);
@@ -211,6 +224,28 @@ export const POTracker = () => {
       console.error('Failed to save print config collapse state:', error);
     }
   }, [isPrintConfigCollapsed]);
+
+  // Load saved presets from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('poTracker_savedPresets');
+      if (stored) {
+        const presets = JSON.parse(stored);
+        setSavedPresets(presets);
+      }
+    } catch (error) {
+      console.error('Failed to load saved presets:', error);
+    }
+  }, []);
+
+  // Save presets to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('poTracker_savedPresets', JSON.stringify(savedPresets));
+    } catch (error) {
+      console.error('Failed to save presets:', error);
+    }
+  }, [savedPresets]);
   const [qzConnected, setQzConnected] = useState(false);
   const [selectedPOsForBulkClose, setSelectedPOsForBulkClose] = useState<Set<string>>(new Set());
   const [disabledPOs, setDisabledPOs] = useState<Set<string>>(() => {
@@ -1727,6 +1762,148 @@ export const POTracker = () => {
     }
   };
 
+  // Save current PO selection as a named preset
+  const saveCurrentSelectionAsPreset = useCallback((name: string) => {
+    if (!name.trim()) {
+      toast({
+        title: "Name required",
+        description: "Please enter a name for this preset.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (selectedPOsForLabels.size === 0) {
+      toast({
+        title: "No selection",
+        description: "Please select at least one PO to save.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const newPreset: POSelectionPreset = {
+      id: Date.now().toString(),
+      name: name.trim(),
+      poNumbers: Array.from(selectedPOsForLabels),
+      createdAt: new Date().toISOString()
+    };
+
+    setSavedPresets(prev => [...prev, newPreset]);
+    setPresetNameInput('');
+    setShowPresetsDialog(false);
+
+    toast({
+      title: "✅ Preset saved",
+      description: `"${name}" saved with ${selectedPOsForLabels.size} PO(s).`
+    });
+
+    trackAction({
+      category: 'Amazon',
+      subcategory: 'PO Tracker',
+      actionName: 'save_preset',
+      actionType: 'preset_management',
+      metadata: {
+        preset_name: name,
+        po_count: selectedPOsForLabels.size
+      }
+    });
+  }, [selectedPOsForLabels, toast, trackAction]);
+
+  // Load a saved preset
+  const loadPreset = useCallback((preset: POSelectionPreset) => {
+    setLabelSearchQuery('');
+
+    // Filter to only include POs that exist and aren't closed
+    const availablePOs = preset.poNumbers.filter(poNumber => {
+      const poExists = poOrders.some(order => order.po_number === poNumber);
+      if (!poExists) return false;
+      const poOrdersForThis = poOrders.filter(order => order.po_number === poNumber);
+      const isClosedPO = poOrdersForThis.every(order => order.status === 'closed');
+      return !isClosedPO;
+    });
+
+    if (availablePOs.length === 0) {
+      toast({
+        title: "Preset unavailable",
+        description: `None of the POs in "${preset.name}" are currently available.`,
+        variant: "default"
+      });
+      return;
+    }
+
+    setSelectedPOsForLabels(new Set(availablePOs));
+
+    // Update last used timestamp
+    setSavedPresets(prev => prev.map(p => 
+      p.id === preset.id 
+        ? { ...p, lastUsed: new Date().toISOString() }
+        : p
+    ));
+
+    // Show notification
+    if (availablePOs.length === preset.poNumbers.length) {
+      toast({
+        title: "✅ Preset loaded",
+        description: `"${preset.name}" - ${availablePOs.length} PO(s) selected.`
+      });
+    } else {
+      toast({
+        title: "⚠️ Preset partially loaded",
+        description: `"${preset.name}" - ${availablePOs.length} of ${preset.poNumbers.length} PO(s) available.`
+      });
+    }
+
+    trackAction({
+      category: 'Amazon',
+      subcategory: 'PO Tracker',
+      actionName: 'load_preset',
+      actionType: 'preset_management',
+      metadata: {
+        preset_name: preset.name,
+        total_pos: preset.poNumbers.length,
+        available_pos: availablePOs.length
+      }
+    });
+  }, [poOrders, toast, trackAction]);
+
+  // Delete a preset
+  const deletePreset = useCallback((presetId: string) => {
+    const preset = savedPresets.find(p => p.id === presetId);
+    if (!preset) return;
+
+    setSavedPresets(prev => prev.filter(p => p.id !== presetId));
+    
+    toast({
+      title: "Preset deleted",
+      description: `"${preset.name}" has been removed.`
+    });
+
+    trackAction({
+      category: 'Amazon',
+      subcategory: 'PO Tracker',
+      actionName: 'delete_preset',
+      actionType: 'preset_management',
+      metadata: {
+        preset_name: preset.name
+      }
+    });
+  }, [savedPresets, toast, trackAction]);
+
+  // Rename a preset
+  const renamePreset = useCallback((presetId: string, newName: string) => {
+    if (!newName.trim()) return;
+
+    setSavedPresets(prev => prev.map(p =>
+      p.id === presetId ? { ...p, name: newName.trim() } : p
+    ));
+
+    toast({
+      title: "Preset renamed",
+      description: `Preset renamed to "${newName}".`
+    });
+  }, [toast]);
+
   // Generate ZPL from template with proper sizing
   const generateZPLFromTemplate = (order: POOrder, settings: typeof printSettings): string => {
     const {
@@ -2813,6 +2990,50 @@ export const POTracker = () => {
               </CardHeader>
               <CardContent>
                  <div className="space-y-4">
+                     {/* Saved Presets Quick Access */}
+                     {savedPresets.length > 0 && (
+                       <div className="flex items-center gap-2 flex-wrap p-3 bg-muted/30 rounded-lg border">
+                         <span className="text-sm text-muted-foreground font-medium">Quick Load:</span>
+                         {savedPresets
+                           .sort((a, b) => (b.lastUsed || b.createdAt).localeCompare(a.lastUsed || a.createdAt))
+                           .slice(0, 3)
+                           .map(preset => {
+                             const availableCount = preset.poNumbers.filter(poNumber => {
+                               const poExists = poOrders.some(order => order.po_number === poNumber);
+                               if (!poExists) return false;
+                               const poOrdersForThis = poOrders.filter(order => order.po_number === poNumber);
+                               const isClosedPO = poOrdersForThis.every(order => order.status === 'closed');
+                               return !isClosedPO;
+                             }).length;
+
+                             return (
+                               <Button
+                                 key={preset.id}
+                                 variant="outline"
+                                 size="sm"
+                                 onClick={() => loadPreset(preset)}
+                                 disabled={availableCount === 0}
+                                 className="border-primary/30 hover:border-primary"
+                               >
+                                 <Package className="h-3 w-3 mr-2" />
+                                 {preset.name}
+                                 <Badge variant="secondary" className="ml-2">
+                                   {availableCount}
+                                 </Badge>
+                               </Button>
+                             );
+                           })}
+                         <Button
+                           variant="ghost"
+                           size="sm"
+                           onClick={() => setShowPresetsDialog(true)}
+                           className="text-primary"
+                         >
+                           View All ({savedPresets.length})
+                         </Button>
+                       </div>
+                     )}
+
                      {/* Search Bar and Controls */}
                       <div className="flex items-center gap-4">
                         <div className="relative flex-1">
@@ -2845,6 +3066,19 @@ export const POTracker = () => {
                            </Button>
                          </div>
                           <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setPresetNameInput('');
+                                setEditingPresetId(null);
+                                setShowPresetsDialog(true);
+                              }}
+                              className="border-green-500/30 hover:border-green-500"
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              Save Selection
+                            </Button>
                             <Button variant="outline" disabled={selectedPOsForLabels.size === 0 || Array.from(selectedPOsForLabels).every(poNumber => {
                     const poGroup = filteredPOGroups.find(g => g.poNumber === poNumber);
                     return poGroup?.orders.every(order => order.status === 'closed') || false;
@@ -4522,6 +4756,175 @@ export const POTracker = () => {
           </div>
         </DialogContent>
       
+      </Dialog>
+
+      {/* PO Selection Presets Management Dialog */}
+      <Dialog open={showPresetsDialog} onOpenChange={setShowPresetsDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Manage PO Selection Presets</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Save New Preset Section */}
+            {selectedPOsForLabels.size > 0 && !editingPresetId && (
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label>Save current selection ({selectedPOsForLabels.size} PO(s))</Label>
+                    </div>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Enter preset name (e.g., 'Morning Batch')"
+                        value={presetNameInput}
+                        onChange={(e) => setPresetNameInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            saveCurrentSelectionAsPreset(presetNameInput);
+                          }
+                        }}
+                      />
+                      <Button onClick={() => saveCurrentSelectionAsPreset(presetNameInput)}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Save
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Saved Presets List */}
+            <div className="space-y-2">
+              <Label>Saved Presets ({savedPresets.length})</Label>
+              {savedPresets.length === 0 ? (
+                <Card>
+                  <CardContent className="py-8 text-center text-muted-foreground">
+                    <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>No saved presets yet.</p>
+                    <p className="text-sm">Select POs and save them for quick access.</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-2">
+                  {savedPresets
+                    .sort((a, b) => (b.lastUsed || b.createdAt).localeCompare(a.lastUsed || a.createdAt))
+                    .map(preset => {
+                      const availableCount = preset.poNumbers.filter(poNumber => {
+                        const poExists = poOrders.some(order => order.po_number === poNumber);
+                        if (!poExists) return false;
+                        const poOrdersForThis = poOrders.filter(order => order.po_number === poNumber);
+                        const isClosedPO = poOrdersForThis.every(order => order.status === 'closed');
+                        return !isClosedPO;
+                      }).length;
+
+                      const isEditing = editingPresetId === preset.id;
+
+                      return (
+                        <Card key={preset.id} className="hover:border-primary/50 transition-colors">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between gap-4">
+                              <div className="flex-1 min-w-0">
+                                {isEditing ? (
+                                  <Input
+                                    value={presetNameInput}
+                                    onChange={(e) => setPresetNameInput(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        renamePreset(preset.id, presetNameInput);
+                                        setEditingPresetId(null);
+                                      } else if (e.key === 'Escape') {
+                                        setEditingPresetId(null);
+                                      }
+                                    }}
+                                    autoFocus
+                                  />
+                                ) : (
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium">{preset.name}</span>
+                                      <Badge variant="secondary">
+                                        {availableCount}/{preset.poNumbers.length} PO(s)
+                                      </Badge>
+                                    </div>
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                      Created: {new Date(preset.createdAt).toLocaleDateString()}
+                                      {preset.lastUsed && ` • Last used: ${new Date(preset.lastUsed).toLocaleDateString()}`}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              <div className="flex items-center gap-2">
+                                {isEditing ? (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => {
+                                        renamePreset(preset.id, presetNameInput);
+                                        setEditingPresetId(null);
+                                      }}
+                                    >
+                                      <CheckCircle2 className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => setEditingPresetId(null)}
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="default"
+                                      onClick={() => {
+                                        loadPreset(preset);
+                                        setShowPresetsDialog(false);
+                                      }}
+                                      disabled={availableCount === 0}
+                                    >
+                                      <Package className="h-4 w-4 mr-2" />
+                                      Load
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => {
+                                        setEditingPresetId(preset.id);
+                                        setPresetNameInput(preset.name);
+                                      }}
+                                    >
+                                      <Edit2 className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => {
+                                        if (confirm(`Delete preset "${preset.name}"?`)) {
+                                          deletePreset(preset.id);
+                                        }
+                                      }}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
       </Dialog>
 
       {/* Print Dialog */}
