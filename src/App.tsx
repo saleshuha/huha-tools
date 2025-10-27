@@ -135,7 +135,16 @@ function AddSKUPageWrapper() {
   return <AddSKUPage onAddSKUs={handleAddSKUs} isLoading={isLoading} />;
 }
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30000, // 30 seconds - data stays fresh
+      refetchOnWindowFocus: true, // Refetch when tab regains focus
+      refetchOnReconnect: true, // Refetch after network reconnect
+      retry: 2, // Retry failed requests twice
+    },
+  },
+});
 
 const App = () => {
   const [user, setUser] = useState<User | null>(null);

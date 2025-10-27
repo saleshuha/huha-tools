@@ -590,8 +590,58 @@ export const POTracker = () => {
   const { toast } = useToast();
   const { trackTabChange, trackAction } = useTaxonomy();
   const queryClient = useQueryClient();
-  // Function to handle bulk PO closing
-  const handleBulkClosePOs = async (poNumbers: string[]) => {
+  // Track page view
+  useEffect(() => {
+    trackPageView({
+      category: 'Amazon',
+      subcategory: 'PO Tracker',
+      pageRoute: '/po-tracker',
+      pageTitle: 'Amazon Retail - Purchase Orders',
+      metadata: {
+        features: ['bulk_import', 'print_labels', 'export', 'analytics', 'sunsky_matching', 'selection_presets']
+      }
+    });
+  }, [trackPageView]);
+
+  // Real-time subscription for po_orders updates
+  useEffect(() => {
+    if (!selectedCountry) return;
+    
+    console.log('🔴 Setting up real-time subscription for po_orders');
+    
+    const channel = supabase
+      .channel('po_orders_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'po_orders',
+          filter: `country=eq.${selectedCountry}`
+        },
+        (payload) => {
+          console.log('🔴 Real-time update received:', payload);
+          
+          // Trigger lightweight refresh of PO orders
+          fetchPOOrders();
+          
+          // Show toast notification
+          if (payload.new.is_printed) {
+            toast({
+              title: "✅ Status updated",
+              description: `${payload.new.asin || payload.new.sku_code} marked as printed`,
+              duration: 2000
+            });
+          }
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      console.log('🔴 Cleaning up real-time subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [selectedCountry, fetchPOOrders, toast]);
     setIsClosingPOs(true);
     try {
       const {
@@ -1732,13 +1782,11 @@ export const POTracker = () => {
       const results = await Promise.all(updatePromises);
       console.log('✅ Database updates completed:', results);
 
-      // Add delay before refresh to ensure database propagation
-      console.log('⏳ Waiting for database propagation...');
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Force refresh and invalidate queries
-      console.log('🔄 Refreshing data from database...');
+      // Invalidate queries and refresh immediately (real-time will also update)
       queryClient.invalidateQueries({ queryKey: ['po-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['po_metrics'] });
+      
+      console.log('🔄 Triggering immediate data refresh...');
       await fetchPOOrders(true);
       console.log('✅ Data refresh completed');
       console.groupEnd();
@@ -4507,31 +4555,25 @@ export const POTracker = () => {
                                     
                                     // Update printed quantity without actual printing
                                     const newPrintedQty = (order.printed_quantity || 0) + printQty;
-                                    const {
-                                      error
-                                    } = await supabase.from('po_orders').update({
-                                      printed_quantity: newPrintedQty,
-                                      is_printed: true
-                                    }).eq('id', order.id);
-                                    
-                                    if (error) throw error;
-                                    console.log('✅ Database updated successfully');
+                                     const { error } = await supabase
+                                       .from('po_orders')
+                                       .update({
+                                         printed_quantity: newPrintedQty,
+                                         is_printed: true
+                                       })
+                                       .eq('id', order.id);
+                                     
+                                     if (error) throw error;
+                                     
+                                     toast({
+                                       title: "Marked as Printed",
+                                       description: `${printQty} labels marked as printed for ${order.asin || order.sku_code}`
+                                     });
 
-                                    toast({
-                                      title: "Marked as Printed",
-                                      description: `${printQty} labels marked as printed for ${order.asin || order.sku_code}`
-                                    });
-
-                                    // Add delay before refresh
-                                    console.log('⏳ Waiting for database propagation...');
-                                    await new Promise(resolve => setTimeout(resolve, 500));
-                                    
-                                    // Refresh the orders
-                                    console.log('🔄 Refreshing data...');
-                                    queryClient.invalidateQueries({ queryKey: ['po-orders'] });
-                                    await fetchPOOrders(true);
-                                    console.log('✅ Refresh complete');
-                                    console.groupEnd();
+                                     // Trigger refresh (real-time will also update)
+                                     queryClient.invalidateQueries({ queryKey: ['po-orders'] });
+                                     await fetchPOOrders(true);
+                                     console.groupEnd();
                                   } catch (error) {
                                     console.error('Error marking as printed:', error);
                                     toast({
@@ -4551,8 +4593,8 @@ export const POTracker = () => {
                                   </div>
                                 </TableCell>
                                </TableRow>
-                             </React.Fragment>;
-                      });
+                             </React.Fragment>
+                      );
                     })()}
                        </TableBody>
                      </Table>
@@ -4929,5 +4971,6 @@ export const POTracker = () => {
 
       {/* Print Dialog */}
       <POPrintDialog open={printDialogOpen} onOpenChange={setPrintDialogOpen} orders={printOrders} mode={printMode} title={printMode === 'single' ? 'Print Item' : 'Print Purchase Order Items'} />
-    </div>;
+    </div>
+  );
 };
