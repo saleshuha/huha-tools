@@ -89,6 +89,7 @@ export const POTracker = () => {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(''); // Add debounced search
   const [isSearching, setIsSearching] = useState(false); // Add searching indicator
   const [statusFilter, setStatusFilter] = useState<POOrder['status'] | 'all'>('all');
+  const [shipToFilter, setShipToFilter] = useState<string | 'all'>('all');
   const [printedFilter, setPrintedFilter] = useState<'all' | 'printed' | 'not-printed'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
@@ -1407,6 +1408,17 @@ export const POTracker = () => {
     }
   }, [inventoryData]);
 
+  // Extract unique ship-to locations for filter dropdown
+  const uniqueShipToLocations = useMemo(() => {
+    const locations = new Set<string>();
+    poOrders.forEach(order => {
+      if (order.ship_to_location) {
+        locations.add(order.ship_to_location);
+      }
+    });
+    return ['all', ...Array.from(locations).sort()];
+  }, [poOrders]);
+
   // Filter orders for label printing (exclude truly cancelled orders but keep fulfilled ones)
   const labelEligibleOrders = useMemo(() => {
     return poOrders.filter(order => order.status !== 'cancelled');
@@ -1611,6 +1623,12 @@ export const POTracker = () => {
       filtered = filtered.filter(order => order.status === statusFilter);
       console.log('🔍 FILTERING DEBUG: After status filter:', filtered.length, 'orders');
     }
+    
+    // Apply ship-to location filter
+    if (shipToFilter !== 'all') {
+      filtered = filtered.filter(order => order.ship_to_location === shipToFilter);
+      console.log('🔍 FILTERING DEBUG: After ship-to filter:', filtered.length, 'orders');
+    }
 
     // Apply sorting (only if table reordering is not prevented)
     if (!preventTableReorder) {
@@ -1673,7 +1691,7 @@ export const POTracker = () => {
       console.warn('⚠️ SLOW FILTER:', `${filterDuration.toFixed(2)}ms - Consider further optimization`);
     }
     return filtered;
-  }, [poOrders, debouncedSearchQuery, debouncedLabelSearch, searchType, statusFilter, sortField, sortDirection, activeTab, viewMode, selectedPOsForLabels, labelEligibleOrders, preventTableReorder, selectedCountry, inventoryMaps, findInventoryMatch, searchTags]);
+  }, [poOrders, debouncedSearchQuery, debouncedLabelSearch, searchType, statusFilter, shipToFilter, sortField, sortDirection, activeTab, viewMode, selectedPOsForLabels, labelEligibleOrders, preventTableReorder, selectedCountry, inventoryMaps, findInventoryMatch, searchTags]);
 
   // Export PO data to CSV
   const exportPOData = useCallback(() => {
@@ -2716,9 +2734,9 @@ export const POTracker = () => {
               tooltipText="Items with inventory stock available"
             />
 
-            {/* 4. Matched with Sunsky */}
+            {/* 4. Matched with Source */}
             <POMetricsCard 
-              title="Matched (Sunsky)" 
+              title="Matched (Source)" 
               icon={CheckCircle}
               value={calculatedMetrics.matched.count}
               subValue={`${calculatedMetrics.matched.qty} units`}
@@ -2730,7 +2748,7 @@ export const POTracker = () => {
               colorClass="from-purple-500/5"
               borderColorClass="border-l-purple-500"
               textColorClass="text-purple-600"
-              tooltipText="Items matched with Sunsky source"
+              tooltipText="Items matched with Source supplier"
             />
 
             {/* 5. Placed Orders */}
@@ -2877,6 +2895,19 @@ export const POTracker = () => {
                          <SelectItem value="partial-fulfilled">Partial Fulfilled</SelectItem>
                        </SelectContent>
                     </Select>
+                    <Select value={shipToFilter} onValueChange={value => setShipToFilter(value)}>
+                      <SelectTrigger className="w-[180px] border-2 border-border focus:border-primary">
+                        <SelectValue placeholder="Filter by location" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Locations</SelectItem>
+                        {uniqueShipToLocations.filter(loc => loc !== 'all').map(location => (
+                          <SelectItem key={location} value={location}>
+                            {location}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
@@ -2908,6 +2939,10 @@ export const POTracker = () => {
                           Status: {statusFilter}
                           <X className="h-3 w-3 cursor-pointer hover:text-destructive" onClick={() => setStatusFilter('all')} />
                         </Badge>}
+                      {shipToFilter !== 'all' && <Badge variant="secondary" className="gap-1">
+                          Location: {shipToFilter}
+                          <X className="h-3 w-3 cursor-pointer hover:text-destructive" onClick={() => setShipToFilter('all')} />
+                        </Badge>}
                       {searchQuery.trim() && <Badge variant="secondary" className="gap-1">
                           Search: "{searchQuery.trim()}"
                           <X className="h-3 w-3 cursor-pointer hover:text-destructive" onClick={() => setSearchQuery('')} />
@@ -2924,8 +2959,9 @@ export const POTracker = () => {
                   </div>
                   
                   {/* Clear All Filters Button */}
-                  {(statusFilter !== 'all' || searchQuery.trim() || searchTags.length > 0 || activeTab === 'overview' && viewMode === 'detailed' && selectedPOsForLabels.size > 0) && <Button variant="outline" size="sm" onClick={() => {
+                  {(statusFilter !== 'all' || shipToFilter !== 'all' || searchQuery.trim() || searchTags.length > 0 || activeTab === 'overview' && viewMode === 'detailed' && selectedPOsForLabels.size > 0) && <Button variant="outline" size="sm" onClick={() => {
                   setStatusFilter('all');
+                  setShipToFilter('all');
                   setSearchQuery('');
                   setSearchTags([]);
                   setSelectedPOsForLabels(new Set());
@@ -3197,9 +3233,9 @@ export const POTracker = () => {
                                       e.stopPropagation();
                                       handleGroupedSort('matched_sunsky');
                                     }}
-                                    title="Click to sort by Sunsky matches"
+                                    title="Click to sort by Source matches"
                                   >
-                                    {matchedBySource.SUNSKY} Sunsky
+                                    {matchedBySource.SUNSKY} Source
                                   </Badge>}
                                   {matchedCount === 0 && <Badge variant="outline" className="text-xs text-muted-foreground">
                                     No matches
@@ -3237,9 +3273,9 @@ export const POTracker = () => {
                                       e.stopPropagation();
                                       handleGroupedSort('pending_sunsky');
                                     }}
-                                    title="Click to sort by pending Sunsky orders"
+                                    title="Click to sort by pending Source orders"
                                   >
-                                    {pendingBySource.SUNSKY} Sunsky
+                                    {pendingBySource.SUNSKY} Source
                                   </Badge>}
                                   {(pendingBySource.ASIN + pendingBySource.SKU + pendingBySource.SUNSKY) === 0 && <Badge variant="outline" className="text-xs text-muted-foreground">
                                     None
@@ -3356,7 +3392,7 @@ export const POTracker = () => {
                                       'bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/50'
                                     }
                                   >
-                                    {inventoryMatch.type}
+                                    {inventoryMatch.type === 'SUNSKY' ? 'Source' : inventoryMatch.type}
                                   </Badge>
                                   <span className="text-xs text-muted-foreground">
                                     Qty: {inventoryMatch.quantity}
