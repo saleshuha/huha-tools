@@ -654,19 +654,25 @@ export const POTracker = () => {
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*', // Listen to ALL events (INSERT, UPDATE, DELETE)
           schema: 'public',
           table: 'po_orders',
           filter: `country=eq.${selectedCountry}`
         },
         (payload) => {
-          console.log('🔴 Real-time update received:', payload);
+          console.log('🔴 Real-time change detected:', payload.eventType, payload);
           
-          // Trigger lightweight refresh of PO orders
-          fetchPOOrders();
+          // Force full refresh on any change
+          fetchPOOrders(true);
           
-          // Show toast notification
-          if (payload.new.is_printed) {
+          // Show appropriate toast
+          if (payload.eventType === 'INSERT') {
+            toast({
+              title: "✨ New orders added",
+              description: "PO orders have been updated",
+              duration: 2000
+            });
+          } else if (payload.eventType === 'UPDATE' && payload.new.is_printed) {
             toast({
               title: "✅ Status updated",
               description: `${payload.new.asin || payload.new.sku_code} marked as printed`,
@@ -682,6 +688,19 @@ export const POTracker = () => {
       supabase.removeChannel(channel);
     };
   }, [selectedCountry, fetchPOOrders, toast]);
+
+  // Debug log when poOrders changes
+  useEffect(() => {
+    console.log('📊 POTracker: poOrders updated', {
+      length: poOrders.length,
+      isLoading,
+      selectedCountry,
+      sampleOrders: poOrders.slice(0, 2).map(o => ({
+        po: o.po_number,
+        country: o.country
+      }))
+    });
+  }, [poOrders, isLoading, selectedCountry]);
 
   // Function to handle bulk PO closing
   const handleBulkClosePOs = async (poNumbers: string[]) => {

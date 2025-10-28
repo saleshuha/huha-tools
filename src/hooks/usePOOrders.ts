@@ -552,15 +552,22 @@ export const usePOOrders = () => {
           const existingOrder = existingOrdersMap.get(identity);
           
           if (existingOrder) {
+            // Debug log
+            console.log(`🔍 Duplicate check: ${identity}`, {
+              existingBatch: existingOrder.batch_id,
+              currentBatch: batchId,
+              sameBatch: existingOrder.batch_id === batchId
+            });
+            
             // Same batch = duplicate within this upload = skip
-            if (existingOrder.batch_id === batchId) {
+            if (existingOrder.batch_id && existingOrder.batch_id === batchId) {
               console.log(`⚠️ DUPLICATE in same batch: ${identity}`);
               results.unchanged++;
               setUploadStats(prev => ({ ...prev, unchanged: results.unchanged }));
               continue;
             }
             
-            // Different batch = update quantity only
+            // Different batch OR no batch_id = check quantity change
             const hasQuantityChange = existingOrder.quantity !== qty;
             
             if (hasQuantityChange) {
@@ -574,7 +581,7 @@ export const usePOOrders = () => {
               results.updated++;
               setUploadStats(prev => ({ ...prev, updated: results.updated }));
             } else {
-              console.log(`✓ UNCHANGED: ${identity}`);
+              console.log(`✓ UNCHANGED: ${identity} (same qty: ${qty})`);
               results.unchanged++;
               setUploadStats(prev => ({ ...prev, unchanged: results.unchanged }));
             }
@@ -665,17 +672,24 @@ export const usePOOrders = () => {
       setLoadingStatus('Refreshing PO data...');
       setCurrentItem('');
       
-      // Invalidate all PO-related queries with smart refetch strategy
+      // Invalidate ALL PO-related queries (not just active ones)
       await queryClient.invalidateQueries({ 
         queryKey: ['po-group-metrics'],
-        refetchType: 'active' // Only refetch active queries
+        refetchType: 'all'  // Force ALL queries to refetch
       });
       await queryClient.invalidateQueries({ 
         queryKey: ['po-orders'],
-        refetchType: 'active'
+        refetchType: 'all'  // Force ALL queries to refetch
       });
       
-      await fetchPOOrders();
+      // Wait 500ms for DB to finish writes
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Force fetch with loadAllOrders = true
+      await fetchPOOrders(true);
+
+      // Trigger state update to force component re-render
+      setPOOrders(prev => [...prev]);
 
       setLoadingProgress(100);
       setLoadingStatus('Upload complete!');
