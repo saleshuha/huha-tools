@@ -208,9 +208,15 @@ export const usePOOrders = () => {
       setLoadingProgress(100);
       setLoadingStatus(`Loaded ${typedData.length} orders in ${loadTime}s`);
 
-      // Invalidate related queries to refresh metrics
-      queryClient.invalidateQueries({ queryKey: ['po-group-metrics'] });
-      queryClient.invalidateQueries({ queryKey: ['po-comprehensive-metrics'] });
+      // Invalidate related queries to refresh metrics with optimized caching
+      queryClient.invalidateQueries({ 
+        queryKey: ['po-group-metrics'],
+        refetchType: 'none' // Don't refetch immediately, let components decide
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['po-comprehensive-metrics'],
+        refetchType: 'none'
+      });
 
       // Show success message
       if (typedData.length > 0) {
@@ -626,9 +632,15 @@ export const usePOOrders = () => {
       setLoadingStatus('Refreshing PO data...');
       setCurrentItem('');
       
-      // Invalidate all PO-related queries to force refresh
-      await queryClient.invalidateQueries({ queryKey: ['po-group-metrics'] });
-      await queryClient.invalidateQueries({ queryKey: ['po-orders'] });
+      // Invalidate all PO-related queries with smart refetch strategy
+      await queryClient.invalidateQueries({ 
+        queryKey: ['po-group-metrics'],
+        refetchType: 'active' // Only refetch active queries
+      });
+      await queryClient.invalidateQueries({ 
+        queryKey: ['po-orders'],
+        refetchType: 'active'
+      });
       
       await fetchPOOrders();
 
