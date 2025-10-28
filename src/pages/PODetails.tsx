@@ -1951,8 +1951,8 @@ export default function PODetailsPage() {
         tracking_url: `https://sunsky-online.com/order/view/${orderNumber}`
       }));
 
-      // Also update the status to 'closed' and set order_date
-      const statusUpdatePromises = selectedOrderIds.map(orderId => updateOrderStatus(orderId, 'closed'));
+      // Update status to 'placed' since order has been sent to supplier
+      const statusUpdatePromises = selectedOrderIds.map(orderId => updateOrderStatus(orderId, 'placed'));
       await Promise.all([...updatePromises, ...statusUpdatePromises]);
       toast({
         title: "Order Placed Successfully",
