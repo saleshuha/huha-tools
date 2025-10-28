@@ -3098,12 +3098,12 @@ export const POTracker = () => {
                              <ArrowUpDown className="h-3 w-3 opacity-30" />
                            )}
                          </div>
-                         <div 
-                           className={`p-2 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'total_pending_to_place' ? 'bg-primary/10 text-primary' : ''}`}
-                           onClick={() => handleGroupedSort('total_pending_to_place')}
-                         >
-                           <span>Pending to Place</span>
-                           {groupedSortField === 'total_pending_to_place' ? (
+                          <div 
+                            className={`p-2 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'pending_sunsky' ? 'bg-primary/10 text-primary' : ''}`}
+                            onClick={() => handleGroupedSort('pending_sunsky')}
+                          >
+                            <span>Pending to Place</span>
+                            {groupedSortField === 'pending_sunsky' ? (
                              groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
                            ) : (
                              <ArrowUpDown className="h-3 w-3 opacity-30" />
