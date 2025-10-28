@@ -607,6 +607,7 @@ export const POTracker = () => {
     isLoading: imagesLoading,
     refreshImages
   } = useProductImages();
+  const { sunskySKUs } = useSKUManager();
   const { toast } = useToast();
   const { trackTabChange, trackAction, trackPageView } = useTaxonomy();
   const queryClient = useQueryClient();
