@@ -594,6 +594,13 @@ export const usePOOrders = () => {
               setUploadStats(prev => ({ ...prev, updated: results.updated }));
             } else {
               console.log(`✓ UNCHANGED: ${identity} (same qty: ${qty})`);
+              // Still add to itemGroups with existing ID so it shows in UI but doesn't create duplicate
+              itemGroups.set(identity, {
+                ...newOrderData,
+                id: existingOrder.id,
+                created_at: existingOrder.created_at,
+                status: existingOrder.status
+              });
               results.unchanged++;
               setUploadStats(prev => ({ ...prev, unchanged: results.unchanged }));
             }
@@ -667,9 +674,19 @@ export const usePOOrders = () => {
           console.log(`✅ Inserted ${itemsToInsert.length} new orders`);
         }
         
-        // Update existing items
+        // Update existing items (only if data actually changed)
         if (itemsToUpdate.length > 0) {
+          let actualUpdates = 0;
           for (const item of itemsToUpdate) {
+            // Skip update if this was an "unchanged" item
+            const identity = `${item.po_key}|${item.item_key}`;
+            const existingOrder = existingOrdersMap.get(identity);
+            
+            if (existingOrder && existingOrder.quantity === item.quantity) {
+              console.log(`⏭️ Skipping update for unchanged item: ${identity}`);
+              continue; // Don't make unnecessary DB call
+            }
+            
             const { error: updateError } = await supabase
               .from('po_orders')
               .update(item)
@@ -677,9 +694,11 @@ export const usePOOrders = () => {
             
             if (updateError) {
               console.error(`❌ Update error for ${item.id}:`, updateError);
+            } else {
+              actualUpdates++;
             }
           }
-          console.log(`✅ Updated ${itemsToUpdate.length} existing orders`);
+          console.log(`✅ Updated ${actualUpdates} existing orders (${itemsToUpdate.length - actualUpdates} skipped as unchanged)`);
         }
 
         console.log(`✅ Batch ${batchId}: Successfully processed ${ordersToUpsert.length} orders (${itemsToInsert.length} new, ${itemsToUpdate.length} updated)`);
