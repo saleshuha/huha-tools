@@ -564,7 +564,7 @@ export default function PODetailsPage() {
       console.log(`⚠️ Page ${currentPage} exceeds totalPages ${totalPages}, resetting to page 1`);
       setCurrentPage(1);
     }
-  }, [filteredOrders.length, itemsPerPage, totalPages, currentPage, setCurrentPage]);
+  }, [filteredOrders.length, itemsPerPage, totalPages, setCurrentPage]);
 
   // Calculate status progress and metrics
   const statusProgress: StatusProgress = sortedMatchedOrders.reduce((acc, order) => {
@@ -2408,7 +2408,7 @@ export default function PODetailsPage() {
 
         {/* Pagination */}
         {filteredOrders.length > 0 && <div className="mb-4">
-            <POTablePagination currentPage={validCurrentPage} totalPages={totalPages} totalItems={filteredOrders.length} itemsPerPage={itemsPerPage} onPageChange={page => {
+            <POTablePagination currentPage={currentPage} totalPages={totalPages} totalItems={filteredOrders.length} itemsPerPage={itemsPerPage} onPageChange={page => {
           setCurrentPage(page);
           scrollToTop('po-table-container');
         }} onItemsPerPageChange={setItemsPerPage} />
