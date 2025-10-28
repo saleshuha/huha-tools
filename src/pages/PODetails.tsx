@@ -555,8 +555,8 @@ export default function PODetailsPage() {
 
   // Reset to page 1 when filters or search changes
   useEffect(() => {
-    resetToPage1();
-  }, [searchTerm, filters, resetToPage1]);
+    setCurrentPage(1);
+  }, [searchTerm, filters, setCurrentPage]);
 
   // Ensure currentPage doesn't exceed totalPages after data changes
   useEffect(() => {
