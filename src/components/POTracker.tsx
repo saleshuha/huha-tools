@@ -1923,8 +1923,8 @@ export const POTracker = () => {
           bValue = b.metrics.matched_sku;
           break;
         case 'matched_sunsky':
-          aValue = a.metrics.matched_sunsky;
-          bValue = b.metrics.matched_sunsky;
+          aValue = a.metrics.matchedUnitsBySource?.SUNSKY || 0;
+          bValue = b.metrics.matchedUnitsBySource?.SUNSKY || 0;
           break;
         case 'total_pending_to_place':
           aValue = a.metrics.total_pending_to_place;
@@ -1939,8 +1939,8 @@ export const POTracker = () => {
           bValue = b.metrics.pending_sku;
           break;
         case 'pending_sunsky':
-          aValue = a.metrics.pending_sunsky;
-          bValue = b.metrics.pending_sunsky;
+          aValue = a.metrics.pendingUnitsBySource?.SUNSKY || 0;
+          bValue = b.metrics.pendingUnitsBySource?.SUNSKY || 0;
           break;
         default:
           return 0;
