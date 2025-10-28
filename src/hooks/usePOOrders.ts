@@ -367,17 +367,32 @@ export const usePOOrders = () => {
       setLoadingProgress(5);
       setLoadingStatus('Loading existing PO data for update comparison...');
 
-      // Fetch ALL existing PO data for comparison and updates
-      const { data: existingOrders, error: fetchError } = await ((supabase as any)
-        .from('po_orders')
-        .select('*')
-        .eq('user_id', user.id));
+      // Fetch ALL existing PO data with pagination (handle large datasets)
+      let allExistingOrders: any[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
 
-      if (fetchError) {
-        throw new Error(`Failed to fetch existing orders: ${fetchError.message}`);
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('po_orders')
+          .select('id, po_key, item_key, po_number, quantity, title, asin, unit_cost, created_at, status, batch_id, ship_to_location, model_number')
+          .eq('user_id', user.id)
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (error) throw new Error(`Failed to fetch existing orders: ${error.message}`);
+        
+        if (data && data.length > 0) {
+          allExistingOrders = allExistingOrders.concat(data);
+          hasMore = data.length === pageSize;
+          page++;
+        } else {
+          hasMore = false;
+        }
       }
 
-      console.log(`📊 EXISTING DATA: Found ${existingOrders?.length || 0} existing PO orders`);
+      const existingOrders = allExistingOrders;
+      console.log(`📊 EXISTING DATA: Fetched ${existingOrders.length} existing orders across ${page} page(s)`);
 
       setLoadingProgress(10);
       setLoadingStatus('Building identity-based change detection...');
@@ -393,6 +408,18 @@ export const usePOOrders = () => {
       });
 
       console.log(`🔍 CHANGE DETECTION: Created map of ${existingOrdersMap.size} existing orders`);
+      
+      // Log which POs from the upload file already exist
+      const existingPONumbers = new Set(existingOrders.map(o => o.po_number?.toLowerCase().trim()).filter(Boolean));
+      console.log(`🔍 DUPLICATE DETECTION: Found ${existingPONumbers.size} existing unique PO numbers`);
+      console.log(`📋 Sample existing POs:`, Array.from(existingPONumbers).slice(0, 10));
+      
+      const uploadedPONumbers = new Set(mappedData.map(item => item.po_number?.toLowerCase().trim()).filter(Boolean));
+      const conflictingPOs = Array.from(uploadedPONumbers).filter(po => existingPONumbers.has(po));
+      
+      if (conflictingPOs.length > 0) {
+        console.log(`⚠️ WARNING: ${conflictingPOs.length} PO numbers in upload file already exist in database:`, conflictingPOs.slice(0, 20));
+      }
 
       // Group by PO number first to track per-PO progress
       const poGroups = new Map<string, any[]>();
@@ -586,9 +613,8 @@ export const usePOOrders = () => {
               currentBatchId: batchId
             });
             
-            // STRICT DUPLICATE PREVENTION: Always skip or update existing records
-            // regardless of age to prevent any duplicates
-            const isRecent = true; // Always treat as recent to prevent duplicates
+            // Calculate if existing order is recent (within 20 days / 480 hours)
+            const isRecent = hoursSinceCreation <= 480;
             
             if (isRecent) {
               console.log(`🔍 Treating as potential update (recent + same batch)`);
@@ -686,15 +712,34 @@ export const usePOOrders = () => {
         
         // Insert new items
         if (itemsToInsert.length > 0) {
-          const { error: insertError } = await supabase
+          console.log(`💾 Attempting to insert ${itemsToInsert.length} new items`);
+          
+          const { error: insertError, data: insertedData } = await supabase
             .from('po_orders')
-            .insert(itemsToInsert);
+            .insert(itemsToInsert)
+            .select('id, po_number');
           
           if (insertError) {
             console.error('❌ Insert error:', insertError);
+            console.error('❌ Failed items sample:', itemsToInsert.slice(0, 3));
+            
+            // Check if it's a duplicate key violation
+            if (insertError.message.includes('idx_po_orders_unique_item') || 
+                insertError.message.includes('duplicate key')) {
+              toast({
+                title: "Duplicate Data Detected",
+                description: `Some items already exist in the database. Total existing orders: ${existingOrders.length}`,
+                variant: "destructive",
+              });
+              
+              throw new Error(`Duplicate items detected. Database has ${existingOrders.length} existing orders.`);
+            }
+            
             throw new Error(`Bulk insert failed: ${insertError.message}`);
           }
-          console.log(`✅ Inserted ${itemsToInsert.length} new orders`);
+          
+          console.log(`✅ Successfully inserted ${insertedData?.length || itemsToInsert.length} new orders`);
+          console.log(`✅ Sample inserted POs:`, insertedData?.slice(0, 5).map(d => d.po_number));
         }
         
         // Update existing items
