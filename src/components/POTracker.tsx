@@ -2816,7 +2816,7 @@ export const POTracker = () => {
 
                 <div className="rounded-lg border-2 border-border overflow-hidden">
                   {viewMode === 'grouped' ? <div className="grid">
-                        <div className="grid grid-cols-[45px_70px_minmax(140px,1fr)_100px_110px_110px_100px_90px_200px] bg-muted/50 border-b">
+                        <div className="grid grid-cols-[45px_70px_minmax(140px,1fr)_100px_110px_110px_100px_180px_180px_200px] bg-muted/50 border-b">
                           <div className="p-2 font-medium text-sm">
                             <input type="checkbox" checked={selectedPOsForBulkClose.size > 0 && Array.from(selectedPOsForBulkClose).length === groupedPOOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).length} onChange={e => {
                         const currentPagePOs = groupedPOOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map(group => group.poNumber);
@@ -2836,8 +2836,9 @@ export const POTracker = () => {
                          <div className="p-2 font-medium text-sm">Ship To</div>
                          <div className="p-2 font-medium text-sm">PO Items</div>
                          <div className="p-2 font-medium text-sm">ASN Qty</div>
-                         <div className="p-2 font-medium text-sm">Matched</div>
-                         <div className="p-2 font-medium text-sm">Pending</div>
+                         <div className="p-2 font-medium text-sm">Matched %</div>
+                         <div className="p-2 font-medium text-sm">Matched Details</div>
+                         <div className="p-2 font-medium text-sm">Pending to Place</div>
                          <div className="p-2 font-medium text-sm">Actions</div>
                        </div>
                       <div>
@@ -2854,12 +2855,34 @@ export const POTracker = () => {
                       // Use frontend calculation as fallback to ensure accuracy - count ALL items
                       const asnQuantity = dbMetrics?.asn_quantity || orders.reduce((sum, o) => sum + (o.quantity || 0), 0);
 
-                      // Calculate matched percentage for display
+                      // Calculate matched percentage and source breakdown for display
                       const activeOrdersInPO = orders.filter((order: any) => order.status === 'pending' || order.status === 'placed' || order.status === 'received');
-                      const matchedCount = activeOrdersInPO.filter((order: any) => {
+                      
+                      // Calculate matched items by source
+                      const matchedBySource = {
+                        ASIN: 0,
+                        SKU: 0,
+                        SUNSKY: 0
+                      };
+                      const pendingBySource = {
+                        ASIN: 0,
+                        SKU: 0,
+                        SUNSKY: 0
+                      };
+                      
+                      activeOrdersInPO.forEach((order: any) => {
                         const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku);
-                        return inventoryMatch !== null;
-                      }).length;
+                        if (inventoryMatch) {
+                          matchedBySource[inventoryMatch.type]++;
+                          
+                          // Check if pending to place (has match but no supplier order)
+                          if (order.status === 'pending' && !order.supplier_order_number) {
+                            pendingBySource[inventoryMatch.type]++;
+                          }
+                        }
+                      });
+                      
+                      const matchedCount = matchedBySource.ASIN + matchedBySource.SKU + matchedBySource.SUNSKY;
                       const matchedPercentage = activeOrdersInPO.length > 0 ? (matchedCount / activeOrdersInPO.length * 100).toFixed(0) : '0';
                       const statusCounts = orders.reduce((counts: any, order: any) => {
                         counts[order.status] = (counts[order.status] || 0) + 1;
@@ -2875,7 +2898,7 @@ export const POTracker = () => {
                       const currencySymbol = selectedCountry === 'UAE' ? 'AED' : 'SAR';
                       const isDisabled = disabledPOs.has(poNumber);
                       return <div key={poNumber} className={`
-                                    grid grid-cols-[45px_70px_minmax(140px,1fr)_100px_110px_110px_100px_90px_200px] border-b
+                                    grid grid-cols-[45px_70px_minmax(140px,1fr)_100px_110px_110px_100px_180px_180px_200px] border-b
                                     ${isClosedPO ? 'opacity-50 bg-muted/40 pointer-events-none cursor-not-allowed' : isDisabled ? 'opacity-40 bg-muted/10' : hasClosedItems ? 'opacity-75 bg-muted/20' : 'hover:bg-muted/10 transition-colors'}
                                   `}>
                                   <div className="p-2 flex items-center">
@@ -2951,11 +2974,38 @@ export const POTracker = () => {
                                   {matchedPercentage}%
                                 </Badge>
                               </div>
-                              <div className="p-2 flex items-center justify-center">
-                                <div className="text-sm font-medium">
-                                  {activeOrdersInPO.filter(order => order.status === 'pending' && !order.supplier_order_number && findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku) !== null).length}
-                                 </div>
-                               </div>
+                              <div className="p-2">
+                                <div className="flex flex-wrap gap-1">
+                                  {matchedBySource.ASIN > 0 && <Badge variant="default" className="text-xs bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/50">
+                                    {matchedBySource.ASIN} ASIN
+                                  </Badge>}
+                                  {matchedBySource.SKU > 0 && <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/50">
+                                    {matchedBySource.SKU} SKU
+                                  </Badge>}
+                                  {matchedBySource.SUNSKY > 0 && <Badge variant="outline" className="text-xs bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/50">
+                                    {matchedBySource.SUNSKY} Sunsky
+                                  </Badge>}
+                                  {matchedCount === 0 && <Badge variant="outline" className="text-xs text-muted-foreground">
+                                    No matches
+                                  </Badge>}
+                                </div>
+                              </div>
+                              <div className="p-2">
+                                <div className="flex flex-wrap gap-1">
+                                  {pendingBySource.ASIN > 0 && <Badge variant="default" className="text-xs bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/50">
+                                    {pendingBySource.ASIN} ASIN
+                                  </Badge>}
+                                  {pendingBySource.SKU > 0 && <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/50">
+                                    {pendingBySource.SKU} SKU
+                                  </Badge>}
+                                  {pendingBySource.SUNSKY > 0 && <Badge variant="outline" className="text-xs bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/50">
+                                    {pendingBySource.SUNSKY} Sunsky
+                                  </Badge>}
+                                  {(pendingBySource.ASIN + pendingBySource.SKU + pendingBySource.SUNSKY) === 0 && <Badge variant="outline" className="text-xs text-muted-foreground">
+                                    None
+                                  </Badge>}
+                                </div>
+                              </div>
                                   <div className="p-2 flex items-center">
                                     <div className="flex items-center gap-1">
                                       <Button variant="outline" size="sm" onClick={() => navigate(`/po-details/${poNumber}`)} disabled={isClosedPO} className="text-xs px-2 py-1 h-7">
@@ -2986,16 +3036,20 @@ export const POTracker = () => {
                             <SortableTableHeader label="Title" sortKey="title" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
                             <SortableTableHeader label="Quantity" sortKey="quantity" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
                             <SortableTableHeader label="Status" sortKey="status" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
-                            <TableHead>Matched</TableHead>
+                            <TableHead>Match Details</TableHead>
+                            <TableHead>Placement Ready</TableHead>
                             <SortableTableHeader label="Cost" sortKey="unit_cost" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
                             <TableHead>Actions</TableHead>
                           </TableRow>
                         </TableHeader>
                        <TableBody>
-                          {paginatedDetailedOrders.map(order => {
+                           {paginatedDetailedOrders.map(order => {
                       const isClosedOrder = order.status === 'closed';
                       const countryPrefix = selectedCountry === 'UAE' ? '🇦🇪' : '🇸🇦';
                       const currencySymbol = selectedCountry === 'UAE' ? 'AED' : 'SAR';
+                      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku);
+                      const canPlaceOrder = inventoryMatch && order.status === 'pending' && !order.supplier_order_number;
+                      
                       return <TableRow key={order.id} className={`
                                   ${isClosedOrder ? 'opacity-50 bg-muted/40 pointer-events-none cursor-not-allowed' : 'hover:bg-muted/10 transition-colors'}
                                 `}>
@@ -3048,9 +3102,52 @@ export const POTracker = () => {
                                  </Badge>
                                </TableCell>
                             <TableCell>
-                              <Badge variant={order.sunsky_sku ? 'default' : 'destructive'}>
-                                {order.sunsky_sku ? 'Matched' : 'No Match'}
-                              </Badge>
+                              {inventoryMatch ? (
+                                <div className="flex flex-col gap-1">
+                                  <Badge 
+                                    variant={
+                                      inventoryMatch.type === 'ASIN' ? 'default' : 
+                                      inventoryMatch.type === 'SKU' ? 'secondary' : 
+                                      'outline'
+                                    }
+                                    className={
+                                      inventoryMatch.type === 'ASIN' ? 'bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/50' :
+                                      inventoryMatch.type === 'SKU' ? 'bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/50' :
+                                      'bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/50'
+                                    }
+                                  >
+                                    {inventoryMatch.type}
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">
+                                    Qty: {inventoryMatch.quantity}
+                                  </span>
+                                  {inventoryMatch.status === 'in-stock' && (
+                                    <Badge variant="outline" className="text-xs bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30">
+                                      In Stock
+                                    </Badge>
+                                  )}
+                                </div>
+                              ) : (
+                                <Badge variant="destructive">No Match</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {canPlaceOrder ? (
+                                <div className="flex items-center gap-1">
+                                  <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+                                    Ready
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">{inventoryMatch?.type}</span>
+                                </div>
+                              ) : order.supplier_order_number ? (
+                                <Badge variant="secondary" className="bg-blue-500/20 text-blue-700 dark:text-blue-300">
+                                  Placed
+                                </Badge>
+                              ) : !inventoryMatch ? (
+                                <Badge variant="destructive">No Source</Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-muted-foreground">Not Pending</Badge>
+                              )}
                             </TableCell>
                             <TableCell>
                               <div className="space-y-1">
