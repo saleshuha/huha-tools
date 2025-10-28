@@ -19,7 +19,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useProductImages } from '@/hooks/useProductImages';
 import { SunskyOrderDialog } from '@/components/SunskyOrderDialog';
 import { SunskyDataViewer } from '@/components/SunskyDataViewer';
-import { POFilterPanel, FilterState } from '@/components/po/POFilterPanel';
+import { EnhancedFilterPanel, EnhancedFilterState } from '@/components/po/EnhancedFilterPanel';
 import { POMetricsCards } from '@/components/po/POMetricsCards';
 import { EnhancedPOTable } from '@/components/po/EnhancedPOTable';
 import { POActionPanel } from '@/components/po/POActionPanel';
@@ -124,16 +124,23 @@ export default function PODetailsPage() {
   }, [searchTerm]);
 
   // Filter state
-  const [filters, setFilters] = useState<FilterState>({
+  const [filters, setFilters] = useState<EnhancedFilterState>({
     quickFilter: 'all',
-    status: [],
     inventoryStatus: [],
     quantityMin: '',
     quantityMax: '',
     costMin: '',
     costMax: '',
+    priceMin: '',
+    priceMax: '',
     hasTracking: 'all',
-    hasSunskySku: 'all'
+    hasSunskySku: 'all',
+    orderStatus: [],
+    supplierFilter: '',
+    asinSkuSearch: '',
+    dateRange: undefined,
+    printStatus: 'all',
+    matchingConfidence: 'all',
   });
 
   // Table state management (pagination, view mode, columns)
@@ -450,21 +457,74 @@ export default function PODetailsPage() {
         
         if (!matchesInventoryStatus) return false;
       }
+
+      // Order status filter (multi-select)
+      if (filters.orderStatus.length > 0) {
+        if (!filters.orderStatus.includes(order.status?.toLowerCase() || 'pending')) return false;
+      }
+
+      // Tracking filter
       if (filters.hasTracking !== 'all') {
         if (filters.hasTracking === 'yes' && !order.tracking_number) return false;
         if (filters.hasTracking === 'no' && order.tracking_number) return false;
       }
+
+      // Sunsky SKU filter
       if (filters.hasSunskySku !== 'all') {
         if (filters.hasSunskySku === 'yes' && !order.sunsky_sku?.sku_code) return false;
         if (filters.hasSunskySku === 'no' && order.sunsky_sku?.sku_code) return false;
       }
+
+      // Supplier filter
+      if (filters.supplierFilter) {
+        const supplierSearch = filters.supplierFilter.toLowerCase();
+        if (!order.supplier?.toLowerCase().includes(supplierSearch)) return false;
+      }
+
+      // ASIN/SKU search filter
+      if (filters.asinSkuSearch) {
+        const search = filters.asinSkuSearch.toLowerCase();
+        const matchesAsinSku = order.asin?.toLowerCase().includes(search) || order.sku_code?.toLowerCase().includes(search);
+        if (!matchesAsinSku) return false;
+      }
+
+      // Date range filter
+      if (filters.dateRange?.from || filters.dateRange?.to) {
+        if (!order.created_at) return false;
+        const orderDate = new Date(order.created_at);
+        if (filters.dateRange?.from && orderDate < filters.dateRange.from) return false;
+        if (filters.dateRange?.to && orderDate > filters.dateRange.to) return false;
+      }
+
+      // Print status filter
+      if (filters.printStatus !== 'all') {
+        const isPrinted = filters.printStatus === 'printed';
+        if (isPrinted && !order.is_printed) return false;
+        if (!isPrinted && order.is_printed) return false;
+      }
+
+      // Matching confidence filter
+      if (filters.matchingConfidence !== 'all') {
+        const confidence = order.matching_confidence || 'unmatched';
+        if (confidence !== filters.matchingConfidence) return false;
+      }
+
+      // Quantity range filter
       if (filters.quantityMin && order.quantity < parseInt(filters.quantityMin)) return false;
       if (filters.quantityMax && order.quantity > parseInt(filters.quantityMax)) return false;
-      if (filters.costMin && (order.unit_cost || 0) < parseFloat(filters.costMin)) return false;
-      if (filters.costMax && (order.unit_cost || 0) > parseFloat(filters.costMax)) return false;
+
+      // Cost range filter (total cost)
+      const totalCost = (order.quantity || 0) * (order.unit_cost || 0);
+      if (filters.costMin && totalCost < parseFloat(filters.costMin)) return false;
+      if (filters.costMax && totalCost > parseFloat(filters.costMax)) return false;
+
+      // Price range filter (unit price)
+      if (filters.priceMin && (order.unit_cost || 0) < parseFloat(filters.priceMin)) return false;
+      if (filters.priceMax && (order.unit_cost || 0) > parseFloat(filters.priceMax)) return false;
+
       return true;
     });
-  }, [matchedOrders, searchTerm, filters, findInventoryMatch]);
+  }, [sortedMatchedOrders, debouncedSearchTerm, filters, inventoryMatchCache]);
 
   // Paginate filtered orders
   const paginatedOrders = useMemo(() => {
@@ -2260,7 +2320,7 @@ export default function PODetailsPage() {
 
         {/* Filter Panel */}
         <div className="mb-3">
-          <POFilterPanel filters={filters} onFilterChange={setFilters} stats={filterStats} />
+          <EnhancedFilterPanel filters={filters} onFilterChange={setFilters} stats={filterStats} />
         </div>
 
         {/* Action Control Center */}
