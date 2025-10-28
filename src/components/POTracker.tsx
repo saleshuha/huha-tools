@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
-import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, AlertTriangle, FileText, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, Copy, CheckCircle2, Info, TrendingDown } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, FileText, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, Copy, CheckCircle2, Info, TrendingDown } from 'lucide-react';
 import { SortableTableHeader } from '@/components/order-processing/SortableTableHeader';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -104,6 +104,10 @@ export const POTracker = () => {
   const [sortField, setSortField] = useState<keyof POOrder | 'combined_title'>('po_number');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [originalOrderPreserved, setOriginalOrderPreserved] = useState(false);
+  
+  // Grouped view sorting state
+  const [groupedSortField, setGroupedSortField] = useState<string>('po_number');
+  const [groupedSortDirection, setGroupedSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // Print Labels state - Two-step flow
   const [labelsStep, setLabelsStep] = useState<'list' | 'print'>('list');
@@ -419,6 +423,17 @@ export const POTracker = () => {
       console.log('🔄 SORT: Changing field to:', field, 'Setting direction to: asc');
       setSortField(field);
       setSortDirection('asc');
+    }
+  };
+  
+  // Grouped view sorting handler
+  const handleGroupedSort = (field: string) => {
+    console.log('🔄 GROUPED SORT:', field);
+    if (groupedSortField === field) {
+      setGroupedSortDirection(groupedSortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setGroupedSortField(field);
+      setGroupedSortDirection('asc');
     }
   };
 
@@ -1771,32 +1786,159 @@ export const POTracker = () => {
       }
       groups[order.po_number].push(order);
     });
-    const poGroups: POGroup[] = Object.entries(groups).map(([poNumber, orders]) => ({
-      poNumber,
-      orders
-    }));
-    console.log('📦 GROUPING RESULT:', {
-      totalPOGroups: poGroups.length,
-      firstFewPOs: poGroups.slice(0, 5).map(g => g.poNumber),
-      totalItemsInGroups: poGroups.reduce((sum, g) => sum + g.orders.length, 0)
+    
+    // Calculate metrics for each PO group
+    const poGroupsWithMetrics = Object.entries(groups).map(([poNumber, orders]) => {
+      const activeOrdersInPO = orders.filter(
+        (order: any) => order.status === 'pending' || order.status === 'placed' || order.status === 'received'
+      );
+      
+      const matchedBySource = { ASIN: 0, SKU: 0, SUNSKY: 0 };
+      const pendingBySource = { ASIN: 0, SKU: 0, SUNSKY: 0 };
+      
+      activeOrdersInPO.forEach((order: any) => {
+        const inventoryMatch = findInventoryMatch(
+          order.asin, 
+          order.sunsky_sku?.sku_code, 
+          order.sku_code, 
+          order.model_number, 
+          order.sunsky_sku
+        );
+        
+        if (inventoryMatch) {
+          matchedBySource[inventoryMatch.type]++;
+          
+          if (order.status === 'pending' && !order.supplier_order_number) {
+            pendingBySource[inventoryMatch.type]++;
+          }
+        }
+      });
+      
+      return {
+        poNumber,
+        orders,
+        metrics: {
+          total_matched: matchedBySource.ASIN + matchedBySource.SKU + matchedBySource.SUNSKY,
+          total_pending_to_place: pendingBySource.ASIN + pendingBySource.SKU + pendingBySource.SUNSKY,
+          matched_asin: matchedBySource.ASIN,
+          matched_sku: matchedBySource.SKU,
+          matched_sunsky: matchedBySource.SUNSKY,
+          pending_asin: pendingBySource.ASIN,
+          pending_sku: pendingBySource.SKU,
+          pending_sunsky: pendingBySource.SUNSKY,
+          matchedBySource,
+          pendingBySource
+        }
+      };
     });
-    return poGroups;
-  }, [filteredOrders]);
+    
+    console.log('📦 GROUPING RESULT:', {
+      totalPOGroups: poGroupsWithMetrics.length,
+      firstFewPOs: poGroupsWithMetrics.slice(0, 5).map(g => g.poNumber),
+      totalItemsInGroups: poGroupsWithMetrics.reduce((sum, g) => sum + g.orders.length, 0)
+    });
+    return poGroupsWithMetrics;
+  }, [filteredOrders, findInventoryMatch]);
+  // Apply sorting to grouped data
+  const sortedGroupedPOOrders = useMemo(() => {
+    if (viewMode !== 'grouped') return groupedPOOrders;
+    
+    return [...groupedPOOrders].sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+      
+      switch (groupedSortField) {
+        case 'po_number':
+          aValue = a.poNumber;
+          bValue = b.poNumber;
+          break;
+        case 'ship_to':
+          aValue = a.orders[0]?.ship_to_location || '';
+          bValue = b.orders[0]?.ship_to_location || '';
+          break;
+        case 'po_items':
+          aValue = a.orders.length;
+          bValue = b.orders.length;
+          break;
+        case 'asn_qty':
+          aValue = a.orders.reduce((sum, o) => sum + (o.quantity || 0), 0);
+          bValue = b.orders.reduce((sum, o) => sum + (o.quantity || 0), 0);
+          break;
+        case 'matched_percentage':
+          const aActiveOrders = a.orders.filter(o => ['pending', 'placed', 'received'].includes(o.status));
+          const bActiveOrders = b.orders.filter(o => ['pending', 'placed', 'received'].includes(o.status));
+          aValue = aActiveOrders.length > 0 ? (a.metrics.total_matched / aActiveOrders.length) : 0;
+          bValue = bActiveOrders.length > 0 ? (b.metrics.total_matched / bActiveOrders.length) : 0;
+          break;
+        case 'total_matched':
+          aValue = a.metrics.total_matched;
+          bValue = b.metrics.total_matched;
+          break;
+        case 'matched_asin':
+          aValue = a.metrics.matched_asin;
+          bValue = b.metrics.matched_asin;
+          break;
+        case 'matched_sku':
+          aValue = a.metrics.matched_sku;
+          bValue = b.metrics.matched_sku;
+          break;
+        case 'matched_sunsky':
+          aValue = a.metrics.matched_sunsky;
+          bValue = b.metrics.matched_sunsky;
+          break;
+        case 'total_pending_to_place':
+          aValue = a.metrics.total_pending_to_place;
+          bValue = b.metrics.total_pending_to_place;
+          break;
+        case 'pending_asin':
+          aValue = a.metrics.pending_asin;
+          bValue = b.metrics.pending_asin;
+          break;
+        case 'pending_sku':
+          aValue = a.metrics.pending_sku;
+          bValue = b.metrics.pending_sku;
+          break;
+        case 'pending_sunsky':
+          aValue = a.metrics.pending_sunsky;
+          bValue = b.metrics.pending_sunsky;
+          break;
+        default:
+          return 0;
+      }
+      
+      // Handle undefined values
+      if (aValue === undefined) return groupedSortDirection === 'asc' ? 1 : -1;
+      if (bValue === undefined) return groupedSortDirection === 'asc' ? -1 : 1;
+      
+      // Numeric comparison
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return groupedSortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+      }
+      
+      // String comparison
+      const aStr = String(aValue).toLowerCase();
+      const bStr = String(bValue).toLowerCase();
+      if (aStr < bStr) return groupedSortDirection === 'asc' ? -1 : 1;
+      if (aStr > bStr) return groupedSortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [groupedPOOrders, groupedSortField, groupedSortDirection, viewMode]);
+  
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedPOGroups = useMemo(() => {
-    const paginated = groupedPOOrders.slice(startIndex, endIndex);
+    const paginated = sortedGroupedPOOrders.slice(startIndex, endIndex);
     console.log('📄 PAGINATION:', {
       currentPage,
       itemsPerPage,
       startIndex,
       endIndex,
-      totalGroups: groupedPOOrders.length,
+      totalGroups: sortedGroupedPOOrders.length,
       paginatedGroups: paginated.length,
       showingPOs: paginated.map(g => g.poNumber)
     });
     return paginated;
-  }, [groupedPOOrders, startIndex, endIndex, currentPage, itemsPerPage]);
+  }, [sortedGroupedPOOrders, startIndex, endIndex, currentPage, itemsPerPage]);
 
   // Ref to store current ordersToDisplay for print operations
   const ordersToDisplayRef = useRef<POOrder[]>([]);
@@ -2832,13 +2974,83 @@ export const POTracker = () => {
                       }} className="h-4 w-4 rounded border-border" />
                           </div>
                          <div className="p-2 font-medium text-sm">Enable</div>
-                         <div className="p-2 font-medium text-sm">PO Number</div>
-                         <div className="p-2 font-medium text-sm">Ship To</div>
-                         <div className="p-2 font-medium text-sm">PO Items</div>
-                         <div className="p-2 font-medium text-sm">ASN Qty</div>
-                         <div className="p-2 font-medium text-sm">Matched %</div>
-                         <div className="p-2 font-medium text-sm">Matched Details</div>
-                         <div className="p-2 font-medium text-sm">Pending to Place</div>
+                         <div 
+                           className={`p-2 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'po_number' ? 'bg-primary/10 text-primary' : ''}`}
+                           onClick={() => handleGroupedSort('po_number')}
+                         >
+                           <span>PO Number</span>
+                           {groupedSortField === 'po_number' ? (
+                             groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                           ) : (
+                             <ArrowUpDown className="h-3 w-3 opacity-30" />
+                           )}
+                         </div>
+                         <div 
+                           className={`p-2 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'ship_to' ? 'bg-primary/10 text-primary' : ''}`}
+                           onClick={() => handleGroupedSort('ship_to')}
+                         >
+                           <span>Ship To</span>
+                           {groupedSortField === 'ship_to' ? (
+                             groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                           ) : (
+                             <ArrowUpDown className="h-3 w-3 opacity-30" />
+                           )}
+                         </div>
+                         <div 
+                           className={`p-2 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'po_items' ? 'bg-primary/10 text-primary' : ''}`}
+                           onClick={() => handleGroupedSort('po_items')}
+                         >
+                           <span>PO Items</span>
+                           {groupedSortField === 'po_items' ? (
+                             groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                           ) : (
+                             <ArrowUpDown className="h-3 w-3 opacity-30" />
+                           )}
+                         </div>
+                         <div 
+                           className={`p-2 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'asn_qty' ? 'bg-primary/10 text-primary' : ''}`}
+                           onClick={() => handleGroupedSort('asn_qty')}
+                         >
+                           <span>ASN Qty</span>
+                           {groupedSortField === 'asn_qty' ? (
+                             groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                           ) : (
+                             <ArrowUpDown className="h-3 w-3 opacity-30" />
+                           )}
+                         </div>
+                         <div 
+                           className={`p-2 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'matched_percentage' ? 'bg-primary/10 text-primary' : ''}`}
+                           onClick={() => handleGroupedSort('matched_percentage')}
+                         >
+                           <span>Matched %</span>
+                           {groupedSortField === 'matched_percentage' ? (
+                             groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                           ) : (
+                             <ArrowUpDown className="h-3 w-3 opacity-30" />
+                           )}
+                         </div>
+                         <div 
+                           className={`p-2 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'total_matched' ? 'bg-primary/10 text-primary' : ''}`}
+                           onClick={() => handleGroupedSort('total_matched')}
+                         >
+                           <span>Matched Details</span>
+                           {groupedSortField === 'total_matched' ? (
+                             groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                           ) : (
+                             <ArrowUpDown className="h-3 w-3 opacity-30" />
+                           )}
+                         </div>
+                         <div 
+                           className={`p-2 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'total_pending_to_place' ? 'bg-primary/10 text-primary' : ''}`}
+                           onClick={() => handleGroupedSort('total_pending_to_place')}
+                         >
+                           <span>Pending to Place</span>
+                           {groupedSortField === 'total_pending_to_place' ? (
+                             groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                           ) : (
+                             <ArrowUpDown className="h-3 w-3 opacity-30" />
+                           )}
+                         </div>
                          <div className="p-2 font-medium text-sm">Actions</div>
                        </div>
                       <div>
@@ -2858,31 +3070,11 @@ export const POTracker = () => {
                       // Calculate matched percentage and source breakdown for display
                       const activeOrdersInPO = orders.filter((order: any) => order.status === 'pending' || order.status === 'placed' || order.status === 'received');
                       
-                      // Calculate matched items by source
-                      const matchedBySource = {
-                        ASIN: 0,
-                        SKU: 0,
-                        SUNSKY: 0
-                      };
-                      const pendingBySource = {
-                        ASIN: 0,
-                        SKU: 0,
-                        SUNSKY: 0
-                      };
-                      
-                      activeOrdersInPO.forEach((order: any) => {
-                        const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku);
-                        if (inventoryMatch) {
-                          matchedBySource[inventoryMatch.type]++;
-                          
-                          // Check if pending to place (has match but no supplier order)
-                          if (order.status === 'pending' && !order.supplier_order_number) {
-                            pendingBySource[inventoryMatch.type]++;
-                          }
-                        }
-                      });
-                      
-                      const matchedCount = matchedBySource.ASIN + matchedBySource.SKU + matchedBySource.SUNSKY;
+                      // Use pre-calculated metrics from groupedPOOrders
+                      const group = groupedPOOrders.find(g => g.poNumber === poNumber);
+                      const matchedBySource = group?.metrics.matchedBySource || { ASIN: 0, SKU: 0, SUNSKY: 0 };
+                      const pendingBySource = group?.metrics.pendingBySource || { ASIN: 0, SKU: 0, SUNSKY: 0 };
+                      const matchedCount = group?.metrics.total_matched || 0;
                       const matchedPercentage = activeOrdersInPO.length > 0 ? (matchedCount / activeOrdersInPO.length * 100).toFixed(0) : '0';
                       const statusCounts = orders.reduce((counts: any, order: any) => {
                         counts[order.status] = (counts[order.status] || 0) + 1;
@@ -2976,13 +3168,37 @@ export const POTracker = () => {
                               </div>
                               <div className="p-2">
                                 <div className="flex flex-wrap gap-1">
-                                  {matchedBySource.ASIN > 0 && <Badge variant="default" className="text-xs bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/50">
+                                  {matchedBySource.ASIN > 0 && <Badge 
+                                    variant="default" 
+                                    className="text-xs bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/50 cursor-pointer hover:bg-green-500/30 transition-colors"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleGroupedSort('matched_asin');
+                                    }}
+                                    title="Click to sort by ASIN matches"
+                                  >
                                     {matchedBySource.ASIN} ASIN
                                   </Badge>}
-                                  {matchedBySource.SKU > 0 && <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/50">
+                                  {matchedBySource.SKU > 0 && <Badge 
+                                    variant="secondary" 
+                                    className="text-xs bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/50 cursor-pointer hover:bg-blue-500/30 transition-colors"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleGroupedSort('matched_sku');
+                                    }}
+                                    title="Click to sort by SKU matches"
+                                  >
                                     {matchedBySource.SKU} SKU
                                   </Badge>}
-                                  {matchedBySource.SUNSKY > 0 && <Badge variant="outline" className="text-xs bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/50">
+                                  {matchedBySource.SUNSKY > 0 && <Badge 
+                                    variant="outline" 
+                                    className="text-xs bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/50 cursor-pointer hover:bg-purple-500/30 transition-colors"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleGroupedSort('matched_sunsky');
+                                    }}
+                                    title="Click to sort by Sunsky matches"
+                                  >
                                     {matchedBySource.SUNSKY} Sunsky
                                   </Badge>}
                                   {matchedCount === 0 && <Badge variant="outline" className="text-xs text-muted-foreground">
@@ -2992,13 +3208,37 @@ export const POTracker = () => {
                               </div>
                               <div className="p-2">
                                 <div className="flex flex-wrap gap-1">
-                                  {pendingBySource.ASIN > 0 && <Badge variant="default" className="text-xs bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/50">
+                                  {pendingBySource.ASIN > 0 && <Badge 
+                                    variant="default" 
+                                    className="text-xs bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/50 cursor-pointer hover:bg-green-500/30 transition-colors"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleGroupedSort('pending_asin');
+                                    }}
+                                    title="Click to sort by pending ASIN orders"
+                                  >
                                     {pendingBySource.ASIN} ASIN
                                   </Badge>}
-                                  {pendingBySource.SKU > 0 && <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/50">
+                                  {pendingBySource.SKU > 0 && <Badge 
+                                    variant="secondary" 
+                                    className="text-xs bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/50 cursor-pointer hover:bg-blue-500/30 transition-colors"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleGroupedSort('pending_sku');
+                                    }}
+                                    title="Click to sort by pending SKU orders"
+                                  >
                                     {pendingBySource.SKU} SKU
                                   </Badge>}
-                                  {pendingBySource.SUNSKY > 0 && <Badge variant="outline" className="text-xs bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/50">
+                                  {pendingBySource.SUNSKY > 0 && <Badge 
+                                    variant="outline" 
+                                    className="text-xs bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/50 cursor-pointer hover:bg-purple-500/30 transition-colors"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleGroupedSort('pending_sunsky');
+                                    }}
+                                    title="Click to sort by pending Sunsky orders"
+                                  >
                                     {pendingBySource.SUNSKY} Sunsky
                                   </Badge>}
                                   {(pendingBySource.ASIN + pendingBySource.SKU + pendingBySource.SUNSKY) === 0 && <Badge variant="outline" className="text-xs text-muted-foreground">
