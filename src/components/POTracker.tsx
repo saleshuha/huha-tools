@@ -23,6 +23,7 @@ import { POProfitAnalytics } from '@/components/po/POProfitAnalytics';
 import { POReportsSection } from '@/components/po/POReportsSection';
 import { POPrintDialog } from '@/components/po/POPrintDialog';
 import { POMetricsCard } from '@/components/po/POMetricsCard';
+import { POAnalyticsDashboard } from '@/components/po/analytics/POAnalyticsDashboard';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { usePOOrders } from '@/hooks/usePOOrders';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -2495,7 +2496,8 @@ export const POTracker = () => {
           tabTitle: newTab === 'overview' ? 'PO Overview' : 
                    newTab === 'upload' ? 'Uploads' : 
                    newTab === 'labels' ? 'Print Labels' : 
-                   newTab === 'reports' ? 'Reports' : newTab
+                   newTab === 'reports' ? 'Reports' : 
+                   newTab === 'analytics' ? 'Analytics' : newTab
         });
         setActiveTab(newTab);
       }} className="w-full">
@@ -2515,6 +2517,10 @@ export const POTracker = () => {
           <TabsTrigger value="reports" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
             <BarChart3 className="h-4 w-4" />
             Reports
+          </TabsTrigger>
+          <TabsTrigger value="analytics" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+            <TrendingUp className="h-4 w-4" />
+            Analytics
           </TabsTrigger>
         </TabsList>
 
@@ -4968,6 +4974,10 @@ export const POTracker = () => {
 
         <TabsContent value="reports" className="space-y-6">
           <POReportsSection poOrders={filteredOrders} inventoryData={inventoryData?.asinInventory || []} skuInventoryData={inventoryData?.skuInventory || []} />
+        </TabsContent>
+
+        <TabsContent value="analytics" className="space-y-6">
+          <POAnalyticsDashboard orders={poOrders} isLoading={loadingStatus !== '' || (selectedPOForLabels && poOrders.length === 0)} />
         </TabsContent>
 
       </Tabs>
