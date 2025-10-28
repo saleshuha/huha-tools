@@ -382,17 +382,16 @@ export const usePOOrders = () => {
       setLoadingProgress(10);
       setLoadingStatus('Building identity-based change detection...');
 
-      // Create map of existing orders by identity for quick lookup and comparison
-      const existingOrdersMap = new Map();
+      // Create a Set of existing PO numbers for quick lookup
+      const existingPONumbers = new Set<string>();
       
       (existingOrders || []).forEach((order: any) => {
-        if (order.po_key && order.item_key) {
-          const identity = `${order.po_key}|${order.item_key}`;
-          existingOrdersMap.set(identity, order);
+        if (order.po_key) {
+          existingPONumbers.add(order.po_key);
         }
       });
 
-      console.log(`🔍 CHANGE DETECTION: Created map of ${existingOrdersMap.size} existing orders`);
+      console.log(`🔍 DUPLICATE DETECTION: Found ${existingPONumbers.size} existing unique PO numbers`);
 
       // Group by PO number first to track per-PO progress
       const poGroups = new Map<string, any[]>();
@@ -437,6 +436,33 @@ export const usePOOrders = () => {
       for (const [poNumber, items] of poGroups.entries()) {
         currentPOIndex++;
         setCurrentPO(poNumber);
+        
+        const poKey = poNumber.toLowerCase().trim();
+        
+        // Check if this PO already exists in the database
+        if (existingPONumbers.has(poKey)) {
+          console.log(`⏭️ SKIPPING PO ${poNumber}: Already exists in database (${items.length} items skipped)`);
+          
+          // Mark all items as skipped
+          results.processed += items.length;
+          results.unchanged += items.length;
+          
+          // Update PO status to completed
+          setPOProgress(prev => prev.map(po => 
+            po.poNumber === poNumber 
+              ? { ...po, status: 'completed' as const, itemsProcessed: items.length } 
+              : po
+          ));
+          
+          setUploadStats(prev => ({
+            ...prev,
+            processed: results.processed,
+            unchanged: results.unchanged
+          }));
+          
+          // Skip to next PO
+          continue;
+        }
         
         // Update PO status to processing
         setPOProgress(prev => prev.map(po => 
@@ -560,57 +586,11 @@ export const usePOOrders = () => {
             batch_id: batchId
           };
 
-          // Check for existing order with same identity
-          const existingOrder = existingOrdersMap.get(identity);
-          
-          if (existingOrder) {
-            // Debug log
-            console.log(`🔍 Duplicate check: ${identity}`, {
-              existingBatch: existingOrder.batch_id,
-              currentBatch: batchId,
-              sameBatch: existingOrder.batch_id === batchId
-            });
-            
-            // Same batch = duplicate within this upload = skip
-            if (existingOrder.batch_id && existingOrder.batch_id === batchId) {
-              console.log(`⚠️ DUPLICATE in same batch: ${identity}`);
-              results.unchanged++;
-              setUploadStats(prev => ({ ...prev, unchanged: results.unchanged }));
-              continue;
-            }
-            
-            // Different batch OR no batch_id = check quantity change
-            const hasQuantityChange = existingOrder.quantity !== qty;
-            
-            if (hasQuantityChange) {
-              console.log(`🔄 UPDATE: ${identity} - Qty ${existingOrder.quantity}→${qty}`);
-              itemGroups.set(identity, {
-                ...newOrderData,
-                id: existingOrder.id,
-                created_at: existingOrder.created_at,
-                status: existingOrder.status
-              });
-              results.updated++;
-              setUploadStats(prev => ({ ...prev, updated: results.updated }));
-            } else {
-              console.log(`✓ UNCHANGED: ${identity} (same qty: ${qty})`);
-              // Still add to itemGroups with existing ID so it shows in UI but doesn't create duplicate
-              itemGroups.set(identity, {
-                ...newOrderData,
-                id: existingOrder.id,
-                created_at: existingOrder.created_at,
-                status: existingOrder.status
-              });
-              results.unchanged++;
-              setUploadStats(prev => ({ ...prev, unchanged: results.unchanged }));
-            }
-          } else {
-            // New order - add to insert list
-            console.log(`✨ NEW: ${identity}`);
-            itemGroups.set(identity, newOrderData);
-            results.inserted++;
-            setUploadStats(prev => ({ ...prev, inserted: results.inserted }));
-          }
+          // Since PO doesn't exist, always treat as new insert
+          console.log(`✨ NEW ITEM: ${identity}`);
+          itemGroups.set(identity, newOrderData);
+          results.inserted++;
+          setUploadStats(prev => ({ ...prev, inserted: results.inserted }));
         }
 
         // Mark PO as completed
@@ -643,65 +623,32 @@ export const usePOOrders = () => {
       setCurrentItem('Saving to database...');
 
       const ordersToUpsert = Array.from(itemGroups.values());
+      const itemsToInsert = ordersToUpsert; // All items are new inserts
 
-      if (ordersToUpsert.length > 0) {
-        console.log(`🚀 Batch ${batchId}: Processing ${ordersToUpsert.length} items (${ordersToUpsert.filter(o => o.id).length} updates, ${ordersToUpsert.filter(o => !o.id).length} inserts)`);
+      if (itemsToInsert.length > 0) {
+        console.log(`💾 DATABASE: Inserting ${itemsToInsert.length} new items`);
         
-        // Separate new inserts from updates
-        const itemsToInsert = ordersToUpsert.filter(o => !o.id);
-        const itemsToUpdate = ordersToUpsert.filter(o => o.id);
+        const { error: insertError } = await supabase
+          .from('po_orders')
+          .insert(itemsToInsert);
         
-        // Insert new items
-        if (itemsToInsert.length > 0) {
-          const { error: insertError } = await supabase
-            .from('po_orders')
-            .insert(itemsToInsert);
+        if (insertError) {
+          console.error('❌ Insert error:', insertError);
           
-          if (insertError) {
-            console.error('❌ Insert error:', insertError);
-            
-            // Check if it's a duplicate key violation
-            if (insertError.message.includes('idx_po_orders_unique_item')) {
-              toast({
-                title: "Duplicate Data Detected",
-                description: "Some orders already exist in the database. Only new orders were added.",
-                variant: "default"
-              });
-            } else {
-              throw new Error(`Bulk insert failed: ${insertError.message}`);
-            }
+          // Check if it's a duplicate key violation
+          if (insertError.message.includes('idx_po_orders_unique_item')) {
+            toast({
+              title: "Duplicate Data Detected",
+              description: "Some orders already exist in the database. Only new orders were added.",
+              variant: "default"
+            });
+          } else {
+            throw new Error(`Bulk insert failed: ${insertError.message}`);
           }
-          console.log(`✅ Inserted ${itemsToInsert.length} new orders`);
         }
         
-        // Update existing items (only if data actually changed)
-        if (itemsToUpdate.length > 0) {
-          let actualUpdates = 0;
-          for (const item of itemsToUpdate) {
-            // Skip update if this was an "unchanged" item
-            const identity = `${item.po_key}|${item.item_key}`;
-            const existingOrder = existingOrdersMap.get(identity);
-            
-            if (existingOrder && existingOrder.quantity === item.quantity) {
-              console.log(`⏭️ Skipping update for unchanged item: ${identity}`);
-              continue; // Don't make unnecessary DB call
-            }
-            
-            const { error: updateError } = await supabase
-              .from('po_orders')
-              .update(item)
-              .eq('id', item.id);
-            
-            if (updateError) {
-              console.error(`❌ Update error for ${item.id}:`, updateError);
-            } else {
-              actualUpdates++;
-            }
-          }
-          console.log(`✅ Updated ${actualUpdates} existing orders (${itemsToUpdate.length - actualUpdates} skipped as unchanged)`);
-        }
-
-        console.log(`✅ Batch ${batchId}: Successfully processed ${ordersToUpsert.length} orders (${itemsToInsert.length} new, ${itemsToUpdate.length} updated)`);
+        console.log(`✅ Inserted ${itemsToInsert.length} new items`);
+        console.log(`✅ Batch ${batchId}: Successfully processed ${itemsToInsert.length} orders`);
 
         // Log sample changes
         if (results.changes.length > 0) {
