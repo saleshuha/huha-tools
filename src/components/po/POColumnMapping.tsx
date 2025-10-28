@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowRight, CheckCircle, RotateCcw, Edit3 } from 'lucide-react';
+import { ArrowRight, CheckCircle, RotateCcw, Edit3, AlertCircle } from 'lucide-react';
 
 interface ColumnMappingProps {
   files: { file: File; headers: string[]; data: string[][] }[];
@@ -130,6 +130,40 @@ export function POColumnMapping({ files, onMappingComplete, onBack, isLoading }:
 
   const canProceed = files.every(f => isValidMapping(f.file.name));
 
+  // Get validation summary for all files
+  const getValidationSummary = () => {
+    const issues: { file: string; message: string }[] = [];
+    
+    files.forEach(({ file }) => {
+      const mapping = mappings[file.name];
+      
+      if (!mapping) {
+        issues.push({ file: file.name, message: 'No mapping configured' });
+        return;
+      }
+
+      const hasColumnPO = mapping.po_number && mapping.po_number !== 'none';
+      const hasManualPO = mapping.manual_po_number && mapping.manual_po_number.trim();
+
+      if (!hasColumnPO && !hasManualPO) {
+        issues.push({ file: file.name, message: 'PO Number is required' });
+      }
+      if (!mapping.ship_to_location || mapping.ship_to_location === 'none') {
+        issues.push({ file: file.name, message: 'Ship to Location is required' });
+      }
+      if (!mapping.asin || mapping.asin === 'none') {
+        issues.push({ file: file.name, message: 'ASIN is required' });
+      }
+      if (!mapping.quantity || mapping.quantity === 'none') {
+        issues.push({ file: file.name, message: 'Quantity is required' });
+      }
+    });
+
+    return issues;
+  };
+
+  const validationIssues = getValidationSummary();
+
   const handleProceed = () => {
     const processedData: any[] = [];
     let totalFilesRows = 0;
@@ -248,7 +282,7 @@ export function POColumnMapping({ files, onMappingComplete, onBack, isLoading }:
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold">Map File Columns</h3>
-          <p className="text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Map your file columns to the required fields for PO processing
           </p>
         </div>
@@ -262,12 +296,43 @@ export function POColumnMapping({ files, onMappingComplete, onBack, isLoading }:
             disabled={!canProceed || isLoading}
           >
             <CheckCircle className="h-4 w-4 mr-2" />
-            Process Files
+            Process Files {canProceed && `(${files.length})`}
           </Button>
         </div>
       </div>
 
-      <div className="space-y-6">
+      {/* Validation Summary */}
+      {validationIssues.length > 0 && (
+        <Card className="border-orange-500 bg-orange-50 dark:bg-orange-950">
+          <CardHeader>
+            <CardTitle className="text-orange-800 dark:text-orange-200 flex items-center gap-2">
+              <AlertCircle className="h-5 w-5" />
+              Mapping Issues ({validationIssues.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {validationIssues.map((issue, idx) => (
+              <div key={idx} className="text-sm text-orange-700 dark:text-orange-300">
+                <strong>{issue.file}:</strong> {issue.message}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Success Summary */}
+      {canProceed && validationIssues.length === 0 && (
+        <Card className="border-green-500 bg-green-50 dark:bg-green-950">
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-2 text-green-800 dark:text-green-200">
+              <CheckCircle className="h-5 w-5" />
+              <span className="font-medium">All files mapped correctly. Ready to process!</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="space-y-6">{/* ... keep existing code */}
         {files.map(({ file, headers, data }) => (
           <Card key={file.name}>
             <CardHeader>
