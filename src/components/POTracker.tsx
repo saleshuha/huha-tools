@@ -1813,6 +1813,8 @@ export const POTracker = () => {
       
       const matchedBySource = { ASIN: 0, SKU: 0, SUNSKY: 0 };
       const pendingBySource = { ASIN: 0, SKU: 0, SUNSKY: 0 };
+      const matchedUnitsBySource = { ASIN: 0, SKU: 0, SUNSKY: 0 };
+      const pendingUnitsBySource = { ASIN: 0, SKU: 0, SUNSKY: 0 };
       
       activeOrdersInPO.forEach((order: any) => {
         const inventoryMatch = findInventoryMatch(
@@ -1825,9 +1827,11 @@ export const POTracker = () => {
         
         if (inventoryMatch) {
           matchedBySource[inventoryMatch.type]++;
+          matchedUnitsBySource[inventoryMatch.type] += (order.quantity || 0);
           
           if (order.status === 'pending' && !order.supplier_order_number) {
             pendingBySource[inventoryMatch.type]++;
+            pendingUnitsBySource[inventoryMatch.type] += (order.quantity || 0);
           }
         }
       });
@@ -1845,7 +1849,9 @@ export const POTracker = () => {
           pending_sku: pendingBySource.SKU,
           pending_sunsky: pendingBySource.SUNSKY,
           matchedBySource,
-          pendingBySource
+          pendingBySource,
+          matchedUnitsBySource,
+          pendingUnitsBySource
         }
       };
     });
@@ -3204,38 +3210,60 @@ export const POTracker = () => {
                               </div>
                               <div className="p-2">
                                 <div className="flex flex-wrap gap-1">
-                                  {matchedBySource.SUNSKY > 0 && <Badge 
-                                    variant="outline" 
-                                    className="text-xs bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/50 cursor-pointer hover:bg-purple-500/30 transition-colors"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleGroupedSort('matched_sunsky');
-                                    }}
-                                    title="Click to sort by Source matches"
-                                  >
-                                    {matchedBySource.SUNSKY} Source
-                                  </Badge>}
-                                  {matchedBySource.SUNSKY === 0 && <Badge variant="outline" className="text-xs text-muted-foreground">
-                                    No Source matches
-                                  </Badge>}
+                                  {(() => {
+                                    const matchedUnits = group?.metrics.matchedUnitsBySource?.SUNSKY || 0;
+                                    
+                                    if (matchedUnits > 0) {
+                                      return (
+                                        <Badge 
+                                          variant="outline" 
+                                          className="text-xs bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/50 cursor-pointer hover:bg-purple-500/30 transition-colors"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleGroupedSort('matched_sunsky');
+                                          }}
+                                          title="Total units matched with Source (in stock + need to place)"
+                                        >
+                                          {matchedUnits} units
+                                        </Badge>
+                                      );
+                                    } else {
+                                      return (
+                                        <Badge variant="outline" className="text-xs text-muted-foreground">
+                                          No Source matches
+                                        </Badge>
+                                      );
+                                    }
+                                  })()}
                                 </div>
                               </div>
                               <div className="p-2">
                                 <div className="flex flex-wrap gap-1">
-                                  {pendingBySource.SUNSKY > 0 && <Badge 
-                                    variant="outline" 
-                                    className="text-xs bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/50 cursor-pointer hover:bg-purple-500/30 transition-colors"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleGroupedSort('pending_sunsky');
-                                    }}
-                                    title="Click to sort by pending Source orders"
-                                  >
-                                    {pendingBySource.SUNSKY} Source
-                                  </Badge>}
-                                  {pendingBySource.SUNSKY === 0 && <Badge variant="outline" className="text-xs text-muted-foreground">
-                                    None pending
-                                  </Badge>}
+                                  {(() => {
+                                    const pendingUnits = group?.metrics.pendingUnitsBySource?.SUNSKY || 0;
+                                    
+                                    if (pendingUnits > 0) {
+                                      return (
+                                        <Badge 
+                                          variant="outline" 
+                                          className="text-xs bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/50 cursor-pointer hover:bg-amber-500/30 transition-colors"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleGroupedSort('pending_sunsky');
+                                          }}
+                                          title="Total units pending to place with Source (not in inventory)"
+                                        >
+                                          {pendingUnits} units
+                                        </Badge>
+                                      );
+                                    } else {
+                                      return (
+                                        <Badge variant="outline" className="text-xs text-muted-foreground">
+                                          None pending
+                                        </Badge>
+                                      );
+                                    }
+                                  })()}
                                 </div>
                               </div>
                                   <div className="p-2 flex items-center">
