@@ -367,56 +367,32 @@ export const usePOOrders = () => {
       setLoadingProgress(5);
       setLoadingStatus('Loading existing PO data for update comparison...');
 
-      // Fetch ALL existing PO data for comparison (handle pagination)
-      let existingOrders: any[] = [];
-      let page = 0;
-      const pageSize = 1000;
-      let hasMore = true;
+      // Fetch ALL existing PO data for comparison and updates
+      const { data: existingOrders, error: fetchError } = await ((supabase as any)
+        .from('po_orders')
+        .select('*')
+        .eq('user_id', user.id));
 
-      while (hasMore) {
-        const { data, error } = await supabase
-          .from('po_orders')
-          .select('id, po_key, item_key, po_number')
-          .eq('user_id', user.id)
-          .range(page * pageSize, (page + 1) * pageSize - 1);
-
-        if (error) {
-          throw new Error(`Failed to fetch existing orders: ${error.message}`);
-        }
-
-        if (data && data.length > 0) {
-          existingOrders = existingOrders.concat(data);
-          hasMore = data.length === pageSize;
-          page++;
-        } else {
-          hasMore = false;
-        }
+      if (fetchError) {
+        throw new Error(`Failed to fetch existing orders: ${fetchError.message}`);
       }
 
-      console.log(`📊 EXISTING DATA: Fetched ${existingOrders.length} existing PO orders across ${page} pages`);
+      console.log(`📊 EXISTING DATA: Found ${existingOrders?.length || 0} existing PO orders`);
 
       setLoadingProgress(10);
       setLoadingStatus('Building identity-based change detection...');
 
-      // Create a Set of existing PO numbers for quick lookup
-      const existingPONumbers = new Set<string>();
+      // Create map of existing orders by identity for quick lookup and comparison
+      const existingOrdersMap = new Map();
       
-      existingOrders.forEach((order: any) => {
-        if (order.po_key) {
-          existingPONumbers.add(order.po_key);
+      (existingOrders || []).forEach((order: any) => {
+        if (order.po_key && order.item_key) {
+          const identity = `${order.po_key}|${order.item_key}`;
+          existingOrdersMap.set(identity, order);
         }
       });
 
-      console.log(`🔍 DUPLICATE DETECTION: Found ${existingPONumbers.size} existing unique PO numbers`);
-      console.log(`📋 Sample existing POs:`, Array.from(existingPONumbers).slice(0, 10));
-
-      // Log which POs from the upload file already exist
-      const uploadedPONumbers = new Set(mappedData.map(item => item.po_number?.toLowerCase().trim()).filter(Boolean));
-      const conflictingPOs = Array.from(uploadedPONumbers).filter(po => existingPONumbers.has(po));
-
-      if (conflictingPOs.length > 0) {
-        console.log(`⚠️ WARNING: ${conflictingPOs.length} PO numbers in upload file already exist in database:`, conflictingPOs.slice(0, 20));
-      }
+      console.log(`🔍 CHANGE DETECTION: Created map of ${existingOrdersMap.size} existing orders`);
 
       // Group by PO number first to track per-PO progress
       const poGroups = new Map<string, any[]>();
@@ -461,33 +437,6 @@ export const usePOOrders = () => {
       for (const [poNumber, items] of poGroups.entries()) {
         currentPOIndex++;
         setCurrentPO(poNumber);
-        
-        const poKey = poNumber.toLowerCase().trim();
-        
-        // Check if this PO already exists in the database
-        if (existingPONumbers.has(poKey)) {
-          console.log(`⏭️ SKIPPING PO ${poNumber}: Already exists in database (${items.length} items skipped)`);
-          
-          // Mark all items as skipped
-          results.processed += items.length;
-          results.unchanged += items.length;
-          
-          // Update PO status to completed
-          setPOProgress(prev => prev.map(po => 
-            po.poNumber === poNumber 
-              ? { ...po, status: 'completed' as const, itemsProcessed: items.length } 
-              : po
-          ));
-          
-          setUploadStats(prev => ({
-            ...prev,
-            processed: results.processed,
-            unchanged: results.unchanged
-          }));
-          
-          // Skip to next PO
-          continue;
-        }
         
         // Update PO status to processing
         setPOProgress(prev => prev.map(po => 
@@ -558,10 +507,10 @@ export const usePOOrders = () => {
             continue;
           }
 
-          // === SIMPLIFIED IDENTITY: po_number + primary_sku ===
+          // === CREATE IDENTITY (must match SQL computed columns exactly) ===
           const poKey = po.toLowerCase().trim();
           
-          // Determine primary SKU (prefer model_number, fallback to asin)
+          // Match SQL: coalesce(nullif(model_number, ''), nullif(asin, ''), sku_code)
           let primarySku = '';
           if (model && model.trim() !== '') {
             primarySku = model.trim();
@@ -571,28 +520,35 @@ export const usePOOrders = () => {
             primarySku = item.sku_code?.trim() || '';
           }
           const itemKey = primarySku.toLowerCase().trim();
-          
-          // Simple identity for duplicate detection
-          const identity = `${poKey}|${itemKey}`;
+          // Use row number + timestamp to ensure uniqueness for each upload row
+          const identity = `${poKey}|${itemKey}|${rowNum}|${Date.now()}`;
+          // Separate lookup key for database matching (without row/timestamp)
+          const dbLookupKey = `${poKey}|${itemKey}`;
 
-          // Validate identity keys are set
-          if (!poKey || !itemKey) {
-            const error = `Row ${rowNum}: Failed to generate identity keys - PO: ${po}, SKU: ${primarySku}`;
-            results.invalid++;
-            results.errors.push(error);
-            setUploadStats(prev => ({ ...prev, invalid: results.invalid }));
-            console.error(`❌ ${error}`);
-            continue;
-          }
-
-          console.log(`📝 Row ${rowNum}: PO=${po} (key=${poKey}), SKU=${primarySku} (key=${itemKey}), Qty=${qty}`);
+          // Detailed logging for debugging
+          console.log(`\n📝 ROW ${rowNum}/${mappedData.length} ANALYSIS:`, {
+            po: po,
+            asin: asin,
+            model: model,
+            qty: qty,
+            primarySku: primarySku,
+            dbLookupKey: dbLookupKey,
+            identity: identity,
+            existingOrderFound: !!existingOrdersMap.get(dbLookupKey),
+            existingOrderDetails: existingOrdersMap.get(dbLookupKey) ? {
+              id: existingOrdersMap.get(dbLookupKey)!.id,
+              created: new Date(existingOrdersMap.get(dbLookupKey)!.created_at).toISOString(),
+              hoursOld: Math.floor((Date.now() - new Date(existingOrdersMap.get(dbLookupKey)!.created_at).getTime()) / (1000 * 60 * 60)),
+              quantity: existingOrdersMap.get(dbLookupKey)!.quantity,
+              batch_id: existingOrdersMap.get(dbLookupKey)!.batch_id,
+              currentBatchId: batchId
+            } : 'N/A'
+          });
 
           // Create new order data
           const currency = selectedCountry === 'KSA' ? 'SAR' : 'AED';
           const newOrderData = {
             po_number: po,
-            po_key: poKey,           // CRITICAL: Required for unique constraint
-            item_key: itemKey,       // CRITICAL: Required for unique constraint
             ship_to_location: location || 'Not specified',
             asin: asin || null,
             model_number: model || null,
@@ -611,11 +567,83 @@ export const usePOOrders = () => {
             batch_id: batchId
           };
 
-          // Since PO doesn't exist, always treat as new insert
-          console.log(`✨ NEW ITEM: ${identity}`);
-          itemGroups.set(identity, newOrderData);
-          results.inserted++;
-          setUploadStats(prev => ({ ...prev, inserted: results.inserted }));
+          // Check if exists in database using ONLY po_key + item_key
+          // CRITICAL: Always prevent duplicates by treating ANY existing record as an update candidate
+          const existingOrder = existingOrdersMap.get(dbLookupKey);
+          
+          let shouldInsertAsNew = true;
+          
+          if (existingOrder) {
+            const existingDate = new Date(existingOrder.created_at);
+            const hoursSinceCreation = (Date.now() - existingDate.getTime()) / (1000 * 60 * 60);
+            
+            console.log(`⏰ Existing order found for ${dbLookupKey}:`, {
+              created: existingDate.toISOString(),
+              hoursOld: Math.floor(hoursSinceCreation),
+              existingQty: existingOrder.quantity,
+              newQty: qty,
+              existingBatchId: existingOrder.batch_id,
+              currentBatchId: batchId
+            });
+            
+            // STRICT DUPLICATE PREVENTION: Always skip or update existing records
+            // regardless of age to prevent any duplicates
+            const isRecent = true; // Always treat as recent to prevent duplicates
+            
+            if (isRecent) {
+              console.log(`🔍 Treating as potential update (recent + same batch)`);
+              
+              const hasChanges = 
+                existingOrder.quantity !== newOrderData.quantity ||
+                existingOrder.title !== newOrderData.title ||
+                existingOrder.ship_to_location !== newOrderData.ship_to_location ||
+                existingOrder.unit_cost !== newOrderData.unit_cost ||
+                existingOrder.asin !== newOrderData.asin ||
+                existingOrder.model_number !== newOrderData.model_number;
+
+              if (hasChanges) {
+                // Update recent order with new data
+                const changeDetails = [];
+                if (existingOrder.quantity !== newOrderData.quantity) {
+                  changeDetails.push(`qty: ${existingOrder.quantity}→${newOrderData.quantity}`);
+                }
+                if (existingOrder.unit_cost !== newOrderData.unit_cost) {
+                  changeDetails.push(`cost: ${existingOrder.unit_cost}→${newOrderData.unit_cost}`);
+                }
+                
+                console.log(`🔄 UPDATE recent order: ${dbLookupKey} - within 20 days, changes: ${changeDetails.join(', ')}`);
+                results.changes.push(`${po}/${primarySku}: ${changeDetails.join(', ')}`);
+                
+                itemGroups.set(identity, {
+                  ...newOrderData,
+                  id: existingOrder.id,
+                  created_at: existingOrder.created_at,
+                  status: existingOrder.status
+                });
+                results.updated++;
+                setUploadStats(prev => ({ ...prev, updated: results.updated }));
+                shouldInsertAsNew = false;
+              } else {
+                console.log(`✓ SKIP duplicate: ${dbLookupKey} - same data within 20 days`);
+                results.unchanged++;
+                setUploadStats(prev => ({ ...prev, unchanged: results.unchanged }));
+                shouldInsertAsNew = false;
+              }
+            } else {
+              // Always insert as NEW if:
+              // - Older than 20 days
+              const reason = `${Math.floor(hoursSinceCreation)}hrs old (>20 days)`;
+              console.log(`✨ Treating as NEW order (${reason})`);
+            }
+          }
+
+          // Insert as new order (either no match found OR existing is old)
+          if (shouldInsertAsNew) {
+            itemGroups.set(identity, newOrderData);
+            results.inserted++;
+            setUploadStats(prev => ({ ...prev, inserted: results.inserted }));
+            console.log(`✨ NEW: ${dbLookupKey}`);
+          }
         }
 
         // Mark PO as completed
@@ -625,20 +653,20 @@ export const usePOOrders = () => {
       }
 
       console.log(`\n📊 PROCESSING SUMMARY:`);
-      console.log(`📥 Total rows: ${mappedData.length}`);
-      console.log(`✅ Processed: ${results.processed}`);
-      console.log(`✨ Inserted: ${results.inserted}`);
-      console.log(`🔄 Updated: ${results.updated}`);
-      console.log(`✓ Unchanged: ${results.unchanged}`);
-      console.log(`❌ Invalid: ${results.invalid}`);
+      console.log(`📥 Rows processed: ${results.processed}`);
+      console.log(`✨ New items: ${itemGroups.size - results.updated}`);
+      console.log(`🔄 Updated items: ${results.updated}`);
+      console.log(`✓ Unchanged items: ${results.unchanged}`);
+      console.log(`📊 Total accounted for: ${results.inserted + results.updated + results.unchanged}`);
       
-      // Verify row accounting
-      const totalAccounted = results.inserted + results.updated + results.unchanged + results.invalid;
-      console.log(`🔢 Accounted: ${totalAccounted}/${mappedData.length}`);
-      
-      if (totalAccounted !== mappedData.length) {
-        console.error(`🚨 ROW ACCOUNTING ERROR: ${Math.abs(mappedData.length - totalAccounted)} rows unaccounted!`);
+      const discrepancy = mappedData.length - (results.inserted + results.updated + results.unchanged);
+      if (discrepancy !== 0) {
+        console.warn(`⚠️ DATA DISCREPANCY DETECTED: ${discrepancy} rows not accounted for!`);
+        console.warn(`Expected ${mappedData.length} rows, but only processed ${results.inserted + results.updated + results.unchanged}`);
       }
+      console.log(`🔄 Items to update: ${results.updated}`);
+      console.log(`✓ Unchanged: ${results.unchanged}`);
+      console.log(`❌ Invalid rows: ${results.invalid}`);
 
       // === BULK UPSERT (INSERT + UPDATE) ===
       setLoadingProgress(85);
@@ -648,36 +676,43 @@ export const usePOOrders = () => {
       setCurrentItem('Saving to database...');
 
       const ordersToUpsert = Array.from(itemGroups.values());
-      const itemsToInsert = ordersToUpsert; // All items are new inserts
 
-      if (itemsToInsert.length > 0) {
-        console.log(`💾 DATABASE: Inserting ${itemsToInsert.length} new items`);
+      if (ordersToUpsert.length > 0) {
+        console.log(`🚀 Batch ${batchId}: Processing ${ordersToUpsert.length} items (${ordersToUpsert.filter(o => o.id).length} updates, ${ordersToUpsert.filter(o => !o.id).length} inserts)`);
         
-        const { data: insertedData, error: insertError } = await supabase
-          .from('po_orders')
-          .insert(itemsToInsert)
-          .select('po_number, item_key');
+        // Separate new inserts from updates
+        const itemsToInsert = ordersToUpsert.filter(o => !o.id);
+        const itemsToUpdate = ordersToUpsert.filter(o => o.id);
         
-        if (insertError) {
-          console.error('❌ Insert error:', insertError);
+        // Insert new items
+        if (itemsToInsert.length > 0) {
+          const { error: insertError } = await supabase
+            .from('po_orders')
+            .insert(itemsToInsert);
           
-          // Check if it's a duplicate key violation
-          if (insertError.message.includes('idx_po_orders_unique_item') || 
-              insertError.message.includes('duplicate key')) {
-            toast({
-              title: "Duplicate Data Detected",
-              description: `Some items already exist in the database. This might mean the fetch limit was exceeded. Total existing orders: ${existingOrders.length}`,
-              variant: "destructive",
-            });
-            
-            throw new Error(`Duplicate items detected. Database has ${existingOrders.length} existing orders. Some new POs might actually already exist beyond the fetch limit.`);
+          if (insertError) {
+            console.error('❌ Insert error:', insertError);
+            throw new Error(`Bulk insert failed: ${insertError.message}`);
           }
-          
-          throw new Error(`Database insert failed: ${insertError.message}`);
+          console.log(`✅ Inserted ${itemsToInsert.length} new orders`);
         }
         
-        console.log(`✅ Successfully inserted ${insertedData?.length || itemsToInsert.length} new items`);
-        console.log(`✅ Batch ${batchId}: Successfully processed ${insertedData?.length || itemsToInsert.length} orders`);
+        // Update existing items
+        if (itemsToUpdate.length > 0) {
+          for (const item of itemsToUpdate) {
+            const { error: updateError } = await supabase
+              .from('po_orders')
+              .update(item)
+              .eq('id', item.id);
+            
+            if (updateError) {
+              console.error(`❌ Update error for ${item.id}:`, updateError);
+            }
+          }
+          console.log(`✅ Updated ${itemsToUpdate.length} existing orders`);
+        }
+
+        console.log(`✅ Batch ${batchId}: Successfully processed ${ordersToUpsert.length} orders (${itemsToInsert.length} new, ${itemsToUpdate.length} updated)`);
 
         // Log sample changes
         if (results.changes.length > 0) {
@@ -689,43 +724,59 @@ export const usePOOrders = () => {
       setLoadingStatus('Refreshing PO data...');
       setCurrentItem('');
       
-      // Invalidate ALL PO-related queries (not just active ones)
+      // Invalidate all PO-related queries with smart refetch strategy
       await queryClient.invalidateQueries({ 
         queryKey: ['po-group-metrics'],
-        refetchType: 'all'  // Force ALL queries to refetch
+        refetchType: 'active' // Only refetch active queries
       });
       await queryClient.invalidateQueries({ 
         queryKey: ['po-orders'],
-        refetchType: 'all'  // Force ALL queries to refetch
+        refetchType: 'active'
       });
       
-      // Wait 500ms for DB to finish writes
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Force fetch with loadAllOrders = true
-      await fetchPOOrders(true);
-
-      // Trigger state update to force component re-render
-      setPOOrders(prev => [...prev]);
+      await fetchPOOrders();
 
       setLoadingProgress(100);
       setLoadingStatus('Upload complete!');
 
       // === FINAL RESULTS ===
-      console.log(`\n🏁 UPLOAD COMPLETE:`);
-      console.log(`📊 ${results.inserted} new, ${results.updated} updated, ${results.unchanged} unchanged, ${results.invalid} invalid`);
-      console.log(`✅ All ${totalAccounted} rows accounted for`);
+      console.log(`\n🏁 FINAL VALIDATION:`);
+      console.log(`📁 Total rows in uploaded file(s): ${mappedData.length}`);
+      console.log(`✨ New items inserted: ${results.inserted}`);
+      console.log(`🔄 Items updated: ${results.updated}`);
+      console.log(`✓ Unchanged items skipped: ${results.unchanged}`);
+      console.log(`❌ Invalid/Skipped rows: ${results.invalid}`);
+      console.log(`📊 Total accounted: ${results.inserted + results.updated + results.unchanged + results.invalid}`);
 
-      // Build user message
-      const details = [];
+      const unaccountedFor = mappedData.length - (results.inserted + results.updated + results.unchanged + results.invalid);
+      if (unaccountedFor !== 0) {
+        console.error(`🚨 CRITICAL: ${Math.abs(unaccountedFor)} rows UNACCOUNTED FOR!`);
+        console.error(`Expected to process ${mappedData.length} rows but only accounted for ${results.inserted + results.updated + results.unchanged + results.invalid}`);
+      }
+
+      // Show user-friendly results
+      let message = `Processed ${results.processed} rows: `;
+      let details = [];
+      
       if (results.inserted > 0) details.push(`${results.inserted} new`);
       if (results.updated > 0) details.push(`${results.updated} updated`);
       if (results.unchanged > 0) details.push(`${results.unchanged} unchanged`);
-      if (results.invalid > 0) details.push(`${results.invalid} skipped`);
+      if (results.invalid > 0) details.push(`${results.invalid} invalid`);
+      
+      message += details.join(', ');
 
+      if (results.errors.length > 0) {
+        console.log('🚨 First 5 processing errors:', results.errors.slice(0, 5));
+      }
+
+      const unaccountedForFinal = mappedData.length - (results.inserted + results.updated + results.unchanged + results.invalid);
+      
       toast({
-        title: "Upload Complete",
-        description: `Processed ${mappedData.length} rows: ${details.join(', ')}`,
+        title: unaccountedForFinal === 0 ? "PO Upload Complete ✅" : "PO Upload Complete ⚠️",
+        description: unaccountedForFinal === 0 
+          ? message 
+          : `${message}\n⚠️ Warning: ${Math.abs(unaccountedForFinal)} rows not accounted for - check console logs`,
+        variant: unaccountedForFinal === 0 ? "default" : "destructive"
       });
 
     } catch (error) {

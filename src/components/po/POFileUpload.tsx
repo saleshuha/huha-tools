@@ -3,7 +3,7 @@ import { useDropzone } from 'react-dropzone';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Upload, FileText, X, ArrowRight, Loader2, RefreshCw } from 'lucide-react';
+import { Upload, FileText, X, ArrowRight, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { POColumnMapping } from './POColumnMapping';
 import { POUploadProgress } from './POUploadProgress';
@@ -158,32 +158,14 @@ export function POFileUpload({
     <div className="space-y-4">
       {/* Show progress if processing */}
       {isLoading && uploadStats.totalRows > 0 && (
-        <Card>
-          <CardContent className="pt-6">
-            <POUploadProgress
-              progress={loadingProgress}
-              status={loadingStatus}
-              currentPO={currentPO}
-              currentItem={currentItem}
-              stats={uploadStats}
-              poProgress={poProgress}
-            />
-            
-            {/* Manual refresh button */}
-            {uploadStats.processed === uploadStats.totalRows && uploadStats.totalRows > 0 && (
-              <div className="mt-4 flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => window.location.reload()}
-                  className="flex-1"
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh Page to See Data
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <POUploadProgress
+          progress={loadingProgress}
+          status={loadingStatus}
+          currentPO={currentPO}
+          currentItem={currentItem}
+          stats={uploadStats}
+          poProgress={poProgress}
+        />
       )}
 
       {/* File Upload Area */}

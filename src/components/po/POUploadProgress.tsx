@@ -1,7 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { CheckCircle, Clock, Loader2, AlertCircle } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -173,34 +172,6 @@ export function POUploadProgress({
             )}
           </div>
         ) : null}
-
-        {/* Upload Completion Indicator */}
-        {stats.processed === stats.totalRows && stats.totalRows > 0 && (
-          <div className="mt-4 p-4 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
-            <div className="flex items-center gap-3">
-              <CheckCircle className="h-5 w-5 text-green-600" />
-              <div className="flex-1">
-                <h4 className="font-semibold text-green-900 dark:text-green-100">
-                  Upload Complete
-                </h4>
-                <p className="text-sm text-green-700 dark:text-green-300">
-                  {stats.inserted} new • {stats.updated} updated • {stats.unchanged} unchanged
-                </p>
-              </div>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => {
-                  document.querySelector('[data-table="po-main"]')?.scrollIntoView({ 
-                    behavior: 'smooth' 
-                  });
-                }}
-              >
-                View Uploaded Data
-              </Button>
-            </div>
-          </div>
-        )}
       </CardContent>
     </Card>
   );
