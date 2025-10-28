@@ -25,12 +25,33 @@ export function getPaginatedItems<T>(
   currentPage: number,
   itemsPerPage: number
 ): T[] {
+  if (items.length === 0) return [];
+  
+  // Ensure currentPage is within valid bounds
+  const totalPages = Math.ceil(items.length / itemsPerPage);
+  const validPage = Math.max(1, Math.min(currentPage, totalPages));
+  
   const { startIndex, endIndex } = calculatePagination(
     items.length,
-    currentPage,
+    validPage,
     itemsPerPage
   );
-  return items.slice(startIndex, endIndex);
+  
+  const result = items.slice(startIndex, endIndex);
+  
+  // Debug logging
+  if (result.length === 0 && items.length > 0) {
+    console.error('⚠️ getPaginatedItems returned empty array:', {
+      totalItems: items.length,
+      requestedPage: currentPage,
+      validPage,
+      totalPages,
+      startIndex,
+      endIndex
+    });
+  }
+  
+  return result;
 }
 
 /**
