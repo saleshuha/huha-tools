@@ -2868,6 +2868,42 @@ export type Database = {
         }
         Relationships: []
       }
+      sku_match_patterns: {
+        Row: {
+          confidence_score: number
+          created_at: string
+          id: string
+          last_used_at: string
+          po_sku_pattern: string
+          sunsky_sku_pattern: string
+          times_used: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          confidence_score: number
+          created_at?: string
+          id?: string
+          last_used_at?: string
+          po_sku_pattern: string
+          sunsky_sku_pattern: string
+          times_used?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          confidence_score?: number
+          created_at?: string
+          id?: string
+          last_used_at?: string
+          po_sku_pattern?: string
+          sunsky_sku_pattern?: string
+          times_used?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       stock_changes: {
         Row: {
           asin: string | null

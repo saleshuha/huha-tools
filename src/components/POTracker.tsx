@@ -24,8 +24,10 @@ import { POReportsSection } from '@/components/po/POReportsSection';
 import { POPrintDialog } from '@/components/po/POPrintDialog';
 import { POMetricsCard } from '@/components/po/POMetricsCard';
 import { POAnalyticsDashboard } from '@/components/po/analytics/POAnalyticsDashboard';
+import { SmartMatchingPanel } from '@/components/po/matching/SmartMatchingPanel';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { usePOOrders } from '@/hooks/usePOOrders';
+import { useSKUManager } from '@/hooks/useSKUManager';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useCountry } from '@/contexts/CountryContext';
 import { useProductImages } from '@/hooks/useProductImages';
@@ -3203,6 +3205,13 @@ export const POTracker = () => {
         </TabsContent>
 
         <TabsContent value="labels" className="space-y-6">
+          {/* Smart Matching Assistant Panel */}
+          <SmartMatchingPanel 
+            orders={poOrders}
+            sunskySKUs={sunskySKUs}
+            userId={profile?.id}
+          />
+
           {labelsStep === 'list' ?
         // Step 1: PO List View
         <Card>

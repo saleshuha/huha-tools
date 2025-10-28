@@ -59,6 +59,7 @@
     "date-fns": "^4.1.0",
     "embla-carousel-react": "^8.3.0",
     "fabric": "^6.0.2",
+    "fuse.js": "^7.1.0",
     "html2canvas": "^1.4.1",
     "input-otp": "^1.2.4",
     "jsbarcode": "^3.11.5",
