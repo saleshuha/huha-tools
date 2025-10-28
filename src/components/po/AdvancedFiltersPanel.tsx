@@ -2,13 +2,14 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Slider } from '@/components/ui/slider';
-import { DatePickerWithRange } from '@/components/ui/date-range-picker';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, X, Filter } from 'lucide-react';
+import { ChevronDown, X, Filter, Calendar } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { DateRange } from 'react-day-picker';
+import { format } from 'date-fns';
 
 interface AdvancedFiltersPanelProps {
   dateRange: DateRange | undefined;
@@ -81,26 +82,55 @@ export const AdvancedFiltersPanel: React.FC<AdvancedFiltersPanelProps> = ({
 
       <CollapsibleContent>
         <Card className="border-dashed">
-          <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Date Range */}
-              <div className="space-y-2">
-                <Label>Date Range</Label>
-                <DatePickerWithRange
-                  date={dateRange}
-                  onDateChange={onDateRangeChange}
-                />
+          <CardContent className="pt-4 pb-4">
+            {/* Compact Horizontal Layout */}
+            <div className="flex flex-wrap items-center gap-4">
+              {/* Date Range - Compact */}
+              <div className="flex items-center gap-2">
+                <Label className="text-sm whitespace-nowrap">Date:</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8">
+                      <Calendar className="h-3 w-3 mr-1" />
+                      {dateRange?.from ? (
+                        dateRange.to ? (
+                          <>
+                            {format(dateRange.from, "MMM dd")} - {format(dateRange.to, "MMM dd")}
+                          </>
+                        ) : (
+                          format(dateRange.from, "MMM dd, yyyy")
+                        )
+                      ) : (
+                        <span>Pick dates</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      initialFocus
+                      mode="range"
+                      defaultMonth={dateRange?.from}
+                      selected={dateRange}
+                      onSelect={onDateRangeChange}
+                      numberOfMonths={2}
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
 
-              {/* Status Filter */}
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <div className="flex flex-wrap gap-2">
+              {/* Separator */}
+              <div className="h-6 w-px bg-border" />
+
+              {/* Status Filter - Compact Badges */}
+              <div className="flex items-center gap-2">
+                <Label className="text-sm whitespace-nowrap">Status:</Label>
+                <div className="flex flex-wrap gap-1">
                   {statusOptions.map(option => (
                     <Badge
                       key={option.value}
                       variant={statusFilter.includes(option.value) ? "default" : "outline"}
-                      className="cursor-pointer hover:bg-primary/80"
+                      className="cursor-pointer hover:bg-primary/80 text-xs h-6 px-2"
                       onClick={() => toggleStatus(option.value)}
                     >
                       {option.label}
@@ -109,42 +139,50 @@ export const AdvancedFiltersPanel: React.FC<AdvancedFiltersPanelProps> = ({
                 </div>
               </div>
 
-              {/* Value Range */}
-              <div className="space-y-4">
-                <Label>Value Range (0 - {maxValue.toFixed(0)})</Label>
-                <div className="px-2">
-                  <Slider
-                    min={0}
-                    max={maxValue}
-                    step={10}
-                    value={valueRange}
-                    onValueChange={(value) => onValueRangeChange(value as [number, number])}
-                    className="w-full"
-                  />
-                  <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-                    <span>{valueRange[0].toFixed(0)}</span>
-                    <span>{valueRange[1].toFixed(0)}</span>
-                  </div>
-                </div>
+              {/* Separator */}
+              <div className="h-6 w-px bg-border" />
+
+              {/* Value Range - Compact Inputs */}
+              <div className="flex items-center gap-2">
+                <Label className="text-sm whitespace-nowrap">Value:</Label>
+                <Input
+                  type="number"
+                  placeholder="Min"
+                  value={valueRange[0]}
+                  onChange={(e) => onValueRangeChange([Number(e.target.value), valueRange[1]])}
+                  className="w-20 h-8 text-xs"
+                />
+                <span className="text-xs text-muted-foreground">-</span>
+                <Input
+                  type="number"
+                  placeholder="Max"
+                  value={valueRange[1]}
+                  onChange={(e) => onValueRangeChange([valueRange[0], Number(e.target.value)])}
+                  className="w-20 h-8 text-xs"
+                />
               </div>
 
-              {/* Quantity Range */}
-              <div className="space-y-4">
-                <Label>Quantity Range (0 - {maxQuantity})</Label>
-                <div className="px-2">
-                  <Slider
-                    min={0}
-                    max={maxQuantity}
-                    step={1}
-                    value={quantityRange}
-                    onValueChange={(value) => onQuantityRangeChange(value as [number, number])}
-                    className="w-full"
-                  />
-                  <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-                    <span>{quantityRange[0]}</span>
-                    <span>{quantityRange[1]}</span>
-                  </div>
-                </div>
+              {/* Separator */}
+              <div className="h-6 w-px bg-border" />
+
+              {/* Quantity Range - Compact Inputs */}
+              <div className="flex items-center gap-2">
+                <Label className="text-sm whitespace-nowrap">Qty:</Label>
+                <Input
+                  type="number"
+                  placeholder="Min"
+                  value={quantityRange[0]}
+                  onChange={(e) => onQuantityRangeChange([Number(e.target.value), quantityRange[1]])}
+                  className="w-16 h-8 text-xs"
+                />
+                <span className="text-xs text-muted-foreground">-</span>
+                <Input
+                  type="number"
+                  placeholder="Max"
+                  value={quantityRange[1]}
+                  onChange={(e) => onQuantityRangeChange([quantityRange[0], Number(e.target.value)])}
+                  className="w-16 h-8 text-xs"
+                />
               </div>
             </div>
           </CardContent>

@@ -72,6 +72,98 @@ export const usePOOrders = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // NEW: Fetch PO orders for a specific PO number only (optimized for details page)
+  const fetchSinglePOOrders = useCallback(async (poNumber: string) => {
+    console.log('📥 fetchSinglePOOrders called for PO:', poNumber);
+    setIsLoading(true);
+    setLoadingProgress(0);
+    setLoadingStatus('Loading PO details...');
+
+    try {
+      const startTime = performance.now();
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError) throw new Error(`Authentication failed: ${authError.message}`);
+      if (!user) throw new Error('User not authenticated');
+
+      setLoadingProgress(20);
+      setLoadingStatus('Fetching PO orders...');
+
+      // Fetch ONLY orders for this specific PO number
+      const { data: poOrdersData, error: poError } = await supabase
+        .from('po_orders')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('po_number', poNumber)
+        .order('created_at', { ascending: false });
+
+      if (poError) throw poError;
+
+      setLoadingProgress(50);
+      setLoadingStatus('Fetching Sunsky SKUs...');
+
+      // Fetch Sunsky SKUs
+      const { data: sunskySKUs, error: skuError } = await supabase
+        .from('sunsky_skus')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (skuError) throw skuError;
+
+      setLoadingProgress(80);
+      setLoadingStatus('Joining data...');
+
+      // Create SKU map and join
+      const skuMap = new Map();
+      (sunskySKUs || []).forEach((sku: any) => {
+        skuMap.set(sku.sku_code, sku);
+      });
+
+      const ordersWithSkus = (poOrdersData || []).map((order: any) => {
+        const matchedSku = skuMap.get(order.sku_code) || 
+                          (order.model_number ? skuMap.get(order.model_number) : null);
+        return {
+          ...order,
+          sunsky_sku: matchedSku || null
+        };
+      });
+
+      const typedData: POOrder[] = ordersWithSkus.map((order: any) => ({
+        ...order,
+        status: order.status as POOrder['status']
+      }));
+
+      const endTime = performance.now();
+      const loadTime = ((endTime - startTime) / 1000).toFixed(2);
+
+      console.log('✅ Loaded', typedData.length, 'orders for PO', poNumber, 'in', loadTime, 's');
+      setPOOrders(typedData);
+      setLoadingProgress(100);
+      setLoadingStatus(`Loaded ${typedData.length} orders in ${loadTime}s`);
+
+      toast({
+        title: "Success",
+        description: `Loaded ${typedData.length} orders in ${loadTime}s`,
+      });
+
+    } catch (error) {
+      console.error('❌ Error in fetchSinglePOOrders:', error);
+      setLoadingStatus('Failed to load PO orders');
+      setPOOrders([]);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to fetch PO orders",
+        variant: "destructive"
+      });
+    } finally {
+      setTimeout(() => {
+        setIsLoading(false);
+        setLoadingProgress(0);
+        setLoadingStatus('');
+      }, 500);
+    }
+  }, [toast]);
+
   // Fetch PO orders - restored working version with progressive loading
   const fetchPOOrders = useCallback(async (loadAllOrders = false) => {
     console.log('📥 fetchPOOrders called, loadAllOrders:', loadAllOrders);
@@ -1023,6 +1115,7 @@ export const usePOOrders = () => {
     uploadStats,
     poProgress,
     fetchPOOrders,
+    fetchSinglePOOrders,
     processPOFiles,
     updateOrderStatus,
     updateTrackingInfo,

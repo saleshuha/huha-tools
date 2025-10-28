@@ -54,6 +54,7 @@ export default function PODetailsPage() {
   const {
     poOrders,
     fetchPOOrders,
+    fetchSinglePOOrders,
     updateOrderStatus,
     updateTrackingInfo
   } = usePOOrders();
@@ -110,8 +111,17 @@ export default function PODetailsPage() {
   // Track items marked from stock
   const [itemsMarkedFromStock, setItemsMarkedFromStock] = useState<Set<string>>(new Set());
 
-  // Search state
+  // Search state with debounce
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   // Filter state
   const [filters, setFilters] = useState<FilterState>({
@@ -142,16 +152,19 @@ export default function PODetailsPage() {
   console.log('PODetailsPage: poOrders:', poOrders);
   useEffect(() => {
     const loadData = async () => {
-      console.log('PODetailsPage: Loading data...');
+      if (!poNumber) return;
+      
+      console.log('PODetailsPage: Loading data for PO:', poNumber);
       setLoading(true);
-      await Promise.all([fetchPOOrders(true),
-      // Load ALL orders including closed ones
-      fetchInventoryData(), checkSunskyCredentials()]);
+      await Promise.all([
+        fetchSinglePOOrders(poNumber), // Only load THIS PO's orders
+        checkSunskyCredentials()
+      ]);
       setLoading(false);
       console.log('PODetailsPage: Data loaded');
     };
     loadData();
-  }, [fetchPOOrders]);
+  }, [poNumber, fetchSinglePOOrders]);
 
   // Initialize itemsMarkedFromStock based on existing ordered items
   useEffect(() => {
@@ -213,47 +226,58 @@ export default function PODetailsPage() {
     }
   }, [poOrders, poNumber]);
 
-  // Fetch inventory data to match with PO ASINs
-  const fetchInventoryData = async () => {
-    try {
-      const user = await supabase.auth.getUser();
-      const userId = user.data.user?.id;
-      if (!userId) {
-        console.error('No user ID found');
-        return;
-      }
-      console.log('🔄 Fetching inventory data for user:', userId);
-      const [asinResult, skuResult] = await Promise.all([supabase.from('asin_inventory').select('asin, quantity, status, sku, serial_number, country').eq('user_id', userId), supabase.from('sku_inventory').select('sku_number, quantity, status, bin_serial_number, country').eq('user_id', userId)]);
-      if (asinResult.error) {
-        console.error('ASIN inventory error:', asinResult.error);
-        throw asinResult.error;
-      }
-      if (skuResult.error) {
-        console.error('SKU inventory error:', skuResult.error);
-        throw skuResult.error;
-      }
-      console.log('📊 ASIN Inventory Data:', asinResult.data);
-      console.log('📊 SKU Inventory Data:', skuResult.data);
-      console.log('📊 SKU Inventory ASINs found:', skuResult.data?.filter(item => item.sku_number?.startsWith('B0')));
+  // Filter orders for this specific PO (memoized)
+  const poOrdersForThisPO = useMemo(() => 
+    poOrders.filter(order => order.po_number === poNumber),
+    [poOrders, poNumber]
+  );
 
-      // Specific debug for B0FHDWY5FF
-      const targetAsin = 'B0FHDWY5FF';
-      const asinInAsinInventory = asinResult.data?.find(item => item.asin === targetAsin);
-      const asinInSkuInventory = skuResult.data?.find(item => item.sku_number === targetAsin);
-      console.log(`🎯 Debug for ${targetAsin}:`, {
-        inAsinInventory: !!asinInAsinInventory,
-        asinInventoryData: asinInAsinInventory,
-        inSkuInventory: !!asinInSkuInventory,
-        skuInventoryData: asinInSkuInventory
-      });
-      setInventoryData({
-        asinInventory: asinResult.data || [],
-        skuInventory: skuResult.data || []
-      });
-    } catch (error) {
-      console.error('Error fetching inventory data:', error);
-    }
-  };
+  // NEW: Fetch inventory data ONLY for ASINs/SKUs in current PO (optimized)
+  useEffect(() => {
+    const fetchInventoryData = async () => {
+      if (poOrdersForThisPO.length === 0) return;
+      
+      try {
+        const user = await supabase.auth.getUser();
+        const userId = user.data.user?.id;
+        if (!userId) return;
+
+        // Extract unique ASINs and SKUs from current PO only
+        const uniqueAsins = [...new Set(poOrdersForThisPO.map(o => o.asin).filter(Boolean))];
+        const uniqueSkus = [...new Set(poOrdersForThisPO.flatMap(o => 
+          [o.sku_code, o.model_number, o.sunsky_sku?.sku_code].filter(Boolean)
+        ))];
+
+        console.log('🔄 Fetching inventory for', uniqueAsins.length, 'ASINs and', uniqueSkus.length, 'SKUs');
+
+        // Fetch ONLY relevant inventory records
+        const [asinResult, skuResult] = await Promise.all([
+          supabase.from('asin_inventory')
+            .select('asin, quantity, status, sku, serial_number, country')
+            .eq('user_id', userId)
+            .in('asin', uniqueAsins.length > 0 ? uniqueAsins : ['']),
+          supabase.from('sku_inventory')
+            .select('sku_number, quantity, status, bin_serial_number, country')
+            .eq('user_id', userId)
+            .in('sku_number', uniqueSkus.length > 0 ? uniqueSkus : [''])
+        ]);
+
+        if (asinResult.error) throw asinResult.error;
+        if (skuResult.error) throw skuResult.error;
+
+        console.log('✅ Loaded', asinResult.data?.length, 'ASIN records,', skuResult.data?.length, 'SKU records');
+
+        setInventoryData({
+          asinInventory: asinResult.data || [],
+          skuInventory: skuResult.data || []
+        });
+      } catch (error) {
+        console.error('Error fetching inventory data:', error);
+      }
+    };
+
+    fetchInventoryData();
+  }, [poOrdersForThisPO.length]);
 
   // Function to find inventory match for an ASIN - Enhanced to match ASINs and SKUs
   const findInventoryMatch = (asin: string, sunskySku?: string, poSku?: string, modelNumber?: string) => {
@@ -310,10 +334,7 @@ export default function PODetailsPage() {
     return <div>PO Number not provided</div>;
   }
 
-  // Filter orders for this specific PO
-  const poOrdersForThisPO = poOrders.filter(order => order.po_number === poNumber);
-
-  // Show ALL items for this PO, regardless of inventory match status
+  // Show ALL items for this PO (already filtered above)
   // This ensures fulfilled items remain visible in the list
   const allMatchedOrders = poOrdersForThisPO;
 
@@ -382,9 +403,9 @@ export default function PODetailsPage() {
   // Filter orders based on search term and filters (memoized for performance with cache)
   const filteredOrders = useMemo(() => {
     return sortedMatchedOrders.filter(order => {
-      // Search filter
-      if (searchTerm.trim()) {
-        const searchLower = searchTerm.toLowerCase();
+      // Search filter (use debounced term)
+      if (debouncedSearchTerm.trim()) {
+        const searchLower = debouncedSearchTerm.toLowerCase();
         const matchesSearch = order.asin?.toLowerCase().includes(searchLower) || order.title?.toLowerCase().includes(searchLower) || order.sku_code?.toLowerCase().includes(searchLower) || order.model_number?.toLowerCase().includes(searchLower) || order.sunsky_sku?.sku_code?.toLowerCase().includes(searchLower);
         if (!matchesSearch) return false;
       }
@@ -1496,8 +1517,8 @@ export default function PODetailsPage() {
       if (reversedCount > 0) {
         setItemsMarkedFromStock(new Set());
 
-        // Refresh inventory and PO data
-        await Promise.all([fetchInventoryData(), fetchPOOrders(true)]);
+        // Refresh data by refetching PO orders
+        await fetchSinglePOOrders(poNumber);
       }
 
       // Show results
@@ -1784,8 +1805,8 @@ export default function PODetailsPage() {
         return newSet;
       });
 
-      // Refresh data
-      await Promise.all([fetchInventoryData(), fetchPOOrders(true)]);
+      // Refresh data by refetching PO orders (inventory will refresh via useEffect)
+      await fetchSinglePOOrders(poNumber);
       toast({
         title: "Item Marked as Ordered",
         description: `Order fulfilled from stock: ${quantityToUse} units deducted from inventory. Status changed to closed.`
@@ -2210,7 +2231,7 @@ export default function PODetailsPage() {
               <Button variant="ghost" size="sm" onClick={async () => {
               setLoading(true);
               try {
-                await Promise.all([fetchPOOrders(true), fetchInventoryData()]);
+                await fetchSinglePOOrders(poNumber);
                 toast({
                   title: "Success",
                   description: "PO data refreshed"
