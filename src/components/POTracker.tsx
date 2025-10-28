@@ -1807,6 +1807,10 @@ export const POTracker = () => {
     
     // Calculate metrics for each PO group
     const poGroupsWithMetrics = Object.entries(groups).map(([poNumber, orders]) => {
+      // Keep ALL orders for matched calculations
+      const allOrdersInPO = orders;
+
+      // Filter to only active orders for pending calculations
       const activeOrdersInPO = orders.filter(
         (order: any) => order.status === 'pending' || order.status === 'placed' || order.status === 'received'
       );
@@ -1816,7 +1820,8 @@ export const POTracker = () => {
       const matchedUnitsBySource = { ASIN: 0, SKU: 0, SUNSKY: 0 };
       const pendingUnitsBySource = { ASIN: 0, SKU: 0, SUNSKY: 0 };
       
-      activeOrdersInPO.forEach((order: any) => {
+      // Calculate matched details from ALL orders (including closed)
+      allOrdersInPO.forEach((order: any) => {
         const inventoryMatch = findInventoryMatch(
           order.asin, 
           order.sunsky_sku?.sku_code, 
@@ -1828,11 +1833,22 @@ export const POTracker = () => {
         if (inventoryMatch) {
           matchedBySource[inventoryMatch.type]++;
           matchedUnitsBySource[inventoryMatch.type] += (order.quantity || 0);
-          
-          if (order.status === 'pending' && !order.supplier_order_number) {
-            pendingBySource[inventoryMatch.type]++;
-            pendingUnitsBySource[inventoryMatch.type] += (order.quantity || 0);
-          }
+        }
+      });
+
+      // Calculate pending to place from ONLY active orders
+      activeOrdersInPO.forEach((order: any) => {
+        const inventoryMatch = findInventoryMatch(
+          order.asin, 
+          order.sunsky_sku?.sku_code, 
+          order.sku_code, 
+          order.model_number, 
+          order.sunsky_sku
+        );
+        
+        if (inventoryMatch && order.status === 'pending' && !order.supplier_order_number) {
+          pendingBySource[inventoryMatch.type]++;
+          pendingUnitsBySource[inventoryMatch.type] += (order.quantity || 0);
         }
       });
       
@@ -3222,7 +3238,7 @@ export const POTracker = () => {
                                             e.stopPropagation();
                                             handleGroupedSort('matched_sunsky');
                                           }}
-                                          title="Total units matched with Source (in stock + need to place)"
+                                          title="Total units matched with Source (including placed/closed orders)"
                                         >
                                           {matchedUnits} units
                                         </Badge>
