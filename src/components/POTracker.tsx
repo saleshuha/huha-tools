@@ -3204,28 +3204,6 @@ export const POTracker = () => {
                               </div>
                               <div className="p-2">
                                 <div className="flex flex-wrap gap-1">
-                                  {matchedBySource.ASIN > 0 && <Badge 
-                                    variant="default" 
-                                    className="text-xs bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/50 cursor-pointer hover:bg-green-500/30 transition-colors"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleGroupedSort('matched_asin');
-                                    }}
-                                    title="Click to sort by ASIN matches"
-                                  >
-                                    {matchedBySource.ASIN} ASIN
-                                  </Badge>}
-                                  {matchedBySource.SKU > 0 && <Badge 
-                                    variant="secondary" 
-                                    className="text-xs bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/50 cursor-pointer hover:bg-blue-500/30 transition-colors"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleGroupedSort('matched_sku');
-                                    }}
-                                    title="Click to sort by SKU matches"
-                                  >
-                                    {matchedBySource.SKU} SKU
-                                  </Badge>}
                                   {matchedBySource.SUNSKY > 0 && <Badge 
                                     variant="outline" 
                                     className="text-xs bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/50 cursor-pointer hover:bg-purple-500/30 transition-colors"
@@ -3237,35 +3215,13 @@ export const POTracker = () => {
                                   >
                                     {matchedBySource.SUNSKY} Source
                                   </Badge>}
-                                  {matchedCount === 0 && <Badge variant="outline" className="text-xs text-muted-foreground">
-                                    No matches
+                                  {matchedBySource.SUNSKY === 0 && <Badge variant="outline" className="text-xs text-muted-foreground">
+                                    No Source matches
                                   </Badge>}
                                 </div>
                               </div>
                               <div className="p-2">
                                 <div className="flex flex-wrap gap-1">
-                                  {pendingBySource.ASIN > 0 && <Badge 
-                                    variant="default" 
-                                    className="text-xs bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/50 cursor-pointer hover:bg-green-500/30 transition-colors"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleGroupedSort('pending_asin');
-                                    }}
-                                    title="Click to sort by pending ASIN orders"
-                                  >
-                                    {pendingBySource.ASIN} ASIN
-                                  </Badge>}
-                                  {pendingBySource.SKU > 0 && <Badge 
-                                    variant="secondary" 
-                                    className="text-xs bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/50 cursor-pointer hover:bg-blue-500/30 transition-colors"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleGroupedSort('pending_sku');
-                                    }}
-                                    title="Click to sort by pending SKU orders"
-                                  >
-                                    {pendingBySource.SKU} SKU
-                                  </Badge>}
                                   {pendingBySource.SUNSKY > 0 && <Badge 
                                     variant="outline" 
                                     className="text-xs bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/50 cursor-pointer hover:bg-purple-500/30 transition-colors"
@@ -3277,8 +3233,8 @@ export const POTracker = () => {
                                   >
                                     {pendingBySource.SUNSKY} Source
                                   </Badge>}
-                                  {(pendingBySource.ASIN + pendingBySource.SKU + pendingBySource.SUNSKY) === 0 && <Badge variant="outline" className="text-xs text-muted-foreground">
-                                    None
+                                  {pendingBySource.SUNSKY === 0 && <Badge variant="outline" className="text-xs text-muted-foreground">
+                                    None pending
                                   </Badge>}
                                 </div>
                               </div>
@@ -3378,21 +3334,13 @@ export const POTracker = () => {
                                  </Badge>
                                </TableCell>
                             <TableCell>
-                              {inventoryMatch ? (
+                              {inventoryMatch && inventoryMatch.type === 'SUNSKY' ? (
                                 <div className="flex flex-col gap-1">
                                   <Badge 
-                                    variant={
-                                      inventoryMatch.type === 'ASIN' ? 'default' : 
-                                      inventoryMatch.type === 'SKU' ? 'secondary' : 
-                                      'outline'
-                                    }
-                                    className={
-                                      inventoryMatch.type === 'ASIN' ? 'bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/50' :
-                                      inventoryMatch.type === 'SKU' ? 'bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/50' :
-                                      'bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/50'
-                                    }
+                                    variant="outline"
+                                    className="bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/50"
                                   >
-                                    {inventoryMatch.type === 'SUNSKY' ? 'Source' : inventoryMatch.type}
+                                    Source
                                   </Badge>
                                   <span className="text-xs text-muted-foreground">
                                     Qty: {inventoryMatch.quantity}
@@ -3404,7 +3352,9 @@ export const POTracker = () => {
                                   )}
                                 </div>
                               ) : (
-                                <Badge variant="destructive">No Match</Badge>
+                                <Badge variant="outline" className="text-xs text-muted-foreground">
+                                  No Source match
+                                </Badge>
                               )}
                             </TableCell>
                             <TableCell>
