@@ -526,45 +526,45 @@ export default function PODetailsPage() {
     });
   }, [sortedMatchedOrders, debouncedSearchTerm, filters, inventoryMatchCache]);
 
-  // Paginate filtered orders
-  const paginatedOrders = useMemo(() => {
-    return getPaginatedItems(filteredOrders, currentPage, itemsPerPage);
-  }, [filteredOrders, currentPage, itemsPerPage]);
+  // Calculate total pages first
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+
+  // Ensure current page is valid
+  const validCurrentPage = useMemo(() => {
+    if (totalPages === 0) return 1;
+    return Math.max(1, Math.min(currentPage, totalPages));
+  }, [currentPage, totalPages]);
+
+  // Use validCurrentPage for pagination
+  const paginatedOrders = useMemo(() => {
+    return getPaginatedItems(filteredOrders, validCurrentPage, itemsPerPage);
+  }, [filteredOrders, validCurrentPage, itemsPerPage]);
 
   // Debug pagination state
   useEffect(() => {
     console.log('📊 Pagination Debug:', {
       filteredOrdersCount: filteredOrders.length,
       currentPage,
+      validCurrentPage,
       itemsPerPage,
       totalPages,
       paginatedOrdersCount: paginatedOrders.length,
       isPageValid: currentPage <= totalPages
     });
-  }, [filteredOrders.length, currentPage, itemsPerPage, totalPages, paginatedOrders.length]);
+  }, [filteredOrders.length, currentPage, validCurrentPage, itemsPerPage, totalPages, paginatedOrders.length]);
 
   // Reset to page 1 when filters or search changes
   useEffect(() => {
     resetToPage1();
-    
-    // Also check if current page is valid for the filtered results
-    if (filteredOrders.length > 0) {
-      const maxPage = Math.ceil(filteredOrders.length / itemsPerPage);
-      if (currentPage > maxPage) {
-        console.log(`⚠️ Filter changed: Page ${currentPage} > maxPage ${maxPage}, resetting`);
-        setCurrentPage(1);
-      }
-    }
-  }, [searchTerm, filters, filteredOrders.length, currentPage, itemsPerPage, resetToPage1, setCurrentPage]);
+  }, [searchTerm, filters, resetToPage1]);
 
-  // Ensure currentPage doesn't exceed totalPages after data/filter changes
+  // Ensure currentPage doesn't exceed totalPages after data changes
   useEffect(() => {
     if (totalPages > 0 && currentPage > totalPages) {
       console.log(`⚠️ Page ${currentPage} exceeds totalPages ${totalPages}, resetting to page 1`);
       setCurrentPage(1);
     }
-  }, [currentPage, totalPages, setCurrentPage]);
+  }, [filteredOrders.length, itemsPerPage, totalPages, currentPage, setCurrentPage]);
 
   // Calculate status progress and metrics
   const statusProgress: StatusProgress = sortedMatchedOrders.reduce((acc, order) => {
@@ -2408,7 +2408,7 @@ export default function PODetailsPage() {
 
         {/* Pagination */}
         {filteredOrders.length > 0 && <div className="mb-4">
-            <POTablePagination currentPage={currentPage} totalPages={totalPages} totalItems={filteredOrders.length} itemsPerPage={itemsPerPage} onPageChange={page => {
+            <POTablePagination currentPage={validCurrentPage} totalPages={totalPages} totalItems={filteredOrders.length} itemsPerPage={itemsPerPage} onPageChange={page => {
           setCurrentPage(page);
           scrollToTop('po-table-container');
         }} onItemsPerPageChange={setItemsPerPage} />
