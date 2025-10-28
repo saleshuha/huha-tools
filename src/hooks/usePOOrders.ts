@@ -524,12 +524,24 @@ export const usePOOrders = () => {
           // Simple identity for duplicate detection
           const identity = `${poKey}|${itemKey}`;
 
-          console.log(`📝 Row ${rowNum}: PO=${po}, SKU=${primarySku}, Qty=${qty}`);
+          // Validate identity keys are set
+          if (!poKey || !itemKey) {
+            const error = `Row ${rowNum}: Failed to generate identity keys - PO: ${po}, SKU: ${primarySku}`;
+            results.invalid++;
+            results.errors.push(error);
+            setUploadStats(prev => ({ ...prev, invalid: results.invalid }));
+            console.error(`❌ ${error}`);
+            continue;
+          }
+
+          console.log(`📝 Row ${rowNum}: PO=${po} (key=${poKey}), SKU=${primarySku} (key=${itemKey}), Qty=${qty}`);
 
           // Create new order data
           const currency = selectedCountry === 'KSA' ? 'SAR' : 'AED';
           const newOrderData = {
             po_number: po,
+            po_key: poKey,           // CRITICAL: Required for unique constraint
+            item_key: itemKey,       // CRITICAL: Required for unique constraint
             ship_to_location: location || 'Not specified',
             asin: asin || null,
             model_number: model || null,
@@ -640,7 +652,17 @@ export const usePOOrders = () => {
           
           if (insertError) {
             console.error('❌ Insert error:', insertError);
-            throw new Error(`Bulk insert failed: ${insertError.message}`);
+            
+            // Check if it's a duplicate key violation
+            if (insertError.message.includes('idx_po_orders_unique_item')) {
+              toast({
+                title: "Duplicate Data Detected",
+                description: "Some orders already exist in the database. Only new orders were added.",
+                variant: "default"
+              });
+            } else {
+              throw new Error(`Bulk insert failed: ${insertError.message}`);
+            }
           }
           console.log(`✅ Inserted ${itemsToInsert.length} new orders`);
         }
