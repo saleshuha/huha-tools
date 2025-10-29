@@ -4873,6 +4873,10 @@ export type Database = {
         Args: { from_currency: string; to_currency: string }
         Returns: number
       }
+      get_inventory_metrics: {
+        Args: { p_country: string; p_user_id: string }
+        Returns: Json
+      }
       get_inventory_velocity_analysis: {
         Args: { country_filter?: string; lookback_days?: number }
         Returns: {
