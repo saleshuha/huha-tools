@@ -2776,6 +2776,61 @@ export const POTracker = () => {
       setTimeout(() => setPreventTableReorder(false), 500);
     }
   };
+
+  // Frontend-only reprint handler - doesn't update database
+  const handleReprintWithoutTracking = async (order: POOrder, quantity: number = 1) => {
+    if (!qzConnected || !selectedPrinter) {
+      toast({
+        title: "Printer not ready",
+        description: "Please connect to QZ Tray and select a printer",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setPrintingItems(prev => new Set(prev).add(order.id));
+    
+    try {
+      console.log('🔄 REPRINT (no tracking):', {
+        asin: order.asin,
+        poNumber: order.po_number,
+        quantity,
+        note: 'Frontend-only reprint, no database update'
+      });
+
+      // Generate ZPL codes
+      let allZPLCodes: string[] = [];
+      for (let i = 0; i < quantity; i++) {
+        let zplCode = generateZPLFromTemplate(order, printSettings);
+        allZPLCodes.push(zplCode);
+      }
+
+      // Print without updating database
+      const darknessCommand = `~SD${printSettings.darkness.toString().padStart(2, '0')}`;
+      const finalZPL = darknessCommand + '\n' + allZPLCodes.join('\n');
+      await qzConnectionManager.print(finalZPL, selectedPrinter);
+      
+      toast({
+        title: "Label reprinted",
+        description: `Reprinted ${quantity} label(s) - no tracking update`,
+        variant: "default"
+      });
+    } catch (error) {
+      console.error('❌ Reprint error:', error);
+      toast({
+        title: "Print failed",
+        description: error instanceof Error ? error.message : "Failed to reprint label",
+        variant: "destructive"
+      });
+    } finally {
+      setPrintingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(order.id);
+        return newSet;
+      });
+    }
+  };
+
   const paginatedDetailedOrders = useMemo(() => {
     return filteredOrders.slice(startIndex, endIndex);
   }, [filteredOrders, startIndex, endIndex]);
@@ -5567,11 +5622,11 @@ export const POTracker = () => {
                                    
                                    {/* Reprint Already Printed Quantity */}
                                    {order.printed_quantity > 0 && <Button variant="outline" size="sm" onClick={() => {
-                                  handleSingleItemPrint(order, order.printed_quantity);
+                                  handleReprintWithoutTracking(order, 1);
                                 }} disabled={!qzConnected || !selectedPrinter || printingItems.has(order.id)} className="w-full border-2 border-blue-300 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700 text-blue-600 transition-all duration-300">
                                        <div className="flex items-center gap-2">
                                          <RefreshCw className="h-3 w-3" />
-                                         <span className="text-xs font-medium">Reprint ({order.printed_quantity})</span>
+                                         <span className="text-xs font-medium">Reprint (1)</span>
                                        </div>
                                      </Button>}
                                    
