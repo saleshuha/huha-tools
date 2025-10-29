@@ -17,6 +17,7 @@ export interface SkuInventoryItem {
   restockDate?: string;
   restockQuantity?: number;
   lastRestockDate?: string;
+  first_stock_added_at?: string;
 }
 
 export function useSkuInventory() {

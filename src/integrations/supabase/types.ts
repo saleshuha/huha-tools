@@ -70,6 +70,7 @@ export type Database = {
           date_added: string
           date_sold: string | null
           eligible_for_restock: boolean | null
+          first_stock_added_at: string | null
           id: string
           is_active: boolean
           last_restock_date: string | null
@@ -95,6 +96,7 @@ export type Database = {
           date_added?: string
           date_sold?: string | null
           eligible_for_restock?: boolean | null
+          first_stock_added_at?: string | null
           id?: string
           is_active?: boolean
           last_restock_date?: string | null
@@ -120,6 +122,7 @@ export type Database = {
           date_added?: string
           date_sold?: string | null
           eligible_for_restock?: boolean | null
+          first_stock_added_at?: string | null
           id?: string
           is_active?: boolean
           last_restock_date?: string | null
@@ -2816,6 +2819,7 @@ export type Database = {
           created_at: string
           date_added: string
           date_sold: string | null
+          first_stock_added_at: string | null
           id: string
           last_restock_date: string | null
           notes: string | null
@@ -2835,6 +2839,7 @@ export type Database = {
           created_at?: string
           date_added?: string
           date_sold?: string | null
+          first_stock_added_at?: string | null
           id?: string
           last_restock_date?: string | null
           notes?: string | null
@@ -2854,6 +2859,7 @@ export type Database = {
           created_at?: string
           date_added?: string
           date_sold?: string | null
+          first_stock_added_at?: string | null
           id?: string
           last_restock_date?: string | null
           notes?: string | null

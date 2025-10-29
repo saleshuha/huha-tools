@@ -20,6 +20,7 @@ export interface AsinInventoryItem {
   lastRestockDate?: string;
   eligible_for_restock?: boolean;
   isActive?: boolean;
+  first_stock_added_at?: string;
 }
 
 export function useAsinInventory() {
@@ -733,7 +734,24 @@ export function useAsinInventory() {
       const updates: { id: string; eligible: boolean }[] = [];
       
       for (const item of items.slice(0, 10)) { // Process only first 10 items to avoid timeout
-        const referenceDate = item.lastRestockDate || item.dateAdded;
+        // Use first_stock_added_at if available, otherwise query stock_changes for first positive change
+        let referenceDate = item.first_stock_added_at;
+        
+        if (!referenceDate) {
+          // Fallback: Query first positive stock change
+          const { data: firstAddition } = await ((supabase as any)
+            .from('stock_changes')
+            .select('created_at')
+            .eq('inventory_id', item.id)
+            .eq('inventory_type', 'asin')
+            .gt('change_amount', 0)
+            .order('created_at', { ascending: true })
+            .limit(1)
+            .single());
+          
+          referenceDate = firstAddition?.created_at || item.dateAdded;
+        }
+        
         const cutoffDate = new Date(referenceDate);
         cutoffDate.setDate(cutoffDate.getDate() + 90);
         
