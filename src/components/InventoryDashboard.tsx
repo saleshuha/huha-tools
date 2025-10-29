@@ -54,10 +54,10 @@ export function InventoryDashboard({
   // Calculate enhanced metrics
   const metrics = useMemo(() => {
     const total = inventory.length;
-    const inStock = inventory.filter(item => item.status === 'in-stock' && item.quantity > 0).length;
+    const inStock = inventory.filter(item => item.status === 'in-stock').length;
     const sold = inventory.filter(item => item.status === 'sold').length;
     const lowStock = inventory.filter(item => item.quantity > 0 && item.quantity <= 5).length;
-    const outOfStock = inventory.filter(item => item.quantity === 0 || item.status === 'out-of-stock' || item.status === 'sold').length;
+    const outOfStock = inventory.filter(item => item.quantity === 0).length;
     const totalValue = inventory.reduce((sum, item) => sum + (item.quantity * (item.cost || 0)), 0);
     
     // Recent activity (last 7 days)

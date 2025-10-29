@@ -67,19 +67,13 @@ export function InventoryMetrics({
     restockEligible: 0
   });
   const [loading, setLoading] = useState(true);
-  const [selectedMetric, setSelectedMetric] = useState<'active' | 'instock' | 'outofstock' | 'sold' | 'missing-sku' | 'missing-titles' | 'missing-images' | 'restock-eligible' | 'no-stock' | 'ordered' | null>(null);
+  const [selectedMetric, setSelectedMetric] = useState<'active' | 'instock' | 'outofstock' | 'sold' | 'missing-sku' | 'missing-titles' | 'missing-images' | 'restock-eligible' | null>(null);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [exportLoading, setExportLoading] = useState(false);
   const [soldDateFrom, setSoldDateFrom] = useState<Date>();
   const [soldDateTo, setSoldDateTo] = useState<Date>();
   const [showSoldModal, setShowSoldModal] = useState(false);
-  const [showStockedOnly, setShowStockedOnly] = useState(false);
-  const [catalogStats, setCatalogStats] = useState({
-    noStock: 0,
-    ordered: 0,
-    sold: 0
-  });
   const loadMetrics = async () => {
     try {
       setLoading(true);
@@ -94,30 +88,25 @@ export function InventoryMetrics({
           { data: soldData, error: soldError },
           { data: productImages, error: imagesError }
         ] = await Promise.all([
-          // Total active count (exclude disabled items, optionally exclude no-stock)
+          // Total count
           supabase
             .from('asin_inventory')
             .select('*', { count: 'exact', head: true })
-            .eq('country', selectedCountry as any)
-            .neq('is_active', false as any)
-            .not('status', 'eq', showStockedOnly ? 'no-stock' : null as any),
+            .eq('country', selectedCountry as any),
           
-          // In stock count (quantity > 0 AND status = 'in-stock')
+          // In stock count  
           supabase
             .from('asin_inventory')
             .select('*', { count: 'exact', head: true })
             .eq('country', selectedCountry as any)
-            .eq('status', 'in-stock' as any)
-            .gt('quantity', 0 as any)
-            .neq('is_active', false as any),
+            .gt('quantity', 0 as any),
             
-          // Out of stock count (quantity = 0 OR status out-of-stock/sold)
+          // Out of stock count
           supabase
             .from('asin_inventory')
             .select('*', { count: 'exact', head: true })
             .eq('country', selectedCountry as any)
-            .or('quantity.eq.0,status.eq.out-of-stock,status.eq.sold')
-            .neq('is_active', false as any),
+            .eq('quantity', 0 as any),
             
           // Sold items data (need actual data for quantity sum and date filtering)
           supabase
@@ -154,44 +143,38 @@ export function InventoryMetrics({
           { count: restockEligibleCount },
           { data: totalUnitsData }
         ] = await Promise.all([
-          // Missing SKU count (only active items)
+          // Missing SKU count
           supabase
             .from('asin_inventory')
             .select('*', { count: 'exact', head: true })
             .eq('country', selectedCountry as any)
-            .or('sku.is.null,sku.eq.')
-            .neq('is_active', false as any),
+            .or('sku.is.null,sku.eq.'),
             
-          // Missing titles count (only active items)
+          // Missing titles count  
           supabase
             .from('asin_inventory')
             .select('*', { count: 'exact', head: true })
             .eq('country', selectedCountry as any)
-            .or('title.is.null,title.eq.')
-            .neq('is_active', false as any),
+            .or('title.is.null,title.eq.'),
             
-          // Restock eligible count (only active items)
+          // Restock eligible count
           supabase
             .from('asin_inventory')
             .select('*', { count: 'exact', head: true })
             .eq('country', selectedCountry as any)
-            .eq('eligible_for_restock', true as any)
-            .neq('is_active', false as any),
+            .eq('eligible_for_restock', true as any),
             
-          // Get all quantities to calculate total units (only active items, optionally exclude no-stock) - FIXED
+          // Get all quantities to calculate total units
           supabase
             .from('asin_inventory')
-            .select('quantity')
+            .select('quantity, asin')
             .eq('country', selectedCountry as any)
-            .neq('is_active', false as any)
-            .not('status', 'eq', showStockedOnly ? 'no-stock' : null as any)
         ]);
         
         // Calculate metrics
         const activeItems = totalCount || 0;
         const inStockItems = inStockCount || 0;
         const outOfStockItems = outOfStockCount || 0;
-        // Fixed: Sum all quantities without deduplication issues
         const asinTotalUnits = ((totalUnitsData as any) || []).reduce((sum: number, item: any) => sum + (item.quantity || 0), 0);
         
         // Filter sold units based on date filters
@@ -212,42 +195,8 @@ export function InventoryMetrics({
         const asinSoldUnits = filteredSoldItems.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0);
         
         // Calculate missing images
-        // Calculate catalog stats (no-stock, ordered, sold) - only when NOT in stocked-only mode
-        if (!showStockedOnly) {
-          const [
-            { count: noStockCount },
-            { count: orderedCount }
-          ] = await Promise.all([
-            supabase
-              .from('asin_inventory')
-              .select('*', { count: 'exact', head: true })
-              .eq('country', selectedCountry as any)
-              .eq('status', 'no-stock' as any)
-              .neq('is_active', false as any),
-            supabase
-              .from('asin_inventory')
-              .select('*', { count: 'exact', head: true })
-              .eq('country', selectedCountry as any)
-              .eq('status', 'ordered' as any)
-              .neq('is_active', false as any)
-          ]);
-          
-          setCatalogStats({
-            noStock: noStockCount || 0,
-            ordered: orderedCount || 0,
-            sold: soldData?.length || 0
-          });
-        }
-        
-        // Get unique ASINs from all data for missing images calculation
-        const { data: allAsinsData } = await supabase
-          .from('asin_inventory')
-          .select('asin')
-          .eq('country', selectedCountry as any)
-          .neq('is_active', false as any);
-        
         const existingImageAsins = new Set(((productImages as any) || []).map((img: any) => img.asin));
-        const uniqueAsins = [...new Set(((allAsinsData as any) || []).map((item: any) => item.asin))];
+        const uniqueAsins = [...new Set(((totalUnitsData as any) || []).map((item: any) => item.asin))];
         const missingImages = uniqueAsins.filter(asin => !existingImageAsins.has(asin)).length;
         
         console.log(`📈 Final ASIN Metrics:`, {
@@ -258,14 +207,8 @@ export function InventoryMetrics({
           asinSoldUnits,
           missingSkuCount: missingSkuCount || 0,
           missingTitlesCount: missingTitlesCount || 0,
-          missingImages,
-          showStockedOnly
+          missingImages
         });
-        
-        // Set catalog stats - keep existing values if stocked-only mode
-        if (!showStockedOnly) {
-          // Catalog stats already set above
-        }
         
         setStats({
           activeItems,
@@ -281,14 +224,14 @@ export function InventoryMetrics({
           restockEligible: restockEligibleCount || 0
         });
       } else if (showOnlySku) {
-        // Load only SKU data (exclude disabled items)
+        // Load only SKU data
         const {
           data: skuData
-        } = await supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any).neq('is_active', false as any).limit(50000);
+        } = await supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any).limit(50000);
         const skuItems: any[] = (skuData as any) || [];
         const activeItems = skuItems.length;
-        const inStockItems = skuItems.filter((item: any) => item.quantity > 0 && item.status === 'in-stock').length;
-        const outOfStockItems = skuItems.filter((item: any) => item.quantity === 0 || item.status === 'out-of-stock' || item.status === 'sold').length;
+        const inStockItems = skuItems.filter((item: any) => item.quantity > 0).length;
+        const outOfStockItems = skuItems.filter((item: any) => item.quantity === 0).length;
         const skuTotalUnits = skuItems.reduce((sum: number, item: any) => sum + item.quantity, 0);
 
         // Filter sold units based on date filters
@@ -321,11 +264,8 @@ export function InventoryMetrics({
           restockEligible: 0
         });
       } else {
-        // Load both ASIN and SKU data (exclude disabled items)
-        const [asinData, skuData] = await Promise.all([
-          supabase.from('asin_inventory').select('*').eq('country', selectedCountry as any).neq('is_active', false as any).limit(50000), 
-          supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any).neq('is_active', false as any).limit(50000)
-        ]);
+        // Load both ASIN and SKU data
+        const [asinData, skuData] = await Promise.all([supabase.from('asin_inventory').select('*').eq('country', selectedCountry as any).limit(50000), supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any).limit(50000)]);
 
         // Calculate metrics
         const allItems = [...((asinData.data as any) || []).map((item: any) => ({
@@ -338,8 +278,8 @@ export function InventoryMetrics({
           identifier: `${item.sku_number} (${item.bin_serial_number})`
         }))];
         const activeItems = allItems.length;
-        const inStockItems = allItems.filter((item: any) => item.quantity > 0 && item.status === 'in-stock').length;
-        const outOfStockItems = allItems.filter((item: any) => item.quantity === 0 || item.status === 'out-of-stock' || item.status === 'sold').length;
+        const inStockItems = allItems.filter((item: any) => item.quantity > 0).length;
+        const outOfStockItems = allItems.filter((item: any) => item.quantity === 0).length;
 
         // Calculate separate totals for ASIN and SKU
         const asinItems: any[] = (asinData.data as any) || [];
@@ -397,7 +337,6 @@ export function InventoryMetrics({
           .select('*')
           .eq('country', selectedCountry as any)
           .or('sku.is.null,sku.eq.')
-          .neq('is_active', false as any)
           .limit(50000);
         
         const allItems = ((asinData as any) || []).map((item: any) => ({
@@ -422,20 +361,10 @@ export function InventoryMetrics({
   const loadDetailedItems = async (metric: 'active' | 'instock' | 'outofstock' | 'restock-eligible') => {
     try {
       if (showOnlyAsin) {
-        // Build base query
-        let query = supabase
-          .from('asin_inventory')
-          .select('*')
-          .eq('country', selectedCountry as any)
-          .neq('is_active', false as any);
-        
-        // Apply stocked filter if enabled
-        if (showStockedOnly) {
-          query = query.not('status', 'eq', 'no-stock');
-        }
-        
-        const { data: asinData } = await query.limit(50000);
-        
+        // Load only ASIN data
+        const {
+          data: asinData
+        } = await supabase.from('asin_inventory').select('*').eq('country', selectedCountry as any).limit(50000); // Explicit high limit to override default 1000
         let allItems = ((asinData as any) || []).map((item: any) => ({
           ...item,
           type: 'asin' as const,
@@ -444,18 +373,18 @@ export function InventoryMetrics({
 
         // Filter based on metric
         if (metric === 'instock') {
-          allItems = allItems.filter(item => item.quantity > 0 && item.status === 'in-stock');
+          allItems = allItems.filter(item => item.quantity > 0);
         } else if (metric === 'outofstock') {
-          allItems = allItems.filter(item => item.quantity === 0 || item.status === 'out-of-stock' || item.status === 'sold');
+          allItems = allItems.filter(item => item.quantity === 0);
         } else if (metric === 'restock-eligible') {
           allItems = allItems.filter(item => item.eligible_for_restock === true);
         }
         setInventoryItems(allItems);
       } else if (showOnlySku) {
-        // Load only SKU data (exclude disabled items)
+        // Load only SKU data
         const {
           data: skuData
-        } = await supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any).neq('is_active', false as any);
+        } = await supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any);
         let allItems = ((skuData as any) || []).map((item: any) => ({
           ...item,
           type: 'sku' as const,
@@ -464,17 +393,14 @@ export function InventoryMetrics({
 
         // Filter based on metric
         if (metric === 'instock') {
-          allItems = allItems.filter(item => item.quantity > 0 && item.status === 'in-stock');
+          allItems = allItems.filter(item => item.quantity > 0);
         } else if (metric === 'outofstock') {
-          allItems = allItems.filter(item => item.quantity === 0 || item.status === 'out-of-stock' || item.status === 'sold');
+          allItems = allItems.filter(item => item.quantity === 0);
         }
         setInventoryItems(allItems);
       } else {
-        // Load both ASIN and SKU data (exclude disabled items)
-        const [asinData, skuData] = await Promise.all([
-          supabase.from('asin_inventory').select('*').eq('country', selectedCountry as any).neq('is_active', false as any).limit(50000), 
-          supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any).neq('is_active', false as any).limit(50000)
-        ]);
+        // Load both ASIN and SKU data
+        const [asinData, skuData] = await Promise.all([supabase.from('asin_inventory').select('*').eq('country', selectedCountry as any).limit(50000), supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any).limit(50000)]);
         let allItems = [...((asinData.data as any) || []).map((item: any) => ({
           ...item,
           type: 'asin' as const,
@@ -487,9 +413,9 @@ export function InventoryMetrics({
 
         // Filter based on metric
         if (metric === 'instock') {
-          allItems = allItems.filter(item => item.quantity > 0 && item.status === 'in-stock');
+          allItems = allItems.filter(item => item.quantity > 0);
         } else if (metric === 'outofstock') {
-          allItems = allItems.filter(item => item.quantity === 0 || item.status === 'out-of-stock' || item.status === 'sold');
+          allItems = allItems.filter(item => item.quantity === 0);
         }
         setInventoryItems(allItems);
       }
@@ -504,8 +430,8 @@ export function InventoryMetrics({
   const loadSoldItems = async () => {
     try {
       if (showOnlyAsin) {
-        // Load only ASIN data (exclude disabled items)
-        let query = supabase.from('asin_inventory').select('*').eq('country', selectedCountry as any).eq('status', 'sold' as any).neq('is_active', false as any).limit(50000);
+        // Load only ASIN data
+        let query = supabase.from('asin_inventory').select('*').eq('country', selectedCountry as any).eq('status', 'sold' as any).limit(50000);
 
         // Apply date filters if set
         if (soldDateFrom) {
@@ -526,8 +452,8 @@ export function InventoryMetrics({
         }));
         setInventoryItems(allItems);
       } else if (showOnlySku) {
-        // Load only SKU data (exclude disabled items)
-        let query = supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any).eq('status', 'sold' as any).neq('is_active', false as any).limit(50000);
+        // Load only SKU data
+        let query = supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any).eq('status', 'sold' as any);
 
         // Apply date filters if set
         if (soldDateFrom) {
@@ -548,9 +474,9 @@ export function InventoryMetrics({
         }));
         setInventoryItems(allItems);
       } else {
-        // Load both ASIN and SKU data (exclude disabled items)
-        let asinQuery = supabase.from('asin_inventory').select('*').eq('country', selectedCountry as any).eq('status', 'sold' as any).neq('is_active', false as any).limit(50000);
-        let skuQuery = supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any).eq('status', 'sold' as any).neq('is_active', false as any).limit(50000);
+        // Load both ASIN and SKU data
+        let asinQuery = supabase.from('asin_inventory').select('*').eq('country', selectedCountry as any).eq('status', 'sold' as any).limit(50000);
+        let skuQuery = supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any).eq('status', 'sold' as any).limit(50000);
 
         // Apply date filters if set
         if (soldDateFrom) {
@@ -591,13 +517,12 @@ export function InventoryMetrics({
   const loadMissingTitleItems = async () => {
     try {
       if (showOnlyAsin || !showOnlySku) {
-        // Load ASIN data with missing titles (exclude disabled items)
+        // Load ASIN data with missing titles
         const { data: asinData } = await supabase
           .from('asin_inventory')
           .select('*')
           .eq('country', selectedCountry as any)
           .or('title.is.null,title.eq.')
-          .neq('is_active', false as any)
           .limit(50000);
         
         const allItems = ((asinData as any) || []).map((item: any) => ({
@@ -630,12 +555,11 @@ export function InventoryMetrics({
         
         const existingImageAsins = new Set(((productImages as any) || []).map((img: any) => img.asin));
         
-        // Load ASIN data and filter for missing images (exclude disabled items)
+        // Load ASIN data and filter for missing images
         const { data: asinData } = await supabase
           .from('asin_inventory')
           .select('*') 
           .eq('country', selectedCountry as any)
-          .neq('is_active', false as any)
           .limit(50000);
         
         const allItems: any[] = ((asinData as any) || [])
@@ -674,66 +598,6 @@ export function InventoryMetrics({
     await loadMissingImageItems();
   };
 
-  const loadNoStockItems = async () => {
-    try {
-      if (showOnlyAsin) {
-        const { data: asinData } = await supabase
-          .from('asin_inventory')
-          .select('*')
-          .eq('country', selectedCountry as any)
-          .eq('status', 'no-stock' as any)
-          .neq('is_active', false as any)
-          .limit(50000);
-        
-        const allItems = ((asinData as any) || []).map((item: any) => ({
-          ...item,
-          type: 'asin' as const,
-          identifier: `${item.asin} (${item.serial_number})`
-        }));
-        
-        setInventoryItems(allItems);
-      } else {
-        setInventoryItems([]);
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error loading no-stock items",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
-  };
-
-  const loadOrderedItems = async () => {
-    try {
-      if (showOnlyAsin) {
-        const { data: asinData } = await supabase
-          .from('asin_inventory')
-          .select('*')
-          .eq('country', selectedCountry as any)
-          .eq('status', 'ordered' as any)
-          .neq('is_active', false as any)
-          .limit(50000);
-        
-        const allItems = ((asinData as any) || []).map((item: any) => ({
-          ...item,
-          type: 'asin' as const,
-          identifier: `${item.asin} (${item.serial_number})`
-        }));
-        
-        setInventoryItems(allItems);
-      } else {
-        setInventoryItems([]);
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error loading ordered items",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
-  };
-
   const exportToExcel = async () => {
     try {
       setExportLoading(true);
@@ -769,91 +633,40 @@ export function InventoryMetrics({
     if (selectedCountry) {
       loadMetrics();
     }
-  }, [selectedCountry, soldDateFrom, soldDateTo, showStockedOnly]);
+  }, [selectedCountry, soldDateFrom, soldDateTo]);
   const filteredItems = inventoryItems.filter(item => item.identifier.toLowerCase().includes(searchTerm.toLowerCase()) || item.status.toLowerCase().includes(searchTerm.toLowerCase()));
   if (loading) {
     return <div className="flex items-center justify-center py-8">
         <RefreshCw className="w-6 h-6 animate-spin text-primary" />
       </div>;
   }
-  // Calculate stocked items count (items that have or had physical inventory)
-  const stockedItemsCount = stats.inStockItems + stats.outOfStockItems;
-  const totalCatalogItems = stats.activeItems;
-  
   return <>
-      {/* Filter Toggle */}
-      {showOnlyAsin && (
-        <div className="flex items-center justify-between mb-4 p-4 bg-card rounded-lg border">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-base font-semibold">
-                📍 {selectedCountry}
-              </Badge>
-              <span className="text-sm text-muted-foreground">
-                {showStockedOnly 
-                  ? `${stockedItemsCount} Stocked Products` 
-                  : `${totalCatalogItems} Total Products`}
-              </span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant={showStockedOnly ? "outline" : "default"}
-              size="sm"
-              onClick={() => setShowStockedOnly(false)}
-              className="gap-2"
-            >
-              <Package className="w-4 h-4" />
-              All Products
-            </Button>
-            <Button
-              variant={showStockedOnly ? "default" : "outline"}
-              size="sm"
-              onClick={() => setShowStockedOnly(true)}
-              className="gap-2"
-            >
-              <CheckCircle className="w-4 h-4" />
-              Stocked Only
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Inventory Overview Section */}
-      {showOnlyAsin && !showStockedOnly && (
-        <div className="mb-4">
-          <h3 className="text-sm font-semibold text-muted-foreground mb-2 flex items-center gap-2">
-            <BarChart3 className="w-4 h-4" />
-            Physical Inventory Overview
-          </h3>
-        </div>
-      )}
+      {/* Date Filter for Sold Units - Show only in ASIN mode */}
+      {showOnlyAsin}
 
       <div className="grid gap-1 grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 mb-3">
         {/* Active Items */}
-        {!showStockedOnly && (
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-20 flex flex-col border-l-4 border-l-primary"
-            onClick={() => handleMetricClick('active')}
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
-              <div className="flex flex-col justify-center min-w-0 flex-1">
-                <CardTitle className="text-xs font-medium text-muted-foreground truncate">
-                  {showOnlyAsin ? 'Total Products' : showOnlySku ? 'Total SKUs' : 'Total Items'}
-                </CardTitle>
-                <div className="text-lg font-bold text-primary mt-1">{stats.activeItems}</div>
-              </div>
-              <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
-                <Activity className="h-3 w-3 text-primary" />
-              </div>
-            </CardHeader>
-            <CardContent className="pt-0 pb-1 flex-shrink-0">
-              <p className="text-xs text-muted-foreground truncate">
-                {showOnlyAsin ? 'In catalog' : showOnlySku ? 'All SKU records' : 'All records'}
-              </p>
-            </CardContent>
-          </Card>
-        )}
+        <Card 
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-20 flex flex-col border-l-4 border-l-primary"
+          onClick={() => handleMetricClick('active')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
+            <div className="flex flex-col justify-center min-w-0 flex-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground truncate">
+                {showOnlyAsin ? 'Total ASINs' : showOnlySku ? 'Total SKUs' : 'Total Items'}
+              </CardTitle>
+              <div className="text-lg font-bold text-primary mt-1">{stats.activeItems}</div>
+            </div>
+            <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+              <Activity className="h-3 w-3 text-primary" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0 pb-1 flex-shrink-0">
+            <p className="text-xs text-muted-foreground truncate">
+              {showOnlyAsin ? 'All ASIN records' : showOnlySku ? 'All SKU records' : 'All records'}
+            </p>
+          </CardContent>
+        </Card>
 
         {/* Total Units */}
         <Card 
@@ -1000,103 +813,6 @@ export function InventoryMetrics({
 
       </div>
 
-      {/* Catalog Overview Section - Only show in All Products view */}
-      {showOnlyAsin && !showStockedOnly && (
-        <>
-          <div className="mt-6 mb-4">
-            <h3 className="text-sm font-semibold text-muted-foreground mb-2 flex items-center gap-2">
-              <Package className="w-4 h-4" />
-              Catalog Status Overview
-            </h3>
-          </div>
-          
-          <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 mb-6">
-            {/* No Stock Items */}
-            <Card 
-              className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-amber-500/30 bg-gradient-to-br from-amber-50/50 to-background dark:from-amber-950/20 h-24 flex flex-col border-l-4 border-l-amber-500"
-              onClick={async () => {
-                setSelectedMetric('no-stock');
-                await loadNoStockItems();
-              }}
-            >
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
-                <div className="flex flex-col justify-center min-w-0 flex-1">
-                  <CardTitle className="text-xs font-medium text-muted-foreground truncate">Never Stocked</CardTitle>
-                  <div className="text-xl font-bold text-amber-600 mt-1">{catalogStats.noStock}</div>
-                </div>
-                <div className="w-8 h-8 bg-amber-500/10 rounded-full flex items-center justify-center flex-shrink-0">
-                  <Package className="h-4 w-4 text-amber-600" />
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0 pb-2 flex-shrink-0">
-                <p className="text-xs text-muted-foreground truncate">Awaiting first stock</p>
-              </CardContent>
-            </Card>
-
-            {/* Ordered Items */}
-            <Card 
-              className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-blue-500/30 bg-gradient-to-br from-blue-50/50 to-background dark:from-blue-950/20 h-24 flex flex-col border-l-4 border-l-blue-500"
-              onClick={async () => {
-                setSelectedMetric('ordered');
-                await loadOrderedItems();
-              }}
-            >
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
-                <div className="flex flex-col justify-center min-w-0 flex-1">
-                  <CardTitle className="text-xs font-medium text-muted-foreground truncate">In Transit</CardTitle>
-                  <div className="text-xl font-bold text-blue-600 mt-1">{catalogStats.ordered}</div>
-                </div>
-                <div className="w-8 h-8 bg-blue-500/10 rounded-full flex items-center justify-center flex-shrink-0">
-                  <TrendingUp className="h-4 w-4 text-blue-600" />
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0 pb-2 flex-shrink-0">
-                <p className="text-xs text-muted-foreground truncate">Ordered, awaiting delivery</p>
-              </CardContent>
-            </Card>
-
-            {/* Sold Items */}
-            <Card 
-              className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-slate-500/30 bg-gradient-to-br from-slate-50/50 to-background dark:from-slate-950/20 h-24 flex flex-col border-l-4 border-l-slate-500"
-              onClick={() => setShowSoldModal(true)}
-            >
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
-                <div className="flex flex-col justify-center min-w-0 flex-1">
-                  <CardTitle className="text-xs font-medium text-muted-foreground truncate">Historical</CardTitle>
-                  <div className="text-xl font-bold text-slate-600 mt-1">{catalogStats.sold}</div>
-                </div>
-                <div className="w-8 h-8 bg-slate-500/10 rounded-full flex items-center justify-center flex-shrink-0">
-                  <TrendingDown className="h-4 w-4 text-slate-600" />
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0 pb-2 flex-shrink-0">
-                <p className="text-xs text-muted-foreground truncate">Previously sold out</p>
-              </CardContent>
-            </Card>
-
-            {/* Stock Distribution Summary */}
-            <Card className="border-2 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-primary">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
-                <div className="flex flex-col justify-center min-w-0 flex-1">
-                  <CardTitle className="text-xs font-medium text-muted-foreground truncate">Stocked Rate</CardTitle>
-                  <div className="text-xl font-bold text-primary mt-1">
-                    {totalCatalogItems > 0 ? Math.round((stockedItemsCount / totalCatalogItems) * 100) : 0}%
-                  </div>
-                </div>
-                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
-                  <BarChart3 className="h-4 w-4 text-primary" />
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0 pb-2 flex-shrink-0">
-                <p className="text-xs text-muted-foreground truncate">
-                  {stockedItemsCount} of {totalCatalogItems}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </>
-      )}
-
       {/* Details Modal */}
       <Dialog open={!!selectedMetric} onOpenChange={() => setSelectedMetric(null)}>
         <DialogContent className="max-w-6xl h-[80vh] flex flex-col">
@@ -1110,8 +826,6 @@ export function InventoryMetrics({
               {selectedMetric === 'missing-titles' && 'Items with Missing Titles'}
               {selectedMetric === 'missing-images' && 'Items with Missing Images'}
               {selectedMetric === 'restock-eligible' && 'Restock Eligible Items'}
-              {selectedMetric === 'no-stock' && 'Never Stocked Items (Awaiting First Stock)'}
-              {selectedMetric === 'ordered' && 'Items In Transit (Ordered)'}
               <Badge variant="outline" className="ml-2">
                 {filteredItems.length} items
               </Badge>

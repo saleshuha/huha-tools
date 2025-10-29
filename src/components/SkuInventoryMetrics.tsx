@@ -56,11 +56,11 @@ export function SkuInventoryMetrics() {
       setLoading(true);
       const {
         data: skuData
-      } = await supabase.from('sku_inventory').select('*').eq('country', selectedCountry).neq('is_active', false);
+      } = await supabase.from('sku_inventory').select('*').eq('country', selectedCountry);
       const allItems = skuData || [];
       const activeItems = allItems.length;
-      const inStockItems = allItems.filter((item: any) => item.quantity > 0 && item.status === 'in-stock').length;
-      const outOfStockItems = allItems.filter((item: any) => item.quantity === 0 || item.status === 'out-of-stock' || item.status === 'sold').length;
+      const inStockItems = allItems.filter((item: any) => item.quantity > 0).length;
+      const outOfStockItems = allItems.filter((item: any) => item.quantity === 0).length;
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       const recentlyAdded = allItems.filter((item: any) => new Date(item.date_added) >= sevenDaysAgo).length;
@@ -90,14 +90,14 @@ export function SkuInventoryMetrics() {
     try {
       const {
         data: skuData
-      } = await supabase.from('sku_inventory').select('*').eq('country', selectedCountry).neq('is_active', false);
+      } = await supabase.from('sku_inventory').select('*').eq('country', selectedCountry);
       let filteredItems = skuData || [];
 
       // Filter based on metric
       if (metric === 'instock') {
-        filteredItems = filteredItems.filter((item: any) => item.quantity > 0 && item.status === 'in-stock');
+        filteredItems = filteredItems.filter((item: any) => item.quantity > 0);
       } else if (metric === 'outofstock') {
-        filteredItems = filteredItems.filter((item: any) => item.quantity === 0 || item.status === 'out-of-stock' || item.status === 'sold');
+        filteredItems = filteredItems.filter((item: any) => item.quantity === 0);
       } else if (metric === 'recentlyadded') {
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
