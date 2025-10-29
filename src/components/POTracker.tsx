@@ -4691,6 +4691,12 @@ export const POTracker = () => {
                               {originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' && <Badge variant="outline" className="text-xs ml-auto">Original Order</Badge>}
                             </div>
                           </TableHead>
+                          <TableHead className="min-w-[120px] font-semibold border-r border-border/50 bg-muted/20">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                              <span className="text-foreground">In-Stock Qty</span>
+                            </div>
+                          </TableHead>
                           <TableHead className={`cursor-pointer hover:bg-muted/50 select-none min-w-[300px] max-w-[400px] font-semibold transition-colors border-r border-border/50 bg-muted/20 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('combined_title')}>
                             <div className="flex items-center gap-2">
                               <div className="w-2 h-2 bg-accent rounded-full"></div>
@@ -5038,6 +5044,64 @@ export const POTracker = () => {
                                         <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded-md border border-muted">N/A</span>
                                       </div>}
                                   </div>
+                                </TableCell>
+
+                                {/* In-Stock Qty Cell */}
+                                <TableCell className="min-w-[120px] border-r border-border/50">
+                                  {(() => {
+                                    const inventoryMatch = findInventoryMatch(
+                                      order.asin,
+                                      order.sunsky_sku?.sku_code,
+                                      order.sku_code,
+                                      order.model_number,
+                                      order.sunsky_sku
+                                    );
+                                    
+                                    if (inventoryMatch && inventoryMatch.status === 'in-stock') {
+                                      return (
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-1.5 h-1.5 bg-green-500 rounded-full flex-shrink-0"></div>
+                                          <Badge variant="default" className="text-xs bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/50">
+                                            {inventoryMatch.quantity} units
+                                          </Badge>
+                                          {inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0 && (
+                                            <Tooltip>
+                                              <TooltipTrigger>
+                                                <Info className="h-3 w-3 text-muted-foreground" />
+                                              </TooltipTrigger>
+                                              <TooltipContent>
+                                                <div className="text-xs space-y-1">
+                                                  <div className="font-semibold">Match: {inventoryMatch.type}</div>
+                                                  <div className="font-mono text-xs">
+                                                    SN: {inventoryMatch.serialNumbers.slice(0, 5).join(', ')}
+                                                    {inventoryMatch.serialNumbers.length > 5 && ` +${inventoryMatch.serialNumbers.length - 5} more`}
+                                                  </div>
+                                                </div>
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          )}
+                                        </div>
+                                      );
+                                    } else if (inventoryMatch && inventoryMatch.status === 'ordered') {
+                                      return (
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-1.5 h-1.5 bg-amber-500 rounded-full flex-shrink-0"></div>
+                                          <Badge variant="outline" className="text-xs text-amber-600 dark:text-amber-400 border-amber-500/50">
+                                            Ordered
+                                          </Badge>
+                                        </div>
+                                      );
+                                    } else {
+                                      return (
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full flex-shrink-0"></div>
+                                          <Badge variant="outline" className="text-xs text-muted-foreground">
+                                            Not in stock
+                                          </Badge>
+                                        </div>
+                                      );
+                                    }
+                                  })()}
                                 </TableCell>
 
                                 {/* Enhanced Title & ASIN Cell */}
