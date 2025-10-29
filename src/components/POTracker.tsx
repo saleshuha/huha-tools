@@ -5081,23 +5081,23 @@ export const POTracker = () => {
                                       if (checked) {
                                         order._consolidatedOrders.forEach((o: any) => {
                                           newSelected.set(o.id, 1);
-                                          // Initialize custom quantity to 1 for each underlying order
-                                          setCustomPrintQuantities(prev => {
-                                            const newMap = new Map(prev);
-                                            newMap.set(o.id, 1);
-                                            return newMap;
-                                          });
+                                        });
+                                        // Store custom quantity using CONSOLIDATED order ID for consistency
+                                        setCustomPrintQuantities(prev => {
+                                          const newMap = new Map(prev);
+                                          newMap.set(order.id, 1); // Use consolidated order ID
+                                          return newMap;
                                         });
                                         console.log('✅ Added consolidated orders:', order._consolidatedOrders.map((o: any) => o.id));
                                       } else {
                                         order._consolidatedOrders.forEach((o: any) => {
                                           newSelected.delete(o.id);
-                                          // Clear custom quantity on deselection
-                                          setCustomPrintQuantities(prev => {
-                                            const newMap = new Map(prev);
-                                            newMap.delete(o.id);
-                                            return newMap;
-                                          });
+                                        });
+                                        // Clear using consolidated order ID
+                                        setCustomPrintQuantities(prev => {
+                                          const newMap = new Map(prev);
+                                          newMap.delete(order.id);
+                                          return newMap;
                                         });
                                         console.log('❌ Removed consolidated orders:', order._consolidatedOrders.map((o: any) => o.id));
                                       }
@@ -5537,7 +5537,18 @@ export const POTracker = () => {
                                     }
 
                                     handleSingleItemPrint(order, printQty);
-                                  }} disabled={!qzConnected || !selectedPrinter || printingItems.has(order.id) || !selectedForPrint.has(order.id) || (order.quantity - (order.printed_quantity || 0)) <= 0} className={`w-full border-2 transition-all duration-300 ${printingItems.has(order.id) ? 'bg-primary/10 border-primary text-primary' : 'border-border hover:border-primary hover:bg-primary/5 hover:text-primary'}`}>
+                                   }} disabled={(() => {
+                                     // Check if item is selected (handle both consolidated and single orders)
+                                     const isSelected = order._isConsolidated 
+                                       ? (order._consolidatedOrders && order._consolidatedOrders.length > 0 
+                                           ? order._consolidatedOrders.some((o: any) => selectedForPrint.has(o.id))
+                                           : selectedForPrint.has(order.id))
+                                       : selectedForPrint.has(order.id);
+                                     
+                                     const availableQty = order.quantity - (order.printed_quantity || 0);
+                                     
+                                     return !qzConnected || !selectedPrinter || printingItems.has(order.id) || !isSelected || availableQty <= 0;
+                                   })()} className={`w-full border-2 transition-all duration-300 ${printingItems.has(order.id) ? 'bg-primary/10 border-primary text-primary' : 'border-border hover:border-primary hover:bg-primary/5 hover:text-primary'}`}>
                                       {printingItems.has(order.id) ? <div className="flex items-center gap-2">
                                           <Loader2 className="h-3 w-3 animate-spin" />
                                           <span className="text-xs">Printing...</span>
