@@ -5059,26 +5059,34 @@ export const POTracker = () => {
                                     
                                     if (inventoryMatch && inventoryMatch.status === 'in-stock') {
                                       return (
-                                        <div className="flex items-center gap-2">
-                                          <div className="w-1.5 h-1.5 bg-green-500 rounded-full flex-shrink-0"></div>
-                                          <Badge variant="default" className="text-xs bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/50">
-                                            {inventoryMatch.quantity} units
-                                          </Badge>
+                                        <div className="flex flex-col gap-1.5">
+                                          {/* Quantity badge */}
+                                          <div className="flex items-center gap-2">
+                                            <div className="w-1.5 h-1.5 bg-green-500 rounded-full flex-shrink-0"></div>
+                                            <Badge variant="default" className="text-xs bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/50">
+                                              {inventoryMatch.quantity} units
+                                            </Badge>
+                                          </div>
+                                          
+                                          {/* Serial numbers badge - ASIN matches */}
                                           {inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0 && (
-                                            <Tooltip>
-                                              <TooltipTrigger>
-                                                <Info className="h-3 w-3 text-muted-foreground" />
-                                              </TooltipTrigger>
-                                              <TooltipContent>
-                                                <div className="text-xs space-y-1">
-                                                  <div className="font-semibold">Match: {inventoryMatch.type}</div>
-                                                  <div className="font-mono text-xs">
-                                                    SN: {inventoryMatch.serialNumbers.slice(0, 5).join(', ')}
-                                                    {inventoryMatch.serialNumbers.length > 5 && ` +${inventoryMatch.serialNumbers.length - 5} more`}
-                                                  </div>
-                                                </div>
-                                              </TooltipContent>
-                                            </Tooltip>
+                                            <div className="flex items-center gap-2">
+                                              <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
+                                              <div className="text-xs text-success font-mono bg-success/10 px-2 py-1 rounded-md border border-success/20 max-w-[180px] truncate">
+                                                SN: {inventoryMatch.serialNumbers.slice(0, 3).join(', ')}
+                                                {inventoryMatch.serialNumbers.length > 3 && ` +${inventoryMatch.serialNumbers.length - 3}`}
+                                              </div>
+                                            </div>
+                                          )}
+                                          
+                                          {/* Bin number badge - SKU matches */}
+                                          {inventoryMatch.type.startsWith('SKU') && inventoryMatch.serialNumber && (
+                                            <div className="flex items-center gap-2">
+                                              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full flex-shrink-0"></div>
+                                              <div className="text-xs text-blue-600 dark:text-blue-400 font-mono bg-blue-50 dark:bg-blue-950/30 px-2 py-1 rounded-md border border-blue-200 dark:border-blue-800">
+                                                Bin: {inventoryMatch.serialNumber}
+                                              </div>
+                                            </div>
                                           )}
                                         </div>
                                       );
@@ -5116,57 +5124,13 @@ export const POTracker = () => {
                                        📦 Merged from {order._consolidatedOrders.length} PO(s)
                                      </Badge>}
                                    
-                                     {order.asin && <div className="flex items-center gap-2">
-                                         <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
-                                         <div className="text-xs text-success font-mono bg-success/10 px-2 py-1 rounded-md border border-success/20">
-                                           {order.asin}
-                                         </div>
-                                       </div>}
-                                     {(() => {
-                                  const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku);
-
-                                  // Debug specific ASIN
-                                  if (order.asin === 'B0DYG67SLZ' || order.asin === 'B0DYFRB7S6') {
-                                    console.log('🐛 DEBUG ASIN in render:', order.asin, {
-                                      inventoryMatch,
-                                      hasSerialNumbers: inventoryMatch?.serialNumbers?.length > 0
-                                    });
-                                  }
-
-                                  // Show inventory match information with serial numbers
-                                  if (inventoryMatch) {
-                                    // ASIN inventory matches - show serial numbers prominently
-                                    if (inventoryMatch.type === 'ASIN') {
-                                      if (inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0) {
-                                        return <div className="flex items-center gap-2">
-                                                 <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
-                                                 <div className="text-xs text-success font-mono bg-success/10 px-2 py-1 rounded-md border border-success/20">
-                                                   SN: {inventoryMatch.serialNumbers.slice(0, 3).join(', ')}
-                                                   {inventoryMatch.serialNumbers.length > 3 && ` +${inventoryMatch.serialNumbers.length - 3}`}
-                                                 </div>
-                                               </div>;
-                                      } else if (inventoryMatch.quantity > 0) {
-                                        return <div className="flex items-center gap-2">
-                                                 <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
-                                                 <div className="text-xs text-success font-medium bg-success/10 px-2 py-1 rounded-md border border-success/20">
-                                                   In Stock ({inventoryMatch.quantity})
-                                                 </div>
-                                               </div>;
-                                      }
-                                    }
-
-                                    // SKU inventory matches - show bin/serial number
-                                    if (inventoryMatch.type.startsWith('SKU') && inventoryMatch.serialNumber) {
-                                      return <div className="flex items-center gap-2">
-                                               <div className="w-1.5 h-1.5 bg-blue-500 rounded-full flex-shrink-0"></div>
-                                               <div className="text-xs text-blue-600 font-mono bg-blue-50 px-2 py-1 rounded-md border border-blue-200">
-                                                 Bin: {inventoryMatch.serialNumber}
-                                               </div>
-                                             </div>;
-                                    }
-                                  }
-                                  return null;
-                                })()}
+                                   {/* ASIN display only */}
+                                   {order.asin && <div className="flex items-center gap-2">
+                                       <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
+                                       <div className="text-xs text-success font-mono bg-success/10 px-2 py-1 rounded-md border border-success/20">
+                                         {order.asin}
+                                       </div>
+                                     </div>}
                                  </div>
                                 </TableCell>
 
