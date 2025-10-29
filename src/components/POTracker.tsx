@@ -4582,11 +4582,16 @@ export const POTracker = () => {
                             <div className="flex items-center gap-1.5">
                               <Printer className="h-3 w-3" />
                               <span>Print Labels</span>
-                              {selectedForPrint.size > 0 && (
-                                <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px] bg-background/20 text-primary-foreground">
-                                  {selectedForPrint.size}
-                                </Badge>
-                              )}
+                {selectedForPrint.size > 0 && (() => {
+                  const totalPrintQty = Array.from(customPrintQuantities.values())
+                    .reduce((sum, qty) => sum + qty, 0);
+                  
+                  return (
+                    <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px] bg-background/20 text-primary-foreground">
+                      {totalPrintQty || selectedForPrint.size}
+                    </Badge>
+                  );
+                })()}
                             </div>
                           )}
                         </Button>
