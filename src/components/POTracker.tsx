@@ -118,6 +118,7 @@ export const POTracker = () => {
   const [debouncedLabelSearch, setDebouncedLabelSearch] = useState('');
   const [searchType, setSearchType] = useState<'all' | 'asin' | 'sku' | 'serial' | 'title' | 'po_number'>('all');
   const [selectedForPrint, setSelectedForPrint] = useState<Map<string, number>>(new Map());
+  const [customPrintQuantities, setCustomPrintQuantities] = useState<Map<string, number>>(new Map());
   const [labelCurrentPage, setLabelCurrentPage] = useState(1);
   const [labelItemsPerPage, setLabelItemsPerPage] = useState(20);
   const [consolidatedViewMode, setConsolidatedViewMode] = useState<'merged' | 'detailed'>('merged');
@@ -2571,11 +2572,123 @@ export const POTracker = () => {
       });
       return;
     }
+    
     try {
       // Prevent table reordering during print
       setPreventTableReorder(true);
       setPrintingItems(prev => new Set([...prev, order.id]));
-      const copies = customQuantity || (printSettings.copiesByQuantity ? order.quantity : printSettings.copies);
+      
+      // Handle consolidated orders intelligently
+      if (order._isConsolidated && order._consolidatedOrders && customQuantity) {
+        console.log('🔄 Printing consolidated order with partial quantity:', {
+          totalQuantity: order.quantity,
+          requestedQuantity: customQuantity,
+          underlyingOrders: order._consolidatedOrders.length
+        });
+        
+        // Distribute partial quantity across underlying POs
+        const underlyingOrders = [...order._consolidatedOrders].sort((a: any, b: any) => 
+          a.quantity - b.quantity // Sort by quantity ascending (print from smallest POs first)
+        );
+        
+        let remainingToPrint = customQuantity;
+        const printTasks: Array<{order: POOrder, qty: number}> = [];
+        
+        for (const underlyingOrder of underlyingOrders) {
+          if (remainingToPrint <= 0) break;
+          
+          const availableQty = underlyingOrder.quantity - (underlyingOrder.printed_quantity || 0);
+          const printThisOrder = Math.min(availableQty, remainingToPrint);
+          
+          if (printThisOrder > 0) {
+            printTasks.push({ order: underlyingOrder, qty: printThisOrder });
+            remainingToPrint -= printThisOrder;
+          }
+        }
+        
+        console.log('📋 Print distribution:', printTasks.map(t => ({
+          po: t.order.po_number,
+          printQty: t.qty,
+          totalQty: t.order.quantity
+        })));
+        
+        // Print each task
+        let totalPrinted = 0;
+        for (const { order: underlyingOrder, qty } of printTasks) {
+          let allZPLCodes: string[] = [];
+          for (let i = 0; i < qty; i++) {
+            let zplCode = generateZPLFromTemplate(underlyingOrder, printSettings);
+            allZPLCodes.push(zplCode);
+          }
+          
+          const darknessCommand = `~SD${printSettings.darkness.toString().padStart(2, '0')}`;
+          const finalZPL = darknessCommand + '\n' + allZPLCodes.join('\n');
+          await qzConnectionManager.print(finalZPL, selectedPrinter);
+          
+          // Update printed quantity in database for this underlying order
+          const newPrintedQuantity = (underlyingOrder.printed_quantity || 0) + qty;
+          const { error } = await supabase.from('po_orders').update({
+            is_printed: newPrintedQuantity >= underlyingOrder.quantity,
+            printed_quantity: newPrintedQuantity
+          }).eq('id', underlyingOrder.id);
+          
+          if (error) {
+            console.error(`❌ Failed to update order ${underlyingOrder.id}:`, error);
+          } else {
+            console.log(`✅ Updated ${underlyingOrder.po_number}: ${newPrintedQuantity}/${underlyingOrder.quantity}`);
+          }
+          
+          totalPrinted += qty;
+        }
+        
+        toast({
+          title: "Labels printed successfully",
+          description: `Printed ${totalPrinted} label(s) for ${order.asin || order.sku_code}`
+        });
+        
+        // Clear custom quantity after successful print
+        setCustomPrintQuantities(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(order.id);
+          return newMap;
+        });
+        
+        // Refresh data
+        console.log('🔄 Refreshing data from database...');
+        queryClient.invalidateQueries({ queryKey: ['po-orders'] });
+        await fetchPOOrders(true);
+        console.log('✅ Data refresh completed');
+        
+        setPrintingItems(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(order.id);
+          return newSet;
+        });
+        setTimeout(() => setPreventTableReorder(false), 500);
+        return;
+      }
+      
+      // Regular single order print
+      const availableQty = order.quantity - (order.printed_quantity || 0);
+      const requestedQty = customQuantity || (printSettings.copiesByQuantity ? order.quantity : printSettings.copies);
+      
+      // Validate quantity
+      if (requestedQty > availableQty) {
+        toast({
+          title: "Invalid quantity",
+          description: `Cannot print ${requestedQty} labels. Only ${availableQty} remaining.`,
+          variant: "destructive"
+        });
+        setPrintingItems(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(order.id);
+          return newSet;
+        });
+        setPreventTableReorder(false);
+        return;
+      }
+      
+      const copies = requestedQty;
       let allZPLCodes: string[] = [];
       for (let i = 0; i < copies; i++) {
         let zplCode = generateZPLFromTemplate(order, printSettings);
@@ -2601,7 +2714,7 @@ export const POTracker = () => {
       const {
         error
       } = await supabase.from('po_orders').update({
-        is_printed: true,
+        is_printed: newPrintedQuantity >= order.quantity,
         printed_quantity: newPrintedQuantity
       }).eq('id', order.id);
       
@@ -2623,6 +2736,13 @@ export const POTracker = () => {
       console.groupEnd();
       
       setIsPrintStatusUpdating(false);
+      
+      // Clear custom quantity after successful print
+      setCustomPrintQuantities(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(order.id);
+        return newMap;
+      });
       
       toast({
         title: "Print status updated",
@@ -5252,63 +5372,73 @@ export const POTracker = () => {
                                    </div>
                                  </TableCell>
 
-                                 {/* Print Status Cell */}
-                                 <TableCell className="w-32 border-r border-border/50">
-                                   <div className="flex items-center justify-center">
-                                     {order.printed_quantity > 0 ? (
-                                       <Badge 
-                                         variant={order.printed_quantity >= order.quantity ? "default" : "secondary"}
-                                         className={order.printed_quantity >= order.quantity ? "bg-green-500 hover:bg-green-600 text-white" : "bg-yellow-500 hover:bg-yellow-600 text-white"}
-                                       >
-                                         <Printer className="h-3 w-3 mr-1" />
-                                         {order.printed_quantity}/{order.quantity}
-                                       </Badge>
-                                     ) : (
-                                       <Badge variant="outline" className="text-muted-foreground border-muted">
-                                         Not Printed
-                                       </Badge>
-                                     )}
-                                   </div>
-                                 </TableCell>
-
-                                   {/* Enhanced Print Qty Cell */}
-                                   <TableCell className="w-24 border-r border-border/50">
-                                    <div className="flex items-center gap-2">
-                                      {(() => {
-                                  // Check if this item (or its consolidated items) are selected
-                                  const isSelected = order._isConsolidated ? order._consolidatedOrders.some((o: any) => selectedForPrint.has(o.id)) : selectedForPrint.has(order.id);
-
-                                  // Get the quantity value
-                                  const qtyValue = order._isConsolidated ? order._consolidatedOrders[0] && selectedForPrint.get(order._consolidatedOrders[0].id) || 1 : selectedForPrint.get(order.id) || 1;
-                                  console.log('🔢 Print Qty Input State:', {
-                                    orderId: order.id,
-                                    isConsolidated: order._isConsolidated,
-                                    isSelected,
-                                    qtyValue,
-                                    selectedMapSize: selectedForPrint.size
-                                  });
-                                  return <>
-                                            <Input type="number" min="1" max="99" placeholder="Qty" className="w-16 h-9 text-center bg-background border-2 border-border focus:border-primary group-hover:border-primary/50 transition-colors font-mono text-foreground" value={isSelected ? qtyValue : ''} onChange={e => {
-                                      const value = parseInt(e.target.value) || 1;
-                                      console.log('📝 Qty input changed:', value);
-                                      if (isSelected) {
-                                        const newSelected = new Map(selectedForPrint);
-                                        if (order._isConsolidated) {
-                                          // Update all underlying orders
-                                          order._consolidatedOrders.forEach((o: any) => {
-                                            newSelected.set(o.id, value);
-                                          });
-                                        } else {
-                                          newSelected.set(order.id, value);
-                                        }
-                                        setSelectedForPrint(newSelected);
-                                      }
-                                    }} disabled={!isSelected || printingItems.has(order.id)} />
-                                            {!isSelected && <span className="text-xs text-muted-foreground whitespace-nowrap">Select first</span>}
-                                          </>;
-                                })()}
+                                  {/* Print Status Cell */}
+                                  <TableCell className="w-32 border-r border-border/50">
+                                    <div className="flex items-center justify-center">
+                                      {order.printed_quantity > 0 ? (
+                                        <Badge 
+                                          variant={order.printed_quantity >= order.quantity ? "default" : "secondary"}
+                                          className={order.printed_quantity >= order.quantity ? "bg-green-500 hover:bg-green-600 text-white" : "bg-yellow-500 hover:bg-yellow-600 text-white"}
+                                        >
+                                          <Printer className="h-3 w-3 mr-1" />
+                                          {order.printed_quantity}/{order.quantity}
+                                          {order.printed_quantity > 0 && order.printed_quantity < order.quantity && (
+                                            <span className="ml-1">
+                                              ({Math.round((order.printed_quantity / order.quantity) * 100)}%)
+                                            </span>
+                                          )}
+                                        </Badge>
+                                      ) : (
+                                        <Badge variant="outline" className="text-muted-foreground border-muted">
+                                          Not Printed
+                                        </Badge>
+                                      )}
                                     </div>
                                   </TableCell>
+
+                                    {/* Enhanced Print Qty Cell */}
+                                    <TableCell className="w-24 border-r border-border/50">
+                                     <div className="flex items-center gap-2">
+                                       {(() => {
+                                   // Check if this item (or its consolidated items) are selected
+                                   const isSelected = order._isConsolidated ? order._consolidatedOrders.some((o: any) => selectedForPrint.has(o.id)) : selectedForPrint.has(order.id);
+                                   
+                                   // Calculate available quantity (total - already printed)
+                                   const availableQty = order.quantity - (order.printed_quantity || 0);
+                                   const maxQty = Math.max(1, availableQty);
+
+                                   // Get custom quantity or default to available quantity
+                                   const qtyValue = customPrintQuantities.get(order.id) || availableQty;
+                                   
+                                   return <>
+                                             <Input 
+                                               type="number" 
+                                               min="1" 
+                                               max={maxQty}
+                                               placeholder="Qty" 
+                                               className="w-16 h-9 text-center bg-background border-2 border-border focus:border-primary group-hover:border-primary/50 transition-colors font-mono text-foreground" 
+                                               value={isSelected ? qtyValue : ''} 
+                                               onChange={e => {
+                                                 const value = parseInt(e.target.value) || 1;
+                                                 const clampedValue = Math.min(Math.max(1, value), maxQty);
+                                                 console.log('📝 Custom qty changed:', { value, clampedValue, maxQty, availableQty });
+                                                 
+                                                 if (isSelected) {
+                                                   setCustomPrintQuantities(prev => {
+                                                     const newMap = new Map(prev);
+                                                     newMap.set(order.id, clampedValue);
+                                                     return newMap;
+                                                   });
+                                                 }
+                                               }} 
+                                               disabled={!isSelected || printingItems.has(order.id) || availableQty <= 0} 
+                                             />
+                                             {!isSelected && <span className="text-xs text-muted-foreground whitespace-nowrap">Select first</span>}
+                                             {isSelected && availableQty <= 0 && <span className="text-xs text-orange-500 whitespace-nowrap">All printed</span>}
+                                           </>;
+                                 })()}
+                                     </div>
+                                   </TableCell>
 
                                 {/* Enhanced Status Cell */}
                                 <TableCell className="border-r border-border/50">
@@ -5328,14 +5458,15 @@ export const POTracker = () => {
                                   </div>
                                 </TableCell>
 
-                                {/* Enhanced Actions Cell */}
-                                <TableCell>
-                                  <div className="flex flex-col gap-2">
-                                    {/* Main Print Button */}
-                                    <Button variant="outline" size="sm" onClick={() => {
-                                  const printQty = selectedForPrint.get(order.id) || 1;
-                                  handleSingleItemPrint(order, printQty);
-                                }} disabled={!qzConnected || !selectedPrinter || printingItems.has(order.id) || !selectedForPrint.has(order.id) || !selectedForPrint.get(order.id) || selectedForPrint.get(order.id) <= 0} className={`w-full border-2 transition-all duration-300 ${printingItems.has(order.id) ? 'bg-primary/10 border-primary text-primary' : 'border-border hover:border-primary hover:bg-primary/5 hover:text-primary'}`}>
+                                 {/* Enhanced Actions Cell */}
+                                 <TableCell>
+                                   <div className="flex flex-col gap-2">
+                                     {/* Main Print Button */}
+                                     <Button variant="outline" size="sm" onClick={() => {
+                                   const availableQty = order.quantity - (order.printed_quantity || 0);
+                                   const printQty = customPrintQuantities.get(order.id) || availableQty;
+                                   handleSingleItemPrint(order, printQty);
+                                 }} disabled={!qzConnected || !selectedPrinter || printingItems.has(order.id) || !selectedForPrint.has(order.id) || (order.quantity - (order.printed_quantity || 0)) <= 0} className={`w-full border-2 transition-all duration-300 ${printingItems.has(order.id) ? 'bg-primary/10 border-primary text-primary' : 'border-border hover:border-primary hover:bg-primary/5 hover:text-primary'}`}>
                                      {printingItems.has(order.id) ? <div className="flex items-center gap-2">
                                          <Loader2 className="h-3 w-3 animate-spin" />
                                          <span className="text-xs">Printing...</span>
