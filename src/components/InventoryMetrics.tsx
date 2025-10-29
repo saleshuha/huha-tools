@@ -419,141 +419,189 @@ export function InventoryMetrics({
         </div>
       </div>
 
-      {/* Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Metrics Grid - Single Row with Colored Borders */}
+      <div className="grid gap-2 grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 mb-3">
         {/* Total ASINs */}
         <Card 
-          className="cursor-pointer hover:border-primary transition-colors"
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-blue-500"
           onClick={() => handleMetricClick('active')}
         >
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Package className="w-4 h-4" />
-              Total ASINs
-            </CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
+            <div className="flex flex-col justify-center min-w-0 flex-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground truncate">
+                Total ASINs
+              </CardTitle>
+              <div className="text-xl font-bold text-blue-600 mt-1">
+                {stats.totalAsins.toLocaleString()}
+              </div>
+            </div>
+            <div className="w-8 h-8 bg-blue-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+              <Package className="h-4 w-4 text-blue-600" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalAsins.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">Active inventory items</p>
+          <CardContent className="pt-0 pb-2 flex-shrink-0">
+            <p className="text-xs text-muted-foreground truncate">Active inventory</p>
           </CardContent>
         </Card>
 
         {/* Total Units */}
         <Card 
-          className="cursor-pointer hover:border-primary transition-colors"
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-purple-500"
           onClick={() => handleMetricClick('active')}
         >
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <TrendingUp className="w-4 h-4" />
-              Total Units
-            </CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
+            <div className="flex flex-col justify-center min-w-0 flex-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground truncate">
+                Total Units
+              </CardTitle>
+              <div className="text-xl font-bold text-purple-600 mt-1">
+                {stats.totalUnits.toLocaleString()}
+              </div>
+            </div>
+            <div className="w-8 h-8 bg-purple-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+              <TrendingUp className="h-4 w-4 text-purple-600" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalUnits.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">Sum of all quantities</p>
+          <CardContent className="pt-0 pb-2 flex-shrink-0">
+            <p className="text-xs text-muted-foreground truncate">Sum of quantities</p>
           </CardContent>
         </Card>
 
         {/* In Stock */}
         <Card 
-          className="cursor-pointer hover:border-primary transition-colors"
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-green-500"
           onClick={() => handleMetricClick('instock')}
         >
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-green-600" />
-              In Stock
-            </CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
+            <div className="flex flex-col justify-center min-w-0 flex-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground truncate">
+                In Stock
+              </CardTitle>
+              <div className="text-xl font-bold text-green-600 mt-1">
+                {stats.inStockCount.toLocaleString()}
+              </div>
+            </div>
+            <div className="w-8 h-8 bg-green-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.inStockCount.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">Available ASINs</p>
+          <CardContent className="pt-0 pb-2 flex-shrink-0">
+            <p className="text-xs text-muted-foreground truncate">Available ASINs</p>
           </CardContent>
         </Card>
 
         {/* Out of Stock */}
         <Card 
-          className="cursor-pointer hover:border-primary transition-colors"
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-red-500"
           onClick={() => handleMetricClick('outofstock')}
         >
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <XCircle className="w-4 h-4 text-red-600" />
-              Out of Stock
-            </CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
+            <div className="flex flex-col justify-center min-w-0 flex-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground truncate">
+                Out of Stock
+              </CardTitle>
+              <div className="text-xl font-bold text-red-600 mt-1">
+                {stats.outOfStockCount.toLocaleString()}
+              </div>
+            </div>
+            <div className="w-8 h-8 bg-red-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+              <XCircle className="h-4 w-4 text-red-600" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.outOfStockCount.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">Unavailable ASINs</p>
+          <CardContent className="pt-0 pb-2 flex-shrink-0">
+            <p className="text-xs text-muted-foreground truncate">Unavailable ASINs</p>
           </CardContent>
         </Card>
 
         {/* Missing SKU */}
         <Card 
-          className="cursor-pointer hover:border-primary transition-colors"
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-orange-500"
           onClick={() => handleMetricClick('missing-sku')}
         >
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <FileText className="w-4 h-4 text-orange-600" />
-              Missing SKU
-            </CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
+            <div className="flex flex-col justify-center min-w-0 flex-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground truncate">
+                Missing SKU
+              </CardTitle>
+              <div className="text-xl font-bold text-orange-600 mt-1">
+                {stats.missingSku.toLocaleString()}
+              </div>
+            </div>
+            <div className="w-8 h-8 bg-orange-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+              <FileText className="h-4 w-4 text-orange-600" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.missingSku.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">ASINs without SKU</p>
+          <CardContent className="pt-0 pb-2 flex-shrink-0">
+            <p className="text-xs text-muted-foreground truncate">ASINs without SKU</p>
           </CardContent>
         </Card>
 
         {/* Missing Title */}
         <Card 
-          className="cursor-pointer hover:border-primary transition-colors"
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-yellow-500"
           onClick={() => handleMetricClick('missing-title')}
         >
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <FileText className="w-4 h-4 text-orange-600" />
-              Missing Title
-            </CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
+            <div className="flex flex-col justify-center min-w-0 flex-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground truncate">
+                Missing Title
+              </CardTitle>
+              <div className="text-xl font-bold text-yellow-600 mt-1">
+                {stats.missingTitle.toLocaleString()}
+              </div>
+            </div>
+            <div className="w-8 h-8 bg-yellow-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+              <FileText className="h-4 w-4 text-yellow-600" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.missingTitle.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">ASINs without title</p>
+          <CardContent className="pt-0 pb-2 flex-shrink-0">
+            <p className="text-xs text-muted-foreground truncate">ASINs without title</p>
           </CardContent>
         </Card>
 
         {/* Missing Images */}
         <Card 
-          className="cursor-pointer hover:border-primary transition-colors"
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-pink-500"
           onClick={() => handleMetricClick('missing-images')}
         >
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <ImageIcon className="w-4 h-4 text-orange-600" />
-              Missing Images
-            </CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
+            <div className="flex flex-col justify-center min-w-0 flex-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground truncate">
+                Missing Images
+              </CardTitle>
+              <div className="text-xl font-bold text-pink-600 mt-1">
+                {stats.missingImages.toLocaleString()}
+              </div>
+            </div>
+            <div className="w-8 h-8 bg-pink-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+              <ImageIcon className="h-4 w-4 text-pink-600" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.missingImages.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">ASINs without images</p>
+          <CardContent className="pt-0 pb-2 flex-shrink-0">
+            <p className="text-xs text-muted-foreground truncate">ASINs without images</p>
           </CardContent>
         </Card>
 
         {/* Restock Eligible */}
         <Card 
-          className="cursor-pointer hover:border-primary transition-colors"
+          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-cyan-500"
           onClick={() => handleMetricClick('restock-eligible')}
         >
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Activity className="w-4 h-4 text-blue-600" />
-              Restock Eligible
-            </CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
+            <div className="flex flex-col justify-center min-w-0 flex-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground truncate">
+                Restock Eligible
+              </CardTitle>
+              <div className="text-xl font-bold text-cyan-600 mt-1">
+                {stats.restockEligible.toLocaleString()}
+              </div>
+            </div>
+            <div className="w-8 h-8 bg-cyan-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+              <Activity className="h-4 w-4 text-cyan-600" />
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.restockEligible.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">Ready for reorder</p>
+          <CardContent className="pt-0 pb-2 flex-shrink-0">
+            <p className="text-xs text-muted-foreground truncate">Ready for reorder</p>
           </CardContent>
         </Card>
       </div>
