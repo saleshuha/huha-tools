@@ -2672,6 +2672,17 @@ export const POTracker = () => {
       const availableQty = order.quantity - (order.printed_quantity || 0);
       const requestedQty = customQuantity || (printSettings.copiesByQuantity ? order.quantity : printSettings.copies);
       
+      console.log('🖨️ Print request:', {
+        asin: order.asin,
+        poNumber: order.po_number,
+        totalQuantity: order.quantity,
+        alreadyPrinted: order.printed_quantity,
+        availableQty,
+        requestedQty,
+        customQuantitySet: !!customQuantity,
+        orderId: order.id
+      });
+      
       // Validate quantity
       if (requestedQty > availableQty) {
         toast({
@@ -5068,10 +5079,26 @@ export const POTracker = () => {
                                     // For consolidated items, select/deselect all underlying orders
                                     if (order._consolidatedOrders && order._consolidatedOrders.length > 0) {
                                       if (checked) {
-                                        order._consolidatedOrders.forEach((o: any) => newSelected.set(o.id, 1));
+                                        order._consolidatedOrders.forEach((o: any) => {
+                                          newSelected.set(o.id, 1);
+                                          // Initialize custom quantity to 1 for each underlying order
+                                          setCustomPrintQuantities(prev => {
+                                            const newMap = new Map(prev);
+                                            newMap.set(o.id, 1);
+                                            return newMap;
+                                          });
+                                        });
                                         console.log('✅ Added consolidated orders:', order._consolidatedOrders.map((o: any) => o.id));
                                       } else {
-                                        order._consolidatedOrders.forEach((o: any) => newSelected.delete(o.id));
+                                        order._consolidatedOrders.forEach((o: any) => {
+                                          newSelected.delete(o.id);
+                                          // Clear custom quantity on deselection
+                                          setCustomPrintQuantities(prev => {
+                                            const newMap = new Map(prev);
+                                            newMap.delete(o.id);
+                                            return newMap;
+                                          });
+                                        });
                                         console.log('❌ Removed consolidated orders:', order._consolidatedOrders.map((o: any) => o.id));
                                       }
                                     } else {
@@ -5083,18 +5110,42 @@ export const POTracker = () => {
                                       });
                                       if (checked) {
                                         newSelected.set(order.id, 1);
+                                        // Initialize custom quantity to 1
+                                        setCustomPrintQuantities(prev => {
+                                          const newMap = new Map(prev);
+                                          newMap.set(order.id, 1);
+                                          return newMap;
+                                        });
                                         console.log('✅ Added consolidated order (fallback):', order.id);
                                       } else {
                                         newSelected.delete(order.id);
+                                        // Clear custom quantity on deselection
+                                        setCustomPrintQuantities(prev => {
+                                          const newMap = new Map(prev);
+                                          newMap.delete(order.id);
+                                          return newMap;
+                                        });
                                         console.log('❌ Removed consolidated order (fallback):', order.id);
                                       }
                                     }
                                   } else {
                                     if (checked) {
                                       newSelected.set(order.id, 1); // Default quantity of 1
+                                      // Initialize custom quantity to 1
+                                      setCustomPrintQuantities(prev => {
+                                        const newMap = new Map(prev);
+                                        newMap.set(order.id, 1);
+                                        return newMap;
+                                      });
                                       console.log('✅ Added single order:', order.id);
                                     } else {
                                       newSelected.delete(order.id);
+                                      // Clear custom quantity on deselection
+                                      setCustomPrintQuantities(prev => {
+                                        const newMap = new Map(prev);
+                                        newMap.delete(order.id);
+                                        return newMap;
+                                      });
                                       console.log('❌ Removed single order:', order.id);
                                     }
                                   }
@@ -5407,8 +5458,8 @@ export const POTracker = () => {
                                    const availableQty = order.quantity - (order.printed_quantity || 0);
                                    const maxQty = Math.max(1, availableQty);
 
-                                   // Get custom quantity or default to available quantity
-                                   const qtyValue = customPrintQuantities.get(order.id) || availableQty;
+                                    // Get custom quantity or default to 1 when selected
+                                    const qtyValue = customPrintQuantities.get(order.id) || (isSelected ? 1 : '');
                                    
                                    return <>
                                              <Input 
@@ -5462,19 +5513,41 @@ export const POTracker = () => {
                                  <TableCell>
                                    <div className="flex flex-col gap-2">
                                      {/* Main Print Button */}
-                                     <Button variant="outline" size="sm" onClick={() => {
-                                   const availableQty = order.quantity - (order.printed_quantity || 0);
-                                   const printQty = customPrintQuantities.get(order.id) || availableQty;
-                                   handleSingleItemPrint(order, printQty);
-                                 }} disabled={!qzConnected || !selectedPrinter || printingItems.has(order.id) || !selectedForPrint.has(order.id) || (order.quantity - (order.printed_quantity || 0)) <= 0} className={`w-full border-2 transition-all duration-300 ${printingItems.has(order.id) ? 'bg-primary/10 border-primary text-primary' : 'border-border hover:border-primary hover:bg-primary/5 hover:text-primary'}`}>
-                                     {printingItems.has(order.id) ? <div className="flex items-center gap-2">
-                                         <Loader2 className="h-3 w-3 animate-spin" />
-                                         <span className="text-xs">Printing...</span>
-                                       </div> : <div className="flex items-center gap-2">
-                                         <Printer className="h-3 w-3" />
-                                         <span className="text-xs font-medium">Print</span>
-                                       </div>}
-                                   </Button>
+                                      <Button variant="outline" size="sm" onClick={() => {
+                                    const availableQty = order.quantity - (order.printed_quantity || 0);
+                                    const printQty = customPrintQuantities.get(order.id);
+
+                                    // Require explicit quantity - don't default to full available
+                                    if (!printQty || printQty <= 0) {
+                                      toast({
+                                        title: "Enter print quantity",
+                                        description: "Please enter the number of labels to print",
+                                        variant: "destructive"
+                                      });
+                                      return;
+                                    }
+
+                                    if (printQty > availableQty) {
+                                      toast({
+                                        title: "Invalid quantity",
+                                        description: `Cannot print ${printQty} labels. Only ${availableQty} available.`,
+                                        variant: "destructive"
+                                      });
+                                      return;
+                                    }
+
+                                    handleSingleItemPrint(order, printQty);
+                                  }} disabled={!qzConnected || !selectedPrinter || printingItems.has(order.id) || !selectedForPrint.has(order.id) || (order.quantity - (order.printed_quantity || 0)) <= 0} className={`w-full border-2 transition-all duration-300 ${printingItems.has(order.id) ? 'bg-primary/10 border-primary text-primary' : 'border-border hover:border-primary hover:bg-primary/5 hover:text-primary'}`}>
+                                      {printingItems.has(order.id) ? <div className="flex items-center gap-2">
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                          <span className="text-xs">Printing...</span>
+                                        </div> : <div className="flex items-center gap-2">
+                                          <Printer className="h-3 w-3" />
+                                          <span className="text-xs font-medium">
+                                            Print {customPrintQuantities.get(order.id) || '(Set Qty)'}
+                                          </span>
+                                        </div>}
+                                    </Button>
                                    
                                    {/* Reprint Already Printed Quantity */}
                                    {order.printed_quantity > 0 && <Button variant="outline" size="sm" onClick={() => {
