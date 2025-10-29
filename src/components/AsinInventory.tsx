@@ -528,12 +528,10 @@ export function AsinInventory() {
             if (!item.title) return false;
             const titleLower = item.title.toLowerCase();
             
-            // For multi-word searches, check if all terms appear as whole words
+            // Check if ALL search terms appear anywhere in the title (substring match)
             return searchTerms.every(term => {
               const termLower = term.toLowerCase().trim();
-              // Use word boundary regex for more precise matching
-              const wordBoundaryRegex = new RegExp(`\\b${termLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`);
-              return wordBoundaryRegex.test(titleLower);
+              return titleLower.includes(termLower);
             });
          } else if (searchMethod === 'notes') {
            return item.notes && searchTerms.some(term => item.notes.toLowerCase().includes(term.toLowerCase().trim()));
