@@ -88,25 +88,29 @@ export function InventoryMetrics({
           { data: soldData, error: soldError },
           { data: productImages, error: imagesError }
         ] = await Promise.all([
-          // Total count
+          // Total active count (exclude disabled items)
           supabase
             .from('asin_inventory')
             .select('*', { count: 'exact', head: true })
-            .eq('country', selectedCountry as any),
+            .eq('country', selectedCountry as any)
+            .neq('is_active', false as any),
           
-          // In stock count  
+          // In stock count (quantity > 0 AND status = 'in-stock')
           supabase
             .from('asin_inventory')
             .select('*', { count: 'exact', head: true })
             .eq('country', selectedCountry as any)
-            .gt('quantity', 0 as any),
+            .eq('status', 'in-stock' as any)
+            .gt('quantity', 0 as any)
+            .neq('is_active', false as any),
             
-          // Out of stock count
+          // Out of stock count (quantity = 0 OR status out-of-stock/sold)
           supabase
             .from('asin_inventory')
             .select('*', { count: 'exact', head: true })
             .eq('country', selectedCountry as any)
-            .eq('quantity', 0 as any),
+            .or('quantity.eq.0,status.eq.out-of-stock,status.eq.sold')
+            .neq('is_active', false as any),
             
           // Sold items data (need actual data for quantity sum and date filtering)
           supabase
@@ -143,32 +147,36 @@ export function InventoryMetrics({
           { count: restockEligibleCount },
           { data: totalUnitsData }
         ] = await Promise.all([
-          // Missing SKU count
+          // Missing SKU count (only active items)
           supabase
             .from('asin_inventory')
             .select('*', { count: 'exact', head: true })
             .eq('country', selectedCountry as any)
-            .or('sku.is.null,sku.eq.'),
+            .or('sku.is.null,sku.eq.')
+            .neq('is_active', false as any),
             
-          // Missing titles count  
+          // Missing titles count (only active items)
           supabase
             .from('asin_inventory')
             .select('*', { count: 'exact', head: true })
             .eq('country', selectedCountry as any)
-            .or('title.is.null,title.eq.'),
+            .or('title.is.null,title.eq.')
+            .neq('is_active', false as any),
             
-          // Restock eligible count
+          // Restock eligible count (only active items)
           supabase
             .from('asin_inventory')
             .select('*', { count: 'exact', head: true })
             .eq('country', selectedCountry as any)
-            .eq('eligible_for_restock', true as any),
+            .eq('eligible_for_restock', true as any)
+            .neq('is_active', false as any),
             
-          // Get all quantities to calculate total units
+          // Get all quantities to calculate total units (only active items)
           supabase
             .from('asin_inventory')
             .select('quantity, asin')
             .eq('country', selectedCountry as any)
+            .neq('is_active', false as any)
         ]);
         
         // Calculate metrics
@@ -224,14 +232,14 @@ export function InventoryMetrics({
           restockEligible: restockEligibleCount || 0
         });
       } else if (showOnlySku) {
-        // Load only SKU data
+        // Load only SKU data (exclude disabled items)
         const {
           data: skuData
-        } = await supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any).limit(50000);
+        } = await supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any).neq('is_active', false as any).limit(50000);
         const skuItems: any[] = (skuData as any) || [];
         const activeItems = skuItems.length;
-        const inStockItems = skuItems.filter((item: any) => item.quantity > 0).length;
-        const outOfStockItems = skuItems.filter((item: any) => item.quantity === 0).length;
+        const inStockItems = skuItems.filter((item: any) => item.quantity > 0 && item.status === 'in-stock').length;
+        const outOfStockItems = skuItems.filter((item: any) => item.quantity === 0 || item.status === 'out-of-stock' || item.status === 'sold').length;
         const skuTotalUnits = skuItems.reduce((sum: number, item: any) => sum + item.quantity, 0);
 
         // Filter sold units based on date filters
@@ -264,8 +272,11 @@ export function InventoryMetrics({
           restockEligible: 0
         });
       } else {
-        // Load both ASIN and SKU data
-        const [asinData, skuData] = await Promise.all([supabase.from('asin_inventory').select('*').eq('country', selectedCountry as any).limit(50000), supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any).limit(50000)]);
+        // Load both ASIN and SKU data (exclude disabled items)
+        const [asinData, skuData] = await Promise.all([
+          supabase.from('asin_inventory').select('*').eq('country', selectedCountry as any).neq('is_active', false as any).limit(50000), 
+          supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any).neq('is_active', false as any).limit(50000)
+        ]);
 
         // Calculate metrics
         const allItems = [...((asinData.data as any) || []).map((item: any) => ({
@@ -278,8 +289,8 @@ export function InventoryMetrics({
           identifier: `${item.sku_number} (${item.bin_serial_number})`
         }))];
         const activeItems = allItems.length;
-        const inStockItems = allItems.filter((item: any) => item.quantity > 0).length;
-        const outOfStockItems = allItems.filter((item: any) => item.quantity === 0).length;
+        const inStockItems = allItems.filter((item: any) => item.quantity > 0 && item.status === 'in-stock').length;
+        const outOfStockItems = allItems.filter((item: any) => item.quantity === 0 || item.status === 'out-of-stock' || item.status === 'sold').length;
 
         // Calculate separate totals for ASIN and SKU
         const asinItems: any[] = (asinData.data as any) || [];
@@ -337,6 +348,7 @@ export function InventoryMetrics({
           .select('*')
           .eq('country', selectedCountry as any)
           .or('sku.is.null,sku.eq.')
+          .neq('is_active', false as any)
           .limit(50000);
         
         const allItems = ((asinData as any) || []).map((item: any) => ({
@@ -361,10 +373,10 @@ export function InventoryMetrics({
   const loadDetailedItems = async (metric: 'active' | 'instock' | 'outofstock' | 'restock-eligible') => {
     try {
       if (showOnlyAsin) {
-        // Load only ASIN data
+        // Load only ASIN data (exclude disabled items)
         const {
           data: asinData
-        } = await supabase.from('asin_inventory').select('*').eq('country', selectedCountry as any).limit(50000); // Explicit high limit to override default 1000
+        } = await supabase.from('asin_inventory').select('*').eq('country', selectedCountry as any).neq('is_active', false as any).limit(50000);
         let allItems = ((asinData as any) || []).map((item: any) => ({
           ...item,
           type: 'asin' as const,
@@ -373,18 +385,18 @@ export function InventoryMetrics({
 
         // Filter based on metric
         if (metric === 'instock') {
-          allItems = allItems.filter(item => item.quantity > 0);
+          allItems = allItems.filter(item => item.quantity > 0 && item.status === 'in-stock');
         } else if (metric === 'outofstock') {
-          allItems = allItems.filter(item => item.quantity === 0);
+          allItems = allItems.filter(item => item.quantity === 0 || item.status === 'out-of-stock' || item.status === 'sold');
         } else if (metric === 'restock-eligible') {
           allItems = allItems.filter(item => item.eligible_for_restock === true);
         }
         setInventoryItems(allItems);
       } else if (showOnlySku) {
-        // Load only SKU data
+        // Load only SKU data (exclude disabled items)
         const {
           data: skuData
-        } = await supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any);
+        } = await supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any).neq('is_active', false as any);
         let allItems = ((skuData as any) || []).map((item: any) => ({
           ...item,
           type: 'sku' as const,
@@ -393,14 +405,17 @@ export function InventoryMetrics({
 
         // Filter based on metric
         if (metric === 'instock') {
-          allItems = allItems.filter(item => item.quantity > 0);
+          allItems = allItems.filter(item => item.quantity > 0 && item.status === 'in-stock');
         } else if (metric === 'outofstock') {
-          allItems = allItems.filter(item => item.quantity === 0);
+          allItems = allItems.filter(item => item.quantity === 0 || item.status === 'out-of-stock' || item.status === 'sold');
         }
         setInventoryItems(allItems);
       } else {
-        // Load both ASIN and SKU data
-        const [asinData, skuData] = await Promise.all([supabase.from('asin_inventory').select('*').eq('country', selectedCountry as any).limit(50000), supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any).limit(50000)]);
+        // Load both ASIN and SKU data (exclude disabled items)
+        const [asinData, skuData] = await Promise.all([
+          supabase.from('asin_inventory').select('*').eq('country', selectedCountry as any).neq('is_active', false as any).limit(50000), 
+          supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any).neq('is_active', false as any).limit(50000)
+        ]);
         let allItems = [...((asinData.data as any) || []).map((item: any) => ({
           ...item,
           type: 'asin' as const,
@@ -413,9 +428,9 @@ export function InventoryMetrics({
 
         // Filter based on metric
         if (metric === 'instock') {
-          allItems = allItems.filter(item => item.quantity > 0);
+          allItems = allItems.filter(item => item.quantity > 0 && item.status === 'in-stock');
         } else if (metric === 'outofstock') {
-          allItems = allItems.filter(item => item.quantity === 0);
+          allItems = allItems.filter(item => item.quantity === 0 || item.status === 'out-of-stock' || item.status === 'sold');
         }
         setInventoryItems(allItems);
       }
@@ -430,8 +445,8 @@ export function InventoryMetrics({
   const loadSoldItems = async () => {
     try {
       if (showOnlyAsin) {
-        // Load only ASIN data
-        let query = supabase.from('asin_inventory').select('*').eq('country', selectedCountry as any).eq('status', 'sold' as any).limit(50000);
+        // Load only ASIN data (exclude disabled items)
+        let query = supabase.from('asin_inventory').select('*').eq('country', selectedCountry as any).eq('status', 'sold' as any).neq('is_active', false as any).limit(50000);
 
         // Apply date filters if set
         if (soldDateFrom) {
@@ -452,8 +467,8 @@ export function InventoryMetrics({
         }));
         setInventoryItems(allItems);
       } else if (showOnlySku) {
-        // Load only SKU data
-        let query = supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any).eq('status', 'sold' as any);
+        // Load only SKU data (exclude disabled items)
+        let query = supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any).eq('status', 'sold' as any).neq('is_active', false as any).limit(50000);
 
         // Apply date filters if set
         if (soldDateFrom) {
@@ -474,9 +489,9 @@ export function InventoryMetrics({
         }));
         setInventoryItems(allItems);
       } else {
-        // Load both ASIN and SKU data
-        let asinQuery = supabase.from('asin_inventory').select('*').eq('country', selectedCountry as any).eq('status', 'sold' as any).limit(50000);
-        let skuQuery = supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any).eq('status', 'sold' as any).limit(50000);
+        // Load both ASIN and SKU data (exclude disabled items)
+        let asinQuery = supabase.from('asin_inventory').select('*').eq('country', selectedCountry as any).eq('status', 'sold' as any).neq('is_active', false as any).limit(50000);
+        let skuQuery = supabase.from('sku_inventory').select('*').eq('country', selectedCountry as any).eq('status', 'sold' as any).neq('is_active', false as any).limit(50000);
 
         // Apply date filters if set
         if (soldDateFrom) {
@@ -517,12 +532,13 @@ export function InventoryMetrics({
   const loadMissingTitleItems = async () => {
     try {
       if (showOnlyAsin || !showOnlySku) {
-        // Load ASIN data with missing titles
+        // Load ASIN data with missing titles (exclude disabled items)
         const { data: asinData } = await supabase
           .from('asin_inventory')
           .select('*')
           .eq('country', selectedCountry as any)
           .or('title.is.null,title.eq.')
+          .neq('is_active', false as any)
           .limit(50000);
         
         const allItems = ((asinData as any) || []).map((item: any) => ({
@@ -555,11 +571,12 @@ export function InventoryMetrics({
         
         const existingImageAsins = new Set(((productImages as any) || []).map((img: any) => img.asin));
         
-        // Load ASIN data and filter for missing images
+        // Load ASIN data and filter for missing images (exclude disabled items)
         const { data: asinData } = await supabase
           .from('asin_inventory')
           .select('*') 
           .eq('country', selectedCountry as any)
+          .neq('is_active', false as any)
           .limit(50000);
         
         const allItems: any[] = ((asinData as any) || [])
