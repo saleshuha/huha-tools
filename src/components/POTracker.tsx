@@ -102,7 +102,7 @@ export const POTracker = () => {
   const [exportingMetric, setExportingMetric] = useState<string | null>(null);
 
   // Sorting state
-  const [sortField, setSortField] = useState<keyof POOrder | 'combined_title'>('po_number');
+  const [sortField, setSortField] = useState<keyof POOrder | 'combined_title' | 'instock_qty'>('po_number');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [originalOrderPreserved, setOriginalOrderPreserved] = useState(false);
   
@@ -1636,6 +1636,18 @@ export const POTracker = () => {
       filtered.sort((a, b) => {
         let aValue: string | number | undefined;
         let bValue: string | number | undefined;
+        
+        // Handle special case for in-stock quantity sorting
+        if (sortField === 'instock_qty') {
+          const aMatch = findInventoryMatch(a.asin, a.sunsky_sku?.sku_code, a.sku_code, a.model_number, a.sunsky_sku);
+          const bMatch = findInventoryMatch(b.asin, b.sunsky_sku?.sku_code, b.sku_code, b.model_number, b.sunsky_sku);
+          
+          const aQty = (aMatch && aMatch.status === 'in-stock') ? aMatch.quantity : 0;
+          const bQty = (bMatch && bMatch.status === 'in-stock') ? bMatch.quantity : 0;
+          
+          return sortDirection === 'asc' ? aQty - bQty : bQty - aQty;
+        }
+        
         if (sortField === 'combined_title') {
           aValue = `${a.title || ''} ${a.asin || ''}`.toLowerCase();
           bValue = `${b.title || ''} ${b.asin || ''}`.toLowerCase();
@@ -1852,6 +1864,22 @@ export const POTracker = () => {
         }
       });
       
+      // Calculate total in-stock quantity for this PO group
+      const totalInStockQty = allOrdersInPO.reduce((sum, order: any) => {
+        const inventoryMatch = findInventoryMatch(
+          order.asin,
+          order.sunsky_sku?.sku_code,
+          order.sku_code,
+          order.model_number,
+          order.sunsky_sku
+        );
+        
+        if (inventoryMatch && inventoryMatch.status === 'in-stock') {
+          return sum + (inventoryMatch.quantity || 0);
+        }
+        return sum;
+      }, 0);
+      
       return {
         poNumber,
         orders,
@@ -1867,7 +1895,8 @@ export const POTracker = () => {
           matchedBySource,
           pendingBySource,
           matchedUnitsBySource,
-          pendingUnitsBySource
+          pendingUnitsBySource,
+          totalInStockQty
         }
       };
     });
@@ -1941,6 +1970,10 @@ export const POTracker = () => {
         case 'pending_sunsky':
           aValue = a.metrics.pendingUnitsBySource?.SUNSKY || 0;
           bValue = b.metrics.pendingUnitsBySource?.SUNSKY || 0;
+          break;
+        case 'instock_qty':
+          aValue = a.metrics.totalInStockQty || 0;
+          bValue = b.metrics.totalInStockQty || 0;
           break;
         default:
           return 0;
@@ -3098,12 +3131,23 @@ export const POTracker = () => {
                              <ArrowUpDown className="h-3 w-3 opacity-30" />
                            )}
                          </div>
-                          <div 
+                         <div 
                             className={`p-2 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'pending_sunsky' ? 'bg-primary/10 text-primary' : ''}`}
                             onClick={() => handleGroupedSort('pending_sunsky')}
                           >
                             <span>Pending to Place</span>
                             {groupedSortField === 'pending_sunsky' ? (
+                             groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                           ) : (
+                             <ArrowUpDown className="h-3 w-3 opacity-30" />
+                           )}
+                         </div>
+                         <div 
+                           className={`p-2 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'instock_qty' ? 'bg-primary/10 text-primary' : ''}`}
+                           onClick={() => handleGroupedSort('instock_qty')}
+                         >
+                           <span>In-Stock Qty</span>
+                           {groupedSortField === 'instock_qty' ? (
                              groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
                            ) : (
                              <ArrowUpDown className="h-3 w-3 opacity-30" />
@@ -3148,7 +3192,7 @@ export const POTracker = () => {
                       const currencySymbol = selectedCountry === 'UAE' ? 'AED' : 'SAR';
                       const isDisabled = disabledPOs.has(poNumber);
                       return <div key={poNumber} className={`
-                                    grid grid-cols-[45px_70px_minmax(140px,1fr)_100px_110px_110px_100px_180px_180px_200px] border-b
+                                    grid grid-cols-[45px_70px_minmax(140px,1fr)_100px_110px_110px_100px_180px_180px_120px_200px] border-b
                                     ${isClosedPO ? 'opacity-50 bg-muted/40 pointer-events-none cursor-not-allowed' : isDisabled ? 'opacity-40 bg-muted/10' : hasClosedItems ? 'opacity-75 bg-muted/20' : 'hover:bg-muted/10 transition-colors'}
                                   `}>
                                   <div className="p-2 flex items-center">
@@ -3282,6 +3326,12 @@ export const POTracker = () => {
                                   })()}
                                 </div>
                               </div>
+                              <div className="p-2 flex items-center">
+                                <div className="flex flex-col">
+                                  <span className="font-medium text-sm">{group?.metrics.totalInStockQty || 0}</span>
+                                  <span className="text-xs text-muted-foreground">units</span>
+                                </div>
+                              </div>
                                   <div className="p-2 flex items-center">
                                     <div className="flex items-center gap-1">
                                       <Button variant="outline" size="sm" onClick={() => navigate(`/po-details/${poNumber}`)} disabled={isClosedPO} className="text-xs px-2 py-1 h-7">
@@ -3314,6 +3364,7 @@ export const POTracker = () => {
                             <SortableTableHeader label="Status" sortKey="status" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
                             <TableHead>Match Details</TableHead>
                             <TableHead>Placement Ready</TableHead>
+                            <SortableTableHeader label="In-Stock Qty" sortKey="instock_qty" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
                             <SortableTableHeader label="Cost" sortKey="unit_cost" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
                             <TableHead>Actions</TableHead>
                           </TableRow>
@@ -3418,6 +3469,37 @@ export const POTracker = () => {
                               ) : (
                                 <Badge variant="outline" className="text-muted-foreground">Not Pending</Badge>
                               )}
+                            </TableCell>
+                            <TableCell>
+                              {(() => {
+                                const inventoryMatch = findInventoryMatch(
+                                  order.asin, 
+                                  order.sunsky_sku?.sku_code, 
+                                  order.sku_code, 
+                                  order.model_number, 
+                                  order.sunsky_sku
+                                );
+                                
+                                if (inventoryMatch && inventoryMatch.status === 'in-stock') {
+                                  return (
+                                    <Badge variant="default" className="text-xs bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/50">
+                                      {inventoryMatch.quantity} units
+                                    </Badge>
+                                  );
+                                } else if (inventoryMatch && inventoryMatch.status === 'ordered') {
+                                  return (
+                                    <Badge variant="outline" className="text-xs text-amber-600 dark:text-amber-400">
+                                      Ordered
+                                    </Badge>
+                                  );
+                                } else {
+                                  return (
+                                    <Badge variant="outline" className="text-xs text-muted-foreground">
+                                      Not in stock
+                                    </Badge>
+                                  );
+                                }
+                              })()}
                             </TableCell>
                             <TableCell>
                               <div className="space-y-1">
