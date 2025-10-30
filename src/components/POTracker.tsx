@@ -5606,41 +5606,41 @@ export const POTracker = () => {
                                </TableCell>
 
                                 {/* Enhanced SKU/Model Cell with Matching System */}
-                                <TableCell className="w-32 border-r border-border/50">
-                                  <div className="space-y-2">
-                                    {order.sku_code && <div className="flex items-center gap-2">
-                                        <div className="w-1.5 h-1.5 bg-primary rounded-full flex-shrink-0"></div>
-                                        <div className="text-sm font-semibold font-mono break-words bg-primary/10 text-primary px-2 py-1 rounded-md border border-primary/20">
+                                <TableCell className="min-w-[180px] max-w-[220px] border-r border-border/50 p-2">
+                                  <div className="space-y-1.5 overflow-hidden">
+                                    {order.sku_code && <div className="flex items-start gap-1.5">
+                                        <div className="w-1.5 h-1.5 bg-primary rounded-full flex-shrink-0 mt-1.5"></div>
+                                        <div className="text-sm font-semibold font-mono break-all bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20 flex-1 min-w-0">
                                           {order.sku_code}
                                         </div>
                                       </div>}
-                                    {order.model_number && order.model_number !== order.sku_code && <div className="flex items-center gap-2">
-                                        <div className="w-1.5 h-1.5 bg-accent rounded-full flex-shrink-0"></div>
-                                        <div className="text-xs text-foreground font-mono break-words bg-accent/10 px-2 py-1 rounded-md border border-accent/20">
+                                    {order.model_number && order.model_number !== order.sku_code && <div className="flex items-start gap-1.5">
+                                        <div className="w-1.5 h-1.5 bg-accent rounded-full flex-shrink-0 mt-1.5"></div>
+                                        <div className="text-xs text-foreground font-mono break-all bg-accent/10 px-1.5 py-0.5 rounded border border-accent/20 flex-1 min-w-0">
                                           {order.model_number}
                                         </div>
                                       </div>}
                                     
                                     {/* Sunsky Matching Indicator */}
                                     {order.sunsky_sku && (order.sunsky_sku.sku_code || order.sunsky_sku.id) ? (
-                                      <div className="flex items-center gap-1.5 mt-1">
-                                        <Package className="h-3 w-3 text-blue-600" />
-                                        <Badge variant="outline" className="text-[10px] bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-300 px-1.5 py-0">
+                                      <div className="flex items-center gap-1.5">
+                                        <Package className="h-3 w-3 text-blue-600 flex-shrink-0" />
+                                        <Badge variant="outline" className="text-[10px] bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-300 px-1 py-0">
                                           Source Matched
                                         </Badge>
                                       </div>
                                     ) : (
-                                      <div className="flex items-center gap-1.5 mt-1">
-                                        <AlertCircle className="h-3 w-3 text-gray-500" />
-                                        <Badge variant="outline" className="text-[10px] bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-300 px-1.5 py-0">
+                                      <div className="flex items-center gap-1.5">
+                                        <AlertCircle className="h-3 w-3 text-gray-500 flex-shrink-0" />
+                                        <Badge variant="outline" className="text-[10px] bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-300 px-1 py-0">
                                           No Match
                                         </Badge>
                                       </div>
                                     )}
                                     
-                                    {!order.sku_code && !order.model_number && <div className="flex items-center gap-2">
+                                    {!order.sku_code && !order.model_number && <div className="flex items-center gap-1.5">
                                         <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full flex-shrink-0"></div>
-                                        <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded-md border border-muted">N/A</span>
+                                        <span className="text-xs text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded border border-muted">N/A</span>
                                       </div>}
                                   </div>
                                 </TableCell>
