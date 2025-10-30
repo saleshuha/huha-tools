@@ -58,10 +58,10 @@ export const POMetricsCard: React.FC<POMetricsCardProps> = ({
             )}
             onClick={onClick}
           >
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-1.5">
               <div className="flex items-center justify-between">
-                <CardTitle className={cn('flex items-center gap-2 text-sm', textColorClass)}>
-                  <Icon className="h-4 w-4" />
+                <CardTitle className={cn('flex items-center gap-1.5 text-xs font-medium', textColorClass)}>
+                  <Icon className="h-3.5 w-3.5" />
                   {title}
                 </CardTitle>
                 {onExport && (
@@ -84,8 +84,8 @@ export const POMetricsCard: React.FC<POMetricsCardProps> = ({
                 )}
               </div>
             </CardHeader>
-            <CardContent className="pb-3">
-              <div className="text-2xl font-bold">
+            <CardContent className="pb-2">
+              <div className="text-xl font-bold">
                 {isLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
@@ -93,20 +93,20 @@ export const POMetricsCard: React.FC<POMetricsCardProps> = ({
                 )}
               </div>
               {subValue && (
-                <div className={cn('text-xs mt-1', textColorClass.replace('text-', 'text-') + '/80')}>
+                <div className={cn('text-[10px] mt-0.5', textColorClass.replace('text-', 'text-') + '/80')}>
                   {subValue}
                 </div>
               )}
               {percentage !== undefined && (
-                <div className="mt-2 space-y-1">
-                  <Progress value={percentage} className="h-1.5" />
-                  <div className="text-xs text-muted-foreground">
+                <div className="mt-1.5 space-y-0.5">
+                  <Progress value={percentage} className="h-1" />
+                  <div className="text-[10px] text-muted-foreground">
                     {percentage.toFixed(1)}% of total
                   </div>
                 </div>
               )}
               {isLoading && (
-                <div className="mt-1 text-xs text-muted-foreground">
+                <div className="mt-0.5 text-[10px] text-muted-foreground">
                   Calculating...
                 </div>
               )}

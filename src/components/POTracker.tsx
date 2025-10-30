@@ -3053,8 +3053,7 @@ export const POTracker = () => {
 
         <TabsContent value="overview" className="space-y-6">
           {/* PHASE 6: Enhanced responsive grid layout */}
-        <div className="flex gap-3 overflow-x-auto pb-2">
-          <div className="flex gap-3 min-w-max">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {/* 1. Total PO Numbers */}
             <POMetricsCard 
               title="Total POs" 
@@ -3189,7 +3188,6 @@ export const POTracker = () => {
               textColorClass="text-blue-600"
               tooltipText="Items matched with Sunsky supplier"
             />
-          </div>
         </div>
 
           {/* PHASE 4: Export All Metrics Button */}
