@@ -1737,13 +1737,18 @@ export const POTracker = () => {
         
         return true;
       });
-      console.log('🔍 FILTERING DEBUG: After source filter:', {
+      
+      console.log('🔍 SOURCE FILTER DEBUG:', {
         filter: sourceFilter,
-        filteredCount: filtered.length,
+        beforeFilter: poOrders.length,
+        afterFilter: filtered.length,
+        matchedItems: filtered.filter(o => o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id)).length,
+        notMatchedItems: filtered.filter(o => !o.sunsky_sku || (!o.sunsky_sku.sku_code && !o.sunsky_sku.id)).length,
         sampleMatches: filtered.slice(0, 3).map(o => ({
           sku_code: o.sku_code,
           hasSunsky: !!o.sunsky_sku,
-          sunskySkuCode: o.sunsky_sku?.sku_code
+          sunskySkuCode: o.sunsky_sku?.sku_code,
+          sunskyId: o.sunsky_sku?.id
         }))
       });
     }
@@ -4909,6 +4914,114 @@ export const POTracker = () => {
                       </div>
                     </div>
                 </CardHeader>
+
+                {/* PO Details Metrics Summary Banner */}
+                <div className="px-4 py-3 bg-gradient-to-r from-muted/30 to-muted/20 border-b border-border/50">
+                  {(() => {
+                    const selectedPOsList = selectedPOsForLabels.size > 0 
+                      ? Array.from(selectedPOsForLabels) 
+                      : selectedPOForLabels 
+                        ? [selectedPOForLabels] 
+                        : [];
+                    
+                    const ordersForMetrics = poOrders.filter(order => 
+                      selectedPOsList.includes(order.po_number) && 
+                      order.status !== 'cancelled'
+                    );
+                    
+                    // Calculate metrics
+                    const totalItems = ordersForMetrics.length;
+                    const totalUnits = ordersForMetrics.reduce((sum, o) => sum + (o.quantity || 0), 0);
+                    const printedItems = ordersForMetrics.filter(o => 
+                      (o.printed_quantity || 0) > 0
+                    ).length;
+                    const printedUnits = ordersForMetrics.reduce((sum, o) => sum + (o.printed_quantity || 0), 0);
+                    const fullyPrintedItems = ordersForMetrics.filter(o => 
+                      (o.printed_quantity || 0) >= (o.quantity || 0) && (o.printed_quantity || 0) > 0
+                    ).length;
+                    const partiallyPrintedItems = ordersForMetrics.filter(o => {
+                      const printed = o.printed_quantity || 0;
+                      const total = o.quantity || 0;
+                      return printed > 0 && printed < total;
+                    }).length;
+                    
+                    // Sunsky matching metrics
+                    const sunskyMatchedItems = ordersForMetrics.filter(o => 
+                      o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id)
+                    ).length;
+                    const sunskyMatchedUnits = ordersForMetrics
+                      .filter(o => o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id))
+                      .reduce((sum, o) => sum + (o.quantity || 0), 0);
+                    
+                    const isPluralPOs = selectedPOsList.length > 1;
+                    const poTitle = isPluralPOs 
+                      ? `${selectedPOsList.length} Purchase Orders` 
+                      : `PO: ${selectedPOsList[0] || 'N/A'}`;
+                    
+                    return (
+                      <div className="space-y-2">
+                        {/* PO Title */}
+                        <div className="flex items-center gap-2 mb-3">
+                          <ShoppingCart className="h-4 w-4 text-primary" />
+                          <h3 className="text-sm font-semibold text-foreground">
+                            {poTitle}
+                          </h3>
+                          {isPluralPOs && (
+                            <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
+                              Multiple POs
+                            </Badge>
+                          )}
+                        </div>
+                        
+                        {/* Metrics Grid */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-2 text-xs">
+                          {/* Total Items/Units */}
+                          <div className="flex items-center gap-2">
+                            <Package className="h-3.5 w-3.5 text-primary" />
+                            <span className="text-muted-foreground">Total:</span>
+                            <span className="font-semibold text-foreground">
+                              {totalItems} items ({totalUnits} units)
+                            </span>
+                          </div>
+                          
+                          {/* Printed Items/Units */}
+                          <div className="flex items-center gap-2">
+                            <Printer className="h-3.5 w-3.5 text-green-600" />
+                            <span className="text-muted-foreground">Printed:</span>
+                            <span className="font-semibold text-green-700 dark:text-green-400">
+                              {printedItems} items ({printedUnits} units)
+                            </span>
+                          </div>
+                          
+                          {/* Print Breakdown */}
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                            <span className="text-muted-foreground">Full:</span>
+                            <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                              {fullyPrintedItems}
+                            </span>
+                            <span className="text-muted-foreground mx-1">|</span>
+                            <AlertTriangle className="h-3.5 w-3.5 text-yellow-600" />
+                            <span className="text-muted-foreground">Partial:</span>
+                            <span className="font-semibold text-yellow-700 dark:text-yellow-400">
+                              {partiallyPrintedItems}
+                            </span>
+                          </div>
+                          
+                          {/* Sunsky Matched */}
+                          <div className="flex items-center gap-2">
+                            <Package className="h-3.5 w-3.5 text-blue-600" />
+                            <span className="text-muted-foreground">Sunsky:</span>
+                            <span className="font-semibold text-blue-700 dark:text-blue-400">
+                              {sunskyMatchedItems} items ({sunskyMatchedUnits} units)
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+
                 <CardContent className="px-3 py-4 lg:px-4">
                   {/* Enhanced Search Bar with Printed Filter */}
                   <div className="mb-6 space-y-4">
@@ -5465,7 +5578,7 @@ export const POTracker = () => {
                               })()}
                                </TableCell>
 
-                                {/* Enhanced SKU/Model Cell */}
+                                {/* Enhanced SKU/Model Cell with Matching System */}
                                 <TableCell className="w-32 border-r border-border/50">
                                   <div className="space-y-2">
                                     {order.sku_code && <div className="flex items-center gap-2">
@@ -5480,6 +5593,24 @@ export const POTracker = () => {
                                           {order.model_number}
                                         </div>
                                       </div>}
+                                    
+                                    {/* Sunsky Matching Indicator */}
+                                    {order.sunsky_sku && (order.sunsky_sku.sku_code || order.sunsky_sku.id) ? (
+                                      <div className="flex items-center gap-1.5 mt-1">
+                                        <Package className="h-3 w-3 text-blue-600" />
+                                        <Badge variant="outline" className="text-[10px] bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-300 px-1.5 py-0">
+                                          Sunsky: {order.sunsky_sku.sku_code || order.sunsky_sku.id}
+                                        </Badge>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center gap-1.5 mt-1">
+                                        <AlertCircle className="h-3 w-3 text-gray-500" />
+                                        <Badge variant="outline" className="text-[10px] bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-300 px-1.5 py-0">
+                                          No Match
+                                        </Badge>
+                                      </div>
+                                    )}
+                                    
                                     {!order.sku_code && !order.model_number && <div className="flex items-center gap-2">
                                         <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full flex-shrink-0"></div>
                                         <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded-md border border-muted">N/A</span>
