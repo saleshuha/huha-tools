@@ -90,7 +90,8 @@ export const POTracker = () => {
   const [isSearching, setIsSearching] = useState(false); // Add searching indicator
   const [statusFilter, setStatusFilter] = useState<POOrder['status'] | 'all'>('all');
   const [shipToFilter, setShipToFilter] = useState<string | 'all'>('all');
-  const [printedFilter, setPrintedFilter] = useState<'all' | 'printed' | 'not-printed'>('all');
+  const [printedFilter, setPrintedFilter] = useState<'all' | 'printed' | 'not-printed' | 'partial-printed'>('all');
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'sunsky-matched' | 'not-matched'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const [viewMode, setViewMode] = useState<'grouped' | 'detailed'>('grouped');
@@ -1349,6 +1350,33 @@ export const POTracker = () => {
     const totalMatchedCount = matchedOrders.length;
     const fulfilledCount = placedOrders.length;
     const fulfillmentRate = totalMatchedCount > 0 ? fulfilledCount / totalMatchedCount * 100 : 0;
+
+    // Calculate print metrics (NEW)
+    const totalPrintedOrders = poOrders.filter(order => order.is_printed === true);
+    const partiallyPrintedOrders = poOrders.filter(order => {
+      const printed = order.printed_quantity || 0;
+      const total = order.quantity || 0;
+      return printed > 0 && printed < total;
+    });
+    const fullyPrintedOrders = poOrders.filter(order => {
+      const printed = order.printed_quantity || 0;
+      const total = order.quantity || 0;
+      return printed > 0 && printed >= total;
+    });
+    const notPrintedOrders = poOrders.filter(order => 
+      !order.is_printed || (order.printed_quantity || 0) === 0
+    );
+
+    // Calculate printed quantities
+    const totalPrintedQty = poOrders.reduce((sum, o) => sum + (o.printed_quantity || 0), 0);
+    const totalQty = poOrders.reduce((sum, o) => sum + (o.quantity || 0), 0);
+    const printCompletionRate = totalQty > 0 ? (totalPrintedQty / totalQty) * 100 : 0;
+
+    // Source breakdown (Sunsky matching)
+    const sunskyMatchedOrders = poOrders.filter(order => order.sunsky_sku);
+    const sunskyMatchedQty = sunskyMatchedOrders.reduce((sum, o) => sum + (o.quantity || 0), 0);
+    // notMatchedQty already calculated above
+
     const endTime = performance.now();
     console.log('📊 Metrics calculated in', (endTime - startTime).toFixed(2), 'ms');
     return {
@@ -1385,7 +1413,27 @@ export const POTracker = () => {
         value: pendingValue
       },
       totalValue,
-      fulfillmentRate
+      fulfillmentRate,
+      printed: {
+        totalPrinted: totalPrintedOrders.length,
+        totalPrintedQty,
+        fullyPrinted: fullyPrintedOrders.length,
+        partiallyPrinted: partiallyPrintedOrders.length,
+        notPrinted: notPrintedOrders.length,
+        printCompletionRate
+      },
+      source: {
+        sunskyMatched: {
+          count: sunskyMatchedOrders.length,
+          qty: sunskyMatchedQty,
+          orders: sunskyMatchedOrders
+        },
+        notMatched: {
+          count: notMatchedOrders.length,
+          qty: notMatchedQty,
+          orders: notMatchedOrders
+        }
+      }
     };
   }, [poOrders, inventoryMaps, findInventoryMatch]);
 
@@ -1631,6 +1679,45 @@ export const POTracker = () => {
       console.log('🔍 FILTERING DEBUG: After ship-to filter:', filtered.length, 'orders');
     }
 
+    // Apply printed status filter (NEW)
+    if (printedFilter !== 'all') {
+      filtered = filtered.filter(order => {
+        const printedQty = order.printed_quantity || 0;
+        const totalQty = order.quantity || 0;
+        const isPrinted = order.is_printed || printedQty > 0;
+        
+        if (printedFilter === 'printed') {
+          // Fully printed: printed_quantity >= quantity
+          return isPrinted && printedQty >= totalQty;
+        } else if (printedFilter === 'partial-printed') {
+          // Partially printed: 0 < printed_quantity < quantity
+          return isPrinted && printedQty > 0 && printedQty < totalQty;
+        } else if (printedFilter === 'not-printed') {
+          // Not printed: printed_quantity = 0 or is_printed = false
+          return !isPrinted || printedQty === 0;
+        }
+        
+        return true;
+      });
+      console.log('🔍 FILTERING DEBUG: After print status filter:', filtered.length, 'orders');
+    }
+
+    // Apply source filter (Sunsky matching) (NEW)
+    if (sourceFilter !== 'all') {
+      filtered = filtered.filter(order => {
+        const hasSunskyMatch = order.sunsky_sku !== null && order.sunsky_sku !== undefined;
+        
+        if (sourceFilter === 'sunsky-matched') {
+          return hasSunskyMatch;
+        } else if (sourceFilter === 'not-matched') {
+          return !hasSunskyMatch;
+        }
+        
+        return true;
+      });
+      console.log('🔍 FILTERING DEBUG: After source filter:', filtered.length, 'orders');
+    }
+
     // Apply sorting (only if table reordering is not prevented)
     if (!preventTableReorder) {
       console.log('🔄 SORT: Applying sort - Field:', sortField, 'Direction:', sortDirection, 'Items to sort:', filtered.length);
@@ -1704,7 +1791,7 @@ export const POTracker = () => {
       console.warn('⚠️ SLOW FILTER:', `${filterDuration.toFixed(2)}ms - Consider further optimization`);
     }
     return filtered;
-  }, [poOrders, debouncedSearchQuery, debouncedLabelSearch, searchType, statusFilter, shipToFilter, sortField, sortDirection, activeTab, viewMode, selectedPOsForLabels, labelEligibleOrders, preventTableReorder, selectedCountry, inventoryMaps, findInventoryMatch, searchTags]);
+  }, [poOrders, debouncedSearchQuery, debouncedLabelSearch, searchType, statusFilter, shipToFilter, printedFilter, sourceFilter, sortField, sortDirection, activeTab, viewMode, selectedPOsForLabels, labelEligibleOrders, preventTableReorder, selectedCountry, inventoryMaps, findInventoryMatch, searchTags]);
 
   // Export PO data to CSV
   const exportPOData = useCallback(() => {
@@ -3024,6 +3111,47 @@ export const POTracker = () => {
               borderColorClass="border-l-orange-500"
               textColorClass="text-orange-600"
               tooltipText="Pending orders to source (matched but not placed)"
+            />
+
+            {/* 7. Total Printed Items & Units (NEW) */}
+            <POMetricsCard 
+              title="Total Printed" 
+              icon={Printer}
+              value={calculatedMetrics.printed.totalPrinted}
+              subValue={`${calculatedMetrics.printed.totalPrintedQty} units printed`}
+              percentage={calculateMetricPercentage(calculatedMetrics.printed.totalPrinted, poOrders.length)}
+              isLoading={isLoadingComprehensiveMetrics}
+              colorClass="from-purple-500/5"
+              borderColorClass="border-l-purple-500"
+              textColorClass="text-purple-600"
+              tooltipText="Items that have been printed (fully or partially)"
+            />
+
+            {/* 8. Print Progress Rate (NEW) */}
+            <POMetricsCard 
+              title="Print Progress" 
+              icon={TrendingUp}
+              value={`${calculatedMetrics.printed.printCompletionRate.toFixed(1)}%`}
+              subValue={`${calculatedMetrics.printed.totalPrintedQty} / ${comprehensiveMetrics?.total_quantity || poOrders.reduce((sum, o) => sum + (o.quantity || 0), 0)} units`}
+              isLoading={isLoadingComprehensiveMetrics}
+              colorClass="from-indigo-500/5"
+              borderColorClass="border-l-indigo-500"
+              textColorClass="text-indigo-600"
+              tooltipText="Overall printing completion rate"
+            />
+
+            {/* 9. Sunsky Matched (NEW) */}
+            <POMetricsCard 
+              title="Sunsky Matched" 
+              icon={Package}
+              value={calculatedMetrics.source.sunskyMatched.count}
+              subValue={`${calculatedMetrics.source.sunskyMatched.qty} units`}
+              percentage={calculateMetricPercentage(calculatedMetrics.source.sunskyMatched.count, poOrders.length)}
+              isLoading={isLoadingComprehensiveMetrics}
+              colorClass="from-blue-500/5"
+              borderColorClass="border-l-blue-500"
+              textColorClass="text-blue-600"
+              tooltipText="Items matched with Sunsky supplier"
             />
           </div>
         </div>
@@ -4839,16 +4967,68 @@ export const POTracker = () => {
                     <div className="flex items-center gap-2">
                       <Filter className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm font-medium text-muted-foreground">Filter by Print Status:</span>
-                      <Select value={printedFilter} onValueChange={value => setPrintedFilter(value as 'all' | 'printed' | 'not-printed')}>
-                        <SelectTrigger className="w-[180px] border-2 border-border focus:border-primary">
+                      <Select value={printedFilter} onValueChange={value => setPrintedFilter(value as 'all' | 'printed' | 'not-printed' | 'partial-printed')}>
+                        <SelectTrigger className="w-[200px] border-2 border-border focus:border-primary">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">All Items</SelectItem>
-                          <SelectItem value="printed">Printed Only</SelectItem>
-                          <SelectItem value="not-printed">Not Printed</SelectItem>
+                          <SelectItem value="printed">✓ Fully Printed</SelectItem>
+                          <SelectItem value="partial-printed">⚠ Partially Printed</SelectItem>
+                          <SelectItem value="not-printed">○ Not Printed</SelectItem>
                         </SelectContent>
                       </Select>
+                      {printedFilter !== 'all' && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => setPrintedFilter('all')} 
+                          className="h-8 px-2 text-xs hover:bg-destructive/10"
+                        >
+                          <X className="h-3 w-3 mr-1" />
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* Source Filter - Sunsky Matching (NEW) */}
+                    <div className="flex items-center gap-2">
+                      <Package className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium text-muted-foreground">Filter by Source:</span>
+                      <Select 
+                        value={sourceFilter} 
+                        onValueChange={(value) => setSourceFilter(value as 'all' | 'sunsky-matched' | 'not-matched')}
+                      >
+                        <SelectTrigger className="w-[200px] border-2 border-border focus:border-primary">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Sources</SelectItem>
+                          <SelectItem value="sunsky-matched">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                              Sunsky Matched
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="not-matched">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full bg-gray-400"></div>
+                              Not Matched
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {sourceFilter !== 'all' && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => setSourceFilter('all')} 
+                          className="h-8 px-2 text-xs hover:bg-destructive/10"
+                        >
+                          <X className="h-3 w-3 mr-1" />
+                          Clear
+                        </Button>
+                      )}
                       {printedFilter !== 'all' && <Button variant="ghost" size="sm" onClick={() => setPrintedFilter('all')} className="h-8 px-2 text-xs">
                           <X className="h-3 w-3 mr-1" />
                           Clear
@@ -5438,17 +5618,21 @@ export const POTracker = () => {
                                                                 <span className="text-muted-foreground text-xs ml-1">units</span>
                                                               </div>
                                                               
-                                                              {po.printed_quantity > 0 ? <div className="flex items-center gap-2">
-                                                                  <CheckCircle2 className="h-3 w-3 text-green-600" />
-                                                                  <span className="text-xs text-green-600 dark:text-green-400 font-medium">
-                                                                    {po.printed_quantity}
-                                                                  </span>
-                                                                  {po.quantity > po.printed_quantity && <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 text-xs">
-                                                                      {po.quantity - po.printed_quantity} pending
-                                                                    </Badge>}
-                                                                </div> : <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 text-xs">
-                                                                  Not printed
-                                                                </Badge>}
+                                                              {po.printed_quantity > 0 ? (
+                                                                po.printed_quantity >= po.quantity ? (
+                                                                  <Badge variant="default" className="bg-green-500/20 text-green-700 dark:text-green-300 border-green-300 text-xs font-medium">
+                                                                    ✓ Printed ({po.printed_quantity}/{po.quantity})
+                                                                  </Badge>
+                                                                ) : (
+                                                                  <Badge variant="outline" className="bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 border-yellow-300 text-xs font-medium">
+                                                                    ⚠ Partial ({po.printed_quantity}/{po.quantity})
+                                                                  </Badge>
+                                                                )
+                                                              ) : (
+                                                                <Badge variant="outline" className="bg-gray-100 dark:bg-gray-800 text-gray-500 border-gray-300 text-xs">
+                                                                  ○ Not Printed
+                                                                </Badge>
+                                                              )}
                                                             </div>
                                                           </div>)}
                                                       </div>
