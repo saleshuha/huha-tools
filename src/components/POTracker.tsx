@@ -5626,7 +5626,7 @@ export const POTracker = () => {
                                       <div className="flex items-center gap-1.5 mt-1">
                                         <Package className="h-3 w-3 text-blue-600" />
                                         <Badge variant="outline" className="text-[10px] bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-300 px-1.5 py-0">
-                                          Sunsky: {order.sunsky_sku.sku_code || order.sunsky_sku.id}
+                                          Source Matched
                                         </Badge>
                                       </div>
                                     ) : (
