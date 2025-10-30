@@ -5106,76 +5106,78 @@ export const POTracker = () => {
                       </div>
                     </div>
                     
-                    {/* Printed Status Filter */}
-                    <div className="flex items-center gap-2">
-                      <Filter className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium text-muted-foreground">Filter by Print Status:</span>
-                      <Select value={printedFilter} onValueChange={value => setPrintedFilter(value as 'all' | 'printed' | 'not-printed' | 'partial-printed')}>
-                        <SelectTrigger className="w-[200px] border-2 border-border focus:border-primary">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Items</SelectItem>
-                          <SelectItem value="printed">✓ Fully Printed</SelectItem>
-                          <SelectItem value="partial-printed">⚠ Partially Printed</SelectItem>
-                          <SelectItem value="not-printed">○ Not Printed</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {printedFilter !== 'all' && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => setPrintedFilter('all')} 
-                          className="h-8 px-2 text-xs hover:bg-destructive/10"
-                        >
-                          <X className="h-3 w-3 mr-1" />
-                          Clear
-                        </Button>
-                      )}
-                    </div>
+                    {/* Combined Filters Row - Print Status & Source */}
+                    <div className="flex items-center gap-6 flex-wrap">
+                      {/* Print Status Filter */}
+                      <div className="flex items-center gap-2">
+                        <Filter className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium text-muted-foreground">Print Status:</span>
+                        <Select value={printedFilter} onValueChange={value => setPrintedFilter(value as 'all' | 'printed' | 'not-printed' | 'partial-printed')}>
+                          <SelectTrigger className="w-[200px] border-2 border-border focus:border-primary">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Items</SelectItem>
+                            <SelectItem value="printed">✓ Fully Printed</SelectItem>
+                            <SelectItem value="partial-printed">⚠ Partially Printed</SelectItem>
+                            <SelectItem value="not-printed">○ Not Printed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {printedFilter !== 'all' && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => setPrintedFilter('all')} 
+                            className="h-8 px-2 text-xs hover:bg-destructive/10"
+                          >
+                            <X className="h-3 w-3 mr-1" />
+                            Clear
+                          </Button>
+                        )}
+                      </div>
 
-                    {/* Source Filter - Sunsky Matching (NEW) */}
-                    <div className="flex items-center gap-2">
-                      <Package className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium text-muted-foreground">Filter by Source:</span>
-                      <Select 
-                        value={sourceFilter} 
-                        onValueChange={(value) => setSourceFilter(value as 'all' | 'sunsky-matched' | 'not-matched')}
-                      >
-                        <SelectTrigger className="w-[200px] border-2 border-border focus:border-primary">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Sources</SelectItem>
-                          <SelectItem value="sunsky-matched">
-                            <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                              Sunsky Matched
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="not-matched">
-                            <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 rounded-full bg-gray-400"></div>
-                              Not Matched
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {sourceFilter !== 'all' && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => setSourceFilter('all')} 
-                          className="h-8 px-2 text-xs hover:bg-destructive/10"
+                      {/* Vertical Divider */}
+                      <div className="h-8 w-px bg-border" />
+
+                      {/* Source Filter */}
+                      <div className="flex items-center gap-2">
+                        <Package className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium text-muted-foreground">Source:</span>
+                        <Select 
+                          value={sourceFilter} 
+                          onValueChange={(value) => setSourceFilter(value as 'all' | 'sunsky-matched' | 'not-matched')}
                         >
-                          <X className="h-3 w-3 mr-1" />
-                          Clear
-                        </Button>
-                      )}
-                      {printedFilter !== 'all' && <Button variant="ghost" size="sm" onClick={() => setPrintedFilter('all')} className="h-8 px-2 text-xs">
-                          <X className="h-3 w-3 mr-1" />
-                          Clear
-                        </Button>}
+                          <SelectTrigger className="w-[200px] border-2 border-border focus:border-primary">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Sources</SelectItem>
+                            <SelectItem value="sunsky-matched">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                Sunsky Matched
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="not-matched">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-gray-400"></div>
+                                Not Matched
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {sourceFilter !== 'all' && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => setSourceFilter('all')} 
+                            className="h-8 px-2 text-xs hover:bg-destructive/10"
+                          >
+                            <X className="h-3 w-3 mr-1" />
+                            Clear
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                   
@@ -5294,13 +5296,38 @@ export const POTracker = () => {
                           const lowerTerm = term.toLowerCase();
                           return order.po_number?.toLowerCase().includes(lowerTerm) || order.sku_code?.toLowerCase().includes(lowerTerm) || order.asin?.toLowerCase().includes(lowerTerm) || order.model_number?.toLowerCase().includes(lowerTerm) || order.title?.toLowerCase().includes(lowerTerm) || order.serial_number?.toLowerCase().includes(lowerTerm);
                         });
-                      }).filter(order => {
-                        // Apply printed status filter with null safety
-                        if (printedFilter === 'all') return true;
-                        if (printedFilter === 'printed') return order.is_printed === true;
-                        if (printedFilter === 'not-printed') return order.is_printed !== true;
-                        return true;
-                      });
+        }).filter(order => {
+          // Apply printed status filter
+          if (printedFilter === 'all') return true;
+          
+          const printedQty = order.printed_quantity || 0;
+          const totalQty = order.quantity || 0;
+          const isPrinted = order.is_printed || printedQty > 0;
+          
+          if (printedFilter === 'printed') {
+            return isPrinted && printedQty >= totalQty;
+          } else if (printedFilter === 'partial-printed') {
+            return isPrinted && printedQty > 0 && printedQty < totalQty;
+          } else if (printedFilter === 'not-printed') {
+            return !isPrinted || printedQty === 0;
+          }
+          
+          return true;
+        }).filter(order => {
+          // Apply source filter (Sunsky matching)
+          if (sourceFilter === 'all') return true;
+          
+          const hasSunskyMatch = order.sunsky_sku && 
+                                (order.sunsky_sku.sku_code || order.sunsky_sku.id);
+          
+          if (sourceFilter === 'sunsky-matched') {
+            return hasSunskyMatch;
+          } else if (sourceFilter === 'not-matched') {
+            return !hasSunskyMatch;
+          }
+          
+          return true;
+        });
 
                       // NEW: Consolidate orders by ASIN when multiple POs are selected
                       let ordersToDisplay: POOrder[] = ordersForSelectedPOs;
