@@ -38,6 +38,7 @@ import { PrintService } from '@/services/print-service';
 import { LabelDoc, LabelDataset, LabelElement, LabelSize } from '@/types/label';
 import { exportMetricToCSV, exportAllMetrics, calculateMetricPercentage } from '@/utils/po-metrics-export';
 import { useTaxonomy } from '@/hooks/useTaxonomy';
+import { cn } from '@/lib/utils';
 export interface POOrder {
   id: string;
   user_id: string;
@@ -226,7 +227,7 @@ export const POTracker = () => {
       const stored = localStorage.getItem('poTracker_printConfigCollapsed');
       return stored ? JSON.parse(stored) : false;
     } catch {
-      return false;
+    return true; // Collapsed by default
     }
   });
 
@@ -4338,25 +4339,50 @@ export const POTracker = () => {
 
               {/* Enhanced Print Settings Panel with Collapsible Tabbed Interface */}
               <Card className="shadow-soft border-2 border-border bg-gradient-to-r from-card to-card/50">
-                <CardHeader className="bg-gradient-to-r from-primary/5 to-accent/5 border-b border-border cursor-pointer hover:from-primary/10 hover:to-accent/10 transition-all" onClick={() => setIsPrintConfigCollapsed(!isPrintConfigCollapsed)}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-primary/10 rounded-lg border border-primary/20">
-                        <Printer className="h-5 w-5 text-primary" />
+                <CardHeader 
+                  className={cn(
+                    "border-b border-border cursor-pointer transition-all",
+                    isPrintConfigCollapsed 
+                      ? "bg-muted/30 hover:bg-muted/50 py-3" 
+                      : "bg-gradient-to-r from-primary/5 to-accent/5 hover:from-primary/10 hover:to-accent/10 py-4"
+                  )}
+                  onClick={() => setIsPrintConfigCollapsed(!isPrintConfigCollapsed)}
+                >
+                  {isPrintConfigCollapsed ? (
+                    // Simplified collapsed state - just a simple row
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-1.5 bg-primary/10 rounded-lg border border-primary/20">
+                          <Printer className="h-4 w-4 text-primary" />
+                        </div>
+                        <span className="text-sm font-medium text-foreground">Print Settings</span>
+                        <Badge variant="outline" className="text-xs text-muted-foreground">Optional</Badge>
                       </div>
-                      <div>
-                        <CardTitle className="text-lg font-semibold text-foreground">
-                          Print Settings
-                        </CardTitle>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Customize template, quality, and advanced options (optional)
-                        </p>
-                      </div>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                      {isPrintConfigCollapsed ? <Plus className="h-4 w-4" /> : <X className="h-4 w-4" />}
-                    </Button>
-                  </div>
+                  ) : (
+                    // Full expanded state - detailed header
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 rounded-lg border border-primary/20">
+                          <Printer className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg font-semibold text-foreground">
+                            Print Settings
+                          </CardTitle>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Customize template, quality, and advanced options (optional)
+                          </p>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <ChevronUp className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
                 </CardHeader>
                 {!isPrintConfigCollapsed && <CardContent className="p-6 border-2 border-border border-t-0 rounded-t-none">
                   <Tabs defaultValue="template" className="w-full">
