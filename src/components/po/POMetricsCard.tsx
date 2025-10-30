@@ -50,7 +50,7 @@ export const POMetricsCard: React.FC<POMetricsCardProps> = ({
         <TooltipTrigger asChild>
           <Card
             className={cn(
-              'relative overflow-hidden border-l-4 bg-gradient-to-br to-background transition-all min-w-[180px] max-w-[200px]',
+              'relative overflow-hidden border-l-4 bg-gradient-to-br to-background transition-all',
               borderColorClass,
               colorClass,
               onClick && 'cursor-pointer hover:scale-[1.02] hover:shadow-md',
