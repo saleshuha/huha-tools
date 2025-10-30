@@ -1352,7 +1352,10 @@ export const POTracker = () => {
     const fulfillmentRate = totalMatchedCount > 0 ? fulfilledCount / totalMatchedCount * 100 : 0;
 
     // Calculate print metrics (NEW)
-    const totalPrintedOrders = poOrders.filter(order => order.is_printed === true);
+    const totalPrintedOrders = poOrders.filter(order => {
+      const printedQty = order.printed_quantity || 0;
+      return order.is_printed === true || printedQty > 0;
+    });
     const partiallyPrintedOrders = poOrders.filter(order => {
       const printed = order.printed_quantity || 0;
       const total = order.quantity || 0;
@@ -1363,9 +1366,10 @@ export const POTracker = () => {
       const total = order.quantity || 0;
       return printed > 0 && printed >= total;
     });
-    const notPrintedOrders = poOrders.filter(order => 
-      !order.is_printed || (order.printed_quantity || 0) === 0
-    );
+    const notPrintedOrders = poOrders.filter(order => {
+      const printedQty = order.printed_quantity || 0;
+      return !order.is_printed && printedQty === 0;
+    });
 
     // Calculate printed quantities
     const totalPrintedQty = poOrders.reduce((sum, o) => sum + (o.printed_quantity || 0), 0);
@@ -1373,9 +1377,25 @@ export const POTracker = () => {
     const printCompletionRate = totalQty > 0 ? (totalPrintedQty / totalQty) * 100 : 0;
 
     // Source breakdown (Sunsky matching)
-    const sunskyMatchedOrders = poOrders.filter(order => order.sunsky_sku);
+    const sunskyMatchedOrders = poOrders.filter(order => 
+      order.sunsky_sku && (order.sunsky_sku.sku_code || order.sunsky_sku.id)
+    );
     const sunskyMatchedQty = sunskyMatchedOrders.reduce((sum, o) => sum + (o.quantity || 0), 0);
     // notMatchedQty already calculated above
+    
+    console.log('📊 Source Metrics:', {
+      total: poOrders.length,
+      sunskyMatched: sunskyMatchedOrders.length,
+      notMatched: notMatchedOrders.length,
+      sampleSunsky: sunskyMatchedOrders.slice(0, 2).map(o => ({
+        sku_code: o.sku_code,
+        sunsky_sku_code: o.sunsky_sku?.sku_code
+      })),
+      sampleNotMatched: notMatchedOrders.slice(0, 2).map(o => ({
+        sku_code: o.sku_code,
+        sunsky_sku: o.sunsky_sku
+      }))
+    });
 
     const endTime = performance.now();
     console.log('📊 Metrics calculated in', (endTime - startTime).toFixed(2), 'ms');
@@ -1705,7 +1725,9 @@ export const POTracker = () => {
     // Apply source filter (Sunsky matching) (NEW)
     if (sourceFilter !== 'all') {
       filtered = filtered.filter(order => {
-        const hasSunskyMatch = order.sunsky_sku !== null && order.sunsky_sku !== undefined;
+        // Check if sunsky_sku exists and has actual data
+        const hasSunskyMatch = order.sunsky_sku && 
+                              (order.sunsky_sku.sku_code || order.sunsky_sku.id);
         
         if (sourceFilter === 'sunsky-matched') {
           return hasSunskyMatch;
@@ -1715,7 +1737,15 @@ export const POTracker = () => {
         
         return true;
       });
-      console.log('🔍 FILTERING DEBUG: After source filter:', filtered.length, 'orders');
+      console.log('🔍 FILTERING DEBUG: After source filter:', {
+        filter: sourceFilter,
+        filteredCount: filtered.length,
+        sampleMatches: filtered.slice(0, 3).map(o => ({
+          sku_code: o.sku_code,
+          hasSunsky: !!o.sunsky_sku,
+          sunskySkuCode: o.sunsky_sku?.sku_code
+        }))
+      });
     }
 
     // Apply sorting (only if table reordering is not prevented)
