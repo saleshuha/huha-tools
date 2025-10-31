@@ -785,8 +785,10 @@ export function AsinInventory() {
         
         // Set quantity based on export mode:
         // Global: use stock quantity
-        // Local: use default quantity (100)
-        const exportQuantity = exportMode === 'local' ? 100 : item.quantity;
+        // Local: use default quantity (100 if has stock, 0 if no stock)
+        const exportQuantity = exportMode === 'local' 
+          ? (item.quantity === 0 ? 0 : 100)
+          : item.quantity;
         
         return [
           item.sku || '', // SKU
@@ -1933,11 +1935,11 @@ export function AsinInventory() {
                                    {exportModes[item.id] === 'local' ? 'Local' : 'Global'}
                                  </Label>
                                </div>
-                              <div className="text-xs text-center text-muted-foreground">
-                                {exportModes[item.id] === 'local' ? 
-                                  'Export mode is Local (fixed qty: 100)' : 
-                                  'Export mode is Global (uses stock qty)'
-                                }
+                               <div className="text-xs text-center text-muted-foreground">
+                                 {exportModes[item.id] === 'local' ? 
+                                   'Export mode is Local (qty: 100 if stock > 0, else 0)' : 
+                                   'Export mode is Global (uses stock qty)'
+                                 }
                               </div>
                             </div>
                           </td>
