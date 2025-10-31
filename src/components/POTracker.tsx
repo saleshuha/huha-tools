@@ -5764,120 +5764,141 @@ export const POTracker = () => {
                                    </div>
                                  </TableCell>
 
-                                 {/* Enhanced Quantity Cell */}
-                                 <TableCell className="border-r border-border/50">
-                                  <div className="space-y-2">
-                                     <div className="space-y-2">
-                                       {order.status === 'closed' && order.notes?.includes('Fulfilled from stock:') ? <div className="space-y-2">
-                                           <Badge variant="outline" className="bg-sky/10 text-sky-700 dark:text-sky-300 border-sky/30 font-mono">
-                                              {(() => {
-                                        const fulfilledMatch = order.notes?.match(/Fulfilled from stock:\s*(\d+)/);
-                                        const originalMatch = order.notes?.match(/Original quantity:\s*(\d+)/);
-                                        const fulfilledQty = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
-                                        // If original quantity not in notes, assume fulfilled quantity was the original
-                                        const originalQty = originalMatch ? parseInt(originalMatch[1]) : fulfilledQty > 0 ? fulfilledQty : 1;
-                                        return `Fulfilled: ${fulfilledQty}/${originalQty}`;
-                                      })()}
-                                           </Badge>
-                                           <div className="flex items-center gap-1">
-                                             <div className="w-1.5 h-1.5 bg-sky rounded-full flex-shrink-0"></div>
-                                             <div className="text-xs text-muted-foreground font-medium">
-                                               From Stock
-                                             </div>
-                                           </div>
-                                         </div> : <div className="space-y-2">
-                                            <div className="flex items-center gap-2">
-                                              <Badge variant="secondary" className={`font-mono ${order._isConsolidated ? 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30' : 'bg-emerald/10 text-emerald-700 dark:text-emerald-300 border-emerald/30'}`}>
-                                                {order.quantity}
-                                              </Badge>
-                                              <div className="text-xs text-muted-foreground">
-                                                {order._isConsolidated ? 'total' : 'items'}
-                                              </div>
-                                              
-                                              {/* Breakdown Popover for Consolidated Items */}
-                                              {order._isConsolidated && <Popover>
-                                                  <PopoverTrigger asChild>
-                                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-purple-500/10 transition-colors" title="View printed labels breakdown">
-                                                      <ChevronDown className="h-3 w-3 text-purple-600 dark:text-purple-400" />
-                                                    </Button>
-                                                  </PopoverTrigger>
-                                                  <PopoverContent side="right" align="start" className="w-96 p-0 border-purple-500/30 shadow-lg">
-                                                    <div className="p-4 space-y-3 bg-gradient-to-br from-purple-500/5 to-background">
-                                                      {/* Header */}
-                                                      <div className="flex items-center gap-2 text-sm font-semibold text-foreground pb-2 border-b border-border">
-                                                        <Package className="h-4 w-4 text-purple-600" />
-                                                        <span>Printed Labels Breakdown</span>
-                                                        <Badge variant="outline" className="ml-auto text-xs font-mono">
-                                                          {order.asin}
-                                                        </Badge>
-                                                      </div>
-                                                      
-                                                      {/* Per-PO Breakdown */}
-                                                      <div className="space-y-2 max-h-64 overflow-y-auto">
-                                                        {order._consolidatedOrders.map((po: any, idx: number) => <div key={idx} className="flex items-center justify-between p-3 bg-card rounded-md border border-border/50 hover:border-purple-500/30 transition-colors">
-                                                            <div className="flex items-center gap-3">
-                                                              <Badge variant="outline" className="font-mono text-xs">
-                                                                {po.po_number}
-                                                              </Badge>
-                                                              <div className="text-xs text-muted-foreground truncate max-w-[120px]">
-                                                                {po.ship_to_location || 'No location'}
-                                                              </div>
-                                                            </div>
-                                                            
-                                                            <div className="flex items-center gap-3">
-                                                              <div className="text-sm text-right">
-                                                                <span className="font-semibold text-foreground">{po.quantity}</span>
-                                                                <span className="text-muted-foreground text-xs ml-1">units</span>
-                                                              </div>
-                                                              
-                                                              {po.printed_quantity > 0 ? (
-                                                                po.printed_quantity >= po.quantity ? (
-                                                                  <Badge variant="default" className="bg-green-500/20 text-green-700 dark:text-green-300 border-green-300 text-xs font-medium">
-                                                                    ✓ Printed ({po.printed_quantity}/{po.quantity})
-                                                                  </Badge>
-                                                                ) : (
-                                                                  <Badge variant="outline" className="bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 border-yellow-300 text-xs font-medium">
-                                                                    ⚠ Partial ({po.printed_quantity}/{po.quantity})
-                                                                  </Badge>
-                                                                )
-                                                              ) : (
-                                                                <Badge variant="outline" className="bg-gray-100 dark:bg-gray-800 text-gray-500 border-gray-300 text-xs">
-                                                                  ○ Not Printed
-                                                                </Badge>
-                                                              )}
-                                                            </div>
-                                                          </div>)}
-                                                      </div>
-                                                      
-                                                      {/* Summary Footer */}
-                                                      <div className="pt-3 mt-2 border-t border-border flex items-center justify-between text-sm bg-muted/20 -mx-4 -mb-4 px-4 py-3 rounded-b-lg">
-                                                        <span className="font-semibold text-foreground">Total:</span>
-                                                        <div className="flex items-center gap-3">
-                                                          <span className="font-semibold text-foreground">{order.quantity} units</span>
-                                                          {order.printed_quantity > 0 && <div className="flex items-center gap-1">
-                                                              <div className="w-1 h-1 bg-green-600 rounded-full"></div>
-                                                              <span className="text-xs text-green-600 dark:text-green-400 font-medium">
-                                                                {order.printed_quantity} printed ({Math.round(order.printed_quantity / order.quantity * 100)}%)
-                                                              </span>
-                                                            </div>}
-                                                        </div>
-                                                      </div>
-                                                    </div>
-                                                  </PopoverContent>
-                                                </Popover>}
-                                            </div>
+                                  {/* Enhanced Quantity Cell with PO Numbers */}
+                                  <TableCell className="border-r border-border/50">
+                                   <div className="space-y-2">
+                                      <div className="space-y-2">
+                                        {order.status === 'closed' && order.notes?.includes('Fulfilled from stock:') ? <div className="space-y-2">
+                                            {/* PO Number Badge */}
+                                            <Badge variant="outline" className="font-mono text-xs bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-300">
+                                              PO: {order.po_number}
+                                            </Badge>
                                             
-                                            {/* Show PO count for consolidated items */}
-                                            {order._isConsolidated && <div className="text-xs text-purple-600 dark:text-purple-400 font-medium">
-                                                From {order._consolidatedOrders.length} PO(s) • 
-                                                {order.printed_quantity > 0 ? <span className="text-green-600 dark:text-green-400 ml-1">
-                                                    {order.printed_quantity} printed
-                                                  </span> : <span className="text-muted-foreground ml-1">None printed</span>}
-                                              </div>}
-                                          </div>}
-                                     </div>
-                                   </div>
-                                 </TableCell>
+                                            <Badge variant="outline" className="bg-sky/10 text-sky-700 dark:text-sky-300 border-sky/30 font-mono">
+                                               {(() => {
+                                         const fulfilledMatch = order.notes?.match(/Fulfilled from stock:\s*(\d+)/);
+                                         const originalMatch = order.notes?.match(/Original quantity:\s*(\d+)/);
+                                         const fulfilledQty = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
+                                         // If original quantity not in notes, assume fulfilled quantity was the original
+                                         const originalQty = originalMatch ? parseInt(originalMatch[1]) : fulfilledQty > 0 ? fulfilledQty : 1;
+                                         return `Fulfilled: ${fulfilledQty}/${originalQty}`;
+                                       })()}
+                                            </Badge>
+                                            <div className="flex items-center gap-1">
+                                              <div className="w-1.5 h-1.5 bg-sky rounded-full flex-shrink-0"></div>
+                                              <div className="text-xs text-muted-foreground font-medium">
+                                                From Stock
+                                              </div>
+                                            </div>
+                                          </div> : <div className="space-y-2">
+                                             {/* PO Number(s) Display */}
+                                             {order._isConsolidated ? (
+                                               <div className="flex flex-wrap gap-1">
+                                                 {order._consolidatedOrders.map((po: any, idx: number) => (
+                                                   <Badge 
+                                                     key={idx} 
+                                                     variant="outline" 
+                                                     className="font-mono text-xs bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 border-purple-300"
+                                                   >
+                                                     {po.po_number}
+                                                   </Badge>
+                                                 ))}
+                                               </div>
+                                             ) : (
+                                               <Badge variant="outline" className="font-mono text-xs bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-300">
+                                                 PO: {order.po_number}
+                                               </Badge>
+                                             )}
+                                             
+                                             <div className="flex items-center gap-2">
+                                               <Badge variant="secondary" className={`font-mono ${order._isConsolidated ? 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30' : 'bg-emerald/10 text-emerald-700 dark:text-emerald-300 border-emerald/30'}`}>
+                                                 {order._isConsolidated ? `Total: ${order.quantity}` : `Qty: ${order.quantity}`}
+                                               </Badge>
+                                               
+                                               {/* Breakdown Popover for Consolidated Items */}
+                                               {order._isConsolidated && <Popover>
+                                                   <PopoverTrigger asChild>
+                                                     <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-purple-500/10 transition-colors" title="View printed labels breakdown">
+                                                       <ChevronDown className="h-3 w-3 text-purple-600 dark:text-purple-400" />
+                                                     </Button>
+                                                   </PopoverTrigger>
+                                                   <PopoverContent side="right" align="start" className="w-96 p-0 border-purple-500/30 shadow-lg">
+                                                     <div className="p-4 space-y-3 bg-gradient-to-br from-purple-500/5 to-background">
+                                                       {/* Header */}
+                                                       <div className="flex items-center gap-2 text-sm font-semibold text-foreground pb-2 border-b border-border">
+                                                         <Package className="h-4 w-4 text-purple-600" />
+                                                         <span>Printed Labels Breakdown</span>
+                                                         <Badge variant="outline" className="ml-auto text-xs font-mono">
+                                                           {order.asin}
+                                                         </Badge>
+                                                       </div>
+                                                       
+                                                       {/* Per-PO Breakdown */}
+                                                       <div className="space-y-2 max-h-64 overflow-y-auto">
+                                                         {order._consolidatedOrders.map((po: any, idx: number) => <div key={idx} className="flex items-center justify-between p-3 bg-card rounded-md border border-border/50 hover:border-purple-500/30 transition-colors">
+                                                             <div className="flex items-center gap-3">
+                                                               <Badge variant="outline" className="font-mono text-xs">
+                                                                 {po.po_number}
+                                                               </Badge>
+                                                               <div className="text-xs text-muted-foreground truncate max-w-[120px]">
+                                                                 {po.ship_to_location || 'No location'}
+                                                               </div>
+                                                             </div>
+                                                             
+                                                             <div className="flex items-center gap-3">
+                                                               <div className="text-sm text-right">
+                                                                 <span className="font-semibold text-foreground">{po.quantity}</span>
+                                                                 <span className="text-muted-foreground text-xs ml-1">units</span>
+                                                               </div>
+                                                               
+                                                               {po.printed_quantity > 0 ? (
+                                                                 po.printed_quantity >= po.quantity ? (
+                                                                   <Badge variant="default" className="bg-green-500/20 text-green-700 dark:text-green-300 border-green-300 text-xs font-medium">
+                                                                     ✓ Printed ({po.printed_quantity}/{po.quantity})
+                                                                   </Badge>
+                                                                 ) : (
+                                                                   <Badge variant="outline" className="bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 border-yellow-300 text-xs font-medium">
+                                                                     ⚠ Partial ({po.printed_quantity}/{po.quantity})
+                                                                   </Badge>
+                                                                 )
+                                                               ) : (
+                                                                 <Badge variant="outline" className="bg-gray-100 dark:bg-gray-800 text-gray-500 border-gray-300 text-xs">
+                                                                   ○ Not Printed
+                                                                 </Badge>
+                                                               )}
+                                                             </div>
+                                                           </div>)}
+                                                       </div>
+                                                       
+                                                       {/* Summary Footer */}
+                                                       <div className="pt-3 mt-2 border-t border-border flex items-center justify-between text-sm bg-muted/20 -mx-4 -mb-4 px-4 py-3 rounded-b-lg">
+                                                         <span className="font-semibold text-foreground">Total:</span>
+                                                         <div className="flex items-center gap-3">
+                                                           <span className="font-semibold text-foreground">{order.quantity} units</span>
+                                                           {order.printed_quantity > 0 && <div className="flex items-center gap-1">
+                                                               <div className="w-1 h-1 bg-green-600 rounded-full"></div>
+                                                               <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                                                                 {order.printed_quantity} printed ({Math.round(order.printed_quantity / order.quantity * 100)}%)
+                                                               </span>
+                                                             </div>}
+                                                         </div>
+                                                       </div>
+                                                     </div>
+                                                   </PopoverContent>
+                                                 </Popover>}
+                                             </div>
+                                             
+                                             {/* Show PO count for consolidated items */}
+                                             {order._isConsolidated && <div className="text-xs text-purple-600 dark:text-purple-400 font-medium">
+                                                 From {order._consolidatedOrders.length} PO(s) • 
+                                                 {order.printed_quantity > 0 ? <span className="text-green-600 dark:text-green-400 ml-1">
+                                                     {order.printed_quantity} printed
+                                                   </span> : <span className="text-muted-foreground ml-1">None printed</span>}
+                                               </div>}
+                                           </div>}
+                                      </div>
+                                    </div>
+                                  </TableCell>
 
                                   {/* Print Status Cell */}
                                   <TableCell className="w-32 border-r border-border/50">
