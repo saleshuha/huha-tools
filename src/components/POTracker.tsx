@@ -178,7 +178,6 @@ export const POTracker = () => {
     quantity: number;
     isConsolidated: boolean;
     consolidatedOrders: any[];
-    orderId: string;
   } | null>(null);
   const [isFulfilling, setIsFulfilling] = useState(false);
 
@@ -752,20 +751,64 @@ export const POTracker = () => {
     
     setIsFulfilling(true);
     try {
-      const originalQuantity = fulfillDialogOrder.quantity;
-      const notes = `Fulfilled from stock: ${quantity}\nOriginal quantity: ${originalQuantity}\nFulfilled on: ${new Date().toISOString()}`;
+      const notes = `Fulfilled from stock: ${quantity}\nOriginal quantity: ${fulfillDialogOrder.quantity}\nFulfilled on: ${new Date().toISOString()}`;
       
-      const { error } = await supabase
+      // Step 1: Find the specific PO record(s) to update
+      const { data: poRecords, error: fetchError } = await supabase
+        .from('po_orders')
+        .select('id, asin, quantity')
+        .eq('po_number', poNumber)
+        .eq('user_id', profile?.id);
+      
+      if (fetchError) throw fetchError;
+      if (!poRecords || poRecords.length === 0) throw new Error('PO record not found');
+      
+      // Step 2: Update PO status to closed
+      const { error: updateError } = await supabase
         .from('po_orders')
         .update({
           status: 'closed',
           notes: notes,
           updated_at: new Date().toISOString()
         })
-        .eq('id', fulfillDialogOrder.orderId)
+        .eq('po_number', poNumber)
         .eq('user_id', profile?.id);
       
-      if (error) throw error;
+      if (updateError) throw updateError;
+      
+      // Step 3: Deduct from inventory if ASIN exists
+      if (fulfillDialogOrder.asin) {
+        const { data: inventoryItem, error: invFetchError } = await supabase
+          .from('asin_inventory')
+          .select('id, quantity')
+          .eq('asin', fulfillDialogOrder.asin)
+          .eq('user_id', profile?.id)
+          .single();
+        
+        if (inventoryItem && !invFetchError) {
+          const newQuantity = Math.max(0, inventoryItem.quantity - quantity);
+          
+          // Update inventory quantity
+          await supabase
+            .from('asin_inventory')
+            .update({ 
+              quantity: newQuantity,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', inventoryItem.id);
+          
+          // Log stock change
+          await supabase
+            .from('stock_changes')
+            .insert({
+              inventory_id: inventoryItem.id,
+              inventory_type: 'asin',
+              change_amount: -quantity,
+              reason: `Fulfilled PO ${poNumber}`,
+              user_id: profile?.id
+            });
+        }
+      }
       
       toast({
         title: "Success",
@@ -778,10 +821,11 @@ export const POTracker = () => {
       toast({
         title: "Error",
         description: error.message || 'Failed to fulfill from stock',
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setIsFulfilling(false);
+      setFulfillDialogOpen(false);
     }
   };
 
@@ -5874,8 +5918,7 @@ export const POTracker = () => {
                                                       po_number: order.po_number,
                                                       quantity: order.quantity,
                                                       isConsolidated: order._isConsolidated || false,
-                                                      consolidatedOrders: order._consolidatedOrders || [],
-                                                      orderId: order.id
+                                                      consolidatedOrders: order._consolidatedOrders || []
                                                     });
                                                     setFulfillDialogOpen(true);
                                                   }}

@@ -21,6 +21,7 @@ import { SunskyOrderDialog } from '@/components/SunskyOrderDialog';
 import { SunskyDataViewer } from '@/components/SunskyDataViewer';
 import { EnhancedFilterPanel, EnhancedFilterState } from '@/components/po/EnhancedFilterPanel';
 import { POMetricsCards } from '@/components/po/POMetricsCards';
+import { FulfillFromStockDialog } from '@/components/po/FulfillFromStockDialog';
 import { EnhancedPOTable } from '@/components/po/EnhancedPOTable';
 import { POActionPanel } from '@/components/po/POActionPanel';
 import { POTablePagination } from '@/components/po/POTablePagination';
@@ -110,6 +111,18 @@ export default function PODetailsPage() {
 
   // Track items marked from stock
   const [itemsMarkedFromStock, setItemsMarkedFromStock] = useState<Set<string>>(new Set());
+
+  // Fulfill from stock dialog state
+  const [fulfillDialogOpen, setFulfillDialogOpen] = useState(false);
+  const [fulfillDialogOrder, setFulfillDialogOrder] = useState<{
+    asin?: string;
+    title?: string;
+    po_number: string;
+    quantity: number;
+    isConsolidated: boolean;
+    consolidatedOrders?: any[];
+  } | null>(null);
+  const [isFulfilling, setIsFulfilling] = useState(false);
 
   // Search state with debounce
   const [searchTerm, setSearchTerm] = useState('');
@@ -1941,6 +1954,93 @@ export default function PODetailsPage() {
     }
   };
 
+  // Handle fulfillment from stock
+  const handleFulfillFromStock = async (poNumber: string, quantity: number) => {
+    if (!fulfillDialogOrder) return;
+    
+    setIsFulfilling(true);
+    try {
+      const notes = `Fulfilled from stock: ${quantity}\nOriginal quantity: ${fulfillDialogOrder.quantity}\nFulfilled on: ${new Date().toISOString()}`;
+      
+      // Step 1: Find the specific PO record(s) to update
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data: poRecords, error: fetchError } = await supabase
+        .from('po_orders')
+        .select('id, asin, quantity')
+        .eq('po_number', poNumber)
+        .eq('user_id', user.id);
+      
+      if (fetchError) throw fetchError;
+      if (!poRecords || poRecords.length === 0) throw new Error('PO record not found');
+      
+      // Step 2: Update PO status to closed
+      const { error: updateError } = await supabase
+        .from('po_orders')
+        .update({
+          status: 'closed',
+          notes: notes,
+          updated_at: new Date().toISOString()
+        })
+        .eq('po_number', poNumber)
+        .eq('user_id', user.id);
+      
+      if (updateError) throw updateError;
+      
+      // Step 3: Deduct from inventory if ASIN exists
+      if (fulfillDialogOrder.asin) {
+        const { data: inventoryItem, error: invFetchError } = await supabase
+          .from('asin_inventory')
+          .select('id, quantity')
+          .eq('asin', fulfillDialogOrder.asin)
+          .eq('user_id', user.id)
+          .single();
+        
+        if (inventoryItem && !invFetchError) {
+          const newQuantity = Math.max(0, inventoryItem.quantity - quantity);
+          
+          // Update inventory quantity
+          await supabase
+            .from('asin_inventory')
+            .update({ 
+              quantity: newQuantity,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', inventoryItem.id);
+          
+          // Log stock change
+          await supabase
+            .from('stock_changes')
+            .insert({
+              inventory_id: inventoryItem.id,
+              inventory_type: 'asin',
+              change_amount: -quantity,
+              reason: `Fulfilled PO ${poNumber}`,
+              user_id: user.id
+            });
+        }
+      }
+      
+      toast({
+        title: "Success",
+        description: `${quantity} unit(s) fulfilled from stock for PO ${poNumber}`,
+      });
+      
+      await fetchSinglePOOrders(poNumber);
+    } catch (error: any) {
+      console.error('Error fulfilling from stock:', error);
+      toast({
+        title: "Error",
+        description: error.message || 'Failed to fulfill from stock',
+        variant: "destructive"
+      });
+    } finally {
+      setIsFulfilling(false);
+      setFulfillDialogOpen(false);
+    }
+  };
+
   // Handle Sunsky order success
   const handleSunskyOrderSuccess = async (orderNumber: string, selectedOrderIds: string[]) => {
     try {
@@ -2398,6 +2498,16 @@ export default function PODetailsPage() {
             });
           } else if (action === 'stock') {
             markAsOrderedFromInventory(order);
+          } else if (action === 'fulfill') {
+            setFulfillDialogOrder({
+              asin: order.asin,
+              title: order.title,
+              po_number: order.po_number,
+              quantity: order.quantity,
+              isConsolidated: false,
+              consolidatedOrders: []
+            });
+            setFulfillDialogOpen(true);
           }
         }} findInventoryMatch={(asin, sunskySku, poSku, modelNumber) => {
           // Use cached inventory match for performance
@@ -2613,6 +2723,15 @@ export default function PODetailsPage() {
           description: "You can now retry ordering from Sunsky"
         });
       }} />
+
+      {/* Fulfill From Stock Dialog */}
+      <FulfillFromStockDialog
+        open={fulfillDialogOpen}
+        onOpenChange={setFulfillDialogOpen}
+        orderInfo={fulfillDialogOrder}
+        onConfirm={handleFulfillFromStock}
+        isLoading={isFulfilling}
+      />
       </div>
     </div>;
 }
