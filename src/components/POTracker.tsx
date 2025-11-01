@@ -751,6 +751,10 @@ export const POTracker = () => {
     
     setIsFulfilling(true);
     try {
+      // Get user authentication
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
       const notes = `Fulfilled from stock: ${quantity}\nOriginal quantity: ${fulfillDialogOrder.quantity}\nFulfilled on: ${new Date().toISOString()}`;
       
       // Step 1: Find the specific PO record(s) to update
@@ -758,7 +762,7 @@ export const POTracker = () => {
         .from('po_orders')
         .select('id, asin, quantity')
         .eq('po_number', poNumber)
-        .eq('user_id', profile?.id);
+        .eq('user_id', user.id);
       
       if (fetchError) throw fetchError;
       if (!poRecords || poRecords.length === 0) throw new Error('PO record not found');
@@ -772,7 +776,7 @@ export const POTracker = () => {
           updated_at: new Date().toISOString()
         })
         .eq('po_number', poNumber)
-        .eq('user_id', profile?.id);
+        .eq('user_id', user.id);
       
       if (updateError) throw updateError;
       
@@ -782,7 +786,7 @@ export const POTracker = () => {
           .from('asin_inventory')
           .select('id, quantity')
           .eq('asin', fulfillDialogOrder.asin)
-          .eq('user_id', profile?.id)
+          .eq('user_id', user.id)
           .single();
         
         if (inventoryItem && !invFetchError) {
@@ -805,7 +809,7 @@ export const POTracker = () => {
               inventory_type: 'asin',
               change_amount: -quantity,
               reason: `Fulfilled PO ${poNumber}`,
-              user_id: profile?.id
+              user_id: user.id
             });
         }
       }
@@ -815,7 +819,7 @@ export const POTracker = () => {
         description: `${quantity} unit(s) fulfilled from stock for PO ${poNumber}`,
       });
       
-      fetchPOOrders(true);
+      await fetchPOOrders(true);
     } catch (error: any) {
       console.error('Error fulfilling from stock:', error);
       toast({
