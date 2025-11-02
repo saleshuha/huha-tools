@@ -94,7 +94,19 @@ export function FulfillFromStockDialog({
   const handleDialogOpen = () => {
     if (!orderInfo) return;
     
-    if (orderInfo.isConsolidated) {
+    console.log('🔍 FulfillFromStockDialog opened:', {
+      isConsolidated: orderInfo.isConsolidated,
+      po_number: orderInfo.po_number,
+      consolidatedOrders: orderInfo.consolidatedOrders,
+      consolidatedOrdersCount: orderInfo.consolidatedOrders?.length || 0
+    });
+    
+    // If marked as consolidated but no consolidated orders, treat as single PO
+    if (orderInfo.isConsolidated && (!orderInfo.consolidatedOrders || orderInfo.consolidatedOrders.length === 0)) {
+      console.warn('⚠️ Item marked as consolidated but no consolidated orders found, treating as single PO');
+      setStep('enter-quantity');
+      setSelectedPO(orderInfo.po_number);
+    } else if (orderInfo.isConsolidated) {
       setStep('select-po');
       setSelectedPO('');
     } else {
@@ -187,32 +199,43 @@ export function FulfillFromStockDialog({
           {orderInfo.isConsolidated && step === 'select-po' && (
             <div className="space-y-3">
               <Label>Select Purchase Order</Label>
-              <Select value={selectedPO} onValueChange={setSelectedPO}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a PO to fulfill from..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {orderInfo.consolidatedOrders?.map((po) => (
-                    <SelectItem key={po.po_number} value={po.po_number}>
-                      <div className="flex items-center justify-between gap-4 w-full">
-                        <span className="font-mono">{po.po_number}</span>
-                        <span className="text-muted-foreground text-xs">
-                          {po.quantity} units
-                          {po.ship_to_location && ` • ${po.ship_to_location}`}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              
-              <div className="flex items-start gap-2 text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950/30 p-3 rounded-md">
-                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0 text-blue-600" />
-                <p>
-                  This item is merged from {orderInfo.consolidatedOrders?.length} POs. 
-                  Select which PO you want to fulfill from your in-stock inventory.
-                </p>
-              </div>
+              {orderInfo.consolidatedOrders && orderInfo.consolidatedOrders.length > 0 ? (
+                <>
+                  <Select value={selectedPO} onValueChange={setSelectedPO}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a PO to fulfill from..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {orderInfo.consolidatedOrders.map((po) => (
+                        <SelectItem key={po.po_number} value={po.po_number}>
+                          <div className="flex items-center justify-between gap-4 w-full">
+                            <span className="font-mono">{po.po_number}</span>
+                            <span className="text-muted-foreground text-xs">
+                              {po.quantity} units
+                              {po.ship_to_location && ` • ${po.ship_to_location}`}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  
+                  <div className="flex items-start gap-2 text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950/30 p-3 rounded-md">
+                    <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0 text-blue-600" />
+                    <p>
+                      This item is merged from {orderInfo.consolidatedOrders.length} POs. 
+                      Select which PO you want to fulfill from your in-stock inventory.
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-start gap-2 text-xs text-destructive bg-destructive/10 p-3 rounded-md">
+                  <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <p>
+                    <strong>Error:</strong> No consolidated POs found. Please close this dialog and try again.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
