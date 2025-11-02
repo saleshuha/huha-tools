@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Package, AlertCircle } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ConsolidatedPO {
   po_number: string;
@@ -38,6 +39,45 @@ export function FulfillFromStockDialog({
   const [selectedPO, setSelectedPO] = useState<string>('');
   const [quantity, setQuantity] = useState<string>('');
   const [step, setStep] = useState<'select-po' | 'enter-quantity'>('select-po');
+  const [availableStock, setAvailableStock] = useState<number | null>(null);
+  const [loadingStock, setLoadingStock] = useState(false);
+
+  // Fetch available inventory when dialog opens
+  useEffect(() => {
+    const fetchInventory = async () => {
+      if (!orderInfo?.asin || !open) {
+        setAvailableStock(null);
+        return;
+      }
+
+      setLoadingStock(true);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data, error } = await supabase
+          .from('asin_inventory')
+          .select('quantity')
+          .eq('asin', orderInfo.asin)
+          .eq('user_id', user.id)
+          .eq('status', 'in-stock')
+          .maybeSingle();
+
+        if (!error && data) {
+          setAvailableStock(data.quantity || 0);
+        } else {
+          setAvailableStock(0);
+        }
+      } catch (error) {
+        console.error('Error fetching inventory:', error);
+        setAvailableStock(0);
+      } finally {
+        setLoadingStock(false);
+      }
+    };
+
+    fetchInventory();
+  }, [orderInfo?.asin, open]);
 
   // Reset state when dialog opens/closes or orderInfo changes
   const handleOpenChange = (newOpen: boolean) => {
@@ -45,6 +85,7 @@ export function FulfillFromStockDialog({
       setSelectedPO('');
       setQuantity('');
       setStep('select-po');
+      setAvailableStock(null);
     }
     onOpenChange(newOpen);
   };
@@ -115,11 +156,31 @@ export function FulfillFromStockDialog({
             <div className="text-sm font-medium text-foreground line-clamp-2">
               {orderInfo.title || 'No title available'}
             </div>
-            {orderInfo.asin && (
-              <Badge variant="outline" className="font-mono text-xs">
-                {orderInfo.asin}
-              </Badge>
-            )}
+            <div className="flex items-center gap-2 flex-wrap">
+              {orderInfo.asin && (
+                <Badge variant="outline" className="font-mono text-xs">
+                  ASIN: {orderInfo.asin}
+                </Badge>
+              )}
+              {!orderInfo.isConsolidated && (
+                <Badge variant="outline" className="font-mono text-xs">
+                  PO: {orderInfo.po_number}
+                </Badge>
+              )}
+              {availableStock !== null && !loadingStock && (
+                <Badge 
+                  variant={availableStock >= orderInfo.quantity ? "default" : "destructive"}
+                  className="text-xs"
+                >
+                  In Stock: {availableStock}
+                </Badge>
+              )}
+              {loadingStock && (
+                <Badge variant="secondary" className="text-xs">
+                  Loading stock...
+                </Badge>
+              )}
+            </div>
           </div>
 
           {/* Step 1: Select PO (for consolidated items) */}
@@ -186,11 +247,20 @@ export function FulfillFromStockDialog({
                 autoFocus
               />
               
+              {availableStock !== null && parseInt(quantity) > availableStock && (
+                <div className="flex items-start gap-2 text-xs text-destructive bg-destructive/10 p-3 rounded-md">
+                  <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <p>
+                    <strong>Warning:</strong> You're trying to fulfill {quantity} units but only {availableStock} are in stock.
+                  </p>
+                </div>
+              )}
+              
               <div className="flex items-start gap-2 text-xs text-muted-foreground bg-green-50 dark:bg-green-950/30 p-3 rounded-md">
                 <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0 text-green-600" />
                 <p>
-                  This will mark the items as fulfilled from your in-stock inventory and 
-                  update the PO status accordingly.
+                  This will mark the items as fulfilled from your in-stock inventory, 
+                  update the PO status to closed, and deduct the quantity from your inventory.
                 </p>
               </div>
             </div>

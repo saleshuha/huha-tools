@@ -760,14 +760,60 @@ export const POTracker = () => {
       // Step 1: Find the specific PO record(s) to update
       const { data: poRecords, error: fetchError } = await supabase
         .from('po_orders')
-        .select('id, asin, quantity')
+        .select('id, asin, sku, quantity')
         .eq('po_number', poNumber)
         .eq('user_id', user.id);
       
       if (fetchError) throw fetchError;
       if (!poRecords || poRecords.length === 0) throw new Error('PO record not found');
       
-      // Step 2: Update PO status to closed
+      // Step 2: Find inventory - try ASIN first, then SKU
+      let inventoryItem = null;
+      let invFetchError = null;
+
+      if (fulfillDialogOrder.asin) {
+        const result = await supabase
+          .from('asin_inventory')
+          .select('id, quantity, asin, sku, serial_number, status')
+          .eq('asin', fulfillDialogOrder.asin)
+          .eq('user_id', user.id)
+          .eq('status', 'in-stock')
+          .maybeSingle();
+        
+        inventoryItem = result.data;
+        invFetchError = result.error;
+      }
+
+      // If not found by ASIN, try by SKU
+      if (!inventoryItem && poRecords[0]?.sku) {
+        const result = await supabase
+          .from('asin_inventory')
+          .select('id, quantity, asin, sku, serial_number, status')
+          .eq('sku', poRecords[0].sku)
+          .eq('user_id', user.id)
+          .eq('status', 'in-stock')
+          .maybeSingle();
+        
+        inventoryItem = result.data;
+        invFetchError = result.error;
+      }
+
+      if (invFetchError) {
+        throw new Error(`Inventory lookup failed: ${invFetchError.message}`);
+      }
+
+      if (!inventoryItem) {
+        throw new Error(`No in-stock inventory found for this item (ASIN: ${fulfillDialogOrder.asin || 'N/A'}, SKU: ${poRecords[0]?.sku || 'N/A'})`);
+      }
+
+      // Validate sufficient stock
+      if (inventoryItem.quantity < quantity) {
+        throw new Error(`Insufficient stock: Only ${inventoryItem.quantity} available, but ${quantity} requested`);
+      }
+
+      const newQuantity = inventoryItem.quantity - quantity;
+      
+      // Step 3: Update PO status to closed
       const { error: updateError } = await supabase
         .from('po_orders')
         .update({
@@ -780,43 +826,51 @@ export const POTracker = () => {
       
       if (updateError) throw updateError;
       
-      // Step 3: Deduct from inventory if ASIN exists
-      if (fulfillDialogOrder.asin) {
-        const { data: inventoryItem, error: invFetchError } = await supabase
-          .from('asin_inventory')
-          .select('id, quantity')
-          .eq('asin', fulfillDialogOrder.asin)
-          .eq('user_id', user.id)
-          .single();
-        
-        if (inventoryItem && !invFetchError) {
-          const newQuantity = Math.max(0, inventoryItem.quantity - quantity);
-          
-          // Update inventory quantity
-          await supabase
-            .from('asin_inventory')
-            .update({ 
-              quantity: newQuantity,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', inventoryItem.id);
-          
-          // Log stock change
-          await supabase
-            .from('stock_changes')
-            .insert({
-              inventory_id: inventoryItem.id,
-              inventory_type: 'asin',
-              change_amount: -quantity,
-              reason: `Fulfilled PO ${poNumber}`,
-              user_id: user.id
-            });
-        }
+      // Step 4: Update inventory quantity
+      const { error: invUpdateError } = await supabase
+        .from('asin_inventory')
+        .update({ 
+          quantity: newQuantity,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', inventoryItem.id);
+
+      if (invUpdateError) throw invUpdateError;
+      
+      // Step 5: Log stock change with correct field names
+      const { error: stockChangeError } = await supabase
+        .from('stock_changes')
+        .insert({
+          inventory_id: inventoryItem.id,
+          inventory_type: 'asin',
+          asin: inventoryItem.asin,
+          sku_number: inventoryItem.sku,
+          serial_number: inventoryItem.serial_number,
+          previous_quantity: inventoryItem.quantity,
+          new_quantity: newQuantity,
+          change_amount: -quantity,
+          change_reason: `Fulfilled from stock for PO ${poNumber}`,
+          reference_type: 'po_order',
+          reference_number: poNumber,
+          fulfillment_source: 'in_stock',
+          user_id: user.id,
+          notes: `Manually fulfilled ${quantity} units from in-stock inventory`
+        });
+
+      if (stockChangeError) {
+        console.error('Failed to log stock change:', stockChangeError);
+        // Don't throw - stock was already updated
       }
       
       toast({
-        title: "Success",
-        description: `${quantity} unit(s) fulfilled from stock for PO ${poNumber}`,
+        title: "✓ Fulfilled from Stock",
+        description: (
+          <div className="space-y-1">
+            <div>PO: <strong>{poNumber}</strong></div>
+            <div>Fulfilled: <strong>{quantity} units</strong></div>
+            <div>Remaining stock: <strong>{newQuantity} units</strong></div>
+          </div>
+        ),
       });
       
       await fetchPOOrders(true);
