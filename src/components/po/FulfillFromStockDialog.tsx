@@ -79,7 +79,46 @@ export function FulfillFromStockDialog({
     fetchInventory();
   }, [orderInfo?.asin, open]);
 
-  // Reset state when dialog opens/closes or orderInfo changes
+  // Initialize dialog state when it opens with valid orderInfo
+  useEffect(() => {
+    if (!open || !orderInfo) {
+      return;
+    }
+
+    console.log('🔍 FulfillFromStockDialog initializing:', {
+      isConsolidated: orderInfo.isConsolidated,
+      po_number: orderInfo.po_number,
+      consolidatedOrders: orderInfo.consolidatedOrders,
+      consolidatedOrdersCount: orderInfo.consolidatedOrders?.length || 0,
+      consolidatedStructure: orderInfo.consolidatedOrders?.map(po => ({
+        po_number: po.po_number,
+        quantity: po.quantity,
+        has_location: !!po.ship_to_location
+      }))
+    });
+    
+    // Initialize based on consolidation status
+    if (orderInfo.isConsolidated) {
+      if (orderInfo.consolidatedOrders && orderInfo.consolidatedOrders.length > 0) {
+        console.log('✅ Setting up consolidated item with', orderInfo.consolidatedOrders.length, 'POs');
+        setStep('select-po');
+        setSelectedPO('');
+        setQuantity('');
+      } else {
+        console.warn('⚠️ Consolidated item but no orders, treating as single PO');
+        setStep('enter-quantity');
+        setSelectedPO(orderInfo.po_number);
+        setQuantity(orderInfo.quantity.toString());
+      }
+    } else {
+      console.log('✅ Setting up single PO item');
+      setStep('enter-quantity');
+      setSelectedPO(orderInfo.po_number);
+      setQuantity(orderInfo.quantity.toString());
+    }
+  }, [open, orderInfo]);
+
+  // Reset state when dialog closes
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
       setSelectedPO('');
@@ -88,32 +127,6 @@ export function FulfillFromStockDialog({
       setAvailableStock(null);
     }
     onOpenChange(newOpen);
-  };
-
-  // Initialize based on whether it's consolidated
-  const handleDialogOpen = () => {
-    if (!orderInfo) return;
-    
-    console.log('🔍 FulfillFromStockDialog opened:', {
-      isConsolidated: orderInfo.isConsolidated,
-      po_number: orderInfo.po_number,
-      consolidatedOrders: orderInfo.consolidatedOrders,
-      consolidatedOrdersCount: orderInfo.consolidatedOrders?.length || 0
-    });
-    
-    // If marked as consolidated but no consolidated orders, treat as single PO
-    if (orderInfo.isConsolidated && (!orderInfo.consolidatedOrders || orderInfo.consolidatedOrders.length === 0)) {
-      console.warn('⚠️ Item marked as consolidated but no consolidated orders found, treating as single PO');
-      setStep('enter-quantity');
-      setSelectedPO(orderInfo.po_number);
-    } else if (orderInfo.isConsolidated) {
-      setStep('select-po');
-      setSelectedPO('');
-    } else {
-      setStep('enter-quantity');
-      setSelectedPO(orderInfo.po_number);
-    }
-    setQuantity(orderInfo.quantity.toString());
   };
 
   const handleNext = () => {
@@ -145,10 +158,7 @@ export function FulfillFromStockDialog({
     : orderInfo.quantity;
 
   return (
-    <Dialog open={open} onOpenChange={(newOpen) => {
-      handleOpenChange(newOpen);
-      if (newOpen) handleDialogOpen();
-    }}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -163,6 +173,13 @@ export function FulfillFromStockDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Show loading state if initializing */}
+          {!selectedPO && step === 'select-po' && !orderInfo.consolidatedOrders?.length && (
+            <div className="text-center py-8 text-muted-foreground">
+              Initializing...
+            </div>
+          )}
+          
           {/* Product Info */}
           <div className="bg-muted/50 p-3 rounded-lg space-y-2">
             <div className="text-sm font-medium text-foreground line-clamp-2">
