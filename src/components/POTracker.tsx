@@ -5976,7 +5976,13 @@ export const POTracker = () => {
                                                       po_number: order.po_number,
                                                       quantity: order.quantity,
                                                       isConsolidated: order._isConsolidated || false,
-                                                      consolidatedOrders: order._consolidatedOrders || []
+                                                      consolidatedOrders: order._consolidatedOrders 
+                                                        ? order._consolidatedOrders.map((po: any) => ({
+                                                            po_number: po.po_number,
+                                                            quantity: po.quantity,
+                                                            ship_to_location: po.ship_to_location
+                                                          }))
+                                                        : []
                                                     });
                                                     setFulfillDialogOpen(true);
                                                   }}
