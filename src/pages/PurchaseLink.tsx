@@ -16,17 +16,25 @@ import { format } from 'date-fns';
 
 export default function PurchaseLink() {
   const { token } = useParams<{ token: string }>();
-  const { data, loading, error, savePurchaseUpdate, fetchLinkData } = usePurchaseLink(token);
+  const { data: hookData, loading, error, savePurchaseUpdate, fetchLinkData } = usePurchaseLink(token);
+  const [data, setData] = useState(hookData);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'purchased' | 'partial' | 'pending' | 'not_available'>('pending');
   const [localUpdates, setLocalUpdates] = useState<Record<string, any>>({});
   const [savingItems, setSavingItems] = useState<Set<string>>(new Set());
 
+  // Sync hook data with local state
+  useEffect(() => {
+    if (hookData) {
+      setData(hookData);
+    }
+  }, [hookData]);
+
   const handleSaveItem = async (orderId: string) => {
     const order = data?.poOrders.find(o => o.id === orderId);
-    if (!order || !token) return;
+    if (!order || !token || !data) return;
 
-    const existingUpdate = data?.updates.find(u => u.po_order_id === orderId);
+    const existingUpdate = data.updates.find(u => u.po_order_id === orderId);
     const localUpdate = localUpdates[orderId];
     
     if (!localUpdate) {
@@ -48,7 +56,34 @@ export default function PurchaseLink() {
         ...existingUpdate
       };
 
-      await savePurchaseUpdate(token, updatedData);
+      const result = await savePurchaseUpdate(token, updatedData);
+      
+      // Update local state instead of refetching
+      setData(prevData => {
+        if (!prevData) return prevData;
+        
+        const updatedUpdates = [...prevData.updates];
+        const existingIndex = updatedUpdates.findIndex(u => u.po_order_id === orderId);
+        
+        if (existingIndex >= 0) {
+          updatedUpdates[existingIndex] = {
+            ...updatedUpdates[existingIndex],
+            purchased_quantity: localUpdate.purchasedQuantity
+          };
+        } else {
+          updatedUpdates.push({
+            po_order_id: orderId,
+            purchased_quantity: localUpdate.purchasedQuantity,
+            link_id: prevData.link.id,
+            metadata: {}
+          } as any);
+        }
+        
+        return {
+          ...prevData,
+          updates: updatedUpdates
+        };
+      });
       
       setLocalUpdates(prev => {
         const newUpdates = { ...prev };
@@ -81,9 +116,9 @@ export default function PurchaseLink() {
 
   const handleMarkNotAvailable = async (orderId: string) => {
     const order = data?.poOrders.find(o => o.id === orderId);
-    if (!order || !token) return;
+    if (!order || !token || !data) return;
 
-    const existingUpdate = data?.updates.find(u => u.po_order_id === orderId);
+    const existingUpdate = data.updates.find(u => u.po_order_id === orderId);
     
     setSavingItems(prev => new Set(prev).add(orderId));
 
@@ -100,6 +135,32 @@ export default function PurchaseLink() {
       };
 
       await savePurchaseUpdate(token, updatedData);
+      
+      // Update local state instead of refetching
+      setData(prevData => {
+        if (!prevData) return prevData;
+        
+        const updatedUpdates = [...prevData.updates];
+        const existingIndex = updatedUpdates.findIndex(u => u.po_order_id === orderId);
+        
+        if (existingIndex >= 0) {
+          updatedUpdates[existingIndex] = {
+            ...updatedUpdates[existingIndex],
+            metadata: { not_available: true }
+          };
+        } else {
+          updatedUpdates.push({
+            po_order_id: orderId,
+            link_id: prevData.link.id,
+            metadata: { not_available: true }
+          } as any);
+        }
+        
+        return {
+          ...prevData,
+          updates: updatedUpdates
+        };
+      });
       
       setLocalUpdates(prev => {
         const newUpdates = { ...prev };
@@ -136,12 +197,29 @@ export default function PurchaseLink() {
         (payload) => {
           console.log('Realtime update received:', payload);
           
-          if (fetchLinkData && token) {
-            fetchLinkData(token);
-          }
-          
+          // Update local state instead of full refetch
           if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
-            toast.info('Data updated', { duration: 1500 });
+            const newRecord = payload.new as any;
+            
+            setData(prevData => {
+              if (!prevData) return prevData;
+              
+              const updatedUpdates = [...prevData.updates];
+              const existingIndex = updatedUpdates.findIndex(u => u.po_order_id === newRecord.po_order_id);
+              
+              if (existingIndex >= 0) {
+                updatedUpdates[existingIndex] = newRecord;
+              } else {
+                updatedUpdates.push(newRecord);
+              }
+              
+              return {
+                ...prevData,
+                updates: updatedUpdates
+              };
+            });
+            
+            toast.info('Item updated', { duration: 1500 });
           }
         }
       )
@@ -150,7 +228,7 @@ export default function PurchaseLink() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [token, data?.link?.id, fetchLinkData]);
+  }, [token, data?.link?.id]);
 
   const getItemStatus = (order: any, update: any) => {
     // Check if marked as not available
