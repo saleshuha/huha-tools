@@ -185,7 +185,7 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
           <div className="text-sm text-muted-foreground">{itemIdentifier}</div>
         </DialogHeader>
         
-        <div className="flex-1 overflow-hidden flex flex-col gap-4 pt-4">
+        <div className="flex-1 flex flex-col gap-3 pt-3 min-h-0">
           {loading ? (
             <div className="flex items-center justify-center py-12 space-x-3">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -235,12 +235,13 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
               <HuhaTab01
                 value={mainTab}
                 onValueChange={(value) => setMainTab(value as 'activity' | 'analytics')}
+                className="flex-1 flex flex-col min-h-0"
                 items={[
                   {
                     value: 'activity',
                     label: '📊 Activity Feed',
                     content: (
-                      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+                      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
                         <TabsList className="grid w-full grid-cols-4 h-9">
                           <TabsTrigger value="all" className="text-xs">
                             All ({filteredChanges.length})
@@ -255,8 +256,8 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
                             Manual ({filteredChanges.filter(c => c.reference_type === 'manual').length})
                           </TabsTrigger>
                         </TabsList>
-                        <TabsContent value={activeTab} className="flex-1 overflow-y-auto mt-3 pr-2">
-                          <div className="space-y-6">
+                        <TabsContent value={activeTab} className="flex-1 overflow-y-auto mt-2 pr-2 min-h-0">
+                          <div className="space-y-3">
                             {filteredChanges.map((change, index) => {
                               let timeGapElement = null;
                               if (index < filteredChanges.length - 1) {
@@ -277,7 +278,7 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
                                 
                                 if (gapText) {
                                   timeGapElement = (
-                                    <div className="flex items-center justify-center gap-2 my-4">
+                                    <div className="flex items-center justify-center gap-2 my-2">
                                       <div className="h-px bg-border flex-1" />
                                       <span className="text-xs text-muted-foreground px-2">
                                         <Clock className="w-3 h-3 inline mr-1" />
@@ -313,7 +314,8 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
                     value: 'analytics',
                     label: '📈 Stock Analytics',
                     content: (
-                      <div className="space-y-6 overflow-y-auto pr-2">
+                      <div className="flex-1 overflow-y-auto pr-2 min-h-0">
+                        <div className="space-y-4">
                         {stats && <StockHistoryStats stats={stats} />}
                         
                         {filteredChanges.length >= 3 ? (
@@ -330,6 +332,7 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
                             </p>
                           </div>
                         )}
+                        </div>
                       </div>
                     )
                   }

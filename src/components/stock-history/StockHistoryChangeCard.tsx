@@ -97,13 +97,13 @@ export function StockHistoryChangeCard({
         ? 'border-l-rose-500' 
         : 'border-l-muted'
     } ${change.is_reverted ? 'opacity-60 border-dashed' : ''}`}>
-      <CardContent className="p-6">
+      <CardContent className="p-4">
         {/* Time and User Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
             <Calendar className="w-4 h-4 text-muted-foreground" />
             <div>
-              <div className="text-sm font-medium text-foreground">
+              <div className="text-xs font-medium text-foreground">
                 {formatDistanceToNow(new Date(change.created_at), { addSuffix: true })}
               </div>
               <div className="text-xs text-muted-foreground">
@@ -121,7 +121,7 @@ export function StockHistoryChangeCard({
         </div>
 
         {(change.user_email || change.user_name) && (
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 mb-2">
             <User className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm font-medium">
               {change.user_name || change.user_email}
@@ -130,22 +130,22 @@ export function StockHistoryChangeCard({
         )}
 
         {/* Activity Description */}
-        <div className="flex items-start gap-4 mb-4">
+        <div className="flex items-start gap-3 mb-3">
           <div className="shrink-0 mt-1">
             {getChangeIcon()}
           </div>
           <div className="flex-1">
-            <div className="text-lg font-semibold mb-2 text-foreground">
+            <div className="text-base font-semibold mb-2 text-foreground">
               {getActivityDescription()}
             </div>
             
             {/* Quantity Flow */}
-            <div className="flex items-center gap-3 text-base mb-3">
-              <span className="font-bold text-2xl text-muted-foreground">
+            <div className="flex items-center gap-2 text-sm mb-2">
+              <span className="font-bold text-lg text-muted-foreground">
                 {change.previous_quantity}
               </span>
               <span className="text-muted-foreground">→</span>
-              <span className="font-bold text-2xl text-foreground">
+              <span className="font-bold text-lg text-foreground">
                 {change.new_quantity}
               </span>
               {percentageChange && (
@@ -159,7 +159,7 @@ export function StockHistoryChangeCard({
 
             {/* Reference Info */}
             <div className="flex flex-wrap items-center gap-2 mb-2">
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${refTypeInfo.color}`}>
+              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${refTypeInfo.color}`}>
                 <span className="text-base">{refTypeInfo.icon}</span>
                 {refTypeInfo.label}
                 {change.reference_number && (
@@ -186,7 +186,7 @@ export function StockHistoryChangeCard({
 
         {/* Quick Info Badges */}
         {(change.cost_per_unit || change.warehouse_location || change.tags?.length) && (
-          <div className="flex flex-wrap gap-2 mb-3 pl-10">
+          <div className="flex flex-wrap gap-1.5 mb-2 pl-8">
             {change.cost_per_unit && (
               <Badge variant="outline" className="gap-1">
                 <DollarSign className="w-3 h-3" />
