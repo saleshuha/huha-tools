@@ -193,6 +193,8 @@ const App = () => {
           <BrowserRouter>
             <Routes>
               <Route path="/auth" element={<Auth />} />
+              {/* Public Purchase Link Route - No auth required */}
+              <Route path="/purchase/:token" element={<PurchaseLink />} />
               <Route path="*" element={<Navigate to="/auth" replace />} />
             </Routes>
           </BrowserRouter>
