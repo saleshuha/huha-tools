@@ -2,9 +2,10 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Button } from './ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { HuhaTab01 } from './ui/huha-tab-01';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { History, Package, AlertCircle, RefreshCw, Keyboard, Filter } from 'lucide-react';
+import { History, Package, AlertCircle, RefreshCw, Keyboard, Filter, Clock } from 'lucide-react';
 import { StockHistoryFilters, StockHistoryFilterState } from './stock-history/StockHistoryFilters';
 import { StockHistoryStats, StockHistoryStatistics } from './stock-history/StockHistoryStats';
 import { StockHistoryChangeCard, StockChange } from './stock-history/StockHistoryChangeCard';
@@ -26,6 +27,7 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
   const [error, setError] = useState<string | null>(null);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState('all');
+  const [mainTab, setMainTab] = useState<'activity' | 'analytics'>('activity');
   const { toast } = useToast();
 
   const [filters, setFilters] = useState<StockHistoryFilterState>({
@@ -221,68 +223,118 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
             </div>
           ) : (
             <>
-              <StockHistoryFilters filters={filters} onFilterChange={setFilters} referenceTypes={referenceTypes} users={uniqueUsers} totalCount={stockChanges.length} filteredCount={filteredChanges.length} />
-              {stats && <StockHistoryStats stats={stats} />}
-              {filteredChanges.length > 2 && <StockHistoryChart changes={filteredChanges} />}
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-                <TabsList className="grid w-full grid-cols-4 h-9">
-                  <TabsTrigger value="all" className="text-xs">All ({stockChanges.length})</TabsTrigger>
-                  <TabsTrigger value="po_order" className="text-xs">PO ({stockChanges.filter(c => c.reference_type === 'po_order').length})</TabsTrigger>
-                  <TabsTrigger value="restock" className="text-xs">Restock ({stockChanges.filter(c => c.reference_type === 'restock').length})</TabsTrigger>
-                  <TabsTrigger value="manual" className="text-xs">Manual ({stockChanges.filter(c => c.reference_type === 'manual').length})</TabsTrigger>
-                </TabsList>
-                <TabsContent value={activeTab} className="flex-1 overflow-y-auto mt-3 pr-2">
-                  <div className="space-y-6">
-                    {filteredChanges.map((change, index) => {
-                      // Calculate time gap from previous change
-                      let timeGapElement = null;
-                      if (index < filteredChanges.length - 1) {
-                        const currentTime = new Date(change.created_at);
-                        const previousTime = new Date(filteredChanges[index + 1].created_at);
-                        const minutesDiff = differenceInMinutes(currentTime, previousTime);
-                        const hoursDiff = differenceInHours(currentTime, previousTime);
-                        const daysDiff = differenceInDays(currentTime, previousTime);
-                        
-                        let gapText = null;
-                        if (daysDiff > 0) {
-                          gapText = `${daysDiff} ${daysDiff === 1 ? 'day' : 'days'} later`;
-                        } else if (hoursDiff > 0) {
-                          gapText = `${hoursDiff} ${hoursDiff === 1 ? 'hour' : 'hours'} later`;
-                        } else if (minutesDiff > 5) {
-                          gapText = `${minutesDiff} minutes later`;
-                        }
-                        
-                        if (gapText) {
-                          timeGapElement = (
-                            <div className="flex items-center justify-center gap-2 my-4">
-                              <div className="h-px bg-border flex-1" />
-                              <span className="text-xs text-muted-foreground px-2">
-                                ⏱️ {gapText}
-                              </span>
-                              <div className="h-px bg-border flex-1" />
-                            </div>
-                          );
-                        }
-                      }
+              <StockHistoryFilters 
+                filters={filters} 
+                onFilterChange={setFilters} 
+                referenceTypes={referenceTypes} 
+                users={uniqueUsers} 
+                totalCount={stockChanges.length} 
+                filteredCount={filteredChanges.length} 
+              />
+              
+              <HuhaTab01
+                value={mainTab}
+                onValueChange={(value) => setMainTab(value as 'activity' | 'analytics')}
+                items={[
+                  {
+                    value: 'activity',
+                    label: '📊 Activity Feed',
+                    content: (
+                      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+                        <TabsList className="grid w-full grid-cols-4 h-9">
+                          <TabsTrigger value="all" className="text-xs">
+                            All ({filteredChanges.length})
+                          </TabsTrigger>
+                          <TabsTrigger value="po_order" className="text-xs">
+                            PO ({filteredChanges.filter(c => c.reference_type === 'po_order').length})
+                          </TabsTrigger>
+                          <TabsTrigger value="restock" className="text-xs">
+                            Restock ({filteredChanges.filter(c => c.reference_type === 'restock').length})
+                          </TabsTrigger>
+                          <TabsTrigger value="manual" className="text-xs">
+                            Manual ({filteredChanges.filter(c => c.reference_type === 'manual').length})
+                          </TabsTrigger>
+                        </TabsList>
+                        <TabsContent value={activeTab} className="flex-1 overflow-y-auto mt-3 pr-2">
+                          <div className="space-y-6">
+                            {filteredChanges.map((change, index) => {
+                              let timeGapElement = null;
+                              if (index < filteredChanges.length - 1) {
+                                const currentTime = new Date(change.created_at);
+                                const previousTime = new Date(filteredChanges[index + 1].created_at);
+                                const minutesDiff = differenceInMinutes(currentTime, previousTime);
+                                const hoursDiff = differenceInHours(currentTime, previousTime);
+                                const daysDiff = differenceInDays(currentTime, previousTime);
+                                
+                                let gapText = null;
+                                if (daysDiff > 0) {
+                                  gapText = `${daysDiff} ${daysDiff === 1 ? 'day' : 'days'} later`;
+                                } else if (hoursDiff > 0) {
+                                  gapText = `${hoursDiff} ${hoursDiff === 1 ? 'hour' : 'hours'} later`;
+                                } else if (minutesDiff > 5) {
+                                  gapText = `${minutesDiff} minutes later`;
+                                }
+                                
+                                if (gapText) {
+                                  timeGapElement = (
+                                    <div className="flex items-center justify-center gap-2 my-4">
+                                      <div className="h-px bg-border flex-1" />
+                                      <span className="text-xs text-muted-foreground px-2">
+                                        <Clock className="w-3 h-3 inline mr-1" />
+                                        {gapText}
+                                      </span>
+                                      <div className="h-px bg-border flex-1" />
+                                    </div>
+                                  );
+                                }
+                              }
 
-                      return (
-                        <div key={change.id}>
-                          <StockHistoryChangeCard 
-                            change={change} 
-                            isExpanded={expandedItems.has(change.id)} 
-                            onToggleExpanded={() => {
-                              const next = new Set(expandedItems);
-                              next.has(change.id) ? next.delete(change.id) : next.add(change.id);
-                              setExpandedItems(next);
-                            }} 
-                          />
-                          {timeGapElement}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </TabsContent>
-              </Tabs>
+                              return (
+                                <div key={change.id}>
+                                  <StockHistoryChangeCard 
+                                    change={change} 
+                                    isExpanded={expandedItems.has(change.id)} 
+                                    onToggleExpanded={() => {
+                                      const next = new Set(expandedItems);
+                                      next.has(change.id) ? next.delete(change.id) : next.add(change.id);
+                                      setExpandedItems(next);
+                                    }} 
+                                  />
+                                  {timeGapElement}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </TabsContent>
+                      </Tabs>
+                    )
+                  },
+                  {
+                    value: 'analytics',
+                    label: '📈 Stock Analytics',
+                    content: (
+                      <div className="space-y-6 overflow-y-auto pr-2">
+                        {stats && <StockHistoryStats stats={stats} />}
+                        
+                        {filteredChanges.length >= 3 ? (
+                          <StockHistoryChart changes={filteredChanges} />
+                        ) : (
+                          <div className="text-center py-12 space-y-2">
+                            <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto opacity-50" />
+                            <p className="font-medium text-muted-foreground">Need more data for analytics</p>
+                            <p className="text-sm text-muted-foreground">
+                              At least 3 changes required to show charts
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Currently have {filteredChanges.length} {filteredChanges.length === 1 ? 'change' : 'changes'}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  }
+                ]}
+              />
             </>
           )}
         </div>
