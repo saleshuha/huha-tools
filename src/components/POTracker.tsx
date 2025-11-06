@@ -852,8 +852,10 @@ export const POTracker = () => {
           change_reason: `Fulfilled from stock for PO ${poNumber}`,
           reference_type: 'po_order',
           reference_number: poNumber,
+          reference_id: poNumber,
           fulfillment_source: 'in_stock',
           user_id: user.id,
+          changed_by: user.id,
           notes: `Manually fulfilled ${quantity} units from in-stock inventory`
         });
 

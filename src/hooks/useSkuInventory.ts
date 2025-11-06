@@ -128,6 +128,12 @@ export function useSkuInventory() {
   // Update item status
   const updateItemStatus = async (id: string, status: SkuInventoryItem['status']) => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const item = inventory.find(i => i.id === id);
+      if (!item) throw new Error('Item not found');
+
       const updateData: any = { status };
       if (status === 'sold') {
         updateData.date_sold = new Date().toISOString();
@@ -139,6 +145,25 @@ export function useSkuInventory() {
         .eq('id', id));
 
       if (error) throw error;
+
+      // Record stock change when marking as sold
+      if (status === 'sold' && item.quantity > 0) {
+        await supabase.from('stock_changes').insert({
+          inventory_id: item.id,
+          inventory_type: 'sku',
+          sku_number: item.skuNumber,
+          serial_number: item.binSerialNumber,
+          asin: item.asin || null,
+          previous_quantity: item.quantity,
+          new_quantity: 0,
+          change_amount: -item.quantity,
+          change_reason: 'Item marked as sold',
+          reference_type: 'sale',
+          changed_by: user.id,
+          user_id: user.id,
+          notes: `Status changed from ${item.status} to sold`
+        });
+      }
 
       setInventory(prev => prev.map(item => 
         item.id === id 

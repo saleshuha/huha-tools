@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { History, Package, AlertCircle, RefreshCw, Keyboard } from 'lucide-react';
+import { History, Package, AlertCircle, RefreshCw, Keyboard, Filter } from 'lucide-react';
 import { StockHistoryFilters, StockHistoryFilterState } from './stock-history/StockHistoryFilters';
 import { StockHistoryStats, StockHistoryStatistics } from './stock-history/StockHistoryStats';
 import { StockHistoryChangeCard, StockChange } from './stock-history/StockHistoryChangeCard';
@@ -41,6 +41,12 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
     setError(null);
     
     try {
+      console.log('📊 Loading stock history for:', {
+        inventoryId,
+        inventoryType,
+        itemIdentifier
+      });
+      
       const { data: changes, error: changesError } = await supabase
         .from('stock_changes')
         .select('*')
@@ -49,6 +55,11 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
         .order('created_at', { ascending: false });
 
       if (changesError) throw changesError;
+
+      console.log('📊 Stock changes loaded:', {
+        count: changes?.length || 0,
+        changes: changes?.slice(0, 3)
+      });
 
       const userIds = [...new Set(changes?.map(c => c.changed_by).filter(Boolean) || [])];
       
@@ -64,19 +75,23 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
 
       const enrichedChanges: StockChange[] = (changes || []).map(change => ({
         ...change,
-        user_email: userMap.get(change.changed_by)?.email,
-        user_name: userMap.get(change.changed_by)?.full_name,
+        user_email: userMap.get(change.changed_by)?.email || 'Unknown',
+        user_name: userMap.get(change.changed_by)?.full_name || 'System',
       }));
+
+      if (enrichedChanges.length === 0) {
+        console.log('⚠️ No stock history found for this item');
+      }
 
       setStockChanges(enrichedChanges);
       setFilteredChanges(enrichedChanges);
     } catch (error) {
-      console.error('Error loading stock history:', error);
+      console.error('❌ Error loading stock history:', error);
       setError(error instanceof Error ? error.message : 'Failed to load stock history');
     } finally {
       setLoading(false);
     }
-  }, [open, inventoryId, inventoryType]);
+  }, [open, inventoryId, inventoryType, itemIdentifier]);
 
   useEffect(() => {
     let filtered = [...stockChanges];
@@ -170,13 +185,39 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
         
         <div className="flex-1 overflow-hidden flex flex-col gap-4 pt-4">
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-16">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+            <div className="flex items-center justify-center py-12 space-x-3">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <span className="text-muted-foreground">Loading stock history...</span>
+            </div>
+          ) : error ? (
+            <div className="text-center py-12 space-y-2">
+              <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
+              <p className="text-destructive font-medium">Error loading history</p>
+              <p className="text-sm text-muted-foreground">{error}</p>
             </div>
           ) : stockChanges.length === 0 ? (
-            <div className="text-center py-16">
-              <Package className="w-16 h-16 mx-auto mb-4 opacity-30" />
-              <p className="text-muted-foreground">No stock history available</p>
+            <div className="text-center py-12 space-y-3">
+              <History className="h-12 w-12 text-muted-foreground mx-auto opacity-50" />
+              <div className="space-y-1">
+                <p className="font-medium text-muted-foreground">No stock changes recorded yet</p>
+                <p className="text-sm text-muted-foreground">
+                  History will appear here when you:
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-1 mt-2">
+                  <li>• Update item quantities</li>
+                  <li>• Restock items</li>
+                  <li>• Fulfill from stock</li>
+                  <li>• Mark items as sold</li>
+                </ul>
+              </div>
+            </div>
+          ) : filteredChanges.length === 0 ? (
+            <div className="text-center py-12 space-y-2">
+              <Package className="h-12 w-12 text-muted-foreground mx-auto opacity-50" />
+              <p className="font-medium text-muted-foreground">No changes match your filters</p>
+              <p className="text-sm text-muted-foreground">
+                Try adjusting your search or filter criteria
+              </p>
             </div>
           ) : (
             <>
