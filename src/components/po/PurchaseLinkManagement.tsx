@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useUserPurchaseLinks } from '@/hooks/usePurchaseLink';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,7 @@ import { format } from 'date-fns';
 
 export const PurchaseLinkManagement = () => {
   const { links, loading, deactivateLink, deleteLink } = useUserPurchaseLinks();
+  const navigate = useNavigate();
 
   const handleCopyLink = (token: string) => {
     const fullLink = `${window.location.origin}/purchase/${token}`;
@@ -17,7 +19,7 @@ export const PurchaseLinkManagement = () => {
   };
 
   const handleOpenLink = (token: string) => {
-    window.open(`/purchase/${token}`, '_blank');
+    navigate(`/purchase/${token}`);
   };
 
   const handleDeactivate = async (linkId: string) => {
