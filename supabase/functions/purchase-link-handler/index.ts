@@ -99,10 +99,13 @@ serve(async (req) => {
         })
         .eq('id', link.id);
       
-      // Fetch PO orders
+      // Fetch PO orders with product images
       const { data: poOrders, error: ordersError } = await supabaseClient
         .from('po_orders')
-        .select('*')
+        .select(`
+          *,
+          product_image:product_images!left(image_url)
+        `)
         .in('po_number', link.po_numbers)
         .eq('user_id', link.user_id);
       

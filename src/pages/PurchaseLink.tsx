@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Loader2, Package, Search, Download, CheckCircle2, Circle, AlertCircle } from 'lucide-react';
+import { Loader2, Package, Search, Download, CheckCircle2, Circle, AlertCircle, Image } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function PurchaseLink() {
@@ -202,9 +202,29 @@ export default function PurchaseLink() {
             
             return (
               <Card key={order.id} className="p-4">
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                <div className="flex gap-4 items-start">
+                  {/* Product Image */}
+                  <div className="flex-shrink-0 w-20 h-20 rounded-md overflow-hidden bg-muted flex items-center justify-center">
+                    {order.product_image?.image_url ? (
+                      <img 
+                        src={order.product_image.image_url} 
+                        alt={order.title || 'Product'}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          const parent = e.currentTarget.parentElement;
+                          if (parent) {
+                            parent.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>';
+                          }
+                        }}
+                      />
+                    ) : (
+                      <Image className="h-8 w-8 text-muted-foreground" />
+                    )}
+                  </div>
+
                   {/* Item Info */}
-                  <div className="md:col-span-4 space-y-1">
+                  <div className="flex-1 space-y-1">
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className="text-xs">
                         {order.po_number}
@@ -226,9 +246,9 @@ export default function PurchaseLink() {
                     </p>
                   </div>
 
-                  {/* Purchase Inputs */}
-                  <div className="md:col-span-8 grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="space-y-1">
+                  {/* Simplified Purchase Inputs - Only 2 fields */}
+                  <div className="flex gap-3 items-end">
+                    <div className="space-y-1 w-32">
                       <Label className="text-xs">Purchased Qty</Label>
                       <Input
                         type="number"
@@ -239,27 +259,7 @@ export default function PurchaseLink() {
                       />
                     </div>
                     
-                    <div className="space-y-1">
-                      <Label className="text-xs">Supplier Name</Label>
-                      <Input
-                        placeholder="Supplier..."
-                        value={localUpdate?.supplierName ?? update?.supplier_name ?? ''}
-                        onChange={(e) => handleUpdateField(order.id, 'supplierName', e.target.value)}
-                        className="h-9"
-                      />
-                    </div>
-                    
-                    <div className="space-y-1">
-                      <Label className="text-xs">Supplier Order #</Label>
-                      <Input
-                        placeholder="Order number..."
-                        value={localUpdate?.supplierOrderNumber ?? update?.supplier_order_number ?? ''}
-                        onChange={(e) => handleUpdateField(order.id, 'supplierOrderNumber', e.target.value)}
-                        className="h-9"
-                      />
-                    </div>
-                    
-                    <div className="space-y-1">
+                    <div className="space-y-1 w-32">
                       <Label className="text-xs">Unit Cost</Label>
                       <Input
                         type="number"
@@ -267,26 +267,6 @@ export default function PurchaseLink() {
                         placeholder="0.00"
                         value={localUpdate?.unitCost ?? update?.unit_cost ?? ''}
                         onChange={(e) => handleUpdateField(order.id, 'unitCost', parseFloat(e.target.value) || 0)}
-                        className="h-9"
-                      />
-                    </div>
-                    
-                    <div className="space-y-1">
-                      <Label className="text-xs">Est. Delivery</Label>
-                      <Input
-                        type="date"
-                        value={localUpdate?.estimatedDelivery ?? update?.estimated_delivery ?? ''}
-                        onChange={(e) => handleUpdateField(order.id, 'estimatedDelivery', e.target.value)}
-                        className="h-9"
-                      />
-                    </div>
-                    
-                    <div className="space-y-1">
-                      <Label className="text-xs">Notes</Label>
-                      <Input
-                        placeholder="Add notes..."
-                        value={localUpdate?.notes ?? update?.notes ?? ''}
-                        onChange={(e) => handleUpdateField(order.id, 'notes', e.target.value)}
                         className="h-9"
                       />
                     </div>
