@@ -99,19 +99,39 @@ serve(async (req) => {
         })
         .eq('id', link.id);
       
-      // Fetch PO orders with product images
+      // Fetch PO orders
       const { data: poOrders, error: ordersError } = await supabaseClient
         .from('po_orders')
-        .select(`
-          *,
-          product_image:product_images!left(image_url)
-        `)
+        .select('*')
         .in('po_number', link.po_numbers)
         .eq('user_id', link.user_id);
       
       if (ordersError) {
         console.error('Error fetching PO orders:', ordersError);
       }
+
+      // Fetch product images for the ASINs in the orders
+      let productImages: any[] = [];
+      if (poOrders && poOrders.length > 0) {
+        const asins = poOrders
+          .map(order => order.asin)
+          .filter(asin => asin); // Filter out null/undefined ASINs
+        
+        if (asins.length > 0) {
+          const { data: images } = await supabaseClient
+            .from('product_images')
+            .select('asin, image_url')
+            .in('asin', asins);
+          
+          productImages = images || [];
+        }
+      }
+
+      // Attach product images to orders
+      const ordersWithImages = poOrders?.map(order => ({
+        ...order,
+        product_image: productImages.find(img => img.asin === order.asin) || null
+      })) || [];
       
       // Fetch existing purchase updates
       const { data: updates, error: updatesError } = await supabaseClient
@@ -125,7 +145,7 @@ serve(async (req) => {
       
       return new Response(JSON.stringify({ 
         link, 
-        poOrders: poOrders || [], 
+        poOrders: ordersWithImages, 
         updates: updates || [] 
       }), {
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
