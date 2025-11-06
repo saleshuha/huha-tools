@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Loader2, Package, Search, CheckCircle2, Circle, AlertCircle, Image, XCircle, Check } from 'lucide-react';
+import { Loader2, Package, Search, CheckCircle2, Circle, AlertCircle, Image, XCircle, Check, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 
@@ -20,6 +20,7 @@ export default function PurchaseLink() {
   const [data, setData] = useState(hookData);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'purchased' | 'partial' | 'pending' | 'not_available'>('pending');
+  const [sortBy, setSortBy] = useState<'qty-high-low' | 'qty-low-high' | null>(null);
   const [localUpdates, setLocalUpdates] = useState<Record<string, any>>({});
   const [savingItems, setSavingItems] = useState<Set<string>>(new Set());
 
@@ -265,20 +266,31 @@ export default function PurchaseLink() {
     return null; // No consolidation needed
   };
 
-  const filteredOrders = data?.poOrders.filter(order => {
-    const update = data.updates.find(u => u.po_order_id === order.id);
-    const status = getItemStatus(order, update);
-    
-    const matchesSearch = 
-      order.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.asin?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.sku_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.po_number?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesFilter = status === filterStatus;
-    
-    return matchesSearch && matchesFilter;
-  }) || [];
+  const filteredOrders = (() => {
+    let orders = data?.poOrders.filter(order => {
+      const update = data.updates.find(u => u.po_order_id === order.id);
+      const status = getItemStatus(order, update);
+      
+      const matchesSearch = 
+        order.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.asin?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.sku_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.po_number?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesFilter = status === filterStatus;
+      
+      return matchesSearch && matchesFilter;
+    }) || [];
+
+    // Apply sorting
+    if (sortBy === 'qty-high-low') {
+      orders = [...orders].sort((a, b) => b.quantity - a.quantity);
+    } else if (sortBy === 'qty-low-high') {
+      orders = [...orders].sort((a, b) => a.quantity - b.quantity);
+    }
+
+    return orders;
+  })();
 
   const stats = {
     total: data?.poOrders.length || 0,
@@ -391,6 +403,29 @@ export default function PurchaseLink() {
               >
                 <XCircle className="h-4 w-4 mr-1" />
                 Not Available ({stats.notAvailable})
+              </Button>
+            </div>
+          </div>
+          
+          {/* Sort Options */}
+          <div className="flex items-center gap-2 mt-4 pt-4 border-t">
+            <span className="text-sm text-muted-foreground">Sort by Qty:</span>
+            <div className="flex gap-2">
+              <Button
+                variant={sortBy === 'qty-high-low' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSortBy(sortBy === 'qty-high-low' ? null : 'qty-high-low')}
+              >
+                <ArrowDown className="h-4 w-4 mr-1" />
+                High to Low
+              </Button>
+              <Button
+                variant={sortBy === 'qty-low-high' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSortBy(sortBy === 'qty-low-high' ? null : 'qty-low-high')}
+              >
+                <ArrowUp className="h-4 w-4 mr-1" />
+                Low to High
               </Button>
             </div>
           </div>
