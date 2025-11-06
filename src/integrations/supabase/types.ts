@@ -2912,16 +2912,21 @@ export type Database = {
       }
       stock_changes: {
         Row: {
+          approval_status: string | null
+          approved_at: string | null
+          approved_by: string | null
           asin: string | null
           batch_id: string | null
           change_amount: number
           change_reason: string | null
           changed_by: string | null
+          cost_per_unit: number | null
           created_at: string
           fulfillment_source: string | null
           id: string
           inventory_id: string
           inventory_type: string
+          is_reverted: boolean | null
           metadata: Json | null
           new_quantity: number
           notes: string | null
@@ -2929,21 +2934,31 @@ export type Database = {
           reference_id: string | null
           reference_number: string | null
           reference_type: string | null
+          reverted_at: string | null
+          reverted_by: string | null
           serial_number: string | null
           sku_number: string | null
+          tags: string[] | null
+          total_value: number | null
           user_id: string
+          warehouse_location: string | null
         }
         Insert: {
+          approval_status?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
           asin?: string | null
           batch_id?: string | null
           change_amount: number
           change_reason?: string | null
           changed_by?: string | null
+          cost_per_unit?: number | null
           created_at?: string
           fulfillment_source?: string | null
           id?: string
           inventory_id: string
           inventory_type: string
+          is_reverted?: boolean | null
           metadata?: Json | null
           new_quantity: number
           notes?: string | null
@@ -2951,21 +2966,31 @@ export type Database = {
           reference_id?: string | null
           reference_number?: string | null
           reference_type?: string | null
+          reverted_at?: string | null
+          reverted_by?: string | null
           serial_number?: string | null
           sku_number?: string | null
+          tags?: string[] | null
+          total_value?: number | null
           user_id: string
+          warehouse_location?: string | null
         }
         Update: {
+          approval_status?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
           asin?: string | null
           batch_id?: string | null
           change_amount?: number
           change_reason?: string | null
           changed_by?: string | null
+          cost_per_unit?: number | null
           created_at?: string
           fulfillment_source?: string | null
           id?: string
           inventory_id?: string
           inventory_type?: string
+          is_reverted?: boolean | null
           metadata?: Json | null
           new_quantity?: number
           notes?: string | null
@@ -2973,9 +2998,14 @@ export type Database = {
           reference_id?: string | null
           reference_number?: string | null
           reference_type?: string | null
+          reverted_at?: string | null
+          reverted_by?: string | null
           serial_number?: string | null
           sku_number?: string | null
+          tags?: string[] | null
+          total_value?: number | null
           user_id?: string
+          warehouse_location?: string | null
         }
         Relationships: []
       }

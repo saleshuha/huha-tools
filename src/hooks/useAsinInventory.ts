@@ -406,6 +406,7 @@ export function useAsinInventory() {
           inventory_id: id,
           asin: item.asin,
           serial_number: item.serialNumber,
+          sku_number: item.sku, // Fixed: was missing this field
           previous_quantity: previousQuantity,
           new_quantity: newQuantity,
           change_amount: changeAmount,
