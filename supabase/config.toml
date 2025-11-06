@@ -48,3 +48,6 @@ verify_jwt = true
 
 [functions.cleanup-old-exports]
 verify_jwt = false
+
+[functions.purchase-link-handler]
+verify_jwt = false

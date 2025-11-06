@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { usePurchaseLink } from '@/hooks/usePurchaseLink';
 import { toast } from 'sonner';
 import { Copy, ExternalLink, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface GeneratePurchaseLinkDialogProps {
   open: boolean;
@@ -188,5 +189,3 @@ export const GeneratePurchaseLinkDialog = ({
     </Dialog>
   );
 };
-
-import { supabase } from '@/integrations/supabase/client';
