@@ -31,7 +31,7 @@ export const HuhaTab01: React.FC<HuhaTab01Props> = ({
   const gridCols = `grid-cols-${Math.min(items.length, 6)}`;
   
   return (
-    <Tabs value={value} onValueChange={onValueChange} className={cn("w-full", className)}>
+    <Tabs value={value} onValueChange={onValueChange} className={cn("w-full flex flex-col", className)}>
       <TabsList className={cn(
         "grid w-full mb-3 bg-card border border-border/50 shadow-soft",
         gridCols,
