@@ -317,11 +317,10 @@ export default function PurchaseLink() {
                           return (
                             <div className="space-y-0.5">
                               <p className="text-sm">
-                                Required (This PO): <span className="font-semibold">{order.quantity}</span>
+                                Required: <span className="font-semibold">{consolidated.total}</span>
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                Total across {consolidated.count} POs: 
-                                <span className="font-semibold text-foreground ml-1">{consolidated.total}</span>
+                                From POs: {consolidated.poNumbers.join(', ')}
                               </p>
                             </div>
                           );
