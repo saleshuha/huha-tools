@@ -25,6 +25,8 @@ import { POPrintDialog } from '@/components/po/POPrintDialog';
 import { POMetricsCard } from '@/components/po/POMetricsCard';
 import { POAnalyticsDashboard } from '@/components/po/analytics/POAnalyticsDashboard';
 import { GeneratePurchaseLinkDialog } from '@/components/po/GeneratePurchaseLinkDialog';
+import { PurchaseLinkManagement } from '@/components/po/PurchaseLinkManagement';
+import { PurchaseUpdatesPanel } from '@/components/po/PurchaseUpdatesPanel';
 import { SmartMatchingPanel } from '@/components/po/matching/SmartMatchingPanel';
 import { FulfillFromStockDialog } from '@/components/po/FulfillFromStockDialog';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
@@ -3215,11 +3217,12 @@ export const POTracker = () => {
                    newTab === 'upload' ? 'Uploads' : 
                    newTab === 'labels' ? 'Print Labels' : 
                    newTab === 'reports' ? 'Reports' : 
-                   newTab === 'analytics' ? 'Analytics' : newTab
+                   newTab === 'analytics' ? 'Analytics' : 
+                   newTab === 'purchase-links' ? 'Purchase Links' : newTab
         });
         setActiveTab(newTab);
       }} className="w-full">
-        <TabsList className="grid w-full grid-cols-5 h-12 bg-muted/30 rounded-lg p-1 border border-border shadow-soft">
+        <TabsList className="grid w-full grid-cols-6 h-12 bg-muted/30 rounded-lg p-1 border border-border shadow-soft">
           <TabsTrigger value="overview" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
             <Package className="h-4 w-4" />
             PO Overview
@@ -3239,6 +3242,10 @@ export const POTracker = () => {
           <TabsTrigger value="analytics" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
             <TrendingUp className="h-4 w-4" />
             Analytics
+          </TabsTrigger>
+          <TabsTrigger value="purchase-links" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+            <ExternalLink className="h-4 w-4" />
+            Purchase Links
           </TabsTrigger>
         </TabsList>
 
@@ -4365,6 +4372,15 @@ export const POTracker = () => {
                             >
                               <ExternalLink className="h-4 w-4 mr-2" />
                               Generate Link
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setActiveTab('purchase-links')}
+                              className="text-muted-foreground hover:text-foreground"
+                            >
+                              <ExternalLink className="h-4 w-4 mr-2" />
+                              View All Links
                             </Button>
                           </div>
                        </div>}
@@ -6438,6 +6454,13 @@ export const POTracker = () => {
 
         <TabsContent value="analytics" className="space-y-6">
           <POAnalyticsDashboard orders={poOrders} isLoading={loadingStatus !== '' || (selectedPOForLabels && poOrders.length === 0)} />
+        </TabsContent>
+
+        <TabsContent value="purchase-links" className="space-y-6">
+          <div className="grid gap-6">
+            <PurchaseLinkManagement />
+            <PurchaseUpdatesPanel />
+          </div>
         </TabsContent>
 
       </Tabs>

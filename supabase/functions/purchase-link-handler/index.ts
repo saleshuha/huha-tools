@@ -102,7 +102,7 @@ serve(async (req) => {
       // Fetch PO orders
       const { data: poOrders, error: ordersError } = await supabaseClient
         .from('po_orders')
-        .select('*, sunsky_sku:sunsky_skus(*)')
+        .select('*')
         .in('po_number', link.po_numbers)
         .eq('user_id', link.user_id);
       
