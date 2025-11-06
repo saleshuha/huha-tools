@@ -103,7 +103,7 @@ export function StockHistoryChangeCard({
           <div className="flex items-center gap-2">
             <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
             <div className="text-xs font-medium text-foreground">
-              {formatDistanceToNow(new Date(change.created_at), { addSuffix: true })} • {format(new Date(change.created_at), 'HH:mm')}
+              {format(new Date(change.created_at), 'MMM dd, yyyy • HH:mm:ss')}
             </div>
           </div>
           
