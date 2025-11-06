@@ -168,7 +168,7 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
           Stock History
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-5xl max-h-[85vh] w-[95vw] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-5xl max-h-[85vh] w-[95vw] flex flex-col">
         <DialogHeader className="space-y-2 pb-3 border-b">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
