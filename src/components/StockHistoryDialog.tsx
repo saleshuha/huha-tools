@@ -233,6 +233,7 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
               />
               
               <HuhaTab01
+                className="flex-1 min-h-0"
                 value={mainTab}
                 onValueChange={(value) => setMainTab(value as 'activity' | 'analytics')}
                 items={[
