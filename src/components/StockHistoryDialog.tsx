@@ -240,7 +240,7 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
                     value: 'activity',
                     label: '📊 Activity Feed',
                   content: (
-                      <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+                      <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col min-h-0">
                         <TabsList className="grid w-full grid-cols-4 h-9">
                           <TabsTrigger value="all" className="text-xs">
                             All ({filteredChanges.length})
@@ -255,7 +255,7 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
                             Manual ({filteredChanges.filter(c => c.reference_type === 'manual').length})
                           </TabsTrigger>
                         </TabsList>
-                        <TabsContent value={activeTab} className="mt-2 pr-2">
+                        <TabsContent value={activeTab} className="flex-1 min-h-0 overflow-y-auto mt-2 pr-2">
                           <div className="space-y-3">
                             {filteredChanges.map((change, index) => {
                               let timeGapElement = null;
