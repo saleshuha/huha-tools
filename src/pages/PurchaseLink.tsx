@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { usePurchaseLink } from '@/hooks/usePurchaseLink';
@@ -23,6 +23,7 @@ export default function PurchaseLink() {
   const [sortBy, setSortBy] = useState<'qty-high-low' | 'qty-low-high' | null>(null);
   const [localUpdates, setLocalUpdates] = useState<Record<string, any>>({});
   const [savingItems, setSavingItems] = useState<Set<string>>(new Set());
+  const cardRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   // Sync hook data with local state
   useEffect(() => {
@@ -181,6 +182,20 @@ export default function PurchaseLink() {
     }
   };
 
+  const handleInputFocus = (orderId: string) => {
+    // Small delay to allow keyboard to start opening
+    setTimeout(() => {
+      const cardElement = cardRefs.current[orderId];
+      if (cardElement) {
+        cardElement.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+          inline: 'nearest'
+        });
+      }
+    }, 300);
+  };
+
   // Subscribe to realtime updates
   useEffect(() => {
     if (!token || !data?.link?.id) return;
@@ -333,7 +348,7 @@ export default function PurchaseLink() {
 
   return (
     <div className="min-h-screen bg-gradient-surface">
-      <div className="container max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+      <div className="container max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-[300px] md:pb-6">
         {/* Header */}
         <Card className="p-6">
           <div className="flex items-start justify-between mb-4">
@@ -439,7 +454,11 @@ export default function PurchaseLink() {
             const status = getItemStatus(order, update);
             
             return (
-              <Card key={order.id} className="p-4">
+              <Card 
+                key={order.id} 
+                className="p-4"
+                ref={(el) => cardRefs.current[order.id] = el}
+              >
                 <div className="flex flex-col md:flex-row gap-4 md:items-start">
                   {/* Top section on mobile: Image + Info */}
                   <div className="flex gap-4 items-start flex-1">
@@ -522,7 +541,8 @@ export default function PurchaseLink() {
                         placeholder="0"
                         value={localUpdate?.purchasedQuantity ?? update?.purchased_quantity ?? ''}
                         onChange={(e) => handleUpdateField(order.id, 'purchasedQuantity', parseInt(e.target.value) || 0)}
-                        className="h-9"
+                        onFocus={() => handleInputFocus(order.id)}
+                        className="h-9 text-[16px]"
                         disabled={status === 'not_available' || savingItems.has(order.id)}
                       />
                     </div>
