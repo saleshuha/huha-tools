@@ -2682,6 +2682,138 @@ export type Database = {
         }
         Relationships: []
       }
+      purchase_links: {
+        Row: {
+          access_count: number | null
+          created_at: string
+          description: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          last_accessed_at: string | null
+          link_token: string
+          metadata: Json | null
+          po_numbers: string[]
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_count?: number | null
+          created_at?: string
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          last_accessed_at?: string | null
+          link_token: string
+          metadata?: Json | null
+          po_numbers: string[]
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_count?: number | null
+          created_at?: string
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          last_accessed_at?: string | null
+          link_token?: string
+          metadata?: Json | null
+          po_numbers?: string[]
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      purchase_updates: {
+        Row: {
+          asin: string | null
+          created_at: string
+          estimated_delivery: string | null
+          id: string
+          link_id: string
+          metadata: Json | null
+          model_number: string | null
+          notes: string | null
+          po_number: string
+          po_order_id: string | null
+          purchased_quantity: number | null
+          sku_code: string | null
+          supplier_name: string | null
+          supplier_order_number: string | null
+          title: string | null
+          total_cost: number | null
+          unit_cost: number | null
+          updated_at: string
+          updated_by_email: string | null
+          updated_by_name: string | null
+        }
+        Insert: {
+          asin?: string | null
+          created_at?: string
+          estimated_delivery?: string | null
+          id?: string
+          link_id: string
+          metadata?: Json | null
+          model_number?: string | null
+          notes?: string | null
+          po_number: string
+          po_order_id?: string | null
+          purchased_quantity?: number | null
+          sku_code?: string | null
+          supplier_name?: string | null
+          supplier_order_number?: string | null
+          title?: string | null
+          total_cost?: number | null
+          unit_cost?: number | null
+          updated_at?: string
+          updated_by_email?: string | null
+          updated_by_name?: string | null
+        }
+        Update: {
+          asin?: string | null
+          created_at?: string
+          estimated_delivery?: string | null
+          id?: string
+          link_id?: string
+          metadata?: Json | null
+          model_number?: string | null
+          notes?: string | null
+          po_number?: string
+          po_order_id?: string | null
+          purchased_quantity?: number | null
+          sku_code?: string | null
+          supplier_name?: string | null
+          supplier_order_number?: string | null
+          title?: string | null
+          total_cost?: number | null
+          unit_cost?: number | null
+          updated_at?: string
+          updated_by_email?: string | null
+          updated_by_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_updates_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_updates_po_order_id_fkey"
+            columns: ["po_order_id"]
+            isOneToOne: false
+            referencedRelation: "po_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       saved_delivery_addresses: {
         Row: {
           address: string

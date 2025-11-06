@@ -67,6 +67,7 @@ import NoonOrderProcessingPage from "./pages/NoonOrderProcessing";
 import PreviewSettings from "./pages/PreviewSettings";
 import QZTrayPage from "./pages/QZTrayPage";
 import { VelocityAnalyticsSimple } from "@/components/VelocityAnalyticsSimple";
+import PurchaseLink from "./pages/PurchaseLink";
 
 import { useState as useReactState } from "react";
 import { useToast } from "@/components/ui/use-toast";
@@ -306,8 +307,11 @@ const App = () => {
                         <Route path="/noon-sku-costs" element={<SKUCostManagement />} />
                         <Route path="/sku-costs" element={<SKUCostManagement />} />
                         <Route path="/carrefour-payments" element={<Navigate to="/stores" replace />} />
-                        <Route path="/stores" element={<StoreSelection />} />
+                         <Route path="/stores" element={<StoreSelection />} />
                         <Route path="/carrefour-payments/:storeId" element={<CarrefourSalesTracker />} />
+                        
+                        {/* Public Purchase Link Route - No auth required */}
+                        <Route path="/purchase/:token" element={<PurchaseLink />} />
                         
                         <Route path="/auth" element={<Navigate to="/" replace />} />
                         

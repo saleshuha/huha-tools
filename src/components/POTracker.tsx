@@ -24,6 +24,7 @@ import { POReportsSection } from '@/components/po/POReportsSection';
 import { POPrintDialog } from '@/components/po/POPrintDialog';
 import { POMetricsCard } from '@/components/po/POMetricsCard';
 import { POAnalyticsDashboard } from '@/components/po/analytics/POAnalyticsDashboard';
+import { GeneratePurchaseLinkDialog } from '@/components/po/GeneratePurchaseLinkDialog';
 import { SmartMatchingPanel } from '@/components/po/matching/SmartMatchingPanel';
 import { FulfillFromStockDialog } from '@/components/po/FulfillFromStockDialog';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
@@ -306,6 +307,9 @@ export const POTracker = () => {
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [printMode, setPrintMode] = useState<'single' | 'bulk'>('single');
   const [printOrders, setPrintOrders] = useState<POOrder[]>([]);
+  
+  // Generate Purchase Link Dialog State
+  const [generateLinkDialogOpen, setGenerateLinkDialogOpen] = useState(false);
 
   // Inventory data for matching
   const [inventoryData, setInventoryData] = useState<{
@@ -4353,6 +4357,15 @@ export const POTracker = () => {
                               <Printer className="h-4 w-4 mr-2" />
                               Print Labels
                             </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() => setGenerateLinkDialogOpen(true)}
+                              disabled={selectedPOsForLabels.size === 0}
+                              className="border-blue-500/30 hover:border-blue-500"
+                            >
+                              <ExternalLink className="h-4 w-4 mr-2" />
+                              Generate Link
+                            </Button>
                           </div>
                        </div>}
 
@@ -6753,6 +6766,13 @@ export const POTracker = () => {
         orderInfo={fulfillDialogOrder}
         onConfirm={handleFulfillFromStock}
         isLoading={isFulfilling}
+      />
+      
+      {/* Generate Purchase Link Dialog */}
+      <GeneratePurchaseLinkDialog
+        open={generateLinkDialogOpen}
+        onOpenChange={setGenerateLinkDialogOpen}
+        poNumbers={Array.from(selectedPOsForLabels)}
       />
     </div>
   );
