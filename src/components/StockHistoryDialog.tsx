@@ -10,7 +10,7 @@ import { StockHistoryStats, StockHistoryStatistics } from './stock-history/Stock
 import { StockHistoryChangeCard, StockChange } from './stock-history/StockHistoryChangeCard';
 import { StockHistoryExport } from './stock-history/StockHistoryExport';
 import { StockHistoryChart } from './stock-history/StockHistoryChart';
-import { isWithinInterval, differenceInDays } from 'date-fns';
+import { isWithinInterval, differenceInDays, differenceInHours, differenceInMinutes } from 'date-fns';
 
 interface StockHistoryDialogProps {
   inventoryId: string;
@@ -232,14 +232,54 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
                   <TabsTrigger value="manual" className="text-xs">Manual ({stockChanges.filter(c => c.reference_type === 'manual').length})</TabsTrigger>
                 </TabsList>
                 <TabsContent value={activeTab} className="flex-1 overflow-y-auto mt-3 pr-2">
-                  <div className="space-y-2">
-                    {filteredChanges.map(change => (
-                      <StockHistoryChangeCard key={change.id} change={change} isExpanded={expandedItems.has(change.id)} onToggleExpanded={() => {
-                        const next = new Set(expandedItems);
-                        next.has(change.id) ? next.delete(change.id) : next.add(change.id);
-                        setExpandedItems(next);
-                      }} />
-                    ))}
+                  <div className="space-y-6">
+                    {filteredChanges.map((change, index) => {
+                      // Calculate time gap from previous change
+                      let timeGapElement = null;
+                      if (index < filteredChanges.length - 1) {
+                        const currentTime = new Date(change.created_at);
+                        const previousTime = new Date(filteredChanges[index + 1].created_at);
+                        const minutesDiff = differenceInMinutes(currentTime, previousTime);
+                        const hoursDiff = differenceInHours(currentTime, previousTime);
+                        const daysDiff = differenceInDays(currentTime, previousTime);
+                        
+                        let gapText = null;
+                        if (daysDiff > 0) {
+                          gapText = `${daysDiff} ${daysDiff === 1 ? 'day' : 'days'} later`;
+                        } else if (hoursDiff > 0) {
+                          gapText = `${hoursDiff} ${hoursDiff === 1 ? 'hour' : 'hours'} later`;
+                        } else if (minutesDiff > 5) {
+                          gapText = `${minutesDiff} minutes later`;
+                        }
+                        
+                        if (gapText) {
+                          timeGapElement = (
+                            <div className="flex items-center justify-center gap-2 my-4">
+                              <div className="h-px bg-border flex-1" />
+                              <span className="text-xs text-muted-foreground px-2">
+                                ⏱️ {gapText}
+                              </span>
+                              <div className="h-px bg-border flex-1" />
+                            </div>
+                          );
+                        }
+                      }
+
+                      return (
+                        <div key={change.id}>
+                          <StockHistoryChangeCard 
+                            change={change} 
+                            isExpanded={expandedItems.has(change.id)} 
+                            onToggleExpanded={() => {
+                              const next = new Set(expandedItems);
+                              next.has(change.id) ? next.delete(change.id) : next.add(change.id);
+                              setExpandedItems(next);
+                            }} 
+                          />
+                          {timeGapElement}
+                        </div>
+                      );
+                    })}
                   </div>
                 </TabsContent>
               </Tabs>
