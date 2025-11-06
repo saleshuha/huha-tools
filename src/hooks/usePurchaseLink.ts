@@ -88,7 +88,8 @@ export const usePurchaseLink = (token?: string) => {
     error,
     generateLink,
     savePurchaseUpdate,
-    refetch: token ? () => fetchLinkData(token) : undefined
+    refetch: token ? () => fetchLinkData(token) : undefined,
+    fetchLinkData
   };
 };
 

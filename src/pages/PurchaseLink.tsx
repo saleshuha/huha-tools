@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import { usePurchaseLink } from '@/hooks/usePurchaseLink';
-import { usePurchaseAutoSave } from '@/hooks/usePurchaseAutoSave';
 import { PurchaseProgressBar } from '@/components/po/PurchaseProgressBar';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,81 +10,147 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Loader2, Package, Search, CheckCircle2, Circle, AlertCircle, Image, XCircle } from 'lucide-react';
+import { Loader2, Package, Search, CheckCircle2, Circle, AlertCircle, Image, XCircle, Check } from 'lucide-react';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 
 export default function PurchaseLink() {
   const { token } = useParams<{ token: string }>();
-  const { data, loading, error, savePurchaseUpdate } = usePurchaseLink(token);
+  const { data, loading, error, savePurchaseUpdate, fetchLinkData } = usePurchaseLink(token);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'purchased' | 'partial' | 'pending' | 'not_available'>('pending');
   const [localUpdates, setLocalUpdates] = useState<Record<string, any>>({});
+  const [savingItems, setSavingItems] = useState<Set<string>>(new Set());
 
-  const { scheduleAutoSave } = usePurchaseAutoSave({
-    onSave: async (update) => {
-      if (!token) return;
-      try {
-        await savePurchaseUpdate(token, update);
-        toast.success('Saved', { duration: 1000 });
-      } catch (error) {
-        toast.error('Failed to save');
-      }
+  const handleSaveItem = async (orderId: string) => {
+    const order = data?.poOrders.find(o => o.id === orderId);
+    if (!order || !token) return;
+
+    const existingUpdate = data?.updates.find(u => u.po_order_id === orderId);
+    const localUpdate = localUpdates[orderId];
+    
+    if (!localUpdate) {
+      toast.info('No changes to save');
+      return;
     }
-  });
+
+    setSavingItems(prev => new Set(prev).add(orderId));
+
+    try {
+      const updatedData = {
+        poOrderId: orderId,
+        poNumber: order.po_number,
+        asin: order.asin,
+        skuCode: order.sku_code,
+        modelNumber: order.model_number,
+        title: order.title,
+        purchasedQuantity: localUpdate.purchasedQuantity ?? existingUpdate?.purchased_quantity ?? 0,
+        ...existingUpdate
+      };
+
+      await savePurchaseUpdate(token, updatedData);
+      
+      setLocalUpdates(prev => {
+        const newUpdates = { ...prev };
+        delete newUpdates[orderId];
+        return newUpdates;
+      });
+      
+      toast.success('Saved successfully', { duration: 1500 });
+    } catch (error) {
+      toast.error('Failed to save');
+      console.error('Save error:', error);
+    } finally {
+      setSavingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(orderId);
+        return newSet;
+      });
+    }
+  };
 
   const handleUpdateField = (orderId: string, field: string, value: any) => {
+    setLocalUpdates(prev => ({
+      ...prev,
+      [orderId]: {
+        ...prev[orderId],
+        [field]: value
+      }
+    }));
+  };
+
+  const handleMarkNotAvailable = async (orderId: string) => {
     const order = data?.poOrders.find(o => o.id === orderId);
-    if (!order) return;
+    if (!order || !token) return;
 
     const existingUpdate = data?.updates.find(u => u.po_order_id === orderId);
     
-    const updatedData = {
-      ...localUpdates[orderId],
-      poOrderId: orderId,
-      poNumber: order.po_number,
-      asin: order.asin,
-      skuCode: order.sku_code,
-      modelNumber: order.model_number,
-      title: order.title,
-      [field]: value,
-      ...existingUpdate
-    };
+    setSavingItems(prev => new Set(prev).add(orderId));
 
-    setLocalUpdates(prev => ({
-      ...prev,
-      [orderId]: updatedData
-    }));
+    try {
+      const updatedData = {
+        poOrderId: orderId,
+        poNumber: order.po_number,
+        asin: order.asin,
+        skuCode: order.sku_code,
+        modelNumber: order.model_number,
+        title: order.title,
+        metadata: { not_available: true },
+        ...existingUpdate
+      };
 
-    scheduleAutoSave(updatedData);
+      await savePurchaseUpdate(token, updatedData);
+      
+      setLocalUpdates(prev => {
+        const newUpdates = { ...prev };
+        delete newUpdates[orderId];
+        return newUpdates;
+      });
+      
+      toast.success('Marked as not available');
+    } catch (error) {
+      toast.error('Failed to update');
+    } finally {
+      setSavingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(orderId);
+        return newSet;
+      });
+    }
   };
 
-  const handleMarkNotAvailable = (orderId: string) => {
-    const order = data?.poOrders.find(o => o.id === orderId);
-    if (!order) return;
+  // Subscribe to realtime updates
+  useEffect(() => {
+    if (!token || !data?.link?.id) return;
 
-    const existingUpdate = data?.updates.find(u => u.po_order_id === orderId);
-    
-    const updatedData = {
-      ...localUpdates[orderId],
-      poOrderId: orderId,
-      poNumber: order.po_number,
-      asin: order.asin,
-      skuCode: order.sku_code,
-      modelNumber: order.model_number,
-      title: order.title,
-      metadata: { not_available: true },
-      ...existingUpdate
+    const channel = supabase
+      .channel('purchase-updates-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'purchase_updates',
+          filter: `link_id=eq.${data.link.id}`
+        },
+        (payload) => {
+          console.log('Realtime update received:', payload);
+          
+          if (fetchLinkData && token) {
+            fetchLinkData(token);
+          }
+          
+          if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+            toast.info('Data updated', { duration: 1500 });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
     };
-
-    setLocalUpdates(prev => ({
-      ...prev,
-      [orderId]: updatedData
-    }));
-
-    scheduleAutoSave(updatedData);
-    toast.success('Marked as not available');
-  };
+  }, [token, data?.link?.id, fetchLinkData]);
 
   const getItemStatus = (order: any, update: any) => {
     // Check if marked as not available
@@ -334,8 +400,8 @@ export default function PurchaseLink() {
                     </div>
                   </div>
 
-                  {/* Purchase Actions - full width on mobile, fixed width on desktop */}
-                  <div className="flex gap-3 w-full md:w-auto md:items-end">
+                  {/* Purchase Actions - improved mobile layout */}
+                  <div className="flex gap-2 w-full md:w-auto md:items-end">
                     <div className="space-y-1 flex-1 md:flex-initial md:w-32">
                       <Label className="text-xs">Purchased Qty</Label>
                       <Input
@@ -344,18 +410,36 @@ export default function PurchaseLink() {
                         value={localUpdate?.purchasedQuantity ?? update?.purchased_quantity ?? ''}
                         onChange={(e) => handleUpdateField(order.id, 'purchasedQuantity', parseInt(e.target.value) || 0)}
                         className="h-9"
-                        disabled={status === 'not_available'}
+                        disabled={status === 'not_available' || savingItems.has(order.id)}
                       />
                     </div>
                     
+                    {/* Save tick button - icon only, fixed width */}
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => handleSaveItem(order.id)}
+                      disabled={!localUpdate?.purchasedQuantity || savingItems.has(order.id)}
+                      className="h-9 w-9 p-0 self-end"
+                      title="Save"
+                    >
+                      {savingItems.has(order.id) ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Check className="h-4 w-4" />
+                      )}
+                    </Button>
+                    
+                    {/* Not Available button */}
                     <Button
                       variant={status === 'not_available' ? 'destructive' : 'outline'}
                       size="sm"
                       onClick={() => handleMarkNotAvailable(order.id)}
-                      className="h-9 flex-1 md:flex-initial"
+                      disabled={savingItems.has(order.id)}
+                      className="h-9 px-3 self-end"
                     >
-                      <XCircle className="h-4 w-4 md:mr-1" />
-                      <span className="md:inline">Not Available</span>
+                      <XCircle className="h-4 w-4 mr-1" />
+                      <span className="hidden sm:inline">Not Available</span>
                     </Button>
                   </div>
                 </div>
