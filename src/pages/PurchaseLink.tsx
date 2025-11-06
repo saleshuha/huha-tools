@@ -10,14 +10,15 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Loader2, Package, Search, Download, CheckCircle2, Circle, AlertCircle, Image } from 'lucide-react';
+import { Loader2, Package, Search, CheckCircle2, Circle, AlertCircle, Image, XCircle } from 'lucide-react';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 
 export default function PurchaseLink() {
   const { token } = useParams<{ token: string }>();
   const { data, loading, error, savePurchaseUpdate } = usePurchaseLink(token);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'purchased' | 'partial' | 'pending'>('all');
+  const [filterStatus, setFilterStatus] = useState<'purchased' | 'partial' | 'pending' | 'not_available'>('pending');
   const [localUpdates, setLocalUpdates] = useState<Record<string, any>>({});
 
   const { scheduleAutoSave } = usePurchaseAutoSave({
@@ -58,7 +59,37 @@ export default function PurchaseLink() {
     scheduleAutoSave(updatedData);
   };
 
+  const handleMarkNotAvailable = (orderId: string) => {
+    const order = data?.poOrders.find(o => o.id === orderId);
+    if (!order) return;
+
+    const existingUpdate = data?.updates.find(u => u.po_order_id === orderId);
+    
+    const updatedData = {
+      ...localUpdates[orderId],
+      poOrderId: orderId,
+      poNumber: order.po_number,
+      asin: order.asin,
+      skuCode: order.sku_code,
+      modelNumber: order.model_number,
+      title: order.title,
+      metadata: { not_available: true },
+      ...existingUpdate
+    };
+
+    setLocalUpdates(prev => ({
+      ...prev,
+      [orderId]: updatedData
+    }));
+
+    scheduleAutoSave(updatedData);
+    toast.success('Marked as not available');
+  };
+
   const getItemStatus = (order: any, update: any) => {
+    // Check if marked as not available
+    if (update?.metadata?.not_available) return 'not_available';
+    
     const purchased = update?.purchased_quantity || 0;
     const required = order.quantity;
     
@@ -77,7 +108,7 @@ export default function PurchaseLink() {
       order.sku_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.po_number?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesFilter = filterStatus === 'all' || status === filterStatus;
+    const matchesFilter = status === filterStatus;
     
     return matchesSearch && matchesFilter;
   }) || [];
@@ -86,12 +117,16 @@ export default function PurchaseLink() {
     total: data?.poOrders.length || 0,
     purchased: data?.poOrders.filter(o => {
       const u = data?.updates.find(up => up.po_order_id === o.id);
-      return (u?.purchased_quantity || 0) >= o.quantity;
+      return !u?.metadata?.not_available && (u?.purchased_quantity || 0) >= o.quantity;
     }).length || 0,
     partial: data?.poOrders.filter(o => {
       const u = data?.updates.find(up => up.po_order_id === o.id);
       const qty = u?.purchased_quantity || 0;
-      return qty > 0 && qty < o.quantity;
+      return !u?.metadata?.not_available && qty > 0 && qty < o.quantity;
+    }).length || 0,
+    notAvailable: data?.poOrders.filter(o => {
+      const u = data?.updates.find(up => up.po_order_id === o.id);
+      return u?.metadata?.not_available === true;
     }).length || 0
   };
 
@@ -157,21 +192,14 @@ export default function PurchaseLink() {
                 className="pl-9"
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button
-                variant={filterStatus === 'all' ? 'default' : 'outline'}
+                variant={filterStatus === 'pending' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setFilterStatus('all')}
+                onClick={() => setFilterStatus('pending')}
               >
-                All ({stats.total})
-              </Button>
-              <Button
-                variant={filterStatus === 'purchased' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setFilterStatus('purchased')}
-              >
-                <CheckCircle2 className="h-4 w-4 mr-1" />
-                Complete ({stats.purchased})
+                <Circle className="h-4 w-4 mr-1" />
+                Pending ({stats.total - stats.purchased - stats.partial - stats.notAvailable})
               </Button>
               <Button
                 variant={filterStatus === 'partial' ? 'default' : 'outline'}
@@ -182,12 +210,20 @@ export default function PurchaseLink() {
                 Partial ({stats.partial})
               </Button>
               <Button
-                variant={filterStatus === 'pending' ? 'default' : 'outline'}
+                variant={filterStatus === 'purchased' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setFilterStatus('pending')}
+                onClick={() => setFilterStatus('purchased')}
               >
-                <Circle className="h-4 w-4 mr-1" />
-                Pending ({stats.total - stats.purchased - stats.partial})
+                <CheckCircle2 className="h-4 w-4 mr-1" />
+                Complete ({stats.purchased})
+              </Button>
+              <Button
+                variant={filterStatus === 'not_available' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFilterStatus('not_available')}
+              >
+                <XCircle className="h-4 w-4 mr-1" />
+                Not Available ({stats.notAvailable})
               </Button>
             </div>
           </div>
@@ -204,24 +240,30 @@ export default function PurchaseLink() {
               <Card key={order.id} className="p-4">
                 <div className="flex gap-4 items-start">
                   {/* Product Image */}
-                  <div className="flex-shrink-0 w-20 h-20 rounded-md overflow-hidden bg-muted flex items-center justify-center">
-                    {order.product_image?.image_url ? (
-                      <img 
-                        src={order.product_image.image_url} 
-                        alt={order.title || 'Product'}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                          const parent = e.currentTarget.parentElement;
-                          if (parent) {
-                            parent.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>';
-                          }
-                        }}
-                      />
-                    ) : (
-                      <Image className="h-8 w-8 text-muted-foreground" />
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <div className="flex-shrink-0 w-20 h-20 rounded-md overflow-hidden bg-muted flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity">
+                        {order.product_image?.image_url ? (
+                          <img 
+                            src={order.product_image.image_url} 
+                            alt={order.title || 'Product'}
+                            className="w-full h-full object-contain p-1"
+                          />
+                        ) : (
+                          <Image className="h-8 w-8 text-muted-foreground" />
+                        )}
+                      </div>
+                    </DialogTrigger>
+                    {order.product_image?.image_url && (
+                      <DialogContent className="max-w-3xl">
+                        <img 
+                          src={order.product_image.image_url} 
+                          alt={order.title || 'Product'}
+                          className="w-full h-auto"
+                        />
+                      </DialogContent>
                     )}
-                  </div>
+                  </Dialog>
 
                   {/* Item Info */}
                   <div className="flex-1 space-y-1">
@@ -235,6 +277,9 @@ export default function PurchaseLink() {
                       {status === 'partial' && (
                         <AlertCircle className="h-4 w-4 text-yellow-500" />
                       )}
+                      {status === 'not_available' && (
+                        <XCircle className="h-4 w-4 text-red-500" />
+                      )}
                     </div>
                     <p className="font-medium text-sm">{order.title}</p>
                     <div className="flex gap-2 text-xs text-muted-foreground">
@@ -246,7 +291,7 @@ export default function PurchaseLink() {
                     </p>
                   </div>
 
-                  {/* Simplified Purchase Inputs - Only 2 fields */}
+                  {/* Purchase Actions */}
                   <div className="flex gap-3 items-end">
                     <div className="space-y-1 w-32">
                       <Label className="text-xs">Purchased Qty</Label>
@@ -256,20 +301,19 @@ export default function PurchaseLink() {
                         value={localUpdate?.purchasedQuantity ?? update?.purchased_quantity ?? ''}
                         onChange={(e) => handleUpdateField(order.id, 'purchasedQuantity', parseInt(e.target.value) || 0)}
                         className="h-9"
+                        disabled={status === 'not_available'}
                       />
                     </div>
                     
-                    <div className="space-y-1 w-32">
-                      <Label className="text-xs">Unit Cost</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={localUpdate?.unitCost ?? update?.unit_cost ?? ''}
-                        onChange={(e) => handleUpdateField(order.id, 'unitCost', parseFloat(e.target.value) || 0)}
-                        className="h-9"
-                      />
-                    </div>
+                    <Button
+                      variant={status === 'not_available' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => handleMarkNotAvailable(order.id)}
+                      className="h-9"
+                    >
+                      <XCircle className="h-4 w-4 mr-1" />
+                      Not Available
+                    </Button>
                   </div>
                 </div>
               </Card>

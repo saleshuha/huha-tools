@@ -200,6 +200,7 @@ serve(async (req) => {
           updated_by_name: updateData.updatedByName,
           updated_by_email: updateData.updatedByEmail,
           notes: updateData.notes,
+          metadata: updateData.metadata || {},
           updated_at: new Date().toISOString()
         }, {
           onConflict: 'link_id,po_order_id'
