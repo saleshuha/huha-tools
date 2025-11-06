@@ -22,6 +22,7 @@ import { SunskyDataViewer } from '@/components/SunskyDataViewer';
 import { EnhancedFilterPanel, EnhancedFilterState } from '@/components/po/EnhancedFilterPanel';
 import { POMetricsCards } from '@/components/po/POMetricsCards';
 import { FulfillFromStockDialog } from '@/components/po/FulfillFromStockDialog';
+import { FulfillmentHistoryPanel } from '@/components/po/FulfillmentHistoryPanel';
 import { EnhancedPOTable } from '@/components/po/EnhancedPOTable';
 import { POActionPanel } from '@/components/po/POActionPanel';
 import { POTablePagination } from '@/components/po/POTablePagination';
@@ -1969,7 +1970,7 @@ export default function PODetailsPage() {
       // Step 1: Find the specific PO record(s) to update
       const { data: poRecords, error: fetchError } = await supabase
         .from('po_orders')
-        .select('id, asin, sku, quantity')
+        .select('id, asin, sku, quantity, model_number')
         .eq('po_number', poNumber)
         .eq('user_id', user.id);
       
@@ -2069,6 +2070,27 @@ export default function PODetailsPage() {
       if (stockChangeError) {
         console.error('Failed to log stock change:', stockChangeError);
         // Don't throw - stock was already updated
+      }
+
+      // Step 6: Create fulfillment history record
+      const { error: fulfillmentHistoryError } = await supabase
+        .from('fulfillment_history')
+        .insert({
+          po_number: poNumber,
+          fulfilled_quantity: quantity,
+          original_quantity: fulfillDialogOrder.quantity,
+          fulfillment_source: 'stock',
+          inventory_id: inventoryItem.id,
+          asin: inventoryItem.asin || fulfillDialogOrder.asin,
+          sku_code: inventoryItem.sku || poRecords[0]?.sku,
+          model_number: poRecords[0]?.model_number,
+          user_id: user.id,
+          notes: `Fulfilled ${quantity} units from in-stock inventory. Serial: ${inventoryItem.serial_number || 'N/A'}. Remaining stock: ${newQuantity}`
+        });
+
+      if (fulfillmentHistoryError) {
+        console.error('Failed to create fulfillment history:', fulfillmentHistoryError);
+        // Don't throw - fulfillment already completed
       }
       
       toast({
@@ -2578,6 +2600,13 @@ export default function PODetailsPage() {
           scrollToTop('po-table-container');
         }} onItemsPerPageChange={setItemsPerPage} />
           </div>}
+
+        {/* Fulfillment History Section */}
+        {matchedOrders.length > 0 && (
+          <div className="mb-4">
+            <FulfillmentHistoryPanel poNumber={poNumber!} userId={matchedOrders[0]?.user_id || ''} />
+          </div>
+        )}
 
         {/* Preview From Stock Dialog */}
         <Dialog>

@@ -760,7 +760,7 @@ export const POTracker = () => {
       // Step 1: Find the specific PO record(s) to update
       const { data: poRecords, error: fetchError } = await supabase
         .from('po_orders')
-        .select('id, asin, sku, quantity')
+        .select('id, asin, sku, quantity, model_number')
         .eq('po_number', poNumber)
         .eq('user_id', user.id);
       
@@ -862,6 +862,27 @@ export const POTracker = () => {
       if (stockChangeError) {
         console.error('Failed to log stock change:', stockChangeError);
         // Don't throw - stock was already updated
+      }
+
+      // Step 6: Create fulfillment history record
+      const { error: fulfillmentHistoryError } = await supabase
+        .from('fulfillment_history')
+        .insert({
+          po_number: poNumber,
+          fulfilled_quantity: quantity,
+          original_quantity: fulfillDialogOrder.quantity,
+          fulfillment_source: 'stock',
+          inventory_id: inventoryItem.id,
+          asin: inventoryItem.asin || fulfillDialogOrder.asin,
+          sku_code: inventoryItem.sku || poRecords[0]?.sku,
+          model_number: poRecords[0]?.model_number,
+          user_id: user.id,
+          notes: `Fulfilled ${quantity} units from in-stock inventory. Serial: ${inventoryItem.serial_number || 'N/A'}. Remaining stock: ${newQuantity}`
+        });
+
+      if (fulfillmentHistoryError) {
+        console.error('Failed to create fulfillment history:', fulfillmentHistoryError);
+        // Don't throw - fulfillment already completed
       }
       
       toast({
@@ -3908,9 +3929,9 @@ export const POTracker = () => {
                                       {order.po_number}
                                       {!isClosedOrder && <ExternalLink className="h-3 w-3 ml-1" />}
                                     </Button>
-                                    {isClosedOrder && <Badge variant="destructive" className="text-xs">
-                                        CLOSED
-                                      </Badge>}
+                                     {isClosedOrder && <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700">
+                                         ✓ Fulfilled
+                                       </Badge>}
                                   </div>
                              </TableCell>
                              <TableCell>
