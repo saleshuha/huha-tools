@@ -98,6 +98,29 @@ export default function PurchaseLink() {
     return 'partial';
   };
 
+  // Calculate consolidated quantities for items across multiple POs
+  const getConsolidatedQuantity = (order: any) => {
+    if (!data?.poOrders) return null;
+    
+    // Find all orders with the same ASIN or SKU
+    const relatedOrders = data.poOrders.filter(o => 
+      (order.asin && o.asin === order.asin) || 
+      (order.sku_code && o.sku_code === order.sku_code)
+    );
+    
+    // If multiple orders exist, return total quantity
+    if (relatedOrders.length > 1) {
+      const totalQty = relatedOrders.reduce((sum, o) => sum + o.quantity, 0);
+      return {
+        total: totalQty,
+        count: relatedOrders.length,
+        poNumbers: relatedOrders.map(o => o.po_number)
+      };
+    }
+    
+    return null; // No consolidation needed
+  };
+
   const filteredOrders = data?.poOrders.filter(order => {
     const update = data.updates.find(u => u.po_order_id === order.id);
     const status = getItemStatus(order, update);
@@ -238,62 +261,83 @@ export default function PurchaseLink() {
             
             return (
               <Card key={order.id} className="p-4">
-                <div className="flex gap-4 items-start">
-                  {/* Product Image */}
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <div className="flex-shrink-0 w-20 h-20 rounded-md overflow-hidden bg-muted flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity">
-                        {order.product_image?.image_url ? (
+                <div className="flex flex-col md:flex-row gap-4 md:items-start">
+                  {/* Top section on mobile: Image + Info */}
+                  <div className="flex gap-4 items-start flex-1">
+                    {/* Product Image */}
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <div className="flex-shrink-0 w-20 h-20 rounded-md overflow-hidden bg-muted flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity">
+                          {order.product_image?.image_url ? (
+                            <img 
+                              src={order.product_image.image_url} 
+                              alt={order.title || 'Product'}
+                              className="w-full h-full object-contain p-1"
+                            />
+                          ) : (
+                            <Image className="h-8 w-8 text-muted-foreground" />
+                          )}
+                        </div>
+                      </DialogTrigger>
+                      {order.product_image?.image_url && (
+                        <DialogContent className="max-w-3xl">
                           <img 
                             src={order.product_image.image_url} 
                             alt={order.title || 'Product'}
-                            className="w-full h-full object-contain p-1"
+                            className="w-full h-auto"
                           />
-                        ) : (
-                          <Image className="h-8 w-8 text-muted-foreground" />
+                        </DialogContent>
+                      )}
+                    </Dialog>
+
+                    {/* Item Info */}
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          {order.po_number}
+                        </Badge>
+                        {status === 'purchased' && (
+                          <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        )}
+                        {status === 'partial' && (
+                          <AlertCircle className="h-4 w-4 text-yellow-500" />
+                        )}
+                        {status === 'not_available' && (
+                          <XCircle className="h-4 w-4 text-red-500" />
                         )}
                       </div>
-                    </DialogTrigger>
-                    {order.product_image?.image_url && (
-                      <DialogContent className="max-w-3xl">
-                        <img 
-                          src={order.product_image.image_url} 
-                          alt={order.title || 'Product'}
-                          className="w-full h-auto"
-                        />
-                      </DialogContent>
-                    )}
-                  </Dialog>
-
-                  {/* Item Info */}
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">
-                        {order.po_number}
-                      </Badge>
-                      {status === 'purchased' && (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      )}
-                      {status === 'partial' && (
-                        <AlertCircle className="h-4 w-4 text-yellow-500" />
-                      )}
-                      {status === 'not_available' && (
-                        <XCircle className="h-4 w-4 text-red-500" />
-                      )}
+                      <p className="font-medium text-sm">{order.title}</p>
+                      <div className="flex gap-2 text-xs text-muted-foreground">
+                        {order.asin && <span>ASIN: {order.asin}</span>}
+                        {order.sku_code && <span>SKU: {order.sku_code}</span>}
+                      </div>
+                      {(() => {
+                        const consolidated = getConsolidatedQuantity(order);
+                        if (consolidated) {
+                          return (
+                            <div className="space-y-0.5">
+                              <p className="text-sm">
+                                Required (This PO): <span className="font-semibold">{order.quantity}</span>
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Total across {consolidated.count} POs: 
+                                <span className="font-semibold text-foreground ml-1">{consolidated.total}</span>
+                              </p>
+                            </div>
+                          );
+                        }
+                        return (
+                          <p className="text-sm">
+                            Required: <span className="font-semibold">{order.quantity}</span>
+                          </p>
+                        );
+                      })()}
                     </div>
-                    <p className="font-medium text-sm">{order.title}</p>
-                    <div className="flex gap-2 text-xs text-muted-foreground">
-                      {order.asin && <span>ASIN: {order.asin}</span>}
-                      {order.sku_code && <span>SKU: {order.sku_code}</span>}
-                    </div>
-                    <p className="text-sm">
-                      Required: <span className="font-semibold">{order.quantity}</span>
-                    </p>
                   </div>
 
-                  {/* Purchase Actions */}
-                  <div className="flex gap-3 items-end">
-                    <div className="space-y-1 w-32">
+                  {/* Purchase Actions - full width on mobile, fixed width on desktop */}
+                  <div className="flex gap-3 w-full md:w-auto md:items-end">
+                    <div className="space-y-1 flex-1 md:flex-initial md:w-32">
                       <Label className="text-xs">Purchased Qty</Label>
                       <Input
                         type="number"
@@ -306,13 +350,13 @@ export default function PurchaseLink() {
                     </div>
                     
                     <Button
-                      variant={status === 'not_available' ? 'default' : 'outline'}
+                      variant={status === 'not_available' ? 'destructive' : 'outline'}
                       size="sm"
                       onClick={() => handleMarkNotAvailable(order.id)}
-                      className="h-9"
+                      className="h-9 flex-1 md:flex-initial"
                     >
-                      <XCircle className="h-4 w-4 mr-1" />
-                      Not Available
+                      <XCircle className="h-4 w-4 md:mr-1" />
+                      <span className="md:inline">Not Available</span>
                     </Button>
                   </div>
                 </div>
