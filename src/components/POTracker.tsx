@@ -2322,18 +2322,27 @@ export const POTracker = () => {
       return;
     }
     setIsPrinting(true);
+    
+    console.log('🖨️ Print quantities:', {
+      selectedForPrint: Array.from(selectedForPrint.entries()),
+      customPrintQuantities: Array.from(customPrintQuantities.entries()),
+      message: 'Using customPrintQuantities for actual print counts'
+    });
+    
     try {
       // Detect consolidated vs regular orders
       const selectedOrders: POOrder[] = [];
       const consolidatedSelections = new Map<string, { qty: number, orders: POOrder[] }>();
 
-      for (const [orderId, quantity] of selectedForPrint.entries()) {
+      for (const orderId of selectedForPrint.keys()) {
+        const quantity = customPrintQuantities.get(orderId) || 1; // Get actual quantity from customPrintQuantities
+        
         if (orderId.startsWith('consolidated-')) {
           // Find the consolidated order from the display list
           const displayedOrder = ordersToDisplayRef.current.find(o => o.id === orderId);
           if (displayedOrder?._consolidatedOrders) {
             consolidatedSelections.set(orderId, {
-              qty: quantity,
+              qty: quantity, // Use quantity from customPrintQuantities
               orders: displayedOrder._consolidatedOrders
             });
             // Add all underlying orders
@@ -2379,7 +2388,7 @@ export const POTracker = () => {
           }
         } else {
           // Regular non-consolidated order
-          const customQuantity = selectedForPrint.get(order.id) || 1;
+          const customQuantity = customPrintQuantities.get(order.id) || 1;
           for (let i = 0; i < customQuantity; i++) {
             let zplCode = generateZPLFromTemplate(order, printSettings);
             allZPLCodes.push(zplCode);
@@ -2425,7 +2434,7 @@ export const POTracker = () => {
           console.log(`  📦 Consolidated order ${order.id}: Recording ${copiesToRecord}/${consolidatedQty} (${(proportion * 100).toFixed(1)}% of total)`);
         } else {
           // Regular order
-          copiesToRecord = selectedForPrint.get(order.id) || 1;
+          copiesToRecord = customPrintQuantities.get(order.id) || 1;
         }
         
         const newPrintedQuantity = (order.printed_quantity || 0) + copiesToRecord;
