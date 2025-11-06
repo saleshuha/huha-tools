@@ -33,7 +33,7 @@ export const HuhaTab01: React.FC<HuhaTab01Props> = ({
   return (
     <Tabs value={value} onValueChange={onValueChange} className={cn("w-full", className)}>
       <TabsList className={cn(
-        "grid w-full mb-8 bg-card border border-border/50 shadow-soft",
+        "grid w-full mb-3 bg-card border border-border/50 shadow-soft",
         gridCols,
         tabsListClassName
       )}>
@@ -56,7 +56,7 @@ export const HuhaTab01: React.FC<HuhaTab01Props> = ({
         <TabsContent
           key={item.value}
           value={item.value}
-          className={cn("space-y-6", tabsContentClassName)}
+          className={cn("flex-1 min-h-0 overflow-y-auto", tabsContentClassName)}
         >
           {item.content}
         </TabsContent>

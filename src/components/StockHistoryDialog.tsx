@@ -235,13 +235,12 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
               <HuhaTab01
                 value={mainTab}
                 onValueChange={(value) => setMainTab(value as 'activity' | 'analytics')}
-                className="flex-1 flex flex-col min-h-0"
                 items={[
                   {
                     value: 'activity',
                     label: '📊 Activity Feed',
-                    content: (
-                      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+                  content: (
+                      <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
                         <TabsList className="grid w-full grid-cols-4 h-9">
                           <TabsTrigger value="all" className="text-xs">
                             All ({filteredChanges.length})
@@ -256,7 +255,7 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
                             Manual ({filteredChanges.filter(c => c.reference_type === 'manual').length})
                           </TabsTrigger>
                         </TabsList>
-                        <TabsContent value={activeTab} className="flex-1 overflow-y-auto mt-2 pr-2 min-h-0">
+                        <TabsContent value={activeTab} className="mt-2 pr-2">
                           <div className="space-y-3">
                             {filteredChanges.map((change, index) => {
                               let timeGapElement = null;
@@ -314,7 +313,7 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
                     value: 'analytics',
                     label: '📈 Stock Analytics',
                     content: (
-                      <div className="flex-1 overflow-y-auto pr-2 min-h-0">
+                      <div className="pr-2">
                         <div className="space-y-4">
                         {stats && <StockHistoryStats stats={stats} />}
                         

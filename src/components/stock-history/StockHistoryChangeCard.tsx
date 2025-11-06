@@ -73,9 +73,9 @@ export function StockHistoryChangeCard({
   };
 
   const getChangeIcon = () => {
-    if (change.change_amount > 0) return <TrendingUp className="w-6 h-6 text-emerald-600" />;
-    if (change.change_amount < 0) return <TrendingDown className="w-6 h-6 text-rose-600" />;
-    return <ArrowUpDown className="w-6 h-6 text-muted-foreground" />;
+    if (change.change_amount > 0) return <TrendingUp className="w-5 h-5 text-emerald-600" />;
+    if (change.change_amount < 0) return <TrendingDown className="w-5 h-5 text-rose-600" />;
+    return <ArrowUpDown className="w-5 h-5 text-muted-foreground" />;
   };
 
   const hasDetails = change.fulfillment_source || 
@@ -97,18 +97,13 @@ export function StockHistoryChangeCard({
         ? 'border-l-rose-500' 
         : 'border-l-muted'
     } ${change.is_reverted ? 'opacity-60 border-dashed' : ''}`}>
-      <CardContent className="p-4">
+      <CardContent className="p-3">
         {/* Time and User Header */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <Calendar className="w-4 h-4 text-muted-foreground" />
-            <div>
-              <div className="text-xs font-medium text-foreground">
-                {formatDistanceToNow(new Date(change.created_at), { addSuffix: true })}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {format(new Date(change.created_at), 'MMM dd, yyyy • HH:mm')}
-              </div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+            <div className="text-xs font-medium text-foreground">
+              {formatDistanceToNow(new Date(change.created_at), { addSuffix: true })} • {format(new Date(change.created_at), 'HH:mm')}
             </div>
           </div>
           
@@ -121,31 +116,31 @@ export function StockHistoryChangeCard({
         </div>
 
         {(change.user_email || change.user_name) && (
-          <div className="flex items-center gap-2 mb-2">
-            <User className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm font-medium">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <User className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="text-xs font-medium">
               {change.user_name || change.user_email}
             </span>
           </div>
         )}
 
         {/* Activity Description */}
-        <div className="flex items-start gap-3 mb-3">
-          <div className="shrink-0 mt-1">
+        <div className="flex items-start gap-2 mb-2">
+          <div className="shrink-0 mt-0.5">
             {getChangeIcon()}
           </div>
           <div className="flex-1">
-            <div className="text-base font-semibold mb-2 text-foreground">
+            <div className="text-sm font-semibold mb-1.5 leading-tight text-foreground">
               {getActivityDescription()}
             </div>
             
             {/* Quantity Flow */}
-            <div className="flex items-center gap-2 text-sm mb-2">
-              <span className="font-bold text-lg text-muted-foreground">
+            <div className="flex items-center gap-1.5 text-xs mb-1.5">
+              <span className="font-bold text-base text-muted-foreground">
                 {change.previous_quantity}
               </span>
               <span className="text-muted-foreground">→</span>
-              <span className="font-bold text-lg text-foreground">
+              <span className="font-bold text-base text-foreground">
                 {change.new_quantity}
               </span>
               {percentageChange && (
@@ -158,9 +153,9 @@ export function StockHistoryChangeCard({
             </div>
 
             {/* Reference Info */}
-            <div className="flex flex-wrap items-center gap-2 mb-2">
-              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${refTypeInfo.color}`}>
-                <span className="text-base">{refTypeInfo.icon}</span>
+            <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+              <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-medium ${refTypeInfo.color}`}>
+                <span className="text-sm">{refTypeInfo.icon}</span>
                 {refTypeInfo.label}
                 {change.reference_number && (
                   <span className="font-mono">• {change.reference_number}</span>
@@ -177,8 +172,8 @@ export function StockHistoryChangeCard({
             </div>
 
             {/* Reason */}
-            <div className="flex items-start gap-2 text-sm text-muted-foreground">
-              <FileText className="w-4 h-4 mt-0.5 shrink-0" />
+            <div className="flex items-start gap-1.5 text-xs text-muted-foreground leading-tight">
+              <FileText className="w-3.5 h-3.5 mt-0.5 shrink-0" />
               <span>{change.change_reason}</span>
             </div>
           </div>
@@ -186,7 +181,7 @@ export function StockHistoryChangeCard({
 
         {/* Quick Info Badges */}
         {(change.cost_per_unit || change.warehouse_location || change.tags?.length) && (
-          <div className="flex flex-wrap gap-1.5 mb-2 pl-8">
+          <div className="flex flex-wrap gap-1 mb-1.5 pl-6">
             {change.cost_per_unit && (
               <Badge variant="outline" className="gap-1">
                 <DollarSign className="w-3 h-3" />
@@ -212,8 +207,8 @@ export function StockHistoryChangeCard({
         {hasDetails && (
           <Collapsible open={isExpanded} onOpenChange={onToggleExpanded}>
             <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm" className="w-full mt-2">
-                {isExpanded ? <ChevronUp className="w-4 h-4 mr-2" /> : <ChevronDown className="w-4 h-4 mr-2" />}
+              <Button variant="ghost" size="sm" className="w-full mt-1.5 h-7 text-xs">
+                {isExpanded ? <ChevronUp className="w-3.5 h-3.5 mr-1.5" /> : <ChevronDown className="w-3.5 h-3.5 mr-1.5" />}
                 {isExpanded ? 'Hide Details' : 'Show Details'}
               </Button>
             </CollapsibleTrigger>
