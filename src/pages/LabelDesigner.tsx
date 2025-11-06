@@ -29,7 +29,17 @@ import { LABEL_PRESETS, PrintSettings, LabelDomain } from '@/types/label';
 import { Plus, Database, Eye, Download, Printer, FolderOpen, Archive, Package, ShoppingCart, Truck, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { HuhaHeader01 } from '@/components/ui/huha-header-01';
+import { usePageTracking } from '@/hooks/usePageTracking';
+import { useTaxonomy } from '@/hooks/useTaxonomy';
+
 const LabelDesignerContent: React.FC = () => {
+  usePageTracking({
+    category: 'Label Designer',
+    subcategory: 'Design',
+    pageTitle: 'Label Designer'
+  });
+
+  const { trackTabChange } = useTaxonomy();
   const {
     document: labelDoc,
     dataset,
@@ -330,7 +340,16 @@ const LabelDesignerContent: React.FC = () => {
         
 
         {/* Enhanced Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 min-h-0">
+        <Tabs value={activeTab} onValueChange={(newTab) => {
+          trackTabChange({
+            category: 'Label Designer',
+            subcategory: 'Design',
+            fromTab: activeTab,
+            toTab: newTab,
+            tabTitle: newTab
+          });
+          setActiveTab(newTab);
+        }} className="flex-1 min-h-0">
           <div className="mb-8">
             <TabsList className="grid w-full grid-cols-4 h-12 p-1 bg-muted/50">
               <TabsTrigger value="amazon-orders" className="h-10 px-4 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200">

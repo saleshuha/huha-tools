@@ -17,6 +17,61 @@ export type TaxonomyCategory =
   | 'Label Designer'
   | 'Admin';
 
+// Subcategory validation mapping
+export const SUBCATEGORIES: Record<TaxonomyCategory, string[]> = {
+  'Amazon': [
+    'Order Processing',
+    'PO Tracker',
+    'PO Details',
+    'Fulfillment',
+    'Image Upload',
+    'Vendor Central',
+    'Returns Analysis'
+  ],
+  'Noon': [
+    'Order Processing',
+    'Order Tracking',
+    'Sales Tracker',
+    'Dashboard',
+    'Stores',
+    'Analytics',
+    'Tools',
+    'Sales Data',
+    'Fees Reports'
+  ],
+  'Inventory': [
+    'Stock Management',
+    'Replenishment',
+    'Stock History',
+    'Velocity Analytics'
+  ],
+  'Tools': [
+    'File Processing',
+    'Data Management',
+    'Analysis',
+    'Reports',
+    'Utilities'
+  ],
+  'Suppliers': [
+    'Sunsky',
+    'Global Sources',
+    'Carrefour',
+    'Vendor Management'
+  ],
+  'Label Designer': [
+    'Design',
+    'Print',
+    'Templates',
+    'Setup'
+  ],
+  'Admin': [
+    'Dashboard',
+    'Users',
+    'Settings',
+    'Stores'
+  ]
+};
+
 export interface TaxonomyEvent {
   id?: string;
   user_id?: string;

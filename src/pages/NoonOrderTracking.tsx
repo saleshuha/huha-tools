@@ -15,7 +15,17 @@ import { useNoonOrders, NoonOrder } from '@/hooks/useNoonOrders';
 import { useNoonStores } from '@/hooks/useNoonStores';
 import { useSunskyCredentials } from '@/hooks/useSunskyCredentials';
 import { useToast } from '@/hooks/use-toast';
+import { usePageTracking } from '@/hooks/usePageTracking';
+import { useTaxonomy } from '@/hooks/useTaxonomy';
+
 export default function NoonOrderTrackingPage() {
+  usePageTracking({
+    category: 'Noon',
+    subcategory: 'Order Tracking',
+    pageTitle: 'Noon Order Tracking'
+  });
+
+  const { trackTabChange } = useTaxonomy();
   const [activeTab, setActiveTab] = useState('orders');
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
   const [selectedCredentialsId, setSelectedCredentialsId] = useState<string>('');
@@ -305,7 +315,16 @@ export default function NoonOrderTrackingPage() {
 
         <HuhaTab01
           value={activeTab}
-          onValueChange={setActiveTab}
+          onValueChange={(newTab) => {
+            trackTabChange({
+              category: 'Noon',
+              subcategory: 'Order Tracking',
+              fromTab: activeTab,
+              toTab: newTab,
+              tabTitle: newTab
+            });
+            setActiveTab(newTab);
+          }}
           items={[
             {
               value: "orders",

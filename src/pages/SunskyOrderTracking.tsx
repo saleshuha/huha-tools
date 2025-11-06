@@ -26,6 +26,8 @@ import {
 import { calculateOrderProgress } from '@/utils/sunsky-progress';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { usePageTracking } from '@/hooks/usePageTracking';
+import { useTaxonomy } from '@/hooks/useTaxonomy';
 
 // Status configurations for orders and items with Sunsky numeric status mapping
 const statusColors = {
@@ -97,7 +99,15 @@ interface SlowItem {
 }
 
 export default function SunskyOrderTrackingPage() {
+  usePageTracking({
+    category: 'Suppliers',
+    subcategory: 'Sunsky',
+    pageTitle: 'Sunsky Order Tracking'
+  });
+
+  const { trackTabChange } = useTaxonomy();
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState('orders');
   const [slowItems, setSlowItems] = useState<SlowItem[]>([]);
   const [selectedCredentialId, setSelectedCredentialId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -433,7 +443,16 @@ export default function SunskyOrderTrackingPage() {
         />
 
         {/* Tabs for Orders and Delayed Items */}
-        <Tabs defaultValue="orders" className="w-full">
+        <Tabs defaultValue="orders" value={activeTab} onValueChange={(newTab) => {
+          trackTabChange({
+            category: 'Suppliers',
+            subcategory: 'Sunsky',
+            fromTab: activeTab,
+            toTab: newTab,
+            tabTitle: newTab === 'orders' ? 'Orders' : 'Delayed Items'
+          });
+          setActiveTab(newTab);
+        }} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="orders" className="flex items-center gap-2">
               <Package className="h-4 w-4" />

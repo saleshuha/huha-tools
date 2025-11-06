@@ -31,6 +31,8 @@ import { POTableColumnManager } from '@/components/po/POTableColumnManager';
 import { POExportDialog } from '@/components/po/POExportDialog';
 import { usePOTableState } from '@/hooks/usePOTableState';
 import { getPaginatedItems, scrollToTop } from '@/utils/po-table-helpers';
+import { usePageTracking } from '@/hooks/usePageTracking';
+import { useTaxonomy } from '@/hooks/useTaxonomy';
 
 // Cache busting comment - Fixed poDetails issue - v2
 
@@ -52,6 +54,15 @@ export default function PODetailsPage() {
   } = useParams<{
     poNumber: string;
   }>();
+
+  usePageTracking({
+    category: 'Amazon',
+    subcategory: 'PO Details',
+    pageTitle: `Purchase Order ${poNumber || 'Details'}`,
+    metadata: { po_number: poNumber }
+  });
+
+  const { trackTabChange, trackAction } = useTaxonomy();
   const navigate = useNavigate();
   const {
     poOrders,

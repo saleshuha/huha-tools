@@ -1,8 +1,15 @@
 import { OrderProcessor } from '@/components/OrderProcessor';
 import { HuhaHeader01 } from '@/components/ui/huha-header-01';
 import { Package } from 'lucide-react';
+import { usePageTracking } from '@/hooks/usePageTracking';
 
 export default function OrderProcessingPage() {
+  usePageTracking({
+    category: 'Amazon',
+    subcategory: 'Order Processing',
+    pageTitle: 'DF Order Processing'
+  });
+
   return (
     <div className="min-h-screen bg-gradient-surface">
       {/* Enhanced Background Effects */}

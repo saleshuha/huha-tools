@@ -2,8 +2,15 @@ import React from 'react';
 import { NoonOrdersUploader } from '@/components/NoonOrdersUploader';
 import { Package } from 'lucide-react';
 import { HuhaHeader01 } from '@/components/ui/huha-header-01';
+import { usePageTracking } from '@/hooks/usePageTracking';
 
 export default function NoonOrderProcessingPage() {
+  usePageTracking({
+    category: 'Noon',
+    subcategory: 'Order Processing',
+    pageTitle: 'Noon Order Processing'
+  });
+
   return (
     <div className="min-h-screen bg-gradient-surface">
       <div className="w-full px-4 md:px-6 py-4 animate-fade-in">

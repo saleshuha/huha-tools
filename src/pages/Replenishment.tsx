@@ -1,8 +1,15 @@
 import { Replenishment } from '@/components/Replenishment';
 import { BarChart3 } from 'lucide-react';
 import { HuhaHeader01 } from '@/components/ui/huha-header-01';
+import { usePageTracking } from '@/hooks/usePageTracking';
 
 export default function ReplenishmentPage() {
+  usePageTracking({
+    category: 'Inventory',
+    subcategory: 'Replenishment',
+    pageTitle: 'Sales & Replenishment Analytics'
+  });
+
   return (
     <div className="min-h-screen bg-gradient-surface">
       <div className="w-full px-4 md:px-6 py-4 animate-fade-in">

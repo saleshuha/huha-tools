@@ -3,6 +3,7 @@ import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { InventoryMetricsCards } from '@/components/dashboard/InventoryMetricsCards';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { Skeleton } from '@/components/ui/skeleton';
+import { usePageTracking } from '@/hooks/usePageTracking';
 
 // Lazy load secondary metrics
 const VelocityMetricsCards = lazy(() => import('@/components/dashboard/VelocityMetricsCards').then(m => ({ default: m.VelocityMetricsCards })));
@@ -10,6 +11,12 @@ const POMetricsCards = lazy(() => import('@/components/dashboard/POMetricsCards'
 const FulfillmentMetricsCards = lazy(() => import('@/components/dashboard/FulfillmentMetricsCards').then(m => ({ default: m.FulfillmentMetricsCards })));
 
 export default function Homepage() {
+  usePageTracking({
+    category: 'Admin',
+    subcategory: 'Dashboard',
+    pageTitle: 'Dashboard Homepage'
+  });
+
   const {
     inventoryMetrics,
     velocityMetrics,
