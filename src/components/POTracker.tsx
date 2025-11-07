@@ -6054,15 +6054,15 @@ export const POTracker = () => {
                                              return null;
                                            })()}
                                            
-                                           {/* Show PO supplier order number if available */}
-                                           {order.supplier_order_number && (
-                                             <div className="flex items-center gap-2">
-                                               <div className="w-1.5 h-1.5 bg-purple-500 rounded-full flex-shrink-0"></div>
-                                               <div className="text-xs text-purple-600 dark:text-purple-400 font-mono bg-purple-50 dark:bg-purple-950/30 px-2 py-1 rounded-md border border-purple-200 dark:border-purple-800">
-                                                 PO: {order.supplier_order_number}
-                                               </div>
-                                             </div>
-                                           )}
+                                            {/* Show PO supplier order number if available */}
+                                            {order.supplier_order_number && (
+                                              <div className="flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 bg-purple-500 rounded-full flex-shrink-0"></div>
+                                                <div className="text-xs text-purple-600 dark:text-purple-400 font-mono bg-purple-50 dark:bg-purple-950/30 px-2 py-1 rounded-md border border-purple-200 dark:border-purple-800">
+                                                  Order: {order.supplier_order_number}
+                                                </div>
+                                              </div>
+                                            )}
                                            
                                            {/* Show tracking number/URL if available */}
                                            {order.tracking_number && (
