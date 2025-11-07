@@ -1846,11 +1846,11 @@ export function AsinInventory() {
                          </td>
                           <td className="p-3 border-r align-middle">
                             <div className="flex flex-col items-center gap-2">
-                               <div className="flex items-center gap-2">
-                                 <Switch
-                                   id={`restock-${item.id}`}
-                                   checked={item.eligible_for_restock && item.status !== 'no-stock'}
-                                   disabled={item.status === 'no-stock'}
+                                <div className="flex items-center gap-2">
+                                  <Switch
+                                    id={`restock-${item.id}`}
+                                    checked={item.eligible_for_restock}
+                                    disabled={item.status === 'no-stock'}
                                    onCheckedChange={async (checked) => {
                                     try {
                                       const { error } = await supabase
