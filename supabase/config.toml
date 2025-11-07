@@ -51,3 +51,6 @@ verify_jwt = false
 
 [functions.purchase-link-handler]
 verify_jwt = false
+
+[functions.fulfill-from-stock]
+verify_jwt = true
