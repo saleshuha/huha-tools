@@ -31,6 +31,7 @@ import { TrendingUp, TrendingDown, AlertTriangle, Package, Download, RefreshCw, 
 import { Checkbox } from './ui/checkbox';
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, AreaChart, Area, BarChart as RechartsBarChart, Bar, PieChart as RechartsPieChart, Cell, Pie, Legend } from 'recharts';
 import { SunskyOrderDialog } from './SunskyOrderDialog';
+import { useTaxonomy } from '@/hooks/useTaxonomy';
 interface RestockItem {
   id: string;
   identifier: string;
@@ -108,6 +109,8 @@ interface InventoryMetrics {
   performanceRating: number;
 }
 export function Replenishment() {
+  const { trackTabChange } = useTaxonomy();
+  
   // Product Images
   const {
     productImages,
@@ -2378,7 +2381,15 @@ export function Replenishment() {
       
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="restock" className="w-full">
+      <Tabs defaultValue="restock" className="w-full" onValueChange={(newTab) => {
+        trackTabChange({
+          category: 'Inventory',
+          subcategory: 'Replenishment',
+          fromTab: 'restock',
+          toTab: newTab,
+          tabTitle: newTab === 'restock' ? 'Restock Management' : 'Velocity Analytics'
+        });
+      }}>
         <TabsList className="grid w-full grid-cols-2 h-14 p-2 bg-gradient-subtle rounded-xl shadow-elegant">
           <TabsTrigger value="restock" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10">📦 Restock Management</TabsTrigger>
           <TabsTrigger value="velocity" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10">⚡ Velocity Analytics</TabsTrigger>
@@ -2412,7 +2423,18 @@ export function Replenishment() {
               <p className="text-muted-foreground">Manage critical stock items and track orders</p>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="critical" className="w-full">
+              <Tabs defaultValue="critical" className="w-full" onValueChange={(newTab) => {
+                trackTabChange({
+                  category: 'Inventory',
+                  subcategory: 'Replenishment',
+                  fromTab: 'critical',
+                  toTab: newTab,
+                  tabTitle: newTab === 'critical' ? 'Ready to Order' : 
+                           newTab === 'ordered' ? 'Ordered' :
+                           newTab === 'out-of-stock' ? 'Out of Stock' : 
+                           'Non-Source Items'
+                });
+              }}>
                 <TabsList className="grid w-full grid-cols-4 bg-gradient-subtle rounded-xl shadow-elegant">
                   <TabsTrigger value="critical" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                     <ShoppingCart className="w-4 h-4" />

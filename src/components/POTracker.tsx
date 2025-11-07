@@ -4672,7 +4672,15 @@ export const POTracker = () => {
                   )}
                 </CardHeader>
                 {!isPrintConfigCollapsed && <CardContent className="p-6 border-2 border-border border-t-0 rounded-t-none">
-                  <Tabs defaultValue="template" className="w-full">
+                  <Tabs defaultValue="template" className="w-full" onValueChange={(newTab) => {
+                    trackTabChange({
+                      category: 'Amazon',
+                      subcategory: 'PO Tracker',
+                      fromTab: 'template',
+                      toTab: newTab,
+                      tabTitle: `Print Config - ${newTab}`
+                    });
+                  }}>
                     <TabsList className="grid w-full grid-cols-3 mb-6 bg-gradient-subtle p-1 rounded-lg border border-border shadow-soft">
                       <TabsTrigger value="template" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-medium border border-transparent data-[state=active]:border-primary-dark rounded-md transition-all">
                         <div className="w-2 h-2 bg-current rounded-full"></div>

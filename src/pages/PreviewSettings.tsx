@@ -14,9 +14,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useThemeConfig } from '@/contexts/ThemeConfigContext';
 import { useAccentTheme } from '@/hooks/useAccentTheme';
 import { useToast } from '@/hooks/use-toast';
+import { usePageTracking } from '@/hooks/usePageTracking';
 import { cn } from '@/lib/utils';
 
 const PreviewSettings = () => {
+  usePageTracking({
+    category: 'Admin',
+    subcategory: 'Settings',
+    pageTitle: 'Preview Settings'
+  });
+
   const { config, setConfig, resetToDefaults } = useThemeConfig();
   const { themeColors } = useAccentTheme();
   const { toast } = useToast();
@@ -676,6 +683,9 @@ const PreviewSettings = () => {
           items={tabItems}
           value={activeTab}
           onValueChange={setActiveTab}
+          category="Admin"
+          subcategory="Settings"
+          enableTracking={true}
         />
       </div>
     </div>
