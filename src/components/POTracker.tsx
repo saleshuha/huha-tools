@@ -4289,91 +4289,95 @@ export const POTracker = () => {
 
                      {/* Multi-select Controls */}
                      {selectedPOsForLabels.size > 0 && <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border">
-                         <div className="flex items-center gap-2">
-                           <Badge variant="secondary">
-                             {selectedPOsForLabels.size} PO{selectedPOsForLabels.size !== 1 ? 's' : ''} selected
-                           </Badge>
-                           <Button variant="ghost" size="sm" onClick={() => setSelectedPOsForLabels(new Set())}>
-                             Clear selection
-                           </Button>
-                         </div>
                           <div className="flex items-center gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setPresetNameInput('');
-                                setEditingPresetId(null);
-                                setShowPresetsDialog(true);
-                              }}
-                              className="border-green-500/30 hover:border-green-500"
-                            >
-                              <Plus className="h-4 w-4 mr-2" />
-                              Save Selection
-                            </Button>
-                            <Button variant="outline" disabled={selectedPOsForLabels.size === 0 || Array.from(selectedPOsForLabels).every(poNumber => {
-                    const poGroup = filteredPOGroups.find(g => g.poNumber === poNumber);
-                    return poGroup?.orders.every(order => order.status === 'closed') || false;
-                  })} onClick={() => {
-                    // Get ALL orders for selected POs directly from poOrders (not filtered groups)
-                    const selectedPONumbers = Array.from(selectedPOsForLabels);
-                    console.log('🖨️ Print Preview: Selected POs:', selectedPONumbers.join(', '));
-                    console.log('🖨️ Total poOrders in state:', poOrders.length);
-
-                    // Get ALL orders for these PO numbers - no aggregation, no filtering except by PO number and cancelled status
-                    const selectedOrders = poOrders.filter(order => selectedPONumbers.includes(order.po_number) && order.status !== 'cancelled');
-                    console.log('🖨️ Orders passed to print dialog:', selectedOrders.length);
-                    selectedPONumbers.forEach(po => {
-                      const ordersForPO = selectedOrders.filter(o => o.po_number === po);
-                      const uniqueASINs = new Set(ordersForPO.map(o => o.asin));
-                      console.log(`  - ${po}: ${ordersForPO.length} items, ${ordersForPO.reduce((sum, o) => sum + o.quantity, 0)} units, ${uniqueASINs.size} ASINs`);
-                    });
-                    setPrintMode('bulk');
-                    setPrintOrders(selectedOrders);
-                    setPrintDialogOpen(true);
-                  }}>
-                              <FileText className="h-4 w-4 mr-2" />
-                              Print Preview
-                            </Button>
-                            <Button variant="outline" disabled={Array.from(selectedPOsForLabels).every(poNumber => {
-                    const poGroup = filteredPOGroups.find(g => g.poNumber === poNumber);
-                    return poGroup?.orders.every(order => order.status === 'closed') || false;
-                  })} onClick={() => {
-                    console.log('🔍 VIEW ITEMS DEBUG: Selected POs:', Array.from(selectedPOsForLabels));
-
-                    // Go directly to print labels interface with selected POs
-                    setSelectedPOForLabels(Array.from(selectedPOsForLabels)[0]); // Set first PO for compatibility
-                    setLabelsStep('print'); // Go directly to print interface
-                    setActiveTab('labels'); // Switch to labels tab
-
-                    // Preserve original order for printing - disable sorting
-                    setOriginalOrderPreserved(true);
-                    setSortField('po_number'); // Reset to original order
-                    setSortDirection('asc');
-                    console.log('🔍 VIEW ITEMS DEBUG: Switched to print labels interface with original order preserved');
-                  }}>
-                              <Package className="h-4 w-4 mr-2" />
-                              View Items
-                            </Button>
-                            <Button
-                              variant="outline"
-                              onClick={() => setGenerateLinkDialogOpen(true)}
-                              disabled={selectedPOsForLabels.size === 0}
-                              className="border-blue-500/30 hover:border-blue-500"
-                            >
-                              <ExternalLink className="h-4 w-4 mr-2" />
-                              Generate Link
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setActiveTab('purchase-links')}
-                              className="text-muted-foreground hover:text-foreground"
-                            >
-                              <ExternalLink className="h-4 w-4 mr-2" />
-                              View All Links
+                            <Badge variant="secondary">
+                              {selectedPOsForLabels.size} PO{selectedPOsForLabels.size !== 1 ? 's' : ''} selected
+                            </Badge>
+                            <Button variant="outline" size="sm" onClick={() => setSelectedPOsForLabels(new Set())}>
+                              Clear selection
                             </Button>
                           </div>
+                           <div className="flex items-center gap-2">
+                             <Button
+                               variant="outline"
+                               size="sm"
+                               onClick={() => {
+                                 setPresetNameInput('');
+                                 setEditingPresetId(null);
+                                 setShowPresetsDialog(true);
+                               }}
+                             >
+                               <Plus className="h-4 w-4 mr-2" />
+                               Save Selection
+                             </Button>
+                             <Button 
+                               variant="outline" 
+                               size="sm"
+                               disabled={selectedPOsForLabels.size === 0 || Array.from(selectedPOsForLabels).every(poNumber => {
+                     const poGroup = filteredPOGroups.find(g => g.poNumber === poNumber);
+                     return poGroup?.orders.every(order => order.status === 'closed') || false;
+                   })} onClick={() => {
+                     // Get ALL orders for selected POs directly from poOrders (not filtered groups)
+                     const selectedPONumbers = Array.from(selectedPOsForLabels);
+                     console.log('🖨️ Print Preview: Selected POs:', selectedPONumbers.join(', '));
+                     console.log('🖨️ Total poOrders in state:', poOrders.length);
+
+                     // Get ALL orders for these PO numbers - no aggregation, no filtering except by PO number and cancelled status
+                     const selectedOrders = poOrders.filter(order => selectedPONumbers.includes(order.po_number) && order.status !== 'cancelled');
+                     console.log('🖨️ Orders passed to print dialog:', selectedOrders.length);
+                     selectedPONumbers.forEach(po => {
+                       const ordersForPO = selectedOrders.filter(o => o.po_number === po);
+                       const uniqueASINs = new Set(ordersForPO.map(o => o.asin));
+                       console.log(`  - ${po}: ${ordersForPO.length} items, ${ordersForPO.reduce((sum, o) => sum + o.quantity, 0)} units, ${uniqueASINs.size} ASINs`);
+                     });
+                     setPrintMode('bulk');
+                     setPrintOrders(selectedOrders);
+                     setPrintDialogOpen(true);
+                   }}>
+                               <FileText className="h-4 w-4 mr-2" />
+                               Print Preview
+                             </Button>
+                             <Button 
+                               variant="outline" 
+                               size="sm"
+                               disabled={Array.from(selectedPOsForLabels).every(poNumber => {
+                     const poGroup = filteredPOGroups.find(g => g.poNumber === poNumber);
+                     return poGroup?.orders.every(order => order.status === 'closed') || false;
+                   })} onClick={() => {
+                     console.log('🔍 VIEW ITEMS DEBUG: Selected POs:', Array.from(selectedPOsForLabels));
+
+                     // Go directly to print labels interface with selected POs
+                     setSelectedPOForLabels(Array.from(selectedPOsForLabels)[0]); // Set first PO for compatibility
+                     setLabelsStep('print'); // Go directly to print interface
+                     setActiveTab('labels'); // Switch to labels tab
+
+                     // Preserve original order for printing - disable sorting
+                     setOriginalOrderPreserved(true);
+                     setSortField('po_number'); // Reset to original order
+                     setSortDirection('asc');
+                     console.log('🔍 VIEW ITEMS DEBUG: Switched to print labels interface with original order preserved');
+                   }}>
+                               <Package className="h-4 w-4 mr-2" />
+                               View Items
+                             </Button>
+                             <Button
+                               variant="outline"
+                               size="sm"
+                               onClick={() => setGenerateLinkDialogOpen(true)}
+                               disabled={selectedPOsForLabels.size === 0}
+                             >
+                               <ExternalLink className="h-4 w-4 mr-2" />
+                               Generate Link
+                             </Button>
+                             <Button
+                               variant="outline"
+                               size="sm"
+                               onClick={() => setActiveTab('purchase-links')}
+                             >
+                               <ExternalLink className="h-4 w-4 mr-2" />
+                               View All Links
+                             </Button>
+                           </div>
                        </div>}
 
                   {/* PO Groups List */}
