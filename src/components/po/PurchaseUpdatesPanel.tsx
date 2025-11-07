@@ -99,8 +99,8 @@ export const PurchaseUpdatesPanel = ({ poNumbers }: { poNumbers?: string[] }) =>
                 <div className="flex-1">
                   <p className="font-medium text-sm">{update.title || 'Untitled Item'}</p>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                    <span>Qty: {update.purchased_quantity}</span>
                     <Badge variant="outline" className="text-xs">{update.po_number}</Badge>
+                    <span>Qty: {update.purchased_quantity}</span>
                     {update.supplier_name && <span>• {update.supplier_name}</span>}
                   </div>
                 </div>
