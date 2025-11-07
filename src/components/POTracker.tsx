@@ -751,6 +751,17 @@ export const POTracker = () => {
     }
   };
 
+  // Helper function to detect network/timeout errors
+  const isNetworkOrTimeoutError = (err: any): boolean => {
+    const msg = err?.message?.toLowerCase() || '';
+    return msg.includes('failed to fetch') || 
+           msg.includes('failed to send') ||
+           msg.includes('network') ||
+           msg.includes('connection') ||
+           msg.includes('timeout') ||
+           msg.includes('aborted');
+  };
+
   // Function to handle fulfillment from stock
   const handleFulfillFromStock = async (poNumber: string, quantity: number) => {
     if (!fulfillDialogOrder) return;
@@ -758,32 +769,59 @@ export const POTracker = () => {
     setIsFulfilling(true);
     
     try {
-      // Call edge function with retry logic for cold starts
+      // Call edge function with retry logic for cold starts and network errors
       let data, error;
       let retryCount = 0;
       const maxRetries = 2;
       
       while (retryCount <= maxRetries) {
-        const result = await supabase.functions.invoke('fulfill-from-stock', {
-          body: {
+        // Create abort controller for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+        
+        try {
+          const result = await supabase.functions.invoke('fulfill-from-stock', {
+            body: {
+              poNumber,
+              quantity,
+              asin: fulfillDialogOrder.asin,
+              title: fulfillDialogOrder.title,
+              originalQuantity: fulfillDialogOrder.quantity,
+            },
+          });
+          
+          clearTimeout(timeoutId);
+          data = result.data;
+          error = result.error;
+        } catch (invokeError: any) {
+          clearTimeout(timeoutId);
+          error = invokeError;
+        }
+        
+        // Log detailed error info for debugging
+        if (error) {
+          console.error('🚨 Fulfillment Error Details:', {
+            attempt: retryCount + 1,
+            maxRetries: maxRetries + 1,
+            error: error,
+            errorMessage: error?.message,
+            errorName: error?.name,
+            errorStack: error?.stack,
             poNumber,
-            quantity,
             asin: fulfillDialogOrder.asin,
-            title: fulfillDialogOrder.title,
-            originalQuantity: fulfillDialogOrder.quantity,
-          },
-        });
+            quantity,
+            timestamp: new Date().toISOString()
+          });
+        }
         
-        data = result.data;
-        error = result.error;
-        
-        // If successful or non-network error, break
-        if (!error || !error.message?.includes('Failed to fetch')) {
+        // If successful or non-retryable error, break
+        if (!error || !isNetworkOrTimeoutError(error)) {
           break;
         }
         
-        // Wait before retry (cold start takes ~2 seconds)
+        // Wait before retry (cold start or network recovery)
         if (retryCount < maxRetries) {
+          console.log(`⏳ Retrying fulfillment (attempt ${retryCount + 2}/${maxRetries + 1})...`);
           await new Promise(resolve => setTimeout(resolve, 2000));
           retryCount++;
         } else {
@@ -791,7 +829,11 @@ export const POTracker = () => {
         }
       }
 
-      if (error) throw error;
+      if (error) {
+        // Provide detailed error message to user
+        const errorMsg = error?.message || 'Unknown error occurred';
+        throw new Error(`${errorMsg}${retryCount > 0 ? ` (after ${retryCount + 1} attempts)` : ''}`);
+      }
 
       // Show immediate success feedback
       toast({
