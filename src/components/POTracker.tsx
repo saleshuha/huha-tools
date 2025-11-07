@@ -766,14 +766,14 @@ export const POTracker = () => {
       // Step 1: Find the specific PO record(s) to update
       const { data: poRecords, error: fetchError } = await supabase
         .from('po_orders')
-        .select('id, asin, sku, quantity, model_number')
+        .select('id, asin, quantity, model_number')
         .eq('po_number', poNumber)
         .eq('user_id', user.id);
       
       if (fetchError) throw fetchError;
       if (!poRecords || poRecords.length === 0) throw new Error('PO record not found');
       
-      // Step 2: Find inventory - try ASIN first, then SKU
+      // Step 2: Find inventory by ASIN
       let inventoryItem = null;
       let invFetchError = null;
 
@@ -790,26 +790,12 @@ export const POTracker = () => {
         invFetchError = result.error;
       }
 
-      // If not found by ASIN, try by SKU
-      if (!inventoryItem && poRecords[0]?.sku) {
-        const result = await supabase
-          .from('asin_inventory')
-          .select('id, quantity, asin, sku, serial_number, status')
-          .eq('sku', poRecords[0].sku)
-          .eq('user_id', user.id)
-          .eq('status', 'in-stock')
-          .maybeSingle();
-        
-        inventoryItem = result.data;
-        invFetchError = result.error;
-      }
-
       if (invFetchError) {
         throw new Error(`Inventory lookup failed: ${invFetchError.message}`);
       }
 
       if (!inventoryItem) {
-        throw new Error(`No in-stock inventory found for this item (ASIN: ${fulfillDialogOrder.asin || 'N/A'}, SKU: ${poRecords[0]?.sku || 'N/A'})`);
+        throw new Error(`No in-stock inventory found for this item (ASIN: ${fulfillDialogOrder.asin || 'N/A'})`);
       }
 
       // Validate sufficient stock
@@ -880,7 +866,7 @@ export const POTracker = () => {
           fulfillment_source: 'stock',
           inventory_id: inventoryItem.id,
           asin: inventoryItem.asin || fulfillDialogOrder.asin,
-          sku_code: inventoryItem.sku || poRecords[0]?.sku,
+          sku_code: inventoryItem.sku,
           model_number: poRecords[0]?.model_number,
           user_id: user.id,
           notes: `Fulfilled ${quantity} units from in-stock inventory. Serial: ${inventoryItem.serial_number || 'N/A'}. Remaining stock: ${newQuantity}`
