@@ -5881,554 +5881,582 @@ export const POTracker = () => {
                                   </div>
                                 </TableCell>
 
-                                {/* Enhanced Image Cell */}
-                                <TableCell className="w-20 border-r border-border/50">
-                                  {(() => {
+                                 {/* Enhanced Image Cell */}
+                                 <TableCell className="w-20 border-r border-border/50 p-3">
+                                   {(() => {
                                 const productImage = order.asin ? getImageByAsin(order.asin) : null;
                                 console.log('🖼️ Image lookup for ASIN:', order.asin, 'Found:', !!productImage, 'URL:', productImage?.image_url);
                                 return productImage ? <Popover>
                                        <PopoverTrigger asChild>
-                                         <div className="w-16 h-16 rounded-lg border border-border/30 overflow-hidden flex-shrink-0 cursor-pointer hover:border-primary/50 hover:shadow-soft transition-all duration-300 group-hover:scale-105 bg-background/80">
-                                           <img src={productImage.image_url} alt={`Product image for ${order.asin}`} className="w-full h-full object-contain" onError={e => {
-                                        console.log('🖼️ Image failed to load:', productImage.image_url);
-                                        e.currentTarget.style.display = 'none';
-                                      }} onLoad={() => {
-                                        console.log('🖼️ Image loaded successfully:', productImage.image_url);
-                                      }} />
-                                         </div>
-                                       </PopoverTrigger>
-                                       <PopoverContent side="left" className="w-80 p-3 bg-popover/95 backdrop-blur-sm border-border/50 shadow-strong">
-                                         <div className="w-full h-64 rounded-xl overflow-hidden bg-background/50 border border-border/30">
-                                           <img src={productImage.image_url} alt={`Product image for ${order.asin}`} className="w-full h-full object-contain" />
-                                         </div>
-                                         <div className="flex items-center justify-center gap-2 mt-3 p-2 bg-muted/30 rounded-lg">
-                                           <div className="w-2 h-2 bg-primary rounded-full"></div>
-                                           <span className="text-xs font-mono text-muted-foreground">ASIN: {order.asin}</span>
-                                         </div>
-                                       </PopoverContent>
-                                     </Popover> : <div className="w-16 h-16 rounded-lg border border-dashed border-border/30 flex items-center justify-center bg-gradient-to-br from-muted/20 to-muted/40 group-hover:from-muted/30 group-hover:to-muted/50 transition-all duration-300">
-                                      <div className="text-center">
-                                        <ImageIcon className="h-5 w-5 text-muted-foreground/50 mx-auto mb-1" />
-                                        <div className="text-xs text-muted-foreground/70 font-medium">No Image</div>
-                                        {order.asin && <div className="text-xs text-muted-foreground/50 font-mono mt-1 bg-muted/30 px-1 rounded" title={`ASIN: ${order.asin}`}>
-                                            {order.asin.slice(0, 6)}...
-                                          </div>}
-                                      </div>
-                                    </div>;
-                              })()}
-                               </TableCell>
-
-                                {/* Enhanced SKU/Model Cell with Matching System */}
-                                <TableCell className="min-w-[180px] max-w-[220px] border-r border-border/50 p-2">
-                                  <div className="space-y-1.5 overflow-hidden">
-                                    {order.sku_code && <div className="flex items-start gap-1.5">
-                                        <div className="w-1.5 h-1.5 bg-primary rounded-full flex-shrink-0 mt-1.5"></div>
-                                        <div className="text-sm font-semibold font-mono break-all bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20 flex-1 min-w-0">
-                                          {order.sku_code}
-                                        </div>
-                                      </div>}
-                                    {order.model_number && order.model_number !== order.sku_code && <div className="flex items-start gap-1.5">
-                                        <div className="w-1.5 h-1.5 bg-accent rounded-full flex-shrink-0 mt-1.5"></div>
-                                        <div className="text-xs text-foreground font-mono break-all bg-accent/10 px-1.5 py-0.5 rounded border border-accent/20 flex-1 min-w-0">
-                                          {order.model_number}
-                                        </div>
-                                      </div>}
-                                    
-                                    {/* Sunsky Matching Indicator */}
-                                    {order.sunsky_sku && (order.sunsky_sku.sku_code || order.sunsky_sku.id) ? (
-                                      <div className="flex items-center gap-1.5">
-                                        <Package className="h-3 w-3 text-blue-600 flex-shrink-0" />
-                                        <Badge variant="outline" className="text-[10px] bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-300 px-1 py-0">
-                                          Source Matched
-                                        </Badge>
-                                      </div>
-                                    ) : (
-                                      <div className="flex items-center gap-1.5">
-                                        <AlertCircle className="h-3 w-3 text-gray-500 flex-shrink-0" />
-                                        <Badge variant="outline" className="text-[10px] bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-300 px-1 py-0">
-                                          No Match
-                                        </Badge>
-                                      </div>
-                                    )}
-                                    
-                                    {!order.sku_code && !order.model_number && <div className="flex items-center gap-1.5">
-                                        <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full flex-shrink-0"></div>
-                                        <span className="text-xs text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded border border-muted">N/A</span>
-                                      </div>}
-                                  </div>
-                                </TableCell>
-
-                                {/* In-Stock Qty Cell */}
-                                <TableCell className="min-w-[120px] border-r border-border/50">
-                                  {(() => {
-                                     const inventoryMatch = findInventoryMatch(
-                                       order.asin,
-                                       order.sunsky_sku?.sku_code,
-                                       order.sku_code,
-                                       order.model_number,
-                                       order.sunsky_sku
-                                     );
-                                     
-                                      if (inventoryMatch && inventoryMatch.status === 'in-stock') {
-                                        return (
-                                          <div className="flex flex-col gap-1.5">
-                                            {/* Clickable Quantity badge with fulfill from stock */}
-                                            <Badge 
-                                              variant="default" 
-                                              className="text-xs bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/50 cursor-pointer hover:bg-green-500/30 hover:scale-105 transition-all w-fit"
-                                              onClick={() => {
-                                                setFulfillDialogOrder({
-                                                  asin: order.asin,
-                                                  title: order.title,
-                                                  po_number: order.po_number,
-                                                  quantity: order.quantity,
-                                                  isConsolidated: order._isConsolidated || false,
-                                                  consolidatedOrders: order._consolidatedOrders 
-                                                    ? order._consolidatedOrders.map((po: any) => ({
-                                                        po_number: po.po_number,
-                                                        quantity: po.quantity,
-                                                        ship_to_location: po.ship_to_location
-                                                      }))
-                                                    : []
-                                                });
-                                                setFulfillDialogOpen(true);
-                                              }}
-                                              title="Click to fulfill from stock"
-                                            >
-                                              <div className="flex items-center gap-1.5">
-                                                <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-                                                <span>{inventoryMatch.quantity} units</span>
-                                                <Package className="h-3 w-3 ml-1" />
-                                              </div>
-                                            </Badge>
-                                            
-                                            {/* Serial numbers badge - ASIN matches */}
-                                            {inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0 && (
-                                              <div className="flex items-center gap-2">
-                                                <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
-                                                <div className="text-xs text-success font-mono bg-success/10 px-2 py-1 rounded-md border border-success/20 max-w-[180px] truncate">
-                                                  SN: {inventoryMatch.serialNumbers.slice(0, 3).join(', ')}
-                                                  {inventoryMatch.serialNumbers.length > 3 && ` +${inventoryMatch.serialNumbers.length - 3}`}
-                                                </div>
-                                              </div>
-                                            )}
-                                            
-                                            {/* Bin number badge - SKU matches */}
-                                            {inventoryMatch.type.startsWith('SKU') && inventoryMatch.serialNumber && (
-                                              <div className="flex items-center gap-2">
-                                                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full flex-shrink-0"></div>
-                                                <div className="text-xs text-blue-600 dark:text-blue-400 font-mono bg-blue-50 dark:bg-blue-950/30 px-2 py-1 rounded-md border border-blue-200 dark:border-blue-800">
-                                                  Bin: {inventoryMatch.serialNumber}
-                                                </div>
-                                              </div>
-                                            )}
+                                          <div className="w-16 h-16 rounded-lg border border-border/30 overflow-hidden flex-shrink-0 cursor-pointer hover:border-primary/50 hover:shadow-soft transition-all duration-300 group-hover:scale-105 bg-background/80">
+                                            <img src={productImage.image_url} alt={`Product image for ${order.asin}`} className="w-full h-full object-contain" onError={e => {
+                                         console.log('🖼️ Image failed to load:', productImage.image_url);
+                                         e.currentTarget.style.display = 'none';
+                                       }} onLoad={() => {
+                                         console.log('🖼️ Image loaded successfully:', productImage.image_url);
+                                       }} />
                                           </div>
-                                        );
-                                      } else {
-                                        // Show PO-specific status instead of inventory replenishment status
-                                        const poStatus = order.status?.toLowerCase();
-                                        
-                                        return (
-                                          <div className="flex flex-col gap-2">
-                                            {/* PO Status Badge */}
-                                            {poStatus === 'received' && (
-                                              <div className="flex items-center gap-2">
-                                                <div className="w-1.5 h-1.5 bg-green-500 rounded-full flex-shrink-0"></div>
-                                                <Badge variant="default" className="text-xs bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/50">
-                                                  Received
-                                                </Badge>
-                                              </div>
-                                            )}
-                                            
-                                            {poStatus === 'placed' && (
-                                              <div className="flex items-center gap-2">
-                                                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full flex-shrink-0"></div>
-                                                <Badge variant="default" className="text-xs bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/50">
-                                                  Placed with Supplier
-                                                </Badge>
-                                              </div>
-                                            )}
-                                            
-                                            {poStatus === 'closed' && (
-                                              <div className="flex items-center gap-2">
-                                                <div className="w-1.5 h-1.5 bg-gray-500 rounded-full flex-shrink-0"></div>
-                                                <Badge variant="outline" className="text-xs text-gray-600 dark:text-gray-400 border-gray-500/50">
-                                                  Closed
-                                                </Badge>
-                                              </div>
-                                            )}
-                                            
-                                            {poStatus === 'pending' && (
-                                              <div className="flex items-center gap-2">
-                                                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full flex-shrink-0"></div>
-                                                <Badge variant="outline" className="text-xs text-amber-600 dark:text-amber-400 border-amber-500/50">
-                                                  Pending
-                                                </Badge>
-                                              </div>
-                                            )}
-                                            
-                                            {poStatus === 'cancelled' && (
-                                              <div className="flex items-center gap-2">
-                                                <div className="w-1.5 h-1.5 bg-red-500 rounded-full flex-shrink-0"></div>
-                                                <Badge variant="destructive" className="text-xs">
-                                                  Cancelled
-                                                </Badge>
-                                              </div>
-                                            )}
-                                            
-                                            {/* Show supplier order number for placed/closed/received statuses */}
-                                            {(poStatus === 'placed' || poStatus === 'closed' || poStatus === 'received') && order.supplier_order_number && (
-                                              <div className="flex items-center gap-2">
-                                                <div className="w-1.5 h-1.5 bg-purple-500 rounded-full flex-shrink-0"></div>
-                                                <div className="text-xs text-purple-600 dark:text-purple-400 font-mono bg-purple-50 dark:bg-purple-950/30 px-2 py-1 rounded-md border border-purple-200 dark:border-purple-800">
-                                                  Order: {order.supplier_order_number}
-                                                </div>
-                                              </div>
-                                            )}
-                                            
-                                            {/* Show tracking number/URL for placed/closed/received statuses */}
-                                            {(poStatus === 'placed' || poStatus === 'closed' || poStatus === 'received') && order.tracking_number && (
-                                              <div className="flex items-center gap-2">
-                                                <div className="w-1.5 h-1.5 bg-green-500 rounded-full flex-shrink-0"></div>
-                                                {order.tracking_url ? (
-                                                  <a 
-                                                    href={order.tracking_url} 
-                                                    target="_blank" 
-                                                    rel="noopener noreferrer"
-                                                    className="text-xs text-green-600 dark:text-green-400 font-mono bg-green-50 dark:bg-green-950/30 px-2 py-1 rounded-md border border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors flex items-center gap-1"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                  >
-                                                    <ExternalLink className="h-3 w-3" />
-                                                    Track: {order.tracking_number}
-                                                  </a>
-                                                ) : (
-                                                  <div className="text-xs text-green-600 dark:text-green-400 font-mono bg-green-50 dark:bg-green-950/30 px-2 py-1 rounded-md border border-green-200 dark:border-green-800">
-                                                    Track: {order.tracking_number}
-                                                  </div>
-                                                )}
-                                              </div>
-                                            )}
+                                        </PopoverTrigger>
+                                        <PopoverContent side="left" className="w-80 p-3 bg-popover/95 backdrop-blur-sm border-border/50 shadow-strong">
+                                          <div className="w-full h-64 rounded-xl overflow-hidden bg-background/50 border border-border/30">
+                                            <img src={productImage.image_url} alt={`Product image for ${order.asin}`} className="w-full h-full object-contain" />
                                           </div>
-                                        );
-                                      }
-                                   })()}
-                                 </TableCell>
-
-                                {/* Enhanced Title & ASIN Cell */}
-                                <TableCell className="border-r border-border/50">
-                                 <div className="space-y-2">
-                                   <div className="text-sm font-medium break-words text-foreground group-hover:text-primary/80 transition-colors" title={order.title}>
-                                     {order.title || 'No title available'}
-                                   </div>
-                                   
-                                   {/* Show consolidation badge if this is a merged item */}
-                                   {order._isConsolidated && <Badge variant="secondary" className="bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30 text-xs">
-                                       📦 Merged from {order._consolidatedOrders.length} PO(s)
-                                     </Badge>}
-                                   
-                                   {/* ASIN display only */}
-                                   {order.asin && <div className="flex items-center gap-2">
-                                       <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
-                                       <div className="text-xs text-success font-mono bg-success/10 px-2 py-1 rounded-md border border-success/20">
-                                         {order.asin}
+                                          <div className="flex items-center justify-center gap-2 mt-3 p-2 bg-muted/30 rounded-lg">
+                                            <div className="w-2 h-2 bg-primary rounded-full"></div>
+                                            <span className="text-xs font-mono text-muted-foreground">ASIN: {order.asin}</span>
+                                          </div>
+                                        </PopoverContent>
+                                      </Popover> : <div className="w-16 h-16 rounded-lg border border-dashed border-border/30 flex items-center justify-center bg-gradient-to-br from-muted/20 to-muted/40 group-hover:from-muted/30 group-hover:to-muted/50 transition-all duration-300">
+                                       <div className="text-center">
+                                         <ImageIcon className="h-5 w-5 text-muted-foreground/50 mx-auto mb-1" />
+                                         <div className="text-xs text-muted-foreground/70 font-medium">No Image</div>
+                                         {order.asin && <div className="text-xs text-muted-foreground/50 font-mono mt-1 bg-muted/30 px-1 rounded" title={`ASIN: ${order.asin}`}>
+                                             {order.asin.slice(0, 6)}...
+                                           </div>}
                                        </div>
-                                     </div>}
-                                 </div>
+                                     </div>;
+                               })()}
                                 </TableCell>
 
-                                 {/* Ship To Location Cell */}
-                                 <TableCell className="border-r border-border/50">
-                                   <div className="text-sm text-muted-foreground">
-                                     {order.ship_to_location || '-'}
+                                 {/* Enhanced SKU/Model Cell with Matching System */}
+                                 <TableCell className="min-w-[180px] max-w-[220px] border-r border-border/50 p-3">
+                                   <div className="flex flex-col gap-2 overflow-hidden">
+                                     {order.sku_code && <div className="flex items-start gap-2">
+                                         <div className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-1"></div>
+                                         <Badge variant="outline" className="text-xs px-2 py-1 font-medium font-mono break-all bg-primary/10 text-primary border-primary/20 flex-1 min-w-0">
+                                           {order.sku_code}
+                                         </Badge>
+                                       </div>}
+                                     {order.model_number && order.model_number !== order.sku_code && <div className="flex items-start gap-2">
+                                         <div className="w-2 h-2 bg-accent rounded-full flex-shrink-0 mt-1"></div>
+                                         <Badge variant="outline" className="text-xs px-2 py-1 font-medium font-mono break-all bg-accent/10 text-accent border-accent/20 flex-1 min-w-0">
+                                           {order.model_number}
+                                         </Badge>
+                                       </div>}
+                                     
+                                     {/* Sunsky Matching Indicator */}
+                                     {order.sunsky_sku && (order.sunsky_sku.sku_code || order.sunsky_sku.id) ? (
+                                       <div className="flex items-center gap-2">
+                                         <Check className="h-3 w-3 text-blue-600 flex-shrink-0" />
+                                         <Badge variant="outline" className="text-xs px-2 py-1 font-medium bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30">
+                                           Source Matched
+                                         </Badge>
+                                       </div>
+                                     ) : (
+                                       <div className="flex items-center gap-2">
+                                         <Info className="h-3 w-3 text-gray-500 flex-shrink-0" />
+                                         <Badge variant="outline" className="text-xs px-2 py-1 font-medium bg-gray-500/15 text-gray-700 dark:text-gray-300 border-gray-500/30">
+                                           No Match
+                                         </Badge>
+                                       </div>
+                                     )}
+                                     
+                                     {!order.sku_code && !order.model_number && <div className="flex items-center gap-2">
+                                         <div className="w-2 h-2 bg-muted-foreground rounded-full flex-shrink-0"></div>
+                                         <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded border border-muted">N/A</span>
+                                       </div>}
                                    </div>
                                  </TableCell>
 
-                                   {/* Enhanced Quantity Cell with PO Numbers */}
-                                   <TableCell className="border-r border-border/50">
-                                    <div className="space-y-2">
-                                       <div className="space-y-2">
-                                         {order.status === 'closed' && order.notes?.includes('Fulfilled from stock:') ? <div className="space-y-2">
-                                             {/* PO Number Badge */}
-                                             <Badge variant="outline" className="font-mono text-xs bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-300">
-                                               PO: {order.po_number}
+                                 {/* In-Stock Qty Cell */}
+                                 <TableCell className="min-w-[120px] border-r border-border/50 p-3">
+                                   {(() => {
+                                      const inventoryMatch = findInventoryMatch(
+                                        order.asin,
+                                        order.sunsky_sku?.sku_code,
+                                        order.sku_code,
+                                        order.model_number,
+                                        order.sunsky_sku
+                                      );
+                                      
+                                       if (inventoryMatch && inventoryMatch.status === 'in-stock') {
+                                         return (
+                                           <div className="flex flex-col gap-2">
+                                             {/* Clickable Quantity badge with fulfill from stock */}
+                                             <Badge 
+                                               variant="default" 
+                                               className="text-xs px-2 py-1 font-medium bg-green-500/15 text-green-700 dark:text-green-300 border border-green-500/30 cursor-pointer hover:bg-green-500/20 hover:scale-105 transition-all w-fit"
+                                               onClick={() => {
+                                                 setFulfillDialogOrder({
+                                                   asin: order.asin,
+                                                   title: order.title,
+                                                   po_number: order.po_number,
+                                                   quantity: order.quantity,
+                                                   isConsolidated: order._isConsolidated || false,
+                                                   consolidatedOrders: order._consolidatedOrders 
+                                                     ? order._consolidatedOrders.map((po: any) => ({
+                                                         po_number: po.po_number,
+                                                         quantity: po.quantity,
+                                                         ship_to_location: po.ship_to_location
+                                                       }))
+                                                     : []
+                                                 });
+                                                 setFulfillDialogOpen(true);
+                                               }}
+                                               title="Click to fulfill from stock"
+                                             >
+                                               <div className="flex items-center gap-2">
+                                                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                                 <span>{inventoryMatch.quantity} units</span>
+                                                 <Package className="h-3 w-3 ml-1" />
+                                               </div>
                                              </Badge>
                                              
-                                             <Badge variant="outline" className="bg-sky/10 text-sky-700 dark:text-sky-300 border-sky/30 font-mono">
-                                                {(() => {
-                                          const fulfilledMatch = order.notes?.match(/Fulfilled from stock:\s*(\d+)/);
-                                          const originalMatch = order.notes?.match(/Original quantity:\s*(\d+)/);
-                                          const fulfilledQty = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
-                                          // If original quantity not in notes, assume fulfilled quantity was the original
-                                          const originalQty = originalMatch ? parseInt(originalMatch[1]) : fulfilledQty > 0 ? fulfilledQty : 1;
-                                          return `Fulfilled: ${fulfilledQty}/${originalQty}`;
-                                        })()}
-                                             </Badge>
-                                             <div className="flex items-center gap-1">
-                                               <div className="w-1.5 h-1.5 bg-sky rounded-full flex-shrink-0"></div>
-                                               <div className="text-xs text-muted-foreground font-medium">
-                                                 From Stock
+                                             {/* Serial numbers badge - ASIN matches */}
+                                             {inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0 && (
+                                               <div className="flex items-center gap-2">
+                                                 <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
+                                                 <Badge variant="outline" className="text-xs px-2 py-1 font-medium font-mono bg-green-500/15 text-green-700 dark:text-green-300 border-green-500/30 max-w-[180px] truncate">
+                                                   SN: {inventoryMatch.serialNumbers.slice(0, 3).join(', ')}
+                                                   {inventoryMatch.serialNumbers.length > 3 && ` +${inventoryMatch.serialNumbers.length - 3}`}
+                                                 </Badge>
                                                </div>
-                                             </div>
-                                           </div> : <div className="space-y-2">
-                                              {/* PO Number(s) Display */}
-                                              {order._isConsolidated ? (
-                                                <div className="flex flex-wrap gap-1">
-                                                  {order._consolidatedOrders.map((po: any, idx: number) => (
-                                                    <Badge 
-                                                      key={idx} 
-                                                      variant="outline" 
-                                                      className="font-mono text-xs bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 border-purple-300"
-                                                    >
-                                                      {po.po_number}
-                                                    </Badge>
-                                                  ))}
-                                                </div>
-                                              ) : (
-                                                <Badge variant="outline" className="font-mono text-xs bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-300">
-                                                  PO: {order.po_number}
-                                                </Badge>
-                                              )}
+                                             )}
+                                             
+                                             {/* Bin number badge - SKU matches */}
+                                             {inventoryMatch.type.startsWith('SKU') && inventoryMatch.serialNumber && (
+                                               <div className="flex items-center gap-2">
+                                                 <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                                                 <Badge variant="outline" className="text-xs px-2 py-1 font-medium font-mono bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30">
+                                                   Bin: {inventoryMatch.serialNumber}
+                                                 </Badge>
+                                               </div>
+                                             )}
+                                           </div>
+                                         );
+                                       } else {
+                                         // Show PO-specific status instead of inventory replenishment status
+                                         const poStatus = order.status?.toLowerCase();
+                                         
+                                         return (
+                                           <div className="flex flex-col gap-2">
+                                             {/* PO Status Badge */}
+                                             {poStatus === 'received' && (
+                                               <div className="flex items-center gap-2">
+                                                 <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
+                                                 <Badge variant="default" className="text-xs px-2 py-1 font-medium bg-green-500/15 text-green-700 dark:text-green-300 border border-green-500/30">
+                                                   <CheckCircle className="w-3 h-3 mr-1" />
+                                                   Received
+                                                 </Badge>
+                                               </div>
+                                             )}
+                                             
+                                             {poStatus === 'placed' && (
+                                               <div className="flex items-center gap-2">
+                                                 <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                                                 <Badge variant="default" className="text-xs px-2 py-1 font-medium bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30">
+                                                   <ShoppingCart className="w-3 h-3 mr-1" />
+                                                   Placed with Supplier
+                                                 </Badge>
+                                               </div>
+                                             )}
+                                             
+                                             {poStatus === 'closed' && (
+                                               <div className="flex items-center gap-2">
+                                                 <div className="w-2 h-2 bg-gray-500 rounded-full flex-shrink-0"></div>
+                                                 <Badge variant="outline" className="text-xs px-2 py-1 font-medium bg-gray-500/15 text-gray-700 dark:text-gray-300 border-gray-500/30">
+                                                   <XCircle className="w-3 h-3 mr-1" />
+                                                   Closed
+                                                 </Badge>
+                                               </div>
+                                             )}
+                                             
+                                             {poStatus === 'pending' && (
+                                               <div className="flex items-center gap-2">
+                                                 <div className="w-2 h-2 bg-amber-500 rounded-full flex-shrink-0"></div>
+                                                 <Badge variant="outline" className="text-xs px-2 py-1 font-medium bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30">
+                                                   <Clock className="w-3 h-3 mr-1" />
+                                                   Pending
+                                                 </Badge>
+                                               </div>
+                                             )}
+                                             
+                                             {poStatus === 'cancelled' && (
+                                               <div className="flex items-center gap-2">
+                                                 <div className="w-2 h-2 bg-red-500 rounded-full flex-shrink-0"></div>
+                                                 <Badge variant="destructive" className="text-xs px-2 py-1 font-medium bg-red-500/15 text-red-700 dark:text-red-300 border border-red-500/30">
+                                                   <XCircle className="w-3 h-3 mr-1" />
+                                                   Cancelled
+                                                 </Badge>
+                                               </div>
+                                             )}
+                                             
+                                             {/* Show supplier order number for placed/closed/received statuses */}
+                                             {(poStatus === 'placed' || poStatus === 'closed' || poStatus === 'received') && order.supplier_order_number && (
+                                               <div className="flex items-center gap-2">
+                                                 <div className="w-2 h-2 bg-purple-500 rounded-full flex-shrink-0"></div>
+                                                 <Badge variant="outline" className="text-xs px-2 py-1 font-medium font-mono bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30">
+                                                   Order: {order.supplier_order_number}
+                                                 </Badge>
+                                               </div>
+                                             )}
+                                             
+                                             {/* Show tracking number/URL for placed/closed/received statuses */}
+                                             {(poStatus === 'placed' || poStatus === 'closed' || poStatus === 'received') && order.tracking_number && (
+                                               <div className="flex items-center gap-2">
+                                                 <div className="w-2 h-2 bg-purple-500 rounded-full flex-shrink-0"></div>
+                                                 {order.tracking_url ? (
+                                                   <a 
+                                                     href={order.tracking_url} 
+                                                     target="_blank" 
+                                                     rel="noopener noreferrer"
+                                                     className="text-xs px-2 py-1 font-medium font-mono bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 rounded-md hover:bg-purple-500/20 transition-colors flex items-center gap-1"
+                                                     onClick={(e) => e.stopPropagation()}
+                                                   >
+                                                     <Truck className="h-3 w-3" />
+                                                     {order.tracking_number}
+                                                   </a>
+                                                 ) : (
+                                                   <Badge variant="outline" className="text-xs px-2 py-1 font-medium font-mono bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30">
+                                                     <Truck className="h-3 w-3 mr-1" />
+                                                     {order.tracking_number}
+                                                   </Badge>
+                                                 )}
+                                               </div>
+                                             )}
+                                           </div>
+                                         );
+                                       }
+                                    })()}
+                                  </TableCell>
+
+                                 {/* Enhanced Title & ASIN Cell */}
+                                 <TableCell className="border-r border-border/50 p-3">
+                                  <div className="flex flex-col gap-2">
+                                    <div className="text-sm font-medium break-words text-foreground group-hover:text-primary/80 transition-colors" title={order.title}>
+                                      {order.title || 'No title available'}
+                                    </div>
+                                    
+                                    {/* Show consolidation badge if this is a merged item */}
+                                    {order._isConsolidated && <Badge variant="secondary" className="text-xs px-2 py-1 font-medium bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 w-fit">
+                                        <Package className="w-3 h-3 mr-1" />
+                                        {order._consolidatedOrders.length} SKUs
+                                      </Badge>}
+                                    
+                                    {/* ASIN display only */}
+                                    {order.asin && <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 bg-cyan-500 rounded-full flex-shrink-0"></div>
+                                        <Badge variant="outline" className="text-xs px-2 py-1 font-medium font-mono bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30">
+                                          {order.asin}
+                                        </Badge>
+                                      </div>}
+                                  </div>
+                                 </TableCell>
+
+                                  {/* Ship To Location Cell */}
+                                  <TableCell className="border-r border-border/50 p-3">
+                                    <span className="text-sm text-foreground">
+                                      {order.ship_to_location || '-'}
+                                    </span>
+                                  </TableCell>
+
+                                    {/* Enhanced Quantity Cell with PO Numbers */}
+                                    <TableCell className="border-r border-border/50 p-3">
+                                     <div className="flex flex-col gap-2">
+                                        <div className="flex flex-col gap-2">
+                                          {order.status === 'closed' && order.notes?.includes('Fulfilled from stock:') ? <div className="flex flex-col gap-2">
+                                              {/* PO Number Badge */}
+                                              <Badge variant="outline" className="text-xs px-2 py-1 font-medium font-mono bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30 w-fit">
+                                                PO: {order.po_number}
+                                              </Badge>
                                               
+                                              <Badge variant="outline" className="text-xs px-2 py-1 font-medium font-mono bg-green-500/15 text-green-700 dark:text-green-300 border-green-500/30 w-fit">
+                                                 {(() => {
+                                           const fulfilledMatch = order.notes?.match(/Fulfilled from stock:\s*(\d+)/);
+                                           const originalMatch = order.notes?.match(/Original quantity:\s*(\d+)/);
+                                           const fulfilledQty = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
+                                           // If original quantity not in notes, assume fulfilled quantity was the original
+                                           const originalQty = originalMatch ? parseInt(originalMatch[1]) : fulfilledQty > 0 ? fulfilledQty : 1;
+                                           return `Fulfilled: ${fulfilledQty}/${originalQty}`;
+                                         })()}
+                                              </Badge>
                                               <div className="flex items-center gap-2">
-                                                {/* Quantity display - NOT clickable anymore */}
-                                                <Badge 
-                                                  variant="secondary" 
-                                                  className={`font-mono ${order._isConsolidated ? 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30' : 'bg-emerald/10 text-emerald-700 dark:text-emerald-300 border-emerald/30'}`}
-                                                >
-                                                  {order._isConsolidated ? `Total: ${order.quantity}` : `Qty: ${order.quantity}`}
-                                                </Badge>
-                                                
-                                                {/* Breakdown Popover for Consolidated Items */}
-                                                {order._isConsolidated && <Popover>
-                                                    <PopoverTrigger asChild>
-                                                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-purple-500/10 transition-colors" title="View printed labels breakdown">
-                                                        <ChevronDown className="h-3 w-3 text-purple-600 dark:text-purple-400" />
-                                                      </Button>
-                                                    </PopoverTrigger>
-                                                    <PopoverContent side="right" align="start" className="w-96 p-0 border-purple-500/30 shadow-lg">
-                                                      <div className="p-4 space-y-3 bg-gradient-to-br from-purple-500/5 to-background">
-                                                        {/* Header */}
-                                                        <div className="flex items-center gap-2 text-sm font-semibold text-foreground pb-2 border-b border-border">
-                                                          <Package className="h-4 w-4 text-purple-600" />
-                                                          <span>Printed Labels Breakdown</span>
-                                                          <Badge variant="outline" className="ml-auto text-xs font-mono">
-                                                            {order.asin}
-                                                          </Badge>
-                                                        </div>
-                                                        
-                                                        {/* Per-PO Breakdown */}
-                                                        <div className="space-y-2 max-h-64 overflow-y-auto">
-                                                          {order._consolidatedOrders.map((po: any, idx: number) => <div key={idx} className="flex items-center justify-between p-3 bg-card rounded-md border border-border/50 hover:border-purple-500/30 transition-colors">
-                                                              <div className="flex items-center gap-3">
-                                                                <Badge variant="outline" className="font-mono text-xs">
-                                                                  {po.po_number}
-                                                                </Badge>
-                                                                <div className="text-xs text-muted-foreground truncate max-w-[120px]">
-                                                                  {po.ship_to_location || 'No location'}
-                                                                </div>
-                                                              </div>
-                                                              
-                                                              <div className="flex items-center gap-3">
-                                                                <div className="text-sm text-right">
-                                                                  <span className="font-semibold text-foreground">{po.quantity}</span>
-                                                                  <span className="text-muted-foreground text-xs ml-1">units</span>
-                                                                </div>
-                                                                
-                                                                {po.printed_quantity > 0 ? (
-                                                                  po.printed_quantity >= po.quantity ? (
-                                                                    <Badge variant="default" className="bg-green-500/20 text-green-700 dark:text-green-300 border-green-300 text-xs font-medium">
-                                                                      ✓ Printed ({po.printed_quantity}/{po.quantity})
-                                                                    </Badge>
-                                                                  ) : (
-                                                                    <Badge variant="outline" className="bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 border-yellow-300 text-xs font-medium">
-                                                                      ⚠ Partial ({po.printed_quantity}/{po.quantity})
-                                                                    </Badge>
-                                                                  )
-                                                                ) : (
-                                                                  <Badge variant="outline" className="bg-gray-100 dark:bg-gray-800 text-gray-500 border-gray-300 text-xs">
-                                                                    ○ Not Printed
-                                                                  </Badge>
-                                                                )}
-                                                              </div>
-                                                            </div>)}
-                                                        </div>
-                                                        
-                                                        {/* Summary Footer */}
-                                                        <div className="pt-3 mt-2 border-t border-border flex items-center justify-between text-sm bg-muted/20 -mx-4 -mb-4 px-4 py-3 rounded-b-lg">
-                                                          <span className="font-semibold text-foreground">Total:</span>
-                                                          <div className="flex items-center gap-3">
-                                                            <span className="font-semibold text-foreground">{order.quantity} units</span>
-                                                            {order.printed_quantity > 0 && <div className="flex items-center gap-1">
-                                                                <div className="w-1 h-1 bg-green-600 rounded-full"></div>
-                                                                <span className="text-xs text-green-600 dark:text-green-400 font-medium">
-                                                                  {order.printed_quantity} printed ({Math.round(order.printed_quantity / order.quantity * 100)}%)
-                                                                </span>
-                                                              </div>}
-                                                          </div>
-                                                        </div>
-                                                      </div>
-                                                    </PopoverContent>
-                                                  </Popover>}
+                                                <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
+                                                <div className="text-xs text-foreground font-medium">
+                                                  From Stock
+                                                </div>
                                               </div>
-                                              
-                                              {/* Show PO count for consolidated items */}
-                                              {order._isConsolidated && <div className="text-xs text-purple-600 dark:text-purple-400 font-medium">
-                                                  From {order._consolidatedOrders.length} PO(s) • 
-                                                 {order.printed_quantity > 0 ? <span className="text-green-600 dark:text-green-400 ml-1">
-                                                     {order.printed_quantity} printed
-                                                   </span> : <span className="text-muted-foreground ml-1">None printed</span>}
-                                               </div>}
-                                           </div>}
-                                      </div>
-                                    </div>
-                                  </TableCell>
-
-                                  {/* Print Status Cell */}
-                                  <TableCell className="w-32 border-r border-border/50">
-                                    <div className="flex items-center justify-center">
-                                      {order.printed_quantity > 0 ? (
-                                        <Badge 
-                                          variant={order.printed_quantity >= order.quantity ? "default" : "secondary"}
-                                          className={order.printed_quantity >= order.quantity ? "bg-green-500 hover:bg-green-600 text-white" : "bg-yellow-500 hover:bg-yellow-600 text-white"}
-                                        >
-                                          <Printer className="h-3 w-3 mr-1" />
-                                          {order.printed_quantity}/{order.quantity}
-                                          {order.printed_quantity > 0 && order.printed_quantity < order.quantity && (
-                                            <span className="ml-1">
-                                              ({Math.round((order.printed_quantity / order.quantity) * 100)}%)
-                                            </span>
-                                          )}
-                                        </Badge>
-                                      ) : (
-                                        <Badge variant="outline" className="text-muted-foreground border-muted">
-                                          Not Printed
-                                        </Badge>
-                                      )}
-                                    </div>
-                                  </TableCell>
-
-                                    {/* Enhanced Print Qty Cell */}
-                                    <TableCell className="w-24 border-r border-border/50">
-                                     <div className="flex items-center gap-2">
-                                       {(() => {
-                                   // Check if this item (or its consolidated items) are selected
-                                   const isSelected = order._isConsolidated ? order._consolidatedOrders.some((o: any) => selectedForPrint.has(o.id)) : selectedForPrint.has(order.id);
-                                   
-                                   // Calculate available quantity (total - already printed)
-                                   const availableQty = order.quantity - (order.printed_quantity || 0);
-                                   const maxQty = Math.max(1, availableQty);
-
-                                    // Get custom quantity or default to 1 when selected
-                                    const qtyValue = customPrintQuantities.get(order.id) || (isSelected ? 1 : '');
-                                   
-                                   return <>
-                                             <Input 
-                                               type="number" 
-                                               min="1" 
-                                               max={maxQty}
-                                               placeholder="Qty" 
-                                               className="w-16 h-9 text-center bg-background border-2 border-border focus:border-primary group-hover:border-primary/50 transition-colors font-mono text-foreground" 
-                                               value={isSelected ? qtyValue : ''} 
-                                               onChange={e => {
-                                                 const value = parseInt(e.target.value) || 1;
-                                                 const clampedValue = Math.min(Math.max(1, value), maxQty);
-                                                 console.log('📝 Custom qty changed:', { value, clampedValue, maxQty, availableQty });
+                                            </div> : <div className="flex flex-col gap-2">
+                                               {/* PO Number(s) Display */}
+                                               {order._isConsolidated ? (
+                                                 <div className="flex flex-wrap gap-1">
+                                                   {order._consolidatedOrders.map((po: any, idx: number) => (
+                                                     <Badge 
+                                                       key={idx} 
+                                                       variant="outline" 
+                                                       className="text-xs px-2 py-1 font-medium font-mono bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30"
+                                                     >
+                                                       {po.po_number}
+                                                     </Badge>
+                                                   ))}
+                                                 </div>
+                                               ) : (
+                                                 <Badge variant="outline" className="text-xs px-2 py-1 font-medium font-mono bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30 w-fit">
+                                                   PO: {order.po_number}
+                                                 </Badge>
+                                               )}
+                                               
+                                               <div className="flex items-center gap-2">
+                                                 {/* Quantity display - NOT clickable anymore */}
+                                                 <Badge 
+                                                   variant="secondary" 
+                                                   className={`text-xs px-2 py-1 font-medium font-mono ${order._isConsolidated ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30' : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'}`}
+                                                 >
+                                                   {order._isConsolidated ? `Total: ${order.quantity}` : `Qty: ${order.quantity}`}
+                                                 </Badge>
                                                  
-                                                 if (isSelected) {
-                                                   setCustomPrintQuantities(prev => {
-                                                     const newMap = new Map(prev);
-                                                     newMap.set(order.id, clampedValue);
-                                                     return newMap;
-                                                   });
-                                                 }
-                                               }} 
-                                               disabled={!isSelected || printingItems.has(order.id) || availableQty <= 0} 
-                                             />
-                                             {!isSelected && <span className="text-xs text-muted-foreground whitespace-nowrap">Select first</span>}
-                                             {isSelected && availableQty <= 0 && <span className="text-xs text-orange-500 whitespace-nowrap">All printed</span>}
-                                           </>;
-                                 })()}
+                                                 {/* Breakdown Popover for Consolidated Items */}
+                                                 {order._isConsolidated && <Popover>
+                                                     <PopoverTrigger asChild>
+                                                       <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-purple-500/10 transition-colors" title="View printed labels breakdown">
+                                                         <ChevronDown className="h-3 w-3 text-purple-600 dark:text-purple-400" />
+                                                       </Button>
+                                                     </PopoverTrigger>
+                                                     <PopoverContent side="right" align="start" className="w-96 p-0 border-purple-500/30 shadow-lg">
+                                                       <div className="p-4 space-y-3 bg-gradient-to-br from-purple-500/5 to-background">
+                                                         {/* Header */}
+                                                         <div className="flex items-center gap-2 text-sm font-semibold text-foreground pb-2 border-b border-border">
+                                                           <Package className="h-4 w-4 text-purple-600" />
+                                                           <span>Printed Labels Breakdown</span>
+                                                           <Badge variant="outline" className="ml-auto text-xs font-mono">
+                                                             {order.asin}
+                                                           </Badge>
+                                                         </div>
+                                                         
+                                                         {/* Per-PO Breakdown */}
+                                                         <div className="space-y-2 max-h-64 overflow-y-auto">
+                                                           {order._consolidatedOrders.map((po: any, idx: number) => <div key={idx} className="flex items-center justify-between p-3 bg-card rounded-md border border-border/50 hover:border-purple-500/30 transition-colors">
+                                                               <div className="flex items-center gap-3">
+                                                                 <Badge variant="outline" className="font-mono text-xs">
+                                                                   {po.po_number}
+                                                                 </Badge>
+                                                                 <div className="text-xs text-muted-foreground truncate max-w-[120px]">
+                                                                   {po.ship_to_location || 'No location'}
+                                                                 </div>
+                                                               </div>
+                                                               
+                                                               <div className="flex items-center gap-3">
+                                                                 <div className="text-sm text-right">
+                                                                   <span className="font-semibold text-foreground">{po.quantity}</span>
+                                                                   <span className="text-muted-foreground text-xs ml-1">units</span>
+                                                                 </div>
+                                                                 
+                                                                 {po.printed_quantity > 0 ? (
+                                                                   po.printed_quantity >= po.quantity ? (
+                                                                     <Badge variant="default" className="bg-green-500/20 text-green-700 dark:text-green-300 border-green-300 text-xs font-medium">
+                                                                       ✓ Printed ({po.printed_quantity}/{po.quantity})
+                                                                     </Badge>
+                                                                   ) : (
+                                                                     <Badge variant="outline" className="bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 border-yellow-300 text-xs font-medium">
+                                                                       ⚠ Partial ({po.printed_quantity}/{po.quantity})
+                                                                     </Badge>
+                                                                   )
+                                                                 ) : (
+                                                                   <Badge variant="outline" className="bg-gray-100 dark:bg-gray-800 text-gray-500 border-gray-300 text-xs">
+                                                                     ○ Not Printed
+                                                                   </Badge>
+                                                                 )}
+                                                               </div>
+                                                             </div>)}
+                                                         </div>
+                                                         
+                                                         {/* Summary Footer */}
+                                                         <div className="pt-3 mt-2 border-t border-border flex items-center justify-between text-sm bg-muted/20 -mx-4 -mb-4 px-4 py-3 rounded-b-lg">
+                                                           <span className="font-semibold text-foreground">Total:</span>
+                                                           <div className="flex items-center gap-3">
+                                                             <span className="font-semibold text-foreground">{order.quantity} units</span>
+                                                             {order.printed_quantity > 0 && <div className="flex items-center gap-1">
+                                                                 <div className="w-1 h-1 bg-green-600 rounded-full"></div>
+                                                                 <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                                                                   {order.printed_quantity} printed ({Math.round(order.printed_quantity / order.quantity * 100)}%)
+                                                                 </span>
+                                                               </div>}
+                                                           </div>
+                                                         </div>
+                                                       </div>
+                                                     </PopoverContent>
+                                                   </Popover>}
+                                               </div>
+                                               
+                                               {/* Show PO count for consolidated items */}
+                                               {order._isConsolidated && <div className="text-xs text-purple-600 dark:text-purple-400 font-medium">
+                                                   From {order._consolidatedOrders.length} PO(s) • 
+                                                  {order.printed_quantity > 0 ? <span className="text-green-600 dark:text-green-400 ml-1">
+                                                      {order.printed_quantity} printed
+                                                    </span> : <span className="text-muted-foreground ml-1">None printed</span>}
+                                                </div>}
+                                            </div>}
+                                       </div>
                                      </div>
                                    </TableCell>
 
-                                {/* Enhanced Status Cell */}
-                                <TableCell className="border-r border-border/50">
-                                  <div className="flex flex-col gap-2">
-                                    <Badge variant={order.printed_quantity > 0 ? 'default' : 'outline'} className={`text-xs font-medium ${order.printed_quantity > 0 ? 'bg-success/10 text-success border-success/30' : 'bg-muted/10 border-muted-foreground/30'}`}>
-                                      <div className="flex items-center gap-1">
-                                        <div className={`w-1.5 h-1.5 rounded-full ${order.printed_quantity > 0 ? 'bg-success' : 'bg-muted-foreground'}`}></div>
-                                        {order.printed_quantity || 0}/{order.quantity} printed
-                                      </div>
-                                    </Badge>
-                                    {order.printed_quantity > 0 && <div className="flex items-center gap-1">
-                                        <div className="w-1.5 h-1.5 bg-warning rounded-full flex-shrink-0"></div>
-                                        <span className="text-xs text-foreground font-medium">
-                                          {order.quantity - (order.printed_quantity || 0)} remaining
-                                        </span>
-                                      </div>}
-                                  </div>
-                                </TableCell>
+                                   {/* Print Status Cell */}
+                                   <TableCell className="w-32 border-r border-border/50 p-3">
+                                     <div className="flex items-center justify-center">
+                                       {order.printed_quantity > 0 ? (
+                                         order.printed_quantity >= order.quantity ? (
+                                           <div className="flex items-center gap-2">
+                                             <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                             <Badge 
+                                               variant="default"
+                                               className="text-xs px-2 py-1 font-medium bg-green-500/15 text-green-700 dark:text-green-300 border border-green-500/30"
+                                             >
+                                               <Printer className="h-3 w-3 mr-1" />
+                                               Fully Printed
+                                             </Badge>
+                                           </div>
+                                         ) : (
+                                           <div className="flex items-center gap-2">
+                                             <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                                             <Badge 
+                                               variant="default"
+                                               className="text-xs px-2 py-1 font-medium bg-yellow-500/15 text-yellow-700 dark:text-yellow-300 border border-yellow-500/30"
+                                             >
+                                               <AlertCircle className="h-3 w-3 mr-1" />
+                                               Partial ({order.printed_quantity}/{order.quantity})
+                                             </Badge>
+                                           </div>
+                                         )
+                                       ) : (
+                                         <div className="flex items-center gap-2">
+                                           <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
+                                           <Badge variant="outline" className="text-xs px-2 py-1 font-medium bg-gray-500/15 text-gray-700 dark:text-gray-300 border-gray-500/30">
+                                             Not Printed
+                                           </Badge>
+                                         </div>
+                                       )}
+                                     </div>
+                                   </TableCell>
 
-                                 {/* Enhanced Actions Cell */}
-                                 <TableCell>
-                                   <div className="flex flex-col gap-2">
-                                     {/* Main Print Button */}
-                                      <Button variant="outline" size="sm" onClick={() => {
+                                     {/* Enhanced Print Qty Cell */}
+                                     <TableCell className="w-24 border-r border-border/50 p-3">
+                                      <div className="flex items-center gap-2">
+                                        {(() => {
+                                    // Check if this item (or its consolidated items) are selected
+                                    const isSelected = order._isConsolidated ? order._consolidatedOrders.some((o: any) => selectedForPrint.has(o.id)) : selectedForPrint.has(order.id);
+                                    
+                                    // Calculate available quantity (total - already printed)
                                     const availableQty = order.quantity - (order.printed_quantity || 0);
-                                    const printQty = customPrintQuantities.get(order.id);
+                                    const maxQty = Math.max(1, availableQty);
 
-                                    // Require explicit quantity - don't default to full available
-                                    if (!printQty || printQty <= 0) {
-                                      toast({
-                                        title: "Enter print quantity",
-                                        description: "Please enter the number of labels to print",
-                                        variant: "destructive"
-                                      });
-                                      return;
-                                    }
+                                     // Get custom quantity or default to 1 when selected
+                                     const qtyValue = customPrintQuantities.get(order.id) || (isSelected ? 1 : '');
+                                    
+                                    return <>
+                                              <Input 
+                                                type="number" 
+                                                min="1" 
+                                                max={maxQty}
+                                                placeholder="Qty" 
+                                                className="w-16 h-8 text-center bg-background border-2 border-border focus:border-primary group-hover:border-primary/50 transition-colors font-mono text-foreground" 
+                                                value={isSelected ? qtyValue : ''} 
+                                                onChange={e => {
+                                                  const value = parseInt(e.target.value) || 1;
+                                                  const clampedValue = Math.min(Math.max(1, value), maxQty);
+                                                  console.log('📝 Custom qty changed:', { value, clampedValue, maxQty, availableQty });
+                                                  
+                                                  if (isSelected) {
+                                                    setCustomPrintQuantities(prev => {
+                                                      const newMap = new Map(prev);
+                                                      newMap.set(order.id, clampedValue);
+                                                      return newMap;
+                                                    });
+                                                  }
+                                                }} 
+                                                disabled={!isSelected || printingItems.has(order.id) || availableQty <= 0} 
+                                              />
+                                              {!isSelected && <span className="text-xs text-muted-foreground whitespace-nowrap">Select first</span>}
+                                              {isSelected && availableQty <= 0 && <span className="text-xs text-orange-500 whitespace-nowrap">All printed</span>}
+                                            </>;
+                                  })()}
+                                      </div>
+                                    </TableCell>
 
-                                    if (printQty > availableQty) {
-                                      toast({
-                                        title: "Invalid quantity",
-                                        description: `Cannot print ${printQty} labels. Only ${availableQty} available.`,
-                                        variant: "destructive"
-                                      });
-                                      return;
-                                    }
+                                 {/* Enhanced Status Cell */}
+                                 <TableCell className="border-r border-border/50 p-3">
+                                   <div className="flex flex-col gap-2">
+                                     {order.printed_quantity > 0 && (
+                                       <>
+                                         <div className="flex items-center gap-2">
+                                           <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                           <Badge variant="outline" className="text-xs px-2 py-1 font-medium bg-green-500/15 text-green-700 dark:text-green-300 border-green-500/30 w-fit">
+                                             <Check className="w-3 h-3 mr-1" />
+                                             Printed: {order.printed_quantity}
+                                           </Badge>
+                                         </div>
+                                         {order.quantity > order.printed_quantity && (
+                                           <div className="flex items-center gap-2">
+                                             <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+                                             <Badge variant="outline" className="text-xs px-2 py-1 font-medium bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 w-fit">
+                                               Remaining: {order.quantity - order.printed_quantity}
+                                             </Badge>
+                                           </div>
+                                         )}
+                                       </>
+                                     )}
+                                   </div>
+                                 </TableCell>
 
-                                    handleSingleItemPrint(order, printQty);
-                                   }} disabled={(() => {
-                                     // Check if item is selected (handle both consolidated and single orders)
-                                     const isSelected = order._isConsolidated 
-                                       ? (order._consolidatedOrders && order._consolidatedOrders.length > 0 
-                                           ? order._consolidatedOrders.some((o: any) => selectedForPrint.has(o.id))
-                                           : selectedForPrint.has(order.id))
-                                       : selectedForPrint.has(order.id);
-                                     
+                                  {/* Enhanced Actions Cell */}
+                                  <TableCell className="p-3">
+                                    <div className="flex flex-col gap-2">
+                                      {/* Main Print Button */}
+                                       <Button variant="outline" size="sm" className="h-8 w-full" onClick={() => {
                                      const availableQty = order.quantity - (order.printed_quantity || 0);
-                                     
-                                     return !qzConnected || !selectedPrinter || printingItems.has(order.id) || !isSelected || availableQty <= 0;
-                                   })()} className={`w-full border-2 transition-all duration-300 ${printingItems.has(order.id) ? 'bg-primary/10 border-primary text-primary' : 'border-border hover:border-primary hover:bg-primary/5 hover:text-primary'}`}>
-                                      {printingItems.has(order.id) ? <div className="flex items-center gap-2">
-                                          <Loader2 className="h-3 w-3 animate-spin" />
-                                          <span className="text-xs">Printing...</span>
-                                        </div> : <div className="flex items-center gap-2">
-                                          <Printer className="h-3 w-3" />
-                                          <span className="text-xs font-medium">
-                                            Print {customPrintQuantities.get(order.id) || '(Set Qty)'}
-                                          </span>
-                                        </div>}
-                                    </Button>
-                                   
-                                   {/* Reprint Already Printed Quantity */}
-                                   {order.printed_quantity > 0 && <Button variant="outline" size="sm" onClick={() => {
-                                  handleReprintWithoutTracking(order, 1);
-                                }} disabled={!qzConnected || !selectedPrinter || printingItems.has(order.id)} className="w-full border-2 border-blue-300 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700 text-blue-600 transition-all duration-300">
-                                       <div className="flex items-center gap-2">
-                                         <RefreshCw className="h-3 w-3" />
-                                         <span className="text-xs font-medium">Reprint (1)</span>
-                                       </div>
-                                     </Button>}
+                                     const printQty = customPrintQuantities.get(order.id);
+
+                                     // Require explicit quantity - don't default to full available
+                                     if (!printQty || printQty <= 0) {
+                                       toast({
+                                         title: "Enter print quantity",
+                                         description: "Please enter the number of labels to print",
+                                         variant: "destructive"
+                                       });
+                                       return;
+                                     }
+
+                                     if (printQty > availableQty) {
+                                       toast({
+                                         title: "Invalid quantity",
+                                         description: `Cannot print ${printQty} labels. Only ${availableQty} available.`,
+                                         variant: "destructive"
+                                       });
+                                       return;
+                                     }
+
+                                     handleSingleItemPrint(order, printQty);
+                                    }} disabled={(() => {
+                                      // Check if item is selected (handle both consolidated and single orders)
+                                      const isSelected = order._isConsolidated 
+                                        ? (order._consolidatedOrders && order._consolidatedOrders.length > 0 
+                                            ? order._consolidatedOrders.some((o: any) => selectedForPrint.has(o.id))
+                                            : selectedForPrint.has(order.id))
+                                        : selectedForPrint.has(order.id);
+                                      
+                                      const availableQty = order.quantity - (order.printed_quantity || 0);
+                                      
+                                      return !qzConnected || !selectedPrinter || printingItems.has(order.id) || !isSelected || availableQty <= 0;
+                                    })()}>
+                                       {printingItems.has(order.id) ? <div className="flex items-center gap-2">
+                                           <Loader2 className="h-3 w-3 animate-spin" />
+                                           <span className="text-xs">Printing...</span>
+                                         </div> : <div className="flex items-center gap-2">
+                                           <Printer className="h-3 w-3" />
+                                           <span className="text-xs font-medium">
+                                             Print {customPrintQuantities.get(order.id) || '(Set Qty)'}
+                                           </span>
+                                         </div>}
+                                     </Button>
+                                    
+                                    {/* Reprint Already Printed Quantity */}
+                                    {order.printed_quantity > 0 && <Button variant="outline" size="sm" className="h-8 w-full" onClick={() => {
+                                   handleReprintWithoutTracking(order, 1);
+                                 }} disabled={!qzConnected || !selectedPrinter || printingItems.has(order.id)}>
+                                        <div className="flex items-center gap-2">
+                                          <RefreshCw className="h-3 w-3" />
+                                          <span className="text-xs font-medium">Reprint (1)</span>
+                                        </div>
+                                      </Button>}
                                    
                                    {/* Mark as Printed (without printing) */}
                                    <Button variant="outline" size="sm" onClick={async () => {
