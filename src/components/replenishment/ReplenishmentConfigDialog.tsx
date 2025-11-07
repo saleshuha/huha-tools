@@ -83,6 +83,26 @@ export function ReplenishmentConfigDialog({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
+      // Check for duplicate config name when creating new config
+      if (!config.id) {
+        const { data: existingConfigs } = await supabase
+          .from('replenishment_calculation_configs')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('country', selectedCountry)
+          .eq('config_name', config.config_name.trim());
+
+        if (existingConfigs && existingConfigs.length > 0) {
+          toast({
+            title: 'Duplicate configuration name',
+            description: `A configuration named "${config.config_name}" already exists. Please choose a different name.`,
+            variant: 'destructive',
+          });
+          setSaving(false);
+          return;
+        }
+      }
+
       const configData = {
         ...config,
         user_id: user.id,
@@ -91,7 +111,25 @@ export function ReplenishmentConfigDialog({
       };
 
       if (config.id) {
-        // Update existing config
+        // Update existing config - check if name changed and conflicts
+        const { data: existingConfigs } = await supabase
+          .from('replenishment_calculation_configs')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('country', selectedCountry)
+          .eq('config_name', config.config_name.trim())
+          .neq('id', config.id);
+
+        if (existingConfigs && existingConfigs.length > 0) {
+          toast({
+            title: 'Duplicate configuration name',
+            description: `A configuration named "${config.config_name}" already exists. Please choose a different name.`,
+            variant: 'destructive',
+          });
+          setSaving(false);
+          return;
+        }
+
         const { error } = await supabase
           .from('replenishment_calculation_configs')
           .update(configData)
