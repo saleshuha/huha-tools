@@ -302,18 +302,24 @@ export const useAmazonOrders = () => {
     let paidThroughDate: string | null = null;
     
     if (ordersData.length > 0) {
-      // Sort orders by invoice date
+      // Sort orders by invoice_date OR shipment_date (fallback)
       const sortedOrders = [...ordersData]
-        .filter(o => o.invoice_date) // Only orders with invoice dates
-        .sort((a, b) => new Date(a.invoice_date!).getTime() - new Date(b.invoice_date!).getTime());
+        .filter(o => o.invoice_date || o.shipment_date) // Include orders with either date
+        .sort((a, b) => {
+          const dateA = new Date(a.invoice_date || a.shipment_date!);
+          const dateB = new Date(b.invoice_date || b.shipment_date!);
+          return dateA.getTime() - dateB.getTime();
+        });
       
-      console.log(`📅 Paid Through Calculation - Total orders with invoice date: ${sortedOrders.length}`);
-      console.log(`📅 Date range: ${sortedOrders[0]?.invoice_date} to ${sortedOrders[sortedOrders.length - 1]?.invoice_date}`);
+      console.log(`📅 Paid Through Calculation - Total orders: ${sortedOrders.length}`);
+      if (sortedOrders.length > 0) {
+        console.log(`📅 Date range: ${sortedOrders[0]?.invoice_date || sortedOrders[0]?.shipment_date} to ${sortedOrders[sortedOrders.length - 1]?.invoice_date || sortedOrders[sortedOrders.length - 1]?.shipment_date}`);
+      }
       
       // Find the latest date where all orders up to that date are paid
       for (let i = sortedOrders.length - 1; i >= 0; i--) {
         const currentOrder = sortedOrders[i];
-        const currentDate = currentOrder.invoice_date!;
+        const currentDate = currentOrder.invoice_date || currentOrder.shipment_date!;
         
         // Check if all orders up to this date are paid
         const ordersUpToThisDate = sortedOrders.slice(0, i + 1);
@@ -344,7 +350,7 @@ export const useAmazonOrders = () => {
           });
           console.log(`❌ No paid-through date found. First unpaid orders:`, unpaidOrders.slice(0, 5).map(o => ({
             order_id: o.order_id,
-            invoice_date: o.invoice_date,
+            date: o.invoice_date || o.shipment_date,
             status: o.status,
             payment_status: o.payment_status
           })));
