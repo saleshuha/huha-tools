@@ -266,6 +266,35 @@ export const useAmazonReturns = (country: string) => {
     }
   };
 
+  const deleteAllReturns = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { error } = await supabase
+        .from('amazon_returns_data')
+        .delete()
+        .eq('country', country)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'All returns data deleted successfully',
+      });
+
+      await fetchReturns();
+      await calculateMetrics();
+    } catch (error: any) {
+      toast({
+        title: 'Error deleting all data',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
   const exportToExcel = async () => {
     try {
       const dataToExport = returns.map(item => ({
@@ -314,6 +343,7 @@ export const useAmazonReturns = (country: string) => {
     updateReturn,
     deleteReturn,
     bulkDelete,
+    deleteAllReturns,
     exportToExcel,
   };
 };

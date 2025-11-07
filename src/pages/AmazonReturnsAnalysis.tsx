@@ -1,16 +1,27 @@
 import React, { useState } from 'react';
 import { HuhaHeader01 } from '@/components/ui/huha-header-01';
-import { TrendingDown, Upload, Download } from 'lucide-react';
+import { TrendingDown, Upload, Download, Trash2 } from 'lucide-react';
 import { useAmazonReturns } from '@/hooks/useAmazonReturns';
 import { useCountry } from '@/contexts/CountryContext';
 import { ReturnsMetricsDashboard } from '@/components/amazon/ReturnsMetricsDashboard';
 import { ReturnsFilterPanel } from '@/components/amazon/ReturnsFilterPanel';
 import { ReturnsDataTable } from '@/components/amazon/ReturnsDataTable';
 import { ReturnsUploadDialog } from '@/components/amazon/ReturnsUploadDialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const AmazonReturnsAnalysis = () => {
   const { selectedCountry } = useCountry();
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const {
     returns,
@@ -21,8 +32,14 @@ const AmazonReturnsAnalysis = () => {
     uploadReturnsData,
     deleteReturn,
     bulkDelete,
+    deleteAllReturns,
     exportToExcel,
   } = useAmazonReturns(selectedCountry);
+
+  const handleDeleteAll = async () => {
+    await deleteAllReturns();
+    setDeleteDialogOpen(false);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -36,6 +53,12 @@ const AmazonReturnsAnalysis = () => {
             icon: <Upload className="w-4 h-4" />,
             onClick: () => setUploadDialogOpen(true),
             variant: 'default',
+          },
+          {
+            label: 'Delete All Data',
+            icon: <Trash2 className="w-4 h-4" />,
+            onClick: () => setDeleteDialogOpen(true),
+            variant: 'secondary',
           },
           {
             label: 'Export',
@@ -68,6 +91,25 @@ const AmazonReturnsAnalysis = () => {
         onOpenChange={setUploadDialogOpen}
         onUpload={uploadReturnsData}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete All Returns Data?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete all returns data for {selectedCountry}. 
+              This action cannot be undone. You can then upload fresh data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteAll} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete All Data
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
