@@ -3420,13 +3420,12 @@ export const POTracker = () => {
 
                 <div className="rounded-lg border-2 border-border overflow-hidden">
                   {viewMode === 'grouped' ? <div className="grid">
-                        <div className="grid grid-cols-[70px_minmax(140px,1fr)_100px_110px_110px_100px_180px_180px_200px] bg-muted/50 border-b h-12 items-center">
-                          <div className="p-2 font-medium text-sm">
+                        <div className="grid grid-cols-[70px_minmax(140px,1fr)_100px_110px_110px_100px_180px_180px_200px] bg-muted/50 border-b min-h-[48px]">
+                          <div className="p-3 font-medium text-sm flex items-center">
                             Enable
                           </div>
-                         <div className="p-2 font-medium text-sm">Enable</div>
                          <div 
-                           className={`p-2 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'po_number' ? 'bg-primary/10 text-primary' : ''}`}
+                           className={`p-3 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'po_number' ? 'bg-primary/10 text-primary' : ''}`}
                            onClick={() => handleGroupedSort('po_number')}
                          >
                            <span>PO Number</span>
@@ -3437,7 +3436,7 @@ export const POTracker = () => {
                            )}
                          </div>
                          <div 
-                           className={`p-2 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'ship_to' ? 'bg-primary/10 text-primary' : ''}`}
+                           className={`p-3 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'ship_to' ? 'bg-primary/10 text-primary' : ''}`}
                            onClick={() => handleGroupedSort('ship_to')}
                          >
                            <span>Ship To</span>
@@ -3448,7 +3447,7 @@ export const POTracker = () => {
                            )}
                          </div>
                          <div 
-                           className={`p-2 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'po_items' ? 'bg-primary/10 text-primary' : ''}`}
+                           className={`p-3 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'po_items' ? 'bg-primary/10 text-primary' : ''}`}
                            onClick={() => handleGroupedSort('po_items')}
                          >
                            <span>PO Items</span>
@@ -3459,7 +3458,7 @@ export const POTracker = () => {
                            )}
                          </div>
                          <div 
-                           className={`p-2 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'asn_qty' ? 'bg-primary/10 text-primary' : ''}`}
+                           className={`p-3 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'asn_qty' ? 'bg-primary/10 text-primary' : ''}`}
                            onClick={() => handleGroupedSort('asn_qty')}
                          >
                            <span>ASN Qty</span>
@@ -3470,7 +3469,7 @@ export const POTracker = () => {
                            )}
                          </div>
                          <div 
-                           className={`p-2 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'matched_percentage' ? 'bg-primary/10 text-primary' : ''}`}
+                           className={`p-3 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'matched_percentage' ? 'bg-primary/10 text-primary' : ''}`}
                            onClick={() => handleGroupedSort('matched_percentage')}
                          >
                            <span>Matched %</span>
@@ -3481,7 +3480,7 @@ export const POTracker = () => {
                            )}
                          </div>
                           <div 
-                            className={`p-2 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'matched_sunsky' ? 'bg-primary/10 text-primary' : ''}`}
+                            className={`p-3 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'matched_sunsky' ? 'bg-primary/10 text-primary' : ''}`}
                             onClick={() => handleGroupedSort('matched_sunsky')}
                           >
                             <span>Matched Details</span>
@@ -3492,7 +3491,7 @@ export const POTracker = () => {
                            )}
                          </div>
                          <div 
-                            className={`p-2 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'pending_sunsky' ? 'bg-primary/10 text-primary' : ''}`}
+                            className={`p-3 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'pending_sunsky' ? 'bg-primary/10 text-primary' : ''}`}
                             onClick={() => handleGroupedSort('pending_sunsky')}
                           >
                             <span>Pending to Place</span>
@@ -3503,7 +3502,7 @@ export const POTracker = () => {
                            )}
                          </div>
                          <div 
-                           className={`p-2 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'instock_qty' ? 'bg-primary/10 text-primary' : ''}`}
+                           className={`p-3 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'instock_qty' ? 'bg-primary/10 text-primary' : ''}`}
                            onClick={() => handleGroupedSort('instock_qty')}
                          >
                            <span>In-Stock Qty</span>
@@ -3513,7 +3512,7 @@ export const POTracker = () => {
                              <ArrowUpDown className="h-3 w-3 opacity-30" />
                            )}
                          </div>
-                         <div className="p-2 font-medium text-sm">Actions</div>
+                         <div className="p-3 font-medium text-sm flex items-center">Actions</div>
                        </div>
                       <div>
                          {paginatedPOGroups.map(({
