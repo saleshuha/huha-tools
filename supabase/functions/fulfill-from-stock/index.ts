@@ -75,10 +75,10 @@ Deno.serve(async (req) => {
 
     console.log('✅ Background task created:', taskData.id);
 
-    // Process fulfillment in background
-    EdgeRuntime.waitUntil(
-      processFulfillment(supabaseClient, user.id, poNumber, quantity, asin, originalQuantity, taskData.id)
-    );
+    // Process fulfillment in background (don't await to return quickly)
+    processFulfillment(supabaseClient, user.id, poNumber, quantity, asin, originalQuantity, taskData.id).catch((err) => {
+      console.error('Background fulfillment error:', err);
+    });
 
     // Return immediate response
     return new Response(
