@@ -22,6 +22,7 @@ import { VelocityAnalyticsSimple } from './VelocityAnalyticsSimple';
 import { ReplenishmentItemCard } from './replenishment/ReplenishmentItemCard';
 import { ReplenishmentSearchBar } from './replenishment/ReplenishmentSearchBar';
 import { ReplenishmentPagination } from './replenishment/ReplenishmentPagination';
+import { ReplenishmentConfigDialog } from './replenishment/ReplenishmentConfigDialog';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
 import { cn } from '@/lib/utils';
@@ -296,6 +297,12 @@ export function Replenishment() {
   const [forecastLoading, setForecastLoading] = useState(false);
   const [forecastError, setForecastError] = useState<string | null>(null);
 
+  // Replenishment configuration state
+  const [availableConfigs, setAvailableConfigs] = useState<any[]>([]);
+  const [selectedConfigId, setSelectedConfigId] = useState<string | null>(null);
+  const [configDialogOpen, setConfigDialogOpen] = useState(false);
+  const [selectedConfig, setSelectedConfig] = useState<any>(null);
+
   // Load non-source items
   const loadNonSourceItems = async () => {
     try {
@@ -330,8 +337,62 @@ export function Replenishment() {
       });
     }
   };
-  // Calculate recommended order quantity based on total sales history
+  // Load replenishment configurations
+  const loadConfigs = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('replenishment_calculation_configs')
+        .select('*')
+        .eq('country', selectedCountry)
+        .order('is_default', { ascending: false });
+
+      if (error) throw error;
+
+      setAvailableConfigs(data || []);
+
+      // Auto-select default config
+      const defaultConfig = (data || []).find(c => c.is_default);
+      if (defaultConfig) {
+        setSelectedConfigId(defaultConfig.id);
+      }
+    } catch (error: any) {
+      console.error('Error loading configurations:', error);
+    }
+  };
+
+  // Calculate recommended order quantity using edge function with advanced config
   const calculateRecommendedQuantity = async (item: RestockItem): Promise<number> => {
+    try {
+      const config = availableConfigs.find(c => c.id === selectedConfigId);
+
+      if (!config) {
+        // Fallback to simple calculation
+        return calculateSimpleQuantity(item);
+      }
+
+      // Call edge function with config
+      const { data, error } = await supabase.functions.invoke('calculate-replenishment-quantity', {
+        body: {
+          inventory_id: item.id,
+          inventory_type: item.table_name === 'asin_inventory' ? 'asin' : 'sku',
+          config,
+        },
+      });
+
+      if (error) {
+        console.error('Edge function error:', error);
+        return calculateSimpleQuantity(item);
+      }
+
+      return data?.recommended_quantity || 1;
+    } catch (error) {
+      console.error('Error calculating recommended quantity for item:', item.id, error);
+      return calculateSimpleQuantity(item);
+    }
+  };
+
+  // Simple fallback calculation
+  const calculateSimpleQuantity = async (item: RestockItem): Promise<number> => {
     try {
       let stockChangesQuery;
       if (item.table_name === 'asin_inventory') {
@@ -340,32 +401,30 @@ export function Replenishment() {
           .select('change_amount')
           .eq('inventory_id', item.id)
           .eq('inventory_type', 'asin')
-          .lt('change_amount', 0); // Only negative changes (sales)
+          .lt('change_amount', 0);
       } else {
         stockChangesQuery = (supabase as any)
           .from('stock_changes')
           .select('change_amount')
           .eq('inventory_id', item.id)
           .eq('inventory_type', 'sku')
-          .lt('change_amount', 0); // Only negative changes (sales)
+          .lt('change_amount', 0);
       }
 
-      // Count ALL sales from first stock/restock until now (no date filtering)
       const { data: stockChanges } = await stockChangesQuery;
-      
+
       if (stockChanges && stockChanges.length > 0) {
-        // Sum all negative changes (units sold) from beginning
-        const unitsSold = stockChanges.reduce((sum: number, change: any) => 
-          sum + Math.abs(change.change_amount), 0
+        const unitsSold = stockChanges.reduce(
+          (sum: number, change: any) => sum + Math.abs(change.change_amount),
+          0
         );
-        // Formula: MAX(1, CEIL(Total Units Sold / 2))
         return Math.max(1, Math.ceil(unitsSold / 2));
       }
-      
-      return 1; // Default minimum quantity
+
+      return 1;
     } catch (error) {
-      console.error('Error calculating recommended quantity for item:', item.id, error);
-      return 1; // Fall back to default
+      console.error('Error in simple calculation:', error);
+      return 1;
     }
   };
 
@@ -1942,6 +2001,7 @@ export function Replenishment() {
   // Load data on country change
   useEffect(() => {
     const loadData = async () => {
+      await loadConfigs(); // Load configurations first
       await loadAllData();
       const orderedItemsData = await loadOrderedItems();
       setOrderedItems(orderedItemsData);
@@ -1993,16 +2053,45 @@ export function Replenishment() {
   const totalSales30d = salesData.find(d => d.period === '30d')?.total_sold || 0;
   const totalRestocks30d = salesData.find(d => d.period === '30d')?.total_restocked || 0;
   return <div className="space-y-6 animate-fade-in w-full max-w-none">
-      {/* Header with refresh button */}
+      {/* Header with refresh button and config selector */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-2xl font-bold">Replenishment Dashboard</h2>
           <p className="text-muted-foreground">Track inventory levels and manage restocking</p>
         </div>
-        <Button onClick={loadAllData} variant="outline" size="sm" className="gap-2">
-          <RefreshCw className="w-4 h-4" />
-          Refresh Data
-        </Button>
+        <div className="flex items-center gap-3">
+          {availableConfigs.length > 0 && (
+            <>
+              <Select value={selectedConfigId || ''} onValueChange={setSelectedConfigId}>
+                <SelectTrigger className="w-[250px]">
+                  <SelectValue placeholder="Select calculation method" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableConfigs.map((config) => (
+                    <SelectItem key={config.id} value={config.id}>
+                      {config.config_name}
+                      {config.is_default && ' (Default)'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSelectedConfig(availableConfigs.find(c => c.id === selectedConfigId) || null);
+                  setConfigDialogOpen(true);
+                }}
+              >
+                <Settings className="w-4 h-4" />
+              </Button>
+            </>
+          )}
+          <Button onClick={loadAllData} variant="outline" size="sm" className="gap-2">
+            <RefreshCw className="w-4 h-4" />
+            Refresh Data
+          </Button>
+        </div>
       </div>
 
       {/* Advanced Metrics Grid */}
@@ -2399,5 +2488,16 @@ export function Replenishment() {
 
       {/* Sunsky Order Dialog */}
       <SunskyOrderDialog open={sunskyDialogOpen} onOpenChange={setSunskyDialogOpen} selectedOrders={sunskyOrderItems} onOrderSuccess={handleSunskyOrderSuccess} onItemsUnavailable={handleItemsUnavailable} />
+      
+      {/* Replenishment Configuration Dialog */}
+      <ReplenishmentConfigDialog
+        open={configDialogOpen}
+        onOpenChange={setConfigDialogOpen}
+        onSave={async () => {
+          await loadConfigs();
+          await loadRestockItems(); // Recalculate with new config
+        }}
+        currentConfig={selectedConfig}
+      />
     </div>;
 }

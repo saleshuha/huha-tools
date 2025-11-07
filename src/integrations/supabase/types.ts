@@ -2817,6 +2817,96 @@ export type Database = {
           },
         ]
       }
+      replenishment_calculation_configs: {
+        Row: {
+          calculation_method: string
+          config_name: string
+          country: string
+          created_at: string | null
+          custom_formula: string | null
+          exclude_first_n_days: number | null
+          fast_moving_multiplier: number | null
+          id: string
+          include_manual_adjustments: boolean | null
+          include_po_restocks: boolean | null
+          include_returns: boolean | null
+          is_default: boolean | null
+          lead_time_days: number | null
+          lookback_days: number | null
+          manual_adjustment_weight: number | null
+          max_order_quantity: number | null
+          medium_moving_multiplier: number | null
+          min_order_quantity: number | null
+          notes: string | null
+          po_restock_weight: number | null
+          return_weight: number | null
+          round_to_multiple: number | null
+          safety_stock_days: number | null
+          slow_moving_multiplier: number | null
+          updated_at: string | null
+          use_velocity_multiplier: boolean | null
+          user_id: string
+        }
+        Insert: {
+          calculation_method?: string
+          config_name: string
+          country?: string
+          created_at?: string | null
+          custom_formula?: string | null
+          exclude_first_n_days?: number | null
+          fast_moving_multiplier?: number | null
+          id?: string
+          include_manual_adjustments?: boolean | null
+          include_po_restocks?: boolean | null
+          include_returns?: boolean | null
+          is_default?: boolean | null
+          lead_time_days?: number | null
+          lookback_days?: number | null
+          manual_adjustment_weight?: number | null
+          max_order_quantity?: number | null
+          medium_moving_multiplier?: number | null
+          min_order_quantity?: number | null
+          notes?: string | null
+          po_restock_weight?: number | null
+          return_weight?: number | null
+          round_to_multiple?: number | null
+          safety_stock_days?: number | null
+          slow_moving_multiplier?: number | null
+          updated_at?: string | null
+          use_velocity_multiplier?: boolean | null
+          user_id: string
+        }
+        Update: {
+          calculation_method?: string
+          config_name?: string
+          country?: string
+          created_at?: string | null
+          custom_formula?: string | null
+          exclude_first_n_days?: number | null
+          fast_moving_multiplier?: number | null
+          id?: string
+          include_manual_adjustments?: boolean | null
+          include_po_restocks?: boolean | null
+          include_returns?: boolean | null
+          is_default?: boolean | null
+          lead_time_days?: number | null
+          lookback_days?: number | null
+          manual_adjustment_weight?: number | null
+          max_order_quantity?: number | null
+          medium_moving_multiplier?: number | null
+          min_order_quantity?: number | null
+          notes?: string | null
+          po_restock_weight?: number | null
+          return_weight?: number | null
+          round_to_multiple?: number | null
+          safety_stock_days?: number | null
+          slow_moving_multiplier?: number | null
+          updated_at?: string | null
+          use_velocity_multiplier?: boolean | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       saved_delivery_addresses: {
         Row: {
           address: string
@@ -3076,6 +3166,7 @@ export type Database = {
           reverted_by: string | null
           serial_number: string | null
           sku_number: string | null
+          source_type: Database["public"]["Enums"]["stock_change_source"] | null
           tags: string[] | null
           total_value: number | null
           user_id: string
@@ -3108,6 +3199,9 @@ export type Database = {
           reverted_by?: string | null
           serial_number?: string | null
           sku_number?: string | null
+          source_type?:
+            | Database["public"]["Enums"]["stock_change_source"]
+            | null
           tags?: string[] | null
           total_value?: number | null
           user_id: string
@@ -3140,6 +3234,9 @@ export type Database = {
           reverted_by?: string | null
           serial_number?: string | null
           sku_number?: string | null
+          source_type?:
+            | Database["public"]["Enums"]["stock_change_source"]
+            | null
           tags?: string[] | null
           total_value?: number | null
           user_id?: string
@@ -5525,6 +5622,16 @@ export type Database = {
         | "out-of-stock"
       listing_status: "pending" | "listed" | "failed" | "delisted"
       payment_status: "pending" | "partial" | "paid" | "overdue"
+      stock_change_source:
+        | "manual_adjustment"
+        | "po_fulfillment"
+        | "customer_sale"
+        | "customer_return"
+        | "damage_loss"
+        | "inventory_correction"
+        | "transfer_in"
+        | "transfer_out"
+        | "sunsky_order"
       sunsky_order_status:
         | "unpaid"
         | "paid"
@@ -5677,6 +5784,17 @@ export const Constants = {
       ],
       listing_status: ["pending", "listed", "failed", "delisted"],
       payment_status: ["pending", "partial", "paid", "overdue"],
+      stock_change_source: [
+        "manual_adjustment",
+        "po_fulfillment",
+        "customer_sale",
+        "customer_return",
+        "damage_loss",
+        "inventory_correction",
+        "transfer_in",
+        "transfer_out",
+        "sunsky_order",
+      ],
       sunsky_order_status: [
         "unpaid",
         "paid",
