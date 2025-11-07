@@ -305,7 +305,7 @@ export function ReplenishmentConfigDialog({
                     Stock Change Sources
                   </CardTitle>
                   <CardDescription>
-                    Configure which types of stock changes to include
+                    Choose which stock changes to include and set their impact factor. Higher impact = more influence on recommended quantities.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -324,16 +324,22 @@ export function ReplenishmentConfigDialog({
                         }
                       />
                       {config.include_manual_adjustments && (
-                        <div className="w-24">
-                          <Label className="text-xs">Weight</Label>
+                        <div className="w-32 space-y-1">
+                          <Label className="text-xs">Impact Factor</Label>
                           <Input
                             type="number"
                             step="0.1"
+                            min="0"
+                            max="2"
                             value={config.manual_adjustment_weight}
                             onChange={(e) =>
                               setConfig({ ...config, manual_adjustment_weight: parseFloat(e.target.value) || 1.0 })
                             }
+                            placeholder="1.0 = full"
                           />
+                          <p className="text-[10px] text-muted-foreground">
+                            1.0 = full impact, 0.5 = half
+                          </p>
                         </div>
                       )}
                     </div>
@@ -356,16 +362,22 @@ export function ReplenishmentConfigDialog({
                         }
                       />
                       {config.include_po_restocks && (
-                        <div className="w-24">
-                          <Label className="text-xs">Weight</Label>
+                        <div className="w-32 space-y-1">
+                          <Label className="text-xs">Impact Factor</Label>
                           <Input
                             type="number"
                             step="0.1"
+                            min="0"
+                            max="2"
                             value={config.po_restock_weight}
                             onChange={(e) =>
                               setConfig({ ...config, po_restock_weight: parseFloat(e.target.value) || 1.0 })
                             }
+                            placeholder="1.0 = full"
                           />
+                          <p className="text-[10px] text-muted-foreground">
+                            1.0 = full impact, 0.5 = half
+                          </p>
                         </div>
                       )}
                     </div>
@@ -388,16 +400,22 @@ export function ReplenishmentConfigDialog({
                         }
                       />
                       {config.include_returns && (
-                        <div className="w-24">
-                          <Label className="text-xs">Weight</Label>
+                        <div className="w-32 space-y-1">
+                          <Label className="text-xs">Impact Factor</Label>
                           <Input
                             type="number"
                             step="0.1"
+                            min="0"
+                            max="2"
                             value={config.return_weight}
                             onChange={(e) =>
                               setConfig({ ...config, return_weight: parseFloat(e.target.value) || 0.5 })
                             }
+                            placeholder="0.5 = half"
                           />
+                          <p className="text-[10px] text-muted-foreground">
+                            1.0 = full impact, 0.5 = half
+                          </p>
                         </div>
                       )}
                     </div>
