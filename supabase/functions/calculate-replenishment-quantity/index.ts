@@ -107,6 +107,12 @@ serve(async (req) => {
     recommendedQty = Math.min(config.max_order_quantity, recommendedQty);
     recommendedQty = Math.ceil(recommendedQty / config.round_to_multiple) * config.round_to_multiple;
 
+    // Final safety check - should never return less than min
+    if (recommendedQty < config.min_order_quantity) {
+      console.warn(`⚠️ Recommended qty ${recommendedQty} is less than min ${config.min_order_quantity}, forcing to min`);
+      recommendedQty = config.min_order_quantity;
+    }
+
     breakdown.total_recommended = recommendedQty;
 
     return new Response(

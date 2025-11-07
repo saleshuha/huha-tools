@@ -464,7 +464,7 @@ export function Replenishment() {
       const config = availableConfigs.find(c => c.id === selectedConfigId);
 
       if (!config) {
-        // Fallback to simple calculation
+        console.warn('⚠️ No config found, using simple calculation');
         return calculateSimpleQuantity(item);
       }
 
@@ -482,7 +482,12 @@ export function Replenishment() {
         return calculateSimpleQuantity(item);
       }
 
-      return data?.recommended_quantity || 1;
+      const recommended = data?.recommended_quantity;
+      console.log(`📊 Item ${item.identifier}: calculated=${recommended}, min=${config.min_order_quantity}`);
+
+      // Respect the configured minimum order quantity
+      const minQty = config?.min_order_quantity || 1;
+      return recommended || minQty;
     } catch (error) {
       console.error('Error calculating recommended quantity for item:', item.id, error);
       return calculateSimpleQuantity(item);
@@ -491,6 +496,9 @@ export function Replenishment() {
 
   // Simple fallback calculation
   const calculateSimpleQuantity = async (item: RestockItem): Promise<number> => {
+    const config = availableConfigs.find(c => c.id === selectedConfigId);
+    const minQty = config?.min_order_quantity || 1;
+    
     try {
       let stockChangesQuery;
       if (item.table_name === 'asin_inventory') {
@@ -516,13 +524,14 @@ export function Replenishment() {
           (sum: number, change: any) => sum + Math.abs(change.change_amount),
           0
         );
-        return Math.max(1, Math.ceil(unitsSold / 2));
+        const calculated = Math.ceil(unitsSold / 2);
+        return Math.max(minQty, calculated); // Use config min
       }
 
-      return 1;
+      return minQty; // Use config min instead of hardcoded 1
     } catch (error) {
       console.error('Error in simple calculation:', error);
-      return 1;
+      return minQty; // Use config min
     }
   };
 
