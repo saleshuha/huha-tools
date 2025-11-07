@@ -411,6 +411,14 @@ export function Replenishment() {
     }
   };
 
+  // Watch for configuration changes and recalculate quantities
+  useEffect(() => {
+    if (selectedConfigId && allInventoryItems.length > 0) {
+      console.log('Configuration changed, recalculating recommended quantities...');
+      recalculateAllRecommendedQuantities();
+    }
+  }, [selectedConfigId]);
+
   // Calculate recommended order quantity using edge function with advanced config
   const calculateRecommendedQuantity = async (item: RestockItem): Promise<number> => {
     try {
@@ -476,6 +484,83 @@ export function Replenishment() {
     } catch (error) {
       console.error('Error in simple calculation:', error);
       return 1;
+    }
+  };
+
+  // Recalculate recommended quantities for all items when config changes
+  const recalculateAllRecommendedQuantities = async () => {
+    if (!selectedConfigId || allInventoryItems.length === 0) return;
+    
+    try {
+      setLoading(true);
+      console.log('Recalculating recommended quantities with config:', selectedConfigId);
+      
+      // Recalculate for all inventory items
+      const updatedAllItems = await Promise.all(
+        allInventoryItems.map(async (item) => {
+          const recommended_reorder_quantity = await calculateRecommendedQuantity({
+            id: item.id,
+            table_name: 'asin_inventory',
+            identifier: `${item.asin} (${item.serial_number})`,
+            asin: item.asin,
+            sku: item.sku,
+            serial_number: item.serial_number,
+            title: item.title,
+            current_quantity: item.quantity,
+            status: item.status,
+          } as RestockItem);
+          
+          return {
+            ...item,
+            recommended_reorder_quantity,
+          };
+        })
+      );
+      
+      setAllInventoryItems(updatedAllItems);
+      
+      // Update restock items
+      const updatedRestockItems = await Promise.all(
+        restockItems.map(async (item) => ({
+          ...item,
+          recommended_reorder_quantity: await calculateRecommendedQuantity(item),
+        }))
+      );
+      
+      // Update out of stock items
+      const updatedOutOfStockItems = await Promise.all(
+        outOfStockItems.map(async (item) => ({
+          ...item,
+          recommended_reorder_quantity: await calculateRecommendedQuantity(item),
+        }))
+      );
+      
+      // Update ordered items
+      const updatedOrderedItems = await Promise.all(
+        orderedItems.map(async (item) => ({
+          ...item,
+          recommended_reorder_quantity: await calculateRecommendedQuantity(item),
+        }))
+      );
+      
+      setRestockItems(updatedRestockItems);
+      setOutOfStockItems(updatedOutOfStockItems);
+      setOrderedItems(updatedOrderedItems);
+      
+      const configName = availableConfigs.find(c => c.id === selectedConfigId)?.config_name || 'Unknown';
+      toast({
+        title: "Quantities Updated",
+        description: `Recalculated recommended quantities using "${configName}"`,
+      });
+    } catch (error) {
+      console.error('Error recalculating quantities:', error);
+      toast({
+        title: "Error",
+        description: "Failed to recalculate recommended quantities",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -2151,6 +2236,16 @@ export function Replenishment() {
             <Settings className="w-4 h-4" />
             {availableConfigs.length > 0 ? 'Settings' : 'Configure'}
           </Button>
+          <Button 
+            onClick={recalculateAllRecommendedQuantities}
+            variant="outline" 
+            size="sm" 
+            className="gap-2"
+            disabled={loading || !selectedConfigId}
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Recalculate Quantities
+          </Button>
           <Button onClick={loadAllData} variant="outline" size="sm" className="gap-2">
             <RefreshCw className="w-4 h-4" />
             Refresh Data
@@ -2558,8 +2653,7 @@ export function Replenishment() {
         open={configDialogOpen}
         onOpenChange={setConfigDialogOpen}
         onSave={async () => {
-          await loadConfigs();
-          await loadRestockItems(); // Recalculate with new config
+          await loadConfigs(); // This will update selectedConfigId, triggering useEffect
         }}
         currentConfig={selectedConfig}
       />
