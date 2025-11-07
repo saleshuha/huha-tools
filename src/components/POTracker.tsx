@@ -1687,6 +1687,48 @@ export const POTracker = () => {
     }
   }, [profile?.id, fetchInventoryData]);
 
+  // Real-time subscription for inventory updates
+  useEffect(() => {
+    if (!profile?.id) return;
+
+    console.log('🔄 Setting up real-time inventory subscription');
+    
+    const channel = supabase
+      .channel('inventory-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'asin_inventory',
+          filter: `user_id=eq.${profile.id}`
+        },
+        (payload) => {
+          console.log('📦 ASIN inventory updated:', payload);
+          fetchInventoryData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'sku_inventory',
+          filter: `user_id=eq.${profile.id}`
+        },
+        (payload) => {
+          console.log('📦 SKU inventory updated:', payload);
+          fetchInventoryData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('🔄 Cleaning up inventory subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [profile?.id, fetchInventoryData]);
+
   // Log inventory data changes
   useEffect(() => {
     if (inventoryData) {
