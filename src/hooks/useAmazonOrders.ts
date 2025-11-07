@@ -307,6 +307,9 @@ export const useAmazonOrders = () => {
         .filter(o => o.invoice_date) // Only orders with invoice dates
         .sort((a, b) => new Date(a.invoice_date!).getTime() - new Date(b.invoice_date!).getTime());
       
+      console.log(`📅 Paid Through Calculation - Total orders with invoice date: ${sortedOrders.length}`);
+      console.log(`📅 Date range: ${sortedOrders[0]?.invoice_date} to ${sortedOrders[sortedOrders.length - 1]?.invoice_date}`);
+      
       // Find the latest date where all orders up to that date are paid
       for (let i = sortedOrders.length - 1; i >= 0; i--) {
         const currentOrder = sortedOrders[i];
@@ -320,9 +323,31 @@ export const useAmazonOrders = () => {
           return paymentStatus === 'completed' || status === 'paid';
         });
         
+        const paidCount = ordersUpToThisDate.filter(order => {
+          const paymentStatus = (order.payment_status || '').toLowerCase().trim();
+          const status = (order.status || '').toLowerCase().trim();
+          return paymentStatus === 'completed' || status === 'paid';
+        }).length;
+        
+        console.log(`📅 Checking date ${currentDate}: ${paidCount}/${ordersUpToThisDate.length} paid, allPaid=${allPaid}`);
+        
         if (allPaid) {
           paidThroughDate = currentDate;
+          console.log(`✅ Found paid-through date: ${paidThroughDate}`);
           break;
+        } else if (i === 0) {
+          // Log first unpaid orders for debugging
+          const unpaidOrders = ordersUpToThisDate.filter(order => {
+            const paymentStatus = (order.payment_status || '').toLowerCase().trim();
+            const status = (order.status || '').toLowerCase().trim();
+            return !(paymentStatus === 'completed' || status === 'paid');
+          });
+          console.log(`❌ No paid-through date found. First unpaid orders:`, unpaidOrders.slice(0, 5).map(o => ({
+            order_id: o.order_id,
+            invoice_date: o.invoice_date,
+            status: o.status,
+            payment_status: o.payment_status
+          })));
         }
       }
     }
