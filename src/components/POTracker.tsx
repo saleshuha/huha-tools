@@ -287,7 +287,6 @@ export const POTracker = () => {
     }
   }, [savedPresets]);
   const [qzConnected, setQzConnected] = useState(false);
-  const [selectedPOsForBulkClose, setSelectedPOsForBulkClose] = useState<Set<string>>(new Set());
   const [disabledPOs, setDisabledPOs] = useState<Set<string>>(() => {
     try {
       const stored = localStorage.getItem('poTracker_disabledPOs');
@@ -296,8 +295,6 @@ export const POTracker = () => {
       return new Set();
     }
   });
-  const [showBulkCloseConfirm, setShowBulkCloseConfirm] = useState(false);
-  const [isClosingPOs, setIsClosingPOs] = useState(false);
   const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
   const [selectedPrinter, setSelectedPrinter] = useState<string>('');
   const [isPrinting, setIsPrinting] = useState(false);
@@ -722,258 +719,24 @@ export const POTracker = () => {
   }, [selectedCountry, fetchPOOrders, toast]);
 
   // Function to handle bulk PO closing
-  const handleBulkClosePOs = async (poNumbers: string[]) => {
-    setIsClosingPOs(true);
+  // Delete all PO orders for fresh upload
+  
+  // Handle fulfill from stock
+  const handleFulfillFromStock = async () => {
+    setIsFulfilling(true);
     try {
-      const {
-        error
-      } = await supabase.from('po_orders').update({
-        status: 'closed',
-        updated_at: new Date().toISOString()
-      }).in('po_number', poNumbers).eq('user_id', profile?.id);
-      if (error) throw error;
+      // The FulfillFromStockDialog component handles the actual fulfillment via edge function
+      // We just need to refresh the data after success
+      await fetchPOOrders(true);
+      setFulfillDialogOpen(false);
       toast({
         title: "Success",
-        description: `${poNumbers.length} PO${poNumbers.length !== 1 ? 's' : ''} closed successfully.`
+        description: "Order fulfilled from stock successfully."
       });
-      fetchPOOrders(true);
     } catch (error) {
-      console.error('Error closing POs:', error);
-      toast({
-        title: "Error",
-        description: "Failed to close POs. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsClosingPOs(false);
-      setSelectedPOsForBulkClose(new Set());
-      setShowBulkCloseConfirm(false);
-    }
-  };
-
-  // Helper function to detect network/timeout errors
-  const isNetworkOrTimeoutError = (err: any): boolean => {
-    const msg = err?.message?.toLowerCase() || '';
-    return msg.includes('failed to fetch') || 
-           msg.includes('failed to send') ||
-           msg.includes('network') ||
-           msg.includes('connection') ||
-           msg.includes('timeout') ||
-           msg.includes('aborted');
-  };
-
-  // Enhanced error logging helper
-  const logDetailedError = (error: any, context: string) => {
-    console.error(`🚨 ${context}:`, {
-      error,
-      errorMessage: error?.message,
-      errorName: error?.name,
-      errorStack: error?.stack,
-      errorDetails: JSON.stringify(error, null, 2),
-      supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
-      functionsUrl: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fulfill-from-stock`,
-      timestamp: new Date().toISOString()
-    });
-  };
-
-  // Fallback function using direct fetch
-  const fulfillWithFallback = async (poNumber: string, quantity: number, orderInfo: any) => {
-    console.log('🔄 Attempting fallback with direct fetch...');
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
-      throw new Error('No active session for fallback');
-    }
-
-    const response = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fulfill-from-stock`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        },
-        body: JSON.stringify({
-          poNumber,
-          quantity,
-          asin: orderInfo.asin,
-          title: orderInfo.title,
-          originalQuantity: orderInfo.quantity
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`HTTP ${response.status}: ${errorText}`);
-    }
-
-    return await response.json();
-  };
-
-  // Function to handle fulfillment from stock
-  const handleFulfillFromStock = async (poNumber: string, quantity: number) => {
-    if (!fulfillDialogOrder) return;
-    
-    setIsFulfilling(true);
-    
-    try {
-      // Call edge function with retry logic for cold starts and network errors
-      let data, error;
-      let retryCount = 0;
-      const maxRetries = 2;
-      
-      while (retryCount <= maxRetries) {
-        // Create abort controller for timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
-        
-        try {
-          const result = await supabase.functions.invoke('fulfill-from-stock', {
-            body: {
-              poNumber,
-              quantity,
-              asin: fulfillDialogOrder.asin,
-              title: fulfillDialogOrder.title,
-              originalQuantity: fulfillDialogOrder.quantity,
-            },
-          });
-          
-          clearTimeout(timeoutId);
-          data = result.data;
-          error = result.error;
-        } catch (invokeError: any) {
-          clearTimeout(timeoutId);
-          error = invokeError;
-        }
-        
-        // Log detailed error info for debugging
-        if (error) {
-          logDetailedError(error, `Fulfillment Error (Attempt ${retryCount + 1}/${maxRetries + 1})`);
-        }
-        
-        // If successful or non-retryable error, break
-        if (!error || !isNetworkOrTimeoutError(error)) {
-          break;
-        }
-        
-        // Wait before retry (cold start or network recovery)
-        if (retryCount < maxRetries) {
-          console.log(`⏳ Retrying fulfillment (attempt ${retryCount + 2}/${maxRetries + 1})...`);
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          retryCount++;
-        } else {
-          break;
-        }
-      }
-
-      if (error) {
-        // Try fallback method before giving up
-        console.log('⚠️ All standard attempts failed, attempting fallback method...');
-        try {
-          const fallbackResult = await fulfillWithFallback(poNumber, quantity, fulfillDialogOrder);
-          console.log('✅ Fallback fulfillment successful:', fallbackResult);
-          data = fallbackResult;
-          error = null;
-        } catch (fallbackError: any) {
-          logDetailedError(fallbackError, 'Fallback Method Failed');
-          const errorMsg = error?.message || 'Unknown error occurred';
-          throw new Error(`${errorMsg} (after ${retryCount + 1} attempts + fallback)`);
-        }
-      }
-
-      // Show immediate success feedback
-      toast({
-        title: "✓ Fulfillment Started",
-        description: (
-          <div className="space-y-1">
-            <div>PO: <strong>{poNumber}</strong></div>
-            <div>Processing {quantity} units in background...</div>
-          </div>
-        ),
-      });
-
-      // Close dialog immediately
-      setFulfillDialogOpen(false);
-
-      // Set up real-time listener for task completion
-      if (data?.taskId) {
-        const channel = supabase
-          .channel(`task-${data.taskId}`)
-          .on(
-            'postgres_changes',
-            {
-              event: 'UPDATE',
-              schema: 'public',
-              table: 'background_tasks',
-              filter: `id=eq.${data.taskId}`,
-            },
-            (payload) => {
-              const task = payload.new as any;
-              
-              if (task.status === 'completed') {
-                toast({
-                  title: "✓ Fulfilled from Stock",
-                  description: (
-                    <div className="space-y-1">
-                      <div>PO: <strong>{poNumber}</strong></div>
-                      <div>Fulfilled: <strong>{quantity} units</strong></div>
-                      <div>Remaining: <strong>{task.metadata?.remaining_stock ?? '?'} units</strong></div>
-                    </div>
-                  ),
-                });
-                // Refresh data
-                fetchPOOrders(true);
-                channel.unsubscribe();
-              } else if (task.status === 'failed') {
-                toast({
-                  title: "Error Fulfilling from Stock",
-                  description: task.metadata?.error || 'Unknown error occurred',
-                  variant: "destructive",
-                });
-                // Refresh data to revert
-                fetchPOOrders(true);
-                channel.unsubscribe();
-              }
-            }
-          )
-          .subscribe();
-      }
-    } catch (error: any) {
-      console.error('Error starting fulfillment:', error);
-      toast({
-        title: "Error Starting Fulfillment",
-        description: error.message,
-        variant: "destructive",
-      });
+      console.error('Error in fulfill from stock:', error);
     } finally {
       setIsFulfilling(false);
-    }
-  };
-
-  // Function to handle individual PO closing
-  const handleClosePO = async (poNumber: string) => {
-    try {
-      const {
-        error
-      } = await supabase.from('po_orders').update({
-        status: 'closed',
-        updated_at: new Date().toISOString()
-      }).eq('po_number', poNumber).eq('user_id', profile?.id);
-      if (error) throw error;
-      toast({
-        title: "Success",
-        description: `PO ${poNumber} closed successfully.`
-      });
-      fetchPOOrders(true);
-    } catch (error) {
-      console.error('Error closing PO:', error);
-      toast({
-        title: "Error",
-        description: `Failed to close PO ${poNumber}. Please try again.`,
-        variant: "destructive"
-      });
     }
   };
 
@@ -2648,13 +2411,10 @@ export const POTracker = () => {
   const loadPreset = useCallback((preset: POSelectionPreset) => {
     setLabelSearchQuery('');
 
-    // Filter to only include POs that exist and aren't closed
+    // Filter to only include POs that exist
     const availablePOs = preset.poNumbers.filter(poNumber => {
       const poExists = poOrders.some(order => order.po_number === poNumber);
-      if (!poExists) return false;
-      const poOrdersForThis = poOrders.filter(order => order.po_number === poNumber);
-      const isClosedPO = poOrdersForThis.every(order => order.status === 'closed');
-      return !isClosedPO;
+      return poExists;
     });
 
     if (availablePOs.length === 0) {
@@ -3537,19 +3297,6 @@ export const POTracker = () => {
                     </Button>
                   </div>
                   <div className="flex items-center gap-2">
-                    {/* Bulk Close Actions */}
-                    {selectedPOsForBulkClose.size > 0 && <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg border">
-                        <Badge variant="outline">
-                          {selectedPOsForBulkClose.size} PO{selectedPOsForBulkClose.size !== 1 ? 's' : ''} selected
-                        </Badge>
-                        <Button variant="outline" size="sm" onClick={() => setShowBulkCloseConfirm(true)} disabled={isClosingPOs}>
-                          {isClosingPOs ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <X className="h-3 w-3 mr-1" />}
-                          Close Selected
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => setSelectedPOsForBulkClose(new Set())}>
-                          Clear
-                        </Button>
-                      </div>}
                     
                     <div className="flex items-center border-2 border-border rounded-lg p-1">
                       <Button variant={viewMode === 'grouped' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('grouped')} className="h-8 border border-transparent hover:border-border">
@@ -3673,20 +3420,9 @@ export const POTracker = () => {
 
                 <div className="rounded-lg border-2 border-border overflow-hidden">
                   {viewMode === 'grouped' ? <div className="grid">
-                        <div className="grid grid-cols-[45px_70px_minmax(140px,1fr)_100px_110px_110px_100px_180px_180px_200px] bg-muted/50 border-b">
+                        <div className="grid grid-cols-[70px_minmax(140px,1fr)_100px_110px_110px_100px_180px_180px_200px] bg-muted/50 border-b">
                           <div className="p-2 font-medium text-sm">
-                            <input type="checkbox" checked={selectedPOsForBulkClose.size > 0 && Array.from(selectedPOsForBulkClose).length === groupedPOOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).length} onChange={e => {
-                        const currentPagePOs = groupedPOOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map(group => group.poNumber);
-                        if (e.target.checked) {
-                          setSelectedPOsForBulkClose(prev => new Set([...prev, ...currentPagePOs.filter(po => !groupedPOOrders.find(g => g.poNumber === po)?.orders.some(o => o.status === 'closed'))]));
-                        } else {
-                          setSelectedPOsForBulkClose(prev => {
-                            const newSet = new Set(prev);
-                            currentPagePOs.forEach(po => newSet.delete(po));
-                            return newSet;
-                          });
-                        }
-                      }} className="h-4 w-4 rounded border-border" />
+                            Enable
                           </div>
                          <div className="p-2 font-medium text-sm">Enable</div>
                          <div 
@@ -3807,8 +3543,7 @@ export const POTracker = () => {
                         return counts;
                       }, {});
 
-                      // Check if PO is closed
-                      const isClosedPO = ordersInPO.every(order => order.status === 'closed');
+                      // Check if PO has closed items (but don't disable it)
                       const hasClosedItems = ordersInPO.some(order => order.status === 'closed');
 
                       // Country-specific PO handling
@@ -3816,24 +3551,11 @@ export const POTracker = () => {
                       const currencySymbol = selectedCountry === 'UAE' ? 'AED' : 'SAR';
                       const isDisabled = disabledPOs.has(poNumber);
                       return <div key={poNumber} className={`
-                                    grid grid-cols-[45px_70px_minmax(140px,1fr)_100px_110px_110px_100px_180px_180px_120px_200px] border-b
-                                    ${isClosedPO ? 'opacity-50 bg-muted/40 pointer-events-none cursor-not-allowed' : isDisabled ? 'opacity-40 bg-muted/10' : hasClosedItems ? 'opacity-75 bg-muted/20' : 'hover:bg-muted/10 transition-colors'}
+                                    grid grid-cols-[70px_minmax(140px,1fr)_100px_110px_110px_100px_180px_180px_120px_200px] border-b
+                                    ${isDisabled ? 'opacity-40 bg-muted/10' : hasClosedItems ? 'opacity-75 bg-muted/20' : 'hover:bg-muted/10 transition-colors'}
                                   `}>
                                   <div className="p-2 flex items-center">
-                                    <input type="checkbox" checked={selectedPOsForBulkClose.has(poNumber)} onChange={e => {
-                            if (isClosedPO || isDisabled) return;
-                            const newSelected = new Set(selectedPOsForBulkClose);
-                            if (e.target.checked) {
-                              newSelected.add(poNumber);
-                            } else {
-                              newSelected.delete(poNumber);
-                            }
-                            setSelectedPOsForBulkClose(newSelected);
-                          }} disabled={isClosedPO || isDisabled} className={`h-4 w-4 rounded border-border ${isClosedPO || isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}`} />
-                                  </div>
-                                  <div className="p-2 flex items-center">
                                     <Switch checked={!isDisabled} onCheckedChange={checked => {
-                            if (isClosedPO) return;
                             const newDisabled = new Set(disabledPOs);
                             if (checked) {
                               newDisabled.delete(poNumber);
@@ -3841,14 +3563,14 @@ export const POTracker = () => {
                               newDisabled.add(poNumber);
                             }
                             setDisabledPOs(newDisabled);
-                          }} disabled={isClosedPO} className="scale-75" />
+                          }} className="scale-75" />
                                   </div>
                                  <div className="p-2 font-medium flex items-center">
                                    <div className="flex items-center gap-2">
                                      <span className="text-xs opacity-60">{countryPrefix}</span>
-                                     <Button variant="link" className={`p-0 h-auto font-medium text-left justify-start ${isClosedPO ? 'cursor-not-allowed' : ''}`} onClick={isClosedPO ? undefined : () => navigate(`/po-details/${poNumber}`)} disabled={isClosedPO}>
+                                     <Button variant="link" className="p-0 h-auto font-medium text-left justify-start" onClick={() => navigate(`/po-details/${poNumber}`)}>
                                        {poNumber}
-                                       {!isClosedPO && <ExternalLink className="h-3 w-3 ml-1" />}
+                                       <ExternalLink className="h-3 w-3 ml-1" />
                                      </Button>
                                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={e => {
                               e.stopPropagation();
@@ -3860,8 +3582,8 @@ export const POTracker = () => {
                             }} title="Copy PO Number">
                                      <Copy className="h-3 w-3" />
                                       </Button>
-                                      {isClosedPO && <Badge variant="destructive" className="text-xs">
-                                         CLOSED
+                                      {hasClosedItems && <Badge variant="secondary" className="text-xs">
+                                         HAS FULFILLED ITEMS
                                        </Badge>}
                                   </div>
                                 </div>
@@ -3958,7 +3680,7 @@ export const POTracker = () => {
                               </div>
                                   <div className="p-2 flex items-center">
                                     <div className="flex items-center gap-1">
-                                      <Button variant="outline" size="sm" onClick={() => navigate(`/po-details/${poNumber}`)} disabled={isClosedPO} className="text-xs px-2 py-1 h-7">
+                                      <Button variant="outline" size="sm" onClick={() => navigate(`/po-details/${poNumber}`)} className="text-xs px-2 py-1 h-7">
                                         View
                                       </Button>
                                       {(() => {
@@ -4310,10 +4032,7 @@ export const POTracker = () => {
                            .map(preset => {
                              const availableCount = preset.poNumbers.filter(poNumber => {
                                const poExists = poOrders.some(order => order.po_number === poNumber);
-                               if (!poExists) return false;
-                               const poOrdersForThis = poOrders.filter(order => order.po_number === poNumber);
-                               const isClosedPO = poOrdersForThis.every(order => order.status === 'closed');
-                               return !isClosedPO;
+                               return poExists;
                              }).length;
 
                              return (
@@ -4503,14 +4222,13 @@ export const POTracker = () => {
 
                       // Check if this PO should be disabled due to different ship-to location
                       const isDisabledByLocation = selectedShipToLocation && groupShipToLocation && selectedShipToLocation !== groupShipToLocation && !selectedPOsForLabels.has(group.poNumber);
-                      const isClosedPO = group.orders.every(order => order.status === 'closed');
                       const hasClosedItems = group.orders.some(order => order.status === 'closed');
                       return <div key={group.poNumber} className={`
                               grid grid-cols-[50px_minmax(150px,1fr)_150px_120px_120px_minmax(150px,1fr)] border-b cursor-pointer
-                              ${isClosedPO ? 'opacity-50 bg-muted/40 pointer-events-none cursor-not-allowed' : isDisabledByLocation ? 'opacity-40 bg-muted/10 pointer-events-none cursor-not-allowed' : hasClosedItems ? 'opacity-75 bg-muted/20' : selectedPOsForLabels.has(group.poNumber) ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/10 transition-colors'}
+                              ${isDisabledByLocation ? 'opacity-40 bg-muted/10 pointer-events-none cursor-not-allowed' : hasClosedItems ? 'opacity-75 bg-muted/20' : selectedPOsForLabels.has(group.poNumber) ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/10 transition-colors'}
                             `} onClick={() => {
-                        // Prevent interaction if closed or disabled by location
-                        if (isClosedPO || isDisabledByLocation) return;
+                        // Prevent interaction if disabled by location
+                        if (isDisabledByLocation) return;
                         const newSelected = new Set(selectedPOsForLabels);
                         if (newSelected.has(group.poNumber)) {
                           newSelected.delete(group.poNumber);
@@ -4530,7 +4248,7 @@ export const POTracker = () => {
                                 {selectedCountry === 'UAE' ? '🇦🇪' : '🇸🇦'}
                               </span>
                               <span className="font-semibold text-primary">{group.poNumber}</span>
-                              {isClosedPO && <Badge variant="destructive" className="text-xs">CLOSED</Badge>}
+                              {hasClosedItems && <Badge variant="secondary" className="text-xs">HAS FULFILLED</Badge>}
                               {isDisabledByLocation && <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30">
                                   Different Location
                                 </Badge>}
@@ -4576,15 +4294,15 @@ export const POTracker = () => {
                               <Badge variant={group.orders.every(o => o.is_printed) ? 'default' : group.orders.some(o => o.is_printed) ? 'secondary' : 'outline'} className="text-xs">
                                 {group.orders.every(o => o.is_printed) ? 'Complete' : group.orders.some(o => o.is_printed) ? 'Partial' : 'Pending'}
                               </Badge>
-                              <Button variant="outline" size="sm" disabled={isClosedPO || isDisabledByLocation} onClick={e => {
+                              <Button variant="outline" size="sm" disabled={isDisabledByLocation} onClick={e => {
                             e.stopPropagation();
-                            if (isClosedPO || isDisabledByLocation) return;
+                            if (isDisabledByLocation) return;
                             setSelectedPOForLabels(group.poNumber);
                             setSelectedPOsForLabels(new Set([group.poNumber]));
                             setLabelsStep('print');
                           }}>
                                 <Printer className="h-4 w-4 mr-2" />
-                                {isClosedPO ? 'Closed' : isDisabledByLocation ? 'Different Location' : 'Print'}
+                                {isDisabledByLocation ? 'Different Location' : 'Print'}
                               </Button>
                             </div>
                           </div>;
@@ -6701,37 +6419,6 @@ export const POTracker = () => {
       </Dialog>
 
       {/* Bulk Close Confirmation Dialog */}
-      <Dialog open={showBulkCloseConfirm} onOpenChange={setShowBulkCloseConfirm}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Bulk PO Close</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Are you sure you want to close the following {selectedPOsForBulkClose.size} PO{selectedPOsForBulkClose.size !== 1 ? 's' : ''}? 
-              This action cannot be undone.
-            </p>
-            <div className="max-h-32 overflow-y-auto border rounded p-2">
-              {Array.from(selectedPOsForBulkClose).map(poNumber => <div key={poNumber} className="text-sm font-mono">
-                  {poNumber}
-                </div>)}
-            </div>
-            <div className="flex items-center gap-2 justify-end">
-              <Button variant="outline" onClick={() => setShowBulkCloseConfirm(false)} disabled={isClosingPOs}>
-                Cancel
-              </Button>
-              <Button variant="destructive" onClick={() => handleBulkClosePOs(Array.from(selectedPOsForBulkClose))} disabled={isClosingPOs}>
-                {isClosingPOs ? <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Closing...
-                  </> : `Close ${selectedPOsForBulkClose.size} PO${selectedPOsForBulkClose.size !== 1 ? 's' : ''}`}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      
-      </Dialog>
-
       {/* PO Selection Presets Management Dialog */}
       <Dialog open={showPresetsDialog} onOpenChange={setShowPresetsDialog}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -6787,10 +6474,7 @@ export const POTracker = () => {
                     .map(preset => {
                       const availableCount = preset.poNumbers.filter(poNumber => {
                         const poExists = poOrders.some(order => order.po_number === poNumber);
-                        if (!poExists) return false;
-                        const poOrdersForThis = poOrders.filter(order => order.po_number === poNumber);
-                        const isClosedPO = poOrdersForThis.every(order => order.status === 'closed');
-                        return !isClosedPO;
+                        return poExists;
                       }).length;
 
                       const isEditing = editingPresetId === preset.id;
