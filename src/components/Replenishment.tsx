@@ -489,71 +489,116 @@ export function Replenishment() {
 
   // Recalculate recommended quantities for all items when config changes
   const recalculateAllRecommendedQuantities = async () => {
-    if (!selectedConfigId || allInventoryItems.length === 0) return;
+    if (!selectedConfigId || allInventoryItems.length === 0) {
+      toast({
+        title: "No configuration selected",
+        description: "Please select a calculation configuration first.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     try {
       setLoading(true);
-      console.log('Recalculating recommended quantities with config:', selectedConfigId);
+      console.log('🔄 Starting recalculation with config:', selectedConfigId);
+      console.log('📊 Total items to calculate:', allInventoryItems.length);
+      
+      let successCount = 0;
+      let errorCount = 0;
       
       // Recalculate for all inventory items
       const updatedAllItems = await Promise.all(
         allInventoryItems.map(async (item) => {
-          const recommended_reorder_quantity = await calculateRecommendedQuantity({
-            id: item.id,
-            table_name: 'asin_inventory',
-            identifier: `${item.asin} (${item.serial_number})`,
-            asin: item.asin,
-            sku: item.sku,
-            serial_number: item.serial_number,
-            title: item.title,
-            current_quantity: item.quantity,
-            status: item.status,
-          } as RestockItem);
-          
-          return {
-            ...item,
-            recommended_reorder_quantity,
-          };
+          try {
+            const recommended_reorder_quantity = await calculateRecommendedQuantity({
+              id: item.id,
+              table_name: 'asin_inventory',
+              identifier: `${item.asin} (${item.serial_number})`,
+              asin: item.asin,
+              sku: item.sku,
+              serial_number: item.serial_number,
+              title: item.title,
+              current_quantity: item.quantity,
+              status: item.status,
+            } as RestockItem);
+            
+            successCount++;
+            return {
+              ...item,
+              recommended_reorder_quantity,
+            };
+          } catch (error) {
+            console.error(`❌ Error calculating for ${item.asin}:`, error);
+            errorCount++;
+            return item; // Keep original if calculation fails
+          }
         })
       );
       
-      setAllInventoryItems(updatedAllItems);
-      
       // Update restock items
       const updatedRestockItems = await Promise.all(
-        restockItems.map(async (item) => ({
-          ...item,
-          recommended_reorder_quantity: await calculateRecommendedQuantity(item),
-        }))
+        restockItems.map(async (item) => {
+          try {
+            return {
+              ...item,
+              recommended_reorder_quantity: await calculateRecommendedQuantity(item),
+            };
+          } catch (error) {
+            console.error(`❌ Error calculating for ${item.identifier}:`, error);
+            return item;
+          }
+        })
       );
       
       // Update out of stock items
       const updatedOutOfStockItems = await Promise.all(
-        outOfStockItems.map(async (item) => ({
-          ...item,
-          recommended_reorder_quantity: await calculateRecommendedQuantity(item),
-        }))
+        outOfStockItems.map(async (item) => {
+          try {
+            return {
+              ...item,
+              recommended_reorder_quantity: await calculateRecommendedQuantity(item),
+            };
+          } catch (error) {
+            console.error(`❌ Error calculating for ${item.identifier}:`, error);
+            return item;
+          }
+        })
       );
       
       // Update ordered items
       const updatedOrderedItems = await Promise.all(
-        orderedItems.map(async (item) => ({
-          ...item,
-          recommended_reorder_quantity: await calculateRecommendedQuantity(item),
-        }))
+        orderedItems.map(async (item) => {
+          try {
+            return {
+              ...item,
+              recommended_reorder_quantity: await calculateRecommendedQuantity(item),
+            };
+          } catch (error) {
+            console.error(`❌ Error calculating for ${item.identifier}:`, error);
+            return item;
+          }
+        })
       );
       
-      setRestockItems(updatedRestockItems);
-      setOutOfStockItems(updatedOutOfStockItems);
-      setOrderedItems(updatedOrderedItems);
+      // Force state updates with new array references
+      setAllInventoryItems([...updatedAllItems]);
+      setRestockItems([...updatedRestockItems]);
+      setOutOfStockItems([...updatedOutOfStockItems]);
+      setOrderedItems([...updatedOrderedItems]);
+      
+      console.log('✅ Recalculation complete:');
+      console.log('  - Out of stock items:', updatedOutOfStockItems.length);
+      console.log('  - Restock items:', updatedRestockItems.length);
+      console.log('  - Ordered items:', updatedOrderedItems.length);
+      console.log('  - Success:', successCount, 'Errors:', errorCount);
       
       const configName = availableConfigs.find(c => c.id === selectedConfigId)?.config_name || 'Unknown';
       toast({
         title: "Quantities Updated",
-        description: `Recalculated recommended quantities using "${configName}"`,
+        description: `Recalculated ${successCount} items using "${configName}"${errorCount > 0 ? `, ${errorCount} errors` : ''}`,
       });
     } catch (error) {
-      console.error('Error recalculating quantities:', error);
+      console.error('❌ Error recalculating quantities:', error);
       toast({
         title: "Error",
         description: "Failed to recalculate recommended quantities",

@@ -8,7 +8,8 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Settings, TrendingUp, Clock, PackageCheck, AlertTriangle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Settings, TrendingUp, Clock, PackageCheck, AlertTriangle, Calculator, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCountry } from '@/contexts/CountryContext';
@@ -125,6 +126,55 @@ export function ReplenishmentConfigDialog({
     }
   };
 
+  // Helper functions for preview calculation
+  const calculateExampleWeighted = (cfg: ReplenishmentConfig): number => {
+    let weighted = 45; // Base sales
+    if (cfg.include_manual_adjustments) weighted += 5 * cfg.manual_adjustment_weight;
+    if (cfg.include_po_restocks) weighted += 20 * cfg.po_restock_weight;
+    if (cfg.include_returns) weighted += 2 * cfg.return_weight;
+    return weighted;
+  };
+
+  const getMethodFormula = (cfg: ReplenishmentConfig): string => {
+    const dailyVel = (calculateExampleWeighted(cfg) / cfg.lookback_days).toFixed(2);
+    
+    switch (cfg.calculation_method) {
+      case 'simple':
+        return `${calculateExampleWeighted(cfg)} ÷ 2 = ${(calculateExampleWeighted(cfg) / 2).toFixed(0)}`;
+      case 'velocity_based':
+        return `${dailyVel} × (${cfg.lead_time_days} + ${cfg.safety_stock_days}) = ${(parseFloat(dailyVel) * (cfg.lead_time_days + cfg.safety_stock_days)).toFixed(0)}`;
+      case 'days_of_stock':
+        return `${dailyVel} × ${cfg.lead_time_days + cfg.safety_stock_days} days = ${(parseFloat(dailyVel) * (cfg.lead_time_days + cfg.safety_stock_days)).toFixed(0)}`;
+      case 'weighted_average':
+        return `${dailyVel} × ${cfg.lead_time_days} + safety = ${(parseFloat(dailyVel) * cfg.lead_time_days + parseFloat(dailyVel) * cfg.safety_stock_days).toFixed(0)}`;
+      default:
+        return 'N/A';
+    }
+  };
+
+  const calculateFinalExample = (cfg: ReplenishmentConfig): number => {
+    const dailyVel = calculateExampleWeighted(cfg) / cfg.lookback_days;
+    let qty = 0;
+    
+    switch (cfg.calculation_method) {
+      case 'simple':
+        qty = calculateExampleWeighted(cfg) / 2;
+        break;
+      case 'velocity_based':
+      case 'days_of_stock':
+      case 'weighted_average':
+        qty = dailyVel * (cfg.lead_time_days + cfg.safety_stock_days);
+        break;
+    }
+    
+    // Apply constraints
+    qty = Math.max(cfg.min_order_quantity, qty);
+    qty = Math.min(cfg.max_order_quantity, qty);
+    qty = Math.ceil(qty / cfg.round_to_multiple) * cfg.round_to_multiple;
+    
+    return qty;
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -156,11 +206,12 @@ export function ReplenishmentConfigDialog({
           <Separator />
 
           <Tabs defaultValue="method" className="w-full">
-            <TabsList className="grid grid-cols-4 w-full">
+            <TabsList className="grid grid-cols-5 w-full">
               <TabsTrigger value="method">Method</TabsTrigger>
               <TabsTrigger value="sources">Sources</TabsTrigger>
               <TabsTrigger value="timing">Timing</TabsTrigger>
               <TabsTrigger value="constraints">Constraints</TabsTrigger>
+              <TabsTrigger value="preview">Preview</TabsTrigger>
             </TabsList>
 
             <TabsContent value="method" className="space-y-4">
@@ -438,6 +489,111 @@ export function ReplenishmentConfigDialog({
                       placeholder="Optional notes about this configuration"
                     />
                   </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="preview" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calculator className="w-4 h-4" />
+                    Calculation Example
+                  </CardTitle>
+                  <CardDescription>
+                    See how these settings calculate recommended quantities
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="bg-muted p-4 rounded-lg space-y-3">
+                    <h4 className="font-semibold text-sm">Sample Scenario:</h4>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Total Sales ({config.lookback_days} days):</span>
+                        <span className="ml-2 font-semibold">45 units</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Manual Adjustments:</span>
+                        <span className="ml-2 font-semibold">-5 units</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">PO Restocks:</span>
+                        <span className="ml-2 font-semibold">-20 units</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Returns:</span>
+                        <span className="ml-2 font-semibold">-2 units</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-sm">Calculation Breakdown:</h4>
+                    
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
+                        <span className="text-muted-foreground">1. Weighted demand from sources:</span>
+                        <span className="font-mono font-semibold">
+                          {calculateExampleWeighted(config).toFixed(1)} units
+                        </span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
+                        <span className="text-muted-foreground">2. Daily velocity:</span>
+                        <span className="font-mono">
+                          {calculateExampleWeighted(config).toFixed(1)} ÷ {config.lookback_days} = <span className="font-semibold">{(calculateExampleWeighted(config) / config.lookback_days).toFixed(2)}</span>
+                        </span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
+                        <span className="text-muted-foreground">3. Method calculation:</span>
+                        <span className="font-mono text-xs">
+                          {getMethodFormula(config)}
+                        </span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center p-2 bg-primary/10 rounded border border-primary/20">
+                        <span className="font-medium">4. Final recommended qty:</span>
+                        <span className="font-mono font-bold text-primary text-lg">
+                          {calculateFinalExample(config)} units
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-2 text-xs">
+                    <div className="font-semibold text-sm">Applied Sources:</div>
+                    <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                      <li>Customer Sales (weight: 1.0) ✓</li>
+                      {config.include_manual_adjustments && (
+                        <li>Manual Adjustments (weight: {config.manual_adjustment_weight}) ✓</li>
+                      )}
+                      {config.include_po_restocks && (
+                        <li>PO Restocks (weight: {config.po_restock_weight}) ✓</li>
+                      )}
+                      {config.include_returns && (
+                        <li>Returns (weight: {config.return_weight}) ✓</li>
+                      )}
+                    </ul>
+                  </div>
+
+                  <div className="space-y-2 text-xs">
+                    <div className="font-semibold text-sm">Applied Constraints:</div>
+                    <div className="text-muted-foreground">
+                      Min: {config.min_order_quantity}, Max: {config.max_order_quantity}, Round to: {config.round_to_multiple}
+                    </div>
+                  </div>
+
+                  <Alert>
+                    <Info className="w-4 h-4" />
+                    <AlertDescription>
+                      This is a sample calculation. Actual recommendations will vary based on each item's real sales history.
+                    </AlertDescription>
+                  </Alert>
                 </CardContent>
               </Card>
             </TabsContent>
