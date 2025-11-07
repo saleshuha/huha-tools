@@ -19,6 +19,7 @@ export interface AsinInventoryItem {
   restockQuantity?: number;
   lastRestockDate?: string;
   eligible_for_restock?: boolean;
+  manual_restock_override?: boolean;
   isActive?: boolean;
   first_stock_added_at?: string;
 }
@@ -789,6 +790,11 @@ export function useAsinInventory() {
       const updates: { id: string; eligible: boolean }[] = [];
       
       for (const item of items.slice(0, 10)) { // Process only first 10 items to avoid timeout
+        // Skip items with manual override
+        if (item.manual_restock_override) {
+          console.log(`Skipping auto-calc for ${item.asin}: manual override active`);
+          continue;
+        }
         // Use first_stock_added_at if available, otherwise query stock_changes for first positive change
         let referenceDate = item.first_stock_added_at;
         

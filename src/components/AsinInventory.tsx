@@ -1850,12 +1850,15 @@ export function AsinInventory() {
                                   <Switch
                                     id={`restock-${item.id}`}
                                     checked={item.eligible_for_restock}
-                                   onCheckedChange={async (checked) => {
-                                    try {
-                                      const { error } = await supabase
-                                        .from('asin_inventory')
-                                        .update({ eligible_for_restock: !!checked } as any)
-                                        .eq('id', item.id as any);
+                                    onCheckedChange={async (checked) => {
+                                     try {
+                                       const { error } = await supabase
+                                         .from('asin_inventory')
+                                         .update({ 
+                                           eligible_for_restock: !!checked,
+                                           manual_restock_override: true
+                                         } as any)
+                                         .eq('id', item.id as any);
                                       
                                       if (error) throw error;
                                       

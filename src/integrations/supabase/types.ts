@@ -74,6 +74,7 @@ export type Database = {
           id: string
           is_active: boolean
           last_restock_date: string | null
+          manual_restock_override: boolean | null
           notes: string | null
           ordered_at: string | null
           ordered_quantity: number | null
@@ -100,6 +101,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_restock_date?: string | null
+          manual_restock_override?: boolean | null
           notes?: string | null
           ordered_at?: string | null
           ordered_quantity?: number | null
@@ -126,6 +128,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_restock_date?: string | null
+          manual_restock_override?: boolean | null
           notes?: string | null
           ordered_at?: string | null
           ordered_quantity?: number | null
@@ -2954,6 +2957,7 @@ export type Database = {
           first_stock_added_at: string | null
           id: string
           last_restock_date: string | null
+          manual_restock_override: boolean | null
           notes: string | null
           quantity: number
           restock_date: string | null
@@ -2974,6 +2978,7 @@ export type Database = {
           first_stock_added_at?: string | null
           id?: string
           last_restock_date?: string | null
+          manual_restock_override?: boolean | null
           notes?: string | null
           quantity?: number
           restock_date?: string | null
@@ -2994,6 +2999,7 @@ export type Database = {
           first_stock_added_at?: string | null
           id?: string
           last_restock_date?: string | null
+          manual_restock_override?: boolean | null
           notes?: string | null
           quantity?: number
           restock_date?: string | null
