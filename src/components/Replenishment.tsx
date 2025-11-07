@@ -7,6 +7,7 @@ import { Progress } from './ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
@@ -26,7 +27,7 @@ import { ReplenishmentConfigDialog } from './replenishment/ReplenishmentConfigDi
 import { format } from 'date-fns';
 import Papa from 'papaparse';
 import { cn } from '@/lib/utils';
-import { TrendingUp, TrendingDown, AlertTriangle, Package, Download, RefreshCw, Search, BarChart3, Clock, ShoppingCart, Activity, DollarSign, Database, PieChart, LineChart, CalendarIcon, CheckCircle, XCircle, Eye, Truck, ArrowRight, Target, Zap, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Settings, Gauge, Star, Minus, Timer, ChevronUp, ChevronDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertTriangle, Package, Download, RefreshCw, Search, BarChart3, Clock, ShoppingCart, Activity, DollarSign, Database, PieChart, LineChart, CalendarIcon, CheckCircle, XCircle, Eye, Truck, ArrowRight, Target, Zap, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Settings, Gauge, Star, Minus, Timer, ChevronUp, ChevronDown, Edit, Trash2 } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, AreaChart, Area, BarChart as RechartsBarChart, Bar, PieChart as RechartsPieChart, Cell, Pie, Legend } from 'recharts';
 import { SunskyOrderDialog } from './SunskyOrderDialog';
@@ -302,6 +303,44 @@ export function Replenishment() {
   const [selectedConfigId, setSelectedConfigId] = useState<string | null>(null);
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
   const [selectedConfig, setSelectedConfig] = useState<any>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [configToDelete, setConfigToDelete] = useState<any>(null);
+
+  // Delete configuration
+  const handleDeleteConfig = async () => {
+    if (!configToDelete) return;
+    
+    try {
+      const { error } = await supabase
+        .from('replenishment_calculation_configs')
+        .delete()
+        .eq('id', configToDelete.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Configuration deleted",
+        description: `"${configToDelete.config_name}" has been deleted.`,
+      });
+
+      // If deleted config was selected, clear selection
+      if (selectedConfigId === configToDelete.id) {
+        setSelectedConfigId(null);
+      }
+
+      // Reload configs
+      await loadConfigs();
+      setDeleteDialogOpen(false);
+      setConfigToDelete(null);
+    } catch (error: any) {
+      console.error('Error deleting configuration:', error);
+      toast({
+        title: 'Error deleting configuration',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
 
   // Load non-source items
   const loadNonSourceItems = async () => {
@@ -2245,19 +2284,65 @@ export function Replenishment() {
         </div>
         <div className="flex items-center gap-3">
           {availableConfigs.length > 0 ? (
-            <Select value={selectedConfigId || ''} onValueChange={setSelectedConfigId}>
-              <SelectTrigger className="w-[250px]">
-                <SelectValue placeholder="Select calculation method" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableConfigs.map((config) => (
-                  <SelectItem key={config.id} value={config.id}>
-                    {config.config_name}
-                    {config.is_default && ' (Default)'}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <>
+              <Select value={selectedConfigId || ''} onValueChange={setSelectedConfigId}>
+                <SelectTrigger className="w-[250px]">
+                  <SelectValue placeholder="Select calculation method" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableConfigs.map((config) => (
+                    <SelectItem key={config.id} value={config.id}>
+                      {config.config_name}
+                      {config.is_default && ' (Default)'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              {selectedConfigId && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedConfig(availableConfigs.find(c => c.id === selectedConfigId) || null);
+                      setConfigDialogOpen(true);
+                    }}
+                    className="gap-2"
+                  >
+                    <Edit className="w-4 h-4" />
+                    Edit
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const config = availableConfigs.find(c => c.id === selectedConfigId);
+                      setConfigToDelete(config);
+                      setDeleteDialogOpen(true);
+                    }}
+                    className="gap-2 text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </Button>
+                </>
+              )}
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSelectedConfig(null);
+                  setConfigDialogOpen(true);
+                }}
+                className="gap-2"
+              >
+                <Settings className="w-4 h-4" />
+                New Config
+              </Button>
+            </>
           ) : (
             <Button
               variant="outline"
@@ -2272,18 +2357,7 @@ export function Replenishment() {
               Create Configuration
             </Button>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setSelectedConfig(availableConfigs.find(c => c.id === selectedConfigId) || null);
-              setConfigDialogOpen(true);
-            }}
-            className="gap-2"
-          >
-            <Settings className="w-4 h-4" />
-            {availableConfigs.length > 0 ? 'Settings' : 'Configure'}
-          </Button>
+          
           <Button onClick={loadAllData} variant="outline" size="sm" className="gap-2">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh Data
@@ -2695,5 +2769,31 @@ export function Replenishment() {
         }}
         currentConfig={selectedConfig}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Configuration</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{configToDelete?.config_name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setDeleteDialogOpen(false);
+              setConfigToDelete(null);
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfig}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>;
 }
