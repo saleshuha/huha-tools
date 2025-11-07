@@ -99,7 +99,9 @@ export function useAsinInventory() {
         restockQuantity: item.restock_quantity || undefined,
         lastRestockDate: item.last_restock_date || undefined,
         eligible_for_restock: item.eligible_for_restock || false,
+        manual_restock_override: item.manual_restock_override || false,
         isActive: item.is_active ?? true,
+        first_stock_added_at: item.first_stock_added_at || undefined,
       }));
 
       // Log status distribution for debugging

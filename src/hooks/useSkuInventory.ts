@@ -54,6 +54,7 @@ export function useSkuInventory() {
         restockDate: item.restock_date || undefined,
         restockQuantity: item.restock_quantity || undefined,
         lastRestockDate: item.last_restock_date || undefined,
+        manual_restock_override: item.manual_restock_override || false,
       }));
 
       setInventory(formattedData);
