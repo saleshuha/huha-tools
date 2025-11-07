@@ -2375,6 +2375,48 @@ export type Database = {
           },
         ]
       }
+      po_status_history: {
+        Row: {
+          change_reason: string | null
+          changed_at: string
+          changed_by: string
+          created_at: string
+          id: string
+          new_status: string
+          notes: string | null
+          po_number: string
+          po_order_id: string
+          previous_status: string | null
+          user_id: string
+        }
+        Insert: {
+          change_reason?: string | null
+          changed_at?: string
+          changed_by: string
+          created_at?: string
+          id?: string
+          new_status: string
+          notes?: string | null
+          po_number: string
+          po_order_id: string
+          previous_status?: string | null
+          user_id: string
+        }
+        Update: {
+          change_reason?: string | null
+          changed_at?: string
+          changed_by?: string
+          created_at?: string
+          id?: string
+          new_status?: string
+          notes?: string | null
+          po_number?: string
+          po_order_id?: string
+          previous_status?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       po_upload_job_errors: {
         Row: {
           created_at: string

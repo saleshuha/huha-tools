@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Edit, ExternalLink, Package, PackageCheck, PackageX, Trash2, Clock, CheckCircle } from 'lucide-react';
+import { Edit, ExternalLink, Package, PackageCheck, PackageX, Trash2, Clock, CheckCircle, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -13,6 +13,7 @@ import {
 import { ViewMode } from '@/components/po/POTableViewMode';
 import { ColumnConfig } from '@/components/po/POTableColumnManager';
 import { truncateText } from '@/utils/po-table-helpers';
+import { POStatusHistoryDialog } from '@/components/po/POStatusHistoryDialog';
 
 interface EnhancedPOTableProps {
   orders: any[];
@@ -39,6 +40,18 @@ export function EnhancedPOTable({
 }: EnhancedPOTableProps) {
   const allSelected = orders.length > 0 && orders.every(order => selectedItems.has(order.id));
   const someSelected = orders.some(order => selectedItems.has(order.id));
+  
+  const [statusHistoryDialog, setStatusHistoryDialog] = useState<{
+    open: boolean;
+    poNumber: string;
+    poOrderId: string;
+    currentStatus: string;
+  }>({
+    open: false,
+    poNumber: '',
+    poOrderId: '',
+    currentStatus: '',
+  });
 
   // Check if column is visible
   const isColumnVisible = (columnId: string) => {
@@ -129,40 +142,57 @@ export function EnhancedPOTable({
     };
 
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Badge variant="outline" className={`${config.color} capitalize cursor-pointer`}>
-            {status}
-          </Badge>
-        </TooltipTrigger>
-        <TooltipContent className="max-w-xs">
-          <div className="space-y-2 text-xs">
-            <div>
-              <div className="font-semibold text-muted-foreground mb-1">Status: {status}</div>
-            </div>
-            <div>
-              <div className="font-medium">Created:</div>
-              <div className="text-muted-foreground">
-                {formatTimestamp(order.created_at)}
-                <span className="ml-2 text-xs">({getTimeAgo(order.created_at)})</span>
-              </div>
-            </div>
-            <div>
-              <div className="font-medium">Last Updated:</div>
-              <div className="text-muted-foreground">
-                {formatTimestamp(order.updated_at)}
-                <span className="ml-2 text-xs">({getTimeAgo(order.updated_at)})</span>
-              </div>
-            </div>
-            {order.notes && (
+      <div className="flex items-center gap-2">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge 
+              variant="outline" 
+              className={`${config.color} capitalize cursor-pointer hover:opacity-80 transition-opacity`}
+              onClick={() => {
+                setStatusHistoryDialog({
+                  open: true,
+                  poNumber: order.po_number,
+                  poOrderId: order.id,
+                  currentStatus: status,
+                });
+              }}
+            >
+              {status}
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs">
+            <div className="space-y-2 text-xs">
               <div>
-                <div className="font-medium">Notes:</div>
-                <div className="text-muted-foreground text-xs line-clamp-3">{order.notes}</div>
+                <div className="font-semibold text-muted-foreground mb-1">Status: {status}</div>
+                <div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-1">
+                  <History className="h-3 w-3" />
+                  Click to view full status history
+                </div>
               </div>
-            )}
-          </div>
-        </TooltipContent>
-      </Tooltip>
+              <div>
+                <div className="font-medium">Created:</div>
+                <div className="text-muted-foreground">
+                  {formatTimestamp(order.created_at)}
+                  <span className="ml-2 text-xs">({getTimeAgo(order.created_at)})</span>
+                </div>
+              </div>
+              <div>
+                <div className="font-medium">Last Updated:</div>
+                <div className="text-muted-foreground">
+                  {formatTimestamp(order.updated_at)}
+                  <span className="ml-2 text-xs">({getTimeAgo(order.updated_at)})</span>
+                </div>
+              </div>
+              {order.notes && (
+                <div>
+                  <div className="font-medium">Notes:</div>
+                  <div className="text-muted-foreground text-xs line-clamp-3">{order.notes}</div>
+                </div>
+              )}
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </div>
     );
   };
 
@@ -517,6 +547,15 @@ export function EnhancedPOTable({
           </div>
         )}
       </div>
+      
+      {/* Status History Dialog */}
+      <POStatusHistoryDialog
+        open={statusHistoryDialog.open}
+        onOpenChange={(open) => setStatusHistoryDialog({ ...statusHistoryDialog, open })}
+        poNumber={statusHistoryDialog.poNumber}
+        poOrderId={statusHistoryDialog.poOrderId}
+        currentStatus={statusHistoryDialog.currentStatus}
+      />
     </TooltipProvider>
   );
 }
