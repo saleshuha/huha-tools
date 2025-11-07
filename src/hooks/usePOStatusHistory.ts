@@ -30,10 +30,11 @@ export function usePOStatusHistory(poNumber?: string, poOrderId?: string) {
         .select('*')
         .order('changed_at', { ascending: false });
 
-      if (poNumber) {
-        query = query.eq('po_number', poNumber);
-      } else if (poOrderId) {
+      // Prioritize poOrderId (specific item) over poNumber (all items in PO)
+      if (poOrderId) {
         query = query.eq('po_order_id', poOrderId);
+      } else if (poNumber) {
+        query = query.eq('po_number', poNumber);
       }
 
       const { data, error } = await query;

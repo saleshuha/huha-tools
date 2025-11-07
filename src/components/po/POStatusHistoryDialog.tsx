@@ -92,15 +92,17 @@ export function POStatusHistoryDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            Status History - PO {poNumber}
-          </DialogTitle>
-          <DialogDescription>
-            Complete timeline of status changes for this purchase order
-          </DialogDescription>
-        </DialogHeader>
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2">
+          <Clock className="h-5 w-5" />
+          Status History - {poOrderId ? 'Item' : 'PO'} {poNumber}
+        </DialogTitle>
+        <DialogDescription>
+          {poOrderId 
+            ? 'Timeline of status changes for this specific item'
+            : 'Timeline of status changes for all items in this purchase order'}
+        </DialogDescription>
+      </DialogHeader>
 
         <ScrollArea className="max-h-[60vh] pr-4">
           {loading ? (
