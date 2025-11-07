@@ -23,6 +23,7 @@ import { ReplenishmentItemCard } from './replenishment/ReplenishmentItemCard';
 import { ReplenishmentSearchBar } from './replenishment/ReplenishmentSearchBar';
 import { ReplenishmentPagination } from './replenishment/ReplenishmentPagination';
 import { ReplenishmentConfigDialog } from './replenishment/ReplenishmentConfigDialog';
+import { ConfigComparisonDialog } from './replenishment/ConfigComparisonDialog';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
 import { cn } from '@/lib/utils';
@@ -302,6 +303,7 @@ export function Replenishment() {
   const [selectedConfigId, setSelectedConfigId] = useState<string | null>(null);
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
   const [selectedConfig, setSelectedConfig] = useState<any>(null);
+  const [comparisonDialogOpen, setComparisonDialogOpen] = useState(false);
 
   // Load non-source items
   const loadNonSourceItems = async () => {
@@ -2237,6 +2239,16 @@ export function Replenishment() {
             {availableConfigs.length > 0 ? 'Settings' : 'Configure'}
           </Button>
           <Button 
+            onClick={() => setComparisonDialogOpen(true)}
+            variant="outline" 
+            size="sm" 
+            className="gap-2"
+            disabled={availableConfigs.length < 2}
+          >
+            <BarChart3 className="w-4 h-4" />
+            Compare Configs
+          </Button>
+          <Button 
             onClick={recalculateAllRecommendedQuantities}
             variant="outline" 
             size="sm" 
@@ -2656,6 +2668,14 @@ export function Replenishment() {
           await loadConfigs(); // This will update selectedConfigId, triggering useEffect
         }}
         currentConfig={selectedConfig}
+      />
+
+      {/* Configuration Comparison Dialog */}
+      <ConfigComparisonDialog
+        open={comparisonDialogOpen}
+        onOpenChange={setComparisonDialogOpen}
+        availableConfigs={availableConfigs}
+        items={[...restockItems, ...outOfStockItems]}
       />
     </div>;
 }
