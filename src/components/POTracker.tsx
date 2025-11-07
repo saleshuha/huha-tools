@@ -6088,16 +6088,52 @@ export const POTracker = () => {
                                            )}
                                          </div>
                                        );
-                                     } else {
-                                       return (
-                                         <div className="flex items-center gap-2">
-                                           <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full flex-shrink-0"></div>
-                                           <Badge variant="outline" className="text-xs text-muted-foreground">
-                                             Not in stock
-                                           </Badge>
-                                         </div>
-                                       );
-                                     }
+                                      } else {
+                                        // No inventory match, but check if order has supplier/tracking info
+                                        return (
+                                          <div className="flex flex-col gap-2">
+                                            <div className="flex items-center gap-2">
+                                              <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full flex-shrink-0"></div>
+                                              <Badge variant="outline" className="text-xs text-muted-foreground">
+                                                Not in stock
+                                              </Badge>
+                                            </div>
+                                            
+                                            {/* Show PO supplier order number if available */}
+                                            {order.supplier_order_number && (
+                                              <div className="flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 bg-purple-500 rounded-full flex-shrink-0"></div>
+                                                <div className="text-xs text-purple-600 dark:text-purple-400 font-mono bg-purple-50 dark:bg-purple-950/30 px-2 py-1 rounded-md border border-purple-200 dark:border-purple-800">
+                                                  Order: {order.supplier_order_number}
+                                                </div>
+                                              </div>
+                                            )}
+                                            
+                                            {/* Show tracking number/URL if available */}
+                                            {order.tracking_number && (
+                                              <div className="flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 bg-green-500 rounded-full flex-shrink-0"></div>
+                                                {order.tracking_url ? (
+                                                  <a 
+                                                    href={order.tracking_url} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer"
+                                                    className="text-xs text-green-600 dark:text-green-400 font-mono bg-green-50 dark:bg-green-950/30 px-2 py-1 rounded-md border border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors flex items-center gap-1"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                  >
+                                                    <ExternalLink className="h-3 w-3" />
+                                                    Track: {order.tracking_number}
+                                                  </a>
+                                                ) : (
+                                                  <div className="text-xs text-green-600 dark:text-green-400 font-mono bg-green-50 dark:bg-green-950/30 px-2 py-1 rounded-md border border-green-200 dark:border-green-800">
+                                                    Track: {order.tracking_number}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      }
                                    })()}
                                  </TableCell>
 
