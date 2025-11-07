@@ -4355,15 +4355,6 @@ export const POTracker = () => {
                               <Package className="h-4 w-4 mr-2" />
                               View Items
                             </Button>
-                            <Button disabled={Array.from(selectedPOsForLabels).every(poNumber => {
-                    const poGroup = filteredPOGroups.find(g => g.poNumber === poNumber);
-                    return poGroup?.orders.every(order => order.status === 'closed') || false;
-                  })} onClick={() => {
-                    setLabelsStep('print');
-                  }}>
-                              <Printer className="h-4 w-4 mr-2" />
-                              Print Labels
-                            </Button>
                             <Button
                               variant="outline"
                               onClick={() => setGenerateLinkDialogOpen(true)}
