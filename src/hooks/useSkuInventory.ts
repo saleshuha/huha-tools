@@ -212,7 +212,20 @@ export function useSkuInventory() {
   // Restock item
   const restockItem = async (id: string, quantity: number) => {
     try {
-      const item = inventory.find(item => item.id === id);
+      // Get current data from database first
+      const { data: currentItem, error: fetchError } = await ((supabase as any)
+        .from('sku_inventory')
+        .select('quantity, sku_number, bin_serial_number, status')
+        .eq('id', id)
+        .single());
+
+      if (fetchError || !currentItem) {
+        throw new Error('Item not found in database');
+      }
+
+      const previousQuantity = currentItem.quantity;
+      const changeAmount = quantity - previousQuantity;
+
       const updateData: any = { 
         quantity,
         last_restock_date: new Date().toISOString(),
@@ -220,7 +233,7 @@ export function useSkuInventory() {
       };
 
       // If item was marked as ordered, change status back to in-stock
-      if (item?.status === 'ordered') {
+      if (currentItem.status === 'ordered') {
         updateData.status = 'in-stock';
       }
 
@@ -231,21 +244,34 @@ export function useSkuInventory() {
 
       if (error) throw error;
 
-      setInventory(prev => prev.map(item => 
-        item.id === id 
-          ? { 
-              ...item, 
-              quantity,
-              lastRestockDate: new Date().toISOString(),
-              restockQuantity: quantity,
-              ...(item.status === 'ordered' && { status: 'in-stock' as const })
-            }
-          : item
-      ));
+      // Record the stock change
+      const { data: { user } } = await supabase.auth.getUser();
+      await supabase
+        .from('stock_changes')
+        .insert({
+          user_id: user?.id,
+          inventory_type: 'sku',
+          inventory_id: id,
+          sku_number: currentItem.sku_number,
+          serial_number: currentItem.bin_serial_number,
+          previous_quantity: previousQuantity,
+          new_quantity: quantity,
+          change_amount: changeAmount,
+          change_reason: 'Restock',
+          reference_type: 'restock',
+          changed_by: user?.id,
+          metadata: {
+            bin_serial_number: currentItem.bin_serial_number,
+            sku_number: currentItem.sku_number
+          }
+        } as any);
+
+      // Refresh inventory
+      await loadInventory();
 
       toast({
         title: "Item restocked",
-        description: `Item quantity updated to ${quantity}${item?.status === 'ordered' ? ' and status updated to in-stock' : ''}`,
+        description: `Updated from ${previousQuantity} to ${quantity}${currentItem.status === 'ordered' ? ' and status updated to in-stock' : ''}`,
       });
     } catch (error: any) {
       toast({
@@ -258,16 +284,18 @@ export function useSkuInventory() {
 
   const updateQuantity = async (id: string, newQuantity: number, reason?: string) => {
     try {
-      const item = inventory.find(item => item.id === id);
-      if (!item) {
-        toast({
-          title: "Item not found",
-          variant: "destructive"
-        });
-        return;
+      // Get current data from database first to ensure accurate previous_quantity
+      const { data: currentItem, error: fetchError } = await ((supabase as any)
+        .from('sku_inventory')
+        .select('quantity, sku_number, bin_serial_number')
+        .eq('id', id)
+        .single());
+
+      if (fetchError || !currentItem) {
+        throw new Error('Item not found in database');
       }
 
-      const previousQuantity = item.quantity;
+      const previousQuantity = currentItem.quantity;
       const changeAmount = newQuantity - previousQuantity;
 
       // Update the inventory quantity (triggers will handle status automatically)
@@ -286,8 +314,8 @@ export function useSkuInventory() {
           user_id: user?.id,
           inventory_type: 'sku',
           inventory_id: id,
-          sku_number: item.skuNumber,
-          serial_number: item.binSerialNumber,
+          sku_number: currentItem.sku_number,
+          serial_number: currentItem.bin_serial_number,
           previous_quantity: previousQuantity,
           new_quantity: newQuantity,
           change_amount: changeAmount,
@@ -296,8 +324,8 @@ export function useSkuInventory() {
           changed_by: user?.id,
           notes: reason,
           metadata: {
-            bin_serial_number: item.binSerialNumber,
-            sku_number: item.skuNumber
+            bin_serial_number: currentItem.bin_serial_number,
+            sku_number: currentItem.sku_number
           }
         } as any);
 

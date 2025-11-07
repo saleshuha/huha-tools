@@ -355,7 +355,20 @@ export function useAsinInventory() {
   // Restock item
   const restockItem = async (id: string, quantity: number) => {
     try {
-      const item = inventory.find(item => item.id === id);
+      // Get current data from database first
+      const { data: currentItem, error: fetchError } = await ((supabase as any)
+        .from('asin_inventory')
+        .select('quantity, asin, sku, serial_number, title, status')
+        .eq('id', id)
+        .single());
+
+      if (fetchError || !currentItem) {
+        throw new Error('Item not found in database');
+      }
+
+      const previousQuantity = currentItem.quantity;
+      const changeAmount = quantity - previousQuantity;
+
       const updateData: any = { 
         quantity,
         last_restock_date: new Date().toISOString(),
@@ -363,7 +376,7 @@ export function useAsinInventory() {
       };
 
       // If item was marked as ordered, change status back to in-stock
-      if (item?.status === 'ordered') {
+      if (currentItem.status === 'ordered') {
         updateData.status = 'in-stock';
       }
 
@@ -374,21 +387,35 @@ export function useAsinInventory() {
 
       if (error) throw error;
 
-      setInventory(prev => prev.map(item => 
-        item.id === id 
-          ? { 
-              ...item, 
-              quantity,
-              lastRestockDate: new Date().toISOString(),
-              restockQuantity: quantity,
-              ...(item.status === 'ordered' && { status: 'in-stock' as const })
-            }
-          : item
-      ));
+      // Record the stock change
+      const { data: { user } } = await supabase.auth.getUser();
+      await supabase
+        .from('stock_changes')
+        .insert({
+          user_id: user?.id,
+          inventory_type: 'asin',
+          inventory_id: id,
+          asin: currentItem.asin,
+          serial_number: currentItem.serial_number,
+          sku_number: currentItem.sku,
+          previous_quantity: previousQuantity,
+          new_quantity: quantity,
+          change_amount: changeAmount,
+          change_reason: 'Restock',
+          reference_type: 'restock',
+          changed_by: user?.id,
+          metadata: {
+            sku: currentItem.sku,
+            title: currentItem.title
+          }
+        } as any);
+
+      // Refresh inventory
+      await loadInventory();
 
       toast({
         title: "Item restocked",
-        description: `Item quantity updated to ${quantity}${item?.status === 'ordered' ? ' and status updated to in-stock' : ''}`,
+        description: `Updated from ${previousQuantity} to ${quantity}${currentItem.status === 'ordered' ? ' and status updated to in-stock' : ''}`,
       });
     } catch (error: any) {
       toast({
@@ -401,16 +428,18 @@ export function useAsinInventory() {
 
   const updateQuantity = async (id: string, newQuantity: number, reason?: string) => {
     try {
-      const item = inventory.find(item => item.id === id);
-      if (!item) {
-        toast({
-          title: "Item not found",
-          variant: "destructive"
-        });
-        return;
+      // Get current data from database first to ensure accurate previous_quantity
+      const { data: currentItem, error: fetchError } = await ((supabase as any)
+        .from('asin_inventory')
+        .select('quantity, asin, sku, serial_number, title')
+        .eq('id', id)
+        .single());
+
+      if (fetchError || !currentItem) {
+        throw new Error('Item not found in database');
       }
 
-      const previousQuantity = item.quantity;
+      const previousQuantity = currentItem.quantity;
       const changeAmount = newQuantity - previousQuantity;
 
       // Update the inventory quantity (triggers will handle status automatically)
@@ -429,9 +458,9 @@ export function useAsinInventory() {
           user_id: user?.id,
           inventory_type: 'asin',
           inventory_id: id,
-          asin: item.asin,
-          serial_number: item.serialNumber,
-          sku_number: item.sku, // Fixed: was missing this field
+          asin: currentItem.asin,
+          serial_number: currentItem.serial_number,
+          sku_number: currentItem.sku,
           previous_quantity: previousQuantity,
           new_quantity: newQuantity,
           change_amount: changeAmount,
@@ -440,8 +469,8 @@ export function useAsinInventory() {
           changed_by: user?.id,
           notes: reason,
           metadata: {
-            sku: item.sku,
-            title: item.title
+            sku: currentItem.sku,
+            title: currentItem.title
           }
         } as any);
 
