@@ -165,6 +165,9 @@ export function AsinInventory() {
   const [itemToEnable, setItemToEnable] = useState<AsinInventoryItem | null>(null);
   const [isEnableDialogOpen, setIsEnableDialogOpen] = useState(false);
   
+  // Track items being toggled for restock eligibility
+  const [togglingItems, setTogglingItems] = useState<Set<string>>(new Set());
+  
   // Export mode settings - stored in database for persistence across devices
   const [exportModes, setExportModes] = useState<Record<string, 'global' | 'local'>>({});
   const [exportModesLoaded, setExportModesLoaded] = useState(false);
@@ -1850,9 +1853,12 @@ export function AsinInventory() {
                                  <Switch
                                    id={`restock-${item.id}`}
                                    checked={item.eligible_for_restock && item.status !== 'no-stock'}
-                                   disabled={item.status === 'no-stock'}
+                                   disabled={item.status === 'no-stock' || togglingItems.has(item.id)}
                                    onCheckedChange={async (checked) => {
                                     try {
+                                      // Add to toggling set to disable the switch
+                                      setTogglingItems(prev => new Set(prev).add(item.id));
+                                      
                                       const { error } = await supabase
                                         .from('asin_inventory')
                                         .update({ eligible_for_restock: !!checked } as any)
@@ -1865,12 +1871,27 @@ export function AsinInventory() {
                                         title: checked ? "Enabled for restock" : "Disabled for restock",
                                         description: `${item.asin} (${item.serialNumber})`,
                                       });
+                                      
+                                      // Keep disabled for 2 seconds after successful update
+                                      setTimeout(() => {
+                                        setTogglingItems(prev => {
+                                          const newSet = new Set(prev);
+                                          newSet.delete(item.id);
+                                          return newSet;
+                                        });
+                                      }, 2000);
                                     } catch (error) {
                                       console.error('Failed to update restock eligibility:', error);
                                       toast({
                                         title: "Update failed",
                                         description: "Could not update restock eligibility",
                                         variant: "destructive"
+                                      });
+                                      // Remove from toggling set immediately on error
+                                      setTogglingItems(prev => {
+                                        const newSet = new Set(prev);
+                                        newSet.delete(item.id);
+                                        return newSet;
                                       });
                                     }
                                   }}
