@@ -88,7 +88,7 @@ export function EnhancedPOTable({
       .reduce((total, po) => total + (po.quantity || 0), 0);
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, order: any) => {
     const statusConfig: Record<string, { color: string; icon: any }> = {
       pending: { color: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/20', icon: null },
       placed: { color: 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20', icon: null },
@@ -98,10 +98,71 @@ export function EnhancedPOTable({
     };
 
     const config = statusConfig[status] || statusConfig.pending;
+    
+    // Format timestamps
+    const formatTimestamp = (timestamp: string) => {
+      if (!timestamp) return 'N/A';
+      const date = new Date(timestamp);
+      return date.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    };
+
+    const getTimeAgo = (timestamp: string) => {
+      if (!timestamp) return '';
+      const now = new Date();
+      const past = new Date(timestamp);
+      const diffMs = now.getTime() - past.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMins / 60);
+      const diffDays = Math.floor(diffHours / 24);
+      
+      if (diffMins < 1) return 'just now';
+      if (diffMins < 60) return `${diffMins}m ago`;
+      if (diffHours < 24) return `${diffHours}h ago`;
+      if (diffDays < 30) return `${diffDays}d ago`;
+      return `${Math.floor(diffDays / 30)}mo ago`;
+    };
+
     return (
-      <Badge variant="outline" className={`${config.color} capitalize`}>
-        {status}
-      </Badge>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge variant="outline" className={`${config.color} capitalize cursor-pointer`}>
+            {status}
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">
+          <div className="space-y-2 text-xs">
+            <div>
+              <div className="font-semibold text-muted-foreground mb-1">Status: {status}</div>
+            </div>
+            <div>
+              <div className="font-medium">Created:</div>
+              <div className="text-muted-foreground">
+                {formatTimestamp(order.created_at)}
+                <span className="ml-2 text-xs">({getTimeAgo(order.created_at)})</span>
+              </div>
+            </div>
+            <div>
+              <div className="font-medium">Last Updated:</div>
+              <div className="text-muted-foreground">
+                {formatTimestamp(order.updated_at)}
+                <span className="ml-2 text-xs">({getTimeAgo(order.updated_at)})</span>
+              </div>
+            </div>
+            {order.notes && (
+              <div>
+                <div className="font-medium">Notes:</div>
+                <div className="text-muted-foreground text-xs line-clamp-3">{order.notes}</div>
+              </div>
+            )}
+          </div>
+        </TooltipContent>
+      </Tooltip>
     );
   };
 
@@ -345,7 +406,7 @@ export function EnhancedPOTable({
 
                   {isColumnVisible('status') && (
                     <TableCell className={classes.cell}>
-                      {getStatusBadge(order.status)}
+                      {getStatusBadge(order.status, order)}
                     </TableCell>
                   )}
 
