@@ -14,21 +14,42 @@ interface FulfillmentRequest {
 }
 
 Deno.serve(async (req) => {
+  // 🚀 Immediate logging to confirm function receives requests
+  console.log('🚀 Function invoked:', req.method, req.url);
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('✅ CORS preflight request handled');
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    console.log('📝 Checking authorization header...');
+    
+    // Get Authorization header safely
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      console.error('❌ Missing Authorization header');
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('✅ Authorization header present');
+
+    // Create Supabase client with safe header handling
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       {
         global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
+          headers: { Authorization: authHeader },
         },
       }
     );
+
+    console.log('📝 Authenticating user...');
 
     // Get authenticated user
     const {
@@ -37,16 +58,22 @@ Deno.serve(async (req) => {
     } = await supabaseClient.auth.getUser();
 
     if (userError || !user) {
-      console.error('❌ Authentication error:', userError);
+      console.error('❌ Authentication error:', userError?.message || 'No user');
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
+        JSON.stringify({ 
+          error: 'Unauthorized',
+          details: userError?.message 
+        }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    console.log('✅ User authenticated:', user.id);
+
+    console.log('📝 Parsing request body...');
     const { poNumber, quantity, asin, title, originalQuantity }: FulfillmentRequest = await req.json();
 
-    console.log('📦 Fulfillment request:', { poNumber, quantity, asin, user: user.id });
+    console.log('📦 Fulfillment request:', { poNumber, quantity, asin, title, originalQuantity, user: user.id });
 
     // Create background task
     const { data: taskData, error: taskError } = await supabaseClient
@@ -93,9 +120,18 @@ Deno.serve(async (req) => {
       }
     );
   } catch (error) {
-    console.error('❌ Error in fulfill-from-stock:', error);
+    console.error('❌ CRITICAL ERROR in fulfill-from-stock:');
+    console.error('Error message:', error?.message);
+    console.error('Error name:', error?.name);
+    console.error('Error stack:', error?.stack);
+    console.error('Full error:', JSON.stringify(error, null, 2));
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error?.message || 'Unknown error occurred',
+        type: error?.name || 'Error',
+        details: 'Check edge function logs for more information'
+      }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
