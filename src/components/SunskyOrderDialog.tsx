@@ -49,6 +49,8 @@ interface OrderItem {
   price?: number;
   amount?: number;
   remark?: string;
+  recommendedQty?: number;
+  quantitySource?: 'advanced' | 'simple' | 'manual';
 }
 
 interface SavedAddress {
@@ -377,9 +379,11 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
     const items = activeOrders.map(order => ({
       // Handle both PO orders and Noon orders
       itemNo: order.partner_sku || order.sunsky_sku?.sku_code || order.sku_code,
-      qty: order.quantity || 1,
+      qty: order.recommended_reorder_quantity || order.quantity || 1,
       title: order.title || order.sunsky_sku?.title || order.partner_sku || order.sku_code,
-      remark: `Order: ${order.order_nr || order.po_number || order.id}`
+      remark: `Order: ${order.order_nr || order.po_number || order.id}`,
+      recommendedQty: order.recommended_reorder_quantity,
+      quantitySource: order.quantity_source || (order.recommended_reorder_quantity ? 'advanced' : 'manual')
     }));
     
     // Filter out items without valid SKU codes
@@ -1155,9 +1159,63 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
                       onCheckedChange={() => handleItemToggle(item.itemNo)}
                     />
                     <div className="flex-1">
-                      <div className="font-medium">{item.title}</div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="font-medium">{item.title}</div>
+                        {item.quantitySource && (
+                          <Badge 
+                            variant={
+                              item.quantitySource === 'advanced' ? 'default' :
+                              item.quantitySource === 'simple' ? 'secondary' : 'outline'
+                            }
+                            className="text-xs"
+                          >
+                            {item.quantitySource === 'advanced' ? '🎯 Advanced Calc' :
+                             item.quantitySource === 'simple' ? '📊 Simple Calc' : '✏️ Manual'}
+                          </Badge>
+                        )}
+                      </div>
                       <div className="text-sm text-muted-foreground">
-                        SKU: {item.itemNo} • Qty: {item.qty}
+                        SKU: {item.itemNo}
+                        {item.recommendedQty && item.qty !== item.recommendedQty && (
+                          <span className="text-orange-600 dark:text-orange-400 ml-2">
+                            (Recommended: {item.recommendedQty})
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Label htmlFor={`qty-${item.itemNo}`} className="text-xs">Quantity:</Label>
+                        <Input
+                          id={`qty-${item.itemNo}`}
+                          type="number"
+                          min="1"
+                          value={item.qty}
+                          onChange={(e) => {
+                            const newQty = Math.max(1, parseInt(e.target.value) || 1);
+                            setOrderItems(prev => prev.map(i => 
+                              i.itemNo === item.itemNo 
+                                ? { ...i, qty: newQty, quantitySource: 'manual' as const }
+                                : i
+                            ));
+                          }}
+                          className="w-20 h-8"
+                        />
+                        {item.recommendedQty && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setOrderItems(prev => prev.map(i => 
+                                i.itemNo === item.itemNo 
+                                  ? { ...i, qty: item.recommendedQty!, quantitySource: item.quantitySource }
+                                  : i
+                              ));
+                            }}
+                            className="h-8 text-xs"
+                          >
+                            Use Recommended
+                          </Button>
+                        )}
                       </div>
                       {item.remark && (
                         <div className="text-sm text-muted-foreground mt-1">

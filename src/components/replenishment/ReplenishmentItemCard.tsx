@@ -179,15 +179,27 @@ export function ReplenishmentItemCard({
             </div>
 
             {/* System Recommended Order Quantity */}
-            <div className="flex items-center gap-1.5">
-              <ShoppingCart className="w-3.5 h-3.5 text-primary" />
-              <div>
-                <div className="text-muted-foreground">Recommended Qty</div>
-                <div className="font-semibold">
-                  {item.recommended_reorder_quantity || 0} units
-                </div>
-              </div>
-            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1.5 cursor-help">
+                    <ShoppingCart className="w-3.5 h-3.5 text-primary" />
+                    <div>
+                      <div className="text-muted-foreground">Recommended Qty</div>
+                      <div className="font-semibold">
+                        {item.recommended_reorder_quantity || 0} units
+                      </div>
+                    </div>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p className="text-sm">
+                    Calculated using advanced replenishment configuration based on sales velocity, 
+                    lead times, and safety stock parameters.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
             {/* Order Information - Only for ordered items */}
             {item.status === 'ordered' && (

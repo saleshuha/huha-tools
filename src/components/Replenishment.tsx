@@ -1504,35 +1504,36 @@ export function Replenishment() {
         return null;
       }
 
-      // Calculate quantity based on sales after last restock
-      let calculatedQty = 1; // Default minimum quantity
+      // Use the advanced calculated recommended quantity if available
+      // Otherwise fall back to simple calculation
+      let calculatedQty = item.recommended_reorder_quantity || 1;
+      let quantitySource: 'advanced' | 'simple' = 'advanced';
 
-      try {
-        // Query stock changes to calculate units sold since last restock
-        let stockChangesQuery;
-        if (item.table_name === 'asin_inventory') {
-          stockChangesQuery = (supabase as any).from('stock_changes').select('change_amount, created_at').eq('inventory_id', item.id).eq('inventory_type', 'asin').lt('change_amount', 0); // Only negative changes (sales)
-        } else {
-          stockChangesQuery = (supabase as any).from('stock_changes').select('change_amount, created_at').eq('inventory_id', item.id).eq('inventory_type', 'sku').lt('change_amount', 0); // Only negative changes (sales)
+      if (!item.recommended_reorder_quantity) {
+        try {
+          // Fallback: Query stock changes to calculate units sold
+          let stockChangesQuery;
+          if (item.table_name === 'asin_inventory') {
+            stockChangesQuery = (supabase as any).from('stock_changes').select('change_amount, created_at').eq('inventory_id', item.id).eq('inventory_type', 'asin').lt('change_amount', 0);
+          } else {
+            stockChangesQuery = (supabase as any).from('stock_changes').select('change_amount, created_at').eq('inventory_id', item.id).eq('inventory_type', 'sku').lt('change_amount', 0);
+          }
+
+          const { data: stockChanges } = await stockChangesQuery;
+          if (stockChanges && stockChanges.length > 0) {
+            const unitsSold = stockChanges.reduce((sum, change) => sum + Math.abs(change.change_amount), 0);
+            calculatedQty = Math.max(1, Math.ceil(unitsSold / 2));
+          }
+          quantitySource = 'simple';
+        } catch (error) {
+          console.error('Error calculating quantity for item:', item.id, error);
+          calculatedQty = 1;
+          quantitySource = 'simple';
         }
-
-        // Count ALL sales from first stock/restock until now (no date filtering)
-        const {
-          data: stockChanges
-        } = await stockChangesQuery;
-        if (stockChanges && stockChanges.length > 0) {
-          // Sum all negative changes (units sold from beginning)
-          const unitsSold = stockChanges.reduce((sum, change) => sum + Math.abs(change.change_amount), 0);
-          // Formula: MAX(1, CEIL(Total Units Sold / 2))
-          calculatedQty = Math.max(1, Math.ceil(unitsSold / 2));
-        }
-
-        // Ensure minimum quantity of 1
-        calculatedQty = Math.max(1, calculatedQty);
-      } catch (error) {
-        console.error('Error calculating quantity for item:', item.id, error);
-        // Fall back to default quantity of 1
       }
+
+      // Ensure minimum quantity of 1
+      calculatedQty = Math.max(1, calculatedQty);
       return {
         id: item.id,
         po_number: `RESTOCK-${Date.now()}`,
@@ -1544,7 +1545,9 @@ export function Replenishment() {
         status: 'pending',
         model_number: extractedModel,
         title: `Restock for ${item.identifier}`,
-        notes: sunskySku ? `Replenishment order - Qty: ${calculatedQty} (based on total sales history) - Search by ${extractedSku ? 'SKU' : 'Model'}: ${sunskySku}` : `Replenishment order for out of stock item - No valid Sunsky SKU found (contains Amazon ASIN)`,
+        notes: sunskySku ? `Replenishment order - Qty: ${calculatedQty} (${quantitySource} calculation) - Search by ${extractedSku ? 'SKU' : 'Model'}: ${sunskySku}` : `Replenishment order for out of stock item - No valid Sunsky SKU found (contains Amazon ASIN)`,
+        recommended_reorder_quantity: item.recommended_reorder_quantity,
+        quantity_source: quantitySource,
         sunsky_sku: sunskySku,
         // Use valid SKU/model, avoiding Amazon ASINs
         itemNo: sunskySku,
@@ -2236,18 +2239,8 @@ export function Replenishment() {
             <Settings className="w-4 h-4" />
             {availableConfigs.length > 0 ? 'Settings' : 'Configure'}
           </Button>
-          <Button 
-            onClick={recalculateAllRecommendedQuantities}
-            variant="outline" 
-            size="sm" 
-            className="gap-2"
-            disabled={loading || !selectedConfigId}
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            Recalculate Quantities
-          </Button>
           <Button onClick={loadAllData} variant="outline" size="sm" className="gap-2">
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh Data
           </Button>
         </div>
