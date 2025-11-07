@@ -418,7 +418,7 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
                             <div className="text-xs text-muted-foreground">SKU: {order.sku_code}</div>
                           )}
                           <div className="text-xs text-muted-foreground truncate">{order.title || 'No title'}</div>
-                          <div className="text-xs text-muted-foreground">Qty: {order.quantity} | PO: {order.po_number}</div>
+                          <div className="text-xs text-muted-foreground">PO: {order.po_number} | Qty: {order.quantity}</div>
                         </div>
                       </div>
                     ))}
