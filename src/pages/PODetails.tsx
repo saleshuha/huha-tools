@@ -1971,161 +1971,109 @@ export default function PODetailsPage() {
     if (!fulfillDialogOrder) return;
     
     setIsFulfilling(true);
+    
     try {
-      // Get user authentication
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
-      const notes = `Fulfilled from stock: ${quantity}\nOriginal quantity: ${fulfillDialogOrder.quantity}\nFulfilled on: ${new Date().toISOString()}`;
+      // Call edge function with retry logic for cold starts
+      let data, error;
+      let retryCount = 0;
+      const maxRetries = 2;
       
-      // Step 1: Find the specific PO record(s) to update
-      const { data: poRecords, error: fetchError } = await supabase
-        .from('po_orders')
-        .select('id, asin, sku, quantity, model_number')
-        .eq('po_number', poNumber)
-        .eq('user_id', user.id);
-      
-      if (fetchError) throw fetchError;
-      if (!poRecords || poRecords.length === 0) throw new Error('PO record not found');
-      
-      // Step 2: Find inventory - try ASIN first, then SKU
-      let inventoryItem = null;
-      let invFetchError = null;
-
-      if (fulfillDialogOrder.asin) {
-        const result = await supabase
-          .from('asin_inventory')
-          .select('id, quantity, asin, sku, serial_number, status')
-          .eq('asin', fulfillDialogOrder.asin)
-          .eq('user_id', user.id)
-          .eq('status', 'in-stock')
-          .maybeSingle();
-        
-        inventoryItem = result.data;
-        invFetchError = result.error;
-      }
-
-      // If not found by ASIN, try by SKU
-      if (!inventoryItem && poRecords[0]?.sku) {
-        const result = await supabase
-          .from('asin_inventory')
-          .select('id, quantity, asin, sku, serial_number, status')
-          .eq('sku', poRecords[0].sku)
-          .eq('user_id', user.id)
-          .eq('status', 'in-stock')
-          .maybeSingle();
-        
-        inventoryItem = result.data;
-        invFetchError = result.error;
-      }
-
-      if (invFetchError) {
-        throw new Error(`Inventory lookup failed: ${invFetchError.message}`);
-      }
-
-      if (!inventoryItem) {
-        throw new Error(`No in-stock inventory found for this item (ASIN: ${fulfillDialogOrder.asin || 'N/A'}, SKU: ${poRecords[0]?.sku || 'N/A'})`);
-      }
-
-      // Validate sufficient stock
-      if (inventoryItem.quantity < quantity) {
-        throw new Error(`Insufficient stock: Only ${inventoryItem.quantity} available, but ${quantity} requested`);
-      }
-
-      const newQuantity = inventoryItem.quantity - quantity;
-      
-      // Step 3: Update PO status to closed
-      const { error: updateError } = await supabase
-        .from('po_orders')
-        .update({
-          status: 'closed',
-          notes: notes,
-          updated_at: new Date().toISOString()
-        })
-        .eq('po_number', poNumber)
-        .eq('user_id', user.id);
-      
-      if (updateError) throw updateError;
-      
-      // Step 4: Update inventory quantity
-      const { error: invUpdateError } = await supabase
-        .from('asin_inventory')
-        .update({ 
-          quantity: newQuantity,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', inventoryItem.id);
-
-      if (invUpdateError) throw invUpdateError;
-      
-      // Step 5: Log stock change with correct field names
-      const { error: stockChangeError } = await supabase
-        .from('stock_changes')
-        .insert({
-          inventory_id: inventoryItem.id,
-          inventory_type: 'asin',
-          asin: inventoryItem.asin,
-          sku_number: inventoryItem.sku,
-          serial_number: inventoryItem.serial_number,
-          previous_quantity: inventoryItem.quantity,
-          new_quantity: newQuantity,
-          change_amount: -quantity,
-          change_reason: `Fulfilled from stock for PO ${poNumber}`,
-          reference_type: 'po_order',
-          reference_number: poNumber,
-          fulfillment_source: 'in_stock',
-          user_id: user.id,
-          notes: `Manually fulfilled ${quantity} units from in-stock inventory`
+      while (retryCount <= maxRetries) {
+        const result = await supabase.functions.invoke('fulfill-from-stock', {
+          body: {
+            poNumber,
+            quantity,
+            asin: fulfillDialogOrder.asin,
+            title: fulfillDialogOrder.title,
+            originalQuantity: fulfillDialogOrder.quantity,
+          },
         });
-
-      if (stockChangeError) {
-        console.error('Failed to log stock change:', stockChangeError);
-        // Don't throw - stock was already updated
+        
+        data = result.data;
+        error = result.error;
+        
+        // If successful or non-network error, break
+        if (!error || !error.message?.includes('Failed to fetch')) {
+          break;
+        }
+        
+        // Wait before retry (cold start takes ~2 seconds)
+        if (retryCount < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          retryCount++;
+        } else {
+          break;
+        }
       }
 
-      // Step 6: Create fulfillment history record
-      const { error: fulfillmentHistoryError } = await supabase
-        .from('fulfillment_history')
-        .insert({
-          po_number: poNumber,
-          fulfilled_quantity: quantity,
-          original_quantity: fulfillDialogOrder.quantity,
-          fulfillment_source: 'stock',
-          inventory_id: inventoryItem.id,
-          asin: inventoryItem.asin || fulfillDialogOrder.asin,
-          sku_code: inventoryItem.sku || poRecords[0]?.sku,
-          model_number: poRecords[0]?.model_number,
-          user_id: user.id,
-          notes: `Fulfilled ${quantity} units from in-stock inventory. Serial: ${inventoryItem.serial_number || 'N/A'}. Remaining stock: ${newQuantity}`
-        });
+      if (error) throw error;
 
-      if (fulfillmentHistoryError) {
-        console.error('Failed to create fulfillment history:', fulfillmentHistoryError);
-        // Don't throw - fulfillment already completed
-      }
-      
+      // Show immediate success feedback
       toast({
-        title: "✓ Fulfilled from Stock",
+        title: "✓ Fulfillment Started",
         description: (
           <div className="space-y-1">
             <div>PO: <strong>{poNumber}</strong></div>
-            <div>Fulfilled: <strong>{quantity} units</strong></div>
-            <div>Remaining stock: <strong>{newQuantity} units</strong></div>
+            <div>Processing {quantity} units in background...</div>
           </div>
         ),
       });
-      
-      await fetchSinglePOOrders(poNumber);
+
+      // Close dialog immediately
+      setFulfillDialogOpen(false);
+
+      // Set up real-time listener for task completion
+      if (data?.taskId) {
+        const channel = supabase
+          .channel(`task-${data.taskId}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'background_tasks',
+              filter: `id=eq.${data.taskId}`,
+            },
+            (payload) => {
+              if (payload.new.status === 'completed') {
+                toast({
+                  title: "✅ Fulfillment Completed",
+                  description: (
+                    <div className="space-y-1">
+                      <div>PO: <strong>{poNumber}</strong></div>
+                      <div>Successfully fulfilled {quantity} units from stock</div>
+                    </div>
+                  ),
+                });
+                fetchSinglePOOrders(poNumber);
+                channel.unsubscribe();
+              } else if (payload.new.status === 'failed') {
+                toast({
+                  title: "❌ Fulfillment Failed",
+                  description: payload.new.metadata?.error || 'Unknown error',
+                  variant: "destructive",
+                });
+                channel.unsubscribe();
+              }
+            }
+          )
+          .subscribe();
+      } else {
+        // Fallback: refresh after a delay if no taskId
+        setTimeout(() => {
+          fetchSinglePOOrders(poNumber);
+        }, 3000);
+      }
     } catch (error: any) {
-      console.error('Error fulfilling from stock:', error);
+      console.error('Error starting fulfillment:', error);
       toast({
-        title: "Error",
-        description: error.message || 'Failed to fulfill from stock',
+        title: "Error Starting Fulfillment",
+        description: error.message || 'Failed to send a request to the Edge Function',
         variant: "destructive"
       });
+      setFulfillDialogOpen(false);
     } finally {
       setIsFulfilling(false);
-      setFulfillDialogOpen(false);
     }
   };
 

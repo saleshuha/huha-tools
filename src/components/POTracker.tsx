@@ -758,16 +758,38 @@ export const POTracker = () => {
     setIsFulfilling(true);
     
     try {
-      // Call edge function for background processing
-      const { data, error } = await supabase.functions.invoke('fulfill-from-stock', {
-        body: {
-          poNumber,
-          quantity,
-          asin: fulfillDialogOrder.asin,
-          title: fulfillDialogOrder.title,
-          originalQuantity: fulfillDialogOrder.quantity,
-        },
-      });
+      // Call edge function with retry logic for cold starts
+      let data, error;
+      let retryCount = 0;
+      const maxRetries = 2;
+      
+      while (retryCount <= maxRetries) {
+        const result = await supabase.functions.invoke('fulfill-from-stock', {
+          body: {
+            poNumber,
+            quantity,
+            asin: fulfillDialogOrder.asin,
+            title: fulfillDialogOrder.title,
+            originalQuantity: fulfillDialogOrder.quantity,
+          },
+        });
+        
+        data = result.data;
+        error = result.error;
+        
+        // If successful or non-network error, break
+        if (!error || !error.message?.includes('Failed to fetch')) {
+          break;
+        }
+        
+        // Wait before retry (cold start takes ~2 seconds)
+        if (retryCount < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          retryCount++;
+        } else {
+          break;
+        }
+      }
 
       if (error) throw error;
 
