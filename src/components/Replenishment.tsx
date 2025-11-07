@@ -348,6 +348,57 @@ export function Replenishment() {
 
       if (error) throw error;
 
+      // If no configurations exist, create a default one
+      if (!data || data.length === 0) {
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user) {
+          const defaultConfig = {
+            user_id: user.id,
+            config_name: 'Standard Replenishment',
+            is_default: true,
+            country: selectedCountry,
+            calculation_method: 'simple',
+            include_manual_adjustments: true,
+            manual_adjustment_weight: 1.0,
+            include_po_restocks: true,
+            po_restock_weight: 1.0,
+            include_returns: false,
+            return_weight: 0.5,
+            lookback_days: 90,
+            exclude_first_n_days: 0,
+            use_velocity_multiplier: false,
+            fast_moving_multiplier: 1.5,
+            medium_moving_multiplier: 1.0,
+            slow_moving_multiplier: 0.5,
+            safety_stock_days: 7,
+            lead_time_days: 14,
+            min_order_quantity: 1,
+            max_order_quantity: 100,
+            round_to_multiple: 1,
+            notes: 'Auto-created default configuration'
+          };
+
+          const { data: newConfig, error: createError } = await supabase
+            .from('replenishment_calculation_configs')
+            .insert(defaultConfig)
+            .select()
+            .single();
+
+          if (createError) {
+            console.error('Error creating default config:', createError);
+          } else {
+            setAvailableConfigs([newConfig]);
+            setSelectedConfigId(newConfig.id);
+            toast({
+              title: "Configuration Created",
+              description: "Created default replenishment configuration",
+            });
+            return;
+          }
+        }
+      }
+
       setAvailableConfigs(data || []);
 
       // Auto-select default config
@@ -2060,33 +2111,46 @@ export function Replenishment() {
           <p className="text-muted-foreground">Track inventory levels and manage restocking</p>
         </div>
         <div className="flex items-center gap-3">
-          {availableConfigs.length > 0 && (
-            <>
-              <Select value={selectedConfigId || ''} onValueChange={setSelectedConfigId}>
-                <SelectTrigger className="w-[250px]">
-                  <SelectValue placeholder="Select calculation method" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableConfigs.map((config) => (
-                    <SelectItem key={config.id} value={config.id}>
-                      {config.config_name}
-                      {config.is_default && ' (Default)'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setSelectedConfig(availableConfigs.find(c => c.id === selectedConfigId) || null);
-                  setConfigDialogOpen(true);
-                }}
-              >
-                <Settings className="w-4 h-4" />
-              </Button>
-            </>
+          {availableConfigs.length > 0 ? (
+            <Select value={selectedConfigId || ''} onValueChange={setSelectedConfigId}>
+              <SelectTrigger className="w-[250px]">
+                <SelectValue placeholder="Select calculation method" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableConfigs.map((config) => (
+                  <SelectItem key={config.id} value={config.id}>
+                    {config.config_name}
+                    {config.is_default && ' (Default)'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSelectedConfig(null);
+                setConfigDialogOpen(true);
+              }}
+              className="gap-2"
+            >
+              <Settings className="w-4 h-4" />
+              Create Configuration
+            </Button>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setSelectedConfig(availableConfigs.find(c => c.id === selectedConfigId) || null);
+              setConfigDialogOpen(true);
+            }}
+            className="gap-2"
+          >
+            <Settings className="w-4 h-4" />
+            {availableConfigs.length > 0 ? 'Settings' : 'Configure'}
+          </Button>
           <Button onClick={loadAllData} variant="outline" size="sm" className="gap-2">
             <RefreshCw className="w-4 h-4" />
             Refresh Data
