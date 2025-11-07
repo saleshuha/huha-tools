@@ -116,6 +116,11 @@ async function processFulfillment(
   try {
     console.log('🔄 Processing fulfillment for PO:', poNumber);
 
+    // Validate ASIN is provided
+    if (!asin) {
+      throw new Error('ASIN is required for fulfillment');
+    }
+
     // Step 1: Find the PO record
     const { data: poRecords, error: fetchError } = await supabaseClient
       .from('po_orders')
@@ -160,7 +165,7 @@ async function processFulfillment(
     const newQuantity = inventoryItem.quantity - quantity;
     const notes = `Fulfilled from stock: ${quantity}\nOriginal quantity: ${originalQuantity}\nFulfilled on: ${new Date().toISOString()}`;
 
-    // Step 3: Update PO status to closed
+    // Step 3: Update PO status to closed (only for the specific ASIN)
     const { error: updateError } = await supabaseClient
       .from('po_orders')
       .update({
@@ -169,7 +174,8 @@ async function processFulfillment(
         updated_at: new Date().toISOString(),
       })
       .eq('po_number', poNumber)
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .eq('asin', asin);
 
     if (updateError) throw updateError;
     console.log('✅ PO status updated to closed');
