@@ -5969,138 +5969,115 @@ export const POTracker = () => {
                                        order.sunsky_sku
                                      );
                                      
-                                     if (inventoryMatch && inventoryMatch.status === 'in-stock') {
-                                       return (
-                                         <div className="flex flex-col gap-1.5">
-                                           {/* Clickable Quantity badge with fulfill from stock */}
-                                           <Badge 
-                                             variant="default" 
-                                             className="text-xs bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/50 cursor-pointer hover:bg-green-500/30 hover:scale-105 transition-all w-fit"
-                                             onClick={() => {
-                                               setFulfillDialogOrder({
-                                                 asin: order.asin,
-                                                 title: order.title,
-                                                 po_number: order.po_number,
-                                                 quantity: order.quantity,
-                                                 isConsolidated: order._isConsolidated || false,
-                                                 consolidatedOrders: order._consolidatedOrders 
-                                                   ? order._consolidatedOrders.map((po: any) => ({
-                                                       po_number: po.po_number,
-                                                       quantity: po.quantity,
-                                                       ship_to_location: po.ship_to_location
-                                                     }))
-                                                   : []
-                                               });
-                                               setFulfillDialogOpen(true);
-                                             }}
-                                             title="Click to fulfill from stock"
-                                           >
-                                             <div className="flex items-center gap-1.5">
-                                               <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
-                                               <span>{inventoryMatch.quantity} units</span>
-                                               <Package className="h-3 w-3 ml-1" />
-                                             </div>
-                                           </Badge>
-                                           
-                                           {/* Serial numbers badge - ASIN matches */}
-                                           {inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0 && (
-                                             <div className="flex items-center gap-2">
-                                               <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
-                                               <div className="text-xs text-success font-mono bg-success/10 px-2 py-1 rounded-md border border-success/20 max-w-[180px] truncate">
-                                                 SN: {inventoryMatch.serialNumbers.slice(0, 3).join(', ')}
-                                                 {inventoryMatch.serialNumbers.length > 3 && ` +${inventoryMatch.serialNumbers.length - 3}`}
-                                               </div>
-                                             </div>
-                                           )}
-                                           
-                                           {/* Bin number badge - SKU matches */}
-                                           {inventoryMatch.type.startsWith('SKU') && inventoryMatch.serialNumber && (
-                                             <div className="flex items-center gap-2">
-                                               <div className="w-1.5 h-1.5 bg-blue-500 rounded-full flex-shrink-0"></div>
-                                               <div className="text-xs text-blue-600 dark:text-blue-400 font-mono bg-blue-50 dark:bg-blue-950/30 px-2 py-1 rounded-md border border-blue-200 dark:border-blue-800">
-                                                 Bin: {inventoryMatch.serialNumber}
-                                               </div>
-                                             </div>
-                                           )}
-                                         </div>
-                                       );
-                                     } else if (inventoryMatch && inventoryMatch.status === 'ordered') {
-                                       return (
-                                         <div className="flex flex-col gap-1.5">
-                                           {/* Ordered status badge */}
-                                           <div className="flex items-center gap-2">
-                                             <div className="w-1.5 h-1.5 bg-amber-500 rounded-full flex-shrink-0"></div>
-                                             <Badge variant="outline" className="text-xs text-amber-600 dark:text-amber-400 border-amber-500/50">
-                                               Ordered
-                                             </Badge>
-                                           </div>
-                                           
-                                           {/* Show Sunsky Order Number from ASIN inventory */}
-                                           {inventoryMatch.type === 'ASIN' && inventoryMatch.inventoryItems && (() => {
-                                             const itemsWithOrders = inventoryMatch.inventoryItems.filter(
-                                               (item: any) => item.sunsky_order_number
-                                             );
-                                             
-                                             if (itemsWithOrders.length > 0) {
-                                               return itemsWithOrders.map((item: any, idx: number) => (
-                                                 <div key={idx} className="flex items-center gap-2">
-                                                   <div className="w-1.5 h-1.5 bg-blue-500 rounded-full flex-shrink-0"></div>
-                                                   <div className="text-xs text-blue-600 dark:text-blue-400 font-mono bg-blue-50 dark:bg-blue-950/30 px-2 py-1 rounded-md border border-blue-200 dark:border-blue-800">
-                                                     Order: {item.sunsky_order_number}
-                                                   </div>
-                                                 </div>
-                                               ));
-                                             }
-                                             return null;
-                                           })()}
-                                           
-                                            {/* Show PO supplier order number if available */}
-                                            {order.supplier_order_number && (
+                                      if (inventoryMatch && inventoryMatch.status === 'in-stock') {
+                                        return (
+                                          <div className="flex flex-col gap-1.5">
+                                            {/* Clickable Quantity badge with fulfill from stock */}
+                                            <Badge 
+                                              variant="default" 
+                                              className="text-xs bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/50 cursor-pointer hover:bg-green-500/30 hover:scale-105 transition-all w-fit"
+                                              onClick={() => {
+                                                setFulfillDialogOrder({
+                                                  asin: order.asin,
+                                                  title: order.title,
+                                                  po_number: order.po_number,
+                                                  quantity: order.quantity,
+                                                  isConsolidated: order._isConsolidated || false,
+                                                  consolidatedOrders: order._consolidatedOrders 
+                                                    ? order._consolidatedOrders.map((po: any) => ({
+                                                        po_number: po.po_number,
+                                                        quantity: po.quantity,
+                                                        ship_to_location: po.ship_to_location
+                                                      }))
+                                                    : []
+                                                });
+                                                setFulfillDialogOpen(true);
+                                              }}
+                                              title="Click to fulfill from stock"
+                                            >
+                                              <div className="flex items-center gap-1.5">
+                                                <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                                                <span>{inventoryMatch.quantity} units</span>
+                                                <Package className="h-3 w-3 ml-1" />
+                                              </div>
+                                            </Badge>
+                                            
+                                            {/* Serial numbers badge - ASIN matches */}
+                                            {inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0 && (
                                               <div className="flex items-center gap-2">
-                                                <div className="w-1.5 h-1.5 bg-purple-500 rounded-full flex-shrink-0"></div>
-                                                <div className="text-xs text-purple-600 dark:text-purple-400 font-mono bg-purple-50 dark:bg-purple-950/30 px-2 py-1 rounded-md border border-purple-200 dark:border-purple-800">
-                                                  Order: {order.supplier_order_number}
+                                                <div className="w-1.5 h-1.5 bg-success rounded-full flex-shrink-0"></div>
+                                                <div className="text-xs text-success font-mono bg-success/10 px-2 py-1 rounded-md border border-success/20 max-w-[180px] truncate">
+                                                  SN: {inventoryMatch.serialNumbers.slice(0, 3).join(', ')}
+                                                  {inventoryMatch.serialNumbers.length > 3 && ` +${inventoryMatch.serialNumbers.length - 3}`}
                                                 </div>
                                               </div>
                                             )}
-                                           
-                                           {/* Show tracking number/URL if available */}
-                                           {order.tracking_number && (
-                                             <div className="flex items-center gap-2">
-                                               <div className="w-1.5 h-1.5 bg-green-500 rounded-full flex-shrink-0"></div>
-                                               {order.tracking_url ? (
-                                                 <a 
-                                                   href={order.tracking_url} 
-                                                   target="_blank" 
-                                                   rel="noopener noreferrer"
-                                                   className="text-xs text-green-600 dark:text-green-400 font-mono bg-green-50 dark:bg-green-950/30 px-2 py-1 rounded-md border border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors flex items-center gap-1"
-                                                   onClick={(e) => e.stopPropagation()}
-                                                 >
-                                                   <ExternalLink className="h-3 w-3" />
-                                                   Track: {order.tracking_number}
-                                                 </a>
-                                               ) : (
-                                                 <div className="text-xs text-green-600 dark:text-green-400 font-mono bg-green-50 dark:bg-green-950/30 px-2 py-1 rounded-md border border-green-200 dark:border-green-800">
-                                                   Track: {order.tracking_number}
-                                                 </div>
-                                               )}
-                                             </div>
-                                           )}
-                                         </div>
-                                       );
+                                            
+                                            {/* Bin number badge - SKU matches */}
+                                            {inventoryMatch.type.startsWith('SKU') && inventoryMatch.serialNumber && (
+                                              <div className="flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full flex-shrink-0"></div>
+                                                <div className="text-xs text-blue-600 dark:text-blue-400 font-mono bg-blue-50 dark:bg-blue-950/30 px-2 py-1 rounded-md border border-blue-200 dark:border-blue-800">
+                                                  Bin: {inventoryMatch.serialNumber}
+                                                </div>
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
                                       } else {
-                                        // No inventory match, but check if order has supplier/tracking info
+                                        // Show PO-specific status instead of inventory replenishment status
+                                        const poStatus = order.status?.toLowerCase();
+                                        
                                         return (
                                           <div className="flex flex-col gap-2">
-                                            <div className="flex items-center gap-2">
-                                              <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full flex-shrink-0"></div>
-                                              <Badge variant="outline" className="text-xs text-muted-foreground">
-                                                Not in stock
-                                              </Badge>
-                                            </div>
+                                            {/* PO Status Badge */}
+                                            {poStatus === 'received' && (
+                                              <div className="flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 bg-green-500 rounded-full flex-shrink-0"></div>
+                                                <Badge variant="default" className="text-xs bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/50">
+                                                  Received
+                                                </Badge>
+                                              </div>
+                                            )}
                                             
-                                            {/* Show PO supplier order number if available */}
-                                            {order.supplier_order_number && (
+                                            {poStatus === 'placed' && (
+                                              <div className="flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full flex-shrink-0"></div>
+                                                <Badge variant="default" className="text-xs bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/50">
+                                                  Placed with Supplier
+                                                </Badge>
+                                              </div>
+                                            )}
+                                            
+                                            {poStatus === 'closed' && (
+                                              <div className="flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 bg-gray-500 rounded-full flex-shrink-0"></div>
+                                                <Badge variant="outline" className="text-xs text-gray-600 dark:text-gray-400 border-gray-500/50">
+                                                  Closed
+                                                </Badge>
+                                              </div>
+                                            )}
+                                            
+                                            {poStatus === 'pending' && (
+                                              <div className="flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full flex-shrink-0"></div>
+                                                <Badge variant="outline" className="text-xs text-amber-600 dark:text-amber-400 border-amber-500/50">
+                                                  Pending
+                                                </Badge>
+                                              </div>
+                                            )}
+                                            
+                                            {poStatus === 'cancelled' && (
+                                              <div className="flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 bg-red-500 rounded-full flex-shrink-0"></div>
+                                                <Badge variant="destructive" className="text-xs">
+                                                  Cancelled
+                                                </Badge>
+                                              </div>
+                                            )}
+                                            
+                                            {/* Show supplier order number for placed/closed/received statuses */}
+                                            {(poStatus === 'placed' || poStatus === 'closed' || poStatus === 'received') && order.supplier_order_number && (
                                               <div className="flex items-center gap-2">
                                                 <div className="w-1.5 h-1.5 bg-purple-500 rounded-full flex-shrink-0"></div>
                                                 <div className="text-xs text-purple-600 dark:text-purple-400 font-mono bg-purple-50 dark:bg-purple-950/30 px-2 py-1 rounded-md border border-purple-200 dark:border-purple-800">
@@ -6109,8 +6086,8 @@ export const POTracker = () => {
                                               </div>
                                             )}
                                             
-                                            {/* Show tracking number/URL if available */}
-                                            {order.tracking_number && (
+                                            {/* Show tracking number/URL for placed/closed/received statuses */}
+                                            {(poStatus === 'placed' || poStatus === 'closed' || poStatus === 'received') && order.tracking_number && (
                                               <div className="flex items-center gap-2">
                                                 <div className="w-1.5 h-1.5 bg-green-500 rounded-full flex-shrink-0"></div>
                                                 {order.tracking_url ? (
