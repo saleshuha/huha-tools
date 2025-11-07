@@ -3551,8 +3551,8 @@ export const POTracker = () => {
                       const currencySymbol = selectedCountry === 'UAE' ? 'AED' : 'SAR';
                       const isDisabled = disabledPOs.has(poNumber);
                       return <div key={poNumber} className={`
-                                    grid grid-cols-[70px_minmax(140px,1fr)_100px_110px_110px_100px_180px_180px_120px_200px] border-b transition-colors
-                                    ${isDisabled ? 'opacity-40 bg-muted/10' : hasClosedItems ? 'opacity-75' : 'hover:bg-muted/10'}
+                                    grid grid-cols-[70px_minmax(140px,1fr)_100px_110px_110px_100px_180px_180px_120px_200px] border-b
+                                    ${isDisabled ? 'opacity-40 bg-muted/10' : hasClosedItems ? 'opacity-75 bg-muted/20' : 'hover:bg-muted/10 transition-colors'}
                                   `}>
                                   <div className="p-2 flex items-center">
                                     <Switch checked={!isDisabled} onCheckedChange={checked => {
@@ -5221,23 +5221,91 @@ export const POTracker = () => {
                   </div>
                   
                   {/* Enhanced Table Container with Borders and Grid */}
-                  <div className="rounded-xl border-2 border-border overflow-x-auto shadow-medium">
-                    <div className="rounded-lg border-2 border-border overflow-hidden">
-                      {/* Header Row */}
-                      <div className="grid grid-cols-[50px_80px_minmax(180px,1fr)_120px_minmax(200px,1fr)_150px_minmax(150px,1fr)_120px_80px_120px_120px] bg-muted/50 border-b">
-                        <div className="p-3 font-medium text-sm">Select</div>
-                        <div className="p-3 font-medium text-sm">Image</div>
-                        <div className="p-3 font-medium text-sm">SKU/Model</div>
-                        <div className="p-3 font-medium text-sm">In-Stock Qty</div>
-                        <div className="p-3 font-medium text-sm">Title & ASIN</div>
-                        <div className="p-3 font-medium text-sm">Ship To</div>
-                        <div className="p-3 font-medium text-sm">Quantity</div>
-                        <div className="p-3 font-medium text-sm">Print Status</div>
-                        <div className="p-3 font-medium text-sm">Print Qty</div>
-                        <div className="p-3 font-medium text-sm">Status</div>
-                        <div className="p-3 font-medium text-sm">Actions</div>
-                      </div>
-                      <div>
+                  <div className="rounded-xl border-2 border-border overflow-x-auto shadow-medium bg-gradient-to-b from-background to-background/50">
+                    <Table className="w-full table-fixed">
+                      <TableHeader className="bg-gradient-to-r from-primary/10 to-accent/10 border-b-2 border-border">
+                        <TableRow className="hover:bg-muted/50 border-b border-border">
+                          <TableHead className="w-12 font-semibold border-r border-border/50 bg-muted/20">
+                            <div className="flex items-center justify-center">
+                              <CheckSquare className="h-4 w-4 text-foreground" />
+                            </div>
+                          </TableHead>
+                          <TableHead className="w-20 font-semibold border-r border-border/50 bg-muted/20">
+                            <div className="flex items-center gap-2">
+                              <ImageIcon className="h-4 w-4 text-foreground" />
+                              <span className="text-foreground">Image</span>
+                            </div>
+                          </TableHead>
+                          <TableHead className={`cursor-pointer hover:bg-muted/50 select-none min-w-[140px] max-w-[180px] font-semibold transition-colors border-r border-border/50 bg-muted/20 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('sku_code')}>
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-primary rounded-full"></div>
+                              <span className="text-foreground">SKU/Model</span>
+                              {sortField === 'sku_code' && !originalOrderPreserved && <div className={`text-xs p-1 rounded bg-primary/10 text-primary ${sortDirection === 'asc' ? 'rotate-0' : 'rotate-180'} transition-transform`}>
+                                  ↑
+                                </div>}
+                              {originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' && <Badge variant="outline" className="text-xs ml-auto">Original Order</Badge>}
+                            </div>
+                          </TableHead>
+                          <TableHead className="min-w-[120px] font-semibold border-r border-border/50 bg-muted/20">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                              <span className="text-foreground">In-Stock Qty</span>
+                            </div>
+                          </TableHead>
+                          <TableHead className={`cursor-pointer hover:bg-muted/50 select-none min-w-[300px] max-w-[400px] font-semibold transition-colors border-r border-border/50 bg-muted/20 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('combined_title')}>
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-accent rounded-full"></div>
+                              <span className="text-foreground">Title & ASIN</span>
+                              {sortField === 'combined_title' && !originalOrderPreserved && <div className={`text-xs p-1 rounded bg-accent/10 text-accent ${sortDirection === 'asc' ? 'rotate-0' : 'rotate-180'} transition-transform`}>
+                                  ↑
+                                </div>}
+                            </div>
+                          </TableHead>
+                          <TableHead className="min-w-[120px] max-w-[180px] font-semibold border-r border-border/50 bg-muted/20">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                              <span className="text-foreground">Ship To</span>
+                            </div>
+                          </TableHead>
+                          <TableHead className={`cursor-pointer hover:bg-muted/50 select-none font-semibold transition-colors border-r border-border/50 bg-muted/20 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('quantity')}>
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-emerald rounded-full"></div>
+                              <span className="text-foreground">Quantity</span>
+                              {sortField === 'quantity' && !originalOrderPreserved && <div className={`text-xs p-1 rounded bg-emerald/10 text-emerald-700 dark:text-emerald-300 ${sortDirection === 'asc' ? 'rotate-0' : 'rotate-180'} transition-transform`}>
+                                  ↑
+                                </div>}
+                            </div>
+                          </TableHead>
+                           <TableHead className="min-w-[120px] font-semibold border-r border-border/50 bg-muted/20">
+                             <div className="flex items-center gap-2">
+                               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                               <span className="text-foreground">Print Status</span>
+                             </div>
+                           </TableHead>
+                           <TableHead className="min-w-[100px] font-semibold border-r border-border/50 bg-muted/20">
+                             <div className="flex items-center gap-2">
+                               <div className="w-2 h-2 bg-sky rounded-full"></div>
+                               <span className="text-foreground">Print Qty</span>
+                             </div>
+                           </TableHead>
+                           <TableHead className="min-w-[120px] font-semibold border-r border-border/50 bg-muted/20">
+                             <div className="flex items-center gap-2">
+                               <div className="w-2 h-2 bg-cyan rounded-full"></div>
+                               <span className="text-foreground">Status</span>
+                               <Badge variant="outline" className="text-xs ml-2">
+                                 Filtered
+                               </Badge>
+                             </div>
+                           </TableHead>
+                           <TableHead className="min-w-[100px] font-semibold bg-muted/20">
+                             <div className="flex items-center gap-2">
+                               <div className="w-2 h-2 bg-secondary rounded-full"></div>
+                               <span className="text-foreground">Actions</span>
+                             </div>
+                           </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                        <TableBody className="divide-y-2 divide-border">
                            {(() => {
                       const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : selectedPOForLabels ? [selectedPOForLabels] : [];
 
@@ -5441,10 +5509,11 @@ export const POTracker = () => {
                       const paginatedOrders = ordersToDisplay.slice(startIndex, endIndex);
                       return paginatedOrders.map((order, index) => {
                         return <React.Fragment key={order.id}>
-                              <div className={`grid grid-cols-[50px_80px_minmax(180px,1fr)_120px_minmax(200px,1fr)_150px_minmax(150px,1fr)_120px_80px_120px_120px] border-b transition-colors ${selectedForPrint.has(order.id) ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/10'}`}>
-                                {/* Checkbox Cell */}
-                                <div className="p-3 flex items-center justify-center">
-                                  <Checkbox checked={order._isConsolidated ? (order._consolidatedOrders && order._consolidatedOrders.length > 0 ? order._consolidatedOrders.every((o: any) => selectedForPrint.has(o.id)) : selectedForPrint.has(order.id)) : selectedForPrint.has(order.id)} onCheckedChange={checked => {
+                              <TableRow className={`group hover:bg-gradient-to-r hover:from-primary/10 hover:to-accent/10 transition-all duration-300 border-b border-border ${selectedForPrint.has(order.id) ? 'bg-primary/10 border-primary/30' : ''} ${order.printed_quantity >= order.quantity ? 'bg-green-50 dark:bg-green-950/20' : ''} ${order._partiallyPrinted ? 'bg-yellow-50 dark:bg-yellow-950/20' : ''} ${index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}`}>
+                                {/* Enhanced Checkbox Cell */}
+                                <TableCell className="w-12 border-r border-border/50 bg-background/50">
+                                   <div className="flex items-center justify-center">
+                                     <Checkbox checked={order._isConsolidated ? (order._consolidatedOrders && order._consolidatedOrders.length > 0 ? order._consolidatedOrders.every((o: any) => selectedForPrint.has(o.id)) : selectedForPrint.has(order.id)) : selectedForPrint.has(order.id)} onCheckedChange={checked => {
                                   const newSelected = new Map(selectedForPrint);
                                   console.log('🔘 Checkbox clicked:', {
                                     orderId: order.id,
@@ -5534,11 +5603,12 @@ export const POTracker = () => {
                                     selectedIds: Array.from(newSelected.keys())
                                   });
                                   setSelectedForPrint(prev => new Map(newSelected));
-                                }} />
-                                </div>
+                                }} className="group-hover:scale-110 transition-transform" />
+                                  </div>
+                                </TableCell>
 
-                                {/* Image Cell */}
-                                <div className="p-3">
+                                 {/* Enhanced Image Cell */}
+                                 <TableCell className="w-20 border-r border-border/50 p-3">
                                    {(() => {
                                 const productImage = order.asin ? getImageByAsin(order.asin) : null;
                                 console.log('🖼️ Image lookup for ASIN:', order.asin, 'Found:', !!productImage, 'URL:', productImage?.image_url);
@@ -5568,14 +5638,14 @@ export const POTracker = () => {
                                          <div className="text-xs text-muted-foreground/70 font-medium">No Image</div>
                                          {order.asin && <div className="text-xs text-muted-foreground/50 font-mono mt-1 bg-muted/30 px-1 rounded" title={`ASIN: ${order.asin}`}>
                                              {order.asin.slice(0, 6)}...
-                                          </div>}
-                                      </div>
-                                    </div>;
-                              })()}
-                                </div>
+                                           </div>}
+                                       </div>
+                                     </div>;
+                               })()}
+                                </TableCell>
 
-                                 {/* SKU/Model Cell */}
-                                 <div className="p-3">
+                                 {/* Enhanced SKU/Model Cell with Matching System */}
+                                 <TableCell className="min-w-[180px] max-w-[220px] border-r border-border/50 p-3">
                                    <div className="flex flex-col gap-2 overflow-hidden">
                                      {order.sku_code && <div className="flex items-start gap-2">
                                          <div className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-1"></div>
@@ -5609,13 +5679,13 @@ export const POTracker = () => {
                                      
                                      {!order.sku_code && !order.model_number && <div className="flex items-center gap-2">
                                          <div className="w-2 h-2 bg-muted-foreground rounded-full flex-shrink-0"></div>
-                                        <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded border border-muted">N/A</span>
-                                      </div>}
-                                  </div>
-                                </div>
+                                         <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded border border-muted">N/A</span>
+                                       </div>}
+                                   </div>
+                                 </TableCell>
 
-                                {/* In-Stock Qty Cell */}
-                                <div className="p-3">
+                                 {/* In-Stock Qty Cell */}
+                                 <TableCell className="min-w-[120px] border-r border-border/50 p-3">
                                    {(() => {
                                       const inventoryMatch = findInventoryMatch(
                                         order.asin,
@@ -5629,9 +5699,9 @@ export const POTracker = () => {
                                          return (
                                            <div className="flex flex-col gap-2">
                                              {/* Clickable Quantity badge with fulfill from stock */}
-                                              <Badge 
-                                                variant="default" 
-                                                className="text-xs px-2 py-1 font-medium bg-green-500/15 text-green-700 dark:text-green-300 border border-green-500/30 cursor-pointer hover:bg-green-500/20 transition-colors w-fit"
+                                             <Badge 
+                                               variant="default" 
+                                               className="text-xs px-2 py-1 font-medium bg-green-500/15 text-green-700 dark:text-green-300 border border-green-500/30 cursor-pointer hover:bg-green-500/20 hover:scale-105 transition-all w-fit"
                                                onClick={() => {
                                                  setFulfillDialogOrder({
                                                    asin: order.asin,
@@ -5772,14 +5842,14 @@ export const POTracker = () => {
                                              )}
                                            </div>
                                          );
-                                        }
-                                     })()}
-                                   </div>
+                                       }
+                                    })()}
+                                  </TableCell>
 
-                                  {/* Title & ASIN Cell */}
-                                  <div className="p-3">
-                                   <div className="flex flex-col gap-2">
-                                     <div className="text-sm font-medium break-words text-foreground" title={order.title}>
+                                 {/* Enhanced Title & ASIN Cell */}
+                                 <TableCell className="border-r border-border/50 p-3">
+                                  <div className="flex flex-col gap-2">
+                                    <div className="text-sm font-medium break-words text-foreground group-hover:text-primary/80 transition-colors" title={order.title}>
                                       {order.title || 'No title available'}
                                     </div>
                                     
@@ -5795,19 +5865,19 @@ export const POTracker = () => {
                                         <Badge variant="outline" className="text-xs px-2 py-1 font-medium font-mono bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30">
                                           {order.asin}
                                         </Badge>
-                                       </div>}
-                                   </div>
+                                      </div>}
                                   </div>
+                                 </TableCell>
 
-                                   {/* Ship To Location Cell */}
-                                   <div className="p-3">
-                                     <span className="text-sm text-foreground">
-                                       {order.ship_to_location || '-'}
-                                     </span>
-                                   </div>
+                                  {/* Ship To Location Cell */}
+                                  <TableCell className="border-r border-border/50 p-3">
+                                    <span className="text-sm text-foreground">
+                                      {order.ship_to_location || '-'}
+                                    </span>
+                                  </TableCell>
 
-                                     {/* Quantity Cell with PO Numbers */}
-                                     <div className="p-3">
+                                    {/* Enhanced Quantity Cell with PO Numbers */}
+                                    <TableCell className="border-r border-border/50 p-3">
                                      <div className="flex flex-col gap-2">
                                         <div className="flex flex-col gap-2">
                                           {order.status === 'closed' && order.notes?.includes('Fulfilled from stock:') ? <div className="flex flex-col gap-2">
@@ -5940,14 +6010,14 @@ export const POTracker = () => {
                                                   {order.printed_quantity > 0 ? <span className="text-green-600 dark:text-green-400 ml-1">
                                                       {order.printed_quantity} printed
                                                     </span> : <span className="text-muted-foreground ml-1">None printed</span>}
-                                               </div>}
-                                          </div>}
-                                      </div>
-                                    </div>
-                                  </div>
+                                                </div>}
+                                            </div>}
+                                       </div>
+                                     </div>
+                                   </TableCell>
 
-                                  {/* Print Status Cell */}
-                                  <div className="p-3">
+                                   {/* Print Status Cell */}
+                                   <TableCell className="w-32 border-r border-border/50 p-3">
                                      <div className="flex items-center justify-center">
                                        {order.printed_quantity > 0 ? (
                                          order.printed_quantity >= order.quantity ? (
@@ -5979,13 +6049,13 @@ export const POTracker = () => {
                                            <Badge variant="outline" className="text-xs px-2 py-1 font-medium bg-gray-500/15 text-gray-700 dark:text-gray-300 border-gray-500/30">
                                              Not Printed
                                            </Badge>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
+                                         </div>
+                                       )}
+                                     </div>
+                                   </TableCell>
 
-                                     {/* Print Qty Cell */}
-                                     <div className="p-3">
+                                     {/* Enhanced Print Qty Cell */}
+                                     <TableCell className="w-24 border-r border-border/50 p-3">
                                       <div className="flex items-center gap-2">
                                         {(() => {
                                     // Check if this item (or its consolidated items) are selected
@@ -6026,10 +6096,10 @@ export const POTracker = () => {
                                             </>;
                                   })()}
                                       </div>
-                                    </div>
+                                    </TableCell>
 
-                                 {/* Status Cell */}
-                                 <div className="p-3">
+                                 {/* Enhanced Status Cell */}
+                                 <TableCell className="border-r border-border/50 p-3">
                                    <div className="flex flex-col gap-2">
                                      {order.printed_quantity > 0 && (
                                        <>
@@ -6048,13 +6118,13 @@ export const POTracker = () => {
                                              </Badge>
                                            </div>
                                          )}
-                                        </>
-                                      )}
-                                    </div>
-                                  </div>
+                                       </>
+                                     )}
+                                   </div>
+                                 </TableCell>
 
-                                  {/* Actions Cell */}
-                                  <div className="p-3">
+                                  {/* Enhanced Actions Cell */}
+                                  <TableCell className="p-3">
                                     <div className="flex flex-col gap-2">
                                       {/* Main Print Button */}
                                        <Button variant="outline" size="sm" className="h-8 w-full" onClick={() => {
@@ -6158,15 +6228,15 @@ export const POTracker = () => {
                                        {isPrintStatusUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
                                        <span className="text-xs font-medium">{isPrintStatusUpdating ? 'Updating...' : 'Mark Printed'}</span>
                                      </div>
-                                     </Button>
-                                    </div>
-                                  </div>
-                               </div>
+                                    </Button>
+                                   </div>
+                                 </TableCell>
+                                </TableRow>
                               </React.Fragment>;
                         });
                     })()}
-                       </div>
-                     </div>
+                       </TableBody>
+                     </Table>
                    </div>
                    
                      {/* Enhanced Pagination Controls */}
