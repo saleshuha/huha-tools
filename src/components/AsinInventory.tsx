@@ -1850,7 +1850,6 @@ export function AsinInventory() {
                                   <Switch
                                     id={`restock-${item.id}`}
                                     checked={item.eligible_for_restock}
-                                    disabled={item.status === 'no-stock'}
                                    onCheckedChange={async (checked) => {
                                     try {
                                       const { error } = await supabase
