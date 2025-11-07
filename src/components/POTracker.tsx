@@ -3420,7 +3420,7 @@ export const POTracker = () => {
 
                 <div className="rounded-lg border-2 border-border overflow-hidden">
                   {viewMode === 'grouped' ? <div className="grid">
-                        <div className="grid grid-cols-[70px_minmax(140px,1fr)_100px_110px_110px_100px_180px_180px_200px] bg-muted/50 border-b">
+                        <div className="grid grid-cols-[70px_minmax(140px,1fr)_100px_110px_110px_100px_180px_180px_200px] bg-muted/50 border-b h-12 items-center">
                           <div className="p-2 font-medium text-sm">
                             Enable
                           </div>
