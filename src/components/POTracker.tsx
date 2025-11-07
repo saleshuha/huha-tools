@@ -762,6 +762,56 @@ export const POTracker = () => {
            msg.includes('aborted');
   };
 
+  // Enhanced error logging helper
+  const logDetailedError = (error: any, context: string) => {
+    console.error(`🚨 ${context}:`, {
+      error,
+      errorMessage: error?.message,
+      errorName: error?.name,
+      errorStack: error?.stack,
+      errorDetails: JSON.stringify(error, null, 2),
+      supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
+      functionsUrl: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fulfill-from-stock`,
+      timestamp: new Date().toISOString()
+    });
+  };
+
+  // Fallback function using direct fetch
+  const fulfillWithFallback = async (poNumber: string, quantity: number, orderInfo: any) => {
+    console.log('🔄 Attempting fallback with direct fetch...');
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      throw new Error('No active session for fallback');
+    }
+
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fulfill-from-stock`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          poNumber,
+          quantity,
+          asin: orderInfo.asin,
+          title: orderInfo.title,
+          originalQuantity: orderInfo.quantity
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    return await response.json();
+  };
+
   // Function to handle fulfillment from stock
   const handleFulfillFromStock = async (poNumber: string, quantity: number) => {
     if (!fulfillDialogOrder) return;
@@ -800,18 +850,7 @@ export const POTracker = () => {
         
         // Log detailed error info for debugging
         if (error) {
-          console.error('🚨 Fulfillment Error Details:', {
-            attempt: retryCount + 1,
-            maxRetries: maxRetries + 1,
-            error: error,
-            errorMessage: error?.message,
-            errorName: error?.name,
-            errorStack: error?.stack,
-            poNumber,
-            asin: fulfillDialogOrder.asin,
-            quantity,
-            timestamp: new Date().toISOString()
-          });
+          logDetailedError(error, `Fulfillment Error (Attempt ${retryCount + 1}/${maxRetries + 1})`);
         }
         
         // If successful or non-retryable error, break
@@ -830,9 +869,18 @@ export const POTracker = () => {
       }
 
       if (error) {
-        // Provide detailed error message to user
-        const errorMsg = error?.message || 'Unknown error occurred';
-        throw new Error(`${errorMsg}${retryCount > 0 ? ` (after ${retryCount + 1} attempts)` : ''}`);
+        // Try fallback method before giving up
+        console.log('⚠️ All standard attempts failed, attempting fallback method...');
+        try {
+          const fallbackResult = await fulfillWithFallback(poNumber, quantity, fulfillDialogOrder);
+          console.log('✅ Fallback fulfillment successful:', fallbackResult);
+          data = fallbackResult;
+          error = null;
+        } catch (fallbackError: any) {
+          logDetailedError(fallbackError, 'Fallback Method Failed');
+          const errorMsg = error?.message || 'Unknown error occurred';
+          throw new Error(`${errorMsg} (after ${retryCount + 1} attempts + fallback)`);
+        }
       }
 
       // Show immediate success feedback
