@@ -1830,56 +1830,99 @@ export const SunskySKUImporter: React.FC = () => {
     
     setLoading(true);
     try {
+      // Check if user provided a product ID (either in productId field or searchTerm)
+      const itemNo = productId || (searchTerm && searchTerm.trim().match(/^[A-Z0-9-]+$/i) ? searchTerm.trim() : null);
       
-      const filters: SearchFilters = {
-        keyword: searchTerm || undefined,
-        productId: productId || undefined,
-        categoryId: selectedCategory !== 'all' ? parseInt(selectedCategory) : undefined,
-        brandId: selectedBrand && selectedBrand !== 'all' ? parseInt(selectedBrand) : undefined,
-        priceMin: priceMin ? parseFloat(priceMin) : undefined,
-        priceMax: priceMax ? parseFloat(priceMax) : undefined,
-        stockMin: stockMin ? parseInt(stockMin) : undefined,
-        leadTimeLevel: leadTimeLevel && leadTimeLevel !== 'any' ? parseInt(leadTimeLevel) : undefined,
-        dateFrom: dateRange?.from?.toISOString().split('T')[0],
-        dateTo: dateRange?.to?.toISOString().split('T')[0]
-      };
-      
-      console.log('🔍 SEARCH REQUEST:', {
-        targetApiId,
-        filters,
-        page,
-        pageSize: searchPageSize,
-        filtersString: JSON.stringify(filters)
-      });
-      
-      const result = await callSunskyAPI('searchProducts', {
-        filters,
-        page,
-        pageSize: searchPageSize
-      }, targetApiId);
-      
-      console.log('Search products API response:', result);
-      if (result.result === 'success') {
-        // Products are nested at data.products.result
-        const productsArray = result.data?.products?.result || [];
-        setProducts(productsArray);
-        setCurrentPage(page);
-        setTotalPages(Math.ceil((result.data?.products?.total || 0) / searchPageSize));
-
-        // Extract all headers from first product and set them as selected
-        if (productsArray.length > 0) {
-          const productKeys = Object.keys(productsArray[0]);
+      if (itemNo) {
+        // **Direct product lookup by itemNo**
+        console.log('🔍 DIRECT PRODUCT LOOKUP:', { itemNo });
+        
+        const result = await callSunskyAPI('getProductDetails', {
+          itemNo: itemNo,
+          lang: 'en'
+        }, targetApiId);
+        
+        console.log('Product details API response:', result);
+        
+        if (result.result === 'success' && result.data) {
+          // Wrap single product in array for consistency
+          const product = result.data;
+          setProducts([product]);
+          setCurrentPage(1);
+          setTotalPages(1);
+          
+          // Extract headers from product
+          const productKeys = Object.keys(product);
           setAvailableHeaders(productKeys);
-          // Auto-select all available headers to show all columns
           setSelectedHeaders(productKeys);
+          
+          toast({
+            title: "Product Found",
+            description: `Found product: ${product.name || product.itemNo}`
+          });
+        } else {
+          // Product not found
+          setProducts([]);
+          setCurrentPage(1);
+          setTotalPages(0);
+          
+          toast({
+            title: "Product Not Found",
+            description: `No product found with ID: ${itemNo}`,
+            variant: "destructive"
+          });
         }
-        toast({
-          title: "Search Complete",
-          description: `Found ${result.data?.products?.total || 0} products`
-        });
       } else {
-        console.error('Search products failed:', result);
-        throw new Error(result.message || result.error || 'Search failed');
+        // **General search by filters**
+        const filters: SearchFilters = {
+          keyword: searchTerm || undefined,
+          categoryId: selectedCategory !== 'all' ? parseInt(selectedCategory) : undefined,
+          brandId: selectedBrand && selectedBrand !== 'all' ? parseInt(selectedBrand) : undefined,
+          priceMin: priceMin ? parseFloat(priceMin) : undefined,
+          priceMax: priceMax ? parseFloat(priceMax) : undefined,
+          stockMin: stockMin ? parseInt(stockMin) : undefined,
+          leadTimeLevel: leadTimeLevel && leadTimeLevel !== 'any' ? parseInt(leadTimeLevel) : undefined,
+          dateFrom: dateRange?.from?.toISOString().split('T')[0],
+          dateTo: dateRange?.to?.toISOString().split('T')[0]
+        };
+        
+        console.log('🔍 SEARCH REQUEST:', {
+          targetApiId,
+          filters,
+          page,
+          pageSize: searchPageSize,
+          filtersString: JSON.stringify(filters)
+        });
+        
+        const result = await callSunskyAPI('searchProducts', {
+          filters,
+          page,
+          pageSize: searchPageSize
+        }, targetApiId);
+        
+        console.log('Search products API response:', result);
+        if (result.result === 'success') {
+          // Products are nested at data.products.result
+          const productsArray = result.data?.products?.result || [];
+          setProducts(productsArray);
+          setCurrentPage(page);
+          setTotalPages(Math.ceil((result.data?.products?.total || 0) / searchPageSize));
+
+          // Extract all headers from first product and set them as selected
+          if (productsArray.length > 0) {
+            const productKeys = Object.keys(productsArray[0]);
+            setAvailableHeaders(productKeys);
+            // Auto-select all available headers to show all columns
+            setSelectedHeaders(productKeys);
+          }
+          toast({
+            title: "Search Complete",
+            description: `Found ${result.data?.products?.total || 0} products`
+          });
+        } else {
+          console.error('Search products failed:', result);
+          throw new Error(result.message || result.error || 'Search failed');
+        }
       }
     } catch (error) {
       console.error('Error searching products:', error);
@@ -3237,7 +3280,10 @@ export const SunskySKUImporter: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   <div className="space-y-3">
                     <Label htmlFor="search" className="text-sm font-semibold">Search Term</Label>
-                    <Input id="search" placeholder="Enter product name or keyword..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="h-11 border-2 border-input bg-background/50 hover:border-primary/50 focus:border-primary transition-colors" />
+                    <Input id="search" placeholder="Enter product name, keyword, or product ID..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="h-11 border-2 border-input bg-background/50 hover:border-primary/50 focus:border-primary transition-colors" />
+                    <p className="text-xs text-muted-foreground">
+                      💡 Tip: Enter a product ID (e.g., "AB12345") for exact match, or keywords for general search
+                    </p>
                   </div>
                   
                   <div className="space-y-3">
