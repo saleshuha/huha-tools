@@ -721,20 +721,202 @@ export const POTracker = () => {
   // Function to handle bulk PO closing
   // Delete all PO orders for fresh upload
   
+  // Helper function to detect network/timeout errors
+  const isNetworkOrTimeoutError = (err: any): boolean => {
+    const msg = err?.message?.toLowerCase() || '';
+    return msg.includes('failed to fetch') || 
+           msg.includes('failed to send') ||
+           msg.includes('network') ||
+           msg.includes('connection') ||
+           msg.includes('timeout') ||
+           msg.includes('aborted');
+  };
+
+  // Enhanced error logging helper
+  const logDetailedError = (error: any, context: string) => {
+    console.error(`🚨 ${context}:`, {
+      error,
+      errorMessage: error?.message,
+      errorName: error?.name,
+      errorStack: error?.stack,
+      errorDetails: JSON.stringify(error, null, 2),
+      supabaseUrl: 'https://vfqqlifvhooefxvvyebm.supabase.co',
+      functionsUrl: 'https://vfqqlifvhooefxvvyebm.supabase.co/functions/v1/fulfill-from-stock',
+      timestamp: new Date().toISOString()
+    });
+  };
+
+  // Fallback function using direct fetch
+  const fulfillWithFallback = async (poNumber: string, quantity: number, orderInfo: any) => {
+    console.log('🔄 Attempting fallback with direct fetch...');
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      throw new Error('No active session for fallback');
+    }
+
+    const response = await fetch(
+      'https://vfqqlifvhooefxvvyebm.supabase.co/functions/v1/fulfill-from-stock',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmcXFsaWZ2aG9vZWZ4dnZ5ZWJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MzY1OTgsImV4cCI6MjA2ODAxMjU5OH0.u-iIilnOACJTo_3AUCkmhREXdVV84JmbswtM_-NJJBM',
+        },
+        body: JSON.stringify({
+          poNumber,
+          quantity,
+          asin: orderInfo.asin,
+          title: orderInfo.title,
+          originalQuantity: orderInfo.quantity
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    return await response.json();
+  };
+  
   // Handle fulfill from stock
-  const handleFulfillFromStock = async () => {
+  const handleFulfillFromStock = async (poNumber: string, quantity: number) => {
+    if (!fulfillDialogOrder) return;
+    
     setIsFulfilling(true);
+    
     try {
-      // The FulfillFromStockDialog component handles the actual fulfillment via edge function
-      // We just need to refresh the data after success
-      await fetchPOOrders(true);
-      setFulfillDialogOpen(false);
+      // Call edge function with retry logic for cold starts and network errors
+      let data, error;
+      let retryCount = 0;
+      const maxRetries = 2;
+      
+      while (retryCount <= maxRetries) {
+        // Create abort controller for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+        
+        try {
+          const result = await supabase.functions.invoke('fulfill-from-stock', {
+            body: {
+              poNumber,
+              quantity,
+              asin: fulfillDialogOrder.asin,
+              title: fulfillDialogOrder.title,
+              originalQuantity: fulfillDialogOrder.quantity,
+            },
+          });
+          
+          clearTimeout(timeoutId);
+          data = result.data;
+          error = result.error;
+        } catch (invokeError: any) {
+          clearTimeout(timeoutId);
+          error = invokeError;
+        }
+        
+        // Log detailed error info for debugging
+        if (error) {
+          logDetailedError(error, `Fulfillment Error (Attempt ${retryCount + 1}/${maxRetries + 1})`);
+        }
+        
+        // If successful or non-retryable error, break
+        if (!error || !isNetworkOrTimeoutError(error)) {
+          break;
+        }
+        
+        // Wait before retry (cold start or network recovery)
+        if (retryCount < maxRetries) {
+          console.log(`⏳ Retrying fulfillment (attempt ${retryCount + 2}/${maxRetries + 1})...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          retryCount++;
+        } else {
+          break;
+        }
+      }
+
+      if (error) {
+        // Try fallback method before giving up
+        console.log('⚠️ All standard attempts failed, attempting fallback method...');
+        try {
+          const fallbackResult = await fulfillWithFallback(poNumber, quantity, fulfillDialogOrder);
+          console.log('✅ Fallback fulfillment successful:', fallbackResult);
+          data = fallbackResult;
+          error = null;
+        } catch (fallbackError: any) {
+          logDetailedError(fallbackError, 'Fallback Method Failed');
+          const errorMsg = error?.message || 'Unknown error occurred';
+          throw new Error(`${errorMsg} (after ${retryCount + 1} attempts + fallback)`);
+        }
+      }
+
+      // Show immediate success feedback
       toast({
-        title: "Success",
-        description: "Order fulfilled from stock successfully."
+        title: "✓ Fulfillment Started",
+        description: (
+          <div className="space-y-1">
+            <div>PO: <strong>{poNumber}</strong></div>
+            <div>Processing {quantity} units in background...</div>
+          </div>
+        ),
       });
-    } catch (error) {
-      console.error('Error in fulfill from stock:', error);
+
+      // Close dialog immediately
+      setFulfillDialogOpen(false);
+
+      // Set up real-time listener for task completion
+      if (data?.taskId) {
+        const channel = supabase
+          .channel(`task-${data.taskId}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'background_tasks',
+              filter: `id=eq.${data.taskId}`,
+            },
+            (payload) => {
+              if (payload.new.status === 'completed') {
+                toast({
+                  title: "✅ Fulfillment Completed",
+                  description: (
+                    <div className="space-y-1">
+                      <div>PO: <strong>{poNumber}</strong></div>
+                      <div>Successfully fulfilled {quantity} units from stock</div>
+                    </div>
+                  ),
+                });
+                fetchPOOrders(true);
+                channel.unsubscribe();
+              } else if (payload.new.status === 'failed') {
+                toast({
+                  title: "❌ Fulfillment Failed",
+                  description: payload.new.metadata?.error || 'Unknown error',
+                  variant: "destructive",
+                });
+                channel.unsubscribe();
+              }
+            }
+          )
+          .subscribe();
+      } else {
+        // Fallback: refresh after a delay if no taskId
+        setTimeout(() => {
+          fetchPOOrders(true);
+        }, 3000);
+      }
+    } catch (error: any) {
+      console.error('Error starting fulfillment:', error);
+      toast({
+        title: "Error Starting Fulfillment",
+        description: error.message || 'Failed to send a request to the Edge Function',
+        variant: "destructive"
+      });
+      setFulfillDialogOpen(false);
     } finally {
       setIsFulfilling(false);
     }
