@@ -241,7 +241,6 @@ async function processFulfillment(
       change_reason: `Fulfilled from stock for PO ${poNumber}`,
       reference_type: 'po_order',
       reference_number: poNumber,
-      reference_id: poNumber,
       fulfillment_source: 'in_stock',
       user_id: userId,
       changed_by: userId,
@@ -249,10 +248,10 @@ async function processFulfillment(
     });
 
     if (stockChangeError) {
-      console.error('⚠️ Failed to log stock change:', stockChangeError);
-    } else {
-      console.log('✅ Stock change logged');
+      console.error('❌ Failed to log stock change:', stockChangeError);
+      throw new Error('Failed to log stock change: ' + stockChangeError.message);
     }
+    console.log('✅ Stock change logged');
 
     // Step 6: Create fulfillment history record
     const { error: fulfillmentHistoryError } = await supabaseClient.from('fulfillment_history').insert({
