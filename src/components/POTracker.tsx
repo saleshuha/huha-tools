@@ -5002,14 +5002,14 @@ export const POTracker = () => {
       .filter(o => (o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id)) && (o.printed_quantity || 0) > 0)
       .reduce((sum, o) => sum + (o.printed_quantity || 0), 0);
 
-    // Sunsky Pending metrics
+    // Sunsky Pending metrics (units that haven't been printed yet)
     const sunskyPendingItems = ordersForMetrics.filter(o => 
       (o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id)) &&
-      (o.printed_quantity || 0) === 0
+      ((o.quantity || 0) - (o.printed_quantity || 0)) > 0
     ).length;
     const sunskyPendingUnits = ordersForMetrics
-      .filter(o => (o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id)) && (o.printed_quantity || 0) === 0)
-      .reduce((sum, o) => sum + (o.quantity || 0), 0);
+      .filter(o => o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id))
+      .reduce((sum, o) => sum + Math.max(0, (o.quantity || 0) - (o.printed_quantity || 0)), 0);
                     
                     const isPluralPOs = selectedPOsList.length > 1;
                     const poTitle = isPluralPOs 
