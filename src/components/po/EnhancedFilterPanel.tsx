@@ -34,7 +34,7 @@ export type EnhancedFilterState = {
   supplierFilter: string;
   asinSkuSearch: string;
   dateRange: DateRange | undefined;
-  printStatus: 'all' | 'printed' | 'not-printed';
+  printStatus: string[];
   matchingConfidence: 'all' | 'high' | 'medium' | 'low' | 'unmatched';
 };
 
@@ -82,6 +82,11 @@ export function EnhancedFilterPanel({ filters, onFilterChange, stats }: Enhanced
     { value: 'closed', label: 'Closed' }
   ];
 
+  const printStatusOptions = [
+    { value: 'printed', label: 'Printed' },
+    { value: 'not-printed', label: 'Not Printed' }
+  ];
+
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (filters.quickFilter !== 'all') count++;
@@ -95,7 +100,7 @@ export function EnhancedFilterPanel({ filters, onFilterChange, stats }: Enhanced
     if (filters.supplierFilter) count++;
     if (filters.asinSkuSearch) count++;
     if (filters.dateRange?.from || filters.dateRange?.to) count++;
-    if (filters.printStatus !== 'all') count++;
+    if (filters.printStatus.length > 0) count++;
     if (filters.matchingConfidence !== 'all') count++;
     return count;
   }, [filters]);
@@ -116,7 +121,7 @@ export function EnhancedFilterPanel({ filters, onFilterChange, stats }: Enhanced
       supplierFilter: '',
       asinSkuSearch: '',
       dateRange: undefined,
-      printStatus: 'all',
+      printStatus: [],
       matchingConfidence: 'all'
     });
   }, [onFilterChange]);
@@ -143,13 +148,20 @@ export function EnhancedFilterPanel({ filters, onFilterChange, stats }: Enhanced
     onFilterChange({ ...filters, orderStatus: newStatus });
   };
 
+  const handlePrintStatusToggle = (status: string) => {
+    const newStatus = filters.printStatus.includes(status)
+      ? filters.printStatus.filter(s => s !== status)
+      : [...filters.printStatus, status];
+    onFilterChange({ ...filters, printStatus: newStatus });
+  };
+
   const removeFilter = (filterKey: keyof EnhancedFilterState) => {
     const updates: Partial<EnhancedFilterState> = {};
-    if (filterKey === 'inventoryStatus' || filterKey === 'orderStatus') {
+    if (filterKey === 'inventoryStatus' || filterKey === 'orderStatus' || filterKey === 'printStatus') {
       updates[filterKey] = [];
     } else if (filterKey === 'dateRange') {
       updates[filterKey] = undefined;
-    } else if (filterKey === 'hasTracking' || filterKey === 'hasSunskySku' || filterKey === 'printStatus' || filterKey === 'matchingConfidence') {
+    } else if (filterKey === 'hasTracking' || filterKey === 'hasSunskySku' || filterKey === 'matchingConfidence') {
       updates[filterKey] = 'all' as any;
     } else if (filterKey === 'quickFilter') {
       updates[filterKey] = 'all' as any;
@@ -196,8 +208,8 @@ export function EnhancedFilterPanel({ filters, onFilterChange, stats }: Enhanced
     if (filters.dateRange?.from || filters.dateRange?.to) {
       pills.push({ label: 'Date Range', key: 'dateRange' });
     }
-    if (filters.printStatus !== 'all') {
-      pills.push({ label: filters.printStatus === 'printed' ? 'Printed' : 'Not Printed', key: 'printStatus' });
+    if (filters.printStatus.length > 0) {
+      pills.push({ label: `Print: ${filters.printStatus.length}`, key: 'printStatus' });
     }
     if (filters.matchingConfidence !== 'all') {
       pills.push({ label: `Match: ${filters.matchingConfidence}`, key: 'matchingConfidence' });
@@ -469,16 +481,28 @@ export function EnhancedFilterPanel({ filters, onFilterChange, stats }: Enhanced
 
               <div className="space-y-1">
                 <Label className="text-xs">Print Status</Label>
-                <Select value={filters.printStatus} onValueChange={(v: any) => onFilterChange({ ...filters, printStatus: v })}>
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="printed">Printed</SelectItem>
-                    <SelectItem value="not-printed">Not Printed</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="h-8 w-full justify-between text-xs">
+                      <span>{filters.printStatus.length || 'All'}</span>
+                      <ChevronDown className="h-3 w-3" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-48 p-2 z-50" align="start">
+                    <div className="space-y-2">
+                      {printStatusOptions.map(opt => (
+                        <div key={opt.value} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`print-${opt.value}`}
+                            checked={filters.printStatus.includes(opt.value)}
+                            onCheckedChange={() => handlePrintStatusToggle(opt.value)}
+                          />
+                          <Label htmlFor={`print-${opt.value}`} className="text-xs cursor-pointer">{opt.label}</Label>
+                        </div>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="space-y-1">

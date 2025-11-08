@@ -164,7 +164,7 @@ export default function PODetailsPage() {
     supplierFilter: '',
     asinSkuSearch: '',
     dateRange: undefined,
-    printStatus: 'all',
+    printStatus: [],
     matchingConfidence: 'all',
   });
 
@@ -522,10 +522,15 @@ export default function PODetailsPage() {
       }
 
       // Print status filter
-      if (filters.printStatus !== 'all') {
-        const isPrinted = filters.printStatus === 'printed';
-        if (isPrinted && !order.is_printed) return false;
-        if (!isPrinted && order.is_printed) return false;
+      if (filters.printStatus.length > 0) {
+        const isPrinted = order.is_printed;
+        if (filters.printStatus.includes('printed') && !isPrinted) return false;
+        if (filters.printStatus.includes('not-printed') && isPrinted) return false;
+        // If both are selected, show all - so don't filter out
+        if (filters.printStatus.length === 1) {
+          if (filters.printStatus[0] === 'printed' && !isPrinted) return false;
+          if (filters.printStatus[0] === 'not-printed' && isPrinted) return false;
+        }
       }
 
       // Matching confidence filter
