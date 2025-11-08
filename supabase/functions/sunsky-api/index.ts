@@ -257,12 +257,23 @@ async function handleGetProductDetails(params: any, key: string, secret: string)
     itemNo: params.itemNo
   };
   
-  const result = await callSunskyAPI('/openapi/product!detail.do', detailParams, key, secret);
-  
-  return {
-    result: 'success',
-    data: result.data || result
-  };
+  try {
+    const result = await callSunskyAPI('/openapi/product!detail.do', detailParams, key, secret);
+    
+    return {
+      result: 'success',
+      data: result.data || result
+    };
+  } catch (error) {
+    // Product not found or other API error
+    console.log('❌ Product not found or API error:', error instanceof Error ? error.message : error);
+    
+    return {
+      result: 'error',
+      message: error instanceof Error ? error.message : 'Product not found',
+      data: null
+    };
+  }
 }
 
 async function handleGetCategories(params: any, key: string, secret: string) {
