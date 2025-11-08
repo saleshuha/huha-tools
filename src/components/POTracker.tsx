@@ -95,7 +95,7 @@ export const POTracker = () => {
   const [isSearching, setIsSearching] = useState(false); // Add searching indicator
   const [statusFilter, setStatusFilter] = useState<POOrder['status'] | 'all'>('all');
   const [shipToFilter, setShipToFilter] = useState<string | 'all'>('all');
-  const [printedFilter, setPrintedFilter] = useState<'all' | 'printed' | 'not-printed' | 'partial-printed'>('all');
+  const [printedFilter, setPrintedFilter] = useState<string[]>([]);
   const [sourceFilter, setSourceFilter] = useState<'all' | 'sunsky-matched' | 'not-matched'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
@@ -1726,24 +1726,26 @@ export const POTracker = () => {
     }
 
     // Apply printed status filter (NEW)
-    if (printedFilter !== 'all') {
+    if (printedFilter.length > 0) {
       filtered = filtered.filter(order => {
         const printedQty = order.printed_quantity || 0;
         const totalQty = order.quantity || 0;
         const isPrinted = order.is_printed || printedQty > 0;
         
-        if (printedFilter === 'printed') {
-          // Fully printed: printed_quantity >= quantity
-          return isPrinted && printedQty >= totalQty;
-        } else if (printedFilter === 'partial-printed') {
-          // Partially printed: 0 < printed_quantity < quantity
-          return isPrinted && printedQty > 0 && printedQty < totalQty;
-        } else if (printedFilter === 'not-printed') {
-          // Not printed: printed_quantity = 0 or is_printed = false
-          return !isPrinted || printedQty === 0;
-        }
-        
-        return true;
+        // Check if order matches any of the selected print statuses
+        return printedFilter.some(status => {
+          if (status === 'printed') {
+            // Fully printed: printed_quantity >= quantity
+            return isPrinted && printedQty >= totalQty;
+          } else if (status === 'partial-printed') {
+            // Partially printed: 0 < printed_quantity < quantity
+            return isPrinted && printedQty > 0 && printedQty < totalQty;
+          } else if (status === 'not-printed') {
+            // Not printed: printed_quantity = 0 or is_printed = false
+            return !isPrinted || printedQty === 0;
+          }
+          return false;
+        });
       });
       console.log('🔍 FILTERING DEBUG: After print status filter:', filtered.length, 'orders');
     }
@@ -5150,22 +5152,73 @@ export const POTracker = () => {
                       <div className="flex items-center gap-2">
                         <Filter className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm font-medium text-muted-foreground">Print Status:</span>
-                        <Select value={printedFilter} onValueChange={value => setPrintedFilter(value as 'all' | 'printed' | 'not-printed' | 'partial-printed')}>
-                          <SelectTrigger className="w-[200px] border-2 border-border focus:border-primary">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Items</SelectItem>
-                            <SelectItem value="printed">✓ Fully Printed</SelectItem>
-                            <SelectItem value="partial-printed">⚠ Partially Printed</SelectItem>
-                            <SelectItem value="not-printed">○ Not Printed</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        {printedFilter !== 'all' && (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-[200px] border-2 border-border focus:border-primary justify-between">
+                              <span className="text-sm">{printedFilter.length > 0 ? `${printedFilter.length} selected` : 'All Items'}</span>
+                              <ChevronDown className="h-4 w-4 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-56 p-3 z-50 bg-background" align="start">
+                            <div className="space-y-3">
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <Checkbox
+                                    id="print-printed"
+                                    checked={printedFilter.includes('printed')}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setPrintedFilter([...printedFilter, 'printed']);
+                                      } else {
+                                        setPrintedFilter(printedFilter.filter(f => f !== 'printed'));
+                                      }
+                                    }}
+                                  />
+                                  <Label htmlFor="print-printed" className="text-sm cursor-pointer">
+                                    ✓ Fully Printed
+                                  </Label>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Checkbox
+                                    id="print-partial"
+                                    checked={printedFilter.includes('partial-printed')}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setPrintedFilter([...printedFilter, 'partial-printed']);
+                                      } else {
+                                        setPrintedFilter(printedFilter.filter(f => f !== 'partial-printed'));
+                                      }
+                                    }}
+                                  />
+                                  <Label htmlFor="print-partial" className="text-sm cursor-pointer">
+                                    ⚠ Partially Printed
+                                  </Label>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Checkbox
+                                    id="print-not"
+                                    checked={printedFilter.includes('not-printed')}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setPrintedFilter([...printedFilter, 'not-printed']);
+                                      } else {
+                                        setPrintedFilter(printedFilter.filter(f => f !== 'not-printed'));
+                                      }
+                                    }}
+                                  />
+                                  <Label htmlFor="print-not" className="text-sm cursor-pointer">
+                                    ○ Not Printed
+                                  </Label>
+                                </div>
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                        {printedFilter.length > 0 && (
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            onClick={() => setPrintedFilter('all')} 
+                            onClick={() => setPrintedFilter([])} 
                             className="h-8 px-2 text-xs hover:bg-destructive/10"
                           >
                             <X className="h-3 w-3 mr-1" />
@@ -5336,21 +5389,22 @@ export const POTracker = () => {
                         });
         }).filter(order => {
           // Apply printed status filter
-          if (printedFilter === 'all') return true;
+          if (printedFilter.length === 0) return true;
           
           const printedQty = order.printed_quantity || 0;
           const totalQty = order.quantity || 0;
           const isPrinted = order.is_printed || printedQty > 0;
           
-          if (printedFilter === 'printed') {
-            return isPrinted && printedQty >= totalQty;
-          } else if (printedFilter === 'partial-printed') {
-            return isPrinted && printedQty > 0 && printedQty < totalQty;
-          } else if (printedFilter === 'not-printed') {
-            return !isPrinted || printedQty === 0;
-          }
-          
-          return true;
+          return printedFilter.some(status => {
+            if (status === 'printed') {
+              return isPrinted && printedQty >= totalQty;
+            } else if (status === 'partial-printed') {
+              return isPrinted && printedQty > 0 && printedQty < totalQty;
+            } else if (status === 'not-printed') {
+              return !isPrinted || printedQty === 0;
+            }
+            return false;
+          });
         }).filter(order => {
           // Apply source filter (Sunsky matching)
           if (sourceFilter === 'all') return true;
