@@ -4985,13 +4985,31 @@ export const POTracker = () => {
                       return printed > 0 && printed < total;
                     }).length;
                     
-                    // Sunsky matching metrics
-                    const sunskyMatchedItems = ordersForMetrics.filter(o => 
-                      o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id)
-                    ).length;
-                    const sunskyMatchedUnits = ordersForMetrics
-                      .filter(o => o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id))
-                      .reduce((sum, o) => sum + (o.quantity || 0), 0);
+    // Sunsky matching metrics
+    const sunskyMatchedItems = ordersForMetrics.filter(o => 
+      o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id)
+    ).length;
+    const sunskyMatchedUnits = ordersForMetrics
+      .filter(o => o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id))
+      .reduce((sum, o) => sum + (o.quantity || 0), 0);
+
+    // Sunsky Printed metrics
+    const sunskyPrintedItems = ordersForMetrics.filter(o => 
+      (o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id)) &&
+      (o.printed_quantity || 0) > 0
+    ).length;
+    const sunskyPrintedUnits = ordersForMetrics
+      .filter(o => (o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id)) && (o.printed_quantity || 0) > 0)
+      .reduce((sum, o) => sum + (o.printed_quantity || 0), 0);
+
+    // Sunsky Pending metrics
+    const sunskyPendingItems = ordersForMetrics.filter(o => 
+      (o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id)) &&
+      (o.printed_quantity || 0) === 0
+    ).length;
+    const sunskyPendingUnits = ordersForMetrics
+      .filter(o => (o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id)) && (o.printed_quantity || 0) === 0)
+      .reduce((sum, o) => sum + (o.quantity || 0), 0);
                     
                     const isPluralPOs = selectedPOsList.length > 1;
                     const poTitle = isPluralPOs 
@@ -5048,14 +5066,20 @@ export const POTracker = () => {
                             </span>
                           </div>
                           
-                          {/* Sunsky Matched */}
-                          <div className="flex items-center gap-2">
-                            <Package className="h-3.5 w-3.5 text-blue-600" />
-                            <span className="text-muted-foreground">Sunsky:</span>
-                            <span className="font-semibold text-blue-700 dark:text-blue-400">
-                              {sunskyMatchedItems} items ({sunskyMatchedUnits} units)
-                            </span>
-                          </div>
+              {/* Sunsky Breakdown */}
+              <div className="flex items-center gap-2">
+                <Package className="h-3.5 w-3.5 text-blue-600" />
+                <span className="text-muted-foreground">Sunsky:</span>
+                <CheckCircle2 className="h-3 w-3 text-green-600" />
+                <span className="font-semibold text-green-700 dark:text-green-400">
+                  {sunskyPrintedItems}({sunskyPrintedUnits})
+                </span>
+                <span className="text-muted-foreground mx-1">|</span>
+                <Clock className="h-3 w-3 text-orange-600" />
+                <span className="font-semibold text-orange-700 dark:text-orange-400">
+                  {sunskyPendingItems}({sunskyPendingUnits})
+                </span>
+              </div>
                         </div>
                       </div>
                     );
