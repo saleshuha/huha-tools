@@ -1002,6 +1002,131 @@ async function handleDownloadImages(userId: string, params: any, key: string, se
 }
 
 // ============================================
+// Import Job Management Handlers
+// ============================================
+
+async function handleListImportJobs(userId: string, supabaseClient: any) {
+  console.log('📋 List Import Jobs for user:', userId);
+  
+  const { data, error } = await supabase
+    .from('sunsky_import_jobs')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(50);
+  
+  if (error) {
+    console.error('❌ Failed to fetch import jobs:', error);
+    throw new Error(`Failed to fetch import jobs: ${error.message}`);
+  }
+  
+  console.log(`✅ Found ${data.length} import jobs`);
+  
+  return {
+    result: 'success',
+    data: data || []
+  };
+}
+
+async function handleCreateImportJob(userId: string, params: any, supabaseClient: any) {
+  console.log('➕ Create Import Job:', params);
+  
+  const { type, criteria } = params;
+  
+  if (!type || !criteria) {
+    throw new Error('type and criteria are required');
+  }
+  
+  const { data, error } = await supabase
+    .from('sunsky_import_jobs')
+    .insert({
+      user_id: userId,
+      type,
+      criteria,
+      status: 'queued',
+      processed_items: 0,
+      success_count: 0,
+      error_count: 0
+    })
+    .select()
+    .single();
+  
+  if (error) {
+    console.error('❌ Failed to create import job:', error);
+    throw new Error(`Failed to create import job: ${error.message}`);
+  }
+  
+  console.log('✅ Import job created:', data.id);
+  
+  return {
+    result: 'success',
+    data
+  };
+}
+
+async function handleStartImportJob(userId: string, params: any, supabaseClient: any) {
+  console.log('▶️ Start Import Job:', params.jobId);
+  
+  const { jobId } = params;
+  
+  if (!jobId) {
+    throw new Error('jobId is required');
+  }
+  
+  const { data, error } = await supabase
+    .from('sunsky_import_jobs')
+    .update({
+      status: 'processing',
+      started_at: new Date().toISOString()
+    })
+    .eq('id', jobId)
+    .eq('user_id', userId)
+    .select()
+    .single();
+  
+  if (error) {
+    console.error('❌ Failed to start import job:', error);
+    throw new Error(`Failed to start import job: ${error.message}`);
+  }
+  
+  console.log('✅ Import job started');
+  
+  return {
+    result: 'success',
+    data
+  };
+}
+
+async function handleGetJobStatus(userId: string, params: any, supabaseClient: any) {
+  console.log('📊 Get Job Status:', params.jobId);
+  
+  const { jobId } = params;
+  
+  if (!jobId) {
+    throw new Error('jobId is required');
+  }
+  
+  const { data, error } = await supabase
+    .from('sunsky_import_jobs')
+    .select('*')
+    .eq('id', jobId)
+    .eq('user_id', userId)
+    .single();
+  
+  if (error) {
+    console.error('❌ Failed to fetch job status:', error);
+    throw new Error(`Failed to fetch job status: ${error.message}`);
+  }
+  
+  console.log('✅ Job status retrieved');
+  
+  return {
+    result: 'success',
+    data
+  };
+}
+
+// ============================================
 // Credential Management Handlers
 // ============================================
 
@@ -1203,6 +1328,22 @@ serve(async (req: Request) => {
       
       case 'listApiKeys':
         result = await handleListApiKeys(user.id, supabaseClient);
+        break;
+      
+      case 'listImportJobs':
+        result = await handleListImportJobs(user.id, supabaseClient);
+        break;
+      
+      case 'createImportJob':
+        result = await handleCreateImportJob(user.id, params, supabaseClient);
+        break;
+      
+      case 'startImportJob':
+        result = await handleStartImportJob(user.id, params, supabaseClient);
+        break;
+      
+      case 'getJobStatus':
+        result = await handleGetJobStatus(user.id, params, supabaseClient);
         break;
       
       case 'getCredentialsStatus':
