@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Package, PlayCircle, StopCircle, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
+import { Package, PlayCircle, StopCircle } from 'lucide-react';
 import { HuhaHeader01 } from '@/components/ui/huha-header-01';
 import { useStockReceiving, type ReceivingItem, type ProcessingResult } from '@/hooks/useStockReceiving';
 import { ItemScanner } from '@/components/stock-receiving/ItemScanner';
@@ -32,36 +31,9 @@ export default function ReceiveStock() {
 
   const [pendingItems, setPendingItems] = useState<ReceivingItem[]>([]);
   const [processingResults, setProcessingResults] = useState<ProcessingResult[]>([]);
-  const [connectionStatus, setConnectionStatus] = useState<{
-    connected: boolean;
-    error: string | null;
-    details?: string;
-    checking: boolean;
-  }>({ connected: false, error: null, checking: true });
 
   useEffect(() => {
     loadSessions();
-    
-    // Check edge function connection
-    const checkConnection = async () => {
-      setConnectionStatus(prev => ({ ...prev, checking: true }));
-      const result = await testConnection();
-      setConnectionStatus({
-        connected: result.connected,
-        error: result.error,
-        details: result.details,
-        checking: false
-      });
-      
-      // Auto-hide success message after 3 seconds
-      if (result.connected) {
-        setTimeout(() => {
-          setConnectionStatus(prev => ({ ...prev, connected: false, checking: false }));
-        }, 3000);
-      }
-    };
-    
-    checkConnection();
   }, []);
 
   const handleStartSession = async () => {
@@ -113,23 +85,6 @@ export default function ReceiveStock() {
     setProcessingResults([]);
   };
 
-  const retryConnection = async () => {
-    setConnectionStatus(prev => ({ ...prev, checking: true }));
-    const result = await testConnection();
-    setConnectionStatus({
-      connected: result.connected,
-      error: result.error,
-      details: result.details,
-      checking: false
-    });
-    
-    // Auto-hide success message after 3 seconds
-    if (result.connected) {
-      setTimeout(() => {
-        setConnectionStatus(prev => ({ ...prev, connected: false, checking: false }));
-      }, 3000);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gradient-surface">
@@ -140,49 +95,6 @@ export default function ReceiveStock() {
           subtitle="Universal inventory receiving with intelligent PO matching and fulfillment"
         />
 
-        {/* Connection Status Alert - Only show errors */}
-        {connectionStatus.checking ? (
-          <Alert>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <AlertTitle>Checking Connection</AlertTitle>
-            <AlertDescription>
-              Verifying edge function availability...
-            </AlertDescription>
-          </Alert>
-        ) : connectionStatus.error && !connectionStatus.connected ? (
-          <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Edge Function Not Available</AlertTitle>
-            <AlertDescription className="space-y-2">
-              <p className="font-semibold">{connectionStatus.error}</p>
-              {connectionStatus.details && (
-                <p className="text-sm mt-1">{connectionStatus.details}</p>
-              )}
-              <div className="flex gap-2 mt-3">
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={retryConnection}
-                >
-                  Retry Connection
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  asChild
-                >
-                  <a 
-                    href="https://supabase.com/dashboard/project/vfqqlifvhooefxvvyebm/functions" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                  >
-                    View Functions Dashboard
-                  </a>
-                </Button>
-              </div>
-            </AlertDescription>
-          </Alert>
-        ) : null}
 
         {/* Active Session Card */}
         {currentSession ? (

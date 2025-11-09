@@ -118,10 +118,7 @@ export function useStockReceiving() {
       if (!session) return { connected: false, error: 'Not authenticated' };
 
       const response = await supabase.functions.invoke('smart-stock-receiving', {
-        body: { test: true },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
-        }
+        body: { test: true }
       });
 
       if (response.error) {
@@ -186,9 +183,6 @@ export function useStockReceiving() {
           items,
           auto_fulfill: autoFulfill,
           session_id: sessionId || currentSession?.id
-        },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
         }
       });
 
