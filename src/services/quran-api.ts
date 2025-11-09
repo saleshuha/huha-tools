@@ -89,18 +89,24 @@ export const quranApi = {
       `${BASE_URL}/${surahNumber}/${ayahNumber}.json`
     );
     
+    console.log('🕌 Raw verse data from API:', { surahNumber, ayahNumber, hasEnglish: !!data.english, hasUrdu: !!data.urdu });
+    
     // Transform API response to match our Verse type structure
     // API returns english/urdu as direct properties, we need them nested in translation
-    return {
+    const verse = {
       surahNumber: data.surahNumber || surahNumber,
       ayahNumber: data.ayahNumber || ayahNumber,
-      arabic1: data.arabic1,
-      arabic2: data.arabic2,
+      arabic1: data.arabic1 || '',
+      arabic2: data.arabic2 || '',
       translation: {
-        english: data.english,
-        urdu: data.urdu
+        english: data.english || 'Translation not available',
+        urdu: data.urdu || 'ترجمہ دستیاب نہیں'
       }
-    } as Verse;
+    };
+    
+    console.log('🕌 Transformed verse:', { surahNumber: verse.surahNumber, ayahNumber: verse.ayahNumber, hasTranslation: !!verse.translation });
+    
+    return verse as Verse;
   },
 
   async getTafsir(surahNumber: number, ayahNumber: number): Promise<Tafsir[]> {

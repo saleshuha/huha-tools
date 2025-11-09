@@ -31,10 +31,21 @@ export function VerseCard({
   onToggleBookmark,
   onShowTafsir,
 }: VerseCardProps) {
+  // Defensive null checks
+  if (!verse) {
+    console.error('❌ VerseCard: verse is null or undefined');
+    return null;
+  }
+  
+  if (!verse.translation) {
+    console.error('❌ VerseCard: verse.translation is null or undefined', verse);
+    return null;
+  }
+  
   const arabicText = showTashkeel ? verse.arabic1 : verse.arabic2;
   const translation = translationLanguage === 'english' 
-    ? verse.translation.english 
-    : verse.translation.urdu;
+    ? verse.translation?.english || 'Translation not available'
+    : verse.translation?.urdu || 'ترجمہ دستیاب نہیں';
 
   const handleCopy = () => {
     const text = `${arabicText}\n\n${translation}\n\n(Quran ${verse.surahNumber}:${verse.ayahNumber})`;
