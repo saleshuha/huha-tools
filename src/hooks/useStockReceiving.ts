@@ -343,6 +343,37 @@ export function useStockReceiving() {
     }
   };
 
+  const getSessionInventoryItems = async (sessionId: string) => {
+    try {
+      // Get receiving items that were added to inventory
+      const { data: receivingItems, error: itemsError } = await supabase
+        .from('stock_receiving_items')
+        .select('*')
+        .eq('session_id', sessionId)
+        .gt('quantity_added_to_inventory', 0);
+
+      if (itemsError) throw itemsError;
+      if (!receivingItems || receivingItems.length === 0) return [];
+
+      // Fetch actual inventory records
+      const inventoryPromises = receivingItems.map(item => 
+        supabase
+          .from('asin_inventory')
+          .select('*')
+          .eq('serial_number', item.serial_number)
+          .single()
+      );
+
+      const inventoryResults = await Promise.all(inventoryPromises);
+      return inventoryResults
+        .filter(r => r.data)
+        .map(r => r.data);
+    } catch (error) {
+      console.error('Error loading session inventory items:', error);
+      return [];
+    }
+  };
+
   return {
     sessions,
     currentSession,
@@ -352,6 +383,7 @@ export function useStockReceiving() {
     processItems,
     endSession,
     getSessionItems,
+    getSessionInventoryItems,
     loadSessions,
     testConnection
   };

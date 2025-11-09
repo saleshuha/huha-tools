@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { CheckCircle2, XCircle, Package, FileText, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { ProcessingResult } from '@/hooks/useStockReceiving';
+import { LabelPrintButton } from './LabelPrintButton';
 
 interface ProcessingResultsDisplayProps {
   results: ProcessingResult[];
@@ -26,6 +27,25 @@ export function ProcessingResultsDisplay({
   const hasInventoryItems = results.some(r => r.success && r.inventory_id);
   const hasPOAllocations = results.some(r => r.success && r.matched_pos && r.matched_pos.length > 0);
 
+  // Collect items added to inventory for label printing
+  const inventoryItems = results
+    .filter(r => r.success && r.inventory_id)
+    .map(r => {
+      const originalItem = items.find(item => 
+        (item.asin && item.asin === r.item_id) || 
+        (item.sku_code && item.sku_code === r.item_id) ||
+        (item.model_number && item.model_number === r.item_id)
+      );
+      return {
+        inventory_id: r.inventory_id!,
+        asin: originalItem?.asin,
+        sku: originalItem?.sku_code,
+        title: originalItem?.title || r.item_id,
+        quantity: r.quantity_to_inventory,
+        serial_number: originalItem?.serial_number
+      };
+    });
+
   return (
     <Card className="border-primary/20">
       <CardHeader>
@@ -41,28 +61,37 @@ export function ProcessingResultsDisplay({
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Quick Actions */}
-        <div className="flex gap-2">
-          {hasInventoryItems && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate('/inventory')}
-            >
-              <Package className="w-4 h-4 mr-2" />
-              View Inventory
-            </Button>
-          )}
-          {hasPOAllocations && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate('/po-tracker')}
-            >
-              <FileText className="w-4 h-4 mr-2" />
-              View POs
-            </Button>
-          )}
-        </div>
+        {(hasInventoryItems || hasPOAllocations) && (
+          <div className="flex gap-2">
+            {inventoryItems.length > 0 && (
+              <LabelPrintButton 
+                receivedItems={inventoryItems}
+                variant="default"
+                size="sm"
+              />
+            )}
+            {hasInventoryItems && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onViewInventory ? onViewInventory() : navigate('/inventory')}
+              >
+                <Package className="w-4 h-4 mr-2" />
+                View Inventory
+              </Button>
+            )}
+            {hasPOAllocations && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onViewPOs ? onViewPOs() : navigate('/po-tracker')}
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                View POs
+              </Button>
+            )}
+          </div>
+        )}
 
         {/* Detailed Results */}
         <div className="space-y-3 max-h-[400px] overflow-y-auto">

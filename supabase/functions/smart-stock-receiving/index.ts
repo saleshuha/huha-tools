@@ -369,14 +369,29 @@ async function addToInventory(supabase: any, userId: string, item: ReceivedItem,
 
   if (error) throw error;
 
-  // Log stock change
-  await supabase.from('stock_changes').insert({
+  // FIXED: Create proper stock change record with ALL required fields
+  const { error: stockChangeError } = await supabase.from('stock_changes').insert({
+    user_id: userId,
+    changed_by: userId,
     inventory_id: data.id,
     inventory_type: 'asin',
+    asin: item.asin || 'N/A',
+    sku_number: item.sku_code,
+    serial_number: serialNumber,
+    previous_quantity: 0,
+    new_quantity: quantity,
     change_amount: quantity,
-    reason: 'stock_receiving',
-    notes: `Received ${quantity} units via smart stock receiving`
+    change_reason: 'stock_receiving',
+    source_type: 'receiving',
+    reference_type: 'receiving',
+    notes: `Received ${quantity} units via smart stock receiving from ${item.supplier_name || 'unknown supplier'}`,
+    approval_status: 'approved'
   });
+
+  if (stockChangeError) {
+    console.error('[Edge Function] Failed to create stock change:', stockChangeError);
+    // Don't throw - inventory was created successfully
+  }
 
   return data.id;
 }

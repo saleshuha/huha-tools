@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Scan, Plus } from 'lucide-react';
 import type { ReceivingItem } from '@/hooks/useStockReceiving';
 
@@ -23,6 +24,14 @@ export function ItemScanner({ onScanComplete, disabled }: ItemScannerProps) {
     notes: '',
     title: ''
   });
+
+  const [autoPrint, setAutoPrint] = useState(() => {
+    return localStorage.getItem('stock-receiving-auto-print') === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('stock-receiving-auto-print', autoPrint.toString());
+  }, [autoPrint]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -149,6 +158,21 @@ export function ItemScanner({ onScanComplete, disabled }: ItemScannerProps) {
               disabled={disabled}
               rows={2}
             />
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="auto-print"
+              checked={autoPrint}
+              onCheckedChange={(checked) => setAutoPrint(checked as boolean)}
+              disabled={disabled}
+            />
+            <Label 
+              htmlFor="auto-print" 
+              className="text-sm font-normal cursor-pointer"
+            >
+              Auto-print labels after receiving
+            </Label>
           </div>
 
           <Button type="submit" disabled={disabled} className="w-full">

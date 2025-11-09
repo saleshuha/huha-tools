@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
+import { LabelPrintButton } from './LabelPrintButton';
 
 interface SessionHistoryProps {
   sessions: ReceivingSession[];
@@ -26,6 +27,16 @@ export function SessionHistory({ sessions, onEndSession }: SessionHistoryProps) 
   const [sessionPOs, setSessionPOs] = useState<any[]>([]);
   const [sessionInventory, setSessionInventory] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Prepare printable items from inventory
+  const printableItems = sessionInventory.map(inv => ({
+    inventory_id: inv.id,
+    asin: inv.asin,
+    sku: inv.sku,
+    title: inv.title,
+    quantity: inv.quantity,
+    serial_number: inv.serial_number
+  }));
 
   const loadSessionDetails = async (session: ReceivingSession) => {
     setLoading(true);
@@ -192,6 +203,13 @@ export function SessionHistory({ sessions, onEndSession }: SessionHistoryProps) 
               {/* Quick Action Buttons */}
               {(sessionPOs.length > 0 || sessionInventory.length > 0) && (
                 <div className="flex gap-2 pb-4 border-b">
+                  {printableItems.length > 0 && (
+                    <LabelPrintButton 
+                      receivedItems={printableItems}
+                      variant="default"
+                      size="sm"
+                    />
+                  )}
                   {sessionPOs.length > 0 && (
                     <Button
                       variant="outline"
