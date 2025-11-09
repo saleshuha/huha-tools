@@ -107,13 +107,17 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
           });
         }
 
-        // If no results, show warning that item needs to be added first
+        // If no results, show informative message
         if (searchResults.length === 0) {
           searchResults.push({
             type: 'inventory',
             asin: term.startsWith('B0') ? term : undefined,
             sku_code: !term.startsWith('B0') ? term : undefined,
-            context: `⚠️ Not found in ${country || 'selected country'} inventory - add item first`
+            context: `⚠️ No open POs or inventory found. Note: Closed POs (already fulfilled) are excluded to prevent duplicate stock entries.`
+          });
+          
+          toast.info("No open POs found", {
+            description: "Only pending/placed POs appear in search. Closed POs are already fulfilled and won't show here to prevent duplicate inventory."
           });
         }
 

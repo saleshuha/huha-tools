@@ -81,10 +81,10 @@ export function POMatchingDisplay({
               No matching POs found
             </div>
             <div className="text-xs text-muted-foreground pl-6">
-              Possible reasons:
+              Why no POs match:
               <ul className="list-disc list-inside mt-1 space-y-0.5">
-                <li>No open purchase orders for this item</li>
-                <li>All matching POs are already fulfilled or cancelled</li>
+                <li>No open purchase orders (pending/placed) for this item</li>
+                <li>Closed POs are already fulfilled and excluded to prevent duplicate stock</li>
                 <li>Item identifier doesn't match any PO records</li>
               </ul>
             </div>
