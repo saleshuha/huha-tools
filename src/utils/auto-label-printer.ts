@@ -124,31 +124,78 @@ async function generateZPLFromTemplate(
   const scaleX = labelWidthDots / (template.width || 400);
   const scaleY = labelHeightDots / (template.height || 300);
   
-  // Map template elements to ZPL elements with proper scaling
-  const zplElements = elements.map((element: any) => {
-    const dataValue = data[element.dataColumn] || element.text || '';
-    
-    return {
-      type: element.type,
-      x: Math.round(element.x * scaleX),           // Scale X position
-      y: Math.round(element.y * scaleY),           // Scale Y position
-      width: Math.round((element.width || 100) * scaleX),   // Scale width
-      height: Math.round((element.height || 50) * scaleY),  // Scale height
-      content: String(dataValue),
-      fontSize: Math.round((element.fontSize || 12) * scaleY), // Scale font size
-      fontFamily: element.fontFamily || 'Arial',
-      barcodeType: element.barcodeType,
-      showBarcodeText: element.showText || false,
-      alignment: element.alignment || 'left'
-    };
-  });
+  console.log(`[Auto-Print] Template: ${template.name}, Canvas: ${template.width}x${template.height}px`);
+  console.log(`[Auto-Print] Label dimensions: ${labelWidthDots}x${labelHeightDots} dots (4x3 inches @ 203 DPI)`);
+  console.log(`[Auto-Print] Scale factors: X=${scaleX.toFixed(2)}, Y=${scaleY.toFixed(2)}`);
+  console.log(`[Auto-Print] Elements in template: ${elements.length}`);
+  
+  // Map template elements to ZPL elements with proper scaling AND clipping
+  const zplElements = elements
+    .map((element: any, index: number) => {
+      const dataValue = data[element.dataColumn] || element.text || '';
+      
+      // Calculate scaled positions
+      const scaledX = Math.round(element.x * scaleX);
+      const scaledY = Math.round(element.y * scaleY);
+      const scaledHeight = Math.round((element.height || 50) * scaleY);
+      const scaledWidth = Math.round((element.width || 100) * scaleX);
+      
+      // CLIP ELEMENTS: Skip if positioned outside label bounds
+      if (scaledY >= labelHeightDots || scaledX >= labelWidthDots) {
+        console.warn(`[Auto-Print] Element #${index} "${element.dataColumn || element.type}" CLIPPED (position ${scaledX},${scaledY} exceeds label ${labelWidthDots}x${labelHeightDots})`);
+        return null;
+      }
+      
+      // ADJUST HEIGHT: Trim if element extends beyond label bottom
+      const maxHeight = Math.min(scaledHeight, labelHeightDots - scaledY);
+      if (maxHeight < scaledHeight) {
+        console.warn(`[Auto-Print] Element #${index} "${element.dataColumn || element.type}" HEIGHT TRIMMED (${scaledHeight} -> ${maxHeight})`);
+      }
+      
+      // Convert multitext to text for ZPL generator compatibility
+      const elementType = element.type === 'multitext' ? 'text' : element.type;
+      
+      return {
+        type: elementType,
+        x: scaledX,
+        y: scaledY,
+        width: scaledWidth,
+        height: maxHeight,
+        content: String(dataValue),
+        fontSize: Math.round((element.fontSize || 12) * scaleY),
+        fontFamily: element.fontFamily || 'Arial',
+        barcodeType: element.barcodeType,
+        showBarcodeText: element.showText || false,
+        alignment: element.alignment || 'left'
+      };
+    })
+    .filter(el => el !== null); // Remove clipped elements
+
+  console.log(`[Auto-Print] Elements after clipping: ${zplElements.length}`);
+  console.log(`[Auto-Print] Rendering elements:`, zplElements.map((el, i) => ({
+    index: i,
+    type: el.type,
+    position: `${el.x},${el.y}`,
+    content: el.content.substring(0, 30) + (el.content.length > 30 ? '...' : '')
+  })));
 
   // Generate ZPL with proper label dimensions
-  return generateLabelZPL(zplElements, {
+  const generatedZPL = generateLabelZPL(zplElements, {
     dpi: 203,
     labelWidth: labelWidthDots,
     labelHeight: labelHeightDots
   });
+
+  console.log(`[Auto-Print] Generated ZPL length: ${generatedZPL.length} bytes`);
+  console.log(`[Auto-Print] ZPL preview:`, generatedZPL.substring(0, 200) + '...');
+
+  // VALIDATE ZPL
+  if (generatedZPL.length < 50) {
+    console.error('[Auto-Print] ZPL too short! Full ZPL:', generatedZPL);
+    throw new Error('Generated ZPL too short - likely no elements rendered. Check template design.');
+  }
+
+  return generatedZPL;
 }
 
 /**

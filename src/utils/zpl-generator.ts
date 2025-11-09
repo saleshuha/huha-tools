@@ -6,7 +6,7 @@ export interface ZPLSettings {
 }
 
 export interface LabelElement {
-  type: 'text' | 'barcode' | 'qr' | 'rectangle';
+  type: 'text' | 'multitext' | 'barcode' | 'qr' | 'rectangle';
   x: number;
   y: number;
   width?: number;
@@ -34,6 +34,28 @@ function generateTextZPL(element: LabelElement, settings: ZPLSettings): string {
   const fontSize = Math.round((element.fontSize || 14) / 2);
   
   return `^FO${x},${y}^A0N,${fontSize},${fontSize}^FD${element.content}^FS`;
+}
+
+/**
+ * Generate ZPL for a multitext element (multi-line text)
+ */
+function generateMultitextZPL(element: LabelElement, settings: ZPLSettings): string {
+  const x = pixelsToDots(element.x, settings.dpi);
+  const y = pixelsToDots(element.y, settings.dpi);
+  const fontSize = Math.round((element.fontSize || 12) / 2);
+  
+  // Split content by newlines and render each line
+  const lines = element.content.split('\n');
+  const lineHeight = fontSize + 5; // Add spacing between lines
+  
+  let zpl = '';
+  lines.forEach((line, index) => {
+    const lineY = y + (index * lineHeight);
+    zpl += `^FO${x},${lineY}^A0N,${fontSize},${fontSize}^FD${line}^FS`;
+    if (index < lines.length - 1) zpl += '\n';
+  });
+  
+  return zpl;
 }
 
 /**
@@ -93,6 +115,9 @@ export function generateLabelZPL(elements: LabelElement[], settings: ZPLSettings
     switch (element.type) {
       case 'text':
         elementZPL = generateTextZPL(element, settings);
+        break;
+      case 'multitext':
+        elementZPL = generateMultitextZPL(element, settings);
         break;
       case 'barcode': 
         elementZPL = generateBarcodeZPL(element, settings);
