@@ -208,12 +208,17 @@ export function AppSidebar() {
     return isActive("/sunsky-importer") || isActive("/sunsky-order-tracking") || isActive("/sunsky-api-docs") || isActive("/global-sources")
   }
 
+  const isInventorySectionActive = () => {
+    return isActive("/receive-stock") || isActive("/inventory") || isActive("/replenishment")
+  }
+
   const [isToolsOpen, setIsToolsOpen] = useState(() => isToolsSectionActive())
   const [isPaymentReportsOpen, setIsPaymentReportsOpen] = useState(() => isPaymentReportsSectionActive())
   const [isPOTrackerOpen, setIsPOTrackerOpen] = useState(() => isPOTrackerSectionActive())
   const [isAmazonOpen, setIsAmazonOpen] = useState(() => isAmazonSectionActive())
   const [isNoonOpen, setIsNoonOpen] = useState(() => isNoonSectionActive())
   const [isSourceOpen, setIsSourceOpen] = useState(() => isSourceSectionActive())
+  const [isInventoryOpen, setIsInventoryOpen] = useState(() => isInventorySectionActive())
 
   const handleLogout = async () => {
     try {
@@ -283,80 +288,104 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
 
-              {/* Instock Inventory */}
-              {canAccessRoute('/inventory') && <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild
-                  className={`group relative w-full rounded-md transition-all duration-200 ${
-                    isActive("/inventory")
-                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
-                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
-                  }`}
-                >
-                  <NavLink 
-                    to="/inventory" 
-                    end
-                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
-                  >
-                    <Database className="h-4 w-4 flex-shrink-0" />
-                    {!isCollapsed && (
-                      <span className="font-medium text-sm">
-                        Instock Inventory
-                      </span>
-                    )}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>}
-
-              {/* Receive Stock */}
-              {canAccessRoute('/receive-stock') && <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild
-                  className={`group relative w-full rounded-md transition-all duration-200 ${
-                    isActive("/receive-stock")
-                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
-                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
-                  }`}
-                >
-                  <NavLink 
-                    to="/receive-stock" 
-                    end
-                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
-                  >
-                    <Truck className="h-4 w-4 flex-shrink-0" />
-                    {!isCollapsed && (
-                      <span className="font-medium text-sm">
-                        Receive Stock
-                      </span>
-                    )}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>}
-
-              {/* Sales & Replenishment */}
-              {canAccessRoute('/replenishment') && <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild
-                  className={`group relative w-full rounded-md transition-all duration-200 ${
-                    isActive("/replenishment")
-                      ? "bg-primary/90 text-primary-foreground shadow-sm" 
-                      : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
-                  }`}
-                >
-                  <NavLink 
-                    to="/replenishment" 
-                    end
-                    className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md"
-                  >
-                    <TrendingUp className="h-4 w-4 flex-shrink-0" />
-                    {!isCollapsed && (
-                      <span className="font-medium text-sm">
-                        Sales & Replenishment
-                      </span>
-                    )}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>}
+              {/* Inventory Section - only show when not collapsed */}
+              {!isCollapsed && (canAccessRoute('/receive-stock') || canAccessRoute('/inventory') || canAccessRoute('/replenishment')) && (
+                <SidebarMenuItem>
+                  <Collapsible open={isInventoryOpen} onOpenChange={setIsInventoryOpen}>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton
+                        asChild
+                        className={`group relative w-full rounded-md transition-all duration-200 ${
+                          isInventorySectionActive()
+                            ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                            : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-md cursor-pointer">
+                          <Package className="h-4 w-4 flex-shrink-0" />
+                          <span className="font-medium text-sm">
+                            Inventory
+                          </span>
+                          <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${
+                            isInventoryOpen ? "rotate-180" : ""
+                          }`} />
+                        </div>
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    
+                    <CollapsibleContent className="mt-2 space-y-1 pl-3 z-50 relative">
+                      {/* Receive Stock */}
+                      {canAccessRoute('/receive-stock') && (
+                        <SidebarMenuButton
+                          asChild
+                          className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
+                            isActive("/receive-stock")
+                              ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                              : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                          }`}
+                        >
+                          <NavLink 
+                            to="/receive-stock" 
+                            end
+                            className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
+                          >
+                            <Truck className="h-4 w-4 flex-shrink-0 opacity-75" />
+                            <span className="font-medium text-xs">
+                              Receive Stock
+                            </span>
+                          </NavLink>
+                        </SidebarMenuButton>
+                      )}
+                      
+                      {/* Instock Inventory */}
+                      {canAccessRoute('/inventory') && (
+                        <SidebarMenuButton
+                          asChild
+                          className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
+                            isActive("/inventory")
+                              ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                              : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                          }`}
+                        >
+                          <NavLink 
+                            to="/inventory" 
+                            end
+                            className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
+                          >
+                            <Database className="h-4 w-4 flex-shrink-0 opacity-75" />
+                            <span className="font-medium text-xs">
+                              Instock Inventory
+                            </span>
+                          </NavLink>
+                        </SidebarMenuButton>
+                      )}
+                      
+                      {/* Sales & Replenishment */}
+                      {canAccessRoute('/replenishment') && (
+                        <SidebarMenuButton
+                          asChild
+                          className={`group relative w-full rounded-md transition-all duration-200 ml-2 ${
+                            isActive("/replenishment")
+                              ? "bg-primary/90 text-primary-foreground shadow-sm" 
+                              : "hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground"
+                          }`}
+                        >
+                          <NavLink 
+                            to="/replenishment" 
+                            end
+                            className="flex items-center gap-3 no-underline w-full px-3 py-2 rounded-lg"
+                          >
+                            <TrendingUp className="h-4 w-4 flex-shrink-0 opacity-75" />
+                            <span className="font-medium text-xs">
+                              Sales & Replenishment
+                            </span>
+                          </NavLink>
+                        </SidebarMenuButton>
+                      )}
+                    </CollapsibleContent>
+                  </Collapsible>
+                </SidebarMenuItem>
+              )}
 
               {/* Removed QZ Tray Setup - moved to between Tools and Data Viewer */}
 
