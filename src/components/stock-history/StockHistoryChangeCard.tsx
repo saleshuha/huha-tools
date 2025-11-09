@@ -47,7 +47,7 @@ interface StockHistoryChangeCardProps {
 
 const REFERENCE_TYPE_LABELS: Record<string, { label: string; color: string; icon: string }> = {
   po_order: { label: 'PO Fulfillment', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400', icon: '📦' },
-  manual: { label: 'Manual Adjustment', color: 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400', icon: '✏️' },
+  manual: { label: 'B2B Fulfillment', color: 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400', icon: '✏️' },
   sale: { label: 'Sale', color: 'bg-rose-100 text-rose-800 dark:bg-rose-900/20 dark:text-rose-400', icon: '💰' },
   restock: { label: 'Restock', color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-400', icon: '📥' },
   return: { label: 'Return', color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400', icon: '↩️' },

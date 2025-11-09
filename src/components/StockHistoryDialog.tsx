@@ -213,14 +213,6 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
                 </ul>
               </div>
             </div>
-          ) : filteredChanges.length === 0 ? (
-            <div className="text-center py-12 space-y-2">
-              <Package className="h-12 w-12 text-muted-foreground mx-auto opacity-50" />
-              <p className="font-medium text-muted-foreground">No changes match your filters</p>
-              <p className="text-sm text-muted-foreground">
-                Try adjusting your search or filter criteria
-              </p>
-            </div>
           ) : (
             <>
               <StockHistoryFilters 
@@ -253,59 +245,69 @@ export function StockHistoryDialog({ inventoryId, itemIdentifier, inventoryType 
                             Restock ({filteredChanges.filter(c => c.reference_type === 'restock').length})
                           </TabsTrigger>
                           <TabsTrigger value="manual" className="text-xs">
-                            Manual ({filteredChanges.filter(c => c.reference_type === 'manual').length})
+                            B2B ({filteredChanges.filter(c => c.reference_type === 'manual').length})
                           </TabsTrigger>
                         </TabsList>
                         <TabsContent value={activeTab} className="flex-1 min-h-0 overflow-y-auto mt-2 pr-2">
-                          <div className="space-y-3">
-                            {filteredChanges.map((change, index) => {
-                              let timeGapElement = null;
-                              if (index < filteredChanges.length - 1) {
-                                const currentTime = new Date(change.created_at);
-                                const previousTime = new Date(filteredChanges[index + 1].created_at);
-                                const minutesDiff = differenceInMinutes(currentTime, previousTime);
-                                const hoursDiff = differenceInHours(currentTime, previousTime);
-                                const daysDiff = differenceInDays(currentTime, previousTime);
-                                
-                                let gapText = null;
-                                if (daysDiff > 0) {
-                                  gapText = `${daysDiff} ${daysDiff === 1 ? 'day' : 'days'} later`;
-                                } else if (hoursDiff > 0) {
-                                  gapText = `${hoursDiff} ${hoursDiff === 1 ? 'hour' : 'hours'} later`;
-                                } else if (minutesDiff > 5) {
-                                  gapText = `${minutesDiff} minutes later`;
+                          {filteredChanges.length === 0 ? (
+                            <div className="text-center py-12 space-y-2">
+                              <Package className="h-12 w-12 text-muted-foreground mx-auto opacity-50" />
+                              <p className="font-medium text-muted-foreground">No changes match your filters</p>
+                              <p className="text-sm text-muted-foreground">
+                                Try adjusting your search or filter criteria
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              {filteredChanges.map((change, index) => {
+                                let timeGapElement = null;
+                                if (index < filteredChanges.length - 1) {
+                                  const currentTime = new Date(change.created_at);
+                                  const previousTime = new Date(filteredChanges[index + 1].created_at);
+                                  const minutesDiff = differenceInMinutes(currentTime, previousTime);
+                                  const hoursDiff = differenceInHours(currentTime, previousTime);
+                                  const daysDiff = differenceInDays(currentTime, previousTime);
+                                  
+                                  let gapText = null;
+                                  if (daysDiff > 0) {
+                                    gapText = `${daysDiff} ${daysDiff === 1 ? 'day' : 'days'} later`;
+                                  } else if (hoursDiff > 0) {
+                                    gapText = `${hoursDiff} ${hoursDiff === 1 ? 'hour' : 'hours'} later`;
+                                  } else if (minutesDiff > 5) {
+                                    gapText = `${minutesDiff} minutes later`;
+                                  }
+                                  
+                                  if (gapText) {
+                                    timeGapElement = (
+                                      <div className="flex items-center justify-center gap-2 my-2">
+                                        <div className="h-px bg-border flex-1" />
+                                        <span className="text-xs text-muted-foreground px-2">
+                                          <Clock className="w-3 h-3 inline mr-1" />
+                                          {gapText}
+                                        </span>
+                                        <div className="h-px bg-border flex-1" />
+                                      </div>
+                                    );
+                                  }
                                 }
-                                
-                                if (gapText) {
-                                  timeGapElement = (
-                                    <div className="flex items-center justify-center gap-2 my-2">
-                                      <div className="h-px bg-border flex-1" />
-                                      <span className="text-xs text-muted-foreground px-2">
-                                        <Clock className="w-3 h-3 inline mr-1" />
-                                        {gapText}
-                                      </span>
-                                      <div className="h-px bg-border flex-1" />
-                                    </div>
-                                  );
-                                }
-                              }
 
-                              return (
-                                <div key={change.id}>
-                                  <StockHistoryChangeCard 
-                                    change={change} 
-                                    isExpanded={expandedItems.has(change.id)} 
-                                    onToggleExpanded={() => {
-                                      const next = new Set(expandedItems);
-                                      next.has(change.id) ? next.delete(change.id) : next.add(change.id);
-                                      setExpandedItems(next);
-                                    }} 
-                                  />
-                                  {timeGapElement}
-                                </div>
-                              );
-                            })}
-                          </div>
+                                return (
+                                  <div key={change.id}>
+                                    <StockHistoryChangeCard 
+                                      change={change} 
+                                      isExpanded={expandedItems.has(change.id)} 
+                                      onToggleExpanded={() => {
+                                        const next = new Set(expandedItems);
+                                        next.has(change.id) ? next.delete(change.id) : next.add(change.id);
+                                        setExpandedItems(next);
+                                      }} 
+                                    />
+                                    {timeGapElement}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </TabsContent>
                       </Tabs>
                     )
