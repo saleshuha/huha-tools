@@ -20,6 +20,7 @@ import { Package, Plus, Search, Edit, Download, Upload, Check, X, RefreshCw, Ale
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
 import { Textarea } from './ui/textarea';
 import { useAsinInventory, AsinInventoryItem } from '@/hooks/useAsinInventory';
+import { useAsinInventoryPaginated } from '@/hooks/useAsinInventoryPaginated';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { DualQuantityEditor } from './DualQuantityEditor';
@@ -45,8 +46,40 @@ import { LabelDoc, LabelDataset, LabelElement, PrintSettings } from '@/types/lab
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 export function AsinInventory() {
+  // Pagination and filter state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(100);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [searchMethod, setSearchMethod] = useState<'all' | 'asin' | 'sku' | 'serial' | 'title' | 'notes'>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<'dateAdded' | 'asin' | 'quantity' | 'status' | 'title' | 'serialNumber'>('dateAdded');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [quickFilter, setQuickFilter] = useState<'all' | 'low-stock' | 'out-of-stock' | 'recent'>('all');
+  const [dateFilterFrom, setDateFilterFrom] = useState<Date>();
+  const [dateFilterTo, setDateFilterTo] = useState<Date>();
+  const [showDisabledItems, setShowDisabledItems] = useState(false);
+  
+  // Debounce search term for performance (300ms delay)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+      setCurrentPage(1); // Reset to page 1 when search changes
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+  
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, sortBy, sortOrder, quickFilter, dateFilterFrom, dateFilterTo, showDisabledItems, searchMethod]);
+  
+  // Use paginated hook with server-side filtering
   const {
     inventory,
+    totalCount,
+    totalPages,
     loading,
     addItem,
     updateItemStatus,
@@ -61,7 +94,17 @@ export function AsinInventory() {
     fetchTitlesFromSunsky,
     toggleItemActive,
     refetch
-  } = useAsinInventory();
+  } = useAsinInventoryPaginated(currentPage, itemsPerPage, {
+    searchTerm: debouncedSearchTerm,
+    searchMethod,
+    statusFilter,
+    sortBy,
+    sortOrder,
+    quickFilter,
+    dateFilterFrom,
+    dateFilterTo,
+    showDisabledItems
+  });
   const {
     user
   } = useUserProfile();
@@ -147,21 +190,6 @@ export function AsinInventory() {
     const maxSerial = serialNumbers.length > 0 ? Math.max(...serialNumbers) : 0;
     return (maxSerial + 1).toString().padStart(5, '0');
   };
-  const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const [searchMethod, setSearchMethod] = useState<'all' | 'asin' | 'sku' | 'serial' | 'title' | 'notes'>('all');
-  
-  // Debounce search term for performance (300ms delay)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
-    }, 300);
-    
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'dateAdded' | 'asin' | 'quantity' | 'status' | 'title' | 'serialNumber'>('dateAdded');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
@@ -169,7 +197,6 @@ export function AsinInventory() {
   const [isMissingNumbersDialogOpen, setIsMissingNumbersDialogOpen] = useState(false);
   
   // Disable items feature
-  const [showDisabledItems, setShowDisabledItems] = useState(false);
   const [itemsToDisable, setItemsToDisable] = useState<AsinInventoryItem[]>([]);
   const [isDisableDialogOpen, setIsDisableDialogOpen] = useState(false);
   const [itemToEnable, setItemToEnable] = useState<AsinInventoryItem | null>(null);
@@ -275,11 +302,6 @@ export function AsinInventory() {
   const [bulkStatusValue, setBulkStatusValue] = useState<AsinInventoryItem['status']>('in-stock');
   const [bulkQuantityValue, setBulkQuantityValue] = useState(1);
   const [bulkQuantityReason, setBulkQuantityReason] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(50);
-  const [quickFilter, setQuickFilter] = useState<'all' | 'low-stock' | 'out-of-stock' | 'recent'>('all');
-  const [dateFilterFrom, setDateFilterFrom] = useState<Date>();
-  const [dateFilterTo, setDateFilterTo] = useState<Date>();
   
   // Image preview states
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -390,266 +412,7 @@ export function AsinInventory() {
   });
   const [bulkText, setBulkText] = useState('');
 
-  const filteredInventory = useMemo(() => {
-    console.log('🔄 FILTERING INVENTORY - START:', {
-      inventoryLength: inventory.length,
-      searchTerm,
-      searchMethod,
-      loading,
-      showDisabledItems
-    });
-
-    // If still loading, return empty array
-    if (loading) {
-      console.log('⏳ Still loading inventory, returning empty array');
-      return [];
-    }
-
-    let filtered = inventory;
-
-    // Filter by active status
-    if (showDisabledItems) {
-      // When toggle is active, show ONLY disabled items
-      filtered = filtered.filter(item => item.isActive === false);
-      console.log('🔧 DISABLED FILTER (showing only disabled):', {
-        originalCount: inventory.length,
-        disabledCount: filtered.length,
-        activeCount: inventory.length - filtered.length
-      });
-    } else {
-      // When toggle is inactive, show ALL items
-      console.log('🔧 SHOWING ALL ITEMS:', {
-        totalCount: inventory.length,
-        disabledCount: inventory.filter(item => item.isActive === false).length,
-        activeCount: inventory.filter(item => item.isActive !== false).length
-      });
-    }
-
-    // Remove duplicates - keep the most recent record for each ASIN+SerialNumber combination
-    // NOTE: We don't include SKU in the key because items can have different SKUs but same ASIN+Serial
-    const uniqueMap = new Map();
-    filtered.forEach(item => {
-      const key = `${item.asin}-${item.serialNumber}`;
-      const existing = uniqueMap.get(key);
-      if (!existing || new Date(item.dateAdded) > new Date(existing.dateAdded)) {
-        uniqueMap.set(key, item);
-      }
-    });
-    filtered = Array.from(uniqueMap.values());
-    console.log('🔧 DEDUPLICATION COMPLETE:', {
-      originalCount: inventory.length,
-      uniqueCount: filtered.length,
-      duplicatesRemoved: inventory.length - filtered.length
-    });
-
-    // Apply search filter
-    if (debouncedSearchTerm) {
-      const searchTerms = debouncedSearchTerm.toLowerCase().split(' ').filter(term => term.length > 0);
-      
-      console.log('🔍 SEARCH DEBUG:', {
-        searchTerm: debouncedSearchTerm,
-        searchTerms,
-        searchMethod,
-        totalItems: inventory.length,
-        inventoryLoaded: !loading
-      });
-      
-      // Show sample of inventory data for debugging
-      const sampleItems = inventory.slice(0, 5).map(item => ({
-        asin: item.asin,
-        serialNumber: item.serialNumber,
-        sku: item.sku,
-        title: item.title?.substring(0, 30)
-      }));
-      console.log('📋 SAMPLE INVENTORY ITEMS:', sampleItems);
-      
-      // Show ALL serial numbers in a compact format
-      const allSerials = inventory.map(item => item.serialNumber).filter(Boolean);
-      console.log('🔢 ALL SERIAL NUMBERS:', allSerials.length, 'total:', allSerials);
-      
-      // Test specific search terms
-      searchTerms.forEach(term => {
-        const asinMatches = inventory.filter(item => 
-          item.asin.toLowerCase().includes(term.toLowerCase())
-        );
-        const serialMatches = inventory.filter(item => 
-          item.serialNumber && item.serialNumber.toLowerCase().includes(term.toLowerCase())
-        );
-        const skuMatches = inventory.filter(item => 
-          item.sku && item.sku.toLowerCase().includes(term.toLowerCase())
-        );
-        
-        console.log(`🎯 MATCHES for "${term}":`, {
-          asinMatches: asinMatches.length,
-          serialMatches: serialMatches.length,
-          skuMatches: skuMatches.length,
-          serialMatchDetails: serialMatches.map(item => ({
-            serial: item.serialNumber,
-            asin: item.asin
-          }))
-        });
-      });
-       
-       // IMPROVED SEARCH LOGIC - more flexible matching
-       filtered = filtered.filter(item => {
-         if (searchMethod === 'all') {
-           return searchTerms.some(term => { // Changed from every to some for more flexible matching
-             const termLower = term.toLowerCase().trim();
-             const asinMatch = item.asin.toLowerCase().includes(termLower);
-             const serialMatch = item.serialNumber && item.serialNumber.toLowerCase().includes(termLower);
-             const skuMatch = item.sku && item.sku.toLowerCase().includes(termLower);
-             const titleMatch = item.title && item.title.toLowerCase().includes(termLower);
-             const notesMatch = item.notes && item.notes.toLowerCase().includes(termLower);
-             
-             const found = asinMatch || serialMatch || skuMatch || titleMatch || notesMatch;
-             
-             // Debug specific items
-             if (found && (termLower.includes('02001') || termLower.includes('02004'))) {
-               console.log(`✅ FOUND MATCH for "${term}":`, {
-                 item: {
-                   asin: item.asin,
-                   serial: item.serialNumber,
-                   sku: item.sku
-                 },
-                 matches: { asinMatch, serialMatch, skuMatch, titleMatch, notesMatch }
-               });
-             }
-             
-             return found;
-           });
-         } else if (searchMethod === 'asin') {
-           return searchTerms.some(term => item.asin.toLowerCase().includes(term.toLowerCase().trim()));
-         } else if (searchMethod === 'sku') {
-           return item.sku && searchTerms.some(term => item.sku.toLowerCase().includes(term.toLowerCase().trim()));
-         } else if (searchMethod === 'serial') {
-           return searchTerms.some(term => {
-             const match = item.serialNumber && item.serialNumber.toLowerCase().includes(term.toLowerCase().trim());
-             if (match && (term.includes('02001') || term.includes('02004'))) {
-               console.log(`🎯 SERIAL MATCH for "${term}":`, {
-                 searchTerm: term,
-                 itemSerial: item.serialNumber,
-                 itemAsin: item.asin
-               });
-             }
-             return match;
-           });
-          } else if (searchMethod === 'title') {
-            if (!item.title) return false;
-            const titleLower = item.title.toLowerCase();
-            
-            // Check if ALL search terms appear anywhere in the title (substring match)
-            return searchTerms.every(term => {
-              const termLower = term.toLowerCase().trim();
-              return titleLower.includes(termLower);
-            });
-         } else if (searchMethod === 'notes') {
-           return item.notes && searchTerms.some(term => item.notes.toLowerCase().includes(term.toLowerCase().trim()));
-         }
-         return false;
-       });
-      console.log('✅ FINAL FILTERED RESULTS:', {
-        searchTerm: debouncedSearchTerm,
-        originalCount: inventory.length,
-        filteredCount: filtered.length,
-        resultItems: filtered.map(item => ({
-          asin: item.asin,
-          serial: item.serialNumber,
-          sku: item.sku
-        }))
-      });
-      
-      // Show what was found or not found
-      if (filtered.length === 0) {
-        console.log('❌ NO MATCHES FOUND for search term:', debouncedSearchTerm);
-        console.log('💡 Available serials containing "020":', 
-          inventory
-            .filter(item => item.serialNumber && item.serialNumber.includes('020'))
-            .map(item => ({ serial: item.serialNumber, asin: item.asin }))
-        );
-      }
-    }
-
-    // CRITICAL FIX: Filter out "ordered" and "sold" statuses by default
-    // These statuses don't represent available inventory
-    if (statusFilter === 'all') {
-      filtered = filtered.filter(item => 
-        item.status !== 'ordered' && item.status !== 'sold'
-      );
-      console.log('🔧 EXCLUDED ordered/sold items:', {
-        beforeFilter: filtered.length + inventory.filter(i => i.status === 'ordered' || i.status === 'sold').length,
-        afterFilter: filtered.length,
-        excludedCount: inventory.filter(i => i.status === 'ordered' || i.status === 'sold').length
-      });
-    } else if (statusFilter !== 'all') {
-      filtered = filtered.filter(item => {
-        // Treat 'ordered' items as 'sold' when filtering
-        const effectiveStatus = item.status === 'ordered' ? 'sold' : item.status;
-        return effectiveStatus === statusFilter;
-      });
-    }
-
-    // Apply quick filter
-    if (quickFilter === 'low-stock') {
-      filtered = filtered.filter(item => item.quantity > 0 && item.quantity <= 5);
-    } else if (quickFilter === 'out-of-stock') {
-      filtered = filtered.filter(item => item.quantity === 0);
-
-      // Apply date filter for out-of-stock items
-      if (dateFilterFrom || dateFilterTo) {
-        filtered = filtered.filter(item => {
-          const itemDate = new Date(item.dateAdded);
-          const fromDate = dateFilterFrom ? new Date(dateFilterFrom.setHours(0, 0, 0, 0)) : null;
-          const toDate = dateFilterTo ? new Date(dateFilterTo.setHours(23, 59, 59, 999)) : null;
-          if (fromDate && toDate) {
-            return itemDate >= fromDate && itemDate <= toDate;
-          } else if (fromDate) {
-            return itemDate >= fromDate;
-          } else if (toDate) {
-            return itemDate <= toDate;
-          }
-          return true;
-        });
-      }
-    } else if (quickFilter === 'recent') {
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      filtered = filtered.filter(item => new Date(item.dateAdded) >= sevenDaysAgo);
-    }
-
-    // Apply sorting
-    filtered.sort((a, b) => {
-      let aValue: any = a[sortBy];
-      let bValue: any = b[sortBy];
-      if (sortBy === 'dateAdded') {
-        aValue = new Date(aValue).getTime();
-        bValue = new Date(bValue).getTime();
-      } else if (sortBy === 'title') {
-        aValue = (aValue || '').toLowerCase();
-        bValue = (bValue || '').toLowerCase();
-      } else if (sortBy === 'serialNumber') {
-        aValue = aValue.toLowerCase();
-        bValue = bValue.toLowerCase();
-      } else if (sortBy === 'asin') {
-        aValue = aValue.toLowerCase();
-        bValue = bValue.toLowerCase();
-      }
-      if (sortOrder === 'asc') {
-        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-      } else {
-        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
-      }
-    });
-    console.log('🔄 FILTERING INVENTORY - END:', {
-      finalResultCount: filtered.length,
-      searchActive: !!debouncedSearchTerm,
-      showDisabledItems
-    });
-
-    return filtered;
-  }, [inventory, debouncedSearchTerm, statusFilter, sortBy, sortOrder, quickFilter, dateFilterFrom, dateFilterTo, loading, showDisabledItems]);
-  const totalPages = Math.ceil(filteredInventory.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedInventory = filteredInventory.slice(startIndex, startIndex + itemsPerPage);
+  // Inventory is already filtered and paginated by the backend hook
   const handleAddItem = async () => {
     if (!newItem.asin.trim() || !newItem.serialNumber.trim()) {
       toast({
@@ -798,7 +561,7 @@ export function AsinInventory() {
   
   const exportInventory = () => {
     const csvData = [['SKU', 'UPC', 'ASIN', 'Title', 'Warehouse', 'Warehouse name', 'Available units', 'Status'],
-      ...filteredInventory.map(item => {
+      ...inventory.map(item => {
         // Get the export mode for this item (default to 'global')
         const exportMode = exportModes[item.id] || 'global';
         
@@ -844,7 +607,7 @@ export function AsinInventory() {
         error
       } = await supabase.functions.invoke('send-inventory-email', {
         body: {
-          inventory: filteredInventory,
+          inventory: inventory,
           userEmail: user?.email
         }
       });
@@ -1322,7 +1085,7 @@ export function AsinInventory() {
                        }}
                      />
                       <Label htmlFor="show-disabled" className="text-sm cursor-pointer">
-                        Show Only Disabled Items {showDisabledItems && `(${filteredInventory.length})`}
+                        Show Only Disabled Items {showDisabledItems && `(${totalCount})`}
                       </Label>
                    </div>
                     <DialogContent className="max-w-md">
@@ -1654,7 +1417,7 @@ export function AsinInventory() {
               <div className="flex items-center gap-3">
                 <Label className="text-sm font-medium whitespace-nowrap">Results:</Label>
                 <div className="text-sm text-muted-foreground bg-muted/30 rounded-md px-3 py-2">
-                  {Math.min(startIndex + 1, filteredInventory.length)}-{Math.min(startIndex + itemsPerPage, filteredInventory.length)} of {filteredInventory.length}
+                  {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount}
                 </div>
               </div>
             </div>
@@ -1663,7 +1426,7 @@ export function AsinInventory() {
       </Card>
 
       {/* Inventory Display */}
-      {filteredInventory.length === 0 ? <Card className="border-dashed border-2 border-muted">
+      {inventory.length === 0 ? <Card className="border-dashed border-2 border-muted">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Package className="w-16 h-16 text-muted-foreground mb-4" />
             <h3 className="text-xl font-semibold text-muted-foreground mb-2">No inventory items found</h3>
@@ -1682,9 +1445,9 @@ export function AsinInventory() {
                 <thead className="bg-muted/50">
                    <tr className="border-b">
                      <th className="w-12 p-3 text-left border-r">
-                        <Checkbox checked={selectedItems.size === paginatedInventory.length && paginatedInventory.length > 0} onCheckedChange={checked => {
+                        <Checkbox checked={selectedItems.size === inventory.length && inventory.length > 0} onCheckedChange={checked => {
                     if (checked) {
-                      setSelectedItems(new Set(paginatedInventory.map(item => item.id)));
+                      setSelectedItems(new Set(inventory.map(item => item.id)));
                     } else {
                       setSelectedItems(new Set());
                     }
@@ -1758,7 +1521,7 @@ export function AsinInventory() {
                   </tr>
                 </thead>
                 <tbody>
-                   {paginatedInventory.map(item => <tr key={item.id} className={cn(
+                   {inventory.map(item => <tr key={item.id} className={cn(
                      "border-b hover:bg-muted/25 transition-colors",
                      item.isActive === false && "bg-destructive/10 border-l-4 border-l-destructive"
                    )}>
@@ -1986,7 +1749,7 @@ export function AsinInventory() {
             </div>
           </CardContent>
         </Card> : <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {paginatedInventory.map(item => <Card key={item.id} className="hover:shadow-lg transition-all duration-300 border-0 shadow-md">
+          {inventory.map(item => <Card key={item.id} className="hover:shadow-lg transition-all duration-300 border-0 shadow-md">
               <CardContent className="p-6">
                  <div className="space-y-4">
                    <div className="flex items-start justify-between">
@@ -2071,9 +1834,9 @@ export function AsinInventory() {
         </div>}
         
         {/* Pagination */}
-        {filteredInventory.length > itemsPerPage && <div className="flex items-center justify-between">
+        {totalCount > itemsPerPage && <div className="flex items-center justify-between">
             <div className="text-sm text-muted-foreground">
-              Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredInventory.length)} of {filteredInventory.length} items
+              Showing {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} items
             </div>
             <Pagination>
               <PaginationContent>
