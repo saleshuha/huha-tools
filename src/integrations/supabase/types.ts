@@ -2859,6 +2859,66 @@ export type Database = {
           },
         ]
       }
+      receiving_history: {
+        Row: {
+          asin: string | null
+          created_at: string | null
+          destination_details: Json | null
+          destination_type: string
+          error_message: string | null
+          id: string
+          model_number: string | null
+          printed: boolean | null
+          printer_name: string | null
+          quantity: number
+          serial_number: string | null
+          sku_code: string | null
+          success: boolean | null
+          supplier_name: string | null
+          template_type: string | null
+          title: string | null
+          user_id: string
+        }
+        Insert: {
+          asin?: string | null
+          created_at?: string | null
+          destination_details?: Json | null
+          destination_type: string
+          error_message?: string | null
+          id?: string
+          model_number?: string | null
+          printed?: boolean | null
+          printer_name?: string | null
+          quantity: number
+          serial_number?: string | null
+          sku_code?: string | null
+          success?: boolean | null
+          supplier_name?: string | null
+          template_type?: string | null
+          title?: string | null
+          user_id: string
+        }
+        Update: {
+          asin?: string | null
+          created_at?: string | null
+          destination_details?: Json | null
+          destination_type?: string
+          error_message?: string | null
+          id?: string
+          model_number?: string | null
+          printed?: boolean | null
+          printer_name?: string | null
+          quantity?: number
+          serial_number?: string | null
+          sku_code?: string | null
+          success?: boolean | null
+          supplier_name?: string | null
+          template_type?: string | null
+          title?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       replenishment_calculation_configs: {
         Row: {
           calculation_method: string

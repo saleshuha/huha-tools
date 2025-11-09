@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { usePageTracking } from '@/hooks/usePageTracking';
 import { useStockReceiving } from '@/hooks/useStockReceiving';
+import { useReceivingHistory } from '@/hooks/useReceivingHistory';
 import { ItemSearchBar } from '@/components/stock-receiving/ItemSearchBar';
 import { QuantityConfirmDialog } from '@/components/stock-receiving/QuantityConfirmDialog';
 import { RecentActivityFeed } from '@/components/stock-receiving/RecentActivityFeed';
-import { SessionHistory } from '@/components/stock-receiving/SessionHistory';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -48,13 +48,20 @@ export default function ReceiveStock() {
   const {
     isProcessing,
     processSingleItem,
-    testConnection,
-    sessions,
+    testConnection
   } = useStockReceiving();
+
+  const { 
+    history, 
+    isLoading: historyLoading, 
+    loadMore, 
+    hasMore 
+  } = useReceivingHistory(50);
 
   const [selectedItem, setSelectedItem] = useState<SearchResult | null>(null);
   const [showDialog, setShowDialog] = useState(false);
-  const [activities, setActivities] = useState<ActivityItem[]>([]);
+  // Local activities state for immediate feedback before DB sync
+  const [localActivities, setLocalActivities] = useState<ActivityItem[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking');
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [autoPrintEnabled, setAutoPrintEnabled] = useState(false);
@@ -210,7 +217,7 @@ export default function ReceiveStock() {
         activity.printed = printed;
       }
 
-      setActivities(prev => [activity, ...prev]);
+      setLocalActivities(prev => [activity, ...prev]);
       toast.success(`Received ${data.quantity} unit(s)`);
     }
 
@@ -219,8 +226,8 @@ export default function ReceiveStock() {
   };
 
   const handleClearActivities = () => {
-    setActivities([]);
-    toast.success('Activity cleared');
+    setLocalActivities([]);
+    toast.success('Local activity cleared');
   };
 
   const handleAutoPrintChange = (enabled: boolean) => {
@@ -289,7 +296,7 @@ export default function ReceiveStock() {
         </Alert>
 
         {/* Activity Summary */}
-        {activities.length > 0 && (
+        {(localActivities.length > 0 || history.length > 0) && (
           <Card className="mb-6 border-primary/30 bg-primary/5">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -298,7 +305,7 @@ export default function ReceiveStock() {
                   <div>
                     <p className="font-medium text-foreground">Receiving Active</p>
                     <p className="text-sm text-muted-foreground">
-                      {activities.length} items processed today
+                      {history.length + localActivities.length} items in history
                     </p>
                   </div>
                 </div>
@@ -430,21 +437,40 @@ export default function ReceiveStock() {
           </CardContent>
         </Card>
 
-        {/* Recent Activity */}
+        {/* Comprehensive Receiving History */}
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
+            <CardTitle>Receiving History</CardTitle>
             <CardDescription>
-              Real-time processing results for current session
+              Complete history of all received items with pagination
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <RecentActivityFeed activities={activities} />
+            <RecentActivityFeed 
+              activities={[
+                // Show local activities first (immediate feedback)
+                ...localActivities,
+                // Then show persisted history from database
+                ...history.map(h => ({
+                  id: h.id,
+                  success: h.success,
+                  identifier: h.asin || h.sku_code || h.model_number || 'Unknown',
+                  destination: h.destination_type === 'po' 
+                    ? `PO ${h.destination_details?.po_numbers?.join(', ') || ''}`
+                    : 'Inventory',
+                  quantity: h.quantity,
+                  printed: h.printed,
+                  timestamp: new Date(h.created_at),
+                  error: h.error_message,
+                  template_type: h.destination_type as 'po' | 'inventory'
+                }))
+              ]}
+              onLoadMore={loadMore}
+              hasMore={hasMore}
+              isLoading={historyLoading}
+            />
           </CardContent>
         </Card>
-
-        {/* Optional: Keep session history if you want to track past receiving activities */}
-        {/* <SessionHistory sessions={sessions} /> */}
       </div>
 
       {/* Quantity Confirm Dialog */}

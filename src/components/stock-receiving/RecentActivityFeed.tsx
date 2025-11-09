@@ -19,9 +19,19 @@ interface RecentActivityFeedProps {
   activities: ActivityItem[];
   onReprint?: (activity: ActivityItem) => void;
   onViewDetails?: (activity: ActivityItem) => void;
+  onLoadMore?: () => void;
+  hasMore?: boolean;
+  isLoading?: boolean;
 }
 
-export function RecentActivityFeed({ activities, onReprint, onViewDetails }: RecentActivityFeedProps) {
+export function RecentActivityFeed({ 
+  activities, 
+  onReprint, 
+  onViewDetails,
+  onLoadMore,
+  hasMore,
+  isLoading 
+}: RecentActivityFeedProps) {
   if (activities.length === 0) {
     return (
       <div className="p-8 text-center text-muted-foreground">
@@ -117,6 +127,20 @@ export function RecentActivityFeed({ activities, onReprint, onViewDetails }: Rec
             </div>
           </div>
         ))}
+        
+        {/* Load More Button */}
+        {hasMore && onLoadMore && (
+          <div className="p-4 text-center">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={onLoadMore}
+              disabled={isLoading}
+            >
+              {isLoading ? 'Loading...' : 'Load More History'}
+            </Button>
+          </div>
+        )}
       </div>
     </ScrollArea>
   );

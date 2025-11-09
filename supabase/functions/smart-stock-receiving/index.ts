@@ -203,6 +203,32 @@ serve(async (req) => {
             },
             message: `Allocated ${item.quantity - allocation.remainingQty} to ${allocation.allocations.length} PO(s), added ${allocation.remainingQty} to inventory`
           });
+
+          // Log to receiving history for comprehensive tracking
+          try {
+            const { error: historyError } = await supabase.from('receiving_history').insert({
+              user_id: userId,
+              asin: item.asin,
+              sku_code: item.sku_code,
+              model_number: item.model_number,
+              title: item.title,
+              quantity: item.quantity,
+              serial_number: item.serial_number,
+              supplier_name: item.supplier_name,
+              destination_type: allocation.allocations.length > 0 ? 'po' : 'inventory',
+              destination_details: allocation.allocations.length > 0 
+                ? { po_numbers: allocation.allocations.map(a => a.po_number) }
+                : {},
+              success: true
+            });
+
+            if (historyError) {
+              console.error('[Edge Function] Failed to log history:', historyError);
+              // Don't throw - receiving was successful, just logging failed
+            }
+          } catch (histError) {
+            console.error('[Edge Function] Exception logging history:', histError);
+          }
         } else {
           // Just return the allocation plan without executing
           results.push({
@@ -396,8 +422,8 @@ async function addToInventory(supabase: any, userId: string, item: ReceivedItem,
     new_quantity: quantity,
     change_amount: quantity,
     change_reason: 'stock_receiving',
-    source_type: 'receiving',
-    reference_type: 'receiving',
+    source_type: 'manual_adjustment',
+    reference_type: 'stock_receiving',
     notes: `Received ${quantity} units via smart stock receiving from ${item.supplier_name || 'unknown supplier'}`,
     approval_status: 'approved'
   });

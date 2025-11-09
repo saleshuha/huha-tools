@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
-import { generatePOLabelZPL } from './po-label-printer';
+import { generateLabelZPL } from './zpl-generator';
+import { QZConnectionManager } from './qz-connection-manager';
 import { toast } from 'sonner';
 import qz from 'qz-tray';
 
@@ -32,8 +33,13 @@ export interface ProcessingResult {
 export interface LabelTemplate {
   id: string;
   name: string;
-  elements: any[];
-  settings: any;
+  elements?: any[];
+  settings?: any;
+  canvas_data?: {
+    elements: any[];
+  };
+  width?: number;
+  height?: number;
 }
 
 /**
@@ -48,7 +54,7 @@ export async function getTemplateForResult(
     if (preferredTemplateId) {
       const { data: preferredTemplate } = await supabase
         .from('label_templates')
-        .select('*')
+        .select('id, name, canvas_data, width, height')
         .eq('id', preferredTemplateId)
         .single();
       
@@ -72,7 +78,7 @@ export async function getTemplateForResult(
       query = query.or('name.ilike.%inventory%,name.ilike.%warehouse%,name.ilike.%stock%');
     }
 
-    const { data, error } = await query.limit(1).single();
+    const { data, error } = await query.select('id, name, canvas_data, width, height').limit(1).single();
 
     if (error || !data) {
       console.warn(`No ${result.template_type} template found, trying any template...`);
@@ -80,7 +86,7 @@ export async function getTemplateForResult(
       // Fallback to any available template
       const { data: fallback } = await supabase
         .from('label_templates')
-        .select('*')
+        .select('id, name, canvas_data, width, height')
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
@@ -96,6 +102,44 @@ export async function getTemplateForResult(
 }
 
 /**
+ * Generate ZPL from template canvas data
+ */
+async function generateZPLFromTemplate(
+  template: LabelTemplate,
+  data: Record<string, any>
+): Promise<string> {
+  // Extract elements from template
+  const elements = template.canvas_data?.elements || [];
+  
+  // Map template elements to ZPL elements with actual data
+  const zplElements = elements.map((element: any) => {
+    // Get value from data based on element's dataColumn
+    const dataValue = data[element.dataColumn] || element.text || '';
+    
+    return {
+      type: element.type,
+      x: element.x,
+      y: element.y,
+      width: element.width,
+      height: element.height,
+      content: String(dataValue),
+      fontSize: element.fontSize || 12,
+      fontFamily: element.fontFamily || 'Arial',
+      barcodeType: element.barcodeType,
+      showBarcodeText: element.showText || false,
+      alignment: element.alignment || 'left'
+    };
+  });
+
+  // Generate ZPL with template settings
+  return generateLabelZPL(zplElements, {
+    dpi: 203,
+    labelWidth: (template.width || 4) * 203,
+    labelHeight: (template.height || 2) * 203
+  });
+}
+
+/**
  * Automatically print label after processing
  */
 export async function autoPrintLabel(
@@ -104,49 +148,61 @@ export async function autoPrintLabel(
   preferredTemplateId?: string
 ): Promise<boolean> {
   if (!config.enabled) {
+    console.log('[Auto-Print] Disabled in config');
     return false;
   }
 
   try {
-    // Get appropriate template (use preferred if provided)
+    console.log('[Auto-Print] Starting...', { templateType: result.template_type });
+    
+    // Get appropriate template
     const template = await getTemplateForResult(result, preferredTemplateId);
     
     if (!template) {
-      toast.error('No label template found. Please create one in Label Designer.');
+      toast.error('No label template found. Create one in Label Designer.');
       return false;
     }
 
-    // Build print item data
-    const printItem = {
-      asin: result.item.asin || 'N/A',
-      title: result.item.title || 'No Title',
-      quantity: result.item.quantity,
-      poNumbers: result.po_allocations?.map(a => a.po_number) || [],
-      model_number: result.item.model_number,
-      sku_code: result.item.sku_code,
-      serialNumber: result.item.serial_number,
-      fulfilledFromStock: result.template_type === 'po',
-      inventorySource: result.template_type === 'inventory' ? 'ASIN' : undefined
+    console.log('[Auto-Print] Using template:', template.name);
+
+    // Build data mapping for template elements
+    const templateData: Record<string, any> = {
+      ASIN: result.item.asin || 'N/A',
+      'SKU Code': result.item.sku_code || 'N/A',
+      'Model Number': result.item.model_number || 'N/A',
+      Title: result.item.title || 'No Title',
+      Quantity: result.item.quantity,
+      Serial: result.item.serial_number || 'N/A',
+      'Serial Number': result.item.serial_number || 'N/A',
+      Supplier: result.item.supplier_name || 'N/A',
+      Status: result.template_type === 'po' ? 'Fulfilled' : 'In Stock',
+      Date: new Date().toLocaleDateString()
     };
 
-    // Generate ZPL
-    const zpl = generatePOLabelZPL(printItem, {
-      dpi: 203,
-      labelWidth: 4,
-      labelHeight: 2,
-      includeImages: false,
-      includeBarcode: true
-    });
-
-    // Print based on config
-    if (config.preferDirectPrint && config.defaultPrinter) {
-      return await printDirectly(zpl, config.defaultPrinter);
-    } else {
-      return await downloadPDF(zpl, printItem.asin);
+    // For PO items, add PO-specific data
+    if (result.template_type === 'po' && result.po_allocations?.length > 0) {
+      const poNumbers = result.po_allocations.map(a => a.po_number).join(', ');
+      templateData['PO Number'] = poNumbers;
+      templateData['PO Numbers'] = poNumbers;
     }
+
+    console.log('[Auto-Print] Template data:', templateData);
+
+    // Generate ZPL from template
+    const zpl = await generateZPLFromTemplate(template, templateData);
+    console.log('[Auto-Print] Generated ZPL length:', zpl.length);
+
+    // Always direct print (no download fallback as per user requirement)
+    if (!config.preferDirectPrint || !config.defaultPrinter) {
+      toast.error('Please enable direct printing and select a printer in settings.');
+      return false;
+    }
+
+    console.log('[Auto-Print] Direct print to:', config.defaultPrinter);
+    return await printDirectly(zpl, config.defaultPrinter);
   } catch (error) {
-    console.error('Auto-print error:', error);
-    toast.error('Failed to auto-print label');
+    console.error('[Auto-Print] Error:', error);
+    toast.error(`Failed to print: ${error.message}`);
     return false;
   }
 }
@@ -156,43 +212,46 @@ export async function autoPrintLabel(
  */
 async function printDirectly(zpl: string, printerName: string): Promise<boolean> {
   try {
+    console.log('[Direct Print] Checking QZ Tray connection...');
+    
+    // Use connection manager for better reliability
+    const qzManager = QZConnectionManager.getInstance();
+    
+    // Ensure connection
     if (!qz.websocket.isActive()) {
-      await qz.websocket.connect();
+      console.log('[Direct Print] Connecting to QZ Tray...');
+      await qzManager.connect();
     }
 
+    console.log('[Direct Print] Printing to:', printerName);
     const config = qz.configs.create(printerName);
     await qz.print(config, [zpl]);
     
-    toast.success('Label printed successfully');
+    toast.success(`Label printed to ${printerName}`);
     return true;
   } catch (error) {
-    console.error('Direct print error:', error);
-    toast.error('Failed to print. Is QZ Tray connected?');
+    console.error('[Direct Print] Error:', error);
+    
+    if (error.message?.includes('Unable to establish connection')) {
+      toast.error('QZ Tray not connected. Please start QZ Tray and try again.');
+    } else if (error.message?.includes('Printer')) {
+      toast.error(`Printer "${printerName}" not found. Check printer settings.`);
+    } else {
+      toast.error(`Print failed: ${error.message}`);
+    }
+    
     return false;
   }
 }
 
 /**
- * Download label as PDF
+ * Download label as PDF - DISABLED per user requirement
  */
 async function downloadPDF(zpl: string, filename: string): Promise<boolean> {
-  try {
-    // Convert ZPL to blob and download
-    const blob = new Blob([zpl], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `label-${filename}-${Date.now()}.zpl`;
-    link.click();
-    URL.revokeObjectURL(url);
-    
-    toast.success('Label downloaded');
-    return true;
-  } catch (error) {
-    console.error('PDF download error:', error);
-    toast.error('Failed to download label');
-    return false;
-  }
+  // User specifically requested NO downloading, only direct printing
+  console.warn('[Download] Download disabled - direct print only');
+  toast.error('Direct printing failed. Please enable QZ Tray and select a printer.');
+  return false;
 }
 
 /**
