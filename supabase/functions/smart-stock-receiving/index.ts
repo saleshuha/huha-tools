@@ -445,7 +445,7 @@ async function updateInventoryStock(
     .eq('user_id', userId)
     .eq('country', item.country)
     .in('status', ['in-stock', 'ordered', 'processing']) // ✅ KEY FIX - Accept multiple statuses
-    .or(`asin.eq.${item.asin || 'none'},sku.eq.${item.sku_code || 'none'},model_number.eq.${item.model_number || 'none'}`)
+    .or(`asin.eq.${item.asin || 'none'},sku.eq.${item.sku_code || 'none'}`) // ✅ Removed model_number - doesn't exist in asin_inventory
     .limit(1)
     .single();
 
