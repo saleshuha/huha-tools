@@ -107,6 +107,16 @@ serve(async (req) => {
       hasSessionId: !!session_id
     });
 
+    // Get user's country from profile
+    const { data: userProfile } = await supabase
+      .from('profiles')
+      .select('country')
+      .eq('id', user.id)
+      .single();
+
+    const userCountry = userProfile?.country || 'KSA'; // Default to KSA
+    console.log('[Edge Function] User country:', userCountry);
+
     // Create or get session
     let sessionId = session_id;
     if (!sessionId) {
@@ -159,7 +169,7 @@ serve(async (req) => {
           // Add remaining to inventory
           let inventoryId = null;
           if (allocation.remainingQty > 0) {
-            inventoryId = await addToInventory(supabase, user.id, item, allocation.remainingQty);
+            inventoryId = await addToInventory(supabase, user.id, item, allocation.remainingQty, userCountry);
           }
 
           // Record the receiving item
@@ -388,7 +398,7 @@ async function fulfillPO(supabase: any, userId: string, allocation: any) {
   if (historyError) throw historyError;
 }
 
-async function addToInventory(supabase: any, userId: string, item: ReceivedItem, quantity: number) {
+async function addToInventory(supabase: any, userId: string, item: ReceivedItem, quantity: number, country: string) {
   const serialNumber = item.serial_number || `RCV-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
   // Step 1: Check if item already exists
@@ -397,6 +407,7 @@ async function addToInventory(supabase: any, userId: string, item: ReceivedItem,
     .select('id, quantity, serial_number')
     .eq('user_id', userId)
     .eq('asin', item.asin || 'N/A')
+    .eq('country', country)
     .eq('status', 'in-stock')
     .order('created_at', { ascending: false })
     .limit(1)
@@ -435,6 +446,7 @@ async function addToInventory(supabase: any, userId: string, item: ReceivedItem,
         title: item.title,
         quantity: quantity,
         status: 'in-stock',
+        country: country,
         notes: `Received from supplier: ${item.supplier_name || 'N/A'}. ${item.notes || ''}`
       })
       .select()

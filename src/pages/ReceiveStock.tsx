@@ -70,6 +70,9 @@ export default function ReceiveStock() {
   const [inventoryTemplates, setInventoryTemplates] = useState<any[]>([]);
   const [selectedPoTemplate, setSelectedPoTemplate] = useState<string>('');
   const [selectedInventoryTemplate, setSelectedInventoryTemplate] = useState<string>('');
+  const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
+  const [selectedPrinter, setSelectedPrinter] = useState<string>('');
+  const [loadingPrinters, setLoadingPrinters] = useState(false);
 
   useEffect(() => {
     checkConnection();
@@ -87,6 +90,9 @@ export default function ReceiveStock() {
     
     // Load templates
     loadTemplates(savedPoTemplate, savedInventoryTemplate);
+    
+    // Load printers
+    loadPrinters();
   }, []);
 
   const loadTemplates = async (savedPoTemplate?: string | null, savedInventoryTemplate?: string | null) => {
@@ -119,6 +125,36 @@ export default function ReceiveStock() {
       }
     } catch (error) {
       console.error('Error loading templates:', error);
+    }
+  };
+
+  const loadPrinters = async () => {
+    if (!directPrintEnabled) return;
+    
+    setLoadingPrinters(true);
+    try {
+      const { QZConnectionManager } = await import('@/utils/qz-connection-manager');
+      const qzManager = QZConnectionManager.getInstance();
+      await qzManager.connect();
+      const printers = await qzManager.getPrinters();
+      setAvailablePrinters(printers);
+      
+      // Auto-select saved printer or first Zebra printer
+      const savedPrinter = localStorage.getItem('stock-receiving-default-printer');
+      if (savedPrinter && printers.includes(savedPrinter)) {
+        setSelectedPrinter(savedPrinter);
+      } else {
+        const zebraPrinter = printers.find((p: string) => p.toLowerCase().includes('zebra'));
+        if (zebraPrinter) {
+          setSelectedPrinter(zebraPrinter);
+          localStorage.setItem('stock-receiving-default-printer', zebraPrinter);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load printers:', error);
+      toast.error('Failed to load printers. Make sure QZ Tray is running.');
+    } finally {
+      setLoadingPrinters(false);
     }
   };
 
@@ -211,7 +247,7 @@ export default function ReceiveStock() {
             inventory_id: result.inventory_id,
             template_type: templateType
           },
-          { ...printConfig, enabled: true },
+          { ...printConfig, enabled: true, defaultPrinter: selectedPrinter },
           templateId
         );
         activity.printed = printed;
@@ -240,6 +276,11 @@ export default function ReceiveStock() {
     setDirectPrintEnabled(enabled);
     const config = getAutoPrintConfig();
     saveAutoPrintConfig({ ...config, preferDirectPrint: enabled });
+    
+    // Load printers when enabling direct print
+    if (enabled) {
+      loadPrinters();
+    }
   };
 
   const handlePoTemplateChange = (templateId: string) => {
@@ -362,6 +403,50 @@ export default function ReceiveStock() {
                       Use direct printing (QZ Tray)
                     </Label>
                   </div>
+
+                  {/* Printer Selection */}
+                  {directPrintEnabled && (
+                    <div className="space-y-2">
+                      <Label htmlFor="default-printer" className="text-sm font-medium">
+                        Default Printer
+                      </Label>
+                      <Select
+                        value={selectedPrinter}
+                        onValueChange={(value) => {
+                          setSelectedPrinter(value);
+                          localStorage.setItem('stock-receiving-default-printer', value);
+                        }}
+                        disabled={loadingPrinters}
+                      >
+                        <SelectTrigger id="default-printer" className="w-full">
+                          <SelectValue placeholder={loadingPrinters ? 'Loading printers...' : 'Select printer...'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availablePrinters.length === 0 ? (
+                            <SelectItem value="none" disabled>
+                              No printers found
+                            </SelectItem>
+                          ) : (
+                            availablePrinters.map((printer) => (
+                              <SelectItem key={printer} value={printer}>
+                                {printer}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                      {availablePrinters.length === 0 && !loadingPrinters && (
+                        <p className="text-xs text-muted-foreground">
+                          Make sure QZ Tray is running
+                        </p>
+                      )}
+                      {selectedPrinter && (
+                        <p className="text-xs text-green-600">
+                          ✓ Will print to: {selectedPrinter}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   {/* Template Selection */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
