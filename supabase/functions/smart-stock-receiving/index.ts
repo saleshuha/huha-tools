@@ -469,7 +469,7 @@ async function updateInventoryStock(
 
   const newQuantity = inventoryItem.quantity + quantityToAdd;
 
-  await supabase
+  const { error: updateError } = await supabase
     .from('asin_inventory')
     .update({ 
       quantity: newQuantity,
@@ -477,6 +477,21 @@ async function updateInventoryStock(
       last_restock_date: new Date().toISOString()
     })
     .eq('id', inventoryItem.id);
+
+  if (updateError) {
+    console.error('[SR v3.0] ❌ Inventory update failed:', {
+      itemId: inventoryItem.id,
+      error: updateError
+    });
+    throw updateError;
+  }
+
+  console.log('[SR v3.0] ✅ Inventory database update confirmed:', {
+    itemId: inventoryItem.id,
+    previousQty: inventoryItem.quantity,
+    addedQty: quantityToAdd,
+    newQty: newQuantity
+  });
 
   await supabase.from('stock_changes').insert({
     inventory_id: inventoryItem.id,

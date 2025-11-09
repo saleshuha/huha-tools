@@ -3,6 +3,7 @@ import { usePageTracking } from '@/hooks/usePageTracking';
 import { useStockReceiving } from '@/hooks/useStockReceiving';
 import { useReceivingHistory } from '@/hooks/useReceivingHistory';
 import { useCountry } from '@/contexts/CountryContext';
+import { useQueryClient } from '@tanstack/react-query';
 import { ItemSearchBar } from '@/components/stock-receiving/ItemSearchBar';
 import { QuantityConfirmDialog } from '@/components/stock-receiving/QuantityConfirmDialog';
 import { RecentActivityFeed } from '@/components/stock-receiving/RecentActivityFeed';
@@ -47,6 +48,7 @@ export default function ReceiveStock() {
   });
   
   const { selectedCountry } = useCountry();
+  const queryClient = useQueryClient();
   
   const {
     isProcessing,
@@ -277,6 +279,11 @@ export default function ReceiveStock() {
       }
 
       setLocalActivities(prev => [activity, ...prev]);
+      
+      // Invalidate queries to refresh inventory display
+      queryClient.invalidateQueries({ queryKey: ['asin-inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-analytics'] });
+      
       toast.success(`Received ${data.quantity} unit(s)`);
     }
 

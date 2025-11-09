@@ -111,19 +111,31 @@ async function generateZPLFromTemplate(
   // Extract elements from template
   const elements = template.canvas_data?.elements || [];
   
-  // Map template elements to ZPL elements with actual data
+  // Calculate proper label dimensions (convert canvas pixels to inches, then to dots)
+  const canvasDPI = 96;
+  const widthInInches = (template.width || 400) / canvasDPI;
+  const heightInInches = (template.height || 300) / canvasDPI;
+  
+  // Use standard 4x3 inch labels (common for inventory/PO labels)
+  const labelWidthDots = 4 * 203;  // 4 inches at 203 DPI
+  const labelHeightDots = 3 * 203; // 3 inches at 203 DPI
+  
+  // Calculate scale factors to map canvas pixels to label dots
+  const scaleX = labelWidthDots / (template.width || 400);
+  const scaleY = labelHeightDots / (template.height || 300);
+  
+  // Map template elements to ZPL elements with proper scaling
   const zplElements = elements.map((element: any) => {
-    // Get value from data based on element's dataColumn
     const dataValue = data[element.dataColumn] || element.text || '';
     
     return {
       type: element.type,
-      x: element.x,
-      y: element.y,
-      width: element.width,
-      height: element.height,
+      x: Math.round(element.x * scaleX),           // Scale X position
+      y: Math.round(element.y * scaleY),           // Scale Y position
+      width: Math.round((element.width || 100) * scaleX),   // Scale width
+      height: Math.round((element.height || 50) * scaleY),  // Scale height
       content: String(dataValue),
-      fontSize: element.fontSize || 12,
+      fontSize: Math.round((element.fontSize || 12) * scaleY), // Scale font size
       fontFamily: element.fontFamily || 'Arial',
       barcodeType: element.barcodeType,
       showBarcodeText: element.showText || false,
@@ -131,11 +143,11 @@ async function generateZPLFromTemplate(
     };
   });
 
-  // Generate ZPL with template settings
+  // Generate ZPL with proper label dimensions
   return generateLabelZPL(zplElements, {
     dpi: 203,
-    labelWidth: (template.width || 4) * 203,
-    labelHeight: (template.height || 2) * 203
+    labelWidth: labelWidthDots,
+    labelHeight: labelHeightDots
   });
 }
 
