@@ -22,6 +22,7 @@ interface RequestBody {
   auto_fulfill?: boolean;
   session_notes?: string;
   session_id?: string;
+  country?: string;
 }
 
 serve(async (req) => {
@@ -100,22 +101,27 @@ serve(async (req) => {
       );
     }
     
-    const { items, auto_fulfill = true, session_notes, session_id } = body;
+    const { items, auto_fulfill = true, session_notes, session_id, country } = body;
 
     console.log(`[Edge Function] Processing ${items.length} items for user ${user.id}`, {
       autoFulfill: auto_fulfill,
-      hasSessionId: !!session_id
+      hasSessionId: !!session_id,
+      country: country
     });
 
-    // Get user's country from profile
-    const { data: userProfile } = await supabase
-      .from('profiles')
-      .select('country')
-      .eq('id', user.id)
-      .single();
-
-    const userCountry = userProfile?.country || 'KSA'; // Default to KSA
-    console.log('[Edge Function] User country:', userCountry);
+    // Use country from request, fallback to profile country, then default to KSA
+    let userCountry = country;
+    
+    if (!userCountry) {
+      const { data: userProfile } = await supabase
+        .from('profiles')
+        .select('country')
+        .eq('id', user.id)
+        .single();
+      userCountry = userProfile?.country || 'KSA';
+    }
+    
+    console.log('[Edge Function] Using country:', userCountry, 'from:', country ? 'request' : 'profile');
 
     // Create or get session
     let sessionId = session_id;
@@ -399,66 +405,45 @@ async function fulfillPO(supabase: any, userId: string, allocation: any) {
 }
 
 async function addToInventory(supabase: any, userId: string, item: ReceivedItem, quantity: number, country: string) {
-  const serialNumber = item.serial_number || `RCV-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-  // Step 1: Check if item already exists (search by ASIN only, ignore country to prevent duplicates)
+  // Step 1: Check if item already exists in the specified country
   const { data: existing } = await supabase
     .from('asin_inventory')
-    .select('id, quantity, serial_number, country')
+    .select('id, quantity, serial_number, country, asin, sku_number, title')
     .eq('user_id', userId)
     .eq('asin', item.asin || 'N/A')
+    .eq('country', country)
     .eq('status', 'in-stock')
     .order('created_at', { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
-  let data, error, inventoryId;
-
-  if (existing) {
-    // Step 2a: UPDATE existing record
-    const newQuantity = existing.quantity + quantity;
-    const { data: updated, error: updateError } = await supabase
-      .from('asin_inventory')
-      .update({
-        quantity: newQuantity,
-        notes: `Received from supplier: ${item.supplier_name || 'N/A'}. ${item.notes || ''}`,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', existing.id)
-      .select()
-      .single();
-    
-    data = updated;
-    error = updateError;
-    inventoryId = existing.id;
-    
-    console.log(`[Edge Function] Updated existing inventory: ${existing.quantity} + ${quantity} = ${newQuantity}`);
-  } else {
-    // Step 2b: INSERT new record
-    const { data: inserted, error: insertError } = await supabase
-      .from('asin_inventory')
-      .insert({
-        user_id: userId,
-        asin: item.asin || 'N/A',
-        sku: item.sku_code,
-        serial_number: serialNumber,
-        title: item.title,
-        quantity: quantity,
-        status: 'in-stock',
-        country: country,
-        notes: `Received from supplier: ${item.supplier_name || 'N/A'}. ${item.notes || ''}`
-      })
-      .select()
-      .single();
-    
-    data = inserted;
-    error = insertError;
-    inventoryId = inserted?.id;
-    
-    console.log(`[Edge Function] Created new inventory record with quantity ${quantity}`);
+  if (!existing) {
+    // Item does not exist - throw error instead of creating
+    const identifier = item.asin || item.sku_code || item.model_number || 'Unknown';
+    throw new Error(
+      `Item ${identifier} not found in ${country} inventory. Please add the item to inventory first before receiving stock.`
+    );
   }
 
-  if (error) throw error;
+  // Step 2: UPDATE existing record
+  const newQuantity = existing.quantity + quantity;
+  const { data: updated, error: updateError } = await supabase
+    .from('asin_inventory')
+    .update({
+      quantity: newQuantity,
+      notes: `Received from supplier: ${item.supplier_name || 'N/A'}. ${item.notes || ''}`,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', existing.id)
+    .select()
+    .single();
+  
+  if (updateError) throw updateError;
+  
+  const inventoryId = existing.id;
+  const serialNumber = existing.serial_number;
+  
+  console.log(`[Edge Function] Updated existing inventory in ${country}: ${existing.quantity} + ${quantity} = ${newQuantity}`);
 
   // Step 3: Create stock change record
   const { error: stockChangeError } = await supabase.from('stock_changes').insert({
@@ -469,13 +454,13 @@ async function addToInventory(supabase: any, userId: string, item: ReceivedItem,
     asin: item.asin || 'N/A',
     sku_number: item.sku_code,
     serial_number: serialNumber,
-    previous_quantity: existing ? existing.quantity : 0,
-    new_quantity: existing ? existing.quantity + quantity : quantity,
+    previous_quantity: existing.quantity,
+    new_quantity: newQuantity,
     change_amount: quantity,
     change_reason: 'stock_receiving',
     source_type: 'manual_adjustment',
     reference_type: 'stock_receiving',
-    notes: `Received ${quantity} units via smart stock receiving from ${item.supplier_name || 'unknown supplier'}`,
+    notes: `Received ${quantity} units via smart stock receiving from ${item.supplier_name || 'unknown supplier'} for ${country}`,
     approval_status: 'approved'
   });
 

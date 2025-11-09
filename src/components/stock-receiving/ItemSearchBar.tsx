@@ -97,13 +97,13 @@ export function ItemSearchBar({ onItemSelect, disabled }: ItemSearchBarProps) {
           });
         }
 
-        // If no results, still allow adding as new item
+        // If no results, show warning that item needs to be added first
         if (searchResults.length === 0) {
           searchResults.push({
             type: 'inventory',
             asin: term.startsWith('B0') ? term : undefined,
             sku_code: !term.startsWith('B0') ? term : undefined,
-            context: 'Not found - will add to inventory'
+            context: '⚠️ Not found in inventory - add item first'
           });
         }
 

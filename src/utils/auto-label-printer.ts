@@ -215,31 +215,11 @@ export async function autoPrintLabel(
  */
 async function printDirectly(zpl: string, printerName: string): Promise<boolean> {
   try {
-    console.log('[Direct Print] Checking QZ Tray connection...');
-    
-    // Use connection manager for better reliability
-    const qzManager = QZConnectionManager.getInstance();
-    
-    // Ensure connection
-    if (!qz.websocket.isActive()) {
-      console.log('[Direct Print] QZ Tray not active, attempting connection...');
-      toast.info('Connecting to QZ Tray...', { duration: 2000 });
-      
-      try {
-        await qzManager.connect();
-        toast.success('Connected to QZ Tray!', { duration: 2000 });
-      } catch (connectError) {
-        toast.error('Failed to connect to QZ Tray', {
-          description: 'Make sure QZ Tray is running and try again',
-          duration: 5000
-        });
-        throw connectError;
-      }
-    }
-
     console.log('[Direct Print] Printing to:', printerName);
-    const config = qz.configs.create(printerName);
-    await qz.print(config, [zpl]);
+    
+    // Use the same reliable method as inventory page
+    const qzManager = QZConnectionManager.getInstance();
+    await qzManager.print(zpl, printerName);
     
     toast.success(`Label printed to ${printerName}`);
     return true;

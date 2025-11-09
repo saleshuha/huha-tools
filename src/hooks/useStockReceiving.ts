@@ -11,6 +11,7 @@ export interface ReceivingItem {
   supplier_name?: string;
   notes?: string;
   title?: string;
+  country?: string;
 }
 
 export interface POAllocation {
@@ -195,7 +196,8 @@ export function useStockReceiving() {
   const processItems = async (
     items: ReceivingItem[],
     autoFulfill = true,
-    sessionId?: string
+    sessionId?: string,
+    country?: string
   ): Promise<ProcessingResult[]> => {
     try {
       setIsProcessing(true);
@@ -225,7 +227,8 @@ export function useStockReceiving() {
       const requestBody = {
         items,
         auto_fulfill: autoFulfill,
-        session_id: sessionId || currentSession?.id
+        session_id: sessionId || currentSession?.id,
+        country: country
       };
       console.log('[Stock Receiving] Request body:', requestBody);
 
@@ -378,10 +381,11 @@ export function useStockReceiving() {
   const processSingleItem = async (
     item: ReceivingItem | ReceivingItem[],
     autoFulfill = true,
-    sessionId?: string
+    sessionId?: string,
+    country?: string
   ) => {
     const items = Array.isArray(item) ? item : [item];
-    return processItems(items, autoFulfill, sessionId);
+    return processItems(items, autoFulfill, sessionId, country);
   };
 
   return {

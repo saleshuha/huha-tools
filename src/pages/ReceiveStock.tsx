@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { usePageTracking } from '@/hooks/usePageTracking';
 import { useStockReceiving } from '@/hooks/useStockReceiving';
 import { useReceivingHistory } from '@/hooks/useReceivingHistory';
+import { useCountry } from '@/contexts/CountryContext';
 import { ItemSearchBar } from '@/components/stock-receiving/ItemSearchBar';
 import { QuantityConfirmDialog } from '@/components/stock-receiving/QuantityConfirmDialog';
 import { RecentActivityFeed } from '@/components/stock-receiving/RecentActivityFeed';
@@ -44,6 +45,8 @@ export default function ReceiveStock() {
     subcategory: 'Stock Receiving',
     pageTitle: 'Receive Stock'
   });
+  
+  const { selectedCountry } = useCountry();
   
   const {
     isProcessing,
@@ -216,9 +219,10 @@ export default function ReceiveStock() {
       serial_number: data.serial_number,
       supplier_name: data.supplier_name,
       notes: data.notes,
+      country: selectedCountry,
     };
 
-    const results = await processSingleItem(item, true);
+    const results = await processSingleItem(item, true, undefined, selectedCountry);
     
     if (results && results.length > 0) {
       const result = results[0];
