@@ -13,6 +13,7 @@ interface AnalyticsDashboardProps {
   currentStep: 'upload' | 'pending' | 'matched' | 'processed';
   totalValue?: number;
   latestOrderDate?: string;
+  sunskyMatchedCount?: number;
 }
 export function AnalyticsDashboard({
   totalOrders,
@@ -22,7 +23,8 @@ export function AnalyticsDashboard({
   pendingDeductionCount = 0,
   currentStep,
   totalValue,
-  latestOrderDate
+  latestOrderDate,
+  sunskyMatchedCount = 0
 }: AnalyticsDashboardProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   
@@ -43,7 +45,7 @@ export function AnalyticsDashboard({
       </div>
       
       {isExpanded && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <QuickStatsCard
             label="Total Orders"
             value={totalOrders}
@@ -67,6 +69,12 @@ export function AnalyticsDashboard({
             value={pendingDeductionCount}
             icon={Clock}
             variant={pendingDeductionCount > 0 ? 'warning' : 'neutral'}
+          />
+          <QuickStatsCard
+            label="Sunsky Matches"
+            value={sunskyMatchedCount}
+            icon={Package}
+            variant="info"
           />
         </div>
       )}

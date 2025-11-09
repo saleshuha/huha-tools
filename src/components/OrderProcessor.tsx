@@ -11,7 +11,9 @@ import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, Pagi
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Dialog, DialogContent } from './ui/dialog';
-import { FileSpreadsheet, Search, Minus, Download, Package, AlertTriangle, Clock, Printer, CheckSquare, Square, Tag, FileUp, Zap, ArrowRight } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from './ui/tooltip';
+import { FileSpreadsheet, Search, Minus, Download, Package, AlertTriangle, Clock, Printer, CheckSquare, Square, Tag, FileUp, Zap, ArrowRight, Eye } from 'lucide-react';
 import { AnalyticsDashboard } from './order-processing/AnalyticsDashboard';
 import { SearchBar } from './order-processing/SearchBar';
 import { FilterChips } from './order-processing/FilterChips';
@@ -23,6 +25,7 @@ import { useDropzone } from 'react-dropzone';
 import { useAsinInventory, AsinInventoryItem } from '@/hooks/useAsinInventory';
 import { useSkuInventory, SkuInventoryItem } from '@/hooks/useSkuInventory';
 import { useToast } from '@/hooks/use-toast';
+import { useProductImages } from '@/hooks/useProductImages';
 import { supabase } from '@/integrations/supabase/client';
 import { LabelPrintDialog } from '@/components/inventory/LabelPrintDialog';
 import * as XLSX from 'xlsx';
@@ -54,7 +57,13 @@ interface OrderItem {
   giftMessage: string;
   trackingId: string;
   shippedDate: string;
-  uploadDate?: string; // Add upload date for filtering
+  uploadDate?: string;
+  sunskyMatch?: {
+    sku_code: string;
+    title?: string;
+    cost?: number;
+    product_data?: any;
+  };
 }
 
 interface MatchedItem {
@@ -62,6 +71,7 @@ interface MatchedItem {
   inventoryMatch?: AsinInventoryItem | SkuInventoryItem;
   inventoryType?: 'asin' | 'sku';
   matchType?: 'asin' | 'sku';
+  sunskyMatchSource?: 'catalog' | 'imported';
 }
 
 interface ProcessedItem extends MatchedItem {
@@ -131,6 +141,8 @@ export function OrderProcessor() {
     inventory: skuInventory,
     updateQuantity: updateSkuQuantity
   } = useSkuInventory();
+  
+  const { getImageByAsin, isLoading: imagesLoading, productImages } = useProductImages();
   
   const { toast } = useToast();
 
@@ -252,6 +264,192 @@ export function OrderProcessor() {
     
     loadProcessedOrders();
   }, []);
+
+  // ProductImage component for displaying product images with preview
+  const ProductImage = ({ asin }: { asin: string }) => {
+    const [imageError, setImageError] = useState(false);
+    const productImage = getImageByAsin(asin);
+    
+    if (imagesLoading) {
+      return (
+        <div className="w-16 h-16 rounded-lg border border-dashed border-border/30 flex items-center justify-center bg-muted/20 animate-pulse">
+          <div className="w-3 h-3 bg-muted-foreground/30 rounded animate-spin border-2 border-transparent border-t-muted-foreground/30"></div>
+        </div>
+      );
+    }
+    
+    if (!productImage || imageError) {
+      return (
+        <div className="w-16 h-16 rounded-lg border border-dashed border-border/30 flex items-center justify-center bg-gradient-to-br from-muted/20 to-muted/40">
+          <div className="text-center">
+            <Eye className="h-4 w-4 text-muted-foreground/50 mx-auto mb-0.5" />
+            <div className="text-[10px] text-muted-foreground/70 font-medium">No Image</div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <div className="w-16 h-16 rounded-lg border border-border/30 overflow-hidden cursor-pointer hover:border-primary/50 hover:shadow-soft transition-all duration-300 bg-background/80 flex-shrink-0">
+            <img 
+              src={productImage.image_url} 
+              alt={`Product ${asin}`}
+              className="w-full h-full object-contain"
+              onError={() => setImageError(true)}
+            />
+          </div>
+        </PopoverTrigger>
+        <PopoverContent side="left" className="w-80 p-3 bg-popover/95 backdrop-blur-sm border-border/50 shadow-strong">
+          <div className="w-full h-64 rounded-xl overflow-hidden bg-background/50 border border-border/30">
+            <img 
+              src={productImage.image_url} 
+              alt={`Product preview ${asin}`}
+              className="w-full h-full object-contain"
+            />
+          </div>
+          <div className="flex items-center justify-center gap-2 mt-3 p-2 bg-muted/30 rounded-lg">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
+            <span className="text-xs font-mono text-muted-foreground">ASIN: {asin}</span>
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  };
+
+  // SunskyMatchBadge component for displaying Sunsky catalog matches
+  const SunskyMatchBadge = ({ orderItem }: { orderItem: OrderItem }) => {
+    if (!orderItem.sunskyMatch) return null;
+    
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge 
+            variant="outline" 
+            className="text-xs bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20 cursor-help"
+          >
+            <Package className="w-3 h-3 mr-1" />
+            Sunsky Match
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">
+          <div className="space-y-1 text-xs">
+            <p className="font-semibold">Matched in Sunsky Catalog</p>
+            <p className="text-muted-foreground">
+              SKU: {orderItem.sunskyMatch.sku_code}
+            </p>
+            {orderItem.sunskyMatch.title && (
+              <p className="text-muted-foreground truncate">
+                {orderItem.sunskyMatch.title}
+              </p>
+            )}
+            {orderItem.sunskyMatch.cost && (
+              <p className="text-muted-foreground">
+                Cost: ${orderItem.sunskyMatch.cost}
+              </p>
+            )}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    );
+  };
+
+  // Match orders with Sunsky catalog
+  const matchOrdersWithSunsky = async (orders: OrderItem[]) => {
+    console.log(`🌞 Starting Sunsky catalog matching for ${orders.length} orders...`);
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return orders;
+    
+    try {
+      // Get all Sunsky SKUs for the user (batch loading to handle large datasets)
+      let allSunskySKUs: any[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const { data: batch, error } = await supabase
+          .from('sunsky_skus')
+          .select('sku_code, title, cost, product_data')
+          .eq('user_id', user.id)
+          .range(from, from + batchSize - 1);
+        
+        if (error) {
+          console.error('Error fetching Sunsky SKUs:', error);
+          break;
+        }
+        
+        if (batch && batch.length > 0) {
+          allSunskySKUs = [...allSunskySKUs, ...batch];
+          hasMore = batch.length === batchSize;
+          from += batchSize;
+          console.log(`🌞 Loaded ${allSunskySKUs.length} Sunsky SKUs so far...`);
+        } else {
+          hasMore = false;
+        }
+      }
+      
+      console.log(`🌞 Total Sunsky SKUs loaded: ${allSunskySKUs.length}`);
+      
+      // Create lookup maps for fast matching
+      const sunskyBySKU = new Map();
+      const sunskyByASIN = new Map();
+      
+      allSunskySKUs.forEach(sku => {
+        sunskyBySKU.set(sku.sku_code.toLowerCase(), sku);
+        // Some Sunsky SKUs might also be stored as ASINs
+        if (sku.product_data?.asin) {
+          sunskyByASIN.set(sku.product_data.asin.toLowerCase(), sku);
+        }
+      });
+      
+      // Match each order
+      const ordersWithSunskyMatches = orders.map(order => {
+        let sunskyMatch = undefined;
+        
+        // Try to match by SKU first
+        if (order.sku && order.sku.trim()) {
+          sunskyMatch = sunskyBySKU.get(order.sku.toLowerCase().trim());
+        }
+        
+        // If no SKU match, try ASIN
+        if (!sunskyMatch && order.asin && order.asin.trim()) {
+          sunskyMatch = sunskyByASIN.get(order.asin.toLowerCase().trim());
+        }
+        
+        if (sunskyMatch) {
+          console.log('🌞 Found Sunsky match:', {
+            orderId: order.orderId,
+            sku: order.sku,
+            asin: order.asin,
+            sunskySKU: sunskyMatch.sku_code,
+            sunskyTitle: sunskyMatch.title?.substring(0, 50)
+          });
+        }
+        
+        return {
+          ...order,
+          sunskyMatch: sunskyMatch ? {
+            sku_code: sunskyMatch.sku_code,
+            title: sunskyMatch.title,
+            cost: sunskyMatch.cost,
+            product_data: sunskyMatch.product_data
+          } : undefined
+        };
+      });
+      
+      const matchedCount = ordersWithSunskyMatches.filter(o => o.sunskyMatch).length;
+      console.log(`🌞 Sunsky matching complete: ${matchedCount}/${orders.length} matches found`);
+      
+      return ordersWithSunskyMatches;
+      
+    } catch (error) {
+      console.error('Error during Sunsky matching:', error);
+      return orders;
+    }
+  };
 
   // Save all orders to database during file upload with duplicate prevention
   const saveOrdersToDatabase = async (orders: OrderItem[], fileName: string) => {
@@ -402,28 +600,40 @@ export function OrderProcessor() {
         shippedDate: row['Shipped Date'] || ''
       }));
 
-      setOrderData(formattedOrders);
-      setAllOrders(formattedOrders);
+      // Match with Sunsky catalog first
+      const ordersWithSunskyMatches = await matchOrdersWithSunsky(formattedOrders);
+      
+      setOrderData(ordersWithSunskyMatches);
+      setAllOrders(ordersWithSunskyMatches);
       setFileName(file.name);
       
       // Save all orders to database first with duplicate prevention
-      const saveResult = await saveOrdersToDatabase(formattedOrders, file.name);
+      const saveResult = await saveOrdersToDatabase(ordersWithSunskyMatches, file.name);
       
-      const matches = await matchOrdersWithInventory(formattedOrders);
+      const matches = await matchOrdersWithInventory(ordersWithSunskyMatches);
+      
+      // Add Sunsky match indicator to matched items
+      const matchesWithSunskySource = matches.map(match => ({
+        ...match,
+        sunskyMatchSource: match.orderItem.sunskyMatch ? 'catalog' as const : undefined
+      }));
+      
+      setMatchedItems(matchesWithSunskySource);
 
-      const matchedCount = matches.filter(m => m.inventoryMatch).length;
+      const matchedCount = matchesWithSunskySource.filter(m => m.inventoryMatch).length;
+      const sunskyMatchedCount = ordersWithSunskyMatches.filter(o => o.sunskyMatch).length;
       
       // Show deduction dialog if there are matches
       if (matchedCount > 0) {
-        setUploadedMatches(matches.filter(m => m.inventoryMatch));
+        setUploadedMatches(matchesWithSunskySource.filter(m => m.inventoryMatch));
         setActiveTab('pending'); // Auto-switch to pending tab
       }
       
       toast({
         title: "Orders Upload Complete",
         description: saveResult 
-          ? `Added ${saveResult.newCount} new orders (${saveResult.duplicateCount} duplicates skipped). Found ${matchedCount} inventory matches.`
-          : `Processed ${formattedOrders.length} orders. Found ${matchedCount} inventory matches.`
+          ? `Added ${saveResult.newCount} new orders (${saveResult.duplicateCount} duplicates skipped). Found ${matchedCount} inventory matches and ${sunskyMatchedCount} Sunsky catalog matches.`
+          : `Processed ${formattedOrders.length} orders. Found ${matchedCount} inventory matches and ${sunskyMatchedCount} Sunsky catalog matches.`
       });
     } catch (error) {
       console.error('Error processing file:', error);
@@ -994,13 +1204,16 @@ export function OrderProcessor() {
         }, allOrders[0].orderPlaceDate)
       : '';
     
+    const sunskyMatchedOrders = allOrders.filter(order => order.sunskyMatch).length;
+    
     return {
       totalOrders: allOrders.length,
       matchedOrdersCount: matchedOrders.length,
       unmatchedOrdersCount: unmatchedOrders.length,
       processedOrdersCount: processedOrders.length,
       totalValue: allOrders.reduce((sum, order) => sum + (parseFloat(order.itemCost) || 0), 0),
-      latestOrderDate: latestOrderDate ? new Date(latestOrderDate).toLocaleDateString() : ''
+      latestOrderDate: latestOrderDate ? new Date(latestOrderDate).toLocaleDateString() : '',
+      sunskyMatchedOrders
     };
   }, [allOrders, matchedOrders, unmatchedOrders, processedOrders]);
 
@@ -1077,15 +1290,18 @@ export function OrderProcessor() {
   return (
     <div className="space-y-6">
       {/* Analytics Dashboard */}
-      <AnalyticsDashboard
-        totalOrders={analytics.totalOrders}
-        matchedOrdersCount={analytics.matchedOrdersCount}
-        unmatchedOrdersCount={analytics.unmatchedOrdersCount}
-        processedOrdersCount={analytics.processedOrdersCount}
-        pendingDeductionCount={uploadedMatches.length}
-        currentStep={activeTab as 'upload' | 'pending' | 'matched' | 'processed'}
-        latestOrderDate={analytics.latestOrderDate}
-      />
+      <TooltipProvider>
+        <AnalyticsDashboard
+          totalOrders={analytics.totalOrders}
+          matchedOrdersCount={analytics.matchedOrdersCount}
+          unmatchedOrdersCount={analytics.unmatchedOrdersCount}
+          processedOrdersCount={analytics.processedOrdersCount}
+          pendingDeductionCount={uploadedMatches.length}
+          currentStep={activeTab as 'upload' | 'pending' | 'matched' | 'processed'}
+          latestOrderDate={analytics.latestOrderDate}
+          sunskyMatchedCount={analytics.sunskyMatchedOrders}
+        />
+      </TooltipProvider>
 
       {/* Enhanced Card with Primary Theme */}
       <Card className="border-primary/20 shadow-glow/10 bg-card/95 backdrop-blur-sm">
@@ -1248,6 +1464,7 @@ export function OrderProcessor() {
                                 />
                               </TableHead>
                               <TableHead className="font-semibold text-foreground">Serial #</TableHead>
+                              <TableHead className="font-semibold text-foreground w-20">Image</TableHead>
                               <TableHead className="font-semibold text-foreground">Order ID</TableHead>
                               <TableHead className="min-w-[300px] font-semibold text-foreground">Product Details</TableHead>
                               <TableHead className="font-semibold text-foreground">Qty</TableHead>
@@ -1294,6 +1511,9 @@ export function OrderProcessor() {
                                   <TableCell className="text-xs font-mono text-muted-foreground font-medium">
                                     {inventorySerialNumber}
                                   </TableCell>
+                                  <TableCell>
+                                    <ProductImage asin={match.orderItem.asin} />
+                                  </TableCell>
                                   <TableCell className="font-mono text-xs font-semibold">{match.orderItem.orderId}</TableCell>
                                   <TableCell>
                                     <div className="space-y-1.5 max-w-md">
@@ -1311,6 +1531,7 @@ export function OrderProcessor() {
                                             SKU: {match.orderItem.sku}
                                           </Badge>
                                         )}
+                                        <SunskyMatchBadge orderItem={match.orderItem} />
                                       </div>
                                     </div>
                                   </TableCell>
@@ -1472,6 +1693,7 @@ export function OrderProcessor() {
                         <TableHeader className="bg-gradient-to-r from-muted/80 to-muted/60 sticky top-0 z-10 border-b-2 border-primary/20">
                           <TableRow className="hover:bg-transparent">
                             <TableHead className="font-semibold text-foreground">Serial #</TableHead>
+                            <TableHead className="font-semibold text-foreground w-20">Image</TableHead>
                             <SortableTableHeader
                               label="Order ID"
                               sortKey="orderId"
@@ -1533,6 +1755,9 @@ export function OrderProcessor() {
                                   <TableCell className="text-xs font-mono text-muted-foreground font-medium">
                                     {inventorySerialNumber}
                                   </TableCell>
+                                  <TableCell>
+                                    <ProductImage asin={order.asin} />
+                                  </TableCell>
                                   <TableCell className="font-mono text-xs font-semibold">{order.orderId}</TableCell>
                                   <TableCell className="text-xs">
                                     {order.orderPlaceDate ? (
@@ -1559,6 +1784,7 @@ export function OrderProcessor() {
                                             SKU: {order.sku}
                                           </Badge>
                                         )}
+                                        <SunskyMatchBadge orderItem={order} />
                                       </div>
                                     </div>
                                   </TableCell>
@@ -1734,6 +1960,7 @@ export function OrderProcessor() {
             <Table>
               <TableHeader className="bg-gradient-to-r from-muted/80 to-muted/60 sticky top-0 z-10 border-b-2 border-primary/20">
                 <TableRow className="hover:bg-transparent">
+                  <TableHead className="font-semibold text-foreground w-20">Image</TableHead>
                   <SortableTableHeader
                     label="Order ID"
                     sortKey="orderId"
@@ -1783,6 +2010,9 @@ export function OrderProcessor() {
                     >
                       <TableCell className="font-mono text-xs">{order.orderId}</TableCell>
                       <TableCell>
+                        <ProductImage asin={order.asin} />
+                      </TableCell>
+                      <TableCell>
                         <div className="space-y-1.5 max-w-md">
                           <div className="font-medium text-sm text-foreground truncate">
                             {order.itemTitle}
@@ -1798,6 +2028,7 @@ export function OrderProcessor() {
                                 SKU: {order.sku}
                               </Badge>
                             )}
+                            <SunskyMatchBadge orderItem={order} />
                           </div>
                         </div>
                       </TableCell>
@@ -1896,6 +2127,7 @@ export function OrderProcessor() {
                         <TableHeader className="bg-gradient-to-r from-muted/80 to-muted/60 sticky top-0 z-10 border-b-2 border-primary/20">
                           <TableRow className="hover:bg-transparent">
                             <TableHead className="font-semibold text-foreground">Serial #</TableHead>
+                            <TableHead className="font-semibold text-foreground w-20">Image</TableHead>
                             <TableHead className="font-semibold text-foreground">Order Number</TableHead>
                             <TableHead className="min-w-[300px] font-semibold text-foreground">Product Details</TableHead>
                             <TableHead className="font-semibold text-foreground">Qty Processed</TableHead>
@@ -1935,6 +2167,9 @@ export function OrderProcessor() {
                                 >
                                   <TableCell className="text-xs font-mono text-muted-foreground font-medium">
                                     {inventorySerialNumber}
+                                  </TableCell>
+                                  <TableCell>
+                                    <ProductImage asin={order.asin} />
                                   </TableCell>
                                   <TableCell className="font-mono text-xs font-semibold">{order.order_number}</TableCell>
                                   <TableCell>
