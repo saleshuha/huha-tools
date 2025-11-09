@@ -129,7 +129,7 @@ export default function ReceiveStock() {
   };
 
   const loadPrinters = async () => {
-    if (!directPrintEnabled) return;
+    console.log('🖨️ loadPrinters called, directPrintEnabled:', directPrintEnabled);
     
     setLoadingPrinters(true);
     try {
@@ -137,21 +137,29 @@ export default function ReceiveStock() {
       const qzManager = QZConnectionManager.getInstance();
       await qzManager.connect();
       const printers = await qzManager.getPrinters();
+      
+      console.log('🖨️ Printers retrieved:', printers.length, printers);
       setAvailablePrinters(printers);
+      console.log('🖨️ State updated with printers');
       
       // Auto-select saved printer or first Zebra printer
       const savedPrinter = localStorage.getItem('stock-receiving-default-printer');
       if (savedPrinter && printers.includes(savedPrinter)) {
+        console.log('🖨️ Auto-selecting saved printer:', savedPrinter);
         setSelectedPrinter(savedPrinter);
       } else {
         const zebraPrinter = printers.find((p: string) => p.toLowerCase().includes('zebra'));
         if (zebraPrinter) {
+          console.log('🖨️ Auto-selecting Zebra printer:', zebraPrinter);
           setSelectedPrinter(zebraPrinter);
           localStorage.setItem('stock-receiving-default-printer', zebraPrinter);
         }
       }
+      
+      toast.success(`Found ${printers.length} printer(s)`);
     } catch (error) {
-      console.error('Failed to load printers:', error);
+      console.error('❌ Failed to load printers:', error);
+      setAvailablePrinters([]);
       toast.error('Failed to load printers. Make sure QZ Tray is running.');
     } finally {
       setLoadingPrinters(false);
@@ -272,14 +280,20 @@ export default function ReceiveStock() {
     saveAutoPrintConfig({ ...config, enabled });
   };
 
-  const handleDirectPrintChange = (enabled: boolean) => {
+  const handleDirectPrintChange = async (enabled: boolean) => {
+    console.log('🔄 Direct print changed to:', enabled);
     setDirectPrintEnabled(enabled);
     const config = getAutoPrintConfig();
     saveAutoPrintConfig({ ...config, preferDirectPrint: enabled });
     
     // Load printers when enabling direct print
     if (enabled) {
-      loadPrinters();
+      console.log('🖨️ Loading printers because direct print was enabled');
+      await loadPrinters();
+    } else {
+      // Clear printer selection when disabling
+      setAvailablePrinters([]);
+      setSelectedPrinter('');
     }
   };
 
@@ -407,24 +421,44 @@ export default function ReceiveStock() {
                   {/* Printer Selection */}
                   {directPrintEnabled && (
                     <div className="space-y-2">
-                      <Label htmlFor="default-printer" className="text-sm font-medium">
-                        Default Printer
-                      </Label>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="default-printer" className="text-sm font-medium">
+                          Default Printer
+                        </Label>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={loadPrinters}
+                          disabled={loadingPrinters}
+                        >
+                          {loadingPrinters ? (
+                            <>
+                              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                              Loading...
+                            </>
+                          ) : (
+                            'Refresh'
+                          )}
+                        </Button>
+                      </div>
                       <Select
                         value={selectedPrinter}
                         onValueChange={(value) => {
+                          console.log('🖨️ Printer selected:', value);
                           setSelectedPrinter(value);
                           localStorage.setItem('stock-receiving-default-printer', value);
+                          toast.success(`Printer set to: ${value}`);
                         }}
                         disabled={loadingPrinters}
                       >
                         <SelectTrigger id="default-printer" className="w-full">
-                          <SelectValue placeholder={loadingPrinters ? 'Loading printers...' : 'Select printer...'} />
+                          <SelectValue placeholder={loadingPrinters ? 'Loading printers...' : availablePrinters.length > 0 ? 'Select printer...' : 'No printers found'} />
                         </SelectTrigger>
                         <SelectContent>
                           {availablePrinters.length === 0 ? (
                             <SelectItem value="none" disabled>
-                              No printers found
+                              {loadingPrinters ? 'Loading...' : 'No printers found'}
                             </SelectItem>
                           ) : (
                             availablePrinters.map((printer) => (
@@ -435,9 +469,15 @@ export default function ReceiveStock() {
                           )}
                         </SelectContent>
                       </Select>
-                      {availablePrinters.length === 0 && !loadingPrinters && (
-                        <p className="text-xs text-muted-foreground">
-                          Make sure QZ Tray is running
+                      {!loadingPrinters && availablePrinters.length === 0 && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <AlertCircle className="w-3 h-3" />
+                          <span>Make sure QZ Tray is running, then click Refresh</span>
+                        </div>
+                      )}
+                      {!loadingPrinters && availablePrinters.length > 0 && !selectedPrinter && (
+                        <p className="text-xs text-amber-600">
+                          ⚠️ Please select a printer
                         </p>
                       )}
                       {selectedPrinter && (
