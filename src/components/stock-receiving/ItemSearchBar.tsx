@@ -17,9 +17,10 @@ interface SearchResult {
 interface ItemSearchBarProps {
   onItemSelect: (result: SearchResult) => void;
   disabled?: boolean;
+  country?: string;
 }
 
-export function ItemSearchBar({ onItemSelect, disabled }: ItemSearchBarProps) {
+export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBarProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -45,12 +46,18 @@ export function ItemSearchBar({ onItemSelect, disabled }: ItemSearchBarProps) {
           .or(`asin.ilike.%${term}%,sku_code.ilike.%${term}%,model_number.ilike.%${term}%`)
           .limit(5);
 
-        // Search in inventory
-        const { data: invData } = await supabase
+        // Search in inventory (filter by selected country)
+        let invQuery = supabase
           .from('asin_inventory')
-          .select('asin, sku_number, model_number, title')
-          .or(`asin.ilike.%${term}%,sku_number.ilike.%${term}%,model_number.ilike.%${term}%`)
-          .limit(5);
+          .select('asin, sku_number, model_number, title, country')
+          .or(`asin.ilike.%${term}%,sku_number.ilike.%${term}%,model_number.ilike.%${term}%`);
+        
+        // Filter by country if provided
+        if (country) {
+          invQuery = invQuery.eq('country', country);
+        }
+        
+        const { data: invData } = await invQuery.limit(5);
 
         const searchResults: SearchResult[] = [];
 
@@ -103,7 +110,7 @@ export function ItemSearchBar({ onItemSelect, disabled }: ItemSearchBarProps) {
             type: 'inventory',
             asin: term.startsWith('B0') ? term : undefined,
             sku_code: !term.startsWith('B0') ? term : undefined,
-            context: '⚠️ Not found in inventory - add item first'
+            context: `⚠️ Not found in ${country || 'selected country'} inventory - add item first`
           });
         }
 
@@ -119,7 +126,7 @@ export function ItemSearchBar({ onItemSelect, disabled }: ItemSearchBarProps) {
 
     const timer = setTimeout(searchItems, 300);
     return () => clearTimeout(timer);
-  }, [searchTerm]);
+  }, [searchTerm, country]);
 
   const handleSelect = (result: SearchResult) => {
     setShowDropdown(false);

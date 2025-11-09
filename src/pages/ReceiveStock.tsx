@@ -402,6 +402,7 @@ export default function ReceiveStock() {
             <ItemSearchBar
               onItemSelect={handleItemSelect}
               disabled={isProcessing}
+              country={selectedCountry}
             />
 
             {/* Print Settings */}
