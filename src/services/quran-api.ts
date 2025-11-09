@@ -89,11 +89,17 @@ export const quranApi = {
       `${BASE_URL}/${surahNumber}/${ayahNumber}.json`
     );
     
-    // Ensure verse has surahNumber and ayahNumber
+    // Transform API response to match our Verse type structure
+    // API returns english/urdu as direct properties, we need them nested in translation
     return {
-      ...data,
       surahNumber: data.surahNumber || surahNumber,
-      ayahNumber: data.ayahNumber || ayahNumber
+      ayahNumber: data.ayahNumber || ayahNumber,
+      arabic1: data.arabic1,
+      arabic2: data.arabic2,
+      translation: {
+        english: data.english,
+        urdu: data.urdu
+      }
     } as Verse;
   },
 
