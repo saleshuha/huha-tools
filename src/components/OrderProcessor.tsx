@@ -892,6 +892,14 @@ export function OrderProcessor() {
         }
 
         if (user) {
+          // Get serial number from inventory match
+          let serialNumber = 'N/A';
+          if (match.inventoryType === 'asin') {
+            serialNumber = (match.inventoryMatch as AsinInventoryItem).serialNumber;
+          } else if (match.inventoryType === 'sku') {
+            serialNumber = (match.inventoryMatch as SkuInventoryItem).binSerialNumber;
+          }
+          
           await supabase.from('processed_orders').insert({
             user_id: user.id,
             order_number: match.orderItem.orderId,
@@ -905,6 +913,7 @@ export function OrderProcessor() {
             previous_stock: previousQuantity,
             new_stock: newQuantity,
             inventory_id: match.inventoryMatch.id,
+            serial_number: serialNumber,
             processed_at: new Date().toISOString()
           } as any);
         }
@@ -2139,10 +2148,11 @@ export function OrderProcessor() {
                           {filteredProcessedOrders
                             .slice(0, itemsPerPage)
                             .map((order, index) => {
-                              // Find inventory item by inventory_id if available
-                              let inventorySerialNumber = 'N/A';
+                              // Get serial number from processed order record
+                              let inventorySerialNumber = order.serial_number || 'N/A';
                               
-                              if (order.inventory_id) {
+                              // Fallback: Find inventory item by inventory_id if serial_number not stored
+                              if (inventorySerialNumber === 'N/A' && order.inventory_id) {
                                 const asinItem = asinInventory.find(item => item.id === order.inventory_id);
                                 if (asinItem) {
                                   inventorySerialNumber = asinItem.serialNumber;
