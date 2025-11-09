@@ -32,10 +32,17 @@ async function fetchWithRetry<T>(url: string, retries = 3): Promise<T> {
 
 export const quranApi = {
   async getSurahList(): Promise<Surah[]> {
-    const data = await fetchWithRetry<Surah[]>(`${BASE_URL}/surah.json`);
-    console.log('🕌 Quran API: Fetched surah list, first item:', data[0]);
-    console.log('🕌 Quran API: Total surahs:', data.length);
-    return data;
+    const data = await fetchWithRetry<any[]>(`${BASE_URL}/surah.json`);
+    
+    // Map array and add surahNumber based on index (1-indexed)
+    const surahsWithNumbers = data.map((surah, index) => ({
+      ...surah,
+      surahNumber: index + 1
+    }));
+    
+    console.log('🕌 Quran API: Fetched surah list with numbers, first item:', surahsWithNumbers[0]);
+    console.log('🕌 Quran API: Total surahs:', surahsWithNumbers.length);
+    return surahsWithNumbers as Surah[];
   },
 
   async getSurah(surahNumber: number): Promise<Surah> {
@@ -43,24 +50,37 @@ export const quranApi = {
       throw new QuranApiError('Invalid surah number. Must be between 1 and 114.');
     }
     console.log('🕌 Quran API: Fetching surah:', surahNumber);
-    const data = await fetchWithRetry<Surah>(`${BASE_URL}/${surahNumber}.json`);
-    console.log('🕌 Quran API: Surah data received:', {
-      surahNumber: data.surahNumber,
-      surahName: data.surahName,
-      totalAyah: data.totalAyah,
-      versesCount: data.verses?.length
+    const data = await fetchWithRetry<any>(`${BASE_URL}/${surahNumber}.json`);
+    
+    // Ensure surahNumber exists in response
+    const surahWithNumber = {
+      ...data,
+      surahNumber: data.surahNumber || surahNumber
+    };
+    
+    console.log('🕌 Quran API: Surah data with number:', {
+      surahNumber: surahWithNumber.surahNumber,
+      surahName: surahWithNumber.surahName,
+      totalAyah: surahWithNumber.totalAyah,
+      versesCount: surahWithNumber.verses?.length
     });
-    return data;
+    return surahWithNumber as Surah;
   },
 
   async getVerse(surahNumber: number, ayahNumber: number): Promise<Verse> {
     if (surahNumber < 1 || surahNumber > 114) {
       throw new QuranApiError('Invalid surah number. Must be between 1 and 114.');
     }
-    const data = await fetchWithRetry<Verse>(
+    const data = await fetchWithRetry<any>(
       `${BASE_URL}/${surahNumber}/${ayahNumber}.json`
     );
-    return data;
+    
+    // Ensure verse has surahNumber and ayahNumber
+    return {
+      ...data,
+      surahNumber: data.surahNumber || surahNumber,
+      ayahNumber: data.ayahNumber || ayahNumber
+    } as Verse;
   },
 
   async getTafsir(surahNumber: number, ayahNumber: number): Promise<Tafsir[]> {
