@@ -5,6 +5,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { TrackedTabs } from '@/components/ui/tracked-tabs';
 import { TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { HistoryItemCard } from './HistoryItemCard';
+import { HistoryFilters, HistoryFilterOptions } from './HistoryFilters';
 import { useReceivingHistory } from '@/hooks/useReceivingHistory';
 
 interface ActivityItem {
@@ -30,6 +31,7 @@ export function RecentActivityFeed({
   onReprint
 }: RecentActivityFeedProps) {
   const [activeTab, setActiveTab] = useState<'po' | 'inventory'>('po');
+  const [filters, setFilters] = useState<HistoryFilterOptions>({});
   
   const {
     history: poHistory,
@@ -37,7 +39,7 @@ export function RecentActivityFeed({
     loadMore: loadMorePO,
     hasMore: hasMorePO,
     poCount
-  } = useReceivingHistory(50, 'po');
+  } = useReceivingHistory(50, 'po', filters);
 
   const {
     history: inventoryHistory,
@@ -45,7 +47,11 @@ export function RecentActivityFeed({
     loadMore: loadMoreInv,
     hasMore: hasMoreInv,
     inventoryCount
-  } = useReceivingHistory(50, 'inventory');
+  } = useReceivingHistory(50, 'inventory', filters);
+
+  const handleFilterChange = (newFilters: HistoryFilterOptions) => {
+    setFilters(newFilters);
+  };
 
   const totalHistory = poHistory.length + inventoryHistory.length;
 
@@ -60,6 +66,12 @@ export function RecentActivityFeed({
 
   return (
     <div className="space-y-4">
+      {/* Filters */}
+      <HistoryFilters 
+        onFilterChange={handleFilterChange}
+        activeFilters={filters}
+      />
+
       <TrackedTabs 
         value={activeTab} 
         onValueChange={(v) => setActiveTab(v as 'po' | 'inventory')}
