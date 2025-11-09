@@ -401,13 +401,12 @@ async function fulfillPO(supabase: any, userId: string, allocation: any) {
 async function addToInventory(supabase: any, userId: string, item: ReceivedItem, quantity: number, country: string) {
   const serialNumber = item.serial_number || `RCV-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-  // Step 1: Check if item already exists
+  // Step 1: Check if item already exists (search by ASIN only, ignore country to prevent duplicates)
   const { data: existing } = await supabase
     .from('asin_inventory')
-    .select('id, quantity, serial_number')
+    .select('id, quantity, serial_number, country')
     .eq('user_id', userId)
     .eq('asin', item.asin || 'N/A')
-    .eq('country', country)
     .eq('status', 'in-stock')
     .order('created_at', { ascending: false })
     .limit(1)

@@ -91,8 +91,10 @@ export default function ReceiveStock() {
     // Load templates
     loadTemplates(savedPoTemplate, savedInventoryTemplate);
     
-    // Load printers
-    loadPrinters();
+    // Auto-load printers if direct print is enabled
+    if (config.preferDirectPrint) {
+      loadPrinters();
+    }
   }, []);
 
   const loadTemplates = async (savedPoTemplate?: string | null, savedInventoryTemplate?: string | null) => {
@@ -195,6 +197,15 @@ export default function ReceiveStock() {
     autoPrint: boolean;
   }) => {
     if (!selectedItem) return;
+
+    // Validate printer selection if auto-print is enabled
+    if (data.autoPrint && directPrintEnabled && !selectedPrinter) {
+      toast.error('Please select a printer first', {
+        description: 'Click the Refresh button to load available printers',
+        duration: 5000
+      });
+      return;
+    }
 
     const item = {
       asin: selectedItem.asin,
@@ -442,6 +453,26 @@ export default function ReceiveStock() {
                           )}
                         </Button>
                       </div>
+                      
+                      {/* Warning if no printer selected */}
+                      {!selectedPrinter && availablePrinters.length === 0 && !loadingPrinters && (
+                        <Alert className="border-amber-500/50 bg-amber-500/10">
+                          <AlertCircle className="w-4 h-4 text-amber-500" />
+                          <AlertDescription className="text-amber-600 text-sm">
+                            No printers found. Make sure QZ Tray is running and click Refresh.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                      
+                      {!selectedPrinter && availablePrinters.length > 0 && (
+                        <Alert className="border-amber-500/50 bg-amber-500/10">
+                          <AlertCircle className="w-4 h-4 text-amber-500" />
+                          <AlertDescription className="text-amber-600 text-sm">
+                            ⚠️ No printer selected - labels won't print! Select one below.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                      
                       <Select
                         value={selectedPrinter}
                         onValueChange={(value) => {
