@@ -148,7 +148,17 @@ export function AsinInventory() {
     return (maxSerial + 1).toString().padStart(5, '0');
   };
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [searchMethod, setSearchMethod] = useState<'all' | 'asin' | 'sku' | 'serial' | 'title' | 'notes'>('all');
+  
+  // Debounce search term for performance (300ms delay)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'dateAdded' | 'asin' | 'quantity' | 'status' | 'title' | 'serialNumber'>('dateAdded');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -433,11 +443,11 @@ export function AsinInventory() {
     });
 
     // Apply search filter
-    if (searchTerm) {
-      const searchTerms = searchTerm.toLowerCase().split(' ').filter(term => term.length > 0);
+    if (debouncedSearchTerm) {
+      const searchTerms = debouncedSearchTerm.toLowerCase().split(' ').filter(term => term.length > 0);
       
       console.log('🔍 SEARCH DEBUG:', {
-        searchTerm,
+        searchTerm: debouncedSearchTerm,
         searchTerms,
         searchMethod,
         totalItems: inventory.length,
@@ -538,7 +548,7 @@ export function AsinInventory() {
          return false;
        });
       console.log('✅ FINAL FILTERED RESULTS:', {
-        searchTerm,
+        searchTerm: debouncedSearchTerm,
         originalCount: inventory.length,
         filteredCount: filtered.length,
         resultItems: filtered.map(item => ({
@@ -550,7 +560,7 @@ export function AsinInventory() {
       
       // Show what was found or not found
       if (filtered.length === 0) {
-        console.log('❌ NO MATCHES FOUND for search term:', searchTerm);
+        console.log('❌ NO MATCHES FOUND for search term:', debouncedSearchTerm);
         console.log('💡 Available serials containing "020":', 
           inventory
             .filter(item => item.serialNumber && item.serialNumber.includes('020'))
@@ -631,12 +641,12 @@ export function AsinInventory() {
     });
     console.log('🔄 FILTERING INVENTORY - END:', {
       finalResultCount: filtered.length,
-      searchActive: !!searchTerm,
+      searchActive: !!debouncedSearchTerm,
       showDisabledItems
     });
 
     return filtered;
-  }, [inventory, searchTerm, statusFilter, sortBy, sortOrder, quickFilter, dateFilterFrom, dateFilterTo, loading, showDisabledItems]);
+  }, [inventory, debouncedSearchTerm, statusFilter, sortBy, sortOrder, quickFilter, dateFilterFrom, dateFilterTo, loading, showDisabledItems]);
   const totalPages = Math.ceil(filteredInventory.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedInventory = filteredInventory.slice(startIndex, startIndex + itemsPerPage);

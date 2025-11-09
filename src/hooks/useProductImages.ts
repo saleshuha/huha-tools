@@ -79,43 +79,21 @@ export const useProductImages = () => {
       console.log('🖼️ Product images fetched successfully:', data?.length || 0);
       return data as ProductImage[];
     },
-    staleTime: 0, // Force fresh fetch every time
-    gcTime: 0, // Don't cache the data
-    refetchOnMount: true, // Always refetch when component mounts
-    refetchOnWindowFocus: true, // Refetch when window regains focus
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes before considering stale
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes after last use
+    refetchOnMount: true, // Refetch when component mounts (but will use cache if fresh)
+    refetchOnWindowFocus: false, // Don't refetch on window focus (performance optimization)
     enabled: true, // Query enabled by default, authentication check is inside queryFn
   });
 
-  // Get image by ASIN - strict exact matching only
+  // Get image by ASIN - strict exact matching only (optimized with minimal logging)
   const getImageByAsin = (asin: string): ProductImage | undefined => {
     if (!productImages || productImages.length === 0 || !asin) {
-      console.log('🔍 getImageByAsin: No images or ASIN', { 
-        hasImages: !!productImages, 
-        imageCount: productImages?.length || 0, 
-        asin 
-      });
       return undefined;
     }
     
     // Only exact match to ensure correct product images
-    const foundImage = productImages.find(img => img.asin?.trim() === asin.trim());
-    
-    // Enhanced debug logging for troubleshooting
-    if (!foundImage) {
-      console.log('🔍 getImageByAsin: No match found', {
-        searchAsin: asin,
-        availableAsins: productImages.slice(0, 5).map(img => img.asin), // Show first 5 ASINs
-        totalImages: productImages.length
-      });
-    } else {
-      console.log('🔍 getImageByAsin: Match found', {
-        searchAsin: asin,
-        foundAsin: foundImage.asin,
-        imageUrl: foundImage.image_url
-      });
-    }
-    
-    return foundImage;
+    return productImages.find(img => img.asin?.trim() === asin.trim());
   };
 
   // Add new product image with duplicate checking
