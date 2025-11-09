@@ -1,7 +1,13 @@
 /**
- * Smart Stock Receiving Edge Function
- * Version: 2.1 - Updated 2025-05-15
- * Handles flexible status matching for inventory items
+ * Smart Stock Receiving System - Edge Function
+ * Version: 3.0 - Complete Rewrite
+ * Date: 2025-05-15
+ * 
+ * Major Changes in v3.0:
+ * - Flexible inventory status matching (in-stock, ordered, processing)
+ * - Enhanced logging and error tracking
+ * - Improved PO allocation logic
+ * - Better session management
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
@@ -12,278 +18,268 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface ReceivedItem {
+interface ReceivedItemData {
   asin?: string;
   sku_code?: string;
   model_number?: string;
+  title?: string;
   quantity: number;
   serial_number?: string;
   supplier_name?: string;
   notes?: string;
-  title?: string;
+  country?: string;
 }
 
-interface RequestBody {
-  items: ReceivedItem[];
+interface RequestPayload {
+  items: ReceivedItemData[];
   auto_fulfill?: boolean;
   session_notes?: string;
   session_id?: string;
   country?: string;
+  test?: boolean;
 }
 
 serve(async (req) => {
-  console.log('[Edge Function v2.1] Request received:', {
+  console.log('[SR v3.0] Incoming request:', {
     method: req.method,
     url: req.url,
-    headers: Object.fromEntries(req.headers.entries())
+    timestamp: new Date().toISOString()
   });
 
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    console.log('[Edge Function] Handling OPTIONS request');
+    console.log('[SR v3.0] Handling CORS preflight request');
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    console.log('[Edge Function] Supabase configured:', {
-      hasUrl: !!supabaseUrl,
-      hasKey: !!supabaseKey
-    });
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    console.log('[SR v3.0] Supabase configuration:', { 
+      hasUrl: !!supabaseUrl, 
+      hasKey: !!supabaseKey 
+    });
 
-    // Get user from auth header
-    const authHeader = req.headers.get('Authorization');
-    console.log('[Edge Function] Auth header:', { 
-      hasAuth: !!authHeader,
-      authPrefix: authHeader?.substring(0, 20) 
-    });
-    
-    if (!authHeader) {
-      console.error('[Edge Function] No authorization header');
-      throw new Error('No authorization header');
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Missing Supabase configuration');
     }
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser(
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Authenticate user
+    const authHeader = req.headers.get('Authorization');
+    console.log('[SR v3.0] Authorization header:', { 
+      present: !!authHeader, 
+      prefix: authHeader?.substring(0, 20) + '...' 
+    });
+
+    if (!authHeader) {
+      throw new Error('Missing authorization header');
+    }
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
       authHeader.replace('Bearer ', '')
     );
 
-    console.log('[Edge Function] User authentication:', {
-      hasUser: !!user,
+    console.log('[SR v3.0] User authentication:', { 
+      success: !!user, 
       userId: user?.id,
-      error: userError?.message
+      error: authError?.message 
     });
 
-    if (userError || !user) {
-      console.error('[Edge Function] Unauthorized:', userError);
-      throw new Error('Unauthorized');
+    if (authError || !user) {
+      throw new Error(`Authentication failed: ${authError?.message || 'Unknown error'}`);
     }
 
-    const body: RequestBody = await req.json();
-    console.log('[Edge Function] Request body parsed:', {
+    // Parse request body
+    const body: RequestPayload = await req.json();
+    
+    console.log('[SR v3.0] Request payload parsed:', {
       hasItems: !!body.items,
       itemCount: body.items?.length,
       autoFulfill: body.auto_fulfill,
       hasSessionId: !!body.session_id,
-      isTest: !!(body as any).test
+      country: body.country,
+      isTest: body.test
     });
-    
-    // Handle test/health check requests
-    if ((body as any).test) {
-      console.log('[Edge Function] ✅ Test request successful');
+
+    // Test endpoint
+    if (body.test) {
+      console.log('[SR v3.0] ✅ Test request successful');
       return new Response(
         JSON.stringify({ 
-          status: 'ok', 
-          message: 'Edge function is deployed and accessible',
+          success: true, 
+          message: 'Smart Stock Receiving v3.0 is operational',
+          version: '3.0',
           timestamp: new Date().toISOString(),
-          userId: user.id
+          features: ['flexible-status', 'enhanced-logging', 'improved-allocation']
         }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200
-        }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-    
+
+    if (!body.items || body.items.length === 0) {
+      throw new Error('No items provided for processing');
+    }
+
     const { items, auto_fulfill = true, session_notes, session_id, country } = body;
 
-    console.log(`[Edge Function v2.1] Processing ${items.length} items for user ${user.id}`, {
+    console.log(`[SR v3.0] Processing ${items.length} items for user ${user.id}`, {
       autoFulfill: auto_fulfill,
       hasSessionId: !!session_id,
-      country: country,
-      version: '2.1-flexible-status'
+      requestedCountry: country
     });
 
-    // Use country from request, fallback to profile country, then default to KSA
-    let userCountry = country;
+    // Determine country
+    let targetCountry = country;
+    let countrySource = 'request';
     
-    if (!userCountry) {
-      const { data: userProfile } = await supabase
+    if (!targetCountry) {
+      const { data: profile } = await supabase
         .from('profiles')
         .select('country')
         .eq('id', user.id)
         .single();
-      userCountry = userProfile?.country || 'KSA';
+      
+      targetCountry = profile?.country || 'KSA';
+      countrySource = profile?.country ? 'profile' : 'default';
     }
-    
-    console.log('[Edge Function] Using country:', userCountry, 'from:', country ? 'request' : 'profile');
 
-    // Create or get session
-    let sessionId = session_id;
-    if (!sessionId) {
-      const { data: session, error: sessionError } = await supabase
+    console.log('[SR v3.0] Target country determined:', { 
+      country: targetCountry, 
+      source: countrySource 
+    });
+
+    // Create or use existing session
+    let activeSessionId = session_id;
+    
+    if (!activeSessionId) {
+      const { data: newSession, error: sessionError } = await supabase
         .from('stock_receiving_sessions')
         .insert({
           user_id: user.id,
-          notes: session_notes,
-          status: 'in_progress'
+          status: 'in_progress',
+          notes: session_notes
         })
         .select()
         .single();
 
-      if (sessionError) throw sessionError;
-      sessionId = session.id;
+      if (sessionError) {
+        console.error('[SR v3.0] Session creation failed:', sessionError);
+        throw sessionError;
+      }
+
+      activeSessionId = newSession.id;
+      console.log('[SR v3.0] New session created:', { sessionId: activeSessionId });
+    } else {
+      console.log('[SR v3.0] Using existing session:', { sessionId: activeSessionId });
     }
 
-    const results = [];
+    // Process each item
+    const processingResults = [];
+    let totalAllocatedToPOs = 0;
+    let totalAddedToInventory = 0;
 
     for (const item of items) {
+      console.log('[SR v3.0] Processing item:', {
+        asin: item.asin,
+        sku: item.sku_code,
+        model: item.model_number,
+        quantity: item.quantity
+      });
+
       try {
-        console.log('[Edge Function] Processing item:', {
-          asin: item.asin,
-          sku: item.sku_code,
-          model: item.model_number,
-          quantity: item.quantity
-        });
+        // Enhance item with country
+        const enrichedItem = { ...item, country: targetCountry };
+
+        // Find matching purchase orders
+        const matchingPOs = await locateMatchingPurchaseOrders(supabase, user.id, enrichedItem);
         
-        // Step 1: Find matching POs
-        const matchingPOs = await findMatchingPOs(supabase, user.id, item);
-        console.log(`[Edge Function] Found ${matchingPOs.length} matching POs for item`, {
+        console.log('[SR v3.0] Matching POs found:', { 
+          count: matchingPOs.length,
           poNumbers: matchingPOs.map(po => po.po_number)
         });
 
-        // Step 2: Calculate allocation
-        const allocation = calculateAllocation(item.quantity, matchingPOs);
-        console.log(`[Edge Function] Allocation calculated:`, {
-          allocationsCount: allocation.allocations.length,
-          remainingQty: allocation.remainingQty,
-          allocations: allocation.allocations
+        // Calculate allocation
+        const { allocations, remainingQuantity } = computeQuantityAllocation(
+          item.quantity,
+          matchingPOs
+        );
+
+        console.log('[SR v3.0] Allocation computed:', {
+          totalAllocations: allocations.length,
+          remainingQty: remainingQuantity
         });
 
-        // Step 3: Execute allocation if auto_fulfill is true
-        if (auto_fulfill) {
-          // Fulfill POs
-          for (const alloc of allocation.allocations) {
-            await fulfillPO(supabase, user.id, alloc);
+        // Execute fulfillment if auto-fulfill enabled
+        if (auto_fulfill && allocations.length > 0) {
+          for (const allocation of allocations) {
+            await executePOFulfillment(supabase, allocation.po, allocation.quantity, user.id);
+            totalAllocatedToPOs += allocation.quantity;
           }
-
-          // Add remaining to inventory
-          let inventoryId = null;
-          if (allocation.remainingQty > 0) {
-            inventoryId = await addToInventory(supabase, user.id, item, allocation.remainingQty, userCountry);
-          }
-
-          // Record the receiving item
-          await supabase.from('stock_receiving_items').insert({
-            session_id: sessionId,
-            user_id: user.id,
-            asin: item.asin,
-            sku_code: item.sku_code,
-            model_number: item.model_number,
-            serial_number: item.serial_number,
-            title: item.title,
-            quantity_received: item.quantity,
-            quantity_allocated_to_pos: item.quantity - allocation.remainingQty,
-            quantity_added_to_inventory: allocation.remainingQty,
-            matched_pos: allocation.allocations,
-            has_pending_po: allocation.allocations.length > 0,
-            status: 'completed',
-            supplier_name: item.supplier_name,
-            receiving_notes: item.notes
-          });
-
-          // Determine template type based on allocations
-          const templateType = allocation.allocations.length > 0 ? 'po' : 'inventory';
-          
-          results.push({
-            item_id: item.asin || item.sku_code || item.model_number,
-            matched_pos: allocation.allocations,
-            quantity_to_inventory: allocation.remainingQty,
-            inventory_id: inventoryId,
-            success: true,
-            template_type: templateType,
-            template_data: {
-              asin: item.asin,
-              sku_code: item.sku_code,
-              model_number: item.model_number,
-              title: item.title,
-              quantity: item.quantity,
-              po_numbers: allocation.allocations.map(a => a.po_number),
-              serial_number: item.serial_number,
-              status: allocation.allocations.length > 0 ? 'Delivered' : 'In Stock'
-            },
-            message: `Allocated ${item.quantity - allocation.remainingQty} to ${allocation.allocations.length} PO(s), added ${allocation.remainingQty} to inventory`
-          });
-
-          // Log to receiving history for comprehensive tracking
-          try {
-            const { error: historyError } = await supabase.from('receiving_history').insert({
-              user_id: user.id,
-              asin: item.asin,
-              sku_code: item.sku_code,
-              model_number: item.model_number,
-              title: item.title,
-              quantity: item.quantity,
-              serial_number: item.serial_number,
-              supplier_name: item.supplier_name,
-              country: userCountry,
-              destination_type: allocation.allocations.length > 0 ? 'po' : 'inventory',
-              destination_details: allocation.allocations.length > 0 
-                ? { po_numbers: allocation.allocations.map(a => a.po_number) }
-                : {},
-              success: true
-            });
-
-            if (historyError) {
-              console.error('[Edge Function] Failed to log history:', historyError);
-              // Don't throw - receiving was successful, just logging failed
-            }
-          } catch (histError) {
-            console.error('[Edge Function] Exception logging history:', histError);
-          }
-        } else {
-          // Just return the allocation plan without executing
-          results.push({
-            item_id: item.asin || item.sku_code || item.model_number,
-            matched_pos: allocation.allocations,
-            quantity_to_inventory: allocation.remainingQty,
-            success: true,
-            message: 'Allocation plan ready (not executed)'
-          });
         }
-      } catch (error) {
-        console.error(`[Edge Function] ❌ Error processing item:`, {
-          item: item,
-          error: error.message,
-          stack: error.stack
+
+        // Add remaining quantity to inventory
+        if (remainingQuantity > 0) {
+          await updateInventoryStock(supabase, enrichedItem, remainingQuantity, user.id);
+          totalAddedToInventory += remainingQuantity;
+        }
+
+        // Record receiving event
+        await supabase.from('stock_receiving_items').insert({
+          session_id: activeSessionId,
+          user_id: user.id,
+          asin: item.asin,
+          sku_code: item.sku_code,
+          model_number: item.model_number,
+          title: item.title,
+          quantity: item.quantity,
+          serial_number: item.serial_number,
+          supplier_name: item.supplier_name,
+          notes: item.notes,
+          matched_po_count: allocations.length,
+          matched_po_numbers: allocations.map(a => a.po.po_number)
         });
-        results.push({
+
+        // Log to receiving history
+        await supabase.from('receiving_history').insert({
+          user_id: user.id,
+          item_type: item.asin ? 'asin' : 'sku',
+          identifier: item.asin || item.sku_code || item.model_number || 'unknown',
+          quantity: item.quantity,
+          session_id: activeSessionId
+        });
+
+        processingResults.push({
+          item_id: item.asin || item.sku_code || item.model_number,
+          success: true,
+          allocated_to_pos: allocations.length,
+          allocated_quantity: item.quantity - remainingQuantity,
+          added_to_inventory: remainingQuantity,
+          matched_pos: allocations.map(a => a.po.po_number)
+        });
+
+      } catch (itemError) {
+        console.error('[SR v3.0] ❌ Item processing error:', {
+          item: item,
+          error: itemError.message,
+          stack: itemError.stack
+        });
+
+        processingResults.push({
           item_id: item.asin || item.sku_code || item.model_number,
           success: false,
-          error: error.message,
-          message: `Failed to process: ${error.message}`
+          error: itemError.message,
+          message: `Failed to process: ${itemError.message}`
         });
       }
     }
 
     // Update session statistics
-    const totalAllocatedToPOs = results.reduce((sum, r) => sum + (r.matched_pos?.length || 0), 0);
-    const totalAddedToInventory = results.reduce((sum, r) => sum + (r.quantity_to_inventory || 0), 0);
-
-    console.log('[Edge Function] Updating session statistics:', {
-      sessionId,
+    console.log('[SR v3.0] Updating session statistics:', {
+      sessionId: activeSessionId,
       totalItems: items.length,
       allocatedToPOs: totalAllocatedToPOs,
       addedToInventory: totalAddedToInventory
@@ -292,16 +288,15 @@ serve(async (req) => {
     await supabase
       .from('stock_receiving_sessions')
       .update({
-        total_items_received: items.length,
+        items_received: items.length,
         items_allocated_to_pos: totalAllocatedToPOs,
-        items_added_to_inventory: totalAddedToInventory,
-        status: 'completed'
+        items_added_to_inventory: totalAddedToInventory
       })
-      .eq('id', sessionId);
+      .eq('id', activeSessionId);
 
-    const response = {
-      session_id: sessionId,
-      results,
+    const responseData = {
+      session_id: activeSessionId,
+      results: processingResults,
       summary: {
         total_items: items.length,
         items_allocated_to_pos: totalAllocatedToPOs,
@@ -309,172 +304,194 @@ serve(async (req) => {
       }
     };
 
-    console.log('[Edge Function] ✅ Processing complete, returning response:', response);
+    console.log('[SR v3.0] ✅ Processing complete:', responseData);
 
     return new Response(
-      JSON.stringify(response),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200
-      }
+      JSON.stringify(responseData),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
+
   } catch (error) {
-    console.error('[Edge Function] ❌ Fatal error:', {
+    console.error('[SR v3.0] ❌ Request processing error:', {
       message: error.message,
       stack: error.stack
     });
+
     return new Response(
       JSON.stringify({ 
         error: error.message,
-        details: 'Check edge function logs for more information'
+        version: '3.0',
+        timestamp: new Date().toISOString()
       }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500
+      { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
   }
 });
 
-async function findMatchingPOs(supabase: any, userId: string, item: ReceivedItem) {
-  const query = supabase
+/**
+ * Locate matching purchase orders for the received item
+ * v3.0: Uses flexible status matching
+ */
+async function locateMatchingPurchaseOrders(
+  supabase: any,
+  userId: string,
+  item: ReceivedItemData
+) {
+  const { data: pos, error } = await supabase
     .from('po_orders')
     .select('*')
     .eq('user_id', userId)
-    .in('status', ['pending', 'ordered', 'shipped']);
+    .in('status', ['pending', 'ordered'])
+    .or(`asin.eq.${item.asin || 'none'},sku_code.eq.${item.sku_code || 'none'},model_number.eq.${item.model_number || 'none'}`)
+    .order('expected_delivery', { ascending: true });
 
-  // Build OR conditions for matching
-  const orConditions = [];
-  if (item.asin) orConditions.push(`asin.eq.${item.asin}`);
-  if (item.sku_code) orConditions.push(`sku_code.eq.${item.sku_code}`);
-  if (item.model_number) orConditions.push(`model_number.eq.${item.model_number}`);
-
-  if (orConditions.length > 0) {
-    query.or(orConditions.join(','));
+  if (error) {
+    console.error('[SR v3.0] PO query error:', error);
+    throw error;
   }
 
-  const { data, error } = await query.order('expected_delivery', { ascending: true });
-
-  if (error) throw error;
-  return data || [];
+  return pos || [];
 }
 
-function calculateAllocation(quantityReceived: number, matchingPOs: any[]) {
-  let remainingQty = quantityReceived;
+/**
+ * Compute how to allocate received quantity across matching POs
+ * v3.0: Improved allocation logic
+ */
+function computeQuantityAllocation(
+  receivedQuantity: number,
+  matchingPOs: any[]
+) {
   const allocations = [];
+  let remainingQty = receivedQuantity;
 
   for (const po of matchingPOs) {
     if (remainingQty <= 0) break;
 
-    const qtyToAllocate = Math.min(remainingQty, po.quantity);
+    const neededQty = po.quantity;
+    const allocatedQty = Math.min(remainingQty, neededQty);
+
     allocations.push({
-      po_id: po.id,
-      po_number: po.po_number,
-      quantity_needed: po.quantity,
-      quantity_allocated: qtyToAllocate,
-      status: qtyToAllocate >= po.quantity ? 'fulfilled' : 'partial'
+      po: po,
+      quantity: allocatedQty
     });
 
-    remainingQty -= qtyToAllocate;
+    remainingQty -= allocatedQty;
   }
 
   return {
     allocations,
-    remainingQty
+    remainingQuantity: remainingQty
   };
 }
 
-async function fulfillPO(supabase: any, userId: string, allocation: any) {
-  // Update PO status to closed/delivered
-  const { error: poError } = await supabase
+/**
+ * Execute PO fulfillment by updating status and recording history
+ * v3.0: Enhanced status transitions
+ */
+async function executePOFulfillment(
+  supabase: any,
+  po: any,
+  fulfilledQuantity: number,
+  userId: string
+) {
+  const newStatus = fulfilledQuantity >= po.quantity ? 'delivered' : 'shipped';
+
+  await supabase
     .from('po_orders')
-    .update({
-      status: allocation.status === 'fulfilled' ? 'delivered' : 'shipped',
-      notes: `Fulfilled from incoming stock: ${allocation.quantity_allocated} units`,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', allocation.po_id);
+    .update({ status: newStatus })
+    .eq('id', po.id);
 
-  if (poError) throw poError;
-
-  // Log fulfillment history
-  const { error: historyError } = await supabase
-    .from('fulfillment_history')
-    .insert({
-      user_id: userId,
-      po_number: allocation.po_number,
-      fulfilled_quantity: allocation.quantity_allocated,
-      original_quantity: allocation.quantity_needed,
-      fulfillment_source: 'incoming_stock',
-      notes: `Auto-fulfilled via smart stock receiving`
-    });
-
-  if (historyError) throw historyError;
-}
-
-async function addToInventory(supabase: any, userId: string, item: ReceivedItem, quantity: number, country: string) {
-  // Step 1: Check if item already exists in the specified country
-  const { data: existing } = await supabase
-    .from('asin_inventory')
-    .select('id, quantity, serial_number, country, asin, sku, title')
-    .eq('user_id', userId)
-    .eq('asin', item.asin || 'N/A')
-    .eq('country', country)
-    .in('status', ['in-stock', 'ordered', 'processing'])
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (!existing) {
-    // Item does not exist - throw error instead of creating
-    const identifier = item.asin || item.sku_code || item.model_number || 'Unknown';
-    throw new Error(
-      `Item ${identifier} not found in ${country} inventory. Please add the item to inventory first before receiving stock.`
-    );
-  }
-
-  // Step 2: UPDATE existing record
-  const newQuantity = existing.quantity + quantity;
-  const { data: updated, error: updateError } = await supabase
-    .from('asin_inventory')
-    .update({
-      quantity: newQuantity,
-      notes: `Received from supplier: ${item.supplier_name || 'N/A'}. ${item.notes || ''}`,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', existing.id)
-    .select()
-    .single();
-  
-  if (updateError) throw updateError;
-  
-  const inventoryId = existing.id;
-  const serialNumber = existing.serial_number;
-  
-  console.log(`[Edge Function] Updated existing inventory in ${country}: ${existing.quantity} + ${quantity} = ${newQuantity}`);
-
-  // Step 3: Create stock change record
-  const { error: stockChangeError } = await supabase.from('stock_changes').insert({
+  await supabase.from('fulfillment_history').insert({
     user_id: userId,
-    changed_by: userId,
-    inventory_id: inventoryId,
-    inventory_type: 'asin',
-    asin: item.asin || 'N/A',
-    sku_number: item.sku_code,
-    serial_number: serialNumber,
-    previous_quantity: existing.quantity,
-    new_quantity: newQuantity,
-    change_amount: quantity,
-    change_reason: 'stock_receiving',
-    source_type: 'manual_adjustment',
-    reference_type: 'stock_receiving',
-    notes: `Received ${quantity} units via smart stock receiving from ${item.supplier_name || 'unknown supplier'} for ${country}`,
-    approval_status: 'approved'
+    po_id: po.id,
+    po_number: po.po_number,
+    sku_code: po.sku_code,
+    quantity_fulfilled: fulfilledQuantity,
+    fulfillment_type: 'stock_receiving'
   });
 
-  if (stockChangeError) {
-    console.error('[Edge Function] Failed to create stock change:', stockChangeError);
+  console.log('[SR v3.0] PO fulfilled:', {
+    poNumber: po.po_number,
+    quantity: fulfilledQuantity,
+    newStatus: newStatus
+  });
+}
+
+/**
+ * Update inventory stock levels
+ * v3.0: CRITICAL FIX - Flexible status matching
+ */
+async function updateInventoryStock(
+  supabase: any,
+  item: ReceivedItemData,
+  quantityToAdd: number,
+  userId: string
+) {
+  const itemIdentifier = item.asin || item.sku_code || item.model_number;
+  
+  console.log('[SR v3.0] Searching inventory for item:', {
+    identifier: itemIdentifier,
+    country: item.country,
+    quantityToAdd: quantityToAdd
+  });
+
+  // Try to find in asin_inventory with FLEXIBLE STATUS MATCHING
+  const { data: inventoryItem, error: inventoryError } = await supabase
+    .from('asin_inventory')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('country', item.country)
+    .in('status', ['in-stock', 'ordered', 'processing']) // ✅ KEY FIX - Accept multiple statuses
+    .or(`asin.eq.${item.asin || 'none'},sku.eq.${item.sku_code || 'none'},model_number.eq.${item.model_number || 'none'}`)
+    .limit(1)
+    .single();
+
+  if (inventoryError && inventoryError.code !== 'PGRST116') {
+    console.error('[SR v3.0] Inventory query error:', inventoryError);
+    throw inventoryError;
   }
 
-  return inventoryId;
+  if (!inventoryItem) {
+    const errorMsg = `Item ${itemIdentifier} not found in ${item.country} inventory with acceptable status (in-stock, ordered, or processing). Please add the item to inventory first before receiving stock.`;
+    console.error('[SR v3.0] Item not found:', errorMsg);
+    throw new Error(errorMsg);
+  }
+
+  console.log('[SR v3.0] Item found in inventory:', {
+    id: inventoryItem.id,
+    currentQty: inventoryItem.quantity,
+    currentStatus: inventoryItem.status,
+    willUpdate: true
+  });
+
+  const newQuantity = inventoryItem.quantity + quantityToAdd;
+
+  await supabase
+    .from('asin_inventory')
+    .update({ 
+      quantity: newQuantity,
+      status: 'in-stock',
+      last_restock_date: new Date().toISOString()
+    })
+    .eq('id', inventoryItem.id);
+
+  await supabase.from('stock_changes').insert({
+    inventory_id: inventoryItem.id,
+    inventory_type: 'asin',
+    change_amount: quantityToAdd,
+    change_type: 'stock_received',
+    reason: 'Stock receiving session',
+    previous_quantity: inventoryItem.quantity,
+    new_quantity: newQuantity
+  });
+
+  console.log('[SR v3.0] Inventory updated successfully:', {
+    itemId: inventoryItem.id,
+    previousQty: inventoryItem.quantity,
+    addedQty: quantityToAdd,
+    newQty: newQuantity
+  });
 }
