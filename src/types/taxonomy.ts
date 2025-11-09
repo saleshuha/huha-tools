@@ -15,7 +15,8 @@ export type TaxonomyCategory =
   | 'Tools'
   | 'Suppliers'
   | 'Label Designer'
-  | 'Admin';
+  | 'Admin'
+  | 'Quran';
 
 // Subcategory validation mapping
 export const SUBCATEGORIES: Record<TaxonomyCategory, string[]> = {
@@ -69,6 +70,12 @@ export const SUBCATEGORIES: Record<TaxonomyCategory, string[]> = {
     'Users',
     'Settings',
     'Stores'
+  ],
+  'Quran': [
+    'Main',
+    'Documentation',
+    'Reading',
+    'Search'
   ]
 };
 

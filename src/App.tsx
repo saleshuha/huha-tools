@@ -69,6 +69,7 @@ import QZTrayPage from "./pages/QZTrayPage";
 import { VelocityAnalyticsSimple } from "@/components/VelocityAnalyticsSimple";
 import PurchaseLink from "./pages/PurchaseLink";
 import ReceiveStock from "./pages/ReceiveStock";
+import QuranApiDocs from "./pages/QuranApiDocs";
 
 import { useState as useReactState } from "react";
 import { useToast } from "@/components/ui/use-toast";
@@ -316,6 +317,9 @@ const App = () => {
                         
                         {/* Public Purchase Link Route - No auth required */}
                         <Route path="/purchase/:token" element={<PurchaseLink />} />
+                        
+                        {/* Quran Routes */}
+                        <Route path="/quran-api-docs" element={<QuranApiDocs />} />
                         
                         <Route path="/auth" element={<Navigate to="/" replace />} />
                         
