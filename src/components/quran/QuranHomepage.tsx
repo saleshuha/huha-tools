@@ -6,10 +6,13 @@ import { SurahDetailView } from './SurahDetailView';
 import { QuranSearch } from './QuranSearch';
 import { VerseCard } from './VerseCard';
 import { TafsirDrawer } from './TafsirDrawer';
+import { BookmarksView } from './BookmarksView';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BookOpen, Shuffle, FileText, Sparkles } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { BookOpen, Shuffle, FileText, Sparkles, BookmarkCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export function QuranHomepage() {
@@ -19,6 +22,7 @@ export function QuranHomepage() {
   const { preferences, toggleBookmark, isBookmarked } = useQuranPreferences();
   
   const [selectedSurah, setSelectedSurah] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<string>('surahs');
   const [tafsirDrawer, setTafsirDrawer] = useState<{ open: boolean; surah: number; ayah: number }>({
     open: false,
     surah: 0,
@@ -29,6 +33,11 @@ export function QuranHomepage() {
     console.log('📖 QuranHomepage: Surah selected:', surahNumber);
     setSelectedSurah(surahNumber);
     console.log('📖 QuranHomepage: State updated to:', surahNumber);
+  };
+  
+  const handleNavigateToVerse = (surahNumber: number, ayahNumber: number) => {
+    setSelectedSurah(surahNumber);
+    // After navigation, scroll to verse would be implemented in SurahDetailView
   };
 
   // Check for hash navigation
@@ -109,6 +118,20 @@ export function QuranHomepage() {
               <Button
                 variant="outline"
                 size="sm"
+                onClick={() => setActiveTab('bookmarks')}
+                className="gap-2"
+              >
+                <BookmarkCheck className="h-4 w-4" />
+                My Bookmarks
+                {preferences.bookmarkedVerses.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                    {preferences.bookmarkedVerses.length}
+                  </Badge>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => navigate('/quran-api-docs')}
                 className="gap-2"
               >
@@ -142,30 +165,52 @@ export function QuranHomepage() {
           </div>
         )}
 
-        {/* Surahs Grid */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-3xl font-bold">Browse All Surahs</h2>
-            <div className="text-sm text-muted-foreground">114 Chapters</div>
-          </div>
+        {/* Main Content Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
+            <TabsTrigger value="surahs" className="gap-2">
+              <BookOpen className="h-4 w-4" />
+              Surahs
+            </TabsTrigger>
+            <TabsTrigger value="bookmarks" className="gap-2">
+              <BookmarkCheck className="h-4 w-4" />
+              Bookmarks
+              {preferences.bookmarkedVerses.length > 0 && (
+                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                  {preferences.bookmarkedVerses.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
 
-          {isLoading ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              {Array.from({ length: 12 }).map((_, i) => (
-                <Skeleton key={i} className="h-32" />
-              ))}
+          <TabsContent value="surahs" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-3xl font-bold">Browse All Surahs</h2>
+              <div className="text-sm text-muted-foreground">114 Chapters</div>
             </div>
-          ) : surahs ? (
-            <SurahGrid
-              surahs={surahs}
-              onSurahClick={handleSurahSelect}
-            />
-          ) : (
-            <Card className="p-12 text-center">
-              <p className="text-muted-foreground">Failed to load Quran data. Please try again.</p>
-            </Card>
-          )}
-        </div>
+
+            {isLoading ? (
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <Skeleton key={i} className="h-32" />
+                ))}
+              </div>
+            ) : surahs ? (
+              <SurahGrid
+                surahs={surahs}
+                onSurahClick={handleSurahSelect}
+              />
+            ) : (
+              <Card className="p-12 text-center">
+                <p className="text-muted-foreground">Failed to load Quran data. Please try again.</p>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="bookmarks">
+            <BookmarksView onNavigateToVerse={handleNavigateToVerse} />
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Tafsir Drawer */}

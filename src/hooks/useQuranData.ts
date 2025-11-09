@@ -32,10 +32,13 @@ export function useVerse(surahNumber: number, ayahNumber: number) {
 }
 
 export function useTafsir(surahNumber: number, ayahNumber: number) {
+  const enabled = surahNumber >= 1 && surahNumber <= 114 && ayahNumber > 0;
+  console.log('🕌 useTafsir hook:', { surahNumber, ayahNumber, enabled });
+  
   return useQuery({
     queryKey: ['quran', 'tafsir', surahNumber, ayahNumber],
     queryFn: () => quranApi.getTafsir(surahNumber, ayahNumber),
-    enabled: surahNumber >= 1 && surahNumber <= 114 && ayahNumber > 0,
+    enabled,
     staleTime: Infinity,
     gcTime: Infinity,
   });

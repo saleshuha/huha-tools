@@ -2,7 +2,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Verse } from '@/types/quran';
-import { BookmarkPlus, BookmarkCheck, Copy, Share2, Book } from 'lucide-react';
+import { BookmarkPlus, BookmarkCheck, Copy, Share2, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -68,20 +68,37 @@ export function VerseCard({
   };
 
   return (
-    <Card className="p-6 space-y-4 bg-card/50 backdrop-blur-sm border-border/50 hover:border-primary/20 transition-colors">
+    <Card className={cn(
+      "group p-6 space-y-4 bg-card/50 backdrop-blur-sm transition-all duration-300",
+      isBookmarked 
+        ? "border-primary/40 bg-primary/5 shadow-sm" 
+        : "border-border/50 hover:border-primary/20"
+    )}>
       <div className="flex items-start justify-between">
-        <Badge variant="secondary" className="font-arabic">
-          {verse.surahNumber}:{verse.ayahNumber}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className="font-arabic">
+            {verse.surahNumber}:{verse.ayahNumber}
+          </Badge>
+          {isBookmarked && (
+            <Badge variant="outline" className="text-xs border-primary/30 bg-primary/5">
+              <BookmarkCheck className="h-3 w-3 mr-1" />
+              Saved
+            </Badge>
+          )}
+        </div>
         <div className="flex gap-1">
           <Button
-            variant="ghost"
+            variant={isBookmarked ? "default" : "ghost"}
             size="sm"
             onClick={onToggleBookmark}
-            className="h-8 w-8 p-0"
+            className={cn(
+              "h-8 w-8 p-0 transition-all",
+              isBookmarked ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+            )}
+            title={isBookmarked ? "Remove bookmark" : "Add bookmark"}
           >
             {isBookmarked ? (
-              <BookmarkCheck className="h-4 w-4 text-primary" />
+              <BookmarkCheck className="h-4 w-4" />
             ) : (
               <BookmarkPlus className="h-4 w-4" />
             )}
@@ -107,7 +124,7 @@ export function VerseCard({
           onClick={onShowTafsir}
           className="flex-1"
         >
-          <Book className="h-4 w-4 mr-2" />
+          <BookOpen className="h-4 w-4 mr-2" />
           Tafsir
         </Button>
         <Button

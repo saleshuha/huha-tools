@@ -113,10 +113,22 @@ export const quranApi = {
     if (surahNumber < 1 || surahNumber > 114) {
       throw new QuranApiError('Invalid surah number. Must be between 1 and 114.');
     }
-    const data = await fetchWithRetry<Tafsir[]>(
-      `${BASE_URL}/tafsir/${surahNumber}/${ayahNumber}.json`
-    );
-    return data;
+    console.log('🕌 Quran API: Fetching tafsir for:', { surahNumber, ayahNumber });
+    try {
+      const data = await fetchWithRetry<Tafsir[]>(
+        `${BASE_URL}/tafsir/${surahNumber}/${ayahNumber}.json`
+      );
+      console.log('🕌 Quran API: Tafsir response:', { 
+        surahNumber, 
+        ayahNumber, 
+        count: data?.length,
+        tafsirs: data?.map((t: any) => t.tafsirName) 
+      });
+      return data;
+    } catch (error) {
+      console.error('🕌 Quran API: Failed to fetch tafsir:', { surahNumber, ayahNumber, error });
+      throw error;
+    }
   },
 
   async getRandomVerse(): Promise<Verse> {

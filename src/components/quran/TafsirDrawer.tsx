@@ -20,7 +20,16 @@ export function TafsirDrawer({
   surahNumber,
   ayahNumber,
 }: TafsirDrawerProps) {
-  const { data: tafsirs, isLoading } = useTafsir(surahNumber, ayahNumber);
+  const { data: tafsirs, isLoading, error } = useTafsir(surahNumber, ayahNumber);
+  
+  console.log('🕌 TafsirDrawer state:', { 
+    surahNumber, 
+    ayahNumber, 
+    isLoading, 
+    hasData: !!tafsirs,
+    dataLength: tafsirs?.length,
+    error: error?.message 
+  });
 
   const handleCopy = (text: string, name: string) => {
     navigator.clipboard.writeText(text);
@@ -42,6 +51,11 @@ export function TafsirDrawer({
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center h-64 text-destructive space-y-2">
+            <p className="font-semibold">Error loading tafsir</p>
+            <p className="text-sm text-muted-foreground">{error.message}</p>
           </div>
         ) : tafsirs && tafsirs.length > 0 ? (
           <Tabs defaultValue={tafsirs[0].tafsirName} className="mt-6">
