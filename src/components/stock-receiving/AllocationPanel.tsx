@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, XCircle, Clock } from 'lucide-react';
 import type { ReceivingItem, ProcessingResult } from '@/hooks/useStockReceiving';
+import { ProcessingResultsDisplay } from './ProcessingResultsDisplay';
 
 interface AllocationPanelProps {
   items: ReceivingItem[];
@@ -81,25 +82,6 @@ export function AllocationPanel({
           </div>
         )}
 
-        {results.length > 0 && (
-          <div className="border-t pt-4">
-            <div className="text-sm space-y-1">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Processed:</span>
-                <span className="font-medium">{processedCount} / {items.length}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Successful:</span>
-                <span className="font-medium text-green-600">{successCount}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Failed:</span>
-                <span className="font-medium text-red-600">{processedCount - successCount}</span>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="flex gap-2 pt-4">
           <Button
             onClick={onProcess}
@@ -115,6 +97,13 @@ export function AllocationPanel({
             </Button>
           )}
         </div>
+
+        {/* Show Detailed Results */}
+        {results.length > 0 && processedCount === items.length && (
+          <div className="pt-4 border-t">
+            <ProcessingResultsDisplay results={results} items={items} />
+          </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { History, Eye, CheckCircle } from 'lucide-react';
+import { History, Eye, CheckCircle, Package, FileText, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 import type { ReceivingSession } from '@/hooks/useStockReceiving';
 import {
   Dialog,
@@ -19,8 +20,11 @@ interface SessionHistoryProps {
 }
 
 export function SessionHistory({ sessions, onEndSession }: SessionHistoryProps) {
+  const navigate = useNavigate();
   const [selectedSession, setSelectedSession] = useState<ReceivingSession | null>(null);
   const [sessionItems, setSessionItems] = useState<any[]>([]);
+  const [sessionPOs, setSessionPOs] = useState<any[]>([]);
+  const [sessionInventory, setSessionInventory] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const loadSessionDetails = async (session: ReceivingSession) => {
@@ -28,14 +32,38 @@ export function SessionHistory({ sessions, onEndSession }: SessionHistoryProps) 
     setSelectedSession(session);
     
     try {
-      const { data, error } = await supabase
+      // Load session items
+      const { data: items, error: itemsError } = await supabase
         .from('stock_receiving_items')
         .select('*')
         .eq('session_id', session.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setSessionItems(data || []);
+      if (itemsError) throw itemsError;
+      setSessionItems(items || []);
+
+      // Load PO allocations from this session
+      const { data: poData, error: poError } = await supabase
+        .from('po_fulfillments')
+        .select(`
+          *,
+          po_orders!inner(po_number, status, supplier_name)
+        `)
+        .eq('session_id', session.id);
+
+      if (!poError && poData) {
+        setSessionPOs(poData);
+      }
+
+      // Load inventory items from this session
+      const { data: invData, error: invError } = await supabase
+        .from('asin_inventory')
+        .select('*')
+        .eq('receiving_session_id', session.id);
+
+      if (!invError && invData) {
+        setSessionInventory(invData);
+      }
     } catch (error) {
       console.error('Error loading session details:', error);
     } finally {
@@ -161,8 +189,97 @@ export function SessionHistory({ sessions, onEndSession }: SessionHistoryProps) 
                 </Card>
               </div>
 
+              {/* Quick Action Buttons */}
+              {(sessionPOs.length > 0 || sessionInventory.length > 0) && (
+                <div className="flex gap-2 pb-4 border-b">
+                  {sessionPOs.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate('/po-tracker')}
+                    >
+                      <FileText className="w-4 h-4 mr-2" />
+                      View {sessionPOs.length} Fulfilled PO{sessionPOs.length !== 1 ? 's' : ''}
+                    </Button>
+                  )}
+                  {sessionInventory.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate('/inventory')}
+                    >
+                      <Package className="w-4 h-4 mr-2" />
+                      View {sessionInventory.length} Inventory Item{sessionInventory.length !== 1 ? 's' : ''}
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              {/* POs Fulfilled */}
+              {sessionPOs.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="font-medium flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    Purchase Orders Fulfilled
+                  </h3>
+                  <div className="space-y-2">
+                    {sessionPOs.map((po, index) => (
+                      <div key={index} className="border rounded-lg p-3 bg-success/5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="font-medium">{po.po_orders.po_number}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {po.po_orders.supplier_name} • Qty: {po.quantity_fulfilled}
+                            </div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate(`/po-tracker?po=${po.po_orders.po_number}`)}
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Inventory Items Added */}
+              {sessionInventory.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="font-medium flex items-center gap-2">
+                    <Package className="w-4 h-4" />
+                    Inventory Items Added
+                  </h3>
+                  <div className="space-y-2">
+                    {sessionInventory.map((inv, index) => (
+                      <div key={index} className="border rounded-lg p-3 bg-primary/5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="font-medium">{inv.asin || 'N/A'}</div>
+                            <div className="text-sm text-muted-foreground">
+                              Qty: {inv.quantity} • Serial: {inv.serial_number?.substring(0, 20)}...
+                            </div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate(`/inventory?id=${inv.id}`)}
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Session Items */}
               <div className="space-y-2">
-                <h3 className="font-medium">Items in Session</h3>
+                <h3 className="font-medium">All Items Processed</h3>
                 {sessionItems.map((item, index) => (
                   <div key={index} className="border rounded-lg p-3 bg-muted/20">
                     <div className="flex items-center justify-between mb-2">
