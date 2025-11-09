@@ -39,8 +39,26 @@ export interface LabelTemplate {
 /**
  * Get appropriate label template based on result type
  */
-export async function getTemplateForResult(result: ProcessingResult): Promise<LabelTemplate | null> {
+export async function getTemplateForResult(
+  result: ProcessingResult,
+  preferredTemplateId?: string
+): Promise<LabelTemplate | null> {
   try {
+    // If a preferred template ID is provided, try to use it first
+    if (preferredTemplateId) {
+      const { data: preferredTemplate } = await supabase
+        .from('label_templates')
+        .select('*')
+        .eq('id', preferredTemplateId)
+        .single();
+      
+      if (preferredTemplate) {
+        console.log('Using preferred template:', preferredTemplate.name);
+        return preferredTemplate;
+      }
+    }
+
+    // Fall back to searching by type
     let query = supabase
       .from('label_templates')
       .select('*')
@@ -82,15 +100,16 @@ export async function getTemplateForResult(result: ProcessingResult): Promise<La
  */
 export async function autoPrintLabel(
   result: ProcessingResult,
-  config: AutoPrintConfig
+  config: AutoPrintConfig,
+  preferredTemplateId?: string
 ): Promise<boolean> {
   if (!config.enabled) {
     return false;
   }
 
   try {
-    // Get appropriate template
-    const template = await getTemplateForResult(result);
+    // Get appropriate template (use preferred if provided)
+    const template = await getTemplateForResult(result, preferredTemplateId);
     
     if (!template) {
       toast.error('No label template found. Please create one in Label Designer.');

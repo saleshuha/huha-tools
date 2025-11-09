@@ -13,6 +13,8 @@ import { Label } from '@/components/ui/label';
 import { AlertCircle, CheckCircle2, Loader2, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { autoPrintLabel, getAutoPrintConfig, saveAutoPrintConfig } from '@/utils/auto-label-printer';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SearchResult {
   type: 'po' | 'inventory' | 'recent';
@@ -61,6 +63,10 @@ export default function ReceiveStock() {
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [autoPrintEnabled, setAutoPrintEnabled] = useState(false);
   const [directPrintEnabled, setDirectPrintEnabled] = useState(false);
+  const [poTemplates, setPoTemplates] = useState<any[]>([]);
+  const [inventoryTemplates, setInventoryTemplates] = useState<any[]>([]);
+  const [selectedPoTemplate, setSelectedPoTemplate] = useState<string>('');
+  const [selectedInventoryTemplate, setSelectedInventoryTemplate] = useState<string>('');
 
   useEffect(() => {
     loadSessions();
@@ -71,7 +77,49 @@ export default function ReceiveStock() {
     const config = getAutoPrintConfig();
     setAutoPrintEnabled(config.enabled);
     setDirectPrintEnabled(config.preferDirectPrint);
+    
+    // Load template preferences
+    const savedPoTemplate = localStorage.getItem('stock-receiving-po-template-id');
+    const savedInventoryTemplate = localStorage.getItem('stock-receiving-inventory-template-id');
+    if (savedPoTemplate) setSelectedPoTemplate(savedPoTemplate);
+    if (savedInventoryTemplate) setSelectedInventoryTemplate(savedInventoryTemplate);
+    
+    // Load templates
+    loadTemplates(savedPoTemplate, savedInventoryTemplate);
   }, []);
+
+  const loadTemplates = async (savedPoTemplate?: string | null, savedInventoryTemplate?: string | null) => {
+    try {
+      // Load PO templates
+      const { data: poData } = await supabase
+        .from('label_templates')
+        .select('id, name, description')
+        .or('name.ilike.%po%,name.ilike.%purchase%,description.ilike.%po%')
+        .order('created_at', { ascending: false });
+
+      // Load Inventory templates
+      const { data: invData } = await supabase
+        .from('label_templates')
+        .select('id, name, description')
+        .or('name.ilike.%inventory%,name.ilike.%warehouse%,name.ilike.%stock%')
+        .order('created_at', { ascending: false });
+
+      setPoTemplates(poData || []);
+      setInventoryTemplates(invData || []);
+
+      // Auto-select first template if none selected
+      if (poData && poData.length > 0 && !savedPoTemplate) {
+        setSelectedPoTemplate(poData[0].id);
+        localStorage.setItem('stock-receiving-po-template-id', poData[0].id);
+      }
+      if (invData && invData.length > 0 && !savedInventoryTemplate) {
+        setSelectedInventoryTemplate(invData[0].id);
+        localStorage.setItem('stock-receiving-inventory-template-id', invData[0].id);
+      }
+    } catch (error) {
+      console.error('Error loading templates:', error);
+    }
+  };
 
   const initializeSession = async () => {
     if (!currentSession) {
@@ -157,6 +205,9 @@ export default function ReceiveStock() {
           quantity: po.quantity_allocated
         })) || [];
         
+        // Select appropriate template based on type
+        const templateId = templateType === 'po' ? selectedPoTemplate : selectedInventoryTemplate;
+        
         const printed = await autoPrintLabel(
           {
             success: result.success,
@@ -165,7 +216,8 @@ export default function ReceiveStock() {
             inventory_id: result.inventory_id,
             template_type: templateType
           },
-          { ...printConfig, enabled: true }
+          { ...printConfig, enabled: true },
+          templateId
         );
         activity.printed = printed;
       }
@@ -198,6 +250,16 @@ export default function ReceiveStock() {
     setDirectPrintEnabled(enabled);
     const config = getAutoPrintConfig();
     saveAutoPrintConfig({ ...config, preferDirectPrint: enabled });
+  };
+
+  const handlePoTemplateChange = (templateId: string) => {
+    setSelectedPoTemplate(templateId);
+    localStorage.setItem('stock-receiving-po-template-id', templateId);
+  };
+
+  const handleInventoryTemplateChange = (templateId: string) => {
+    setSelectedInventoryTemplate(templateId);
+    localStorage.setItem('stock-receiving-inventory-template-id', templateId);
   };
 
   return (
@@ -283,7 +345,8 @@ export default function ReceiveStock() {
             />
 
             {/* Print Settings */}
-            <div className="flex flex-col sm:flex-row gap-4 pt-2 border-t border-border/50">
+            <div className="space-y-4 pt-4 border-t border-border/50">
+              {/* Auto-print toggle */}
               <div className="flex items-center gap-2">
                 <Switch
                   id="auto-print"
@@ -295,16 +358,89 @@ export default function ReceiveStock() {
                 </Label>
               </div>
               
+              {/* Print settings when auto-print is enabled */}
               {autoPrintEnabled && (
-                <div className="flex items-center gap-2">
-                  <Switch
-                    id="direct-print"
-                    checked={directPrintEnabled}
-                    onCheckedChange={handleDirectPrintChange}
-                  />
-                  <Label htmlFor="direct-print" className="text-sm cursor-pointer">
-                    Use direct printing (QZ Tray)
-                  </Label>
+                <div className="space-y-4 pl-6 border-l-2 border-primary/20">
+                  {/* Direct printing toggle */}
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id="direct-print"
+                      checked={directPrintEnabled}
+                      onCheckedChange={handleDirectPrintChange}
+                    />
+                    <Label htmlFor="direct-print" className="text-sm cursor-pointer">
+                      Use direct printing (QZ Tray)
+                    </Label>
+                  </div>
+
+                  {/* Template Selection */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* PO Template Selection */}
+                    <div className="space-y-2">
+                      <Label htmlFor="po-template" className="text-sm font-medium">
+                        PO Label Template
+                      </Label>
+                      <Select
+                        value={selectedPoTemplate}
+                        onValueChange={handlePoTemplateChange}
+                      >
+                        <SelectTrigger id="po-template" className="w-full">
+                          <SelectValue placeholder="Select PO template..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {poTemplates.length === 0 ? (
+                            <SelectItem value="none" disabled>
+                              No PO templates found
+                            </SelectItem>
+                          ) : (
+                            poTemplates.map((template) => (
+                              <SelectItem key={template.id} value={template.id}>
+                                {template.name}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                      {poTemplates.length === 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          Create a template in Label Designer
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Inventory Template Selection */}
+                    <div className="space-y-2">
+                      <Label htmlFor="inventory-template" className="text-sm font-medium">
+                        Inventory Label Template
+                      </Label>
+                      <Select
+                        value={selectedInventoryTemplate}
+                        onValueChange={handleInventoryTemplateChange}
+                      >
+                        <SelectTrigger id="inventory-template" className="w-full">
+                          <SelectValue placeholder="Select inventory template..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {inventoryTemplates.length === 0 ? (
+                            <SelectItem value="none" disabled>
+                              No inventory templates found
+                            </SelectItem>
+                          ) : (
+                            inventoryTemplates.map((template) => (
+                              <SelectItem key={template.id} value={template.id}>
+                                {template.name}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                      {inventoryTemplates.length === 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          Create a template in Label Designer
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
