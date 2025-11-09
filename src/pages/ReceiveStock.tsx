@@ -12,13 +12,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { AlertCircle, CheckCircle2, Loader2, Package } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { AlertCircle, CheckCircle2, Loader2, Package, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { PrintService } from '@/services/print-service';
 import { LabelDoc, LabelDataset, PrintSettings } from '@/types/label';
 import { QZConnectionManager } from '@/utils/qz-connection-manager';
+import { cn } from '@/lib/utils';
 
 interface SearchResult {
   type: 'po' | 'inventory' | 'recent';
@@ -73,6 +76,8 @@ export default function ReceiveStock() {
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [autoPrintEnabled, setAutoPrintEnabled] = useState(false);
   const [directPrintEnabled, setDirectPrintEnabled] = useState(false);
+  const [printDarkness, setPrintDarkness] = useState(10);
+  const [printSettingsOpen, setPrintSettingsOpen] = useState(false);
   const [poTemplates, setPoTemplates] = useState<any[]>([]);
   const [inventoryTemplates, setInventoryTemplates] = useState<any[]>([]);
   const [selectedPoTemplate, setSelectedPoTemplate] = useState<string>('');
@@ -106,13 +111,21 @@ export default function ReceiveStock() {
   const getAutoPrintConfig = () => {
     return {
       enabled: localStorage.getItem('stock-receiving-auto-print') === 'true',
-      preferDirectPrint: localStorage.getItem('stock-receiving-direct-print') === 'true'
+      preferDirectPrint: localStorage.getItem('stock-receiving-direct-print') === 'true',
+      darkness: parseInt(localStorage.getItem('stock-receiving-print-darkness') || '10', 10)
     };
   };
 
-  const saveAutoPrintConfig = (config: { enabled: boolean; preferDirectPrint: boolean }) => {
+  const saveAutoPrintConfig = (config: { 
+    enabled: boolean; 
+    preferDirectPrint: boolean;
+    darkness?: number;
+  }) => {
     localStorage.setItem('stock-receiving-auto-print', config.enabled.toString());
     localStorage.setItem('stock-receiving-direct-print', config.preferDirectPrint.toString());
+    if (config.darkness !== undefined) {
+      localStorage.setItem('stock-receiving-print-darkness', config.darkness.toString());
+    }
   };
 
   useEffect(() => {
@@ -122,6 +135,7 @@ export default function ReceiveStock() {
     const config = getAutoPrintConfig();
     setAutoPrintEnabled(config.enabled);
     setDirectPrintEnabled(config.preferDirectPrint);
+    setPrintDarkness(config.darkness);
     
     // Load template preferences
     const savedPoTemplate = localStorage.getItem('stock-receiving-po-template-id');
@@ -333,7 +347,7 @@ export default function ReceiveStock() {
             const printSettings: PrintSettings = {
               format: 'zpl',
               dpi: 203,
-              darkness: 10,
+              darkness: printDarkness,
               copies: 1,
               orientation: 'portrait',
               paperSize: 'custom',
@@ -410,6 +424,17 @@ export default function ReceiveStock() {
   const handleInventoryTemplateChange = (templateId: string) => {
     setSelectedInventoryTemplate(templateId);
     localStorage.setItem('stock-receiving-inventory-template-id', templateId);
+  };
+
+  const handleDarknessChange = (value: number[]) => {
+    const darkness = value[0];
+    setPrintDarkness(darkness);
+    saveAutoPrintConfig({ 
+      enabled: autoPrintEnabled, 
+      preferDirectPrint: directPrintEnabled,
+      darkness 
+    });
+    console.log('🖨️ Print darkness set to:', darkness);
   };
 
   return (
@@ -495,196 +520,241 @@ export default function ReceiveStock() {
               country={selectedCountry}
             />
 
-            {/* Print Settings */}
-            <div className="space-y-4 pt-4 border-t border-border/50">
-              {/* Auto-print toggle */}
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="auto-print"
-                  checked={autoPrintEnabled}
-                  onCheckedChange={handleAutoPrintChange}
-                />
-                <Label htmlFor="auto-print" className="text-sm cursor-pointer">
-                  Auto-print labels after receiving
-                </Label>
-              </div>
+            {/* Print Settings - Collapsible */}
+            <Collapsible 
+              open={printSettingsOpen} 
+              onOpenChange={setPrintSettingsOpen}
+              className="space-y-4 pt-4 border-t border-border/50"
+            >
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="flex items-center justify-between w-full p-2 hover:bg-muted/50"
+                >
+                  <span className="text-sm font-medium">Print Settings</span>
+                  <ChevronDown 
+                    className={cn(
+                      "w-4 h-4 transition-transform",
+                      printSettingsOpen && "rotate-180"
+                    )} 
+                  />
+                </Button>
+              </CollapsibleTrigger>
               
-              {/* Print settings when auto-print is enabled */}
-              {autoPrintEnabled && (
-                <div className="space-y-4 pl-6 border-l-2 border-primary/20">
-                  {/* Direct printing toggle */}
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      id="direct-print"
-                      checked={directPrintEnabled}
-                      onCheckedChange={handleDirectPrintChange}
-                    />
-                    <Label htmlFor="direct-print" className="text-sm cursor-pointer">
-                      Use direct printing (QZ Tray)
-                    </Label>
-                  </div>
+              <CollapsibleContent className="space-y-4">
+                {/* Auto-print toggle */}
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="auto-print"
+                    checked={autoPrintEnabled}
+                    onCheckedChange={handleAutoPrintChange}
+                  />
+                  <Label htmlFor="auto-print" className="text-sm cursor-pointer">
+                    Auto-print labels after receiving
+                  </Label>
+                </div>
+                
+                {/* Print settings when auto-print is enabled */}
+                {autoPrintEnabled && (
+                  <div className="space-y-4 pl-6 border-l-2 border-primary/20">
+                    {/* Direct printing toggle */}
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id="direct-print"
+                        checked={directPrintEnabled}
+                        onCheckedChange={handleDirectPrintChange}
+                      />
+                      <Label htmlFor="direct-print" className="text-sm cursor-pointer">
+                        Use direct printing (QZ Tray)
+                      </Label>
+                    </div>
 
-                  {/* Printer Selection */}
-                  {directPrintEnabled && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="default-printer" className="text-sm font-medium">
-                          Default Printer
-                        </Label>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={loadPrinters}
+                    {/* Printer Selection */}
+                    {directPrintEnabled && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="default-printer" className="text-sm font-medium">
+                            Default Printer
+                          </Label>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={loadPrinters}
+                            disabled={loadingPrinters}
+                          >
+                            {loadingPrinters ? (
+                              <>
+                                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                Loading...
+                              </>
+                            ) : (
+                              'Refresh'
+                            )}
+                          </Button>
+                        </div>
+                        
+                        {/* Warning if no printer selected */}
+                        {!selectedPrinter && availablePrinters.length === 0 && !loadingPrinters && (
+                          <Alert className="border-amber-500/50 bg-amber-500/10">
+                            <AlertCircle className="w-4 h-4 text-amber-500" />
+                            <AlertDescription className="text-amber-600 text-sm">
+                              No printers found. Make sure QZ Tray is running and click Refresh.
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                        
+                        {!selectedPrinter && availablePrinters.length > 0 && (
+                          <Alert className="border-amber-500/50 bg-amber-500/10">
+                            <AlertCircle className="w-4 h-4 text-amber-500" />
+                            <AlertDescription className="text-amber-600 text-sm">
+                              ⚠️ No printer selected - labels won't print! Select one below.
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                        
+                        <Select
+                          value={selectedPrinter}
+                          onValueChange={(value) => {
+                            console.log('🖨️ Printer selected:', value);
+                            setSelectedPrinter(value);
+                            localStorage.setItem('stock-receiving-default-printer', value);
+                            toast.success(`Printer set to: ${value}`);
+                          }}
                           disabled={loadingPrinters}
                         >
-                          {loadingPrinters ? (
-                            <>
-                              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                              Loading...
-                            </>
-                          ) : (
-                            'Refresh'
-                          )}
-                        </Button>
+                          <SelectTrigger id="default-printer" className="w-full">
+                            <SelectValue placeholder={loadingPrinters ? 'Loading printers...' : availablePrinters.length > 0 ? 'Select printer...' : 'No printers found'} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availablePrinters.length === 0 ? (
+                              <SelectItem value="none" disabled>
+                                {loadingPrinters ? 'Loading...' : 'No printers found'}
+                              </SelectItem>
+                            ) : (
+                              availablePrinters.map((printer) => (
+                                <SelectItem key={printer} value={printer}>
+                                  {printer}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                        {!loadingPrinters && availablePrinters.length === 0 && (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <AlertCircle className="w-3 h-3" />
+                            <span>Make sure QZ Tray is running, then click Refresh</span>
+                          </div>
+                        )}
+                        {!loadingPrinters && availablePrinters.length > 0 && !selectedPrinter && (
+                          <p className="text-xs text-amber-600">
+                            ⚠️ Please select a printer
+                          </p>
+                        )}
+                        {selectedPrinter && (
+                          <p className="text-xs text-green-600">
+                            ✓ Will print to: {selectedPrinter}
+                          </p>
+                        )}
                       </div>
-                      
-                      {/* Warning if no printer selected */}
-                      {!selectedPrinter && availablePrinters.length === 0 && !loadingPrinters && (
-                        <Alert className="border-amber-500/50 bg-amber-500/10">
-                          <AlertCircle className="w-4 h-4 text-amber-500" />
-                          <AlertDescription className="text-amber-600 text-sm">
-                            No printers found. Make sure QZ Tray is running and click Refresh.
-                          </AlertDescription>
-                        </Alert>
-                      )}
-                      
-                      {!selectedPrinter && availablePrinters.length > 0 && (
-                        <Alert className="border-amber-500/50 bg-amber-500/10">
-                          <AlertCircle className="w-4 h-4 text-amber-500" />
-                          <AlertDescription className="text-amber-600 text-sm">
-                            ⚠️ No printer selected - labels won't print! Select one below.
-                          </AlertDescription>
-                        </Alert>
-                      )}
-                      
-                      <Select
-                        value={selectedPrinter}
-                        onValueChange={(value) => {
-                          console.log('🖨️ Printer selected:', value);
-                          setSelectedPrinter(value);
-                          localStorage.setItem('stock-receiving-default-printer', value);
-                          toast.success(`Printer set to: ${value}`);
-                        }}
-                        disabled={loadingPrinters}
-                      >
-                        <SelectTrigger id="default-printer" className="w-full">
-                          <SelectValue placeholder={loadingPrinters ? 'Loading printers...' : availablePrinters.length > 0 ? 'Select printer...' : 'No printers found'} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availablePrinters.length === 0 ? (
-                            <SelectItem value="none" disabled>
-                              {loadingPrinters ? 'Loading...' : 'No printers found'}
-                            </SelectItem>
-                          ) : (
-                            availablePrinters.map((printer) => (
-                              <SelectItem key={printer} value={printer}>
-                                {printer}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                      {!loadingPrinters && availablePrinters.length === 0 && (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <AlertCircle className="w-3 h-3" />
-                          <span>Make sure QZ Tray is running, then click Refresh</span>
-                        </div>
-                      )}
-                      {!loadingPrinters && availablePrinters.length > 0 && !selectedPrinter && (
-                        <p className="text-xs text-amber-600">
-                          ⚠️ Please select a printer
-                        </p>
-                      )}
-                      {selectedPrinter && (
-                        <p className="text-xs text-green-600">
-                          ✓ Will print to: {selectedPrinter}
-                        </p>
-                      )}
-                    </div>
-                  )}
+                    )}
 
-                  {/* Template Selection */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* PO Template Selection */}
+                    {/* Darkness Control */}
                     <div className="space-y-2">
-                      <Label htmlFor="po-template" className="text-sm font-medium">
-                        PO Label Template
-                      </Label>
-                      <Select
-                        value={selectedPoTemplate}
-                        onValueChange={handlePoTemplateChange}
-                      >
-                        <SelectTrigger id="po-template" className="w-full">
-                          <SelectValue placeholder="Select PO template..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {poTemplates.length === 0 ? (
-                            <SelectItem value="none" disabled>
-                              No PO templates found
-                            </SelectItem>
-                          ) : (
-                            poTemplates.map((template) => (
-                              <SelectItem key={template.id} value={template.id}>
-                                {template.name}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                      {poTemplates.length === 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          Create a template in Label Designer
-                        </p>
-                      )}
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="print-darkness" className="text-sm font-medium">
+                          Print Darkness: {printDarkness}
+                        </Label>
+                        <span className="text-xs text-muted-foreground">
+                          (0 = Lightest, 30 = Darkest)
+                        </span>
+                      </div>
+                      <Slider
+                        id="print-darkness"
+                        min={0}
+                        max={30}
+                        step={1}
+                        value={[printDarkness]}
+                        onValueChange={handleDarknessChange}
+                        className="w-full"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Adjust print darkness for Zebra printers. Default is 10.
+                      </p>
                     </div>
 
-                    {/* Inventory Template Selection */}
-                    <div className="space-y-2">
-                      <Label htmlFor="inventory-template" className="text-sm font-medium">
-                        Inventory Label Template
-                      </Label>
-                      <Select
-                        value={selectedInventoryTemplate}
-                        onValueChange={handleInventoryTemplateChange}
-                      >
-                        <SelectTrigger id="inventory-template" className="w-full">
-                          <SelectValue placeholder="Select inventory template..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {inventoryTemplates.length === 0 ? (
-                            <SelectItem value="none" disabled>
-                              No inventory templates found
-                            </SelectItem>
-                          ) : (
-                            inventoryTemplates.map((template) => (
-                              <SelectItem key={template.id} value={template.id}>
-                                {template.name}
+                    {/* Template Selection */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* PO Template Selection */}
+                      <div className="space-y-2">
+                        <Label htmlFor="po-template" className="text-sm font-medium">
+                          PO Label Template
+                        </Label>
+                        <Select
+                          value={selectedPoTemplate}
+                          onValueChange={handlePoTemplateChange}
+                        >
+                          <SelectTrigger id="po-template" className="w-full">
+                            <SelectValue placeholder="Select PO template..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {poTemplates.length === 0 ? (
+                              <SelectItem value="none" disabled>
+                                No PO templates found
                               </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                      {inventoryTemplates.length === 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          Create a template in Label Designer
-                        </p>
-                      )}
+                            ) : (
+                              poTemplates.map((template) => (
+                                <SelectItem key={template.id} value={template.id}>
+                                  {template.name}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                        {poTemplates.length === 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            Create a template in Label Designer
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Inventory Template Selection */}
+                      <div className="space-y-2">
+                        <Label htmlFor="inventory-template" className="text-sm font-medium">
+                          Inventory Label Template
+                        </Label>
+                        <Select
+                          value={selectedInventoryTemplate}
+                          onValueChange={handleInventoryTemplateChange}
+                        >
+                          <SelectTrigger id="inventory-template" className="w-full">
+                            <SelectValue placeholder="Select inventory template..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {inventoryTemplates.length === 0 ? (
+                              <SelectItem value="none" disabled>
+                                No inventory templates found
+                              </SelectItem>
+                            ) : (
+                              inventoryTemplates.map((template) => (
+                                <SelectItem key={template.id} value={template.id}>
+                                  {template.name}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                        {inventoryTemplates.length === 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            Create a template in Label Designer
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </CollapsibleContent>
+            </Collapsible>
           </CardContent>
         </Card>
 
