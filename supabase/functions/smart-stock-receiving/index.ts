@@ -388,7 +388,7 @@ async function locateMatchingPurchaseOrders(
     .from('po_orders')
     .select('*')
     .eq('user_id', userId)
-    .in('status', ['pending', 'ordered'])
+    .in('status', ['pending', 'placed'])
     .or(`asin.eq.${item.asin || 'none'},sku_code.eq.${item.sku_code || 'none'},model_number.eq.${item.model_number || 'none'}`)
     .order('expected_delivery', { ascending: true });
 

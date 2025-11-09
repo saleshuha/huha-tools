@@ -43,7 +43,7 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
         const { data: poData } = await supabase
           .from('po_orders')
           .select('asin, sku_code, model_number, title')
-          .in('status', ['ordered', 'shipped', 'processing'])
+          .in('status', ['pending', 'placed'])
           .or(`asin.ilike.%${term}%,sku_code.ilike.%${term}%,model_number.ilike.%${term}%`)
           .limit(5);
 
