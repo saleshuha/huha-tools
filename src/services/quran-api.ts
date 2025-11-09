@@ -50,6 +50,8 @@ export const quranApi = {
       throw new QuranApiError('Invalid surah number. Must be between 1 and 114.');
     }
     console.log('🕌 Quran API: Fetching surah:', surahNumber);
+    
+    // Fetch surah metadata
     const data = await fetchWithRetry<any>(`${BASE_URL}/${surahNumber}.json`);
     
     // Ensure surahNumber exists in response
@@ -58,13 +60,25 @@ export const quranApi = {
       surahNumber: data.surahNumber || surahNumber
     };
     
-    console.log('🕌 Quran API: Surah data with number:', {
+    // Fetch all verses concurrently
+    console.log('🕌 Quran API: Fetching', surahWithNumber.totalAyah, 'verses for surah', surahNumber);
+    const versePromises = Array.from(
+      { length: surahWithNumber.totalAyah },
+      (_, i) => this.getVerse(surahNumber, i + 1)
+    );
+    const verses = await Promise.all(versePromises);
+    
+    console.log('🕌 Quran API: Surah data complete:', {
       surahNumber: surahWithNumber.surahNumber,
       surahName: surahWithNumber.surahName,
       totalAyah: surahWithNumber.totalAyah,
-      versesCount: surahWithNumber.verses?.length
+      versesCount: verses.length
     });
-    return surahWithNumber as Surah;
+    
+    return {
+      ...surahWithNumber,
+      verses
+    } as Surah;
   },
 
   async getVerse(surahNumber: number, ayahNumber: number): Promise<Verse> {
