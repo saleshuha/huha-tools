@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, AlertCircle } from 'lucide-react';
-import qz from 'qz-tray';
+import { qzConnectionManager } from '@/utils/qz-connection-manager';
 
 interface SearchResult {
   type: 'po' | 'inventory' | 'recent';
@@ -58,32 +58,25 @@ export function QuantityConfirmDialog({
       const savedAutoPrint = localStorage.getItem('stock-receiving-auto-print');
       setAutoPrintEnabled(savedAutoPrint === 'true' || savedAutoPrint === null); // Default to true
       
-      // Check QZ Tray connection status
-      checkQZConnection();
+      // Set up connection listener for reactive status updates
+      const handleConnectionChange = (connected: boolean) => {
+        setQzConnected(connected);
+      };
+      
+      qzConnectionManager.addConnectionListener(handleConnectionChange);
+      
+      // Attempt connection
+      qzConnectionManager.connect().catch(err => {
+        console.error('QZ Tray connection failed:', err);
+        setQzConnected(false);
+      });
+      
+      // Cleanup listener when dialog closes
+      return () => {
+        qzConnectionManager.removeConnectionListener(handleConnectionChange);
+      };
     }
   }, [open]);
-
-  const checkQZConnection = async () => {
-    try {
-      // First check if already connected
-      if (qz.websocket.isActive()) {
-        setQzConnected(true);
-        return;
-      }
-      
-      // If not connected, try to connect
-      const { QZConnectionManager } = await import('@/utils/qz-connection-manager');
-      const qzManager = QZConnectionManager.getInstance();
-      await qzManager.connect();
-      
-      // Check status after connection attempt
-      const isConnected = qz.websocket.isActive();
-      setQzConnected(isConnected);
-    } catch (error) {
-      console.error('QZ Tray connection check failed:', error);
-      setQzConnected(false);
-    }
-  };
 
   const handleSubmit = (autoPrint: boolean) => {
     // Save auto-print preference
@@ -120,7 +113,14 @@ export function QuantityConfirmDialog({
             <Alert variant="destructive" className="border-destructive/50 bg-destructive/10">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription className="text-sm">
-                QZ Tray not connected. Please start QZ Tray to enable printing.
+                <div className="space-y-2">
+                  <p className="font-medium">QZ Tray not connected</p>
+                  <p>Please start QZ Tray application and ensure it's connected.</p>
+                  <p className="text-xs opacity-75">
+                    Go to Settings → QZ Tray Setup or{' '}
+                    <a href="/qz-tray" target="_blank" className="underline">open QZ Tray settings</a>
+                  </p>
+                </div>
               </AlertDescription>
             </Alert>
           )}
