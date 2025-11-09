@@ -181,12 +181,26 @@ serve(async (req) => {
             receiving_notes: item.notes
           });
 
+          // Determine template type based on allocations
+          const templateType = allocation.allocations.length > 0 ? 'po' : 'inventory';
+          
           results.push({
             item_id: item.asin || item.sku_code || item.model_number,
             matched_pos: allocation.allocations,
             quantity_to_inventory: allocation.remainingQty,
             inventory_id: inventoryId,
             success: true,
+            template_type: templateType,
+            template_data: {
+              asin: item.asin,
+              sku_code: item.sku_code,
+              model_number: item.model_number,
+              title: item.title,
+              quantity: item.quantity,
+              po_numbers: allocation.allocations.map(a => a.po_number),
+              serial_number: item.serial_number,
+              status: allocation.allocations.length > 0 ? 'Delivered' : 'In Stock'
+            },
             message: `Allocated ${item.quantity - allocation.remainingQty} to ${allocation.allocations.length} PO(s), added ${allocation.remainingQty} to inventory`
           });
         } else {

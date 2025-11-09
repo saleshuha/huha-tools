@@ -374,6 +374,16 @@ export function useStockReceiving() {
     }
   };
 
+  // Process single item immediately
+  const processSingleItem = async (
+    item: ReceivingItem | ReceivingItem[],
+    autoFulfill = true,
+    sessionId?: string
+  ) => {
+    const items = Array.isArray(item) ? item : [item];
+    return processItems(items, autoFulfill, sessionId);
+  };
+
   return {
     sessions,
     currentSession,
@@ -381,6 +391,7 @@ export function useStockReceiving() {
     loading,
     createSession,
     processItems,
+    processSingleItem,
     endSession,
     getSessionItems,
     getSessionInventoryItems,

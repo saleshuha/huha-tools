@@ -1,15 +1,40 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Package, PlayCircle, StopCircle, Loader2, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { HuhaHeader01 } from '@/components/ui/huha-header-01';
-import { useStockReceiving, type ReceivingItem, type ProcessingResult } from '@/hooks/useStockReceiving';
-import { ItemScanner } from '@/components/stock-receiving/ItemScanner';
-import { AllocationPanel } from '@/components/stock-receiving/AllocationPanel';
-import { SessionHistory } from '@/components/stock-receiving/SessionHistory';
+import { useState, useEffect } from 'react';
 import { usePageTracking } from '@/hooks/usePageTracking';
+import { useStockReceiving } from '@/hooks/useStockReceiving';
+import { ItemSearchBar } from '@/components/stock-receiving/ItemSearchBar';
+import { QuantityConfirmDialog } from '@/components/stock-receiving/QuantityConfirmDialog';
+import { RecentActivityFeed } from '@/components/stock-receiving/RecentActivityFeed';
+import { SessionHistory } from '@/components/stock-receiving/SessionHistory';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { AlertCircle, CheckCircle2, Loader2, Package } from 'lucide-react';
+import { toast } from 'sonner';
+import { autoPrintLabel, getAutoPrintConfig, saveAutoPrintConfig } from '@/utils/auto-label-printer';
+
+interface SearchResult {
+  type: 'po' | 'inventory' | 'recent';
+  asin?: string;
+  sku_code?: string;
+  model_number?: string;
+  title?: string;
+  context?: string;
+  po_count?: number;
+}
+
+interface ActivityItem {
+  id: string;
+  success: boolean;
+  identifier: string;
+  destination: string;
+  quantity: number;
+  printed: boolean;
+  timestamp: Date;
+  error?: string;
+  template_type?: 'po' | 'inventory';
+}
 
 export default function ReceiveStock() {
   usePageTracking({
@@ -17,43 +42,50 @@ export default function ReceiveStock() {
     subcategory: 'Stock Receiving',
     pageTitle: 'Receive Stock'
   });
-
+  
   const {
-    sessions,
     currentSession,
     isProcessing,
-    loading,
     createSession,
-    processItems,
+    processSingleItem,
     endSession,
     loadSessions,
-    testConnection
+    testConnection,
+    sessions,
   } = useStockReceiving();
 
-  const [pendingItems, setPendingItems] = useState<ReceivingItem[]>([]);
-  const [processingResults, setProcessingResults] = useState<ProcessingResult[]>([]);
-  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'failed'>('checking');
-  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [selectedItem, setSelectedItem] = useState<SearchResult | null>(null);
+  const [showDialog, setShowDialog] = useState(false);
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking');
   const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [autoPrintEnabled, setAutoPrintEnabled] = useState(false);
+  const [directPrintEnabled, setDirectPrintEnabled] = useState(false);
 
   useEffect(() => {
     loadSessions();
     checkConnection();
+    initializeSession();
+    
+    // Load print preferences
+    const config = getAutoPrintConfig();
+    setAutoPrintEnabled(config.enabled);
+    setDirectPrintEnabled(config.preferDirectPrint);
   }, []);
 
+  const initializeSession = async () => {
+    if (!currentSession) {
+      await createSession('Auto-created receiving session');
+    }
+  };
+
   const checkConnection = async () => {
-    console.log('[ReceiveStock] Checking connection...');
     setConnectionStatus('checking');
-    setConnectionError(null);
-    
-    const result = await testConnection();
-    console.log('[ReceiveStock] Connection result:', result);
-    
-    if (result.connected) {
-      setConnectionStatus('connected');
-    } else {
-      setConnectionStatus('failed');
-      setConnectionError(result.details || result.error || 'Connection failed');
+    try {
+      const result = await testConnection();
+      setConnectionStatus(result.connected ? 'connected' : 'error');
+    } catch (error) {
+      setConnectionStatus('error');
     }
   };
 
@@ -63,180 +95,250 @@ export default function ReceiveStock() {
     setIsTestingConnection(false);
   };
 
-  const handleStartSession = async () => {
-    const session = await createSession();
-    if (session) {
-      setPendingItems([]);
-      setProcessingResults([]);
+  const handleItemSelect = (result: SearchResult) => {
+    setSelectedItem(result);
+    setShowDialog(true);
+  };
+
+  const handleConfirm = async (data: {
+    quantity: number;
+    serial_number?: string;
+    supplier_name?: string;
+    notes?: string;
+    autoPrint: boolean;
+  }) => {
+    if (!selectedItem || !currentSession) return;
+
+    const item = {
+      asin: selectedItem.asin,
+      sku_code: selectedItem.sku_code,
+      model_number: selectedItem.model_number,
+      title: selectedItem.title,
+      quantity: data.quantity,
+      serial_number: data.serial_number,
+      supplier_name: data.supplier_name,
+      notes: data.notes,
+    };
+
+    const results = await processSingleItem(item, true, currentSession.id);
+    
+    if (results && results.length > 0) {
+      const result = results[0];
+      
+      // Determine destination and template type
+      let destination = 'Inventory';
+      let templateType: 'po' | 'inventory' = 'inventory';
+      
+      if (result.matched_pos && result.matched_pos.length > 0) {
+        const poNumbers = result.matched_pos.map((a: any) => a.po_number).join(', ');
+        destination = `PO ${poNumbers}`;
+        templateType = 'po';
+      }
+
+      // Create activity item
+      const activity: ActivityItem = {
+        id: `${Date.now()}-${Math.random()}`,
+        success: result.success,
+        identifier: item.asin || item.sku_code || item.model_number || 'Unknown',
+        destination,
+        quantity: data.quantity,
+        printed: false,
+        timestamp: new Date(),
+        template_type: templateType,
+        error: result.error
+      };
+
+      // Auto-print if requested
+      if (data.autoPrint && result.success) {
+        const printConfig = getAutoPrintConfig();
+        // Map POAllocation to expected format
+        const poAllocations = result.matched_pos?.map((po: any) => ({
+          po_number: po.po_number,
+          quantity: po.quantity_allocated
+        })) || [];
+        
+        const printed = await autoPrintLabel(
+          {
+            success: result.success,
+            item,
+            po_allocations: poAllocations,
+            inventory_id: result.inventory_id,
+            template_type: templateType
+          },
+          { ...printConfig, enabled: true }
+        );
+        activity.printed = printed;
+      }
+
+      setActivities(prev => [activity, ...prev]);
+      toast.success(`Received ${data.quantity} unit(s)`);
     }
+
+    setShowDialog(false);
+    setSelectedItem(null);
   };
 
   const handleEndSession = async () => {
     if (currentSession) {
       await endSession(currentSession.id);
-      setPendingItems([]);
-      setProcessingResults([]);
+      setActivities([]);
+      toast.success('Session ended');
+      // Create new session
+      await createSession('Auto-created receiving session');
     }
   };
 
-  const handleAddItem = (item: ReceivingItem) => {
-    setPendingItems([...pendingItems, item]);
+  const handleAutoPrintChange = (enabled: boolean) => {
+    setAutoPrintEnabled(enabled);
+    const config = getAutoPrintConfig();
+    saveAutoPrintConfig({ ...config, enabled });
   };
 
-  const handleProcessQueue = async () => {
-    if (pendingItems.length === 0) return;
-
-    try {
-      const results = await processItems(
-        pendingItems,
-        true,
-        currentSession?.id
-      );
-      
-      setProcessingResults(results);
-      
-      // Keep results visible, only clear pending items after success
-      if (results.every(r => r.success)) {
-        setPendingItems([]);
-      }
-    } catch (error) {
-      console.error('Error processing queue:', error);
-    }
+  const handleDirectPrintChange = (enabled: boolean) => {
+    setDirectPrintEnabled(enabled);
+    const config = getAutoPrintConfig();
+    saveAutoPrintConfig({ ...config, preferDirectPrint: enabled });
   };
-
-  const handleClearQueue = () => {
-    setPendingItems([]);
-  };
-
-  const handleClearResults = () => {
-    setProcessingResults([]);
-  };
-
 
   return (
-    <div className="min-h-screen bg-gradient-surface">
-      <div className="w-full px-4 md:px-6 py-4 space-y-6 animate-fade-in">
-        <HuhaHeader01
-          icon={<Package className="w-5 h-5 text-primary-foreground" />}
-          title="Smart Stock Receiving"
-          subtitle="Universal inventory receiving with intelligent PO matching and fulfillment"
-        />
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-foreground mb-2">Smart Stock Receiving</h1>
+          <p className="text-muted-foreground">
+            Universal inventory receiving with automatic PO matching
+          </p>
+        </div>
 
         {/* Connection Status */}
-        <Alert variant={connectionStatus === 'connected' ? 'default' : connectionStatus === 'failed' ? 'destructive' : 'default'}>
+        <Alert className={`mb-6 ${
+          connectionStatus === 'connected' 
+            ? 'border-green-500/50 bg-green-500/5' 
+            : connectionStatus === 'error'
+            ? 'border-destructive/50 bg-destructive/5'
+            : 'border-primary/50 bg-primary/5'
+        }`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              {connectionStatus === 'checking' && <Loader2 className="h-4 w-4 animate-spin" />}
-              {connectionStatus === 'connected' && <CheckCircle2 className="h-4 w-4 text-success" />}
-              {connectionStatus === 'failed' && <AlertCircle className="h-4 w-4" />}
+              {connectionStatus === 'checking' && <Loader2 className="w-4 h-4 animate-spin" />}
+              {connectionStatus === 'connected' && <CheckCircle2 className="w-4 h-4 text-green-500" />}
+              {connectionStatus === 'error' && <AlertCircle className="w-4 h-4 text-destructive" />}
               <AlertDescription>
-                {connectionStatus === 'checking' && 'Checking edge function connection...'}
-                {connectionStatus === 'connected' && 'Edge function connected and ready'}
-                {connectionStatus === 'failed' && (
-                  <span>
-                    Connection failed: {connectionError}
-                  </span>
-                )}
+                {connectionStatus === 'checking' && 'Checking connection...'}
+                {connectionStatus === 'connected' && 'Connected to processing service'}
+                {connectionStatus === 'error' && 'Connection error - some features may not work'}
               </AlertDescription>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleTestConnection}
-              disabled={isTestingConnection || connectionStatus === 'checking'}
-            >
-              {isTestingConnection ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Testing...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Test Connection
-                </>
-              )}
-            </Button>
+            {connectionStatus === 'error' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleTestConnection}
+                disabled={isTestingConnection}
+              >
+                {isTestingConnection ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Test Connection'}
+              </Button>
+            )}
           </div>
         </Alert>
 
-        {/* Active Session Card */}
-        {currentSession ? (
-          <Card className="border-primary/20 bg-primary/5">
-            <CardContent className="pt-6">
+        {/* Active Session Indicator */}
+        {currentSession && (
+          <Card className="mb-6 border-primary/30 bg-primary/5">
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="default" className="animate-pulse">Active Session</Badge>
-                    <span className="text-sm text-muted-foreground">
-                      Started: {new Date(currentSession.created_at).toLocaleTimeString()}
-                    </span>
-                  </div>
-                  <div className="flex gap-4 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Items:</span>{' '}
-                      <span className="font-medium">{currentSession.total_items_received}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">To POs:</span>{' '}
-                      <span className="font-medium">{currentSession.items_allocated_to_pos}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">To Inv:</span>{' '}
-                      <span className="font-medium">{currentSession.items_added_to_inventory}</span>
-                    </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                  <div>
+                    <p className="font-medium text-foreground">Active Session</p>
+                    <p className="text-sm text-muted-foreground">
+                      {activities.length} items received
+                    </p>
                   </div>
                 </div>
-                <Button variant="outline" onClick={handleEndSession}>
-                  <StopCircle className="w-4 h-4 mr-2" />
+                <Button variant="destructive" size="sm" onClick={handleEndSession}>
                   End Session
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">
-                  No active receiving session
-                </div>
-                <Button onClick={handleStartSession}>
-                  <PlayCircle className="w-4 h-4 mr-2" />
-                  Start New Session
                 </Button>
               </div>
             </CardContent>
           </Card>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column: Scanner and Queue */}
-          <div className="lg:col-span-2 space-y-6">
-            <ItemScanner 
-              onScanComplete={handleAddItem}
+        {/* Search Section */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="w-5 h-5" />
+              Receive Items
+            </CardTitle>
+            <CardDescription>
+              Search by ASIN, SKU, or Model Number to receive inventory
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <ItemSearchBar
+              onItemSelect={handleItemSelect}
               disabled={!currentSession || isProcessing}
             />
-            
-            <AllocationPanel
-              items={pendingItems}
-              results={processingResults}
-              onProcess={handleProcessQueue}
-              onClear={handleClearQueue}
-              onClearResults={handleClearResults}
-              isProcessing={isProcessing}
-            />
-          </div>
 
-          {/* Right Column: History */}
-          <div>
-            <SessionHistory 
-              sessions={sessions}
-              onEndSession={endSession}
-            />
-          </div>
-        </div>
+            {/* Print Settings */}
+            <div className="flex flex-col sm:flex-row gap-4 pt-2 border-t border-border/50">
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="auto-print"
+                  checked={autoPrintEnabled}
+                  onCheckedChange={handleAutoPrintChange}
+                />
+                <Label htmlFor="auto-print" className="text-sm cursor-pointer">
+                  Auto-print labels after receiving
+                </Label>
+              </div>
+              
+              {autoPrintEnabled && (
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="direct-print"
+                    checked={directPrintEnabled}
+                    onCheckedChange={handleDirectPrintChange}
+                  />
+                  <Label htmlFor="direct-print" className="text-sm cursor-pointer">
+                    Use direct printing (QZ Tray)
+                  </Label>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Recent Activity */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Recent Activity</CardTitle>
+            <CardDescription>
+              Real-time processing results for current session
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <RecentActivityFeed activities={activities} />
+          </CardContent>
+        </Card>
+
+        {/* Session History */}
+        <SessionHistory sessions={sessions} onEndSession={endSession} />
       </div>
+
+      {/* Quantity Confirm Dialog */}
+      <QuantityConfirmDialog
+        open={showDialog}
+        onClose={() => {
+          setShowDialog(false);
+          setSelectedItem(null);
+        }}
+        item={selectedItem}
+        onConfirm={handleConfirm}
+        processing={isProcessing}
+      />
     </div>
   );
 }
