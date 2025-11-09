@@ -194,7 +194,10 @@ export async function autoPrintLabel(
 
     // Always direct print (no download fallback as per user requirement)
     if (!config.preferDirectPrint || !config.defaultPrinter) {
-      toast.error('Please enable direct printing and select a printer in settings.');
+      toast.error('Direct printing not configured', {
+        description: 'Go to Receive Stock settings to enable QZ Tray and select a printer',
+        duration: 5000
+      });
       return false;
     }
 
@@ -219,8 +222,19 @@ async function printDirectly(zpl: string, printerName: string): Promise<boolean>
     
     // Ensure connection
     if (!qz.websocket.isActive()) {
-      console.log('[Direct Print] Connecting to QZ Tray...');
-      await qzManager.connect();
+      console.log('[Direct Print] QZ Tray not active, attempting connection...');
+      toast.info('Connecting to QZ Tray...', { duration: 2000 });
+      
+      try {
+        await qzManager.connect();
+        toast.success('Connected to QZ Tray!', { duration: 2000 });
+      } catch (connectError) {
+        toast.error('Failed to connect to QZ Tray', {
+          description: 'Make sure QZ Tray is running and try again',
+          duration: 5000
+        });
+        throw connectError;
+      }
     }
 
     console.log('[Direct Print] Printing to:', printerName);

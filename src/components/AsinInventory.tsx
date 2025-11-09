@@ -559,10 +559,20 @@ export function AsinInventory() {
       }
     }
 
-    // Apply status filter
-    if (statusFilter !== 'all') {
+    // CRITICAL FIX: Filter out "ordered" and "sold" statuses by default
+    // These statuses don't represent available inventory
+    if (statusFilter === 'all') {
+      filtered = filtered.filter(item => 
+        item.status !== 'ordered' && item.status !== 'sold'
+      );
+      console.log('🔧 EXCLUDED ordered/sold items:', {
+        beforeFilter: filtered.length + inventory.filter(i => i.status === 'ordered' || i.status === 'sold').length,
+        afterFilter: filtered.length,
+        excludedCount: inventory.filter(i => i.status === 'ordered' || i.status === 'sold').length
+      });
+    } else if (statusFilter !== 'all') {
       filtered = filtered.filter(item => {
-        // Treat 'ordered' items as 'sold'
+        // Treat 'ordered' items as 'sold' when filtering
         const effectiveStatus = item.status === 'ordered' ? 'sold' : item.status;
         return effectiveStatus === statusFilter;
       });

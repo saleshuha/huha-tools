@@ -4,7 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2, AlertCircle } from 'lucide-react';
+import qz from 'qz-tray';
 
 interface SearchResult {
   type: 'po' | 'inventory' | 'recent';
@@ -41,6 +44,8 @@ export function QuantityConfirmDialog({
   const [serialNumber, setSerialNumber] = useState('');
   const [supplierName, setSupplierName] = useState('');
   const [notes, setNotes] = useState('');
+  const [autoPrintEnabled, setAutoPrintEnabled] = useState(true);
+  const [qzConnected, setQzConnected] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -48,29 +53,72 @@ export function QuantityConfirmDialog({
       setSerialNumber('');
       setSupplierName('');
       setNotes('');
+      
+      // Load auto-print preference from localStorage
+      const savedAutoPrint = localStorage.getItem('stock-receiving-auto-print');
+      setAutoPrintEnabled(savedAutoPrint === 'true' || savedAutoPrint === null); // Default to true
+      
+      // Check QZ Tray connection status
+      checkQZConnection();
     }
   }, [open]);
 
+  const checkQZConnection = async () => {
+    try {
+      const isConnected = qz.websocket.isActive();
+      setQzConnected(isConnected);
+    } catch (error) {
+      setQzConnected(false);
+    }
+  };
+
   const handleSubmit = (autoPrint: boolean) => {
+    // Save auto-print preference
+    localStorage.setItem('stock-receiving-auto-print', String(autoPrintEnabled));
+    
     onConfirm({
       quantity,
       serial_number: serialNumber || undefined,
       supplier_name: supplierName || undefined,
       notes: notes || undefined,
-      autoPrint
+      autoPrint: autoPrint && autoPrintEnabled
     });
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey && !processing) {
+      e.preventDefault();
+      handleSubmit(true); // Enter key triggers print & receive
+    }
   };
 
   if (!item) return null;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" onKeyDown={handleKeyDown}>
         <DialogHeader>
           <DialogTitle>Confirm Receiving Details</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* QZ Tray Status Alert */}
+          {!qzConnected && autoPrintEnabled && (
+            <Alert variant="destructive" className="border-destructive/50 bg-destructive/10">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="text-sm">
+                QZ Tray not connected. Please start QZ Tray to enable printing.
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {qzConnected && autoPrintEnabled && (
+            <Alert className="border-green-500/50 bg-green-500/10">
+              <AlertDescription className="text-sm text-green-700 dark:text-green-400">
+                ✅ QZ Tray Connected - Ready to print
+              </AlertDescription>
+            </Alert>
+          )}
           {/* Item Info */}
           <div className="p-3 bg-accent/30 rounded-lg space-y-2">
             <div className="flex items-center justify-between">
@@ -138,20 +186,34 @@ export function QuantityConfirmDialog({
               rows={2}
             />
           </div>
+
+          {/* Auto-Print Toggle */}
+          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="auto-print" className="cursor-pointer">Auto-print label after receiving</Label>
+            </div>
+            <Switch
+              id="auto-print"
+              checked={autoPrintEnabled}
+              onCheckedChange={setAutoPrintEnabled}
+            />
+          </div>
         </div>
 
-        <DialogFooter className="flex gap-2">
+        <DialogFooter className="flex gap-2 sm:gap-2">
           <Button
-            variant="outline"
+            variant="ghost"
             onClick={onClose}
             disabled={processing}
+            className="sm:flex-none"
           >
             Cancel
           </Button>
           <Button
-            variant="secondary"
+            variant="outline"
             onClick={() => handleSubmit(false)}
             disabled={processing}
+            className="sm:flex-none"
           >
             {processing ? (
               <>
@@ -165,6 +227,7 @@ export function QuantityConfirmDialog({
           <Button
             onClick={() => handleSubmit(true)}
             disabled={processing}
+            className="sm:flex-1"
           >
             {processing ? (
               <>
@@ -172,7 +235,10 @@ export function QuantityConfirmDialog({
                 Processing...
               </>
             ) : (
-              '🖨️ Receive & Print'
+              <>
+                🖨️ Receive & Print
+                <span className="ml-2 text-xs opacity-70">(Enter)</span>
+              </>
             )}
           </Button>
         </DialogFooter>
