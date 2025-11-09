@@ -150,7 +150,16 @@ export function useStockReceiving() {
         };
       }
 
-      return { connected: true, error: null };
+      // Check if the response indicates success
+      if (response.data && response.data.status === 'ok') {
+        return { connected: true, error: null };
+      }
+
+      return { 
+        connected: false, 
+        error: 'Unexpected response',
+        details: 'Edge function did not return expected test response'
+      };
     } catch (error) {
       console.error('Connection test failed:', error);
       return { 

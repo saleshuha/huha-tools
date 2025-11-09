@@ -52,6 +52,13 @@ export default function ReceiveStock() {
         details: result.details,
         checking: false
       });
+      
+      // Auto-hide success message after 3 seconds
+      if (result.connected) {
+        setTimeout(() => {
+          setConnectionStatus(prev => ({ ...prev, connected: false, checking: false }));
+        }, 3000);
+      }
     };
     
     checkConnection();
@@ -115,6 +122,13 @@ export default function ReceiveStock() {
       details: result.details,
       checking: false
     });
+    
+    // Auto-hide success message after 3 seconds
+    if (result.connected) {
+      setTimeout(() => {
+        setConnectionStatus(prev => ({ ...prev, connected: false, checking: false }));
+      }, 3000);
+    }
   };
 
   return (
@@ -126,7 +140,7 @@ export default function ReceiveStock() {
           subtitle="Universal inventory receiving with intelligent PO matching and fulfillment"
         />
 
-        {/* Connection Status Alert */}
+        {/* Connection Status Alert - Only show errors */}
         {connectionStatus.checking ? (
           <Alert>
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -135,7 +149,7 @@ export default function ReceiveStock() {
               Verifying edge function availability...
             </AlertDescription>
           </Alert>
-        ) : !connectionStatus.connected ? (
+        ) : connectionStatus.error && !connectionStatus.connected ? (
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>Edge Function Not Available</AlertTitle>
@@ -168,17 +182,7 @@ export default function ReceiveStock() {
               </div>
             </AlertDescription>
           </Alert>
-        ) : (
-          <Alert className="border-green-500 bg-green-50 dark:bg-green-950">
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
-            <AlertTitle className="text-green-800 dark:text-green-200">
-              Edge Function Connected
-            </AlertTitle>
-            <AlertDescription className="text-green-700 dark:text-green-300">
-              Smart stock receiving system is ready
-            </AlertDescription>
-          </Alert>
-        )}
+        ) : null}
 
         {/* Active Session Card */}
         {currentSession ? (

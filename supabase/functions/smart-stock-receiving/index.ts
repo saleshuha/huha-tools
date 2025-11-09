@@ -50,6 +50,21 @@ serve(async (req) => {
     }
 
     const body: RequestBody = await req.json();
+    
+    // Handle test/health check requests
+    if ((body as any).test) {
+      return new Response(
+        JSON.stringify({ 
+          status: 'ok', 
+          message: 'Edge function is deployed and accessible' 
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200
+        }
+      );
+    }
+    
     const { items, auto_fulfill = true, session_notes, session_id } = body;
 
     console.log(`Processing ${items.length} items for user ${user.id}`);
