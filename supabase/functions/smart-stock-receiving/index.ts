@@ -444,7 +444,7 @@ async function updateInventoryStock(
     .select('*')
     .eq('user_id', userId)
     .eq('country', item.country)
-    .in('status', ['in-stock', 'ordered', 'processing']) // ✅ KEY FIX - Accept multiple statuses
+    .in('status', ['in-stock', 'ordered']) // ✅ KEY FIX - Only valid enum values
     .or(`asin.eq.${item.asin || 'none'},sku.eq.${item.sku_code || 'none'}`) // ✅ Removed model_number - doesn't exist in asin_inventory
     .limit(1)
     .single();
