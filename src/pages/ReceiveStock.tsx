@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Package, PlayCircle, StopCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Package, PlayCircle, StopCircle, Loader2, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { HuhaHeader01 } from '@/components/ui/huha-header-01';
 import { useStockReceiving, type ReceivingItem, type ProcessingResult } from '@/hooks/useStockReceiving';
 import { ItemScanner } from '@/components/stock-receiving/ItemScanner';
@@ -31,10 +32,36 @@ export default function ReceiveStock() {
 
   const [pendingItems, setPendingItems] = useState<ReceivingItem[]>([]);
   const [processingResults, setProcessingResults] = useState<ProcessingResult[]>([]);
+  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'failed'>('checking');
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
 
   useEffect(() => {
     loadSessions();
+    checkConnection();
   }, []);
+
+  const checkConnection = async () => {
+    console.log('[ReceiveStock] Checking connection...');
+    setConnectionStatus('checking');
+    setConnectionError(null);
+    
+    const result = await testConnection();
+    console.log('[ReceiveStock] Connection result:', result);
+    
+    if (result.connected) {
+      setConnectionStatus('connected');
+    } else {
+      setConnectionStatus('failed');
+      setConnectionError(result.details || result.error || 'Connection failed');
+    }
+  };
+
+  const handleTestConnection = async () => {
+    setIsTestingConnection(true);
+    await checkConnection();
+    setIsTestingConnection(false);
+  };
 
   const handleStartSession = async () => {
     const session = await createSession();
@@ -95,6 +122,43 @@ export default function ReceiveStock() {
           subtitle="Universal inventory receiving with intelligent PO matching and fulfillment"
         />
 
+        {/* Connection Status */}
+        <Alert variant={connectionStatus === 'connected' ? 'default' : connectionStatus === 'failed' ? 'destructive' : 'default'}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {connectionStatus === 'checking' && <Loader2 className="h-4 w-4 animate-spin" />}
+              {connectionStatus === 'connected' && <CheckCircle2 className="h-4 w-4 text-success" />}
+              {connectionStatus === 'failed' && <AlertCircle className="h-4 w-4" />}
+              <AlertDescription>
+                {connectionStatus === 'checking' && 'Checking edge function connection...'}
+                {connectionStatus === 'connected' && 'Edge function connected and ready'}
+                {connectionStatus === 'failed' && (
+                  <span>
+                    Connection failed: {connectionError}
+                  </span>
+                )}
+              </AlertDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleTestConnection}
+              disabled={isTestingConnection || connectionStatus === 'checking'}
+            >
+              {isTestingConnection ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Testing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Test Connection
+                </>
+              )}
+            </Button>
+          </div>
+        </Alert>
 
         {/* Active Session Card */}
         {currentSession ? (

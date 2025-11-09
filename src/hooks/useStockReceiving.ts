@@ -114,15 +114,34 @@ export function useStockReceiving() {
 
   const testConnection = async () => {
     try {
+      console.log('[Stock Receiving] Testing connection...');
+      
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return { connected: false, error: 'Not authenticated' };
+      console.log('[Stock Receiving] Auth status:', {
+        hasSession: !!session,
+        hasToken: !!session?.access_token
+      });
+      
+      if (!session) {
+        console.error('[Stock Receiving] No session found');
+        return { connected: false, error: 'Not authenticated', details: 'Please log in again' };
+      }
 
+      console.log('[Stock Receiving] Invoking edge function test...');
       const response = await supabase.functions.invoke('smart-stock-receiving', {
         body: { test: true }
       });
 
+      console.log('[Stock Receiving] Test response:', {
+        hasData: !!response.data,
+        hasError: !!response.error,
+        data: response.data,
+        error: response.error
+      });
+
       if (response.error) {
         const errorMsg = response.error.message || '';
+        console.error('[Stock Receiving] Test error:', errorMsg);
         
         if (errorMsg.includes('404') || errorMsg.includes('not found')) {
           return { 
@@ -149,16 +168,18 @@ export function useStockReceiving() {
 
       // Check if the response indicates success
       if (response.data && response.data.status === 'ok') {
+        console.log('[Stock Receiving] ✅ Connection test successful');
         return { connected: true, error: null };
       }
 
+      console.warn('[Stock Receiving] Unexpected response format:', response.data);
       return { 
         connected: false, 
         error: 'Unexpected response',
         details: 'Edge function did not return expected test response'
       };
     } catch (error) {
-      console.error('Connection test failed:', error);
+      console.error('[Stock Receiving] Connection test exception:', error);
       return { 
         connected: false, 
         error: 'Connection test failed',
@@ -174,20 +195,50 @@ export function useStockReceiving() {
   ): Promise<ProcessingResult[]> => {
     try {
       setIsProcessing(true);
+      
+      console.log('[Stock Receiving] Starting processing...', {
+        itemCount: items.length,
+        autoFulfill,
+        sessionId: sessionId || currentSession?.id,
+        items: items
+      });
 
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Not authenticated');
+      console.log('[Stock Receiving] Auth check:', {
+        hasSession: !!session,
+        hasToken: !!session?.access_token,
+        userId: session?.user?.id
+      });
+      
+      if (!session) {
+        throw new Error('Not authenticated. Please log in again.');
+      }
+
+      console.log('[Stock Receiving] Calling edge function...');
+      const requestBody = {
+        items,
+        auto_fulfill: autoFulfill,
+        session_id: sessionId || currentSession?.id
+      };
+      console.log('[Stock Receiving] Request body:', requestBody);
 
       const response = await supabase.functions.invoke('smart-stock-receiving', {
-        body: {
-          items,
-          auto_fulfill: autoFulfill,
-          session_id: sessionId || currentSession?.id
-        }
+        body: requestBody
+      });
+
+      console.log('[Stock Receiving] Response received:', {
+        hasData: !!response.data,
+        hasError: !!response.error,
+        error: response.error,
+        dataKeys: response.data ? Object.keys(response.data) : []
       });
 
       if (response.error) {
         const errorMsg = response.error.message || '';
+        console.error('[Stock Receiving] Edge function error:', {
+          message: errorMsg,
+          fullError: response.error
+        });
         
         // Provide specific error messages
         if (errorMsg.includes('404') || errorMsg.includes('not found')) {
@@ -206,10 +257,16 @@ export function useStockReceiving() {
       }
 
       if (!response.data) {
+        console.error('[Stock Receiving] No data in response');
         throw new Error('No data returned from edge function');
       }
 
       const { results, session_id, summary } = response.data;
+      console.log('[Stock Receiving] ✅ Processing successful:', {
+        resultsCount: results?.length,
+        sessionId: session_id,
+        summary
+      });
 
       toast({
         title: 'Processing Complete',
@@ -221,7 +278,10 @@ export function useStockReceiving() {
 
       return results;
     } catch (error) {
-      console.error('Error processing items:', error);
+      console.error('[Stock Receiving] ❌ Processing error:', {
+        message: error.message,
+        error: error
+      });
       toast({
         title: 'Processing Failed',
         description: error.message || 'Failed to process items',

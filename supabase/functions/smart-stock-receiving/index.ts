@@ -25,19 +25,37 @@ interface RequestBody {
 }
 
 serve(async (req) => {
+  console.log('[Edge Function] Request received:', {
+    method: req.method,
+    url: req.url,
+    headers: Object.fromEntries(req.headers.entries())
+  });
+
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
+    console.log('[Edge Function] Handling OPTIONS request');
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    console.log('[Edge Function] Supabase configured:', {
+      hasUrl: !!supabaseUrl,
+      hasKey: !!supabaseKey
+    });
+    
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Get user from auth header
     const authHeader = req.headers.get('Authorization');
+    console.log('[Edge Function] Auth header:', { 
+      hasAuth: !!authHeader,
+      authPrefix: authHeader?.substring(0, 20) 
+    });
+    
     if (!authHeader) {
+      console.error('[Edge Function] No authorization header');
       throw new Error('No authorization header');
     }
 
@@ -45,18 +63,35 @@ serve(async (req) => {
       authHeader.replace('Bearer ', '')
     );
 
+    console.log('[Edge Function] User authentication:', {
+      hasUser: !!user,
+      userId: user?.id,
+      error: userError?.message
+    });
+
     if (userError || !user) {
+      console.error('[Edge Function] Unauthorized:', userError);
       throw new Error('Unauthorized');
     }
 
     const body: RequestBody = await req.json();
+    console.log('[Edge Function] Request body parsed:', {
+      hasItems: !!body.items,
+      itemCount: body.items?.length,
+      autoFulfill: body.auto_fulfill,
+      hasSessionId: !!body.session_id,
+      isTest: !!(body as any).test
+    });
     
     // Handle test/health check requests
     if ((body as any).test) {
+      console.log('[Edge Function] ✅ Test request successful');
       return new Response(
         JSON.stringify({ 
           status: 'ok', 
-          message: 'Edge function is deployed and accessible' 
+          message: 'Edge function is deployed and accessible',
+          timestamp: new Date().toISOString(),
+          userId: user.id
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -67,7 +102,10 @@ serve(async (req) => {
     
     const { items, auto_fulfill = true, session_notes, session_id } = body;
 
-    console.log(`Processing ${items.length} items for user ${user.id}`);
+    console.log(`[Edge Function] Processing ${items.length} items for user ${user.id}`, {
+      autoFulfill: auto_fulfill,
+      hasSessionId: !!session_id
+    });
 
     // Create or get session
     let sessionId = session_id;
@@ -90,13 +128,26 @@ serve(async (req) => {
 
     for (const item of items) {
       try {
+        console.log('[Edge Function] Processing item:', {
+          asin: item.asin,
+          sku: item.sku_code,
+          model: item.model_number,
+          quantity: item.quantity
+        });
+        
         // Step 1: Find matching POs
         const matchingPOs = await findMatchingPOs(supabase, user.id, item);
-        console.log(`Found ${matchingPOs.length} matching POs for item`);
+        console.log(`[Edge Function] Found ${matchingPOs.length} matching POs for item`, {
+          poNumbers: matchingPOs.map(po => po.po_number)
+        });
 
         // Step 2: Calculate allocation
         const allocation = calculateAllocation(item.quantity, matchingPOs);
-        console.log(`Allocation: ${allocation.allocations.length} POs, ${allocation.remainingQty} to inventory`);
+        console.log(`[Edge Function] Allocation calculated:`, {
+          allocationsCount: allocation.allocations.length,
+          remainingQty: allocation.remainingQty,
+          allocations: allocation.allocations
+        });
 
         // Step 3: Execute allocation if auto_fulfill is true
         if (auto_fulfill) {
@@ -149,7 +200,11 @@ serve(async (req) => {
           });
         }
       } catch (error) {
-        console.error(`Error processing item:`, error);
+        console.error(`[Edge Function] ❌ Error processing item:`, {
+          item: item,
+          error: error.message,
+          stack: error.stack
+        });
         results.push({
           item_id: item.asin || item.sku_code || item.model_number,
           success: false,
@@ -163,6 +218,13 @@ serve(async (req) => {
     const totalAllocatedToPOs = results.reduce((sum, r) => sum + (r.matched_pos?.length || 0), 0);
     const totalAddedToInventory = results.reduce((sum, r) => sum + (r.quantity_to_inventory || 0), 0);
 
+    console.log('[Edge Function] Updating session statistics:', {
+      sessionId,
+      totalItems: items.length,
+      allocatedToPOs: totalAllocatedToPOs,
+      addedToInventory: totalAddedToInventory
+    });
+
     await supabase
       .from('stock_receiving_sessions')
       .update({
@@ -173,25 +235,35 @@ serve(async (req) => {
       })
       .eq('id', sessionId);
 
+    const response = {
+      session_id: sessionId,
+      results,
+      summary: {
+        total_items: items.length,
+        items_allocated_to_pos: totalAllocatedToPOs,
+        items_added_to_inventory: totalAddedToInventory
+      }
+    };
+
+    console.log('[Edge Function] ✅ Processing complete, returning response:', response);
+
     return new Response(
-      JSON.stringify({
-        session_id: sessionId,
-        results,
-        summary: {
-          total_items: items.length,
-          items_allocated_to_pos: totalAllocatedToPOs,
-          items_added_to_inventory: totalAddedToInventory
-        }
-      }),
+      JSON.stringify(response),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200
       }
     );
   } catch (error) {
-    console.error('Error in smart-stock-receiving:', error);
+    console.error('[Edge Function] ❌ Fatal error:', {
+      message: error.message,
+      stack: error.stack
+    });
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        details: 'Check edge function logs for more information'
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500
