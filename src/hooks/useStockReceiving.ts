@@ -112,6 +112,55 @@ export function useStockReceiving() {
     }
   };
 
+  const testConnection = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return { connected: false, error: 'Not authenticated' };
+
+      const response = await supabase.functions.invoke('smart-stock-receiving', {
+        body: { test: true },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
+
+      if (response.error) {
+        const errorMsg = response.error.message || '';
+        
+        if (errorMsg.includes('404') || errorMsg.includes('not found')) {
+          return { 
+            connected: false, 
+            error: 'Edge function not deployed',
+            details: 'The smart-stock-receiving function needs to be deployed to Supabase'
+          };
+        }
+        
+        if (errorMsg.includes('FunctionsRelayError') || errorMsg.includes('FunctionsHttpError')) {
+          return { 
+            connected: false, 
+            error: 'Cannot reach edge function',
+            details: 'Network or configuration issue. Check your connection and Supabase status.'
+          };
+        }
+
+        return { 
+          connected: false, 
+          error: 'Function error',
+          details: errorMsg
+        };
+      }
+
+      return { connected: true, error: null };
+    } catch (error) {
+      console.error('Connection test failed:', error);
+      return { 
+        connected: false, 
+        error: 'Connection test failed',
+        details: error.message
+      };
+    }
+  };
+
   const processItems = async (
     items: ReceivingItem[],
     autoFulfill = true,
@@ -134,7 +183,28 @@ export function useStockReceiving() {
         }
       });
 
-      if (response.error) throw response.error;
+      if (response.error) {
+        const errorMsg = response.error.message || '';
+        
+        // Provide specific error messages
+        if (errorMsg.includes('404') || errorMsg.includes('not found')) {
+          throw new Error('Edge function not deployed. Please deploy the smart-stock-receiving function to Supabase.');
+        }
+        
+        if (errorMsg.includes('FunctionsRelayError') || errorMsg.includes('FunctionsHttpError')) {
+          throw new Error('Cannot reach edge function. Please check your network connection and Supabase status.');
+        }
+        
+        if (errorMsg.includes('JWT')) {
+          throw new Error('Authentication error. Please log out and log back in.');
+        }
+
+        throw new Error(errorMsg || 'Edge function returned an error');
+      }
+
+      if (!response.data) {
+        throw new Error('No data returned from edge function');
+      }
 
       const { results, session_id, summary } = response.data;
 
@@ -214,6 +284,7 @@ export function useStockReceiving() {
     processItems,
     endSession,
     getSessionItems,
-    loadSessions
+    loadSessions,
+    testConnection
   };
 }
