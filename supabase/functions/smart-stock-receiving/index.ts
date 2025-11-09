@@ -493,14 +493,36 @@ async function updateInventoryStock(
     newQty: newQuantity
   });
 
-  await supabase.from('stock_changes').insert({
+  // Record stock change in history with CORRECT column names
+  const { error: stockChangeError } = await supabase.from('stock_changes').insert({
+    user_id: userId,
     inventory_id: inventoryItem.id,
     inventory_type: 'asin',
+    asin: item.asin || null,
+    sku_number: item.sku_code || null,
+    serial_number: item.serial_number || null,
     change_amount: quantityToAdd,
-    change_type: 'stock_received',
-    reason: 'Stock receiving session',
+    change_reason: 'stock_receiving',
     previous_quantity: inventoryItem.quantity,
-    new_quantity: newQuantity
+    new_quantity: newQuantity,
+    notes: 'Stock received via receiving session',
+    source_type: 'stock_receiving',
+    changed_by: userId
+  });
+
+  if (stockChangeError) {
+    console.error('[SR v3.0] ❌ Failed to create stock_changes record:', {
+      error: stockChangeError,
+      itemId: inventoryItem.id,
+      asin: item.asin
+    });
+    throw new Error(`Failed to record stock change: ${stockChangeError.message}`);
+  }
+
+  console.log('[SR v3.0] ✅ Stock change recorded in history:', {
+    inventoryId: inventoryItem.id,
+    changeAmount: quantityToAdd,
+    newQuantity: newQuantity
   });
 
   console.log('[SR v3.0] Inventory updated successfully:', {
