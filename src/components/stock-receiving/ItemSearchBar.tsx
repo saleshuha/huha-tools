@@ -49,8 +49,8 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
         // Search in inventory (filter by selected country)
         let invQuery = supabase
           .from('asin_inventory')
-          .select('asin, sku_number, model_number, title, country')
-          .or(`asin.ilike.%${term}%,sku_number.ilike.%${term}%,model_number.ilike.%${term}%`);
+          .select('asin, sku, title, country')
+          .or(`asin.ilike.%${term}%,sku.ilike.%${term}%`);
         
         // Filter by country if provided
         if (country) {
@@ -89,14 +89,13 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
         if (invData && invData.length > 0) {
           invData.forEach(item => {
             const exists = searchResults.find(r => 
-              r.asin === item.asin || r.sku_code === item.sku_number || r.model_number === item.model_number
+              r.asin === item.asin || r.sku_code === item.sku
             );
             if (!exists) {
               searchResults.push({
                 type: 'inventory',
                 asin: item.asin,
-                sku_code: item.sku_number,
-                model_number: item.model_number,
+                sku_code: item.sku,
                 title: item.title,
                 context: 'Already in inventory'
               });

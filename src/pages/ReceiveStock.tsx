@@ -623,7 +623,8 @@ export default function ReceiveStock() {
                   printed: h.printed,
                   timestamp: new Date(h.created_at),
                   error: h.error_message,
-                  template_type: h.destination_type as 'po' | 'inventory'
+                  template_type: h.destination_type as 'po' | 'inventory',
+                  country: h.country
                 }))
               ]}
               onLoadMore={loadMore}

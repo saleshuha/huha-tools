@@ -13,6 +13,7 @@ interface ActivityItem {
   timestamp: Date;
   error?: string;
   template_type?: 'po' | 'inventory';
+  country?: string;
 }
 
 interface RecentActivityFeedProps {
@@ -69,6 +70,11 @@ export function RecentActivityFeed({
                   <span className="font-semibold text-foreground">
                     {activity.identifier}
                   </span>
+                  {activity.country && (
+                    <span className="px-2 py-0.5 text-xs font-medium rounded bg-primary/10 text-primary">
+                      {activity.country}
+                    </span>
+                  )}
                   {activity.success && (
                     <>
                       <span className="text-muted-foreground">→</span>

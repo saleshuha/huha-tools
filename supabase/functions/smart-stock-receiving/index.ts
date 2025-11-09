@@ -231,6 +231,7 @@ serve(async (req) => {
               quantity: item.quantity,
               serial_number: item.serial_number,
               supplier_name: item.supplier_name,
+              country: userCountry,
               destination_type: allocation.allocations.length > 0 ? 'po' : 'inventory',
               destination_details: allocation.allocations.length > 0 
                 ? { po_numbers: allocation.allocations.map(a => a.po_number) }
@@ -408,11 +409,11 @@ async function addToInventory(supabase: any, userId: string, item: ReceivedItem,
   // Step 1: Check if item already exists in the specified country
   const { data: existing } = await supabase
     .from('asin_inventory')
-    .select('id, quantity, serial_number, country, asin, sku_number, title')
+    .select('id, quantity, serial_number, country, asin, sku, title')
     .eq('user_id', userId)
     .eq('asin', item.asin || 'N/A')
     .eq('country', country)
-    .eq('status', 'in-stock')
+    .in('status', ['in-stock', 'ordered', 'processing'])
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
