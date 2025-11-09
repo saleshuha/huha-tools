@@ -30,6 +30,7 @@ interface SearchResult {
   title?: string;
   context?: string;
   po_count?: number;
+  serial_number?: string;
 }
 interface ActivityItem {
   id: string;
@@ -620,9 +621,16 @@ export default function ReceiveStock() {
       </div>
 
       {/* Quantity Confirm Dialog */}
-      <QuantityConfirmDialog open={showDialog} onClose={() => {
-      setShowDialog(false);
-      setSelectedItem(null);
-    }} item={selectedItem} onConfirm={handleConfirm} processing={isProcessing} />
+      <QuantityConfirmDialog 
+        open={showDialog} 
+        onClose={() => {
+          setShowDialog(false);
+          setSelectedItem(null);
+        }} 
+        item={selectedItem} 
+        onConfirm={handleConfirm} 
+        processing={isProcessing}
+        initialSerialNumber={selectedItem?.serial_number}
+      />
     </div>;
 }

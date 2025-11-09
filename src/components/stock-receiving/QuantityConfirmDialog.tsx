@@ -17,6 +17,7 @@ interface SearchResult {
   title?: string;
   context?: string;
   po_count?: number;
+  serial_number?: string;
 }
 
 interface QuantityConfirmDialogProps {
@@ -31,6 +32,7 @@ interface QuantityConfirmDialogProps {
     autoPrint: boolean;
   }) => void;
   processing?: boolean;
+  initialSerialNumber?: string;
 }
 
 export function QuantityConfirmDialog({
@@ -38,7 +40,8 @@ export function QuantityConfirmDialog({
   onClose,
   item,
   onConfirm,
-  processing = false
+  processing = false,
+  initialSerialNumber
 }: QuantityConfirmDialogProps) {
   const [quantity, setQuantity] = useState(1);
   const [serialNumber, setSerialNumber] = useState('');
@@ -50,7 +53,8 @@ export function QuantityConfirmDialog({
   useEffect(() => {
     if (open) {
       setQuantity(1);
-      setSerialNumber('');
+      // Pre-populate serial number from inventory if available
+      setSerialNumber(initialSerialNumber || '');
       setSupplierName('');
       setNotes('');
       
@@ -76,7 +80,7 @@ export function QuantityConfirmDialog({
         qzConnectionManager.removeConnectionListener(handleConnectionChange);
       };
     }
-  }, [open]);
+  }, [open, initialSerialNumber]);
 
   const handleSubmit = (autoPrint: boolean) => {
     // Save auto-print preference
@@ -182,7 +186,15 @@ export function QuantityConfirmDialog({
               autoFocus
             />
             <p className="text-xs text-muted-foreground">
-              {serialNumber ? `Will print: ${serialNumber}` : 'If empty, label will show "N/A"'}
+              {initialSerialNumber ? (
+                <span className="text-green-600 dark:text-green-400">
+                  ✅ Auto-fetched from inventory: {serialNumber || 'N/A'}
+                </span>
+              ) : serialNumber ? (
+                `Will print: ${serialNumber}`
+              ) : (
+                'If empty, label will show "N/A"'
+              )}
             </p>
           </div>
 

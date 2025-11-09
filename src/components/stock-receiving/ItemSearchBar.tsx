@@ -12,6 +12,7 @@ interface SearchResult {
   title?: string;
   context?: string;
   po_count?: number;
+  serial_number?: string;
 }
 
 interface ItemSearchBarProps {
@@ -46,10 +47,10 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
           .or(`asin.ilike.%${term}%,sku_code.ilike.%${term}%,model_number.ilike.%${term}%`)
           .limit(5);
 
-        // Search in inventory (filter by selected country)
+        // Search in inventory (filter by selected country, fetch serial_number)
         let invQuery = supabase
           .from('asin_inventory')
-          .select('asin, sku, title, country')
+          .select('asin, sku, title, country, serial_number')
           .or(`asin.ilike.%${term}%,sku.ilike.%${term}%`);
         
         // Filter by country if provided
@@ -97,7 +98,10 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
                 asin: item.asin,
                 sku_code: item.sku,
                 title: item.title,
-                context: 'Already in inventory'
+                serial_number: item.serial_number,
+                context: item.serial_number 
+                  ? `Already in inventory (SN: ${item.serial_number})`
+                  : 'Already in inventory'
               });
             }
           });
