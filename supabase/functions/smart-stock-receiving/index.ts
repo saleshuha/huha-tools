@@ -1,3 +1,9 @@
+/**
+ * Smart Stock Receiving Edge Function
+ * Version: 2.1 - Updated 2025-05-15
+ * Handles flexible status matching for inventory items
+ */
+
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.5';
 
@@ -26,7 +32,7 @@ interface RequestBody {
 }
 
 serve(async (req) => {
-  console.log('[Edge Function] Request received:', {
+  console.log('[Edge Function v2.1] Request received:', {
     method: req.method,
     url: req.url,
     headers: Object.fromEntries(req.headers.entries())
@@ -103,10 +109,11 @@ serve(async (req) => {
     
     const { items, auto_fulfill = true, session_notes, session_id, country } = body;
 
-    console.log(`[Edge Function] Processing ${items.length} items for user ${user.id}`, {
+    console.log(`[Edge Function v2.1] Processing ${items.length} items for user ${user.id}`, {
       autoFulfill: auto_fulfill,
       hasSessionId: !!session_id,
-      country: country
+      country: country,
+      version: '2.1-flexible-status'
     });
 
     // Use country from request, fallback to profile country, then default to KSA
