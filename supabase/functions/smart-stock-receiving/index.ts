@@ -227,30 +227,69 @@ serve(async (req) => {
           totalAddedToInventory += remainingQuantity;
         }
 
-        // Record receiving event
-        await supabase.from('stock_receiving_items').insert({
-          session_id: activeSessionId,
-          user_id: user.id,
-          asin: item.asin,
-          sku_code: item.sku_code,
-          model_number: item.model_number,
-          title: item.title,
-          quantity: item.quantity,
-          serial_number: item.serial_number,
-          supplier_name: item.supplier_name,
-          notes: item.notes,
-          matched_po_count: allocations.length,
-          matched_po_numbers: allocations.map(a => a.po.po_number)
-        });
+        // Record receiving event with proper error handling
+        try {
+          const { error: receivingItemError } = await supabase.from('stock_receiving_items').insert({
+            session_id: activeSessionId,
+            user_id: user.id,
+            asin: item.asin,
+            sku_code: item.sku_code,
+            model_number: item.model_number,
+            title: item.title,
+            quantity_received: item.quantity,
+            quantity_allocated_to_pos: item.quantity - remainingQuantity,
+            quantity_added_to_inventory: remainingQuantity,
+            matched_pos: allocations.map(a => ({
+              po_number: a.po.po_number,
+              quantity: a.quantity,
+              po_id: a.po.id
+            })),
+            has_pending_po: allocations.length > 0,
+            status: 'processed',
+            supplier_name: item.supplier_name,
+            receiving_notes: item.notes,
+            serial_number: item.serial_number
+          });
 
-        // Log to receiving history
-        await supabase.from('receiving_history').insert({
-          user_id: user.id,
-          item_type: item.asin ? 'asin' : 'sku',
-          identifier: item.asin || item.sku_code || item.model_number || 'unknown',
-          quantity: item.quantity,
-          session_id: activeSessionId
-        });
+          if (receivingItemError) {
+            console.error('[SR v3.0] ❌ Failed to insert receiving item:', {
+              error: receivingItemError,
+              item: { asin: item.asin, sku: item.sku_code, model: item.model_number }
+            });
+          }
+        } catch (err) {
+          console.error('[SR v3.0] ❌ Exception inserting receiving item:', err);
+        }
+
+        // Log to receiving history with proper error handling
+        try {
+          const { error: historyError } = await supabase.from('receiving_history').insert({
+            user_id: user.id,
+            asin: item.asin,
+            sku_code: item.sku_code,
+            model_number: item.model_number,
+            title: item.title,
+            quantity: item.quantity,
+            serial_number: item.serial_number,
+            supplier_name: item.supplier_name,
+            destination_type: remainingQuantity > 0 ? 'inventory' : 'po_fulfillment',
+            destination_details: {
+              inventory_added: remainingQuantity,
+              pos_allocated: allocations.length,
+              po_numbers: allocations.map(a => a.po.po_number)
+            },
+            success: true
+          });
+
+          if (historyError) {
+            console.error('[SR v3.0] ❌ Failed to insert receiving history:', {
+              error: historyError,
+              item: { asin: item.asin, sku: item.sku_code, model: item.model_number }
+            });
+          }
+        } catch (err) {
+          console.error('[SR v3.0] ❌ Exception inserting receiving history:', err);
+        }
 
         processingResults.push({
           item_id: item.asin || item.sku_code || item.model_number,
@@ -285,14 +324,19 @@ serve(async (req) => {
       addedToInventory: totalAddedToInventory
     });
 
-    await supabase
+    const { error: sessionError } = await supabase
       .from('stock_receiving_sessions')
       .update({
-        items_received: items.length,
+        total_items_received: items.length,
         items_allocated_to_pos: totalAllocatedToPOs,
-        items_added_to_inventory: totalAddedToInventory
+        items_added_to_inventory: totalAddedToInventory,
+        updated_at: new Date().toISOString()
       })
       .eq('id', activeSessionId);
+
+    if (sessionError) {
+      console.error('[SR v3.0] ⚠️ Failed to update session statistics:', sessionError);
+    }
 
     const responseData = {
       session_id: activeSessionId,
