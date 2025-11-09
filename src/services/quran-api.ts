@@ -33,6 +33,8 @@ async function fetchWithRetry<T>(url: string, retries = 3): Promise<T> {
 export const quranApi = {
   async getSurahList(): Promise<Surah[]> {
     const data = await fetchWithRetry<Surah[]>(`${BASE_URL}/surah.json`);
+    console.log('🕌 Quran API: Fetched surah list, first item:', data[0]);
+    console.log('🕌 Quran API: Total surahs:', data.length);
     return data;
   },
 
@@ -40,7 +42,14 @@ export const quranApi = {
     if (surahNumber < 1 || surahNumber > 114) {
       throw new QuranApiError('Invalid surah number. Must be between 1 and 114.');
     }
+    console.log('🕌 Quran API: Fetching surah:', surahNumber);
     const data = await fetchWithRetry<Surah>(`${BASE_URL}/${surahNumber}.json`);
+    console.log('🕌 Quran API: Surah data received:', {
+      surahNumber: data.surahNumber,
+      surahName: data.surahName,
+      totalAyah: data.totalAyah,
+      versesCount: data.verses?.length
+    });
     return data;
   },
 
@@ -67,7 +76,7 @@ export const quranApi = {
   async getRandomVerse(): Promise<Verse> {
     const surahNumber = Math.floor(Math.random() * 114) + 1;
     const surah = await this.getSurah(surahNumber);
-    const ayahNumber = Math.floor(Math.random() * surah.totalVerses) + 1;
+    const ayahNumber = Math.floor(Math.random() * surah.totalAyah) + 1;
     return this.getVerse(surahNumber, ayahNumber);
   }
 };

@@ -25,18 +25,30 @@ export function QuranHomepage() {
     ayah: 0,
   });
 
+  const handleSurahSelect = (surahNumber: number) => {
+    console.log('📖 QuranHomepage: Surah selected:', surahNumber);
+    setSelectedSurah(surahNumber);
+    console.log('📖 QuranHomepage: State updated to:', surahNumber);
+  };
+
   // Check for hash navigation
   useEffect(() => {
     const hash = window.location.hash;
     if (hash.startsWith('#surah-')) {
       const surahNum = parseInt(hash.replace('#surah-', ''));
       if (surahNum >= 1 && surahNum <= 114) {
+        console.log('📖 Hash navigation to Surah:', surahNum);
         setSelectedSurah(surahNum);
       }
     }
   }, []);
 
+  useEffect(() => {
+    console.log('📖 selectedSurah changed to:', selectedSurah);
+  }, [selectedSurah]);
+
   if (selectedSurah) {
+    console.log('📖 Rendering SurahDetailView for:', selectedSurah);
     return (
       <SurahDetailView
         surahNumber={selectedSurah}
@@ -80,7 +92,7 @@ export function QuranHomepage() {
             ) : (
               <QuranSearch
                 surahs={surahs || []}
-                onSurahSelect={setSelectedSurah}
+                onSurahSelect={handleSurahSelect}
               />
             )}
             
@@ -146,7 +158,7 @@ export function QuranHomepage() {
           ) : surahs ? (
             <SurahGrid
               surahs={surahs}
-              onSurahClick={setSelectedSurah}
+              onSurahClick={handleSurahSelect}
             />
           ) : (
             <Card className="p-12 text-center">

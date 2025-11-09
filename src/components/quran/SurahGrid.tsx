@@ -9,13 +9,18 @@ interface SurahGridProps {
 }
 
 export function SurahGrid({ surahs, onSurahClick }: SurahGridProps) {
+  const handleSurahClick = (surahNumber: number) => {
+    console.log('🔍 Surah clicked:', surahNumber);
+    onSurahClick(surahNumber);
+  };
+
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
       {surahs.map((surah) => (
         <Card
           key={surah.surahNumber}
           className="p-4 cursor-pointer hover:border-primary/50 hover:shadow-lg transition-all group bg-card/50 backdrop-blur-sm"
-          onClick={() => onSurahClick(surah.surahNumber)}
+          onClick={() => handleSurahClick(surah.surahNumber)}
         >
           <div className="space-y-2">
             <div className="flex items-center justify-between">
