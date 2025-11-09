@@ -6,8 +6,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, AlertCircle, ChevronDown, AlertTriangle, ExternalLink } from 'lucide-react';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
+import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom';
 
 interface SearchResult {
   type: 'po' | 'inventory' | 'recent';
@@ -20,6 +26,12 @@ interface SearchResult {
   serial_number?: string;
 }
 
+interface ManualPOAllocation {
+  po_id: string;
+  po_number: string;
+  quantity: number;
+}
+
 interface QuantityConfirmDialogProps {
   open: boolean;
   onClose: () => void;
@@ -30,9 +42,11 @@ interface QuantityConfirmDialogProps {
     supplier_name?: string;
     notes?: string;
     autoPrint: boolean;
+    manualPOAllocations?: ManualPOAllocation[];
   }) => void;
   processing?: boolean;
   initialSerialNumber?: string;
+  country?: string;
 }
 
 export function QuantityConfirmDialog({
@@ -41,26 +55,37 @@ export function QuantityConfirmDialog({
   item,
   onConfirm,
   processing = false,
-  initialSerialNumber
+  initialSerialNumber,
+  country = 'UAE'
 }: QuantityConfirmDialogProps) {
+  const navigate = useNavigate();
   const [quantity, setQuantity] = useState(1);
   const [serialNumber, setSerialNumber] = useState('');
   const [supplierName, setSupplierName] = useState('');
   const [notes, setNotes] = useState('');
   const [autoPrintEnabled, setAutoPrintEnabled] = useState(true);
   const [qzConnected, setQzConnected] = useState(false);
+  
+  // Manual PO selection state
+  const [poSectionOpen, setPoSectionOpen] = useState(false);
+  const [availablePOs, setAvailablePOs] = useState<any[]>([]);
+  const [loadingPOs, setLoadingPOs] = useState(false);
+  const [selectedPOs, setSelectedPOs] = useState<Map<string, number>>(new Map());
+  const [remainingQty, setRemainingQty] = useState(0);
 
   useEffect(() => {
     if (open) {
       setQuantity(1);
-      // Pre-populate serial number from inventory if available
       setSerialNumber(initialSerialNumber || '');
       setSupplierName('');
       setNotes('');
+      setSelectedPOs(new Map());
+      setAvailablePOs([]);
+      setPoSectionOpen(false);
       
       // Load auto-print preference from localStorage
       const savedAutoPrint = localStorage.getItem('stock-receiving-auto-print');
-      setAutoPrintEnabled(savedAutoPrint === 'true' || savedAutoPrint === null); // Default to true
+      setAutoPrintEnabled(savedAutoPrint === 'true' || savedAutoPrint === null);
       
       // Set up connection listener for reactive status updates
       const handleConnectionChange = (connected: boolean) => {
@@ -75,23 +100,106 @@ export function QuantityConfirmDialog({
         setQzConnected(false);
       });
       
+      // Load available POs for manual selection
+      if (item) {
+        loadAvailablePOs();
+      }
+      
       // Cleanup listener when dialog closes
       return () => {
         qzConnectionManager.removeConnectionListener(handleConnectionChange);
       };
     }
-  }, [open, initialSerialNumber]);
+  }, [open, initialSerialNumber, item]);
+
+  // Calculate remaining quantity whenever quantity or selections change
+  useEffect(() => {
+    const totalAllocated = Array.from(selectedPOs.values()).reduce((sum, qty) => sum + qty, 0);
+    setRemainingQty(Math.max(0, quantity - totalAllocated));
+  }, [quantity, selectedPOs]);
+
+  const loadAvailablePOs = async () => {
+    if (!item) return;
+    
+    setLoadingPOs(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Build query to find matching POs (including closed ones for manual selection)
+      let query = supabase
+        .from('po_orders')
+        .select('*')
+        .eq('user_id', user.id)
+        .in('status', ['pending', 'placed', 'shipped', 'closed']);
+
+      // Add filters based on item identifiers
+      const conditions = [];
+      if (item.asin) conditions.push(`asin.eq.${item.asin}`);
+      if (item.sku_code) conditions.push(`sku_code.eq.${item.sku_code}`);
+      if (item.model_number) conditions.push(`model_number.eq.${item.model_number}`);
+      
+      if (conditions.length > 0) {
+        query = query.or(conditions.join(','));
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setAvailablePOs(data || []);
+    } catch (error) {
+      console.error('Failed to load POs:', error);
+    } finally {
+      setLoadingPOs(false);
+    }
+  };
+
+  const handlePOToggle = (po: any, checked: boolean) => {
+    setSelectedPOs(prev => {
+      const newMap = new Map(prev);
+      if (checked) {
+        // Default allocate the minimum of PO need or remaining quantity
+        const allocateQty = Math.min(po.quantity, quantity);
+        newMap.set(po.id, allocateQty);
+      } else {
+        newMap.delete(po.id);
+      }
+      return newMap;
+    });
+  };
+
+  const handlePOQuantityChange = (poId: string, qty: number) => {
+    setSelectedPOs(prev => {
+      const newMap = new Map(prev);
+      newMap.set(poId, Math.max(0, qty));
+      return newMap;
+    });
+  };
 
   const handleSubmit = (autoPrint: boolean) => {
     // Save auto-print preference
     localStorage.setItem('stock-receiving-auto-print', String(autoPrintEnabled));
+    
+    // Build manual PO allocations if any selected
+    const manualAllocations: ManualPOAllocation[] = [];
+    selectedPOs.forEach((qty, poId) => {
+      const po = availablePOs.find(p => p.id === poId);
+      if (po && qty > 0) {
+        manualAllocations.push({
+          po_id: poId,
+          po_number: po.po_number,
+          quantity: qty
+        });
+      }
+    });
     
     onConfirm({
       quantity,
       serial_number: serialNumber || undefined,
       supplier_name: supplierName || undefined,
       notes: notes || undefined,
-      autoPrint: autoPrint && autoPrintEnabled
+      autoPrint: autoPrint && autoPrintEnabled,
+      manualPOAllocations: manualAllocations.length > 0 ? manualAllocations : undefined
     });
   };
 
@@ -168,6 +276,136 @@ export function QuantityConfirmDialog({
               className="text-lg font-semibold"
             />
           </div>
+
+          {/* Manual PO Selection - Collapsible */}
+          <Collapsible open={poSectionOpen} onOpenChange={setPoSectionOpen} className="border rounded-lg">
+            <CollapsibleTrigger asChild>
+              <Button 
+                variant="ghost" 
+                className="w-full flex items-center justify-between p-4 hover:bg-muted/50"
+              >
+                <span className="text-sm font-medium">
+                  Select Purchase Orders (Optional)
+                </span>
+                <ChevronDown className={cn("w-4 h-4 transition-transform", poSectionOpen && "rotate-180")} />
+              </Button>
+            </CollapsibleTrigger>
+            
+            <CollapsibleContent className="px-4 pb-4 space-y-3">
+              {loadingPOs ? (
+                <div className="text-center py-4 text-sm text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
+                  Loading POs...
+                </div>
+              ) : availablePOs.length === 0 ? (
+                <div className="text-center py-4 text-sm text-muted-foreground">
+                  No matching POs found
+                </div>
+              ) : (
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    Manually select which POs to fulfill. Unchecked POs will use automatic matching.
+                  </p>
+                  
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {availablePOs.map((po) => {
+                      const isSelected = selectedPOs.has(po.id);
+                      const allocatedQty = selectedPOs.get(po.id) || 0;
+                      const isClosed = po.status === 'closed';
+                      
+                      return (
+                        <div 
+                          key={po.id}
+                          className={cn(
+                            "p-3 rounded-lg border transition-all",
+                            isSelected ? "border-primary/50 bg-primary/5" : "border-border hover:border-primary/30"
+                          )}
+                        >
+                          <div className="flex items-start gap-3">
+                            <Checkbox
+                              id={`po-${po.id}`}
+                              checked={isSelected}
+                              onCheckedChange={(checked) => handlePOToggle(po, checked as boolean)}
+                              className="mt-1"
+                            />
+                            
+                            <div className="flex-1 space-y-2">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Label 
+                                  htmlFor={`po-${po.id}`}
+                                  className="font-semibold cursor-pointer hover:text-primary"
+                                  onClick={() => navigate(`/po-tracker?search=${po.po_number}`)}
+                                >
+                                  {po.po_number}
+                                  <ExternalLink className="w-3 h-3 inline ml-1" />
+                                </Label>
+                                
+                                <Badge 
+                                  variant={isClosed ? 'secondary' : po.status === 'pending' ? 'default' : 'outline'}
+                                  className="text-xs"
+                                >
+                                  {po.status.toUpperCase()}
+                                </Badge>
+                                
+                                {isClosed && (
+                                  <span className="flex items-center gap-1 text-xs text-warning">
+                                    <AlertTriangle className="w-3 h-3" />
+                                    Already fulfilled
+                                  </span>
+                                )}
+                              </div>
+                              
+                              <div className="text-xs text-muted-foreground">
+                                Need: {po.quantity} units
+                              </div>
+                              
+                              {isSelected && (
+                                <div className="flex items-center gap-2">
+                                  <Label htmlFor={`qty-${po.id}`} className="text-xs">
+                                    Allocate:
+                                  </Label>
+                                  <Input
+                                    id={`qty-${po.id}`}
+                                    type="number"
+                                    min="0"
+                                    max={quantity}
+                                    value={allocatedQty}
+                                    onChange={(e) => handlePOQuantityChange(po.id, parseInt(e.target.value) || 0)}
+                                    className="w-20 h-8 text-sm"
+                                  />
+                                  <span className="text-xs text-muted-foreground">units</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  {/* Allocation Summary */}
+                  <div className="pt-3 border-t space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Total Receiving:</span>
+                      <span className="font-semibold">{quantity} units</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Allocated to POs:</span>
+                      <span className="font-semibold text-primary">
+                        {Array.from(selectedPOs.values()).reduce((sum, qty) => sum + qty, 0)} units
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Remaining to Inventory:</span>
+                      <span className="font-semibold text-success">
+                        {remainingQty} units
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
 
           {/* Serial Number - HIGHLIGHTED */}
           <div className="space-y-2 p-3 bg-primary/5 rounded-lg border-2 border-primary/20">

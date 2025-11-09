@@ -22,6 +22,12 @@ export interface POAllocation {
   status: 'fulfilled' | 'partial';
 }
 
+export interface ManualPOAllocation {
+  po_id: string;
+  po_number: string;
+  quantity: number;
+}
+
 export interface ProcessingResult {
   item_id: string;
   matched_pos: POAllocation[];
@@ -197,7 +203,8 @@ export function useStockReceiving() {
     items: ReceivingItem[],
     autoFulfill = true,
     sessionId?: string,
-    country?: string
+    country?: string,
+    manualPOAllocations?: ManualPOAllocation[]
   ): Promise<ProcessingResult[]> => {
     try {
       setIsProcessing(true);
@@ -228,7 +235,8 @@ export function useStockReceiving() {
         items,
         auto_fulfill: autoFulfill,
         session_id: sessionId || currentSession?.id,
-        country: country
+        country: country,
+        manual_po_allocations: manualPOAllocations
       };
       console.log('[Stock Receiving] Request body:', requestBody);
 
@@ -382,10 +390,11 @@ export function useStockReceiving() {
     item: ReceivingItem | ReceivingItem[],
     autoFulfill = true,
     sessionId?: string,
-    country?: string
+    country?: string,
+    manualPOAllocations?: ManualPOAllocation[]
   ) => {
     const items = Array.isArray(item) ? item : [item];
-    return processItems(items, autoFulfill, sessionId, country);
+    return processItems(items, autoFulfill, sessionId, country, manualPOAllocations);
   };
 
   return {

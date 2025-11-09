@@ -30,6 +30,12 @@ interface ReceivedItemData {
   country?: string;
 }
 
+interface ManualPOAllocation {
+  po_id: string;
+  po_number: string;
+  quantity: number;
+}
+
 interface RequestPayload {
   items: ReceivedItemData[];
   auto_fulfill?: boolean;
@@ -37,6 +43,7 @@ interface RequestPayload {
   session_id?: string;
   country?: string;
   test?: boolean;
+  manual_po_allocations?: ManualPOAllocation[];
 }
 
 serve(async (req) => {
@@ -124,7 +131,7 @@ serve(async (req) => {
       throw new Error('No items provided for processing');
     }
 
-    const { items, auto_fulfill = true, session_notes, session_id, country } = body;
+    const { items, auto_fulfill = true, session_notes, session_id, country, manual_po_allocations } = body;
 
     console.log(`[SR v3.0] Processing ${items.length} items for user ${user.id}`, {
       autoFulfill: auto_fulfill,
@@ -194,19 +201,78 @@ serve(async (req) => {
         // Enhance item with country
         const enrichedItem = { ...item, country: targetCountry };
 
-        // Find matching purchase orders
-        const matchingPOs = await locateMatchingPurchaseOrders(supabase, user.id, enrichedItem);
-        
-        console.log('[SR v3.0] Matching POs found:', { 
-          count: matchingPOs.length,
-          poNumbers: matchingPOs.map(po => po.po_number)
+        let allocations: any[] = [];
+        let remainingQuantity = item.quantity;
+
+        // Check if manual PO allocations are provided for this item
+        const itemManualAllocations = manual_po_allocations?.filter(alloc => {
+          // We'll validate against actual POs in the next step
+          return true; // Initial filter - will validate below
         });
 
-        // Calculate allocation
-        const { allocations, remainingQuantity } = computeQuantityAllocation(
-          item.quantity,
-          matchingPOs
-        );
+        if (itemManualAllocations && itemManualAllocations.length > 0) {
+          console.log('[SR v3.0] Using manual PO allocations:', itemManualAllocations);
+
+          // Validate and fetch the manually selected POs
+          for (const manualAlloc of itemManualAllocations) {
+            const { data: po, error: poError } = await supabase
+              .from('po_orders')
+              .select('*')
+              .eq('id', manualAlloc.po_id)
+              .eq('user_id', user.id)
+              .single();
+
+            if (poError || !po) {
+              console.error('[SR v3.0] Manual PO not found:', manualAlloc.po_id);
+              continue;
+            }
+
+            // Verify PO matches the item
+            const poMatchesItem = 
+              po.asin === item.asin ||
+              po.sku_code === item.sku_code ||
+              po.model_number === item.model_number;
+
+            if (!poMatchesItem) {
+              console.error('[SR v3.0] Manual PO does not match item:', {
+                poId: manualAlloc.po_id,
+                poNumber: po.po_number,
+                itemAsin: item.asin,
+                itemSku: item.sku_code
+              });
+              continue;
+            }
+
+            allocations.push({
+              po: po,
+              quantity: manualAlloc.quantity
+            });
+
+            remainingQuantity -= manualAlloc.quantity;
+          }
+
+          console.log('[SR v3.0] Manual allocation complete:', {
+            allocations: allocations.length,
+            remainingQty: remainingQuantity
+          });
+        } else {
+          // Use automatic matching (existing logic)
+          const matchingPOs = await locateMatchingPurchaseOrders(supabase, user.id, enrichedItem);
+          
+          console.log('[SR v3.0] Matching POs found (auto):', { 
+            count: matchingPOs.length,
+            poNumbers: matchingPOs.map(po => po.po_number)
+          });
+
+          // Calculate allocation
+          const allocationResult = computeQuantityAllocation(
+            item.quantity,
+            matchingPOs
+          );
+          
+          allocations = allocationResult.allocations;
+          remainingQuantity = allocationResult.remainingQuantity;
+        }
 
         console.log('[SR v3.0] Allocation computed:', {
           totalAllocations: allocations.length,

@@ -58,12 +58,6 @@ export default function ReceiveStock() {
     processSingleItem,
     testConnection
   } = useStockReceiving();
-  const {
-    history,
-    isLoading: historyLoading,
-    loadMore,
-    hasMore
-  } = useReceivingHistory(50);
   const [selectedItem, setSelectedItem] = useState<SearchResult | null>(null);
   const [showDialog, setShowDialog] = useState(false);
   // Local activities state for immediate feedback before DB sync
@@ -227,6 +221,7 @@ export default function ReceiveStock() {
     supplier_name?: string;
     notes?: string;
     autoPrint: boolean;
+    manualPOAllocations?: Array<{ po_id: string; po_number: string; quantity: number }>;
   }) => {
     if (!selectedItem) return;
 
@@ -249,7 +244,13 @@ export default function ReceiveStock() {
       notes: data.notes,
       country: selectedCountry
     };
-    const results = await processSingleItem(item, true, undefined, selectedCountry);
+    const results = await processSingleItem(
+      item, 
+      true, 
+      undefined, 
+      selectedCountry,
+      data.manualPOAllocations
+    );
     if (results && results.length > 0) {
       const result = results[0];
 
@@ -600,37 +601,25 @@ export default function ReceiveStock() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <RecentActivityFeed activities={[
-          // Show local activities first (immediate feedback)
-          ...localActivities,
-          // Then show persisted history from database
-          ...history.map(h => ({
-            id: h.id,
-            success: h.success,
-            identifier: h.asin || h.sku_code || h.model_number || 'Unknown',
-            destination: h.destination_type === 'po' ? `PO ${h.destination_details?.po_numbers?.join(', ') || ''}` : 'Inventory',
-            quantity: h.quantity,
-            printed: h.printed,
-            timestamp: new Date(h.created_at),
-            error: h.error_message,
-            template_type: h.destination_type as 'po' | 'inventory',
-            country: h.country
-          }))]} onLoadMore={loadMore} hasMore={hasMore} isLoading={historyLoading} />
+            <RecentActivityFeed 
+              activities={localActivities}
+            />
           </CardContent>
         </Card>
       </div>
 
       {/* Quantity Confirm Dialog */}
-      <QuantityConfirmDialog 
-        open={showDialog} 
-        onClose={() => {
-          setShowDialog(false);
-          setSelectedItem(null);
-        }} 
-        item={selectedItem} 
-        onConfirm={handleConfirm} 
-        processing={isProcessing}
-        initialSerialNumber={selectedItem?.serial_number}
-      />
+        <QuantityConfirmDialog
+          open={showDialog}
+          onClose={() => {
+            setShowDialog(false);
+            setSelectedItem(null);
+          }}
+          item={selectedItem}
+          onConfirm={handleConfirm}
+          processing={isProcessing}
+          initialSerialNumber={selectedItem?.serial_number}
+          country={selectedCountry}
+        />
     </div>;
 }

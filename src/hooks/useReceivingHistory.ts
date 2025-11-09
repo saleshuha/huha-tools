@@ -21,29 +21,57 @@ export interface ReceivingHistoryItem {
   created_at: string;
 }
 
-export function useReceivingHistory(pageSize: number = 50) {
+export function useReceivingHistory(
+  pageSize: number = 50, 
+  filterType: 'all' | 'po' | 'inventory' = 'all'
+) {
   const queryClient = useQueryClient();
 
-  // Fetch history with pagination state
+  // Fetch history with pagination state and filtering
   const {
     data,
     isLoading,
     error
   } = useQuery({
-    queryKey: ['receiving-history'],
+    queryKey: ['receiving-history', filterType],
     queryFn: async () => {
-      const { data, error, count } = await supabase
+      let query = supabase
         .from('receiving_history')
         .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .limit(pageSize);
+        .order('created_at', { ascending: false });
+
+      // Apply filter based on type
+      if (filterType === 'po') {
+        // PO fulfillments: has po_numbers in destination_details
+        query = query.not('destination_details->po_numbers', 'is', null);
+      } else if (filterType === 'inventory') {
+        // Inventory receipts: no po_numbers or empty array
+        query = query.or('destination_details->po_numbers.is.null,destination_details->po_numbers.eq.[]');
+      }
+
+      query = query.limit(pageSize);
+
+      const { data, error, count } = await query;
 
       if (error) throw error;
+
+      // Get counts for both types
+      const { count: poCount } = await supabase
+        .from('receiving_history')
+        .select('*', { count: 'exact', head: true })
+        .not('destination_details->po_numbers', 'is', null);
+
+      const { count: invCount } = await supabase
+        .from('receiving_history')
+        .select('*', { count: 'exact', head: true })
+        .or('destination_details->po_numbers.is.null,destination_details->po_numbers.eq.[]');
       
       return {
         items: data || [],
         hasMore: (count || 0) > pageSize,
-        nextOffset: pageSize
+        nextOffset: pageSize,
+        poCount: poCount || 0,
+        inventoryCount: invCount || 0
       };
     }
   });
@@ -96,6 +124,8 @@ export function useReceivingHistory(pageSize: number = 50) {
     error,
     loadMore,
     hasMore: data?.hasMore || false,
+    poCount: data?.poCount || 0,
+    inventoryCount: data?.inventoryCount || 0,
     updatePrintStatus: updatePrintStatus.mutate
   };
 }
