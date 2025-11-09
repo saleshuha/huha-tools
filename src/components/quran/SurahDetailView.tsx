@@ -82,8 +82,8 @@ export function SurahDetailView({ surahNumber, onBack }: SurahDetailViewProps) {
                     <Badge variant="outline" className="font-mono">
                       Surah {surah.surahNumber}
                     </Badge>
-                    <Badge variant={surah.revelationType === 'Meccan' ? 'default' : 'secondary'}>
-                      {surah.revelationType}
+                    <Badge variant={surah.revelationPlace === 'Mecca' ? 'default' : 'secondary'}>
+                      {surah.revelationPlace}
                     </Badge>
                   </div>
                   <h1 className="text-3xl font-bold mt-2">{surah.surahName}</h1>
@@ -95,7 +95,7 @@ export function SurahDetailView({ surahNumber, onBack }: SurahDetailViewProps) {
               <Separator />
 
               <div className="text-sm text-muted-foreground">
-                {surah.totalVerses} verses
+                {surah.totalAyah} verses
               </div>
             </div>
           </Card>

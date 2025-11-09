@@ -26,10 +26,10 @@ export function SurahGrid({ surahs, onSurahClick }: SurahGridProps) {
                 variant="secondary" 
                 className={cn(
                   "text-xs",
-                  surah.revelationType === 'Meccan' ? 'bg-primary/10' : 'bg-secondary/10'
+                  surah.revelationPlace === 'Mecca' ? 'bg-primary/10' : 'bg-secondary/10'
                 )}
               >
-                {surah.revelationType === 'Meccan' ? 'M' : 'Md'}
+                {surah.revelationPlace === 'Mecca' ? 'M' : 'Md'}
               </Badge>
             </div>
             
@@ -41,7 +41,7 @@ export function SurahGrid({ surahs, onSurahClick }: SurahGridProps) {
                 {surah.surahName}
               </div>
               <div className="text-xs text-muted-foreground">
-                {surah.totalVerses} verses
+                {surah.totalAyah} verses
               </div>
             </div>
           </div>

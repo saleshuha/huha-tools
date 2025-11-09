@@ -4,8 +4,8 @@ export interface Surah {
   surahNameArabic: string;
   surahNameArabicLong: string;
   surahNameTranslation: string;
-  totalVerses: number;
-  revelationType: 'Meccan' | 'Medinan';
+  totalAyah: number;
+  revelationPlace: 'Mecca' | 'Medina';
   verses?: Verse[];
 }
 
