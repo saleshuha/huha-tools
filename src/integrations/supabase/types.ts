@@ -3286,6 +3286,119 @@ export type Database = {
         }
         Relationships: []
       }
+      stock_receiving_items: {
+        Row: {
+          asin: string | null
+          created_at: string | null
+          error_message: string | null
+          has_pending_po: boolean | null
+          id: string
+          matched_pos: Json | null
+          model_number: string | null
+          quantity_added_to_inventory: number | null
+          quantity_allocated_to_pos: number | null
+          quantity_received: number
+          receiving_notes: string | null
+          serial_number: string | null
+          session_id: string
+          sku_code: string | null
+          status: string | null
+          supplier_name: string | null
+          title: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          asin?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          has_pending_po?: boolean | null
+          id?: string
+          matched_pos?: Json | null
+          model_number?: string | null
+          quantity_added_to_inventory?: number | null
+          quantity_allocated_to_pos?: number | null
+          quantity_received: number
+          receiving_notes?: string | null
+          serial_number?: string | null
+          session_id: string
+          sku_code?: string | null
+          status?: string | null
+          supplier_name?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          asin?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          has_pending_po?: boolean | null
+          id?: string
+          matched_pos?: Json | null
+          model_number?: string | null
+          quantity_added_to_inventory?: number | null
+          quantity_allocated_to_pos?: number | null
+          quantity_received?: number
+          receiving_notes?: string | null
+          serial_number?: string | null
+          session_id?: string
+          sku_code?: string | null
+          status?: string | null
+          supplier_name?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_receiving_items_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "stock_receiving_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_receiving_sessions: {
+        Row: {
+          created_at: string | null
+          id: string
+          items_added_to_inventory: number | null
+          items_allocated_to_pos: number | null
+          notes: string | null
+          session_date: string | null
+          status: string | null
+          total_items_received: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          items_added_to_inventory?: number | null
+          items_allocated_to_pos?: number | null
+          notes?: string | null
+          session_date?: string | null
+          status?: string | null
+          total_items_received?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          items_added_to_inventory?: number | null
+          items_allocated_to_pos?: number | null
+          notes?: string | null
+          session_date?: string | null
+          status?: string | null
+          total_items_received?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       stores: {
         Row: {
           country: string

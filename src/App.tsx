@@ -68,6 +68,7 @@ import PreviewSettings from "./pages/PreviewSettings";
 import QZTrayPage from "./pages/QZTrayPage";
 import { VelocityAnalyticsSimple } from "@/components/VelocityAnalyticsSimple";
 import PurchaseLink from "./pages/PurchaseLink";
+import ReceiveStock from "./pages/ReceiveStock";
 
 import { useState as useReactState } from "react";
 import { useToast } from "@/components/ui/use-toast";
@@ -266,6 +267,7 @@ const App = () => {
 
                         {/* Main App Routes - Available in both web and mobile */}
                         <Route path="/inventory" element={<Inventory />} />
+                        <Route path="/receive-stock" element={<ReceiveStock />} />
                         <Route path="/processed-orders" element={<ProcessedOrders />} />
                         <Route path="/order-processing" element={<OrderProcessingPage />} />
                         <Route path="/users" element={<UserManagementPage />} />

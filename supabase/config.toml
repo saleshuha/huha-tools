@@ -54,3 +54,9 @@ verify_jwt = false
 
 [functions.fulfill-from-stock]
 verify_jwt = true
+
+[functions.smart-stock-receiving]
+verify_jwt = true
+
+[functions.calculate-replenishment-quantity]
+verify_jwt = true
