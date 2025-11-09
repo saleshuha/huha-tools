@@ -5847,6 +5847,7 @@ export type Database = {
         | "transfer_in"
         | "transfer_out"
         | "sunsky_order"
+        | "stock_receiving"
       sunsky_order_status:
         | "unpaid"
         | "paid"
@@ -6009,6 +6010,7 @@ export const Constants = {
         "transfer_in",
         "transfer_out",
         "sunsky_order",
+        "stock_receiving",
       ],
       sunsky_order_status: [
         "unpaid",
