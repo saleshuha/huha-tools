@@ -46,12 +46,8 @@ export default function ReceiveStock() {
   });
   
   const {
-    currentSession,
     isProcessing,
-    createSession,
     processSingleItem,
-    endSession,
-    loadSessions,
     testConnection,
     sessions,
   } = useStockReceiving();
@@ -69,9 +65,7 @@ export default function ReceiveStock() {
   const [selectedInventoryTemplate, setSelectedInventoryTemplate] = useState<string>('');
 
   useEffect(() => {
-    loadSessions();
     checkConnection();
-    initializeSession();
     
     // Load print preferences
     const config = getAutoPrintConfig();
@@ -121,12 +115,6 @@ export default function ReceiveStock() {
     }
   };
 
-  const initializeSession = async () => {
-    if (!currentSession) {
-      await createSession('Auto-created receiving session');
-    }
-  };
-
   const checkConnection = async () => {
     setConnectionStatus('checking');
     try {
@@ -155,7 +143,7 @@ export default function ReceiveStock() {
     notes?: string;
     autoPrint: boolean;
   }) => {
-    if (!selectedItem || !currentSession) return;
+    if (!selectedItem) return;
 
     const item = {
       asin: selectedItem.asin,
@@ -168,7 +156,7 @@ export default function ReceiveStock() {
       notes: data.notes,
     };
 
-    const results = await processSingleItem(item, true, currentSession.id);
+    const results = await processSingleItem(item, true);
     
     if (results && results.length > 0) {
       const result = results[0];
@@ -230,14 +218,9 @@ export default function ReceiveStock() {
     setSelectedItem(null);
   };
 
-  const handleEndSession = async () => {
-    if (currentSession) {
-      await endSession(currentSession.id);
-      setActivities([]);
-      toast.success('Session ended');
-      // Create new session
-      await createSession('Auto-created receiving session');
-    }
+  const handleClearActivities = () => {
+    setActivities([]);
+    toast.success('Activity cleared');
   };
 
   const handleAutoPrintChange = (enabled: boolean) => {
@@ -305,22 +288,22 @@ export default function ReceiveStock() {
           </div>
         </Alert>
 
-        {/* Active Session Indicator */}
-        {currentSession && (
+        {/* Activity Summary */}
+        {activities.length > 0 && (
           <Card className="mb-6 border-primary/30 bg-primary/5">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                   <div>
-                    <p className="font-medium text-foreground">Active Session</p>
+                    <p className="font-medium text-foreground">Receiving Active</p>
                     <p className="text-sm text-muted-foreground">
-                      {activities.length} items received
+                      {activities.length} items processed today
                     </p>
                   </div>
                 </div>
-                <Button variant="destructive" size="sm" onClick={handleEndSession}>
-                  End Session
+                <Button variant="outline" size="sm" onClick={handleClearActivities}>
+                  Clear History
                 </Button>
               </div>
             </CardContent>
@@ -341,7 +324,7 @@ export default function ReceiveStock() {
           <CardContent className="space-y-4">
             <ItemSearchBar
               onItemSelect={handleItemSelect}
-              disabled={!currentSession || isProcessing}
+              disabled={isProcessing}
             />
 
             {/* Print Settings */}
@@ -460,8 +443,8 @@ export default function ReceiveStock() {
           </CardContent>
         </Card>
 
-        {/* Session History */}
-        <SessionHistory sessions={sessions} onEndSession={endSession} />
+        {/* Optional: Keep session history if you want to track past receiving activities */}
+        {/* <SessionHistory sessions={sessions} /> */}
       </div>
 
       {/* Quantity Confirm Dialog */}
