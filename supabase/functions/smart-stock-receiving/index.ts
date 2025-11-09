@@ -207,7 +207,7 @@ serve(async (req) => {
           // Log to receiving history for comprehensive tracking
           try {
             const { error: historyError } = await supabase.from('receiving_history').insert({
-              user_id: userId,
+              user_id: user.id,
               asin: item.asin,
               sku_code: item.sku_code,
               model_number: item.model_number,
@@ -389,37 +389,77 @@ async function fulfillPO(supabase: any, userId: string, allocation: any) {
 }
 
 async function addToInventory(supabase: any, userId: string, item: ReceivedItem, quantity: number) {
-  // Generate serial number if not provided
   const serialNumber = item.serial_number || `RCV-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-  const { data, error } = await supabase
+  // Step 1: Check if item already exists
+  const { data: existing } = await supabase
     .from('asin_inventory')
-    .insert({
-      user_id: userId,
-      asin: item.asin || 'N/A',
-      sku: item.sku_code,
-      serial_number: serialNumber,
-      title: item.title,
-      quantity: quantity,
-      status: 'in-stock',
-      notes: `Received from supplier: ${item.supplier_name || 'N/A'}. ${item.notes || ''}`
-    })
-    .select()
+    .select('id, quantity, serial_number')
+    .eq('user_id', userId)
+    .eq('asin', item.asin || 'N/A')
+    .eq('status', 'in-stock')
+    .order('created_at', { ascending: false })
+    .limit(1)
     .single();
+
+  let data, error, inventoryId;
+
+  if (existing) {
+    // Step 2a: UPDATE existing record
+    const newQuantity = existing.quantity + quantity;
+    const { data: updated, error: updateError } = await supabase
+      .from('asin_inventory')
+      .update({
+        quantity: newQuantity,
+        notes: `Received from supplier: ${item.supplier_name || 'N/A'}. ${item.notes || ''}`,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', existing.id)
+      .select()
+      .single();
+    
+    data = updated;
+    error = updateError;
+    inventoryId = existing.id;
+    
+    console.log(`[Edge Function] Updated existing inventory: ${existing.quantity} + ${quantity} = ${newQuantity}`);
+  } else {
+    // Step 2b: INSERT new record
+    const { data: inserted, error: insertError } = await supabase
+      .from('asin_inventory')
+      .insert({
+        user_id: userId,
+        asin: item.asin || 'N/A',
+        sku: item.sku_code,
+        serial_number: serialNumber,
+        title: item.title,
+        quantity: quantity,
+        status: 'in-stock',
+        notes: `Received from supplier: ${item.supplier_name || 'N/A'}. ${item.notes || ''}`
+      })
+      .select()
+      .single();
+    
+    data = inserted;
+    error = insertError;
+    inventoryId = inserted?.id;
+    
+    console.log(`[Edge Function] Created new inventory record with quantity ${quantity}`);
+  }
 
   if (error) throw error;
 
-  // FIXED: Create proper stock change record with ALL required fields
+  // Step 3: Create stock change record
   const { error: stockChangeError } = await supabase.from('stock_changes').insert({
     user_id: userId,
     changed_by: userId,
-    inventory_id: data.id,
+    inventory_id: inventoryId,
     inventory_type: 'asin',
     asin: item.asin || 'N/A',
     sku_number: item.sku_code,
     serial_number: serialNumber,
-    previous_quantity: 0,
-    new_quantity: quantity,
+    previous_quantity: existing ? existing.quantity : 0,
+    new_quantity: existing ? existing.quantity + quantity : quantity,
     change_amount: quantity,
     change_reason: 'stock_receiving',
     source_type: 'manual_adjustment',
@@ -430,8 +470,7 @@ async function addToInventory(supabase: any, userId: string, item: ReceivedItem,
 
   if (stockChangeError) {
     console.error('[Edge Function] Failed to create stock change:', stockChangeError);
-    // Don't throw - inventory was created successfully
   }
 
-  return data.id;
+  return inventoryId;
 }
