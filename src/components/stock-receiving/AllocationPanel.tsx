@@ -11,6 +11,7 @@ interface AllocationPanelProps {
   results: ProcessingResult[];
   onProcess: () => void;
   onClear: () => void;
+  onClearResults?: () => void;
   isProcessing: boolean;
 }
 
@@ -18,7 +19,8 @@ export function AllocationPanel({
   items, 
   results, 
   onProcess, 
-  onClear, 
+  onClear,
+  onClearResults,
   isProcessing 
 }: AllocationPanelProps) {
   const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -100,8 +102,17 @@ export function AllocationPanel({
 
         {/* Show Detailed Results */}
         {results.length > 0 && processedCount === items.length && (
-          <div className="pt-4 border-t">
+          <div className="pt-4 border-t space-y-3">
             <ProcessingResultsDisplay results={results} items={items} />
+            {onClearResults && (
+              <Button
+                variant="outline"
+                onClick={onClearResults}
+                className="w-full"
+              >
+                Clear Results & Start New
+              </Button>
+            )}
           </div>
         )}
       </CardContent>

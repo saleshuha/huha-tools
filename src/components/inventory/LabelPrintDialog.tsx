@@ -99,14 +99,25 @@ export function LabelPrintDialog({ open, onOpenChange, selectedItems, inventoryT
   const loadTemplates = async () => {
     setLoading(true);
     try {
+      console.log('[LabelPrintDialog] Loading templates...');
       const { data, error } = await supabase
         .from('label_templates')
         .select('*')
         .order('created_at', { ascending: false });
 
+      console.log('[LabelPrintDialog] Templates loaded:', { data, error });
       if (error) throw error;
       setTemplates((data as any) || []);
+      
+      if (!data || data.length === 0) {
+        toast({
+          title: "No Label Templates",
+          description: "Please create label templates in the Label Designer first",
+          variant: "default"
+        });
+      }
     } catch (error) {
+      console.error('[LabelPrintDialog] Error loading templates:', error);
       toast({
         title: "Error loading templates",
         description: error instanceof Error ? error.message : "Failed to load templates",
@@ -337,10 +348,23 @@ export function LabelPrintDialog({ open, onOpenChange, selectedItems, inventoryT
                   <span className="ml-2">Loading templates...</span>
                 </div>
               ) : templates.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>No label templates found</p>
-                  <p className="text-sm">Create templates in the Label Designer first</p>
+                <div className="text-center py-8 space-y-4">
+                  <FileText className="w-12 h-12 mx-auto text-muted-foreground opacity-50" />
+                  <div>
+                    <p className="font-medium text-base">No label templates found</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Create templates in the Label Designer to print labels
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      onOpenChange(false);
+                      window.location.href = '/label-designer';
+                    }}
+                  >
+                    Go to Label Designer
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-3">

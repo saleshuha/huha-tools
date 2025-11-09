@@ -61,37 +61,35 @@ export function ProcessingResultsDisplay({
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Quick Actions */}
-        {(hasInventoryItems || hasPOAllocations) && (
-          <div className="flex gap-2">
-            {inventoryItems.length > 0 && (
-              <LabelPrintButton 
-                receivedItems={inventoryItems}
-                variant="default"
-                size="sm"
-              />
-            )}
-            {hasInventoryItems && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onViewInventory ? onViewInventory() : navigate('/inventory')}
-              >
-                <Package className="w-4 h-4 mr-2" />
-                View Inventory
-              </Button>
-            )}
-            {hasPOAllocations && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onViewPOs ? onViewPOs() : navigate('/po-tracker')}
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                View POs
-              </Button>
-            )}
-          </div>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {inventoryItems.length > 0 && (
+            <LabelPrintButton 
+              receivedItems={inventoryItems}
+              variant="default"
+              size="default"
+            />
+          )}
+          {hasInventoryItems && (
+            <Button
+              variant="outline"
+              size="default"
+              onClick={() => onViewInventory ? onViewInventory() : navigate('/inventory')}
+            >
+              <Package className="w-4 h-4 mr-2" />
+              View Inventory
+            </Button>
+          )}
+          {hasPOAllocations && (
+            <Button
+              variant="outline"
+              size="default"
+              onClick={() => onViewPOs ? onViewPOs() : navigate('/po-tracker')}
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              View POs
+            </Button>
+          )}
+        </div>
 
         {/* Detailed Results */}
         <div className="space-y-3 max-h-[400px] overflow-y-auto">

@@ -53,27 +53,45 @@ export function SessionHistory({ sessions, onEndSession }: SessionHistoryProps) 
       if (itemsError) throw itemsError;
       setSessionItems(items || []);
 
-      // Load PO allocations from this session
-      const { data: poData, error: poError } = await supabase
-        .from('po_fulfillments')
-        .select(`
-          *,
-          po_orders!inner(po_number, status, supplier_name)
-        `)
-        .eq('session_id', session.id);
+      // Load POs that were fulfilled during this session
+      // Since we don't have a direct session_id on fulfillment_history,
+      // we'll load based on items processed in this session
+      const sessionItemsData = items || [];
+      const poNumbers = sessionItemsData
+        .flatMap((item: any) => item.matched_pos || [])
+        .map((po: any) => po.po_number)
+        .filter(Boolean);
 
-      if (!poError && poData) {
-        setSessionPOs(poData);
+      if (poNumbers.length > 0) {
+        const { data: poData, error: poError } = await supabase
+          .from('po_orders')
+          .select('id, po_number, status, supplier_name, quantity')
+          .in('po_number', poNumbers);
+
+        if (!poError && poData) {
+          setSessionPOs(poData);
+        }
+      } else {
+        setSessionPOs([]);
       }
 
-      // Load inventory items from this session
-      const { data: invData, error: invError } = await supabase
-        .from('asin_inventory')
-        .select('*')
-        .eq('receiving_session_id', session.id);
+      // Load inventory items created in this session
+      // Match by serial numbers from session items
+      const serialNumbers = sessionItemsData
+        .map((item: any) => item.serial_number)
+        .filter(Boolean);
 
-      if (!invError && invData) {
-        setSessionInventory(invData);
+      if (serialNumbers.length > 0) {
+        const { data: invData, error: invError } = await supabase
+          .from('asin_inventory')
+          .select('*')
+          .in('serial_number', serialNumbers);
+
+        if (!invError && invData) {
+          setSessionInventory(invData);
+        }
+      } else {
+        setSessionInventory([]);
       }
     } catch (error) {
       console.error('Error loading session details:', error);
@@ -245,15 +263,15 @@ export function SessionHistory({ sessions, onEndSession }: SessionHistoryProps) 
                       <div key={index} className="border rounded-lg p-3 bg-success/5">
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
-                            <div className="font-medium">{po.po_orders.po_number}</div>
+                            <div className="font-medium">{po.po_number}</div>
                             <div className="text-sm text-muted-foreground">
-                              {po.po_orders.supplier_name} • Qty: {po.quantity_fulfilled}
+                              {po.supplier_name} • Qty: {po.quantity}
                             </div>
                           </div>
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => navigate(`/po-tracker?po=${po.po_orders.po_number}`)}
+                            onClick={() => navigate(`/po-tracker?po=${po.po_number}`)}
                           >
                             <ExternalLink className="w-4 h-4" />
                           </Button>

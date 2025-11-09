@@ -95,12 +95,9 @@ export default function ReceiveStock() {
       
       setProcessingResults(results);
       
-      // Clear queue after successful processing
+      // Keep results visible, only clear pending items after success
       if (results.every(r => r.success)) {
-        setTimeout(() => {
-          setPendingItems([]);
-          setProcessingResults([]);
-        }, 3000);
+        setPendingItems([]);
       }
     } catch (error) {
       console.error('Error processing queue:', error);
@@ -109,6 +106,9 @@ export default function ReceiveStock() {
 
   const handleClearQueue = () => {
     setPendingItems([]);
+  };
+
+  const handleClearResults = () => {
     setProcessingResults([]);
   };
 
@@ -223,6 +223,7 @@ export default function ReceiveStock() {
               results={processingResults}
               onProcess={handleProcessQueue}
               onClear={handleClearQueue}
+              onClearResults={handleClearResults}
               isProcessing={isProcessing}
             />
           </div>

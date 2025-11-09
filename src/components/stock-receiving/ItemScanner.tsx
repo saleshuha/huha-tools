@@ -102,7 +102,12 @@ export function ItemScanner({ onScanComplete, disabled }: ItemScannerProps) {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="quantity">Quantity Received *</Label>
+              <Label htmlFor="quantity" className="text-base font-semibold">
+                Quantity Received *
+                <span className="text-xs font-normal text-muted-foreground ml-2">
+                  (Change if needed)
+                </span>
+              </Label>
               <Input
                 id="quantity"
                 type="number"
@@ -111,6 +116,9 @@ export function ItemScanner({ onScanComplete, disabled }: ItemScannerProps) {
                 onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })}
                 required
                 disabled={disabled}
+                className="text-lg font-medium"
+                placeholder="Enter quantity"
+                autoFocus
               />
             </div>
             
