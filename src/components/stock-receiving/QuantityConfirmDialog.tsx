@@ -65,9 +65,22 @@ export function QuantityConfirmDialog({
 
   const checkQZConnection = async () => {
     try {
+      // First check if already connected
+      if (qz.websocket.isActive()) {
+        setQzConnected(true);
+        return;
+      }
+      
+      // If not connected, try to connect
+      const { QZConnectionManager } = await import('@/utils/qz-connection-manager');
+      const qzManager = QZConnectionManager.getInstance();
+      await qzManager.connect();
+      
+      // Check status after connection attempt
       const isConnected = qz.websocket.isActive();
       setQzConnected(isConnected);
     } catch (error) {
+      console.error('QZ Tray connection check failed:', error);
       setQzConnected(false);
     }
   };
