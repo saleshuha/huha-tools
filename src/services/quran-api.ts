@@ -49,9 +49,9 @@ export const quranApi = {
     if (surahNumber < 1 || surahNumber > 114) {
       throw new QuranApiError('Invalid surah number. Must be between 1 and 114.');
     }
-    console.log('🕌 Quran API: Fetching surah:', surahNumber);
+    console.log('🕌 Quran API: Fetching surah metadata only:', surahNumber);
     
-    // Fetch surah metadata
+    // Fetch only surah metadata (no verses)
     const data = await fetchWithRetry<any>(`${BASE_URL}/${surahNumber}.json`);
     
     // Ensure surahNumber exists in response
@@ -60,25 +60,40 @@ export const quranApi = {
       surahNumber: data.surahNumber || surahNumber
     };
     
-    // Fetch all verses concurrently
-    console.log('🕌 Quran API: Fetching', surahWithNumber.totalAyah, 'verses for surah', surahNumber);
+    console.log('🕌 Quran API: Surah metadata loaded:', {
+      surahNumber: surahWithNumber.surahNumber,
+      surahName: surahWithNumber.surahName,
+      totalAyah: surahWithNumber.totalAyah
+    });
+    
+    return surahWithNumber as Surah;
+  },
+
+  async getVersesPage(surahNumber: number, page: number, pageSize: number): Promise<{ verses: Verse[]; hasMore: boolean }> {
+    if (surahNumber < 1 || surahNumber > 114) {
+      throw new QuranApiError('Invalid surah number. Must be between 1 and 114.');
+    }
+
+    // Get surah metadata to know total verses
+    const surah = await this.getSurah(surahNumber);
+    
+    const startVerse = (page - 1) * pageSize + 1;
+    const endVerse = Math.min(startVerse + pageSize - 1, surah.totalAyah);
+    
+    console.log('🕌 Quran API: Fetching verses page', page, 'for surah', surahNumber, '- verses', startVerse, 'to', endVerse);
+    
+    // Fetch only the verses for this page
     const versePromises = Array.from(
-      { length: surahWithNumber.totalAyah },
-      (_, i) => this.getVerse(surahNumber, i + 1)
+      { length: endVerse - startVerse + 1 },
+      (_, i) => this.getVerse(surahNumber, startVerse + i)
     );
     const verses = await Promise.all(versePromises);
     
-    console.log('🕌 Quran API: Surah data complete:', {
-      surahNumber: surahWithNumber.surahNumber,
-      surahName: surahWithNumber.surahName,
-      totalAyah: surahWithNumber.totalAyah,
-      versesCount: verses.length
-    });
+    const hasMore = endVerse < surah.totalAyah;
     
-    return {
-      ...surahWithNumber,
-      verses
-    } as Surah;
+    console.log('🕌 Quran API: Page', page, 'loaded -', verses.length, 'verses, hasMore:', hasMore);
+    
+    return { verses, hasMore };
   },
 
   async getVerse(surahNumber: number, ayahNumber: number): Promise<Verse> {

@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useSurah } from '@/hooks/useQuranData';
+import { useVersesPaginated } from '@/hooks/useVersesPaginated';
 import { useQuranPreferences } from '@/hooks/useQuranPreferences';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -7,10 +8,10 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 import { VerseCard } from './VerseCard';
 import { TafsirDrawer } from './TafsirDrawer';
 import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, Settings2 } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface SurahDetailViewProps {
@@ -20,6 +21,13 @@ interface SurahDetailViewProps {
 
 export function SurahDetailView({ surahNumber, onBack }: SurahDetailViewProps) {
   const { data: surah, isLoading } = useSurah(surahNumber);
+  const { 
+    data: versesData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: isLoadingVerses
+  } = useVersesPaginated(surahNumber, 20);
   const { preferences, updatePreference, toggleBookmark, isBookmarked } = useQuranPreferences();
   
   const [tafsirDrawer, setTafsirDrawer] = useState<{ open: boolean; surah: number; ayah: number }>({
@@ -27,6 +35,30 @@ export function SurahDetailView({ surahNumber, onBack }: SurahDetailViewProps) {
     surah: 0,
     ayah: 0,
   });
+
+  const observerTarget = useRef<HTMLDivElement>(null);
+
+  // Flatten all pages into a single array of verses
+  const verses = versesData?.pages.flatMap(page => page.verses) ?? [];
+
+  // Set up intersection observer for infinite scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          console.log('🕌 Loading next page of verses...');
+          fetchNextPage();
+        }
+      },
+      { threshold: 0.5, rootMargin: '100px' }
+    );
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const handlePrevious = () => {
     if (surahNumber > 1) {
@@ -42,7 +74,7 @@ export function SurahDetailView({ surahNumber, onBack }: SurahDetailViewProps) {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || isLoadingVerses) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -151,7 +183,7 @@ export function SurahDetailView({ surahNumber, onBack }: SurahDetailViewProps) {
 
         {/* Verses */}
         <div className="space-y-4 mb-6">
-          {surah.verses?.map((verse) => (
+          {verses.map((verse) => (
             <VerseCard
               key={`${verse.surahNumber}-${verse.ayahNumber}`}
               verse={verse}
@@ -163,6 +195,30 @@ export function SurahDetailView({ surahNumber, onBack }: SurahDetailViewProps) {
               onShowTafsir={() => setTafsirDrawer({ open: true, surah: verse.surahNumber, ayah: verse.ayahNumber })}
             />
           ))}
+
+          {/* Loading indicator for next page */}
+          {isFetchingNextPage && (
+            <div className="space-y-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Card key={i} className="p-6">
+                  <Skeleton className="h-20 w-full mb-4" />
+                  <Skeleton className="h-16 w-full" />
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {/* Intersection observer target */}
+          <div ref={observerTarget} className="h-4" />
+
+          {/* End of verses indicator */}
+          {!hasNextPage && verses.length > 0 && (
+            <div className="text-center py-8">
+              <p className="text-sm text-muted-foreground">
+                End of Surah - {verses.length} verses
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Navigation */}
