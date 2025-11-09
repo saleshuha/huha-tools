@@ -14,9 +14,11 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { AlertCircle, CheckCircle2, Loader2, Package } from 'lucide-react';
 import { toast } from 'sonner';
-import { autoPrintLabel, getAutoPrintConfig, saveAutoPrintConfig } from '@/utils/auto-label-printer';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
+import { PrintService } from '@/services/print-service';
+import { LabelDoc, LabelDataset, PrintSettings } from '@/types/label';
+import { QZConnectionManager } from '@/utils/qz-connection-manager';
 
 interface SearchResult {
   type: 'po' | 'inventory' | 'recent';
@@ -78,6 +80,40 @@ export default function ReceiveStock() {
   const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
   const [selectedPrinter, setSelectedPrinter] = useState<string>('');
   const [loadingPrinters, setLoadingPrinters] = useState(false);
+
+  // Helper to convert item to dataset format (same as Inventory page)
+  const createDatasetFromItem = (item: any, result: any): LabelDataset => {
+    return {
+      id: 'receive-stock-data',
+      name: 'Received Stock Data',
+      description: 'Stock receiving item',
+      headers: ['ASIN', 'SKU', 'Title', 'Serial', 'Quantity', 'Status', 'Date'],
+      data: [[
+        item.asin || 'N/A',
+        item.sku_code || 'N/A',
+        item.title || 'No Title',
+        item.serial_number || 'N/A',
+        item.quantity.toString(),
+        result.template_type === 'po' ? 'Fulfilled' : 'In Stock',
+        new Date().toLocaleDateString()
+      ]],
+      rowCount: 1,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+  };
+
+  const getAutoPrintConfig = () => {
+    return {
+      enabled: localStorage.getItem('stock-receiving-auto-print') === 'true',
+      preferDirectPrint: localStorage.getItem('stock-receiving-direct-print') === 'true'
+    };
+  };
+
+  const saveAutoPrintConfig = (config: { enabled: boolean; preferDirectPrint: boolean }) => {
+    localStorage.setItem('stock-receiving-auto-print', config.enabled.toString());
+    localStorage.setItem('stock-receiving-direct-print', config.preferDirectPrint.toString());
+  };
 
   useEffect(() => {
     checkConnection();
@@ -252,30 +288,77 @@ export default function ReceiveStock() {
         error: result.error
       };
 
-      // Auto-print if requested
-      if (data.autoPrint && result.success) {
-        const printConfig = getAutoPrintConfig();
-        // Map POAllocation to expected format
-        const poAllocations = result.matched_pos?.map((po: any) => ({
-          po_number: po.po_number,
-          quantity: po.quantity_allocated
-        })) || [];
-        
-        // Select appropriate template based on type
-        const templateId = templateType === 'po' ? selectedPoTemplate : selectedInventoryTemplate;
-        
-        const printed = await autoPrintLabel(
-          {
-            success: result.success,
-            item,
-            po_allocations: poAllocations,
-            inventory_id: result.inventory_id,
-            template_type: templateType
-          },
-          { ...printConfig, enabled: true, defaultPrinter: selectedPrinter },
-          templateId
-        );
-        activity.printed = printed;
+      // Auto-print if requested (using PrintService - same as Inventory page)
+      if (data.autoPrint && result.success && directPrintEnabled && selectedPrinter) {
+        try {
+          console.log('[Auto-Print] Starting with PrintService method...');
+          
+          // Select appropriate template based on type
+          const templateId = templateType === 'po' ? selectedPoTemplate : selectedInventoryTemplate;
+          
+          if (!templateId) {
+            toast.error('No template selected for auto-print');
+            return;
+          }
+          
+          // Fetch template from database
+          const { data: template, error: templateError } = await supabase
+            .from('label_templates')
+            .select('*')
+            .eq('id', templateId)
+            .single();
+          
+          if (templateError || !template) {
+            console.error('[Auto-Print] Template fetch error:', templateError);
+            toast.error('Failed to load label template');
+          } else {
+            // Create LabelDoc from template (same as Inventory)
+            const labelDoc: LabelDoc = {
+              id: template.id,
+              name: template.name,
+              size: {
+                width: template.width || 100,
+                height: template.height || 60,
+                unit: 'mm'
+              },
+              elements: template.canvas_data?.elements || [],
+              createdAt: template.created_at,
+              updatedAt: template.updated_at
+            };
+            
+            // Create dataset with item data
+            const dataset = createDatasetFromItem(item, { template_type: templateType });
+            
+            // Get print settings
+            const printSettings: PrintSettings = {
+              format: 'zpl',
+              dpi: 203,
+              darkness: 10,
+              copies: 1,
+              orientation: 'portrait',
+              paperSize: 'custom',
+              labelsPerPage: 1,
+              margin: 0
+            };
+            
+            // Generate ZPL using PrintService (proven method)
+            const zplCode = PrintService.generateZPL(labelDoc, dataset, printSettings);
+            
+            console.log('[Auto-Print] Generated ZPL length:', zplCode.length);
+            console.log('[Auto-Print] ZPL preview:', zplCode.substring(0, 200));
+            
+            // Print using QZ Tray (same as Inventory)
+            const qzManager = QZConnectionManager.getInstance();
+            await qzManager.print(zplCode, selectedPrinter);
+            
+            toast.success(`Label printed to ${selectedPrinter}`);
+            activity.printed = true;
+          }
+        } catch (error) {
+          console.error('[Auto-Print] Failed:', error);
+          toast.error(`Print failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          activity.printed = false;
+        }
       }
 
       setLocalActivities(prev => [activity, ...prev]);
