@@ -148,11 +148,15 @@ export const quranApi = {
     const url = `${BASE_URL}/tafsir/${surahNumber}/${ayahNumber}.json`;
     console.log('🕌 Quran API: Fetching tafsir for:', { surahNumber, ayahNumber, url });
     
-    try {
-      const data = await fetchWithRetry<any>(url);
-      
-      // Handle different response structures
-      const tafsirs = Array.isArray(data) ? data : (data.tafsir || []);
+  try {
+    const data = await fetchWithRetry<any>(url);
+    
+    // Log raw API response for debugging
+    console.log('🕌 RAW Tafsir API response:', JSON.stringify(data, null, 2));
+    console.log('🕌 RAW Tafsir API response type:', typeof data, 'isArray:', Array.isArray(data));
+    
+    // Handle different response structures
+    const tafsirs = Array.isArray(data) ? data : (data.tafsir || []);
       
       console.log('🕌 Quran API: Tafsir response:', { 
         surahNumber, 
