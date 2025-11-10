@@ -1037,16 +1037,16 @@ export function AsinInventory() {
                    </SelectContent>
                  </Select>
                  
-                  <div className="relative flex-1">
-                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5 z-10" />
-                    <Input placeholder={searchMethod === 'all' ? "Search across all fields..." : searchMethod === 'asin' ? "Search by ASIN..." : searchMethod === 'sku' ? "Search by SKU..." : searchMethod === 'serial' ? "Search by Serial Number..." : searchMethod === 'title' ? "Search by Title..." : "Search by Notes..."} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-12 pr-4 h-14 text-base border-0 bg-transparent focus:ring-0 focus:ring-offset-0 rounded-none placeholder:text-muted-foreground/60" />
-                    {/* LAYER 4: Show spinner only during actual API calls, not debounce */}
-                    {isFetching && (
-                      <div className="absolute right-12 top-1/2 transform -translate-y-1/2">
-                        <RefreshCw className="w-4 h-4 animate-spin text-muted-foreground" />
-                      </div>
-                    )}
-                  </div>
+                   <div className="relative flex-1">
+                     <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5 z-10" />
+                     <Input placeholder={searchMethod === 'all' ? "Search across all fields..." : searchMethod === 'asin' ? "Search by ASIN..." : searchMethod === 'sku' ? "Search by SKU..." : searchMethod === 'serial' ? "Search by Serial Number..." : searchMethod === 'title' ? "Search by Title..." : "Search by Notes..."} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-12 pr-4 h-14 text-base border-0 bg-transparent focus:ring-0 focus:ring-offset-0 rounded-none placeholder:text-muted-foreground/60" />
+                     {/* Show spinner only during actual search API calls */}
+                     {isFetching && searchTerm && (
+                       <div className="absolute right-12 top-1/2 transform -translate-y-1/2">
+                         <RefreshCw className="w-4 h-4 animate-spin text-muted-foreground" />
+                       </div>
+                     )}
+                   </div>
                   {searchTerm && <button onClick={() => setSearchTerm('')} className="px-3 text-muted-foreground hover:text-foreground transition-colors">
                      <X className="w-4 h-4" />
                    </button>}

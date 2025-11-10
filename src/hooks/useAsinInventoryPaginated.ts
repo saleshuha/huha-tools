@@ -226,7 +226,7 @@ export function useAsinInventoryPaginated(
   const invalidateCache = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['asin-inventory-paginated'] });
     queryClient.invalidateQueries({ queryKey: ['asin-inventory'] });
-    queryClient.invalidateQueries({ queryKey: ['inventory-analytics'] });
+    // Remove metrics invalidation - metrics should only update on actual inventory changes via subscription
   }, [queryClient]);
 
   // Wrap mutation functions to invalidate cache

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -49,7 +49,7 @@ interface InventoryMetricsProps {
   showOnlySku?: boolean;
 }
 
-export function InventoryMetrics({
+export const InventoryMetrics = memo(function InventoryMetrics({
   showOnlyAsin = false,
   showOnlySku = false
 }: InventoryMetricsProps) {
@@ -183,7 +183,11 @@ export function InventoryMetrics({
     enabled: !!selectedCountry,
     staleTime: 10 * 60 * 1000, // 10 minutes - metrics are relatively stable
     gcTime: 15 * 60 * 1000, // 15 minutes
-    retry: 2
+    retry: 2,
+    // Disable automatic refetches - only refetch on manual refresh or cache invalidation
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   // Handle query errors
@@ -330,25 +334,54 @@ export function InventoryMetrics({
     }
   };
 
-  // Set up real-time subscription - optimized to invalidate cache instead of immediate fetch
+  // Set up real-time subscription - only listen to actual data changes
   useEffect(() => {
     if (!selectedCountry) return;
 
-    // Subscribe to real-time changes
+    // Subscribe to real-time changes - separate listeners for INSERT, UPDATE, DELETE
     const channel = supabase
       .channel(`inventory-metrics-${selectedCountry}`)
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'asin_inventory',
           filter: `country=eq.${selectedCountry}`
         },
         (payload) => {
-          console.log('📡 Real-time update detected:', payload);
+          console.log('📡 Real-time INSERT detected:', payload);
           setIsLive(true);
-          // Invalidate cache instead of immediate fetch - lets React Query decide when to refetch
+          queryClient.invalidateQueries({ queryKey: ['inventory-metrics'] });
+          setTimeout(() => setIsLive(false), 2000);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'asin_inventory',
+          filter: `country=eq.${selectedCountry}`
+        },
+        (payload) => {
+          console.log('📡 Real-time UPDATE detected:', payload);
+          setIsLive(true);
+          queryClient.invalidateQueries({ queryKey: ['inventory-metrics'] });
+          setTimeout(() => setIsLive(false), 2000);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'asin_inventory',
+          filter: `country=eq.${selectedCountry}`
+        },
+        (payload) => {
+          console.log('📡 Real-time DELETE detected:', payload);
+          setIsLive(true);
           queryClient.invalidateQueries({ queryKey: ['inventory-metrics'] });
           setTimeout(() => setIsLive(false), 2000);
         }
@@ -744,4 +777,8 @@ export function InventoryMetrics({
       </Dialog>
     </div>
   );
-}
+}, (prevProps, nextProps) => {
+  // Only re-render if these props actually change
+  return prevProps.showOnlyAsin === nextProps.showOnlyAsin &&
+         prevProps.showOnlySku === nextProps.showOnlySku;
+});
