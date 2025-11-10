@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useQuranData, useRandomVerse } from '@/hooks/useQuranData';
+import { useQuranData } from '@/hooks/useQuranData';
 import { useQuranPreferences } from '@/hooks/useQuranPreferences';
+import { quranApi } from '@/services/quran-api';
+import { Verse } from '@/types/quran';
 import { SurahGrid } from './SurahGrid';
 import { SurahDetailView } from './SurahDetailView';
 import { QuranSearch } from './QuranSearch';
@@ -23,20 +25,27 @@ export function QuranHomepage() {
   const [selectedSurah, setSelectedSurah] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<string>('surahs');
   const [showRandomVerse, setShowRandomVerse] = useState(false);
+  const [randomVerse, setRandomVerse] = useState<Verse | null>(null);
+  const [isRandomVerseLoading, setIsRandomVerseLoading] = useState(false);
   const [tafsirDrawer, setTafsirDrawer] = useState<{ open: boolean; surah: number; ayah: number }>({
     open: false,
     surah: 0,
     ayah: 0,
   });
 
-  // Lazy-load random verse only when user requests it
-  const { data: randomVerse, refetch: getNewRandomVerse, isLoading: isRandomVerseLoading } = useRandomVerse();
-  
-  useEffect(() => {
-    if (showRandomVerse && !randomVerse) {
-      getNewRandomVerse();
+  // Manual fetch for random verse - only when user clicks button
+  const fetchRandomVerse = async () => {
+    setIsRandomVerseLoading(true);
+    setShowRandomVerse(true);
+    try {
+      const verse = await quranApi.getRandomVerse();
+      setRandomVerse(verse);
+    } catch (error) {
+      console.error('Failed to fetch random verse:', error);
+    } finally {
+      setIsRandomVerseLoading(false);
     }
-  }, [showRandomVerse, randomVerse, getNewRandomVerse]);
+  };
 
   const handleSurahSelect = (surahNumber: number) => {
     console.log('📖 QuranHomepage: Surah selected:', surahNumber);
@@ -118,11 +127,9 @@ export function QuranHomepage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  setShowRandomVerse(true);
-                  getNewRandomVerse();
-                }}
+                onClick={fetchRandomVerse}
                 className="gap-2"
+                disabled={isRandomVerseLoading}
               >
                 <Shuffle className="h-4 w-4" />
                 Random Verse
@@ -227,9 +234,9 @@ export function QuranHomepage() {
           </TabsContent>
 
           <TabsContent value="bookmarks">
-            {activeTab === 'bookmarks' && (
+            {activeTab === 'bookmarks' ? (
               <BookmarksView onNavigateToVerse={handleNavigateToVerse} />
-            )}
+            ) : null}
           </TabsContent>
         </Tabs>
       </div>
