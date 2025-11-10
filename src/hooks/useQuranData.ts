@@ -21,6 +21,16 @@ export function useSurah(surahNumber: number) {
   });
 }
 
+export function useSurahWithVerses(surahNumber: number) {
+  return useQuery({
+    queryKey: ['quran', 'surah-with-verses', surahNumber],
+    queryFn: () => quranApi.getSurahWithVerses(surahNumber),
+    enabled: surahNumber >= 1 && surahNumber <= 114,
+    staleTime: Infinity, // Quran data never changes
+    gcTime: Infinity,
+  });
+}
+
 export function useVerse(surahNumber: number, ayahNumber: number) {
   return useQuery({
     queryKey: ['quran', 'verse', surahNumber, ayahNumber],

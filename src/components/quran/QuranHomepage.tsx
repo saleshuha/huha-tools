@@ -18,16 +18,25 @@ import { useNavigate } from 'react-router-dom';
 export function QuranHomepage() {
   const navigate = useNavigate();
   const { data: surahs, isLoading } = useQuranData();
-  const { data: randomVerse, refetch: getNewRandomVerse } = useRandomVerse();
   const { preferences, toggleBookmark, isBookmarked } = useQuranPreferences();
   
   const [selectedSurah, setSelectedSurah] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<string>('surahs');
+  const [showRandomVerse, setShowRandomVerse] = useState(false);
   const [tafsirDrawer, setTafsirDrawer] = useState<{ open: boolean; surah: number; ayah: number }>({
     open: false,
     surah: 0,
     ayah: 0,
   });
+
+  // Lazy-load random verse only when user requests it
+  const { data: randomVerse, refetch: getNewRandomVerse, isLoading: isRandomVerseLoading } = useRandomVerse();
+  
+  useEffect(() => {
+    if (showRandomVerse && !randomVerse) {
+      getNewRandomVerse();
+    }
+  }, [showRandomVerse, randomVerse, getNewRandomVerse]);
 
   const handleSurahSelect = (surahNumber: number) => {
     console.log('📖 QuranHomepage: Surah selected:', surahNumber);
@@ -109,7 +118,10 @@ export function QuranHomepage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => getNewRandomVerse()}
+                onClick={() => {
+                  setShowRandomVerse(true);
+                  getNewRandomVerse();
+                }}
                 className="gap-2"
               >
                 <Shuffle className="h-4 w-4" />
@@ -142,26 +154,33 @@ export function QuranHomepage() {
           </div>
         </div>
 
-        {/* Featured Verse */}
-        {randomVerse && (
+        {/* Featured Verse - Only show when user requests it */}
+        {showRandomVerse && (
           <div className="mb-12 max-w-3xl mx-auto">
             <div className="flex items-center gap-2 mb-4">
               <Sparkles className="h-5 w-5 text-primary" />
               <h2 className="text-2xl font-bold">Verse of the Moment</h2>
             </div>
-            <VerseCard
-              verse={randomVerse}
-              showTashkeel={preferences.showTashkeel}
-              arabicFontSize={preferences.arabicFontSize}
-              translationLanguage={preferences.translationLanguage}
-              isBookmarked={isBookmarked(randomVerse.surahNumber, randomVerse.ayahNumber)}
-              onToggleBookmark={() => toggleBookmark(randomVerse.surahNumber, randomVerse.ayahNumber)}
-              onShowTafsir={() => setTafsirDrawer({
-                open: true,
-                surah: randomVerse.surahNumber,
-                ayah: randomVerse.ayahNumber
-              })}
-            />
+            {isRandomVerseLoading ? (
+              <Card className="p-6">
+                <Skeleton className="h-24 w-full mb-4" />
+                <Skeleton className="h-16 w-full" />
+              </Card>
+            ) : randomVerse ? (
+              <VerseCard
+                verse={randomVerse}
+                showTashkeel={preferences.showTashkeel}
+                arabicFontSize={preferences.arabicFontSize}
+                translationLanguage={preferences.translationLanguage}
+                isBookmarked={isBookmarked(randomVerse.surahNumber, randomVerse.ayahNumber)}
+                onToggleBookmark={() => toggleBookmark(randomVerse.surahNumber, randomVerse.ayahNumber)}
+                onShowTafsir={() => setTafsirDrawer({
+                  open: true,
+                  surah: randomVerse.surahNumber,
+                  ayah: randomVerse.ayahNumber
+                })}
+              />
+            ) : null}
           </div>
         )}
 

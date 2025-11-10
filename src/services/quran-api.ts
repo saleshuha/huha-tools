@@ -85,6 +85,51 @@ export const quranApi = {
     return surahWithNumber as Surah;
   },
 
+  async getSurahWithVerses(surahNumber: number): Promise<{ surah: Surah; verses: Verse[] }> {
+    if (surahNumber < 1 || surahNumber > 114) {
+      throw new QuranApiError('Invalid surah number. Must be between 1 and 114.');
+    }
+    
+    console.log('🕌 Quran API: Fetching ENTIRE surah with all verses in ONE call:', surahNumber);
+    
+    // Fetch entire surah with all verses in a single API call
+    const data = await fetchWithRetry<any>(`${BASE_URL}/${surahNumber}.json`);
+    
+    // Extract surah metadata
+    const surah: Surah = {
+      surahNumber: data.surahNumber || surahNumber,
+      surahName: data.surahName,
+      surahNameArabic: data.surahNameArabic,
+      surahNameArabicLong: data.surahNameArabicLong,
+      surahNameTranslation: data.surahNameTranslation,
+      totalAyah: data.totalAyah,
+      revelationPlace: data.revelationPlace,
+    };
+    
+    // Transform arrays into individual Verse objects
+    const verses: Verse[] = [];
+    for (let i = 0; i < data.totalAyah; i++) {
+      verses.push({
+        surahNumber: surah.surahNumber,
+        ayahNumber: i + 1,
+        arabic1: data.arabic1?.[i] || '',
+        arabic2: data.arabic2?.[i] || '',
+        translation: {
+          english: data.english?.[i] || 'Translation not available',
+          urdu: data.urdu?.[i] || 'ترجمہ دستیاب نہیں'
+        }
+      });
+    }
+    
+    console.log('🕌 Quran API: Loaded surah with ALL verses:', {
+      surahNumber: surah.surahNumber,
+      surahName: surah.surahName,
+      totalVerses: verses.length
+    });
+    
+    return { surah, verses };
+  },
+
   async getVersesPage(surahNumber: number, page: number, pageSize: number): Promise<{ verses: Verse[]; hasMore: boolean }> {
     if (surahNumber < 1 || surahNumber > 114) {
       throw new QuranApiError('Invalid surah number. Must be between 1 and 114.');
