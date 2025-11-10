@@ -200,7 +200,22 @@ export function useAsinInventoryPaginated(
     error,
     refetch
   } = useQuery({
-    queryKey: ['asin-inventory-paginated', page, pageSize, selectedCountry, filters],
+    queryKey: [
+      'asin-inventory-paginated',
+      page,
+      pageSize,
+      selectedCountry,
+      filters.searchTerm,
+      filters.searchMethod,
+      filters.searchMode,
+      filters.statusFilter,
+      filters.sortBy,
+      filters.sortOrder,
+      filters.quickFilter,
+      filters.dateFilterFrom?.toISOString(),
+      filters.dateFilterTo?.toISOString(),
+      filters.showDisabledItems
+    ],
     queryFn: fetchPaginatedInventory,
     enabled: !!selectedCountry,
     staleTime: 5 * 60 * 1000, // LAYER 3: 5 minutes - inventory doesn't change often during active work
