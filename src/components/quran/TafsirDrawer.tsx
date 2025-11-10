@@ -20,7 +20,7 @@ export function TafsirDrawer({
   surahNumber,
   ayahNumber,
 }: TafsirDrawerProps) {
-  const { data: tafsirs, isLoading, error } = useTafsir(surahNumber, ayahNumber);
+  const { data: tafsirs, isLoading, error, refetch } = useTafsir(surahNumber, ayahNumber);
   
   console.log('🕌 TafsirDrawer state:', { 
     surahNumber, 
@@ -59,12 +59,20 @@ export function TafsirDrawer({
               <p className="font-semibold text-destructive">Error loading tafsir</p>
               <p className="text-sm text-muted-foreground">{error.message}</p>
             </div>
-            <Button 
-              variant="outline" 
-              onClick={() => onOpenChange(false)}
-            >
-              Close
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="default" 
+                onClick={() => refetch()}
+              >
+                Retry
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => onOpenChange(false)}
+              >
+                Close
+              </Button>
+            </div>
           </div>
         ) : tafsirs && tafsirs.length > 0 ? (
           <Tabs defaultValue={tafsirs[0].tafsirName} className="mt-6">
@@ -110,12 +118,20 @@ export function TafsirDrawer({
                 Tafsir coverage is being expanded continuously.
               </p>
             </div>
-            <Button 
-              variant="outline" 
-              onClick={() => onOpenChange(false)}
-            >
-              Close
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="default" 
+                onClick={() => refetch()}
+              >
+                Retry
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => onOpenChange(false)}
+              >
+                Close
+              </Button>
+            </div>
           </div>
         )}
       </SheetContent>

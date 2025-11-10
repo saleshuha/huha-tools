@@ -39,8 +39,10 @@ export function useTafsir(surahNumber: number, ayahNumber: number) {
     queryKey: ['quran', 'tafsir', surahNumber, ayahNumber],
     queryFn: () => quranApi.getTafsir(surahNumber, ayahNumber),
     enabled,
-    staleTime: Infinity,
-    gcTime: Infinity,
+    staleTime: 5 * 60 * 1000, // 5 minutes instead of Infinity
+    gcTime: Infinity, // Keep cache indefinitely for offline use
+    retry: 1, // Retry once if it fails
+    refetchOnMount: true, // Refetch when component mounts
   });
 }
 
