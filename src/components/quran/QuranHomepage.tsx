@@ -227,7 +227,9 @@ export function QuranHomepage() {
           </TabsContent>
 
           <TabsContent value="bookmarks">
-            <BookmarksView onNavigateToVerse={handleNavigateToVerse} />
+            {activeTab === 'bookmarks' && (
+              <BookmarksView onNavigateToVerse={handleNavigateToVerse} />
+            )}
           </TabsContent>
         </Tabs>
       </div>
