@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Package, CheckCircle, XCircle, Search, Download, FileText, RefreshCw, Activity, Radio, TrendingUp, ImageIcon, CalendarIcon } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface InventoryItem {
   id: string;
@@ -54,21 +55,8 @@ export function InventoryMetrics({
 }: InventoryMetricsProps) {
   const { selectedCountry } = useCountry();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   
-  const [stats, setStats] = useState<InventoryStats>({
-    totalAsins: 0,
-    totalUnits: 0,
-    inStockCount: 0,
-    outOfStockCount: 0,
-    missingSku: 0,
-    missingTitle: 0,
-    missingImages: 0,
-    restockEligible: 0,
-    soldUnits: 0,
-    lastUpdated: new Date()
-  });
-  
-  const [loading, setLoading] = useState(true);
   const [isLive, setIsLive] = useState(false);
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
@@ -78,124 +66,136 @@ export function InventoryMetrics({
   const [soldDateTo, setSoldDateTo] = useState<Date>();
   const [showSoldModal, setShowSoldModal] = useState(false);
 
-  const loadMetrics = async () => {
-    try {
-      setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+  // Convert loadMetrics to a React Query queryFn
+  const fetchMetrics = async (): Promise<InventoryStats> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
 
-      if (showOnlyAsin) {
-        // Use RPC for accurate server-side calculation
-        const { data: metrics, error: metricsError } = await supabase.rpc(
-          'get_inventory_metrics',
-          { p_country: selectedCountry, p_user_id: user.id }
-        );
+    if (showOnlyAsin) {
+      // Use RPC for accurate server-side calculation
+      const { data: metrics, error: metricsError } = await supabase.rpc(
+        'get_inventory_metrics',
+        { p_country: selectedCountry, p_user_id: user.id }
+      );
 
-        if (metricsError) throw metricsError;
+      if (metricsError) throw metricsError;
 
-        console.log('📊 RPC Metrics:', metrics);
+      console.log('📊 RPC Metrics:', metrics);
 
-        // Get unique ASINs for missing images calculation
-        const { data: inventoryAsins } = await supabase
-          .from('asin_inventory')
-          .select('asin')
-          .eq('country', selectedCountry)
-          .eq('user_id', user.id)
-          .neq('is_active', false);
+      // Get unique ASINs for missing images calculation
+      const { data: inventoryAsins } = await supabase
+        .from('asin_inventory')
+        .select('asin')
+        .eq('country', selectedCountry)
+        .eq('user_id', user.id)
+        .neq('is_active', false);
 
-        const uniqueAsins = [...new Set(inventoryAsins?.map(i => i.asin) || [])];
+      const uniqueAsins = [...new Set(inventoryAsins?.map(i => i.asin) || [])];
 
-        // Get ASINs with images
-        const { data: productImages } = await supabase
-          .from('product_images')
-          .select('asin')
-          .eq('user_id', user.id);
+      // Get ASINs with images
+      const { data: productImages } = await supabase
+        .from('product_images')
+        .select('asin')
+        .eq('user_id', user.id);
 
-        const asinsWithImages = new Set(productImages?.map(i => i.asin) || []);
-        const missingImages = uniqueAsins.filter(asin => !asinsWithImages.has(asin)).length;
+      const asinsWithImages = new Set(productImages?.map(i => i.asin) || []);
+      const missingImages = uniqueAsins.filter(asin => !asinsWithImages.has(asin)).length;
 
-        // Calculate sold units with date filters
-        let soldQuery = supabase
-          .from('asin_inventory')
-          .select('quantity')
-          .eq('country', selectedCountry)
-          .eq('user_id', user.id)
-          .eq('status', 'sold')
-          .neq('is_active', false);
+      // Calculate sold units with date filters
+      let soldQuery = supabase
+        .from('asin_inventory')
+        .select('quantity')
+        .eq('country', selectedCountry)
+        .eq('user_id', user.id)
+        .eq('status', 'sold')
+        .neq('is_active', false);
 
-        if (soldDateFrom) {
-          soldQuery = soldQuery.gte('date_sold', soldDateFrom.toISOString());
-        }
-        if (soldDateTo) {
-          const endDate = new Date(soldDateTo);
-          endDate.setHours(23, 59, 59, 999);
-          soldQuery = soldQuery.lte('date_sold', endDate.toISOString());
-        }
-
-        const { data: soldData } = await soldQuery;
-        const soldUnits = (soldData || []).reduce((sum, item) => sum + (item.quantity || 0), 0);
-
-        console.log('✅ Final Metrics:', {
-          totalAsins: metrics.total_asins,
-          totalUnits: metrics.total_units,
-          inStockCount: metrics.in_stock_count,
-          outOfStockCount: metrics.out_of_stock_count,
-          missingSku: metrics.missing_sku,
-          missingTitle: metrics.missing_title,
-          missingImages,
-          restockEligible: metrics.restock_eligible,
-          soldUnits
-        });
-
-        setStats({
-          totalAsins: metrics.total_asins || 0,
-          totalUnits: metrics.total_units || 0,
-          inStockCount: metrics.in_stock_count || 0,
-          outOfStockCount: metrics.out_of_stock_count || 0,
-          missingSku: metrics.missing_sku || 0,
-          missingTitle: metrics.missing_title || 0,
-          missingImages,
-          restockEligible: metrics.restock_eligible || 0,
-          soldUnits,
-          lastUpdated: new Date()
-        });
-      } else if (showOnlySku) {
-        // SKU logic (simplified for now)
-        const { data: skuData } = await supabase
-          .from('sku_inventory')
-          .select('*')
-          .eq('country', selectedCountry);
-
-        const skuItems = skuData || [];
-        const totalSkus = skuItems.length;
-        const totalUnits = skuItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
-        const inStock = skuItems.filter(item => (item.quantity || 0) > 0).length;
-        const outOfStock = skuItems.filter(item => (item.quantity || 0) === 0).length;
-
-        setStats({
-          totalAsins: totalSkus,
-          totalUnits,
-          inStockCount: inStock,
-          outOfStockCount: outOfStock,
-          missingSku: 0,
-          missingTitle: 0,
-          missingImages: 0,
-          restockEligible: 0,
-          soldUnits: 0,
-          lastUpdated: new Date()
-        });
+      if (soldDateFrom) {
+        soldQuery = soldQuery.gte('date_sold', soldDateFrom.toISOString());
       }
-    } catch (error: any) {
-      console.error('❌ Error loading metrics:', error);
+      if (soldDateTo) {
+        const endDate = new Date(soldDateTo);
+        endDate.setHours(23, 59, 59, 999);
+        soldQuery = soldQuery.lte('date_sold', endDate.toISOString());
+      }
+
+      const { data: soldData } = await soldQuery;
+      const soldUnits = (soldData || []).reduce((sum, item) => sum + (item.quantity || 0), 0);
+
+      console.log('✅ Final Metrics:', {
+        totalAsins: metrics.total_asins,
+        totalUnits: metrics.total_units,
+        inStockCount: metrics.in_stock_count,
+        outOfStockCount: metrics.out_of_stock_count,
+        missingSku: metrics.missing_sku,
+        missingTitle: metrics.missing_title,
+        missingImages,
+        restockEligible: metrics.restock_eligible,
+        soldUnits
+      });
+
+      return {
+        totalAsins: metrics.total_asins || 0,
+        totalUnits: metrics.total_units || 0,
+        inStockCount: metrics.in_stock_count || 0,
+        outOfStockCount: metrics.out_of_stock_count || 0,
+        missingSku: metrics.missing_sku || 0,
+        missingTitle: metrics.missing_title || 0,
+        missingImages,
+        restockEligible: metrics.restock_eligible || 0,
+        soldUnits,
+        lastUpdated: new Date()
+      };
+    } else if (showOnlySku) {
+      // SKU logic (simplified for now)
+      const { data: skuData } = await supabase
+        .from('sku_inventory')
+        .select('*')
+        .eq('country', selectedCountry);
+
+      const skuItems = skuData || [];
+      const totalSkus = skuItems.length;
+      const totalUnits = skuItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
+      const inStock = skuItems.filter(item => (item.quantity || 0) > 0).length;
+      const outOfStock = skuItems.filter(item => (item.quantity || 0) === 0).length;
+
+      return {
+        totalAsins: totalSkus,
+        totalUnits,
+        inStockCount: inStock,
+        outOfStockCount: outOfStock,
+        missingSku: 0,
+        missingTitle: 0,
+        missingImages: 0,
+        restockEligible: 0,
+        soldUnits: 0,
+        lastUpdated: new Date()
+      };
+    }
+
+    throw new Error('Invalid metric type');
+  };
+
+  // Use React Query with aggressive caching
+  const { data: stats, isLoading: loading, error, refetch } = useQuery({
+    queryKey: ['inventory-metrics', selectedCountry, showOnlyAsin, showOnlySku, soldDateFrom?.toISOString(), soldDateTo?.toISOString()],
+    queryFn: fetchMetrics,
+    enabled: !!selectedCountry,
+    staleTime: 10 * 60 * 1000, // 10 minutes - metrics are relatively stable
+    gcTime: 15 * 60 * 1000, // 15 minutes
+    retry: 2
+  });
+
+  // Handle query errors
+  useEffect(() => {
+    if (error) {
       toast({
         title: "Error loading metrics",
         description: error.message,
         variant: "destructive"
       });
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [error, toast]);
 
   const loadDetailedItems = async (metric: string) => {
     try {
@@ -330,12 +330,9 @@ export function InventoryMetrics({
     }
   };
 
-  // Set up real-time subscription
+  // Set up real-time subscription - optimized to invalidate cache instead of immediate fetch
   useEffect(() => {
     if (!selectedCountry) return;
-
-    // Initial load
-    loadMetrics();
 
     // Subscribe to real-time changes
     const channel = supabase
@@ -351,7 +348,8 @@ export function InventoryMetrics({
         (payload) => {
           console.log('📡 Real-time update detected:', payload);
           setIsLive(true);
-          loadMetrics();
+          // Invalidate cache instead of immediate fetch - lets React Query decide when to refetch
+          queryClient.invalidateQueries({ queryKey: ['inventory-metrics'] });
           setTimeout(() => setIsLive(false), 2000);
         }
       )
@@ -362,7 +360,7 @@ export function InventoryMetrics({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedCountry, soldDateFrom, soldDateTo, showOnlyAsin, showOnlySku]);
+  }, [selectedCountry, queryClient]);
 
   const filteredItems = inventoryItems.filter(item => {
     if (!searchTerm) return true;
@@ -375,7 +373,7 @@ export function InventoryMetrics({
     );
   });
 
-  if (loading) {
+  if (loading || !stats) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {[...Array(8)].map((_, i) => (
@@ -411,7 +409,7 @@ export function InventoryMetrics({
           <Button
             variant="ghost"
             size="sm"
-            onClick={loadMetrics}
+            onClick={() => refetch()}
             disabled={loading}
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
