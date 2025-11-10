@@ -10,19 +10,35 @@ class QuranApiError extends Error {
 }
 
 async function fetchWithRetry<T>(url: string, retries = 3): Promise<T> {
+  console.log('🕌 Fetching:', url);
+  
   for (let i = 0; i < retries; i++) {
     try {
       const response = await fetch(url);
       
+      console.log('🕌 Response status:', response.status, response.statusText);
+      
       if (!response.ok) {
+        // Try to get error details from response body
+        let errorMessage = response.statusText || 'Unknown error';
+        try {
+          const errorBody = await response.text();
+          if (errorBody) {
+            errorMessage += `: ${errorBody}`;
+          }
+        } catch (e) {
+          // Ignore if can't read body
+        }
+        
         throw new QuranApiError(
-          `API request failed: ${response.statusText}`,
+          `API request failed (${response.status}): ${errorMessage}`,
           response.status
         );
       }
       
       return await response.json();
     } catch (error) {
+      console.error('🕌 Fetch attempt', i + 1, 'failed:', error);
       if (i === retries - 1) throw error;
       await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
     }
@@ -128,20 +144,39 @@ export const quranApi = {
     if (surahNumber < 1 || surahNumber > 114) {
       throw new QuranApiError('Invalid surah number. Must be between 1 and 114.');
     }
-    console.log('🕌 Quran API: Fetching tafsir for:', { surahNumber, ayahNumber });
+    
+    const url = `${BASE_URL}/tafsir/${surahNumber}/${ayahNumber}.json`;
+    console.log('🕌 Quran API: Fetching tafsir for:', { surahNumber, ayahNumber, url });
+    
     try {
-      const data = await fetchWithRetry<Tafsir[]>(
-        `${BASE_URL}/tafsir/${surahNumber}/${ayahNumber}.json`
-      );
+      const data = await fetchWithRetry<any>(url);
+      
+      // Handle different response structures
+      const tafsirs = Array.isArray(data) ? data : (data.tafsir || []);
+      
       console.log('🕌 Quran API: Tafsir response:', { 
         surahNumber, 
         ayahNumber, 
-        count: data?.length,
-        tafsirs: data?.map((t: any) => t.tafsirName) 
+        count: tafsirs?.length,
+        tafsirs: tafsirs?.map((t: any) => t.tafsirName) 
       });
-      return data;
+      
+      return tafsirs;
     } catch (error) {
-      console.error('🕌 Quran API: Failed to fetch tafsir:', { surahNumber, ayahNumber, error });
+      console.error('🕌 Quran API: Failed to fetch tafsir:', { 
+        surahNumber, 
+        ayahNumber, 
+        error,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        errorStatus: error instanceof QuranApiError ? error.status : undefined
+      });
+      
+      // If it's a 404, return empty array instead of throwing
+      if (error instanceof QuranApiError && error.status === 404) {
+        console.log('🕌 Tafsir not available for this verse (404)');
+        return [];
+      }
+      
       throw error;
     }
   },

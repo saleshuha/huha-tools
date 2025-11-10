@@ -28,7 +28,8 @@ export function TafsirDrawer({
     isLoading, 
     hasData: !!tafsirs,
     dataLength: tafsirs?.length,
-    error: error?.message 
+    error: error?.message,
+    errorDetails: error
   });
 
   const handleCopy = (text: string, name: string) => {
@@ -53,9 +54,17 @@ export function TafsirDrawer({
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : error ? (
-          <div className="flex flex-col items-center justify-center h-64 text-destructive space-y-2">
-            <p className="font-semibold">Error loading tafsir</p>
-            <p className="text-sm text-muted-foreground">{error.message}</p>
+          <div className="flex flex-col items-center justify-center h-64 space-y-4">
+            <div className="text-center space-y-2">
+              <p className="font-semibold text-destructive">Error loading tafsir</p>
+              <p className="text-sm text-muted-foreground">{error.message}</p>
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={() => onOpenChange(false)}
+            >
+              Close
+            </Button>
           </div>
         ) : tafsirs && tafsirs.length > 0 ? (
           <Tabs defaultValue={tafsirs[0].tafsirName} className="mt-6">
@@ -92,8 +101,21 @@ export function TafsirDrawer({
             ))}
           </Tabs>
         ) : (
-          <div className="flex items-center justify-center h-64 text-muted-foreground">
-            No tafsir available for this verse
+          <div className="flex flex-col items-center justify-center h-64 space-y-4 text-center">
+            <div className="space-y-2">
+              <p className="text-muted-foreground">
+                Tafsir is not available for this verse yet.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Tafsir coverage is being expanded continuously.
+              </p>
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={() => onOpenChange(false)}
+            >
+              Close
+            </Button>
           </div>
         )}
       </SheetContent>
