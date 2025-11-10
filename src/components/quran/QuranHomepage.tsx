@@ -19,7 +19,18 @@ import { useNavigate } from 'react-router-dom';
 
 export function QuranHomepage() {
   const navigate = useNavigate();
-  const { data: surahs, isLoading } = useQuranData();
+  
+  // Enable/disable toggle with localStorage persistence
+  const [isQuranEnabled, setIsQuranEnabled] = useState<boolean>(() => {
+    const stored = localStorage.getItem('quran-enabled');
+    return stored ? JSON.parse(stored) : false; // Default OFF
+  });
+
+  useEffect(() => {
+    localStorage.setItem('quran-enabled', JSON.stringify(isQuranEnabled));
+  }, [isQuranEnabled]);
+
+  const { data: surahs, isLoading } = useQuranData({ enabled: isQuranEnabled });
   const { preferences, toggleBookmark, isBookmarked } = useQuranPreferences();
   
   const [selectedSurah, setSelectedSurah] = useState<number | null>(null);
@@ -74,6 +85,52 @@ export function QuranHomepage() {
     console.log('📖 selectedSurah changed to:', selectedSurah);
   }, [selectedSurah]);
 
+  // Show disabled state if Quran features are not enabled
+  if (!isQuranEnabled) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+        {/* Decorative background */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-5">
+          <div className="absolute top-0 left-0 w-96 h-96 bg-primary rounded-full blur-3xl" />
+          <div className="absolute bottom-0 right-0 w-96 h-96 bg-primary rounded-full blur-3xl" />
+        </div>
+
+        <div className="container mx-auto px-4 py-8 relative">
+          <div className="max-w-2xl mx-auto text-center space-y-8 mt-32">
+            <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-primary/10 border border-primary/20">
+              <BookOpen className="h-5 w-5 text-primary" />
+              <span className="text-sm font-medium">The Noble Quran</span>
+            </div>
+
+            <h1 className="text-5xl md:text-6xl font-bold mb-3 bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              القرآن الكريم
+            </h1>
+
+            <Card className="p-12 space-y-6">
+              <div className="space-y-3">
+                <p className="text-xl font-semibold">Quran Features are Currently Disabled</p>
+                <p className="text-muted-foreground">
+                  Enable the Quran features to access surahs, verses, bookmarks, and more.
+                  <br />
+                  This prevents unnecessary API calls when you're not using this section.
+                </p>
+              </div>
+
+              <Button
+                size="lg"
+                onClick={() => setIsQuranEnabled(true)}
+                className="gap-2"
+              >
+                <BookOpen className="h-5 w-5" />
+                Enable Quran Features
+              </Button>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (selectedSurah) {
     console.log('📖 Rendering SurahDetailView for:', selectedSurah);
     return (
@@ -98,9 +155,27 @@ export function QuranHomepage() {
       <div className="container mx-auto px-4 py-8 relative">
         {/* Hero Header */}
         <div className="text-center space-y-6 mb-12">
-          <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-primary/10 border border-primary/20">
-            <BookOpen className="h-5 w-5 text-primary" />
-            <span className="text-sm font-medium">The Noble Quran</span>
+          <div className="flex items-center justify-center gap-4">
+            <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-primary/10 border border-primary/20">
+              <BookOpen className="h-5 w-5 text-primary" />
+              <span className="text-sm font-medium">The Noble Quran</span>
+            </div>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                if (confirm('Disable Quran features? This will stop all API calls and data loading.')) {
+                  setIsQuranEnabled(false);
+                  setSelectedSurah(null);
+                  setShowRandomVerse(false);
+                  setRandomVerse(null);
+                }
+              }}
+              className="text-xs"
+            >
+              Disable
+            </Button>
           </div>
           
           <div>

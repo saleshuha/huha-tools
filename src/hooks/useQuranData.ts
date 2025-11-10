@@ -2,12 +2,13 @@ import { useQuery } from '@tanstack/react-query';
 import { quranApi } from '@/services/quran-api';
 import { Surah, Verse, Tafsir } from '@/types/quran';
 
-export function useQuranData() {
+export function useQuranData(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['quran', 'surah-list'],
     queryFn: () => quranApi.getSurahList(),
     staleTime: Infinity, // Quran data never changes
     gcTime: Infinity,
+    enabled: options?.enabled ?? true, // Default to true for backwards compatibility
   });
 }
 
