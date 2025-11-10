@@ -53,6 +53,11 @@ export function useAsinInventoryPaginated(
       .eq('user_id', user.id)
       .eq('country', selectedCountry);
 
+    // Apply active/disabled filter FIRST (before search to avoid OR overwrite)
+    if (!filters.showDisabledItems) {
+      query = query.or('is_active.is.null,is_active.eq.true');
+    }
+
     // Apply search filters
     if (filters.searchTerm && filters.searchTerm.trim()) {
       const searchTerms = filters.searchTerm.toLowerCase().trim().split(' ').filter(t => t.length > 0);
@@ -119,11 +124,6 @@ export function useAsinInventoryPaginated(
       query = query.gte('date_added', sevenDaysAgo.toISOString());
     }
 
-    // Apply active/disabled filter
-    if (!filters.showDisabledItems) {
-      query = query.or('is_active.is.null,is_active.eq.true');
-    }
-
     // Apply sorting
     const sortField = filters.sortBy === 'dateAdded' ? 'date_added' :
                      filters.sortBy === 'serialNumber' ? 'serial_number' :
@@ -186,7 +186,7 @@ export function useAsinInventoryPaginated(
     queryKey: ['asin-inventory-paginated', page, pageSize, selectedCountry, filters],
     queryFn: fetchPaginatedInventory,
     enabled: !!selectedCountry,
-    staleTime: 30 * 1000, // Cache for 30 seconds
+    staleTime: 2 * 60 * 1000, // Cache for 2 minutes - inventory doesn't change often
     gcTime: 2 * 60 * 1000, // Keep in memory for 2 minutes
   });
 
