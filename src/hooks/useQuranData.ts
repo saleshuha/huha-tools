@@ -36,13 +36,13 @@ export function useTafsir(surahNumber: number, ayahNumber: number) {
   console.log('🕌 useTafsir hook:', { surahNumber, ayahNumber, enabled });
   
   return useQuery({
-    queryKey: ['quran', 'tafsir', surahNumber, ayahNumber],
+    queryKey: ['quran', 'tafsir', 'v2', surahNumber, ayahNumber], // Added 'v2' to bust cache
     queryFn: () => quranApi.getTafsir(surahNumber, ayahNumber),
     enabled,
-    staleTime: 5 * 60 * 1000, // 5 minutes instead of Infinity
-    gcTime: Infinity, // Keep cache indefinitely for offline use
-    retry: 1, // Retry once if it fails
-    refetchOnMount: true, // Refetch when component mounts
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: Infinity,
+    retry: 1,
+    refetchOnMount: true,
   });
 }
 
