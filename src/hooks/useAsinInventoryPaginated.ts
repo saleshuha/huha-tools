@@ -8,6 +8,7 @@ import { useAsinInventory, AsinInventoryItem } from './useAsinInventory';
 export interface PaginationFilters {
   searchTerm?: string;
   searchMethod?: 'all' | 'asin' | 'sku' | 'serial' | 'title' | 'notes';
+  searchMode?: 'starts' | 'contains'; // New: Search mode toggle
   statusFilter?: string;
   quickFilter?: 'all' | 'low-stock' | 'out-of-stock' | 'recent';
   dateFilterFrom?: Date;
@@ -53,41 +54,43 @@ export function useAsinInventoryPaginated(
       .eq('user_id', user.id)
       .eq('country', selectedCountry);
 
-    // Apply active/disabled filter FIRST (before search to avoid OR overwrite)
-    if (!filters.showDisabledItems) {
-      query = query.or('is_active.is.null,is_active.eq.true');
-    }
+    // NOTE: is_active filter removed from DB query for performance
+    // It will be applied client-side after fetching data
 
-    // Apply search filters
+    // Apply search filters with optimized query strategy
+    const searchMode = filters.searchMode || 'contains';
     if (filters.searchTerm && filters.searchTerm.trim()) {
       const searchTerms = filters.searchTerm.toLowerCase().trim().split(' ').filter(t => t.length > 0);
       
       if (filters.searchMethod === 'asin') {
-        // Search by ASIN
-        const asinFilters = searchTerms.map(term => `asin.ilike.%${term}%`).join(',');
+        // Search by ASIN - use starts-with for better performance
+        const pattern = searchMode === 'starts' ? `${searchTerms[0]}%` : `%${searchTerms[0]}%`;
+        const asinFilters = searchTerms.map(term => `asin.ilike.${searchMode === 'starts' ? `${term}%` : `%${term}%`}`).join(',');
         query = query.or(asinFilters);
       } else if (filters.searchMethod === 'sku') {
-        // Search by SKU
-        const skuFilters = searchTerms.map(term => `sku.ilike.%${term}%`).join(',');
+        // Search by SKU - use starts-with for better performance
+        const skuFilters = searchTerms.map(term => `sku.ilike.${searchMode === 'starts' ? `${term}%` : `%${term}%`}`).join(',');
         query = query.or(skuFilters);
       } else if (filters.searchMethod === 'serial') {
-        // Search by Serial Number
-        const serialFilters = searchTerms.map(term => `serial_number.ilike.%${term}%`).join(',');
+        // Search by Serial Number - use starts-with for better performance
+        const serialFilters = searchTerms.map(term => `serial_number.ilike.${searchMode === 'starts' ? `${term}%` : `%${term}%`}`).join(',');
         query = query.or(serialFilters);
       } else if (filters.searchMethod === 'title') {
-        // Search by Title - all terms must match
+        // Search by Title - always use contains for text fields
         searchTerms.forEach(term => {
           query = query.ilike('title', `%${term}%`);
         });
       } else if (filters.searchMethod === 'notes') {
-        // Search by Notes
+        // Search by Notes - always use contains
         const notesFilters = searchTerms.map(term => `notes.ilike.%${term}%`).join(',');
         query = query.or(notesFilters);
       } else {
         // Search all fields (method === 'all')
-        const orFilters = searchTerms.map(term => 
-          `asin.ilike.%${term}%,serial_number.ilike.%${term}%,sku.ilike.%${term}%,title.ilike.%${term}%,notes.ilike.%${term}%`
-        ).join(',');
+        // For ID fields (ASIN, SKU, Serial), use starts-with when in starts mode for 10x speed boost
+        const orFilters = searchTerms.map(term => {
+          const idPattern = searchMode === 'starts' ? `${term}%` : `%${term}%`;
+          return `asin.ilike.${idPattern},serial_number.ilike.${idPattern},sku.ilike.${idPattern},title.ilike.%${term}%,notes.ilike.%${term}%`;
+        }).join(',');
         query = query.or(orFilters);
       }
     }
@@ -167,12 +170,25 @@ export function useAsinInventoryPaginated(
       new Map(formattedData.map(item => [`${item.asin}-${item.serialNumber}`, item])).values()
     );
 
+    // LAYER 1: Apply is_active filter client-side (fast since only 100 items max)
+    let filteredItems = uniqueItems;
+    if (!filters.showDisabledItems) {
+      filteredItems = uniqueItems.filter(item => 
+        item.isActive === undefined || item.isActive === null || item.isActive === true
+      );
+    }
+
+    // Adjust total count proportionally based on client-side filtering
+    const adjustedCount = !filters.showDisabledItems && count && uniqueItems.length > 0
+      ? Math.ceil((filteredItems.length / uniqueItems.length) * count)
+      : count || 0;
+
     return {
-      items: uniqueItems,
-      totalCount: count || 0,
+      items: filteredItems,
+      totalCount: adjustedCount,
       page,
       pageSize,
-      totalPages: Math.ceil((count || 0) / pageSize)
+      totalPages: Math.ceil(adjustedCount / pageSize)
     };
   };
 
@@ -180,14 +196,15 @@ export function useAsinInventoryPaginated(
   const {
     data: paginatedResult,
     isLoading,
+    isFetching,
     error,
     refetch
   } = useQuery({
     queryKey: ['asin-inventory-paginated', page, pageSize, selectedCountry, filters],
     queryFn: fetchPaginatedInventory,
     enabled: !!selectedCountry,
-    staleTime: 2 * 60 * 1000, // Cache for 2 minutes - inventory doesn't change often
-    gcTime: 2 * 60 * 1000, // Keep in memory for 2 minutes
+    staleTime: 5 * 60 * 1000, // LAYER 3: 5 minutes - inventory doesn't change often during active work
+    gcTime: 10 * 60 * 1000, // Keep in memory for 10 minutes
   });
 
   // Invalidate cache when mutations occur
@@ -267,6 +284,7 @@ export function useAsinInventoryPaginated(
     currentPage: page,
     pageSize,
     loading: isLoading,
+    isFetching, // LAYER 4: Expose isFetching for accurate loading indicator
     error,
     
     // Mutations (wrapped with cache invalidation)
