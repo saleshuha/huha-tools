@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, memo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
@@ -45,259 +45,6 @@ import { PrintService } from '@/services/print-service';
 import { LabelDoc, LabelDataset, LabelElement, PrintSettings } from '@/types/label';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-
-// Memoized table row component to prevent unnecessary re-renders
-const InventoryTableRow = memo(({
-  item,
-  exportModes,
-  exportModesLoaded,
-  onDisableItems,
-  onEnableItem,
-  onUpdateSku,
-  onUpdateSerialNumber,
-  onUpdateQuantity,
-  onSaveExportMode,
-  onPrintItem,
-  onRefetch,
-  getNextSerialNumber,
-  qzConnected,
-  selectedTemplate,
-  ProductImage,
-}: {
-  item: AsinInventoryItem;
-  exportModes: Record<string, 'global' | 'local'>;
-  exportModesLoaded: boolean;
-  onDisableItems: (items: AsinInventoryItem[]) => void;
-  onEnableItem: (item: AsinInventoryItem) => void;
-  onUpdateSku: (id: string, sku: string) => Promise<void>;
-  onUpdateSerialNumber: (id: string, serialNumber: string) => Promise<void>;
-  onUpdateQuantity: (item: any, quantity: number, reason?: string) => Promise<void>;
-  onSaveExportMode: (id: string, mode: 'global' | 'local') => Promise<void>;
-  onPrintItem: (item: AsinInventoryItem) => Promise<void>;
-  onRefetch: () => void;
-  getNextSerialNumber: () => string;
-  qzConnected: boolean;
-  selectedTemplate: string | null;
-  ProductImage: ({ asin }: { asin: string }) => JSX.Element;
-}) => {
-  const { toast } = useToast();
-  
-  return (
-    <tr 
-      key={item.id} 
-      className={cn(
-        "border-b hover:bg-muted/25 transition-colors",
-        item.isActive === false && "bg-destructive/10 border-l-4 border-l-destructive"
-      )}
-    >
-      <td className="p-3 border-r align-middle">
-        <div className="flex justify-center">
-          <Checkbox 
-            checked={item.isActive === false}
-            className={cn(
-              item.isActive === false && "data-[state=checked]:bg-destructive data-[state=checked]:border-destructive"
-            )}
-            onCheckedChange={checked => {
-              if (checked) {
-                onDisableItems([item]);
-              } else {
-                onEnableItem(item);
-              }
-            }} 
-          />
-        </div>
-      </td>
-      <td className="p-3 border-r align-middle">
-        <div className="flex items-center gap-3">
-          <ProductImage asin={item.asin} />
-          <div className="space-y-1 min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <div className={cn(
-                "font-medium text-sm max-w-xs break-words",
-                item.isActive === false && "line-through opacity-60"
-              )}>
-                {item.title || 'No title'}
-              </div>
-              {item.isActive === false && (
-                <Badge variant="destructive" className="text-xs font-bold animate-pulse">
-                  DISABLED
-                </Badge>
-              )}
-            </div>
-            <div className={cn(
-              "font-mono text-xs text-muted-foreground",
-              item.isActive === false && "opacity-60"
-            )}>
-              ASIN: {item.asin}
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">SKU:</span>
-              <SkuEditor currentSku={item.sku} onUpdate={newSku => onUpdateSku(item.id, newSku)} />
-            </div>
-          </div>
-        </div>
-      </td>
-      <td className="p-3 font-mono text-sm border-r align-middle">
-        <div className="flex items-center justify-center">
-          <SerialNumberEditor 
-            currentSerialNumber={item.serialNumber} 
-            onUpdate={newSerialNumber => onUpdateSerialNumber(item.id, newSerialNumber)}
-            getNextSerial={getNextSerialNumber}
-          />
-        </div>
-      </td>
-      <td className="p-3 border-r align-middle">
-        <div className="flex items-center justify-center gap-1">
-          <span className={`font-semibold text-sm ${item.quantity === 0 ? 'text-red-500' : item.quantity <= 5 ? 'text-yellow-500' : 'text-green-500'}`}>
-            {item.quantity}
-          </span>
-          {item.quantity <= 5 && <AlertTriangle className="w-3 h-3 text-yellow-500" />}
-        </div>
-      </td>
-      <td className="p-3 border-r align-middle">
-        <div className="flex items-center justify-center">
-          <Badge 
-            variant={
-              item.quantity > 0 
-                ? 'default' 
-                : item.status === 'no-stock'
-                  ? 'secondary'
-                  : item.status === 'sold' || item.status === 'out-of-stock'
-                    ? 'destructive' 
-                    : item.status === 'ordered' 
-                      ? 'secondary'
-                      : item.status === 'reserved' 
-                        ? 'outline'
-                        : item.status === 'damaged'
-                          ? 'destructive'
-                          : 'secondary'
-            } 
-            className={`text-xs ${item.quantity === 0 && item.status === 'no-stock' ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20 hover:bg-yellow-500/15' : ''}`}
-          >
-            {item.quantity > 0 
-              ? 'In Stock' 
-              : item.status === 'no-stock'
-                ? 'No Stock'
-                : item.status === 'sold' || item.status === 'out-of-stock'
-                  ? 'Out of Stock (Sold)' 
-                  : item.status === 'ordered'
-                    ? 'Ordered'
-                    : item.status === 'reserved' 
-                      ? 'Reserved' 
-                      : item.status === 'damaged'
-                        ? 'Damaged'
-                        : 'No Stock'}
-          </Badge>
-        </div>
-      </td>
-      <td className="p-3 border-r align-middle">
-        <div className="flex flex-col items-center gap-2">
-          <div className="flex items-center gap-2">
-            <Switch
-              id={`restock-${item.id}`}
-              checked={item.eligible_for_restock}
-              onCheckedChange={async (checked) => {
-                try {
-                  const { error } = await supabase
-                    .from('asin_inventory')
-                    .update({ 
-                      eligible_for_restock: !!checked,
-                      manual_restock_override: true
-                    } as any)
-                    .eq('id', item.id as any);
-                 
-                  if (error) throw error;
-                 
-                  await onRefetch();
-                  toast({
-                    title: checked ? "Enabled for restock" : "Disabled for restock",
-                    description: `${item.asin} (${item.serialNumber})`,
-                  });
-                } catch (error) {
-                  console.error('Failed to update restock eligibility:', error);
-                  toast({
-                    title: "Update failed",
-                    description: "Could not update restock eligibility",
-                    variant: "destructive"
-                  });
-                }
-              }}
-              className={`border-2 border-muted-foreground/30 hover:border-primary/60 transition-colors ${
-                item.eligible_for_restock && item.status !== 'no-stock'
-                  ? 'data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500' 
-                  : 'data-[state=unchecked]:bg-red-500 data-[state=unchecked]:border-red-500'
-              }`}
-            />
-            <Label htmlFor={`restock-${item.id}`} className="text-sm font-medium">
-              {item.status === 'no-stock' 
-                ? 'N/A' 
-                : item.eligible_for_restock 
-                  ? 'Eligible' 
-                  : 'Not Eligible'
-              }
-            </Label>
-          </div>
-          <div className="text-xs text-center text-muted-foreground">
-            {item.status === 'no-stock' 
-              ? 'No-stock items excluded from restock' 
-              : item.eligible_for_restock 
-                ? 'Auto-enabled: sold in last 90 days' 
-                : 'No sales in last 90 days'
-            }
-          </div>
-        </div>
-      </td>
-      <td className="p-3 border-r align-middle">
-        <div className="flex flex-col items-center gap-2">
-          <div className="flex items-center gap-2">
-            <Switch
-              id={`export-mode-${item.id}`}
-              checked={exportModes[item.id] === 'local'}
-              disabled={!exportModesLoaded}
-              onCheckedChange={async (checked) => {
-                const newMode = checked ? 'local' : 'global';
-                await onSaveExportMode(item.id, newMode);
-              }}
-              className={`border-2 border-muted-foreground/30 hover:border-primary/60 transition-colors ${
-                exportModes[item.id] === 'local' 
-                  ? 'data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500' 
-                  : 'data-[state=unchecked]:bg-green-500 data-[state=unchecked]:border-green-500'
-              }`}
-            />
-            <Label htmlFor={`export-mode-${item.id}`} className="text-sm font-medium">
-              {exportModes[item.id] === 'local' ? 'Local' : 'Global'}
-            </Label>
-          </div>
-          <div className="text-xs text-center text-muted-foreground">
-            {exportModes[item.id] === 'local' ? 
-              'Export mode is Local (qty: 100 if stock > 0, else 0)' : 
-              'Export mode is Global (uses stock qty)'
-            }
-          </div>
-        </div>
-      </td>
-      <td className="p-3 align-middle">
-        <div className="flex items-center justify-center gap-2">
-          <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => onUpdateQuantity(item, newQuantity, reason)} />
-          <EnhancedStockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="w-8 h-8 p-0" 
-            onClick={() => onPrintItem(item)} 
-            title="Print Label"
-            disabled={!qzConnected || !selectedTemplate}
-          >
-            <Printer className="w-4 h-4" />
-          </Button>
-        </div>
-      </td>
-    </tr>
-  );
-});
-
-InventoryTableRow.displayName = 'InventoryTableRow';
-
 export function AsinInventory() {
   // Pagination and filter state
   const [currentPage, setCurrentPage] = useState(1);
@@ -391,7 +138,7 @@ export function AsinInventory() {
     }
     
     return null;
-  }, [inventory.length, loading]);
+  }, [inventory, loading]);
 
   // Show warning toast when duplicates detected
   useEffect(() => {
@@ -429,7 +176,7 @@ export function AsinInventory() {
     }
     
     return missing;
-  }, [inventory.length, loading]);
+  }, [inventory, loading]);
   
   // Get next available serial number (either missing or next in sequence)
   const getNextSerialNumber = () => {
@@ -501,12 +248,6 @@ export function AsinInventory() {
   // Save export mode to database
   const saveExportMode = async (itemId: string, mode: 'global' | 'local') => {
     if (!user?.id) return;
-
-    // Update local state immediately for better UX
-    setExportModes(prev => ({
-      ...prev,
-      [itemId]: mode
-    }));
 
     try {
       const { error } = await supabase
@@ -1217,7 +958,7 @@ export function AsinInventory() {
       />
       {/* Header with Stats */}
       <div className="space-y-6">
-        {useMemo(() => <InventoryMetrics showOnlyAsin={true} />, [])}
+        <InventoryMetrics showOnlyAsin={true} />
         
       </div>
 
@@ -1810,28 +1551,231 @@ export function AsinInventory() {
                        <th className="w-32 p-3 text-center font-medium">Actions</th>
                   </tr>
                 </thead>
-                 <tbody>
-                   {inventory.map(item => (
-                     <InventoryTableRow
-                       key={item.id}
-                       item={item}
-                       exportModes={exportModes}
-                       exportModesLoaded={exportModesLoaded}
-                       onDisableItems={handleDisableItems}
-                       onEnableItem={handleEnableItem}
-                       onUpdateSku={updateSku}
-                       onUpdateSerialNumber={updateSerialNumber}
-                       onUpdateQuantity={handleQuantityUpdate}
-                       onSaveExportMode={saveExportMode}
-                       onPrintItem={handlePrintItem}
-                       onRefetch={refetch}
-                       getNextSerialNumber={getNextSerialNumber}
-                       qzConnected={qzConnected}
-                       selectedTemplate={selectedTemplate}
-                       ProductImage={ProductImage}
-                     />
-                   ))}
-                 </tbody>
+                <tbody>
+                   {inventory.map(item => <tr key={item.id} className={cn(
+                     "border-b hover:bg-muted/25 transition-colors",
+                     item.isActive === false && "bg-destructive/10 border-l-4 border-l-destructive"
+                   )}>
+                       <td className="p-3 border-r align-middle">
+                         <div className="flex justify-center">
+                           <Checkbox 
+                             checked={item.isActive === false}
+                             className={cn(
+                               item.isActive === false && "data-[state=checked]:bg-destructive data-[state=checked]:border-destructive"
+                             )}
+                             onCheckedChange={checked => {
+                               if (checked) {
+                                 // User is trying to check (disable the item)
+                                 handleDisableItems([item]);
+                               } else {
+                                 // User is trying to uncheck (enable the item)
+                                 handleEnableItem(item);
+                               }
+                             }} 
+                           />
+                         </div>
+                       </td>
+                          <td className="p-3 border-r align-middle">
+                            <div className="flex items-center gap-3">
+                              <ProductImage asin={item.asin} />
+                              <div className="space-y-1 min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <div className={cn(
+                                    "font-medium text-sm max-w-xs break-words",
+                                    item.isActive === false && "line-through opacity-60"
+                                  )}>
+                                    {item.title || 'No title'}
+                                  </div>
+                                  {item.isActive === false && (
+                                    <Badge variant="destructive" className="text-xs font-bold animate-pulse">
+                                      DISABLED
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className={cn(
+                                  "font-mono text-xs text-muted-foreground",
+                                  item.isActive === false && "opacity-60"
+                                )}>
+                                  ASIN: {item.asin}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-muted-foreground">SKU:</span>
+                                  <SkuEditor currentSku={item.sku} onUpdate={newSku => updateSku(item.id, newSku)} />
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                         <td className="p-3 font-mono text-sm border-r align-middle">
+                            <div className="flex items-center justify-center">
+                              <SerialNumberEditor 
+                                currentSerialNumber={item.serialNumber} 
+                                onUpdate={newSerialNumber => updateSerialNumber(item.id, newSerialNumber)}
+                                getNextSerial={getNextSerialNumber}
+                              />
+                            </div>
+                         </td>
+                      <td className="p-3 border-r align-middle">
+                        <div className="flex items-center justify-center gap-1">
+                          <span className={`font-semibold text-sm ${item.quantity === 0 ? 'text-red-500' : item.quantity <= 5 ? 'text-yellow-500' : 'text-green-500'}`}>
+                            {item.quantity}
+                          </span>
+                          {item.quantity <= 5 && <AlertTriangle className="w-3 h-3 text-yellow-500" />}
+                        </div>
+                        </td>
+                          <td className="p-3 border-r align-middle">
+                           <div className="flex items-center justify-center">
+                              <Badge 
+                                variant={
+                                  item.quantity > 0 
+                                    ? 'default' 
+                                    : item.status === 'no-stock'
+                                      ? 'secondary'
+                                      : item.status === 'sold' || item.status === 'out-of-stock'
+                                        ? 'destructive' 
+                                        : item.status === 'ordered' 
+                                          ? 'secondary'
+                                          : item.status === 'reserved' 
+                                            ? 'outline'
+                                            : item.status === 'damaged'
+                                              ? 'destructive'
+                                              : 'secondary'
+                                } 
+                                className={`text-xs ${item.quantity === 0 && item.status === 'no-stock' ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20 hover:bg-yellow-500/15' : ''}`}
+                            >
+                              {item.quantity > 0 
+                                ? 'In Stock' 
+                                : item.status === 'no-stock'
+                                  ? 'No Stock'
+                                  : item.status === 'sold' || item.status === 'out-of-stock'
+                                    ? 'Out of Stock (Sold)' 
+                                    : item.status === 'ordered'
+                                      ? 'Ordered'
+                                      : item.status === 'reserved' 
+                                        ? 'Reserved' 
+                                        : item.status === 'damaged'
+                                          ? 'Damaged'
+                                          : 'No Stock'}
+                            </Badge>
+                          </div>
+                         </td>
+                          <td className="p-3 border-r align-middle">
+                            <div className="flex flex-col items-center gap-2">
+                                <div className="flex items-center gap-2">
+                                  <Switch
+                                    id={`restock-${item.id}`}
+                                    checked={item.eligible_for_restock}
+                                    onCheckedChange={async (checked) => {
+                                     try {
+                                       const { error } = await supabase
+                                         .from('asin_inventory')
+                                         .update({ 
+                                           eligible_for_restock: !!checked,
+                                           manual_restock_override: true
+                                         } as any)
+                                         .eq('id', item.id as any);
+                                      
+                                      if (error) throw error;
+                                      
+                                      await refetch();
+                                      toast({
+                                        title: checked ? "Enabled for restock" : "Disabled for restock",
+                                        description: `${item.asin} (${item.serialNumber})`,
+                                      });
+                                    } catch (error) {
+                                      console.error('Failed to update restock eligibility:', error);
+                                      toast({
+                                        title: "Update failed",
+                                        description: "Could not update restock eligibility",
+                                        variant: "destructive"
+                                      });
+                                    }
+                                  }}
+                                   className={`border-2 border-muted-foreground/30 hover:border-primary/60 transition-colors ${
+                                     item.eligible_for_restock && item.status !== 'no-stock'
+                                       ? 'data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500' 
+                                       : 'data-[state=unchecked]:bg-red-500 data-[state=unchecked]:border-red-500'
+                                   }`}
+                                 />
+                                 <Label htmlFor={`restock-${item.id}`} className="text-sm font-medium">
+                                   {item.status === 'no-stock' 
+                                     ? 'N/A' 
+                                     : item.eligible_for_restock 
+                                       ? 'Eligible' 
+                                       : 'Not Eligible'
+                                   }
+                                 </Label>
+                               </div>
+                              <div className="text-xs text-center text-muted-foreground">
+                                {item.status === 'no-stock' 
+                                  ? 'No-stock items excluded from restock' 
+                                  : item.eligible_for_restock 
+                                    ? 'Auto-enabled: sold in last 90 days' 
+                                    : 'No sales in last 90 days'
+                                }
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-3 border-r align-middle">
+                            <div className="flex flex-col items-center gap-2">
+                               <div className="flex items-center gap-2">
+                                 <Switch
+                                   id={`export-mode-${item.id}`}
+                                   checked={exportModes[item.id] === 'local'}
+                                   disabled={!exportModesLoaded}
+                                   onCheckedChange={async (checked) => {
+                                    const newMode = checked ? 'local' : 'global';
+                                    console.log('🔄 Export mode change:', {
+                                      itemId: item.id,
+                                      asin: item.asin,
+                                      currentMode: exportModes[item.id],
+                                      newMode
+                                    });
+                                    
+                                    // Update local state immediately for better UX
+                                    setExportModes(prev => ({
+                                      ...prev,
+                                      [item.id]: newMode
+                                    }));
+                                    
+                                    // Save to database
+                                    await saveExportMode(item.id, newMode);
+                                  }}
+                                   className={`border-2 border-muted-foreground/30 hover:border-primary/60 transition-colors ${
+                                     exportModes[item.id] === 'local' 
+                                       ? 'data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500' 
+                                       : 'data-[state=unchecked]:bg-green-500 data-[state=unchecked]:border-green-500'
+                                   }`}
+                                 />
+                                 <Label htmlFor={`export-mode-${item.id}`} className="text-sm font-medium">
+                                   {exportModes[item.id] === 'local' ? 'Local' : 'Global'}
+                                 </Label>
+                               </div>
+                               <div className="text-xs text-center text-muted-foreground">
+                                 {exportModes[item.id] === 'local' ? 
+                                   'Export mode is Local (qty: 100 if stock > 0, else 0)' : 
+                                   'Export mode is Global (uses stock qty)'
+                                 }
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-3 align-middle">
+                            <div className="flex items-center justify-center gap-2">
+                              <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
+                              <EnhancedStockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="w-8 h-8 p-0" 
+                                onClick={() => handlePrintItem(item)} 
+                                title="Print Label"
+                                disabled={!qzConnected || !selectedTemplate}
+                              >
+                                <Printer className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </td>
+                    </tr>)}
+                </tbody>
               </table>
             </div>
           </CardContent>
