@@ -39,8 +39,6 @@ interface QuantityConfirmDialogProps {
   onConfirm: (data: {
     quantity: number;
     serial_number?: string;
-    supplier_name?: string;
-    notes?: string;
     autoPrint: boolean;
     manualPOAllocations?: ManualPOAllocation[];
   }) => void;
@@ -61,8 +59,6 @@ export function QuantityConfirmDialog({
   const navigate = useNavigate();
   const [quantity, setQuantity] = useState(1);
   const [serialNumber, setSerialNumber] = useState('');
-  const [supplierName, setSupplierName] = useState('');
-  const [notes, setNotes] = useState('');
   const [autoPrintEnabled, setAutoPrintEnabled] = useState(true);
   const [qzConnected, setQzConnected] = useState(false);
   
@@ -77,8 +73,6 @@ export function QuantityConfirmDialog({
     if (open) {
       setQuantity(1);
       setSerialNumber(initialSerialNumber || '');
-      setSupplierName('');
-      setNotes('');
       setSelectedPOs(new Map());
       setAvailablePOs([]);
       setPoSectionOpen(false);
@@ -196,8 +190,6 @@ export function QuantityConfirmDialog({
     onConfirm({
       quantity,
       serial_number: serialNumber || undefined,
-      supplier_name: supplierName || undefined,
-      notes: notes || undefined,
       autoPrint: autoPrint && autoPrintEnabled,
       manualPOAllocations: manualAllocations.length > 0 ? manualAllocations : undefined
     });
@@ -214,12 +206,12 @@ export function QuantityConfirmDialog({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md" onKeyDown={handleKeyDown}>
+      <DialogContent className="sm:max-w-2xl" onKeyDown={handleKeyDown}>
         <DialogHeader>
           <DialogTitle>Confirm Receiving Details</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
           {/* QZ Tray Status Alert */}
           {!qzConnected && autoPrintEnabled && (
             <Alert variant="destructive" className="border-destructive/50 bg-destructive/10">
@@ -434,29 +426,6 @@ export function QuantityConfirmDialog({
                 'If empty, label will show "N/A"'
               )}
             </p>
-          </div>
-
-          {/* Supplier Name */}
-          <div className="space-y-2">
-            <Label htmlFor="supplier">Supplier Name (Optional)</Label>
-            <Input
-              id="supplier"
-              value={supplierName}
-              onChange={(e) => setSupplierName(e.target.value)}
-              placeholder="e.g., Sunsky"
-            />
-          </div>
-
-          {/* Notes */}
-          <div className="space-y-2">
-            <Label htmlFor="notes">Notes (Optional)</Label>
-            <Textarea
-              id="notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Any additional notes..."
-              rows={2}
-            />
           </div>
 
           {/* Auto-Print Toggle */}
