@@ -13,6 +13,7 @@ interface SearchResult {
   context?: string;
   po_count?: number;
   serial_number?: string;
+  po_numbers?: string[]; // List of matching PO numbers
 }
 
 interface ItemSearchBarProps {
@@ -42,10 +43,10 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
         // Search in open POs
         const { data: poData } = await supabase
           .from('po_orders')
-          .select('asin, sku_code, model_number, title')
-          .in('status', ['pending', 'placed'])
+          .select('asin, sku_code, model_number, title, po_number')
           .or(`asin.ilike.%${term}%,sku_code.ilike.%${term}%,model_number.ilike.%${term}%`)
-          .limit(5);
+          .in('status', ['pending', 'placed'])
+          .limit(20);
 
         // Search in inventory (filter by selected country, fetch serial_number)
         let invQuery = supabase
@@ -62,14 +63,17 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
 
         const searchResults: SearchResult[] = [];
 
-        // Add PO results
+        // Add PO results (group and collect PO numbers)
         if (poData && poData.length > 0) {
           const grouped = poData.reduce((acc, item) => {
             const key = item.asin || item.sku_code || item.model_number || 'unknown';
             if (!acc[key]) {
-              acc[key] = { ...item, count: 0 };
+              acc[key] = { ...item, count: 0, po_numbers: [] };
             }
             acc[key].count++;
+            if (item.po_number && !acc[key].po_numbers.includes(item.po_number)) {
+              acc[key].po_numbers.push(item.po_number);
+            }
             return acc;
           }, {} as any);
 
@@ -81,7 +85,8 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
               model_number: item.model_number,
               title: item.title,
               context: `Found in ${item.count} pending PO${item.count > 1 ? 's' : ''}`,
-              po_count: item.count
+              po_count: item.count,
+              po_numbers: item.po_numbers
             });
           });
         }
@@ -171,9 +176,23 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
                       {result.title}
                     </div>
                   )}
-                  <div className="text-xs text-primary mt-1">
-                    {result.context}
+              <div className="flex flex-col gap-1 mt-1">
+                <div className="text-xs text-primary">
+                  {result.context}
+                </div>
+                {result.po_numbers && result.po_numbers.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {result.po_numbers.map((poNum, idx) => (
+                      <span 
+                        key={idx} 
+                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary border border-primary/20"
+                      >
+                        {poNum}
+                      </span>
+                    ))}
                   </div>
+                )}
+              </div>
                 </div>
                 <div className={`px-2 py-1 rounded text-xs font-medium ${
                   result.type === 'po' 

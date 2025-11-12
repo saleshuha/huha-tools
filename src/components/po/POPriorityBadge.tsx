@@ -1,0 +1,55 @@
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
+
+interface POPriorityBadgeProps {
+  priority: number;
+  onUpdate: (newPriority: number) => void;
+  disabled?: boolean;
+}
+
+const priorityConfig = {
+  1: { label: '⚡ Highest', color: 'bg-red-100 text-red-700 border-red-300 dark:bg-red-950 dark:text-red-300 dark:border-red-800' },
+  2: { label: '🔴 High', color: 'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800' },
+  3: { label: '🟡 Normal', color: 'bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-950 dark:text-yellow-300 dark:border-yellow-800' },
+  4: { label: '🔵 Low', color: 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800' },
+  5: { label: '⬇️ Lowest', color: 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700' }
+} as const;
+
+export function POPriorityBadge({ priority, onUpdate, disabled }: POPriorityBadgeProps) {
+  const config = priorityConfig[priority as keyof typeof priorityConfig] || priorityConfig[3];
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className={cn("text-xs border", config.color)}
+          disabled={disabled}
+        >
+          {config.label}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {Object.entries(priorityConfig).map(([value, cfg]) => (
+          <DropdownMenuItem 
+            key={value}
+            onClick={() => onUpdate(parseInt(value))}
+            className={cn(
+              "cursor-pointer",
+              priority === parseInt(value) && "bg-accent font-medium"
+            )}
+          >
+            {cfg.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}

@@ -137,7 +137,9 @@ export function QuantityConfirmDialog({
         query = query.or(conditions.join(','));
       }
 
-      const { data, error } = await query.order('created_at', { ascending: false });
+      const { data, error } = await query
+        .order('priority', { ascending: true })
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       setAvailablePOs(data || []);
@@ -338,6 +340,18 @@ export function QuantityConfirmDialog({
                                 >
                                   {po.status.toUpperCase()}
                                 </Badge>
+
+                                {po.priority && po.priority !== 3 && (
+                                  <Badge 
+                                    variant={po.priority <= 2 ? 'destructive' : 'outline'} 
+                                    className="text-xs"
+                                  >
+                                    {po.priority === 1 ? '⚡ Highest' : 
+                                     po.priority === 2 ? '🔴 High' : 
+                                     po.priority === 4 ? '🔵 Low' : 
+                                     po.priority === 5 ? '⬇️ Lowest' : 'Normal'}
+                                  </Badge>
+                                )}
                                 
                                 {isClosed && (
                                   <span className="flex items-center gap-1 text-xs text-warning">

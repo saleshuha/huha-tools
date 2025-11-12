@@ -35,6 +35,7 @@ export interface POOrder {
   is_printed?: boolean;
   sunsky_sku?: any;
   batch_id?: string;
+  priority?: number; // 1 (Highest) to 5 (Lowest), default 3 (Normal)
 }
 
 export interface POUploadStats {
@@ -1150,6 +1151,36 @@ export const usePOOrders = () => {
     }
   }, [fetchPOOrders, toast]);
 
+  // Update PO priority
+  const updatePOPriority = useCallback(async (poIds: string[], priority: number) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('po_orders')
+        .update({ priority })
+        .in('id', poIds)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Updated priority for ${poIds.length} PO(s)`,
+      });
+
+      await fetchPOOrders();
+    } catch (error) {
+      console.error('Priority update error:', error);
+      toast({
+        title: "Error",
+        description: 'Failed to update priority',
+        variant: "destructive"
+      });
+    }
+  }, [fetchPOOrders, toast]);
+
   return {
     poOrders,
     isLoading,
@@ -1166,6 +1197,7 @@ export const usePOOrders = () => {
     updateTrackingInfo,
     getPOModelNumbers,
     deletePOOrders,
-    updatePrintStatus
+    updatePrintStatus,
+    updatePOPriority
   };
 };

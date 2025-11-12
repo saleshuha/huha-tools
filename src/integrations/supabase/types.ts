@@ -2273,6 +2273,7 @@ export type Database = {
           po_key: string | null
           po_number: string
           printed_quantity: number
+          priority: number | null
           quantity: number
           ship_to_location: string | null
           sku_code: string
@@ -2308,6 +2309,7 @@ export type Database = {
           po_key?: string | null
           po_number: string
           printed_quantity?: number
+          priority?: number | null
           quantity?: number
           ship_to_location?: string | null
           sku_code: string
@@ -2343,6 +2345,7 @@ export type Database = {
           po_key?: string | null
           po_number?: string
           printed_quantity?: number
+          priority?: number | null
           quantity?: number
           ship_to_location?: string | null
           sku_code?: string
@@ -5270,6 +5273,7 @@ export type Database = {
           po_key: string | null
           po_number: string
           printed_quantity: number
+          priority: number | null
           quantity: number
           ship_to_location: string | null
           sku_code: string

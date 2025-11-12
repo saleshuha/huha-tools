@@ -456,6 +456,7 @@ async function locateMatchingPurchaseOrders(
     .eq('user_id', userId)
     .in('status', ['pending', 'placed'])
     .or(`asin.eq.${item.asin || 'none'},sku_code.eq.${item.sku_code || 'none'},model_number.eq.${item.model_number || 'none'}`)
+    .order('priority', { ascending: true })
     .order('expected_delivery', { ascending: true });
 
   if (error) {
