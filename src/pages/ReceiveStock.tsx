@@ -7,6 +7,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ItemSearchBar } from '@/components/stock-receiving/ItemSearchBar';
 import { QuantityConfirmDialog } from '@/components/stock-receiving/QuantityConfirmDialog';
 import { RecentActivityFeed } from '@/components/stock-receiving/RecentActivityFeed';
+import { PriorityPOList } from '@/components/stock-receiving/PriorityPOList';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -591,6 +592,11 @@ export default function ReceiveStock() {
             </Collapsible>
           </CardContent>
         </Card>
+
+        {/* Priority PO Management */}
+        <div className="mb-6">
+          <PriorityPOList />
+        </div>
 
         {/* Comprehensive Receiving History */}
         <Card className="mb-6">
