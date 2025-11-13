@@ -2202,6 +2202,75 @@ export type Database = {
         }
         Relationships: []
       }
+      po_group_members: {
+        Row: {
+          added_at: string | null
+          group_id: string
+          id: string
+          po_id: string
+        }
+        Insert: {
+          added_at?: string | null
+          group_id: string
+          id?: string
+          po_id: string
+        }
+        Update: {
+          added_at?: string | null
+          group_id?: string
+          id?: string
+          po_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "po_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "po_group_members_po_id_fkey"
+            columns: ["po_id"]
+            isOneToOne: false
+            referencedRelation: "po_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      po_groups: {
+        Row: {
+          country: string | null
+          created_at: string | null
+          description: string | null
+          group_name: string
+          id: string
+          status: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          country?: string | null
+          created_at?: string | null
+          description?: string | null
+          group_name: string
+          id?: string
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          country?: string | null
+          created_at?: string | null
+          description?: string | null
+          group_name?: string
+          id?: string
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       po_job_items: {
         Row: {
           attempts: number
@@ -2267,6 +2336,7 @@ export type Database = {
           is_printed: boolean
           item_key: string | null
           job_id: string | null
+          label_printed_at: string | null
           model_number: string | null
           notes: string | null
           order_date: string | null
@@ -2303,6 +2373,7 @@ export type Database = {
           is_printed?: boolean
           item_key?: string | null
           job_id?: string | null
+          label_printed_at?: string | null
           model_number?: string | null
           notes?: string | null
           order_date?: string | null
@@ -2339,6 +2410,7 @@ export type Database = {
           is_printed?: boolean
           item_key?: string | null
           job_id?: string | null
+          label_printed_at?: string | null
           model_number?: string | null
           notes?: string | null
           order_date?: string | null
@@ -5267,6 +5339,7 @@ export type Database = {
           is_printed: boolean
           item_key: string | null
           job_id: string | null
+          label_printed_at: string | null
           model_number: string | null
           notes: string | null
           order_date: string | null

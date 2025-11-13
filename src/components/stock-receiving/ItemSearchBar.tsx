@@ -26,6 +26,7 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
   const [searchTerm, setSearchTerm] = useState('');
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [imageUrls, setImageUrls] = useState<Map<string, string>>(new Map());
   const [showDropdown, setShowDropdown] = useState(false);
 
   useEffect(() => {

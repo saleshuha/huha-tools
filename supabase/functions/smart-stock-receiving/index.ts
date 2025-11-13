@@ -282,7 +282,7 @@ serve(async (req) => {
         // Execute fulfillment if auto-fulfill enabled
         if (auto_fulfill && allocations.length > 0) {
           for (const allocation of allocations) {
-            await executePOFulfillment(supabase, allocation.po, allocation.quantity, user.id);
+            await executePOFulfillment(supabase, allocation.po, allocation.quantity, user.id, item.serial_number);
             totalAllocatedToPOs += allocation.quantity;
           }
         }
@@ -506,28 +506,38 @@ async function executePOFulfillment(
   supabase: any,
   po: any,
   fulfilledQuantity: number,
-  userId: string
+  userId: string,
+  serialNumber?: string
 ) {
-  const newStatus = fulfilledQuantity >= po.quantity ? 'delivered' : 'shipped';
+  const newStatus = fulfilledQuantity >= po.quantity ? 'closed' : po.status;
 
+  // Reset print status when fulfilled from stock receiving
   await supabase
     .from('po_orders')
-    .update({ status: newStatus })
+    .update({ 
+      status: newStatus,
+      is_printed: false,
+      label_printed_at: null
+    })
     .eq('id', po.id);
 
   await supabase.from('fulfillment_history').insert({
     user_id: userId,
-    po_id: po.id,
     po_number: po.po_number,
+    asin: po.asin,
     sku_code: po.sku_code,
-    quantity_fulfilled: fulfilledQuantity,
-    fulfillment_type: 'stock_receiving'
+    model_number: po.model_number,
+    original_quantity: po.quantity,
+    fulfilled_quantity: fulfilledQuantity,
+    fulfillment_source: 'receive_stock',
+    notes: serialNumber ? `Received with serial: ${serialNumber}` : 'Received via stock receiving'
   });
 
-  console.log('[SR v3.0] PO fulfilled:', {
+  console.log('[SR v3.0] PO fulfilled from receive stock:', {
     poNumber: po.po_number,
     quantity: fulfilledQuantity,
-    newStatus: newStatus
+    newStatus: newStatus,
+    serialNumber: serialNumber
   });
 }
 
