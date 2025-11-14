@@ -45,6 +45,8 @@ export function useReceivingHistory(
   } = useQuery({
     queryKey: ['receiving-history', filterType, filters],
     queryFn: async () => {
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      
       let query = supabase
         .from('receiving_history')
         .select('*', { count: 'exact' })
@@ -97,6 +99,30 @@ export function useReceivingHistory(
 
       if (error) throw error;
 
+      // Fetch product images for the results
+      const asins = data?.map(item => item.asin).filter(Boolean) || [];
+      let imageMap: Record<string, string> = {};
+      
+      if (asins.length > 0 && userId) {
+        const { data: imageData } = await supabase
+          .from('product_images')
+          .select('asin, image_url')
+          .eq('user_id', userId)
+          .in('asin', asins);
+        
+        imageData?.forEach(img => {
+          if (img.asin && img.image_url) {
+            imageMap[img.asin] = img.image_url;
+          }
+        });
+      }
+
+      // Attach images to results
+      const dataWithImages = data?.map(item => ({
+        ...item,
+        image_url: item.asin ? imageMap[item.asin] : undefined
+      }));
+
       // Get counts for both types (with same filters)
       let poCountQuery = supabase
         .from('receiving_history')
@@ -148,7 +174,7 @@ export function useReceivingHistory(
       const { count: invCount } = await invCountQuery;
       
       return {
-        items: data || [],
+        items: dataWithImages || [],
         hasMore: (count || 0) > pageSize,
         nextOffset: pageSize,
         poCount: poCount || 0,
