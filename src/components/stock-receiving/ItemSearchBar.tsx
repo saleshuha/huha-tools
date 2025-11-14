@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Search, Loader2 } from 'lucide-react';
+import { Search, Loader2, Users } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { ImagePreview } from './ImagePreview';
+import { POPriorityBadge } from '@/components/po/POPriorityBadge';
 
 interface SearchResult {
-  type: 'po' | 'inventory' | 'recent';
+  type: 'po' | 'inventory' | 'recent' | 'po_group';
   asin?: string;
   sku_code?: string;
   model_number?: string;
@@ -13,7 +16,16 @@ interface SearchResult {
   context?: string;
   po_count?: number;
   serial_number?: string;
-  po_numbers?: string[]; // List of matching PO numbers
+  po_numbers?: string[];
+  image_url?: string;
+  priority?: number;
+  po_group?: {
+    id: string;
+    name: string;
+    total_quantity: number;
+    po_ids: string[];
+    po_numbers: string[];
+  };
 }
 
 interface ItemSearchBarProps {
@@ -161,50 +173,76 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
 
       {showDropdown && results.length > 0 && (
         <div className="absolute z-50 w-full mt-2 bg-background border border-border rounded-lg shadow-lg max-h-80 overflow-auto">
-          {results.map((result, index) => (
-            <button
-              key={index}
-              onClick={() => handleSelect(result)}
-              className="w-full px-4 py-3 text-left hover:bg-accent/50 border-b border-border/50 last:border-0 transition-colors"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-foreground truncate">
-                    {result.asin || result.sku_code || result.model_number}
-                  </div>
-                  {result.title && (
-                    <div className="text-sm text-muted-foreground truncate mt-1">
-                      {result.title}
+          {results.map((result, index) => {
+            const identifier = result.asin || result.sku_code || result.model_number;
+            const isPO = result.type === 'po' || result.type === 'po_group';
+            const isGrouped = result.type === 'po_group';
+            
+            return (
+              <button
+                key={index}
+                onClick={() => handleSelect(result)}
+                className="w-full px-4 py-3 text-left hover:bg-accent/50 border-b border-border/50 last:border-0 transition-colors"
+              >
+                <div className="flex items-start gap-3">
+                  {/* Product Image */}
+                  <ImagePreview 
+                    imageUrl={result.image_url}
+                    alt={result.title || identifier || 'Product'}
+                    size="md"
+                    showFullOnClick={false}
+                  />
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <div className="font-medium text-foreground truncate">
+                        {identifier}
+                      </div>
+                      <Badge variant={isPO ? 'default' : 'secondary'} className="text-xs shrink-0">
+                        {isPO ? '📦 PO' : '📥 Inventory'}
+                      </Badge>
+                      {isGrouped && result.po_group && (
+                        <Badge variant="outline" className="text-xs shrink-0">
+                          <Users className="w-3 h-3 mr-1" />
+                          {result.po_group.name}
+                        </Badge>
+                      )}
+                      {result.priority && <POPriorityBadge priority={result.priority} onUpdate={() => {}} />}
                     </div>
-                  )}
-              <div className="flex flex-col gap-1 mt-1">
-                <div className="text-xs text-primary">
-                  {result.context}
-                </div>
-                {result.po_numbers && result.po_numbers.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {result.po_numbers.map((poNum, idx) => (
-                      <span 
-                        key={idx} 
-                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary border border-primary/20"
-                      >
-                        {poNum}
-                      </span>
-                    ))}
+                    
+                    {result.title && (
+                      <div className="text-sm text-muted-foreground truncate mt-1">
+                        {result.title}
+                      </div>
+                    )}
+                    
+                    <div className="flex flex-col gap-1 mt-1">
+                      <div className="text-xs text-primary">
+                        {result.context}
+                      </div>
+                      {result.po_numbers && result.po_numbers.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {result.po_numbers.slice(0, 3).map((poNum, idx) => (
+                            <span 
+                              key={idx} 
+                              className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary border border-primary/20"
+                            >
+                              {poNum}
+                            </span>
+                          ))}
+                          {result.po_numbers.length > 3 && (
+                            <span className="text-xs text-muted-foreground">
+                              +{result.po_numbers.length - 3} more
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
                 </div>
-                <div className={`px-2 py-1 rounded text-xs font-medium ${
-                  result.type === 'po' 
-                    ? 'bg-primary/10 text-primary' 
-                    : 'bg-accent text-accent-foreground'
-                }`}>
-                  {result.type === 'po' ? '🏢 PO' : '📦 Inventory'}
-                </div>
-              </div>
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

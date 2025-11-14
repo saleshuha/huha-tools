@@ -9,14 +9,16 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, AlertCircle, ChevronDown, AlertTriangle, ExternalLink } from 'lucide-react';
+import { Loader2, AlertCircle, ChevronDown, AlertTriangle, ExternalLink, Package, Users } from 'lucide-react';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { useProductImages } from '@/hooks/useProductImages';
+import { ImagePreview } from './ImagePreview';
 
 interface SearchResult {
-  type: 'po' | 'inventory' | 'recent';
+  type: 'po' | 'inventory' | 'recent' | 'po_group';
   asin?: string;
   sku_code?: string;
   model_number?: string;
@@ -24,6 +26,14 @@ interface SearchResult {
   context?: string;
   po_count?: number;
   serial_number?: string;
+  image_url?: string;
+  po_group?: {
+    id: string;
+    name: string;
+    total_quantity: number;
+    po_ids: string[];
+    po_numbers: string[];
+  };
 }
 
 interface ManualPOAllocation {
@@ -68,6 +78,9 @@ export function QuantityConfirmDialog({
   const [loadingPOs, setLoadingPOs] = useState(false);
   const [selectedPOs, setSelectedPOs] = useState<Map<string, number>>(new Map());
   const [remainingQty, setRemainingQty] = useState(0);
+  
+  // Product image from item (already fetched in search)
+  const productImage = item?.image_url;
 
   useEffect(() => {
     if (open) {

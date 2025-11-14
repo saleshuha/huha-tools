@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import { ImagePreview } from './ImagePreview';
+import { FulfillmentSourceBadge } from '@/components/po/FulfillmentSourceBadge';
 
 interface HistoryItemCardProps {
   item: {
@@ -18,10 +20,12 @@ interface HistoryItemCardProps {
     destination_details?: {
       po_numbers?: string[];
       inventory_added?: number;
+      fulfillment_source?: string;
     };
     printed: boolean;
     created_at: string;
     error_message?: string;
+    image_url?: string;
   };
   type: 'po' | 'inventory';
   onReprint?: (id: string) => void;
@@ -33,6 +37,8 @@ export function HistoryItemCard({ item, type, onReprint }: HistoryItemCardProps)
   const identifier = item.asin || item.sku_code || item.model_number || 'Unknown';
   const poNumbers = item.destination_details?.po_numbers || [];
 
+  const fulfillmentSource = item.destination_details?.fulfillment_source;
+
   return (
     <div
       className={`p-4 rounded-lg border transition-all ${
@@ -41,7 +47,7 @@ export function HistoryItemCard({ item, type, onReprint }: HistoryItemCardProps)
           : 'bg-destructive/5 border-destructive/20'
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start gap-3">
         {/* Status Icon */}
         <div className="flex-shrink-0 mt-1">
           {item.success ? (
@@ -50,6 +56,14 @@ export function HistoryItemCard({ item, type, onReprint }: HistoryItemCardProps)
             <XCircle className="w-5 h-5 text-destructive" />
           )}
         </div>
+
+        {/* Product Image */}
+        <ImagePreview 
+          imageUrl={item.image_url}
+          alt={item.title || identifier}
+          size="md"
+          className="shrink-0"
+        />
 
         {/* Content */}
         <div className="flex-1 min-w-0">
@@ -73,7 +87,7 @@ export function HistoryItemCard({ item, type, onReprint }: HistoryItemCardProps)
           )}
 
           {/* Destination & Details */}
-          <div className="flex items-center gap-3 flex-wrap mb-2">
+          <div className="flex items-center gap-2 flex-wrap mb-2">
             {type === 'po' ? (
               <>
                 {poNumbers.map((poNumber) => (
@@ -86,6 +100,9 @@ export function HistoryItemCard({ item, type, onReprint }: HistoryItemCardProps)
                     PO: {poNumber}
                   </Badge>
                 ))}
+                {fulfillmentSource && (
+                  <FulfillmentSourceBadge source={fulfillmentSource} className="text-xs" />
+                )}
               </>
             ) : (
               <Badge variant="outline" className="text-xs">
