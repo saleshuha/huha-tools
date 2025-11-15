@@ -108,7 +108,7 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
 
         const searchResults: SearchResult[] = [];
 
-        // Add PO results (group and collect PO numbers)
+        // Add PO results (group by item AND group membership)
         if (poData && poData.length > 0) {
           // Fetch group information if any POs have group_id
           const groupIds = [...new Set(Array.from(poGroupMap.values()))];
@@ -123,9 +123,12 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
             groupMap = new Map(groupData?.map(g => [g.id, g]) || []);
           }
 
+          // Group by BOTH item identifier AND group membership
           const grouped = poData.reduce((acc, item) => {
-            const key = item.asin || item.sku_code || item.model_number || 'unknown';
+            const itemKey = item.asin || item.sku_code || item.model_number || 'unknown';
             const groupId = poGroupMap.get(item.id);
+            // Create a unique key combining item and group (or 'ungrouped')
+            const key = `${itemKey}_${groupId || 'ungrouped'}`;
             
             if (!acc[key]) {
               acc[key] = { 
@@ -133,7 +136,8 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
                 count: 0, 
                 po_numbers: [],
                 max_priority: item.priority || 0,
-                group_id: groupId
+                group_id: groupId,
+                item_identifier: itemKey
               };
             }
             acc[key].count++;
@@ -156,7 +160,9 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
               sku_code: item.sku_code,
               model_number: item.model_number,
               title: item.title,
-              context: `Found in ${item.count} pending PO${item.count > 1 ? 's' : ''}`,
+              context: groupInfo 
+                ? `Found in ${item.count} PO${item.count > 1 ? 's' : ''} in ${groupInfo.group_name}`
+                : `Found in ${item.count} ungrouped PO${item.count > 1 ? 's' : ''}`,
               po_count: item.count,
               po_numbers: item.po_numbers,
               priority: groupInfo ? groupInfo.priority : item.max_priority,
