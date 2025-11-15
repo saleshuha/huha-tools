@@ -52,7 +52,7 @@ interface RequestPayload {
 }
 
 serve(async (req) => {
-  console.log('[SR v3.0] Incoming request:', {
+  console.log('[SR v3.1] Incoming request:', {
     method: req.method,
     url: req.url,
     timestamp: new Date().toISOString()
@@ -60,7 +60,7 @@ serve(async (req) => {
 
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    console.log('[SR v3.0] Handling CORS preflight request');
+    console.log('[SR v3.1] Handling CORS preflight request');
     return new Response(null, { headers: corsHeaders });
   }
 
@@ -69,7 +69,7 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
-    console.log('[SR v3.0] Supabase configuration:', { 
+    console.log('[SR v3.1] Supabase configuration:', { 
       hasUrl: !!supabaseUrl, 
       hasKey: !!supabaseKey 
     });
@@ -82,7 +82,7 @@ serve(async (req) => {
 
     // Authenticate user
     const authHeader = req.headers.get('Authorization');
-    console.log('[SR v3.0] Authorization header:', { 
+    console.log('[SR v3.1] Authorization header:', { 
       present: !!authHeader, 
       prefix: authHeader?.substring(0, 20) + '...' 
     });
@@ -95,7 +95,7 @@ serve(async (req) => {
       authHeader.replace('Bearer ', '')
     );
 
-    console.log('[SR v3.0] User authentication:', { 
+    console.log('[SR v3.1] User authentication:', { 
       success: !!user, 
       userId: user?.id,
       error: authError?.message 
@@ -108,7 +108,7 @@ serve(async (req) => {
     // Parse request body
     const body: RequestPayload = await req.json();
     
-    console.log('[SR v3.0] Request payload parsed:', {
+    console.log('[SR v3.1] Request payload parsed:', {
       hasItems: !!body.items,
       itemCount: body.items?.length,
       autoFulfill: body.auto_fulfill,
@@ -195,7 +195,7 @@ serve(async (req) => {
     let totalAddedToInventory = 0;
 
     for (const item of items) {
-      console.log('[SR v3.0] Processing item:', {
+      console.log('[SR v3.1] Processing item:', {
         asin: item.asin,
         sku: item.sku_code,
         model: item.model_number,
@@ -216,7 +216,7 @@ serve(async (req) => {
         });
 
         if (itemManualAllocations && itemManualAllocations.length > 0) {
-          console.log('[SR v3.0] Using manual PO allocations:', itemManualAllocations);
+          console.log('[SR v3.1] Using manual PO allocations:', itemManualAllocations);
 
           // Validate and fetch the manually selected POs
           for (const manualAlloc of itemManualAllocations) {
@@ -225,12 +225,23 @@ serve(async (req) => {
               .select('*')
               .eq('id', manualAlloc.po_id)
               .eq('user_id', user.id)
+              .in('status', ['pending', 'placed', 'shipped'])
               .single();
 
             if (poError || !po) {
-              console.error('[SR v3.0] Manual PO not found:', manualAlloc.po_id);
-              continue;
+              const errorMsg = `Manual PO ${manualAlloc.po_id} (${manualAlloc.po_number}) not found or invalid status. Error: ${poError?.message}`;
+              console.error('[SR v3.1] ❌ Manual PO validation failed:', errorMsg);
+              throw new Error(errorMsg);
             }
+
+            console.log('[SR v3.1] ✅ Manual PO validated:', {
+              poId: po.id,
+              poNumber: po.po_number,
+              status: po.status,
+              asin: po.asin,
+              sku: po.sku_code,
+              model: po.model_number
+            });
 
             // Verify PO matches the item
             const poMatchesItem = 
@@ -239,13 +250,9 @@ serve(async (req) => {
               po.model_number === item.model_number;
 
             if (!poMatchesItem) {
-              console.error('[SR v3.0] Manual PO does not match item:', {
-                poId: manualAlloc.po_id,
-                poNumber: po.po_number,
-                itemAsin: item.asin,
-                itemSku: item.sku_code
-              });
-              continue;
+              const errorMsg = `Manual PO ${po.po_number} does not match item. PO: {asin: ${po.asin}, sku: ${po.sku_code}, model: ${po.model_number}}, Item: {asin: ${item.asin}, sku: ${item.sku_code}, model: ${item.model_number}}`;
+              console.error('[SR v3.1] ❌ PO item mismatch:', errorMsg);
+              throw new Error(errorMsg);
             }
 
             allocations.push({
@@ -256,7 +263,7 @@ serve(async (req) => {
             remainingQuantity -= manualAlloc.quantity;
           }
 
-          console.log('[SR v3.0] Manual allocation complete:', {
+          console.log('[SR v3.1] Manual allocation complete:', {
             allocations: allocations.length,
             remainingQty: remainingQuantity
           });
@@ -264,7 +271,7 @@ serve(async (req) => {
           // Use automatic matching (existing logic)
           const matchingPOs = await locateMatchingPurchaseOrders(supabase, user.id, enrichedItem);
           
-          console.log('[SR v3.0] Matching POs found (auto):', { 
+          console.log('[SR v3.1] Matching POs found (auto):', { 
             count: matchingPOs.length,
             poNumbers: matchingPOs.map(po => po.po_number)
           });
@@ -279,7 +286,7 @@ serve(async (req) => {
           remainingQuantity = allocationResult.remainingQuantity;
         }
 
-        console.log('[SR v3.0] Allocation computed:', {
+        console.log('[SR v3.1] Allocation computed:', {
           totalAllocations: allocations.length,
           remainingQty: remainingQuantity
         });
@@ -292,10 +299,22 @@ serve(async (req) => {
           }
         }
 
-        // Add remaining quantity to inventory
-        if (remainingQuantity > 0) {
+        // Add remaining quantity to inventory (only if NOT a PO item)
+        if (remainingQuantity > 0 && allocations.length === 0) {
+          console.log('[SR v3.1] Adding to inventory (non-PO item):', {
+            asin: item.asin,
+            sku: item.sku_code,
+            quantity: remainingQuantity
+          });
           await updateInventoryStock(supabase, enrichedItem, remainingQuantity, user.id);
           totalAddedToInventory += remainingQuantity;
+        } else if (remainingQuantity > 0 && allocations.length > 0) {
+          console.log('[SR v3.1] ⚠️ Skipping inventory add for PO item with remaining quantity:', {
+            asin: item.asin,
+            sku: item.sku_code,
+            remainingQty: remainingQuantity,
+            reason: 'This is a PO item - remaining quantity indicates partial allocation'
+          });
         }
 
         // Record receiving event with proper error handling
@@ -419,7 +438,7 @@ serve(async (req) => {
       }
     };
 
-    console.log('[SR v3.0] ✅ Processing complete:', responseData);
+    console.log('[SR v3.1] ✅ Processing complete:', responseData);
 
     return new Response(
       JSON.stringify(responseData),
@@ -427,7 +446,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('[SR v3.0] ❌ Request processing error:', {
+    console.error('[SR v3.1] ❌ Request processing error:', {
       message: error.message,
       stack: error.stack
     });
