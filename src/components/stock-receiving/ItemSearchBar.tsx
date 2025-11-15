@@ -117,7 +117,7 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
           if (groupIds.length > 0) {
             const { data: groupData } = await supabase
               .from('po_groups')
-              .select('id, group_name')
+              .select('id, group_name, priority')
               .in('id', groupIds);
             
             groupMap = new Map(groupData?.map(g => [g.id, g]) || []);
@@ -159,7 +159,7 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
               context: `Found in ${item.count} pending PO${item.count > 1 ? 's' : ''}`,
               po_count: item.count,
               po_numbers: item.po_numbers,
-              priority: item.max_priority,
+              priority: groupInfo ? groupInfo.priority : item.max_priority,
               po_group: groupInfo ? {
                 id: item.group_id,
                 name: groupInfo.group_name,
