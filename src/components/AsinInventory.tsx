@@ -159,7 +159,12 @@ export function AsinInventory() {
   // Missing serial numbers calculation
   const missingSerialNumbers = useMemo(() => {
     // Wait for full inventory to load before calculating
-    if (fullInventoryLoading || fullInventory.length === 0) return [];
+    if (fullInventoryLoading || fullInventory.length === 0) {
+      console.log('⏳ Waiting for full inventory to load...');
+      return [];
+    }
+    
+    console.log(`🔄 Calculating missing serials from ${fullInventory.length} items`);
     
     // Extract all serial numbers and convert to numbers from FULL inventory
     const serialNumbers = fullInventory
@@ -180,6 +185,7 @@ export function AsinInventory() {
       }
     }
     
+    console.log(`📊 Found ${missing.length} missing serial numbers (range: 1-${maxSerial})`);
     return missing;
   }, [fullInventory, fullInventoryLoading]);
   
@@ -190,18 +196,43 @@ export function AsinInventory() {
       return ''; // Return empty string to disable auto-assign
     }
     
+    // Build a Set of ALL existing serial numbers for O(1) lookup
+    const existingSerials = new Set(
+      fullInventory
+        .map(item => item.serialNumber)
+        .filter(serial => serial && /^\d{5}$/.test(serial))
+    );
+    
+    console.log(`🔍 Auto-assign: Found ${existingSerials.size} existing serials in inventory`);
+    
+    // Strategy 1: Fill missing numbers first
     if (missingSerialNumbers.length > 0) {
-      return missingSerialNumbers[0].toString().padStart(5, '0');
+      // Find the first missing number that's NOT in the existing set
+      for (const missingNum of missingSerialNumbers) {
+        const serialStr = missingNum.toString().padStart(5, '0');
+        if (!existingSerials.has(serialStr)) {
+          console.log(`✅ Auto-assign suggesting missing serial: ${serialStr}`);
+          return serialStr;
+        }
+      }
     }
     
-    // Find the highest existing serial number and add 1 from FULL inventory
-    const serialNumbers = fullInventory
-      .map(item => item.serialNumber)
-      .filter(serial => serial && /^\d{5}$/.test(serial))
-      .map(serial => parseInt(serial, 10));
+    // Strategy 2: Continue from highest serial number
+    const serialNumbers = Array.from(existingSerials)
+      .map(serial => parseInt(serial, 10))
+      .sort((a, b) => a - b);
     
     const maxSerial = serialNumbers.length > 0 ? Math.max(...serialNumbers) : 0;
-    return (maxSerial + 1).toString().padStart(5, '0');
+    let nextSerial = maxSerial + 1;
+    
+    // Safety check: Keep incrementing until we find an unused serial
+    while (existingSerials.has(nextSerial.toString().padStart(5, '0'))) {
+      nextSerial++;
+    }
+    
+    const result = nextSerial.toString().padStart(5, '0');
+    console.log(`✅ Auto-assign suggesting next serial: ${result}`);
+    return result;
   };
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
