@@ -176,18 +176,9 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
           });
         }
 
-        // If no results, show informative message in dropdown
-        if (searchResults.length === 0) {
-          searchResults.push({
-            type: 'inventory',
-            asin: term.startsWith('B0') ? term : undefined,
-            sku_code: !term.startsWith('B0') ? term : undefined,
-            context: `⚠️ No open POs or inventory found. Note: Closed POs (already fulfilled) are excluded to prevent duplicate stock entries.`
-          });
-        }
-
+        // Only show dropdown if we have actual results
         setResults(searchResults);
-        setShowDropdown(true);
+        setShowDropdown(searchResults.length > 0);
       } catch (error) {
         console.error('Search error:', error);
         toast.error('Search failed');
