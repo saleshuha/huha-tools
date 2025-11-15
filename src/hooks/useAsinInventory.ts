@@ -606,71 +606,65 @@ export function useAsinInventory() {
   const updateSerialNumber = async (id: string, newSerialNumber: string) => {
     if (!profile) return;
 
-    const serial = newSerialNumber.trim();
-    let finalSerial = serial;
-    const maxAttempts = 5;
+    const requestedSerial = newSerialNumber.trim();
 
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        // Check if serial is already in use
-        const { data: existingItems, error: checkError } = await ((supabase as any)
-          .from('asin_inventory')
-          .select('id, asin')
-          .eq('user_id', profile.id)
-          .eq('serial_number', finalSerial)
-          .neq('id', id));
+    try {
+      // Check if serial is already in use
+      const { data: existingItems, error: checkError } = await ((supabase as any)
+        .from('asin_inventory')
+        .select('id, asin')
+        .eq('user_id', profile.id)
+        .eq('serial_number', requestedSerial)
+        .neq('id', id));
 
-        if (checkError) throw checkError;
+      if (checkError) throw checkError;
 
-        // If duplicate found, increment and retry
-        if (existingItems && existingItems.length > 0) {
-          const existingAsin = existingItems[0].asin;
-          const serialNum = parseInt(finalSerial, 10);
-          
-          if (isNaN(serialNum) || attempt === maxAttempts) {
-            throw new Error(
-              `Serial number "${finalSerial}" is already used by ASIN "${existingAsin}".`
-            );
-          }
-          
-          finalSerial = (serialNum + 1).toString().padStart(5, '0');
-          continue; // Try next serial
+      let finalSerial = requestedSerial;
+
+      // If duplicate found, get next available serial properly
+      if (existingItems && existingItems.length > 0) {
+        const existingAsin = existingItems[0].asin;
+        
+        // Call getNextAvailableSerial to properly fill gaps first
+        finalSerial = await getNextAvailableSerial();
+        
+        if (!finalSerial) {
+          throw new Error(
+            `Serial "${requestedSerial}" is already used by ASIN "${existingAsin}" and no alternative found.`
+          );
         }
-
-        // Serial is available, update it
-        const { error } = await ((supabase as any)
-          .from('asin_inventory')
-          .update({ serial_number: finalSerial })
-          .eq('id', id)
-          .eq('user_id', profile.id));
-
-        if (error) throw error;
-
-        // Update local state
-        setInventory(prev => prev.map(item => 
-          item.id === id ? { ...item, serialNumber: finalSerial } : item
-        ));
-
-        // Show success toast
-        const message = finalSerial !== serial
-          ? `Serial adjusted to ${finalSerial} (${serial} was in use)`
-          : 'Serial number updated successfully';
-
-        toast({
-          title: "Serial Number Updated",
-          description: message,
-        });
-
-        return; // Success!
-
-      } catch (error) {
-        toast({
-          title: "Error updating serial number",
-          description: error instanceof Error ? error.message : "Failed to update serial number",
-          variant: "destructive",
-        });
-        return;
       }
+
+      // Update with final serial
+      const { error } = await ((supabase as any)
+        .from('asin_inventory')
+        .update({ serial_number: finalSerial })
+        .eq('id', id)
+        .eq('user_id', profile.id));
+
+      if (error) throw error;
+
+      // Update local state
+      setInventory(prev => prev.map(item => 
+        item.id === id ? { ...item, serialNumber: finalSerial } : item
+      ));
+
+      // Show appropriate toast
+      const message = finalSerial !== requestedSerial
+        ? `Serial auto-adjusted to ${finalSerial} (${requestedSerial} was already in use)`
+        : 'Serial number updated successfully';
+
+      toast({
+        title: "Serial Number Updated",
+        description: message,
+      });
+
+    } catch (error) {
+      toast({
+        title: "Error updating serial number",
+        description: error instanceof Error ? error.message : "Failed to update serial number",
+        variant: "destructive",
+      });
     }
   };
 
