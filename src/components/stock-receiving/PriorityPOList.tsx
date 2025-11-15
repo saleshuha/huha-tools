@@ -604,10 +604,11 @@ export function PriorityPOList() {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="1">⚡ Highest</SelectItem>
-                                <SelectItem value="2">🔴 High</SelectItem>
-                                <SelectItem value="3">🟡 Normal</SelectItem>
-                                <SelectItem value="4">🟢 Low</SelectItem>
+                                <SelectItem value="1">🚀 1st Nearest Shipment</SelectItem>
+                                <SelectItem value="2">🔥 2nd Nearest Shipment</SelectItem>
+                                <SelectItem value="3">📦 3rd Nearest Shipment</SelectItem>
+                                <SelectItem value="4">📅 4th Nearest Shipment</SelectItem>
+                                <SelectItem value="5">⏰ 5th Nearest Shipment</SelectItem>
                               </SelectContent>
                             </Select>
                             <Button
@@ -782,10 +783,11 @@ export function PriorityPOList() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1">⚡ Highest</SelectItem>
-                    <SelectItem value="2">🔴 High</SelectItem>
-                    <SelectItem value="3">🟡 Normal</SelectItem>
-                    <SelectItem value="4">🟢 Low</SelectItem>
+                    <SelectItem value="1">🚀 1st Nearest Shipment</SelectItem>
+                    <SelectItem value="2">🔥 2nd Nearest Shipment</SelectItem>
+                    <SelectItem value="3">📦 3rd Nearest Shipment</SelectItem>
+                    <SelectItem value="4">📅 4th Nearest Shipment</SelectItem>
+                    <SelectItem value="5">⏰ 5th Nearest Shipment</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
