@@ -1,9 +1,14 @@
 /**
  * Smart Stock Receiving System - Edge Function
- * Version: 3.0 - Complete Rewrite
- * Date: 2025-05-15
+ * Version: 3.1 - Simplified PO Processing
+ * Date: 2025-11-15
  * 
- * Major Changes in v3.0:
+ * Changes in v3.1:
+ * - Simplified PO processing: Mark as printed instead of complex fulfillment
+ * - Removed status changes and fulfillment_history tracking
+ * - is_printed = true now means "received/processed"
+ * 
+ * Previous Changes (v3.0):
  * - Flexible inventory status matching (in-stock, ordered, processing)
  * - Enhanced logging and error tracking
  * - Improved PO allocation logic
@@ -114,14 +119,14 @@ serve(async (req) => {
 
     // Test endpoint
     if (body.test) {
-      console.log('[SR v3.0] ✅ Test request successful');
+      console.log('[SR v3.1] ✅ Test request successful');
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: 'Smart Stock Receiving v3.0 is operational',
-          version: '3.0',
+          message: 'Smart Stock Receiving v3.1 is operational',
+          version: '3.1',
           timestamp: new Date().toISOString(),
-          features: ['flexible-status', 'enhanced-logging', 'improved-allocation']
+          features: ['simplified-po-marking', 'flexible-status', 'enhanced-logging']
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -279,10 +284,10 @@ serve(async (req) => {
           remainingQty: remainingQuantity
         });
 
-        // Execute fulfillment if auto-fulfill enabled
+        // Mark POs as printed if auto-fulfill enabled
         if (auto_fulfill && allocations.length > 0) {
           for (const allocation of allocations) {
-            await executePOFulfillment(supabase, allocation.po, allocation.quantity, user.id, item.serial_number);
+            await markPOAsPrinted(supabase, allocation.po, allocation.quantity, user.id, item.serial_number);
             totalAllocatedToPOs += allocation.quantity;
           }
         }
@@ -499,44 +504,32 @@ function computeQuantityAllocation(
 }
 
 /**
- * Execute PO fulfillment by updating status and recording history
- * v3.0: Enhanced status transitions
+ * Mark PO as printed/received when stock is received
+ * v3.1: Simplified - just mark as printed instead of complex fulfillment
  */
-async function executePOFulfillment(
+async function markPOAsPrinted(
   supabase: any,
   po: any,
-  fulfilledQuantity: number,
+  receivedQuantity: number,
   userId: string,
   serialNumber?: string
 ) {
-  const newStatus = fulfilledQuantity >= po.quantity ? 'closed' : po.status;
+  const notesText = serialNumber 
+    ? `Received: ${serialNumber} (Qty: ${receivedQuantity})`
+    : `Received (Qty: ${receivedQuantity})`;
 
-  // Reset print status when fulfilled from stock receiving
   await supabase
     .from('po_orders')
     .update({ 
-      status: newStatus,
-      is_printed: false,
-      label_printed_at: null
+      is_printed: true,
+      label_printed_at: new Date().toISOString(),
+      notes: po.notes ? `${po.notes}\n${notesText}` : notesText
     })
     .eq('id', po.id);
 
-  await supabase.from('fulfillment_history').insert({
-    user_id: userId,
-    po_number: po.po_number,
-    asin: po.asin,
-    sku_code: po.sku_code,
-    model_number: po.model_number,
-    original_quantity: po.quantity,
-    fulfilled_quantity: fulfilledQuantity,
-    fulfillment_source: 'receive_stock',
-    notes: serialNumber ? `Received with serial: ${serialNumber}` : 'Received via stock receiving'
-  });
-
-  console.log('[SR v3.0] PO fulfilled from receive stock:', {
+  console.log('[SR v3.1] PO marked as printed/received:', {
     poNumber: po.po_number,
-    quantity: fulfilledQuantity,
-    newStatus: newStatus,
+    quantity: receivedQuantity,
     serialNumber: serialNumber
   });
 }
