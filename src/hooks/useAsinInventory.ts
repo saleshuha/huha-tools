@@ -604,7 +604,9 @@ export function useAsinInventory() {
   };
 
   // Update Serial Number for an item with auto-retry - simplified
-  const updateSerialNumber = async (id: string, newSerialNumber: string) => {
+  const updateSerialNumber = async (id: string, newSerialNumber: string, retryCount = 0): Promise<void> => {
+    const MAX_RETRIES = 3;
+    
     if (!profile) {
       toast({
         title: "Error",
@@ -656,12 +658,11 @@ export function useAsinInventory() {
       }
 
       let finalSerial = requestedSerial;
+      let wasAutoAdjusted = false;
 
-      // If duplicate found, get next available serial properly
+      // If duplicate found, get next available serial
       if (existingItems && existingItems.length > 0) {
         const existingAsin = existingItems[0].asin;
-        
-        // Call getNextAvailableSerial to properly fill gaps first
         finalSerial = await getNextAvailableSerial();
         
         if (!finalSerial) {
@@ -669,11 +670,7 @@ export function useAsinInventory() {
             `Serial "${requestedSerial}" is already used by ASIN "${existingAsin}" and no alternative serial number could be generated.`
           );
         }
-
-        toast({
-          title: "Serial Number Auto-Adjusted",
-          description: `Serial "${requestedSerial}" was in use. Assigned "${finalSerial}" instead.`,
-        });
+        wasAutoAdjusted = true;
       }
 
       // Update with final serial
@@ -683,9 +680,23 @@ export function useAsinInventory() {
         .eq('id', id)
         .eq('user_id', profile.id));
 
+      // Handle unique constraint violation with retry
       if (error) {
+        if (error.code === '23505' && retryCount < MAX_RETRIES) {
+          // Unique constraint violation - get next available and retry
+          console.warn(`Serial ${finalSerial} caused duplicate, retrying... (${retryCount + 1}/${MAX_RETRIES})`);
+          const nextSerial = await getNextAvailableSerial();
+          if (nextSerial) {
+            return updateSerialNumber(id, nextSerial, retryCount + 1);
+          }
+        }
+        
         console.error('Error updating serial in database:', error);
-        throw new Error(`Failed to save serial number: ${error.message || 'Database error'}`);
+        throw new Error(
+          error.code === '23505' 
+            ? `Serial number "${finalSerial}" is already in use. Please try again.`
+            : `Failed to save serial number: ${error.message || 'Database error'}`
+        );
       }
 
       // Update local state
@@ -693,8 +704,18 @@ export function useAsinInventory() {
         item.id === id ? { ...item, serialNumber: finalSerial } : item
       ));
 
-      // Show success toast only if we didn't already show auto-adjust message
-      if (finalSerial === requestedSerial) {
+      // Show success toast
+      if (wasAutoAdjusted) {
+        toast({
+          title: "Serial Number Auto-Adjusted",
+          description: `Serial "${requestedSerial}" was in use. Assigned "${finalSerial}" instead.`,
+        });
+      } else if (retryCount > 0) {
+        toast({
+          title: "Serial Number Updated",
+          description: `Assigned serial "${finalSerial}" after resolving conflicts.`,
+        });
+      } else {
         toast({
           title: "Serial Number Updated",
           description: 'Serial number updated successfully',
@@ -712,6 +733,7 @@ export function useAsinInventory() {
         description: errorMessage,
         variant: "destructive",
       });
+      throw error; // Re-throw to prevent silent failures
     }
   };
 

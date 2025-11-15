@@ -837,16 +837,10 @@ export function AsinInventory() {
   const handleDeleteSerial = async (itemId: string) => {
     try {
       await updateSerialNumber(itemId, '');
-      toast({
-        title: "Serial Number Deleted",
-        description: "Serial number has been cleared successfully",
-      });
+      // Toast is already shown by updateSerialNumber
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete serial number",
-        variant: "destructive",
-      });
+      // Error toast is already shown by updateSerialNumber
+      console.error('Failed to delete serial number:', error);
     }
   };
 
@@ -2266,16 +2260,20 @@ export function AsinInventory() {
                               size="sm"
                               variant="outline"
                               onClick={async () => {
-                                const nextSerial = await getNextSerialNumber();
-                                if (nextSerial) {
-                                  await updateSerialNumber(item.id, nextSerial);
-                                  // Refresh duplicate list
-                                  const currentSerial = item.serialNumber;
-                                  const updatedDuplicates = duplicateSerialItems.filter(i => i.id !== item.id);
-                                  setDuplicateSerialItems(updatedDuplicates);
-                                  if (updatedDuplicates.length === 0) {
-                                    setIsDuplicatesDialogOpen(false);
+                                try {
+                                  const nextSerial = await getNextSerialNumber();
+                                  if (nextSerial) {
+                                    await updateSerialNumber(item.id, nextSerial);
+                                    // Refresh duplicate list
+                                    const updatedDuplicates = duplicateSerialItems.filter(i => i.id !== item.id);
+                                    setDuplicateSerialItems(updatedDuplicates);
+                                    if (updatedDuplicates.length === 0) {
+                                      setIsDuplicatesDialogOpen(false);
+                                    }
                                   }
+                                } catch (error) {
+                                  console.error('Error auto-assigning serial:', error);
+                                  // Error toast already shown by updateSerialNumber
                                 }
                               }}
                               title="Auto-assign next available serial"
