@@ -537,10 +537,13 @@ async function markPOAsPrinted(
     ? `Received: ${serialNumber} (Qty: ${receivedQuantity})`
     : `Received (Qty: ${receivedQuantity})`;
 
+  const newPrintedQuantity = (po.printed_quantity || 0) + receivedQuantity;
+
   await supabase
     .from('po_orders')
     .update({ 
       is_printed: true,
+      printed_quantity: newPrintedQuantity,
       label_printed_at: new Date().toISOString(),
       notes: po.notes ? `${po.notes}\n${notesText}` : notesText
     })
@@ -548,8 +551,23 @@ async function markPOAsPrinted(
 
   console.log('[SR v3.1] PO marked as printed/received:', {
     poNumber: po.po_number,
-    quantity: receivedQuantity,
+    previousPrintedQty: po.printed_quantity || 0,
+    receivedQuantity: receivedQuantity,
+    newPrintedQty: newPrintedQuantity,
     serialNumber: serialNumber
+  });
+
+  // Verify the update
+  const { data: updatedPO } = await supabase
+    .from('po_orders')
+    .select('id, po_number, printed_quantity, is_printed')
+    .eq('id', po.id)
+    .single();
+
+  console.log('[SR v3.1] ✅ PO update verified:', {
+    poNumber: updatedPO?.po_number,
+    isPrinted: updatedPO?.is_printed,
+    printedQuantity: updatedPO?.printed_quantity
   });
 }
 
