@@ -1322,56 +1322,72 @@ export function AsinInventory() {
               <Separator className="my-4" />
 
               {/* Section 3: Label Printing */}
-              {selectedItems.size > 0 && (
-                <>
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-semibold text-foreground/70 flex items-center gap-2">
-                      🖨️ LABEL PRINTING
-                    </h3>
-                    <Card className="p-4 bg-muted/50 border-border">
-                      <div className="flex items-center gap-4 flex-wrap">
-                        <Select value={selectedTemplate || ''} onValueChange={handleTemplateSelection}>
-                          <SelectTrigger className="w-48">
-                            <SelectValue placeholder="Select template" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableTemplates.map((template) => (
-                              <SelectItem key={template.id} value={template.id}>
-                                {template.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        
-                        {/* Darkness Control */}
-                        <div className="flex items-center gap-2">
-                          <label className="text-sm font-medium text-muted-foreground">Darkness:</label>
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-foreground/70 flex items-center gap-2">
+                  🖨️ LABEL PRINTING
+                </h3>
+                <Card className="p-4 bg-muted/50 border-border">
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <div className="flex flex-col gap-2 flex-1 min-w-[200px]">
+                      <Label className="text-sm font-semibold">Label Template</Label>
+                      <Select value={selectedTemplate || ''} onValueChange={handleTemplateSelection}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select template" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background border shadow-lg z-50">
+                          {availableTemplates.map((template) => (
+                            <SelectItem key={template.id} value={template.id}>
+                              {template.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {/* Darkness Control */}
+                    <div className="flex flex-col gap-2 flex-1 min-w-[200px]">
+                      <Label className="text-sm font-semibold">Print Darkness (0-30)</Label>
+                      <div className="p-3 bg-muted/50 rounded-lg border border-border">
+                        <div className="space-y-2">
                           <Slider
                             value={[printSettings.darkness]}
-                            onValueChange={(value) => setPrintSettings({...printSettings, darkness: value[0]})}
+                            onValueChange={(value) => {
+                              console.log('Darkness changed to:', value[0]);
+                              setPrintSettings({...printSettings, darkness: value[0]});
+                            }}
                             max={30}
                             min={0}
                             step={1}
-                            className="w-20"
+                            className="w-full"
                           />
-                          <span className="text-sm text-muted-foreground w-6">{printSettings.darkness}</span>
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-muted-foreground">Light (0)</span>
+                            <Badge variant="secondary" className="font-mono font-bold">
+                              {printSettings.darkness}
+                            </Badge>
+                            <span className="text-muted-foreground">Dark (30)</span>
+                          </div>
                         </div>
-                        
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          onClick={handleBulkPrint}
-                          disabled={!qzConnected || !selectedTemplate || selectedItems.size === 0}
-                        >
-                          <Printer className="h-4 w-4 mr-2" />
-                          Print Selected ({selectedItems.size})
-                        </Button>
                       </div>
-                    </Card>
+                    </div>
+                    
+                    <div className="flex flex-col gap-2">
+                      <Label className="text-sm font-semibold opacity-0">Action</Label>
+                      <Button 
+                        size="default" 
+                        onClick={handleBulkPrint}
+                        disabled={!qzConnected || !selectedTemplate || selectedItems.size === 0}
+                        className="h-[42px]"
+                      >
+                        <Printer className="h-4 w-4 mr-2" />
+                        Print Selected ({selectedItems.size})
+                      </Button>
+                    </div>
                   </div>
-                  <Separator className="my-4" />
-                </>
-              )}
+                </Card>
+              </div>
+
+              <Separator className="my-4" />
 
               {/* Section 4: Data Export */}
               <div className="space-y-2">
