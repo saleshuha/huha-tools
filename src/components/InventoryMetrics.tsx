@@ -11,7 +11,7 @@ import { Calendar } from './ui/calendar';
 import { useCountry } from '@/contexts/CountryContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Package, CheckCircle, XCircle, Search, Download, FileText, RefreshCw, Activity, Radio, TrendingUp, ImageIcon, CalendarIcon } from 'lucide-react';
+import { Package, CheckCircle, XCircle, Search, Download, FileText, RefreshCw, Activity, Radio, TrendingUp, ImageIcon, CalendarIcon, Filter } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -47,11 +47,13 @@ interface InventoryStats {
 interface InventoryMetricsProps {
   showOnlyAsin?: boolean;
   showOnlySku?: boolean;
+  activeStatusFilter?: string;
 }
 
 export const InventoryMetrics = memo(function InventoryMetrics({
   showOnlyAsin = false,
-  showOnlySku = false
+  showOnlySku = false,
+  activeStatusFilter = 'all'
 }: InventoryMetricsProps) {
   const { selectedCountry } = useCountry();
   const { toast } = useToast();
@@ -65,6 +67,8 @@ export const InventoryMetrics = memo(function InventoryMetrics({
   const [soldDateFrom, setSoldDateFrom] = useState<Date>();
   const [soldDateTo, setSoldDateTo] = useState<Date>();
   const [showSoldModal, setShowSoldModal] = useState(false);
+  
+  const isFiltered = activeStatusFilter && activeStatusFilter !== 'all';
 
   // Convert loadMetrics to a React Query queryFn
   const fetchMetrics = async (): Promise<InventoryStats> => {
@@ -425,6 +429,25 @@ export const InventoryMetrics = memo(function InventoryMetrics({
 
   return (
     <div className="space-y-4">
+      {/* Filter Indicator Banner */}
+      {isFiltered && (
+        <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-primary" />
+            <span className="text-sm font-medium text-primary">
+              Filtered View: {activeStatusFilter === 'instock' ? 'In Stock Items Only' : 
+                            activeStatusFilter === 'outofstock' ? 'Out of Stock Items Only' : 
+                            activeStatusFilter === 'sold' ? 'Sold Items Only' :
+                            activeStatusFilter === 'ordered' ? 'Ordered Items Only' :
+                            'Custom Filter Active'}
+            </span>
+          </div>
+          <Badge variant="outline" className="text-xs">
+            Metrics may be limited
+          </Badge>
+        </div>
+      )}
+
       {/* Header with live indicator */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -452,7 +475,7 @@ export const InventoryMetrics = memo(function InventoryMetrics({
 
       {/* Metrics Grid - Single Row with Colored Borders */}
       <div className="grid gap-2 grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 mb-3">
-        {/* Total ASINs */}
+        {/* Total ASINs - Show always */}
         <Card 
           className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-blue-500"
           onClick={() => handleMetricClick('active')}
@@ -475,7 +498,7 @@ export const InventoryMetrics = memo(function InventoryMetrics({
           </CardContent>
         </Card>
 
-        {/* Total Units */}
+        {/* Total Units - Show always */}
         <Card 
           className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-purple-500"
           onClick={() => handleMetricClick('active')}
@@ -498,51 +521,55 @@ export const InventoryMetrics = memo(function InventoryMetrics({
           </CardContent>
         </Card>
 
-        {/* In Stock */}
-        <Card 
-          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-green-500"
-          onClick={() => handleMetricClick('instock')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
-            <div className="flex flex-col justify-center min-w-0 flex-1">
-              <CardTitle className="text-xs font-medium text-muted-foreground truncate">
-                In Stock
-              </CardTitle>
-              <div className="text-xl font-bold text-green-600 mt-1">
-                {stats.inStockCount.toLocaleString()}
+        {/* In Stock - Hide when filtering by out of stock */}
+        {activeStatusFilter !== 'outofstock' && (
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-green-500"
+            onClick={() => handleMetricClick('instock')}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
+              <div className="flex flex-col justify-center min-w-0 flex-1">
+                <CardTitle className="text-xs font-medium text-muted-foreground truncate">
+                  In Stock
+                </CardTitle>
+                <div className="text-xl font-bold text-green-600 mt-1">
+                  {stats.inStockCount.toLocaleString()}
+                </div>
               </div>
-            </div>
-            <div className="w-8 h-8 bg-green-500/10 rounded-full flex items-center justify-center flex-shrink-0">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0 pb-2 flex-shrink-0">
-            <p className="text-xs text-muted-foreground truncate">Available ASINs</p>
-          </CardContent>
-        </Card>
+              <div className="w-8 h-8 bg-green-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0 pb-2 flex-shrink-0">
+              <p className="text-xs text-muted-foreground truncate">Available ASINs</p>
+            </CardContent>
+          </Card>
+        )}
 
-        {/* Out of Stock */}
-        <Card 
-          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-red-500"
-          onClick={() => handleMetricClick('outofstock')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
-            <div className="flex flex-col justify-center min-w-0 flex-1">
-              <CardTitle className="text-xs font-medium text-muted-foreground truncate">
-                Out of Stock
-              </CardTitle>
-              <div className="text-xl font-bold text-red-600 mt-1">
-                {stats.outOfStockCount.toLocaleString()}
+        {/* Out of Stock - Hide when filtering by in stock */}
+        {activeStatusFilter !== 'instock' && (
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-red-500"
+            onClick={() => handleMetricClick('outofstock')}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
+              <div className="flex flex-col justify-center min-w-0 flex-1">
+                <CardTitle className="text-xs font-medium text-muted-foreground truncate">
+                  Out of Stock
+                </CardTitle>
+                <div className="text-xl font-bold text-red-600 mt-1">
+                  {stats.outOfStockCount.toLocaleString()}
+                </div>
               </div>
-            </div>
-            <div className="w-8 h-8 bg-red-500/10 rounded-full flex items-center justify-center flex-shrink-0">
-              <XCircle className="h-4 w-4 text-red-600" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0 pb-2 flex-shrink-0">
-            <p className="text-xs text-muted-foreground truncate">Unavailable ASINs</p>
-          </CardContent>
-        </Card>
+              <div className="w-8 h-8 bg-red-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+                <XCircle className="h-4 w-4 text-red-600" />
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0 pb-2 flex-shrink-0">
+              <p className="text-xs text-muted-foreground truncate">Unavailable ASINs</p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Missing SKU */}
         <Card 

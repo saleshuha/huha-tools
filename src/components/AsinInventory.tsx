@@ -1123,7 +1123,10 @@ export function AsinInventory() {
       />
       {/* Header with Stats */}
       <div className="space-y-6">
-        <InventoryMetrics showOnlyAsin={true} />
+        <InventoryMetrics 
+          showOnlyAsin={true} 
+          activeStatusFilter={statusFilter}
+        />
         
       </div>
 
