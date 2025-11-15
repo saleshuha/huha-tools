@@ -678,6 +678,33 @@ export const POTracker = () => {
     });
   }, [trackPageView]);
 
+  // Auto-refresh on window focus
+  useEffect(() => {
+    const handleFocus = async () => {
+      console.log('🔄 Window focused, checking for PO updates...');
+      await queryClient.invalidateQueries({ queryKey: ['po-orders'] });
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [queryClient]);
+
+  // Polling when "Print Labels" tab is active
+  useEffect(() => {
+    if (activeTab === 'labels') {
+      console.log('🔄 Starting auto-polling for Print Labels tab');
+      const interval = setInterval(async () => {
+        console.log('🔄 Auto-polling for PO updates...');
+        await queryClient.invalidateQueries({ queryKey: ['po-orders'] });
+      }, 30000); // 30 seconds
+
+      return () => {
+        console.log('⏹️ Stopping auto-polling');
+        clearInterval(interval);
+      };
+    }
+  }, [activeTab, queryClient]);
+
   // Real-time subscription for po_orders updates
   useEffect(() => {
     if (!selectedCountry) return;
