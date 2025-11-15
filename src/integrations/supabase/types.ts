@@ -2245,6 +2245,7 @@ export type Database = {
           description: string | null
           group_name: string
           id: string
+          priority: number | null
           status: string | null
           updated_at: string | null
           user_id: string
@@ -2255,6 +2256,7 @@ export type Database = {
           description?: string | null
           group_name: string
           id?: string
+          priority?: number | null
           status?: string | null
           updated_at?: string | null
           user_id: string
@@ -2265,6 +2267,7 @@ export type Database = {
           description?: string | null
           group_name?: string
           id?: string
+          priority?: number | null
           status?: string | null
           updated_at?: string | null
           user_id?: string
