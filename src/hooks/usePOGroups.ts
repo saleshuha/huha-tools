@@ -167,6 +167,58 @@ export const usePOGroups = () => {
     },
   });
 
+  // Update group priority (updates all POs in the group)
+  const updateGroupPriority = useMutation({
+    mutationFn: async ({ groupId, priority }: { groupId: string; priority: number }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Get all PO IDs in the group
+      const { data: members, error: membersError } = await supabase
+        .from('po_group_members')
+        .select('po_id')
+        .eq('group_id', groupId);
+
+      if (membersError) throw membersError;
+
+      const poIds = members?.map(m => m.po_id) || [];
+
+      // Update priority for all POs in the group
+      if (poIds.length > 0) {
+        const { error: updateError } = await supabase
+          .from('po_orders')
+          .update({ priority })
+          .in('id', poIds)
+          .eq('user_id', user.id);
+
+        if (updateError) throw updateError;
+      }
+
+      // Update group priority field
+      const { error: groupError } = await supabase
+        .from('po_groups')
+        .update({ priority })
+        .eq('id', groupId)
+        .eq('user_id', user.id);
+
+      if (groupError) throw groupError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['po-groups'] });
+      toast({
+        title: 'Priority updated',
+        description: 'Group priority updated successfully',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
   // Get PO IDs for a group
   const getPOsInGroup = async (groupId: string) => {
     const { data, error } = await supabase
@@ -185,6 +237,7 @@ export const usePOGroups = () => {
     addPOsToGroup,
     removePOFromGroup,
     deleteGroup,
+    updateGroupPriority,
     getPOsInGroup,
   };
 };
