@@ -538,6 +538,10 @@ async function markPOAsPrinted(
     : `Received (Qty: ${receivedQuantity})`;
 
   const newPrintedQuantity = (po.printed_quantity || 0) + receivedQuantity;
+  
+  // Determine if PO is fully received
+  const isFullyReceived = newPrintedQuantity >= po.quantity;
+  const newStatus = isFullyReceived ? 'closed' : po.status;
 
   await supabase
     .from('po_orders')
@@ -545,6 +549,7 @@ async function markPOAsPrinted(
       is_printed: true,
       printed_quantity: newPrintedQuantity,
       label_printed_at: new Date().toISOString(),
+      status: newStatus,
       notes: po.notes ? `${po.notes}\n${notesText}` : notesText
     })
     .eq('id', po.id);
@@ -554,20 +559,23 @@ async function markPOAsPrinted(
     previousPrintedQty: po.printed_quantity || 0,
     receivedQuantity: receivedQuantity,
     newPrintedQty: newPrintedQuantity,
+    newStatus: newStatus,
+    isFullyReceived: isFullyReceived,
     serialNumber: serialNumber
   });
 
   // Verify the update
   const { data: updatedPO } = await supabase
     .from('po_orders')
-    .select('id, po_number, printed_quantity, is_printed')
+    .select('id, po_number, printed_quantity, is_printed, status')
     .eq('id', po.id)
     .single();
 
   console.log('[SR v3.1] ✅ PO update verified:', {
     poNumber: updatedPO?.po_number,
     isPrinted: updatedPO?.is_printed,
-    printedQuantity: updatedPO?.printed_quantity
+    printedQuantity: updatedPO?.printed_quantity,
+    status: updatedPO?.status
   });
 }
 
