@@ -207,6 +207,10 @@ export function AsinInventory() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [isMissingNumbersDialogOpen, setIsMissingNumbersDialogOpen] = useState(false);
   
+  // Duplicate serial numbers dialog
+  const [isDuplicatesDialogOpen, setIsDuplicatesDialogOpen] = useState(false);
+  const [duplicateSerialItems, setDuplicateSerialItems] = useState<AsinInventoryItem[]>([]);
+  
   // Disable items feature
   const [itemsToDisable, setItemsToDisable] = useState<AsinInventoryItem[]>([]);
   const [isDisableDialogOpen, setIsDisableDialogOpen] = useState(false);
@@ -771,6 +775,49 @@ export function AsinInventory() {
         await bulkUpdateTitles(titleUpdates);
       }
     });
+  };
+
+  // Find all items with duplicate serial numbers
+  const serialNumberMap = useMemo(() => {
+    const map = new Map<string, AsinInventoryItem[]>();
+    fullInventory.forEach(item => {
+      if (item.serialNumber) {
+        const existing = map.get(item.serialNumber) || [];
+        existing.push(item);
+        map.set(item.serialNumber, existing);
+      }
+    });
+    return map;
+  }, [fullInventory]);
+
+  // Check if a serial number has duplicates
+  const hasDuplicateSerial = (serialNumber: string) => {
+    const items = serialNumberMap.get(serialNumber);
+    return items && items.length > 1;
+  };
+
+  // Show duplicate serial numbers dialog
+  const handleViewDuplicates = (serialNumber: string) => {
+    const duplicates = serialNumberMap.get(serialNumber) || [];
+    setDuplicateSerialItems(duplicates);
+    setIsDuplicatesDialogOpen(true);
+  };
+
+  // Delete/clear a serial number
+  const handleDeleteSerial = async (itemId: string) => {
+    try {
+      await updateSerialNumber(itemId, '');
+      toast({
+        title: "Serial Number Deleted",
+        description: "Serial number has been cleared successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete serial number",
+        variant: "destructive",
+      });
+    }
   };
 
   // Initialize QZ Tray and templates
@@ -1748,15 +1795,18 @@ export function AsinInventory() {
                               </div>
                             </div>
                           </td>
-                         <td className="p-3 font-mono text-sm border-r align-middle">
+                          <td className="p-3 font-mono text-sm border-r align-middle">
                             <div className="flex items-center justify-center">
                               <SerialNumberEditor 
                                 currentSerialNumber={item.serialNumber} 
                                 onUpdate={newSerialNumber => updateSerialNumber(item.id, newSerialNumber)}
+                                onDelete={() => handleDeleteSerial(item.id)}
+                                onViewDuplicates={() => handleViewDuplicates(item.serialNumber)}
+                                hasDuplicates={hasDuplicateSerial(item.serialNumber)}
                                 getNextSerial={fullInventoryLoading ? undefined : getNextSerialNumber}
                               />
                             </div>
-                         </td>
+                          </td>
                       <td className="p-3 border-r align-middle">
                         <div className="flex items-center justify-center gap-1">
                           <span className={`font-semibold text-sm ${item.quantity === 0 ? 'text-red-500' : item.quantity <= 5 ? 'text-yellow-500' : 'text-green-500'}`}>
@@ -1981,6 +2031,9 @@ export function AsinInventory() {
                         <SerialNumberEditor 
                           currentSerialNumber={item.serialNumber} 
                           onUpdate={newSerialNumber => updateSerialNumber(item.id, newSerialNumber)}
+                          onDelete={() => handleDeleteSerial(item.id)}
+                          onViewDuplicates={() => handleViewDuplicates(item.serialNumber)}
+                          hasDuplicates={hasDuplicateSerial(item.serialNumber)}
                           getNextSerial={fullInventoryLoading ? undefined : getNextSerialNumber}
                         />
                       </div>
@@ -2130,6 +2183,115 @@ export function AsinInventory() {
             
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsMissingNumbersDialogOpen(false)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Duplicate Serial Numbers Dialog */}
+        <Dialog open={isDuplicatesDialogOpen} onOpenChange={setIsDuplicatesDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[80vh]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive">
+                <AlertTriangle className="w-5 h-5" />
+                Duplicate Serial Numbers ({duplicateSerialItems.length} items)
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground">
+                The following items share the same serial number. Each item should have a unique serial number.
+              </div>
+              
+              <div className="max-h-96 overflow-y-auto border rounded-lg">
+                <table className="w-full">
+                  <thead className="bg-muted sticky top-0">
+                    <tr>
+                      <th className="text-left p-3 text-xs font-medium">Serial</th>
+                      <th className="text-left p-3 text-xs font-medium">ASIN</th>
+                      <th className="text-left p-3 text-xs font-medium">SKU</th>
+                      <th className="text-left p-3 text-xs font-medium">Title</th>
+                      <th className="text-left p-3 text-xs font-medium">Status</th>
+                      <th className="text-left p-3 text-xs font-medium">Qty</th>
+                      <th className="text-right p-3 text-xs font-medium">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {duplicateSerialItems.map((item, idx) => (
+                      <tr key={item.id} className={cn("border-b hover:bg-muted/50", idx % 2 === 0 && "bg-muted/20")}>
+                        <td className="p-3 font-mono text-sm font-semibold text-destructive">{item.serialNumber}</td>
+                        <td className="p-3 font-mono text-sm">{item.asin}</td>
+                        <td className="p-3 text-sm">{item.sku || '-'}</td>
+                        <td className="p-3 text-sm max-w-xs truncate">{item.title || '-'}</td>
+                        <td className="p-3">
+                          <Badge variant={item.status === 'in-stock' ? 'default' : 'secondary'}>
+                            {item.status}
+                          </Badge>
+                        </td>
+                        <td className="p-3 text-sm">{item.quantity}</td>
+                        <td className="p-3 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={async () => {
+                                const nextSerial = await getNextSerialNumber();
+                                if (nextSerial) {
+                                  await updateSerialNumber(item.id, nextSerial);
+                                  setDuplicateSerialItems(prev => prev.filter(i => i.id !== item.id));
+                                }
+                              }}
+                              title="Auto-assign next available serial"
+                            >
+                              <Hash className="w-3 h-3 mr-1" />
+                              Auto
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDeleteSerial(item.id)}
+                              className="text-destructive hover:text-destructive"
+                              title="Delete serial number"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                
+                {duplicateSerialItems.length === 0 && (
+                  <div className="text-center text-muted-foreground py-8">
+                    <Check className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                    No duplicate serial numbers found. All serials are unique!
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg text-sm">
+                <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-medium mb-1">How to fix duplicates:</p>
+                  <ul className="list-disc list-inside space-y-1 text-muted-foreground text-xs">
+                    <li>Click "Auto" to assign the next available serial number automatically</li>
+                    <li>Click the trash icon to clear the serial number</li>
+                    <li>Or manually edit the serial number in the inventory table</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setIsDuplicatesDialogOpen(false);
+                  setDuplicateSerialItems([]);
+                }}
+              >
                 Close
               </Button>
             </DialogFooter>
