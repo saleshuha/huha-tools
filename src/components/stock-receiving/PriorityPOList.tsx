@@ -55,16 +55,17 @@ export function PriorityPOList() {
       if (!user) return;
 
       // Get ALL POs grouped by PO number with aggregated quantities
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from('po_orders')
-        .select('id, po_number, status, priority, quantity, asin, sku_code, model_number, title, expected_delivery')
+        .select('id, po_number, status, priority, quantity, asin, sku_code, model_number, title, expected_delivery', { count: 'exact' })
         .eq('user_id', user.id)
         // Removed status filter to show ALL POs
         .order('priority', { ascending: true })
-        .order('expected_delivery', { ascending: true })
-        .range(0, 9999); // Fetch all POs (up to 10000 items)
+        .order('expected_delivery', { ascending: true });
 
       if (error) throw error;
+
+      console.log(`Fetched ${data?.length || 0} PO items (total: ${count})`);
 
       // Group by PO number and sum quantities
       const grouped = (data || []).reduce((acc: any, po: any) => {
@@ -81,7 +82,9 @@ export function PriorityPOList() {
         return acc;
       }, {});
 
-      setPOs(Object.values(grouped));
+      const groupedArray = Object.values(grouped) as PO[];
+      console.log(`Grouped into ${groupedArray.length} unique PO numbers`);
+      setPOs(groupedArray);
     } catch (error) {
       console.error('Failed to load POs:', error);
       toast({
