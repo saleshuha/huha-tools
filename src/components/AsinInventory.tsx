@@ -78,7 +78,7 @@ export function AsinInventory() {
   }, [statusFilter, sortBy, sortOrder, quickFilter, dateFilterFrom, dateFilterTo, showDisabledItems]);
   
   // Get full inventory for exports (loads ALL items)
-  const { inventory: fullInventory } = useAsinInventory();
+  const { inventory: fullInventory, loading: fullInventoryLoading } = useAsinInventory();
   
   // Use paginated hook with server-side filtering
   const {
@@ -158,7 +158,8 @@ export function AsinInventory() {
   
   // Missing serial numbers calculation
   const missingSerialNumbers = useMemo(() => {
-    if (fullInventory.length === 0) return [];
+    // Wait for full inventory to load before calculating
+    if (fullInventoryLoading || fullInventory.length === 0) return [];
     
     // Extract all serial numbers and convert to numbers from FULL inventory
     const serialNumbers = fullInventory
@@ -180,10 +181,15 @@ export function AsinInventory() {
     }
     
     return missing;
-  }, [fullInventory]);
+  }, [fullInventory, fullInventoryLoading]);
   
   // Get next available serial number (either missing or next in sequence)
   const getNextSerialNumber = () => {
+    // Don't suggest a number if full inventory is still loading
+    if (fullInventoryLoading) {
+      return ''; // Return empty string to disable auto-assign
+    }
+    
     if (missingSerialNumbers.length > 0) {
       return missingSerialNumbers[0].toString().padStart(5, '0');
     }
@@ -1706,7 +1712,7 @@ export function AsinInventory() {
                               <SerialNumberEditor 
                                 currentSerialNumber={item.serialNumber} 
                                 onUpdate={newSerialNumber => updateSerialNumber(item.id, newSerialNumber)}
-                                getNextSerial={getNextSerialNumber}
+                                getNextSerial={fullInventoryLoading ? undefined : getNextSerialNumber}
                               />
                             </div>
                          </td>
@@ -1934,7 +1940,7 @@ export function AsinInventory() {
                         <SerialNumberEditor 
                           currentSerialNumber={item.serialNumber} 
                           onUpdate={newSerialNumber => updateSerialNumber(item.id, newSerialNumber)}
-                          getNextSerial={getNextSerialNumber}
+                          getNextSerial={fullInventoryLoading ? undefined : getNextSerialNumber}
                         />
                       </div>
                      <div>
