@@ -51,15 +51,37 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
 
       setSearching(true);
       try {
+        // Debug: Check authentication state
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        console.log('🔍 Search - Current user:', user?.id || 'No user');
+        console.log('🔍 Search - Search term:', searchTerm);
+        console.log('🔍 Search - Country filter:', country || 'All countries');
+        
+        if (authError) {
+          console.error('❌ Search - Auth error:', authError.message);
+        }
+        
+        if (!user) {
+          console.warn('⚠️ Search - No authenticated user, queries will fail due to RLS');
+          toast.error('Please sign in to search items');
+          setSearching(false);
+          return;
+        }
+        
         const term = searchTerm.trim().toUpperCase();
         
         // Search in open POs
-        const { data: poData } = await supabase
+        const { data: poData, error: poError } = await supabase
           .from('po_orders')
           .select('id, asin, sku_code, model_number, title, po_number, priority')
           .or(`asin.ilike.%${term}%,sku_code.ilike.%${term}%,model_number.ilike.%${term}%`)
           .in('status', ['pending', 'placed'])
           .limit(20);
+        
+        console.log('📦 Search - PO results:', poData?.length || 0, 'items');
+        if (poError) {
+          console.error('❌ Search - PO query error:', poError.message);
+        }
 
         // Get group memberships for these POs
         let poGroupMap = new Map<string, string>();
@@ -88,7 +110,12 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
           invQuery = invQuery.eq('country', country);
         }
         
-        const { data: invData } = await invQuery.limit(5);
+        const { data: invData, error: invError } = await invQuery.limit(5);
+        
+        console.log('📦 Search - Inventory results:', invData?.length || 0, 'items');
+        if (invError) {
+          console.error('❌ Search - Inventory query error:', invError.message);
+        }
 
         // Fetch images for all ASINs (both PO and inventory)
         const allAsins = [...new Set([
