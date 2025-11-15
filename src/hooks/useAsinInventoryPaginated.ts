@@ -176,7 +176,11 @@ export function useAsinInventoryPaginated(
 
     // LAYER 1: Apply is_active filter client-side (fast since only 100 items max)
     let filteredItems = uniqueItems;
-    if (!filters.showDisabledItems) {
+    if (filters.showDisabledItems) {
+      // When toggle is ON: Show ONLY disabled items (is_active = false)
+      filteredItems = uniqueItems.filter(item => item.isActive === false);
+    } else {
+      // When toggle is OFF: Show only active items (default)
       filteredItems = uniqueItems.filter(item => 
         item.isActive === undefined || item.isActive === null || item.isActive === true
       );

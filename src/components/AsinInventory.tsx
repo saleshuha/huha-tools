@@ -1147,7 +1147,7 @@ export function AsinInventory() {
                       {/* Add New Item */}
                       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                         <DialogTrigger asChild>
-                          <Button size="sm" variant="outline" className="hover:bg-green-500/10 hover:border-green-500/50">
+                          <Button size="sm" variant="outline">
                             <Plus className="w-4 h-4 mr-2" />
                             Add New Item
                           </Button>
@@ -1250,7 +1250,7 @@ export function AsinInventory() {
                   {/* Bulk Add Items */}
                   <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
                     <DialogTrigger asChild>
-                      <Button size="sm" variant="outline" className="hover:bg-green-500/10 hover:border-green-500/50">
+                      <Button size="sm" variant="outline">
                         <Upload className="w-4 h-4 mr-2" />
                         Bulk Add Items
                       </Button>
@@ -1289,7 +1289,6 @@ export function AsinInventory() {
                       size="sm"
                       variant="outline" 
                       onClick={() => setIsMissingNumbersDialogOpen(true)}
-                      className="hover:bg-green-500/10 hover:border-green-500/50"
                     >
                       <Hash className="w-4 h-4 mr-2" />
                       Missing Numbers ({missingSerialNumbers.length})
@@ -1313,7 +1312,7 @@ export function AsinInventory() {
                   <BulkTitleUpload inventory={inventory} onTitleUpdate={bulkUpdateTitles} />
 
                   {/* Fetch Titles from Source */}
-                  <Button size="sm" variant="outline" className="hover:bg-blue-500/10 hover:border-blue-500/50" onClick={handleFetchTitlesFromSunsky}>
+                  <Button size="sm" variant="outline" onClick={handleFetchTitlesFromSunsky}>
                     <Database className="w-4 h-4 mr-2" />
                     Fetch Titles from Source
                   </Button>
@@ -1329,7 +1328,7 @@ export function AsinInventory() {
                     <h3 className="text-sm font-semibold text-foreground/70 flex items-center gap-2">
                       🖨️ LABEL PRINTING
                     </h3>
-                    <Card className="p-4 bg-purple-500/5 border-purple-500/20">
+                    <Card className="p-4 bg-muted/50 border-border">
                       <div className="flex items-center gap-4 flex-wrap">
                         <Select value={selectedTemplate || ''} onValueChange={handleTemplateSelection}>
                           <SelectTrigger className="w-48">
@@ -1363,7 +1362,6 @@ export function AsinInventory() {
                           variant="outline" 
                           onClick={handleBulkPrint}
                           disabled={!qzConnected || !selectedTemplate || selectedItems.size === 0}
-                          className="bg-purple-500 hover:bg-purple-600 text-white border-purple-500"
                         >
                           <Printer className="h-4 w-4 mr-2" />
                           Print Selected ({selectedItems.size})
@@ -1382,13 +1380,13 @@ export function AsinInventory() {
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {/* Export */}
-                  <Button size="sm" variant="outline" className="hover:bg-orange-500/10 hover:border-orange-500/50" onClick={exportInventory}>
+                  <Button size="sm" variant="outline" onClick={exportInventory}>
                     <Download className="w-4 h-4 mr-2" />
                     Export
                   </Button>
 
                   {/* Email Export */}
-                  <Button size="sm" variant="outline" className="hover:bg-orange-500/10 hover:border-orange-500/50" onClick={emailInventory}>
+                  <Button size="sm" variant="outline" onClick={emailInventory}>
                     <Mail className="w-4 h-4 mr-2" />
                     Email Export
                   </Button>
