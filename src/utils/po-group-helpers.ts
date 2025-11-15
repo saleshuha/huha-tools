@@ -5,21 +5,21 @@ export const consolidatePOGroupQuantity = (group: POGroupWithMembers): number =>
 };
 
 export const getPriorityLabel = (priority?: number): string => {
-  if (!priority) return 'Normal';
+  if (!priority) return '📦 3rd Nearest Shipment';
   
   switch (priority) {
     case 1:
-      return '⚡ Highest';
+      return '🚀 1st Nearest Shipment';
     case 2:
-      return '🔴 High';
+      return '🔥 2nd Nearest Shipment';
     case 3:
-      return 'Normal';
+      return '📦 3rd Nearest Shipment';
     case 4:
-      return 'Low';
+      return '📅 4th Nearest Shipment';
     case 5:
-      return 'Lowest';
+      return '⏰ 5th Nearest Shipment';
     default:
-      return 'Normal';
+      return '📦 3rd Nearest Shipment';
   }
 };
 
