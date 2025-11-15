@@ -213,12 +213,12 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <div className="font-medium text-foreground truncate">
-                        {identifier}
-                      </div>
                       <Badge variant={isPO ? 'default' : 'secondary'} className="text-xs shrink-0">
                         {isPO ? '📦 PO' : '📥 Inventory'}
                       </Badge>
+                      <div className="font-medium text-foreground truncate">
+                        {identifier}
+                      </div>
                       {isGrouped && result.po_group && (
                         <Badge variant="outline" className="text-xs shrink-0">
                           <Users className="w-3 h-3 mr-1" />
