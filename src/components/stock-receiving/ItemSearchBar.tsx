@@ -212,6 +212,26 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
                   />
                   
                   <div className="flex-1 min-w-0">
+                    {/* PO Numbers First */}
+                    {result.po_numbers && result.po_numbers.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {result.po_numbers.slice(0, 3).map((poNum, idx) => (
+                          <span 
+                            key={idx} 
+                            className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-primary/15 text-primary border border-primary/30"
+                          >
+                            PO: {poNum}
+                          </span>
+                        ))}
+                        {result.po_numbers.length > 3 && (
+                          <span className="text-xs text-muted-foreground font-medium">
+                            +{result.po_numbers.length - 3} more
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Badge + ASIN */}
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <Badge variant={isPO ? 'default' : 'secondary'} className="text-xs shrink-0">
                         {isPO ? '📦 PO' : '📥 Inventory'}
@@ -219,43 +239,32 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
                       <div className="font-medium text-foreground truncate">
                         {identifier}
                       </div>
-                      {isGrouped && result.po_group && (
-                        <Badge variant="outline" className="text-xs shrink-0">
-                          <Users className="w-3 h-3 mr-1" />
-                          {result.po_group.name}
-                        </Badge>
-                      )}
-                      {result.priority && <POPriorityBadge priority={result.priority} onUpdate={() => {}} />}
                     </div>
                     
+                    {/* Title */}
                     {result.title && (
                       <div className="text-sm text-muted-foreground truncate mt-1">
                         {result.title}
                       </div>
                     )}
                     
-                    <div className="flex flex-col gap-1 mt-1">
-                      <div className="text-xs text-primary">
-                        {result.context}
-                      </div>
-                      {result.po_numbers && result.po_numbers.length > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {result.po_numbers.slice(0, 3).map((poNum, idx) => (
-                            <span 
-                              key={idx} 
-                              className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary border border-primary/20"
-                            >
-                              {poNum}
-                            </span>
-                          ))}
-                          {result.po_numbers.length > 3 && (
-                            <span className="text-xs text-muted-foreground">
-                              +{result.po_numbers.length - 3} more
-                            </span>
-                          )}
-                        </div>
-                      )}
+                    {/* Status/Context */}
+                    <div className="text-xs text-primary mt-1">
+                      {result.context}
                     </div>
+                  </div>
+
+                  {/* Priority and Group Badges on the Right */}
+                  <div className="flex flex-col gap-2 items-end ml-auto shrink-0">
+                    {result.priority && result.priority > 0 && (
+                      <POPriorityBadge priority={result.priority} onUpdate={() => {}} disabled />
+                    )}
+                    {isGrouped && result.po_group && (
+                      <Badge variant="outline" className="text-xs">
+                        <Users className="w-3 h-3 mr-1" />
+                        {result.po_group.name}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               </button>
