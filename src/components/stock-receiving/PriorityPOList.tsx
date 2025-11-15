@@ -274,24 +274,24 @@ export function PriorityPOList() {
           <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  {isOpen ? (
-                    <ChevronUp className="w-5 h-5 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="w-5 h-5 text-muted-foreground" />
-                  )}
-                  <AlertTriangle className="w-5 h-5 text-orange-500" />
+                <AlertTriangle className="w-5 h-5 text-orange-500" />
+                <div>
+                  <CardTitle>PO Groups & Priority Management</CardTitle>
+                  <CardDescription>
+                    Organize POs into groups and set priority for each group
+                  </CardDescription>
                 </div>
-              <div>
-                <CardTitle>PO Groups & Priority Management</CardTitle>
-                <CardDescription>
-                  Organize POs into groups and set priority for each group
-                </CardDescription>
               </div>
+              <div className="flex items-center gap-3">
+                <Badge variant="outline" className="text-xs">
+                  {filteredPOs.length} POs
+                </Badge>
+                {isOpen ? (
+                  <ChevronUp className="w-5 h-5 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                )}
               </div>
-              <Badge variant="outline" className="text-xs">
-                {filteredPOs.length} POs
-              </Badge>
             </div>
           </CardHeader>
         </CollapsibleTrigger>
