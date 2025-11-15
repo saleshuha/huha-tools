@@ -558,36 +558,69 @@ export function useAsinInventory() {
     if (!profile) return;
 
     try {
-      // Check for duplicate serial numbers
-      const { data: existingItems, error: checkError } = await ((supabase as any)
-        .from('asin_inventory')
-        .select('id, asin, serial_number')
-        .eq('user_id', profile.id)
-        .eq('serial_number', newSerialNumber.trim())
-        .neq('id', id));
+      let attemptedSerial = newSerialNumber.trim();
+      let finalSerial = attemptedSerial;
+      let attempts = 0;
+      const maxAttempts = 100; // Safety limit
+      
+      // Keep trying until we find an available serial number
+      while (attempts < maxAttempts) {
+        // Check for duplicate serial numbers
+        const { data: existingItems, error: checkError } = await ((supabase as any)
+          .from('asin_inventory')
+          .select('id, asin, serial_number')
+          .eq('user_id', profile.id)
+          .eq('serial_number', finalSerial)
+          .neq('id', id));
 
-      if (checkError) throw checkError;
+        if (checkError) throw checkError;
 
-      if (existingItems && existingItems.length > 0) {
-        const existingAsin = (existingItems[0] as any).asin;
-        throw new Error(`Serial number "${newSerialNumber}" is already used by ASIN "${existingAsin}". Each serial number must be unique.`);
+        // If no duplicate, we found an available serial
+        if (!existingItems || existingItems.length === 0) {
+          break;
+        }
+
+        // Duplicate found - try next serial number
+        console.log(`⚠️ Serial "${finalSerial}" already in use, trying next...`);
+        
+        // If it's a 5-digit number, increment it
+        if (/^\d{5}$/.test(finalSerial)) {
+          const nextNum = parseInt(finalSerial, 10) + 1;
+          finalSerial = nextNum.toString().padStart(5, '0');
+        } else {
+          // If not a standard format, just throw error
+          const existingAsin = (existingItems[0] as any).asin;
+          throw new Error(`Serial number "${attemptedSerial}" is already used by ASIN "${existingAsin}". Each serial number must be unique.`);
+        }
+        
+        attempts++;
+      }
+      
+      if (attempts >= maxAttempts) {
+        throw new Error('Could not find an available serial number after 100 attempts.');
       }
 
+      // Update with the final available serial number
       const { error } = await ((supabase as any)
         .from('asin_inventory')
-        .update({ serial_number: newSerialNumber.trim() })
+        .update({ serial_number: finalSerial })
         .eq('id', id)
         .eq('user_id', profile.id));
 
       if (error) throw error;
 
       setInventory(prev => prev.map(item => 
-        item.id === id ? { ...item, serialNumber: newSerialNumber.trim() } : item
+        item.id === id ? { ...item, serialNumber: finalSerial } : item
       ));
+
+      // Show different message if we had to increment
+      const message = finalSerial !== attemptedSerial 
+        ? `Serial number auto-adjusted to ${finalSerial} (${attemptedSerial} was already in use)`
+        : `Serial number updated to ${finalSerial}`;
 
       toast({
         title: "Serial Number Updated",
-        description: `Serial number has been updated successfully.`,
+        description: message,
       });
     } catch (error) {
       console.error('Error updating serial number:', error);
