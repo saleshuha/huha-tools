@@ -305,57 +305,6 @@ export function QuantityConfirmDialog({
             </div>
           )}
 
-          {/* PO Allocation Info - Show which POs will be fulfilled */}
-          {loadingPOs ? (
-            <Alert className="border-muted">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <AlertDescription className="text-sm">
-                Loading matching POs...
-              </AlertDescription>
-            </Alert>
-          ) : availablePOs.length > 0 ? (
-            <Alert className="border-green-500/50 bg-green-500/10">
-              <Package className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-sm">
-                <p className="font-medium text-green-700 dark:text-green-400 mb-2">
-                  Will mark {availablePOs.length} PO(s) as printed/received:
-                </p>
-                <div className="space-y-1 text-xs">
-                  {availablePOs.slice(0, 5).map(po => (
-                    <div key={po.id} className="flex items-center justify-between">
-                      <span className="font-mono">{po.po_number}</span>
-                      <Badge variant="outline" className="text-xs">
-                        Qty: {Math.min(po.quantity, quantity)}
-                      </Badge>
-                    </div>
-                  ))}
-                  {availablePOs.length > 5 && (
-                    <p className="text-muted-foreground italic">
-                      +{availablePOs.length - 5} more POs...
-                    </p>
-                  )}
-                </div>
-              </AlertDescription>
-            </Alert>
-          ) : item.type === 'po' || item.type === 'po_group' ? (
-            <Alert variant="destructive" className="border-destructive/50 bg-destructive/10">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription className="text-sm">
-                <p className="font-medium mb-1">No matching POs found!</p>
-                <p className="text-xs">
-                  This item was found in POs but no valid POs are available to mark as printed.
-                  Check PO status or item identifiers.
-                </p>
-              </AlertDescription>
-            </Alert>
-          ) : (
-            <Alert className="border-blue-500/50 bg-blue-500/10">
-              <Package className="h-4 w-4 text-blue-600" />
-              <AlertDescription className="text-sm text-blue-700 dark:text-blue-400">
-                This item will be added to inventory (not linked to any PO)
-              </AlertDescription>
-            </Alert>
-          )}
 
           {/* Auto-Print Toggle */}
           <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border">
