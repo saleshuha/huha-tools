@@ -16,6 +16,8 @@ import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { useProductImages } from '@/hooks/useProductImages';
 import { ImagePreview } from './ImagePreview';
+import { useQueryClient } from '@tanstack/react-query';
+import { useToast } from '@/hooks/use-toast';
 
 interface SearchResult {
   type: 'po' | 'inventory' | 'recent' | 'po_group';
@@ -67,6 +69,8 @@ export function QuantityConfirmDialog({
   country = 'UAE'
 }: QuantityConfirmDialogProps) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [quantity, setQuantity] = useState(1);
   const [serialNumber, setSerialNumber] = useState('');
   const [autoPrintEnabled, setAutoPrintEnabled] = useState(true);
@@ -211,12 +215,25 @@ export function QuantityConfirmDialog({
       }
     }
     
+    // Invalidate PO orders cache to ensure fresh data
+    console.log('🔄 Invalidating PO orders cache after stock receiving');
+    queryClient.invalidateQueries({ queryKey: ['po-orders'] });
+    
     onConfirm({
       quantity,
       serial_number: serialNumber || undefined,
       autoPrint: autoPrint && autoPrintEnabled,
       manualPOAllocations: manualAllocations.length > 0 ? manualAllocations : undefined
     });
+    
+    // Show notification about refreshing PO Tracker
+    setTimeout(() => {
+      toast({
+        title: "✅ Stock Received",
+        description: "If PO Tracker is open, click the Refresh button to see updated status.",
+        duration: 5000,
+      });
+    }, 1000);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
