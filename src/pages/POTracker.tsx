@@ -6,10 +6,12 @@ import { useTaxonomy } from '@/hooks/useTaxonomy';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function POTrackerPage() {
   const { profile, loading: profileLoading } = useUserProfile();
   const { trackPageView } = useTaxonomy();
+  const queryClient = useQueryClient();
   const [authChecked, setAuthChecked] = useState(false);
   const [userAuth, setUserAuth] = useState<any>(null);
 
@@ -41,9 +43,11 @@ export default function POTrackerPage() {
     });
   }, [trackPageView]);
 
-  const handleHardRefresh = () => {
-    console.log('🔄 Hard refreshing page...');
-    window.location.reload();
+  const handleHardRefresh = async () => {
+    console.log('🔄 Hard refresh initiated - clearing all cache');
+    queryClient.clear(); // Clear ALL React Query cache
+    await queryClient.invalidateQueries({ queryKey: ['po-orders'] });
+    window.location.reload(); // Force complete page reload
   };
 
   return (

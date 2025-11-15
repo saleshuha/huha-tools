@@ -51,10 +51,10 @@ export const usePOOrdersQuery = (enabled: boolean = true) => {
       return allOrders as POOrder[];
     },
     enabled,
-    staleTime: 5 * 60 * 1000, // 5 minutes - data is considered fresh for 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes - keep in cache for 10 minutes (formerly cacheTime)
+    staleTime: 0, // Always fetch fresh data to prevent stale UI
+    gcTime: 5 * 60 * 1000, // 5 minutes - keep in cache for 5 minutes
     refetchOnWindowFocus: true, // Refetch when user returns to tab
-    refetchOnMount: false, // Don't refetch on component mount if data is fresh
+    refetchOnMount: true, // Always refetch on component mount for fresh data
     retry: 2, // Retry failed requests twice
   });
 };

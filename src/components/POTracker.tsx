@@ -694,11 +694,12 @@ export const POTracker = () => {
           table: 'po_orders',
           filter: `country=eq.${selectedCountry}`
         },
-        (payload) => {
+        async (payload) => {
           console.log('🔴 Real-time update received:', payload);
           
-          // Trigger lightweight refresh of PO orders
-          fetchPOOrders();
+          // Invalidate cache and trigger fresh fetch
+          queryClient.invalidateQueries({ queryKey: ['po-orders'] });
+          await fetchPOOrders(true);
           
           // Show toast notification
           if (payload.new.is_printed) {
