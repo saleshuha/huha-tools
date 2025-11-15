@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { usePageTracking } from '@/hooks/usePageTracking';
 import { useStockReceiving } from '@/hooks/useStockReceiving';
 import { useReceivingHistory } from '@/hooks/useReceivingHistory';
@@ -47,11 +48,15 @@ interface ActivityItem {
   template_type?: 'po' | 'inventory';
 }
 export default function ReceiveStock() {
+  const navigate = useNavigate();
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  
   usePageTracking({
     category: 'Inventory',
     subcategory: 'Stock Receiving',
     pageTitle: 'Receive Stock'
   });
+  
   const {
     selectedCountry
   } = useCountry();
@@ -79,6 +84,47 @@ export default function ReceiveStock() {
   const [selectedPrinter, setSelectedPrinter] = useState<string>('');
   const [loadingPrinters, setLoadingPrinters] = useState(false);
   const [receivingHistoryOpen, setReceivingHistoryOpen] = useState(false);
+
+  // Check authentication on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        console.log('🔐 Auth Check - Session:', session?.user?.id || 'No session');
+        
+        if (error) {
+          console.error('❌ Auth Check - Error:', error.message);
+        }
+        
+        if (!session) {
+          console.warn('⚠️ No active session - Redirecting to auth');
+          toast.error('Please sign in to access this page');
+          navigate('/auth');
+          return;
+        }
+        
+        setIsCheckingAuth(false);
+      } catch (error) {
+        console.error('❌ Auth Check - Exception:', error);
+        toast.error('Authentication error');
+        navigate('/auth');
+      }
+    };
+
+    checkAuth();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('🔄 Auth State Changed:', event, session?.user?.id || 'No session');
+      
+      if (event === 'SIGNED_OUT') {
+        navigate('/auth');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
 
   // Helper to convert item to dataset format (same as Inventory page)
   const createDatasetFromItem = (item: any, result: any): LabelDataset => {
@@ -412,6 +458,18 @@ export default function ReceiveStock() {
     });
     console.log('🖨️ Print darkness set to:', darkness);
   };
+  // Show loading state while checking auth
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
+          <p className="text-muted-foreground">Verifying authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
   return <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         {/* Header */}
