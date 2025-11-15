@@ -40,6 +40,9 @@ export function useAsinInventoryPaginated(
   
   // Build query with filters applied on backend
   const fetchPaginatedInventory = async (): Promise<PaginatedResult> => {
+    const startTime = performance.now();
+    console.log('🔍 Starting inventory fetch...', { page, pageSize, filters });
+    
     if (!selectedCountry) {
       return { items: [], totalCount: 0, page, pageSize, totalPages: 0 };
     }
@@ -95,13 +98,14 @@ export function useAsinInventoryPaginated(
       }
     }
 
-    // Apply status filter (exclude ordered/sold by default)
-    if (filters.statusFilter === 'all' || !filters.statusFilter) {
-      query = query.not('status', 'in', '(ordered,sold)');
-    } else {
-      // Map 'ordered' to 'sold' for filtering
+    // Apply status filter
+    if (filters.statusFilter && filters.statusFilter !== 'all') {
+      // Only apply specific status filter when explicitly set
       const effectiveStatus = filters.statusFilter === 'ordered' ? 'sold' : filters.statusFilter;
       query = query.eq('status', effectiveStatus);
+    } else {
+      // When 'all' is selected, exclude ordered/sold by default to match previous behavior
+      query = query.not('status', 'in', '(ordered,sold)');
     }
 
     // Apply quick filters
@@ -183,6 +187,12 @@ export function useAsinInventoryPaginated(
       ? Math.ceil((filteredItems.length / uniqueItems.length) * count)
       : count || 0;
 
+    const endTime = performance.now();
+    console.log(`✅ Inventory fetch complete in ${(endTime - startTime).toFixed(2)}ms`, {
+      itemsReturned: filteredItems.length,
+      totalCount: adjustedCount
+    });
+
     return {
       items: filteredItems,
       totalCount: adjustedCount,
@@ -202,10 +212,10 @@ export function useAsinInventoryPaginated(
   } = useQuery({
     queryKey: [
       'asin-inventory-paginated',
+      selectedCountry,
       page,
       pageSize,
-      selectedCountry,
-      filters.searchTerm,
+      filters.searchTerm, // Use debounced search term passed from component
       filters.searchMethod,
       filters.searchMode,
       filters.statusFilter,
@@ -218,8 +228,10 @@ export function useAsinInventoryPaginated(
     ],
     queryFn: fetchPaginatedInventory,
     enabled: !!selectedCountry,
-    staleTime: 5 * 60 * 1000, // LAYER 3: 5 minutes - inventory doesn't change often during active work
+    placeholderData: (previousData) => previousData, // Keep previous data while fetching
+    staleTime: 1000, // Consider data fresh for 1 second (prevents rapid refetches)
     gcTime: 10 * 60 * 1000, // Keep in memory for 10 minutes
+    refetchOnWindowFocus: false, // Don't refetch when window regains focus
   });
 
   // Invalidate cache when mutations occur

@@ -71,10 +71,13 @@ export function AsinInventory() {
     return () => clearTimeout(timer);
   }, [searchTerm]);
   
-  // Reset to page 1 when filters change
+  // Reset to page 1 when filters change (searchMethod removed - debounce handles it)
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, sortBy, sortOrder, quickFilter, dateFilterFrom, dateFilterTo, showDisabledItems, searchMethod]);
+  }, [statusFilter, sortBy, sortOrder, quickFilter, dateFilterFrom, dateFilterTo, showDisabledItems]);
+  
+  // Get full inventory for exports (loads ALL items)
+  const { inventory: fullInventory } = useAsinInventory();
   
   // Use paginated hook with server-side filtering
   const {
@@ -563,8 +566,46 @@ export function AsinInventory() {
   };
   
   const exportInventory = () => {
+    // Apply current filters to full inventory for export
+    const dataToExport = fullInventory.filter(item => {
+      // Apply same filters as current view
+      if (!showDisabledItems && item.isActive === false) return false;
+      
+      // Status filter
+      if (statusFilter !== 'all') {
+        const effectiveStatus = statusFilter === 'ordered' ? 'sold' : statusFilter;
+        if (item.status !== effectiveStatus) return false;
+      } else {
+        // When 'all' is selected, exclude ordered/sold by default
+        if (item.status === 'ordered' || item.status === 'sold') return false;
+      }
+      
+      // Quick filter
+      if (quickFilter === 'low-stock' && (item.quantity <= 0 || item.quantity > 5)) return false;
+      if (quickFilter === 'out-of-stock' && item.quantity !== 0) return false;
+      if (quickFilter === 'recent') {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        if (new Date(item.dateAdded) < sevenDaysAgo) return false;
+      }
+      
+      // Search term filter
+      if (debouncedSearchTerm) {
+        const term = debouncedSearchTerm.toLowerCase();
+        const matchesSearch = 
+          item.asin?.toLowerCase().includes(term) ||
+          item.sku?.toLowerCase().includes(term) ||
+          item.title?.toLowerCase().includes(term) ||
+          item.serialNumber?.toLowerCase().includes(term) ||
+          item.notes?.toLowerCase().includes(term);
+        if (!matchesSearch) return false;
+      }
+      
+      return true;
+    });
+    
     const csvData = [['SKU', 'UPC', 'ASIN', 'Title', 'Warehouse', 'Warehouse name', 'Available units', 'Status'],
-      ...inventory.map(item => {
+      ...dataToExport.map(item => {
         // Get the export mode for this item (default to 'global')
         const exportMode = exportModes[item.id] || 'global';
         
@@ -600,7 +641,7 @@ export function AsinInventory() {
     document.body.removeChild(link);
     toast({
       title: "Export Complete",
-      description: "Inventory data exported to CSV file"
+      description: `Exported ${dataToExport.length} items to CSV file`
     });
   };
   const emailInventory = async () => {
@@ -1405,10 +1446,13 @@ export function AsinInventory() {
                   </SelectTrigger>
                   <SelectContent className="bg-background border">
                     <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="in-stock">In Stock Only</SelectItem>
-                    <SelectItem value="sold">Sold Only</SelectItem>
-                    <SelectItem value="reserved">Reserved Only</SelectItem>
-                    <SelectItem value="damaged">Damaged Only</SelectItem>
+                    <SelectItem value="in-stock">In Stock</SelectItem>
+                    <SelectItem value="no-stock">No Stock</SelectItem>
+                    <SelectItem value="out-of-stock">Out of Stock</SelectItem>
+                    <SelectItem value="reserved">Reserved</SelectItem>
+                    <SelectItem value="damaged">Damaged</SelectItem>
+                    <SelectItem value="sold">Sold</SelectItem>
+                    <SelectItem value="ordered">Ordered</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
