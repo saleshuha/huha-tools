@@ -3183,6 +3183,24 @@ export type Database = {
         }
         Relationships: []
       }
+      serial_number_counter: {
+        Row: {
+          next_serial: number
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          next_serial?: number
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          next_serial?: number
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       sku_costs: {
         Row: {
           cost: number
@@ -5506,6 +5524,7 @@ export type Database = {
           total: number
         }[]
       }
+      get_next_serial_number: { Args: { p_user_id: string }; Returns: string }
       get_noon_sales_upload_summary: {
         Args: { country_filter?: string }
         Returns: {
