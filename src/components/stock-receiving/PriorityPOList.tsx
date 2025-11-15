@@ -61,7 +61,8 @@ export function PriorityPOList() {
         .eq('user_id', user.id)
         // Removed status filter to show ALL POs
         .order('priority', { ascending: true })
-        .order('expected_delivery', { ascending: true });
+        .order('expected_delivery', { ascending: true })
+        .range(0, 9999); // Fetch all POs (up to 10000 items)
 
       if (error) throw error;
 
