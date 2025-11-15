@@ -78,6 +78,7 @@ export default function ReceiveStock() {
   const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
   const [selectedPrinter, setSelectedPrinter] = useState<string>('');
   const [loadingPrinters, setLoadingPrinters] = useState(false);
+  const [receivingHistoryOpen, setReceivingHistoryOpen] = useState(false);
 
   // Helper to convert item to dataset format (same as Inventory page)
   const createDatasetFromItem = (item: any, result: any): LabelDataset => {
@@ -601,19 +602,32 @@ export default function ReceiveStock() {
         </div>
 
         {/* Comprehensive Receiving History */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Receiving History</CardTitle>
-            <CardDescription>
-              Complete history of all received items with pagination
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <RecentActivityFeed 
-              activities={localActivities}
-            />
-          </CardContent>
-        </Card>
+        <Collapsible open={receivingHistoryOpen} onOpenChange={setReceivingHistoryOpen}>
+          <Card className="mb-6">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Receiving History</CardTitle>
+                  <CardDescription>
+                    Complete history of all received items with pagination
+                  </CardDescription>
+                </div>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    <ChevronDown className={cn("h-4 w-4 transition-transform", receivingHistoryOpen && "rotate-180")} />
+                  </Button>
+                </CollapsibleTrigger>
+              </div>
+            </CardHeader>
+            <CollapsibleContent>
+              <CardContent>
+                <RecentActivityFeed 
+                  activities={localActivities}
+                />
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
       </div>
 
       {/* Quantity Confirm Dialog */}
