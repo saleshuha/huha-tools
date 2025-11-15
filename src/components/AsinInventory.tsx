@@ -12,6 +12,7 @@ import { Calendar } from './ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Slider } from './ui/slider';
 import { Switch } from './ui/switch';
+import { Separator } from './ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { useLabelPrintSettings } from '@/hooks/usePrintSettings';
 import { useToast } from '@/hooks/use-toast';
@@ -1117,49 +1118,40 @@ export function AsinInventory() {
               </CollapsibleTrigger>
 
               <CollapsibleContent className="mt-6">
-                {/* Action Buttons Row - Organized by Usage */}
-                <div className="space-y-6">
-              {/* Primary Actions Section */}
-              <div className="space-y-4">
-                 <div className="flex flex-wrap gap-3">
-                   {/* Test Print Button for Debugging */}
-                   
+                {/* Display Filters Toggle Area */}
+                <div className="flex items-center gap-4 mb-6 p-3 bg-muted/30 rounded-lg border border-border">
+                  <span className="text-sm font-medium">🔍 Display Filters:</span>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id="show-disabled"
+                      checked={showDisabledItems}
+                      onCheckedChange={(checked) => {
+                        console.log('🔄 Toggle Show Disabled Items:', checked);
+                        setShowDisabledItems(checked);
+                      }}
+                    />
+                    <Label htmlFor="show-disabled" className="text-sm cursor-pointer">
+                      Show Only Disabled Items {showDisabledItems && `(${totalCount})`}
+                    </Label>
+                  </div>
+                </div>
 
-                   {/* Add New Item */}
-                   <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                     <DialogTrigger asChild>
-                       <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all">
-                         <Plus className="w-4 h-4 mr-2" />
-                         Add New Item
-                       </Button>
-                     </DialogTrigger>
-                     
-                   {missingSerialNumbers.length > 0 && (
-                     <Button 
-                       size="sm"
-                       variant="outline" 
-                       onClick={() => setIsMissingNumbersDialogOpen(true)}
-                       className="border-2 border-orange-500 bg-background hover:bg-orange-500 hover:text-white hover:border-orange-500 transition-all"
-                     >
-                       <Hash className="w-4 h-4 mr-2" />
-                       Missing Numbers ({missingSerialNumbers.length})
-                     </Button>
-                   )}
-                   
-                   {/* Show/Hide Disabled Items Toggle */}
-                   <div className="flex items-center gap-2 ml-auto">
-                     <Switch
-                       id="show-disabled"
-                       checked={showDisabledItems}
-                       onCheckedChange={(checked) => {
-                         console.log('🔄 Toggle Show Disabled Items:', checked);
-                         setShowDisabledItems(checked);
-                       }}
-                     />
-                      <Label htmlFor="show-disabled" className="text-sm cursor-pointer">
-                        Show Only Disabled Items {showDisabledItems && `(${totalCount})`}
-                      </Label>
-                   </div>
+                {/* Action Buttons - Organized by Functionality */}
+                <div className="space-y-4">
+                  {/* Section 1: Data Entry & Import */}
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold text-foreground/70 flex items-center gap-2">
+                      📥 DATA ENTRY & IMPORT
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {/* Add New Item */}
+                      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                        <DialogTrigger asChild>
+                          <Button size="sm" variant="outline" className="hover:bg-green-500/10 hover:border-green-500/50">
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add New Item
+                          </Button>
+                        </DialogTrigger>
                     <DialogContent className="max-w-md">
                       <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
@@ -1258,7 +1250,7 @@ export function AsinInventory() {
                   {/* Bulk Add Items */}
                   <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
                     <DialogTrigger asChild>
-                      <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all">
+                      <Button size="sm" variant="outline" className="hover:bg-green-500/10 hover:border-green-500/50">
                         <Upload className="w-4 h-4 mr-2" />
                         Bulk Add Items
                       </Button>
@@ -1291,93 +1283,139 @@ export function AsinInventory() {
                     </DialogContent>
                   </Dialog>
 
+                  {/* Missing Numbers */}
+                  {missingSerialNumbers.length > 0 && (
+                    <Button 
+                      size="sm"
+                      variant="outline" 
+                      onClick={() => setIsMissingNumbersDialogOpen(true)}
+                      className="hover:bg-green-500/10 hover:border-green-500/50"
+                    >
+                      <Hash className="w-4 h-4 mr-2" />
+                      Missing Numbers ({missingSerialNumbers.length})
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              <Separator className="my-4" />
+
+              {/* Section 2: Bulk Data Management */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-foreground/70 flex items-center gap-2">
+                  ✏️ BULK DATA MANAGEMENT
+                </h3>
+                <div className="flex flex-wrap gap-2">
                   {/* Bulk SKU Update */}
                   <BulkSkuUpload inventory={inventory} onSkuUpdate={bulkUpdateSkus} />
 
                   {/* Bulk Title Update */}
                   <BulkTitleUpload inventory={inventory} onTitleUpdate={bulkUpdateTitles} />
-                </div>
-              </div>
 
-              {/* Settings Section */}
-              <div className="space-y-4">
-                <Label className="text-base font-semibold flex items-center gap-2">
-                  <Settings className="w-5 h-5" />
-                  Settings:
-                </Label>
-                <div className="flex flex-wrap gap-3">
                   {/* Fetch Titles from Source */}
-                  <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all" onClick={handleFetchTitlesFromSunsky}>
+                  <Button size="sm" variant="outline" className="hover:bg-blue-500/10 hover:border-blue-500/50" onClick={handleFetchTitlesFromSunsky}>
                     <Database className="w-4 h-4 mr-2" />
                     Fetch Titles from Source
                   </Button>
+                </div>
+              </div>
 
-                  {/* Warehouse Settings */}
-                  <SimpleWarehouseManager />
+              <Separator className="my-4" />
 
-                  {/* Print Settings */}
-                  <div className="flex items-center gap-4 flex-wrap">
-                    <Select value={selectedTemplate || ''} onValueChange={handleTemplateSelection}>
-                      <SelectTrigger className="w-48">
-                        <SelectValue placeholder="Select template" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableTemplates.map((template) => (
-                          <SelectItem key={template.id} value={template.id}>
-                            {template.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    
-                    {/* Darkness Control */}
-                    <div className="flex items-center gap-2">
-                      <label className="text-sm font-medium text-muted-foreground">Darkness:</label>
-                      <Slider
-                        value={[printSettings.darkness]}
-                        onValueChange={(value) => setPrintSettings({...printSettings, darkness: value[0]})}
-                        max={30}
-                        min={0}
-                        step={1}
-                        className="w-20"
-                      />
-                      <span className="text-sm text-muted-foreground w-6">{printSettings.darkness}</span>
-                    </div>
-                    
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      onClick={handleBulkPrint}
-                      disabled={!qzConnected || !selectedTemplate || selectedItems.size === 0}
-                      className="border-2 border-primary bg-background hover:bg-blue-500 hover:text-white hover:border-blue-500 transition-all"
-                    >
-                      <Printer className="h-4 w-4 mr-2" />
-                      Print Selected ({selectedItems.size})
-                    </Button>
+              {/* Section 3: Label Printing */}
+              {selectedItems.size > 0 && (
+                <>
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold text-foreground/70 flex items-center gap-2">
+                      🖨️ LABEL PRINTING
+                    </h3>
+                    <Card className="p-4 bg-purple-500/5 border-purple-500/20">
+                      <div className="flex items-center gap-4 flex-wrap">
+                        <Select value={selectedTemplate || ''} onValueChange={handleTemplateSelection}>
+                          <SelectTrigger className="w-48">
+                            <SelectValue placeholder="Select template" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableTemplates.map((template) => (
+                              <SelectItem key={template.id} value={template.id}>
+                                {template.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        
+                        {/* Darkness Control */}
+                        <div className="flex items-center gap-2">
+                          <label className="text-sm font-medium text-muted-foreground">Darkness:</label>
+                          <Slider
+                            value={[printSettings.darkness]}
+                            onValueChange={(value) => setPrintSettings({...printSettings, darkness: value[0]})}
+                            max={30}
+                            min={0}
+                            step={1}
+                            className="w-20"
+                          />
+                          <span className="text-sm text-muted-foreground w-6">{printSettings.darkness}</span>
+                        </div>
+                        
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={handleBulkPrint}
+                          disabled={!qzConnected || !selectedTemplate || selectedItems.size === 0}
+                          className="bg-purple-500 hover:bg-purple-600 text-white border-purple-500"
+                        >
+                          <Printer className="h-4 w-4 mr-2" />
+                          Print Selected ({selectedItems.size})
+                        </Button>
+                      </div>
+                    </Card>
                   </div>
+                  <Separator className="my-4" />
+                </>
+              )}
 
+              {/* Section 4: Data Export */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-foreground/70 flex items-center gap-2">
+                  📤 DATA EXPORT
+                </h3>
+                <div className="flex flex-wrap gap-2">
                   {/* Export */}
-                  <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all" onClick={exportInventory}>
+                  <Button size="sm" variant="outline" className="hover:bg-orange-500/10 hover:border-orange-500/50" onClick={exportInventory}>
                     <Download className="w-4 h-4 mr-2" />
                     Export
                   </Button>
 
                   {/* Email Export */}
-                  <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all" onClick={emailInventory}>
+                  <Button size="sm" variant="outline" className="hover:bg-orange-500/10 hover:border-orange-500/50" onClick={emailInventory}>
                     <Mail className="w-4 h-4 mr-2" />
                     Email Export
                   </Button>
+                </div>
+              </div>
+
+              <Separator className="my-4" />
+
+              {/* Section 5: System & Refresh */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-foreground/70 flex items-center gap-2">
+                  ⚙️ SYSTEM & REFRESH
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {/* Warehouse Settings */}
+                  <SimpleWarehouseManager />
 
                   {/* Refresh Images */}
-                  <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all" onClick={refreshImages}>
+                  <Button size="sm" variant="outline" onClick={refreshImages}>
                     <RefreshCw className="w-4 h-4 mr-2" />
                     Refresh Images
                   </Button>
 
-                  {/* Refresh */}
-                  <Button size="sm" variant="outline" className="border-2 border-primary bg-background hover:bg-green-500 hover:text-white hover:border-green-500 transition-all" onClick={handleRefresh}>
+                  {/* Refresh All */}
+                  <Button size="sm" variant="outline" onClick={handleRefresh}>
                     <RefreshCw className="w-4 h-4 mr-2" />
-                    Refresh
+                    Refresh All
                   </Button>
                 </div>
               </div>
