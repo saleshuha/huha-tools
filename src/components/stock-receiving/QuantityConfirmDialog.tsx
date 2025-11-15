@@ -215,9 +215,19 @@ export function QuantityConfirmDialog({
       }
     }
     
-    // Invalidate PO orders cache to ensure fresh data
+    // Invalidate and aggressively refetch PO orders cache
     console.log('🔄 Invalidating PO orders cache after stock receiving');
     queryClient.invalidateQueries({ queryKey: ['po-orders'] });
+
+    // Force an immediate background refetch with delay to allow edge function to complete
+    setTimeout(() => {
+      queryClient.refetchQueries({ 
+        queryKey: ['po-orders'],
+        type: 'active' 
+      }).then(() => {
+        console.log('✅ PO orders cache refetched after receiving');
+      });
+    }, 2000);
     
     onConfirm({
       quantity,
@@ -229,9 +239,16 @@ export function QuantityConfirmDialog({
     // Show notification about refreshing PO Tracker
     setTimeout(() => {
       toast({
-        title: "✅ Stock Received",
-        description: "If PO Tracker is open, click the Refresh button to see updated status.",
-        duration: 5000,
+        title: "✅ Stock Received & PO Updated",
+        description: (
+          <div className="space-y-1">
+            <p>Item received successfully and PO marked as printed.</p>
+            <p className="font-semibold text-primary mt-2">
+              📋 PO Tracker will auto-refresh, or click "Hard Refresh" to see changes immediately.
+            </p>
+          </div>
+        ),
+        duration: 7000,
       });
     }, 1000);
   };

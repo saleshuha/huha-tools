@@ -1,5 +1,5 @@
 import { POTracker } from '@/components/POTracker';
-import { ShoppingCart, RefreshCw } from 'lucide-react';
+import { ShoppingCart, RefreshCw, Clock } from 'lucide-react';
 import { HuhaHeader01 } from '@/components/ui/huha-header-01';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useTaxonomy } from '@/hooks/useTaxonomy';
@@ -7,13 +7,22 @@ import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
+import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+import { usePOOrdersQuery } from '@/hooks/usePOOrdersQuery';
 
 export default function POTrackerPage() {
   const { profile, loading: profileLoading } = useUserProfile();
   const { trackPageView } = useTaxonomy();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [authChecked, setAuthChecked] = useState(false);
   const [userAuth, setUserAuth] = useState<any>(null);
+  const [lastRefreshTime, setLastRefreshTime] = useState<Date>(new Date());
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Use the query to track when data is refreshed
+  const { data: poOrders } = usePOOrdersQuery(authChecked && !!userAuth);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -31,6 +40,13 @@ export default function POTrackerPage() {
   }, [profile, profileLoading]);
 
   // Track page view
+  // Update last refresh timestamp when data changes
+  useEffect(() => {
+    if (poOrders && poOrders.length > 0) {
+      setLastRefreshTime(new Date());
+    }
+  }, [poOrders]);
+
   useEffect(() => {
     trackPageView({
       category: 'Amazon',
@@ -44,10 +60,20 @@ export default function POTrackerPage() {
   }, [trackPageView]);
 
   const handleHardRefresh = async () => {
+    setIsRefreshing(true);
     console.log('🔄 Hard refresh initiated - clearing all cache');
-    queryClient.clear(); // Clear ALL React Query cache
+    
+    toast({
+      title: "🔄 Refreshing...",
+      description: "Fetching latest data from database..."
+    });
+    
+    queryClient.clear();
     await queryClient.invalidateQueries({ queryKey: ['po-orders'] });
-    window.location.reload(); // Force complete page reload
+    
+    setTimeout(() => {
+      window.location.reload();
+    }, 500);
   };
 
   return (
@@ -68,15 +94,23 @@ export default function POTrackerPage() {
             className="flex-1"
           />
           {authChecked && userAuth && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleHardRefresh}
-              className="ml-4"
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
+            <div className="flex items-center gap-3 ml-4">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-md border">
+                <Clock className="h-3 w-3" />
+                <span>
+                  Last updated: {lastRefreshTime.toLocaleTimeString()}
+                </span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleHardRefresh}
+                disabled={isRefreshing}
+              >
+                <RefreshCw className={cn("h-4 w-4 mr-2", isRefreshing && "animate-spin")} />
+                {isRefreshing ? 'Refreshing...' : 'Hard Refresh'}
+              </Button>
+            </div>
           )}
         </div>
         <POTracker />
