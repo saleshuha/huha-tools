@@ -56,10 +56,26 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
         // Search in open POs
         const { data: poData } = await supabase
           .from('po_orders')
-          .select('asin, sku_code, model_number, title, po_number, priority, group_id')
+          .select('id, asin, sku_code, model_number, title, po_number, priority')
           .or(`asin.ilike.%${term}%,sku_code.ilike.%${term}%,model_number.ilike.%${term}%`)
           .in('status', ['pending', 'placed'])
           .limit(20);
+
+        // Get group memberships for these POs
+        let poGroupMap = new Map<string, string>();
+        if (poData && poData.length > 0) {
+          const poIds = poData.map(po => po.id);
+          const { data: groupMembers } = await supabase
+            .from('po_group_members')
+            .select('po_id, group_id')
+            .in('po_id', poIds);
+          
+          if (groupMembers) {
+            groupMembers.forEach(member => {
+              poGroupMap.set(member.po_id, member.group_id);
+            });
+          }
+        }
 
         // Search in inventory (filter by selected country, fetch serial_number)
         let invQuery = supabase
@@ -95,7 +111,7 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
         // Add PO results (group and collect PO numbers)
         if (poData && poData.length > 0) {
           // Fetch group information if any POs have group_id
-          const groupIds = [...new Set(poData.map(item => item.group_id).filter(Boolean))];
+          const groupIds = [...new Set(Array.from(poGroupMap.values()))];
           let groupMap = new Map();
           
           if (groupIds.length > 0) {
@@ -109,13 +125,15 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
 
           const grouped = poData.reduce((acc, item) => {
             const key = item.asin || item.sku_code || item.model_number || 'unknown';
+            const groupId = poGroupMap.get(item.id);
+            
             if (!acc[key]) {
               acc[key] = { 
                 ...item, 
                 count: 0, 
                 po_numbers: [],
                 max_priority: item.priority || 0,
-                group_id: item.group_id
+                group_id: groupId
               };
             }
             acc[key].count++;
