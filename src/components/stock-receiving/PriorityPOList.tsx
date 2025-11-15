@@ -115,79 +115,6 @@ export function PriorityPOList() {
     }
   };
 
-  const handlePriorityUpdate = async (poNumber: string, newPriority: number) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Update all items with this PO number
-      const { error } = await supabase
-        .from('po_orders')
-        .update({ priority: newPriority })
-        .eq('po_number', poNumber)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-
-      toast({
-        title: 'Success',
-        description: `Updated priority for PO ${poNumber}`,
-      });
-
-      // Reload to reflect changes
-      await loadPOs();
-    } catch (error) {
-      console.error('Failed to update priority:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to update priority',
-        variant: 'destructive'
-      });
-    }
-  };
-
-  const handleBulkPriorityUpdate = async (newPriority: number) => {
-    if (selectedPOs.size === 0) {
-      toast({
-        title: 'No POs selected',
-        description: 'Please select POs to update',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Get all selected PO numbers
-      const selectedPONumbers = Array.from(selectedPOs);
-
-      // Update all items for selected PO numbers
-      const { error } = await supabase
-        .from('po_orders')
-        .update({ priority: newPriority })
-        .in('po_number', selectedPONumbers)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-
-      toast({
-        title: 'Success',
-        description: `Updated priority for ${selectedPOs.size} PO(s)`,
-      });
-
-      setSelectedPOs(new Set());
-      await loadPOs();
-    } catch (error) {
-      console.error('Failed to bulk update priority:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to update priorities',
-        variant: 'destructive'
-      });
-    }
-  };
 
   const togglePOSelection = (poNumber: string) => {
     setSelectedPOs(prev => {
@@ -259,13 +186,9 @@ export function PriorityPOList() {
       await createGroup.mutateAsync({
         name: newGroupName,
         description: newGroupDescription,
-        poIds
+        poIds,
+        priority: newGroupPriority
       });
-
-      // Update priority for all POs in the group
-      if (newGroupPriority !== 3) {
-        await handleBulkPriorityUpdate(newGroupPriority);
-      }
 
       setShowGroupDialog(false);
       setNewGroupName('');
@@ -359,12 +282,12 @@ export function PriorityPOList() {
                   )}
                   <AlertTriangle className="w-5 h-5 text-orange-500" />
                 </div>
-                <div>
-                  <CardTitle>Priority & Group Management</CardTitle>
-                  <CardDescription>
-                    Set priorities and organize POs into groups for better control
-                  </CardDescription>
-                </div>
+              <div>
+                <CardTitle>PO Groups & Priority Management</CardTitle>
+                <CardDescription>
+                  Organize POs into groups and set priority for each group
+                </CardDescription>
+              </div>
               </div>
               <Badge variant="outline" className="text-xs">
                 {filteredPOs.length} POs
@@ -390,36 +313,6 @@ export function PriorityPOList() {
 
               {/* Priority Management Tab */}
               <TabsContent value="priority" className="space-y-4 mt-4">
-                {selectedPOs.size > 0 && (
-                  <div className="flex items-center justify-between p-3 bg-primary/5 border border-primary/20 rounded-lg">
-                    <span className="text-sm font-medium">
-                      {selectedPOs.size} PO{selectedPOs.size > 1 ? 's' : ''} selected
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleBulkPriorityUpdate(1)}
-                      >
-                        Set Highest
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleBulkPriorityUpdate(2)}
-                      >
-                        Set High
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleBulkPriorityUpdate(3)}
-                      >
-                        Set Normal
-                      </Button>
-                    </div>
-                  </div>
-                )}
         {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -514,7 +407,8 @@ export function PriorityPOList() {
 
                 <POPriorityBadge
                   priority={po.priority || 3}
-                  onUpdate={(newPriority) => handlePriorityUpdate(po.po_number, newPriority)}
+                  onUpdate={() => {}}
+                  disabled
                 />
               </div>
             ))}
@@ -551,12 +445,12 @@ export function PriorityPOList() {
                   </div>
                 )}
 
-                {/* Existing Groups List */}
-                <div className="space-y-2">
-                  <h4 className="text-sm font-semibold flex items-center gap-2">
-                    <Users className="w-4 h-4" />
-                    Existing Groups
-                  </h4>
+            {/* Existing Groups List */}
+            <div className="space-y-2">
+              <h4 className="text-sm font-semibold flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                Existing Groups
+              </h4>
                   
                   {!poGroups || poGroups.length === 0 ? (
                     <div className="text-center py-6 text-muted-foreground text-sm">
@@ -723,7 +617,8 @@ export function PriorityPOList() {
 
                         <POPriorityBadge
                           priority={po.priority || 3}
-                          onUpdate={(newPriority) => handlePriorityUpdate(po.po_number, newPriority)}
+                          onUpdate={() => {}}
+                          disabled
                         />
                       </div>
                     ))}
