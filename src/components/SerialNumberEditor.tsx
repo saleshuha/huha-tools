@@ -6,7 +6,7 @@ import { Check, X, Edit2, Hash } from 'lucide-react';
 interface SerialNumberEditorProps {
   currentSerialNumber?: string;
   onUpdate: (newSerialNumber: string) => void;
-  getNextSerial?: () => string;
+  getNextSerial?: () => Promise<string> | string; // Allow async
 }
 
 export function SerialNumberEditor({ currentSerialNumber = '', onUpdate, getNextSerial }: SerialNumberEditorProps) {
@@ -26,10 +26,12 @@ export function SerialNumberEditor({ currentSerialNumber = '', onUpdate, getNext
     setIsEditing(false);
   };
 
-  const handleAutoSerial = () => {
+  const handleAutoSerial = async () => {
     if (getNextSerial) {
-      const nextSerial = getNextSerial();
-      onUpdate(nextSerial);
+      const nextSerial = await getNextSerial(); // Await the promise
+      if (nextSerial) {
+        onUpdate(nextSerial);
+      }
     }
   };
 

@@ -78,7 +78,8 @@ export function AsinInventory() {
   }, [statusFilter, sortBy, sortOrder, quickFilter, dateFilterFrom, dateFilterTo, showDisabledItems]);
   
   // Get full inventory for exports (loads ALL items)
-  const { inventory: fullInventory, loading: fullInventoryLoading } = useAsinInventory();
+  const fullInventoryHook = useAsinInventory();
+  const { inventory: fullInventory, loading: fullInventoryLoading } = fullInventoryHook;
   
   // Use paginated hook with server-side filtering
   const {
@@ -189,50 +190,16 @@ export function AsinInventory() {
     return missing;
   }, [fullInventory, fullInventoryLoading]);
   
-  // Get next available serial number (either missing or next in sequence)
-  const getNextSerialNumber = () => {
+  // Get next available serial number (queries database directly)
+  const getNextSerialNumber = async () => {
     // Don't suggest a number if full inventory is still loading
     if (fullInventoryLoading) {
       return ''; // Return empty string to disable auto-assign
     }
     
-    // Build a Set of ALL existing serial numbers for O(1) lookup
-    const existingSerials = new Set(
-      fullInventory
-        .map(item => item.serialNumber)
-        .filter(serial => serial && /^\d{5}$/.test(serial))
-    );
-    
-    console.log(`🔍 Auto-assign: Found ${existingSerials.size} existing serials in inventory`);
-    
-    // Strategy 1: Fill missing numbers first
-    if (missingSerialNumbers.length > 0) {
-      // Find the first missing number that's NOT in the existing set
-      for (const missingNum of missingSerialNumbers) {
-        const serialStr = missingNum.toString().padStart(5, '0');
-        if (!existingSerials.has(serialStr)) {
-          console.log(`✅ Auto-assign suggesting missing serial: ${serialStr}`);
-          return serialStr;
-        }
-      }
-    }
-    
-    // Strategy 2: Continue from highest serial number
-    const serialNumbers = Array.from(existingSerials)
-      .map(serial => parseInt(serial, 10))
-      .sort((a, b) => a - b);
-    
-    const maxSerial = serialNumbers.length > 0 ? Math.max(...serialNumbers) : 0;
-    let nextSerial = maxSerial + 1;
-    
-    // Safety check: Keep incrementing until we find an unused serial
-    while (existingSerials.has(nextSerial.toString().padStart(5, '0'))) {
-      nextSerial++;
-    }
-    
-    const result = nextSerial.toString().padStart(5, '0');
-    console.log(`✅ Auto-assign suggesting next serial: ${result}`);
-    return result;
+    // Query database directly for fresh data
+    const nextSerial = await fullInventoryHook.getNextAvailableSerial();
+    return nextSerial;
   };
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -455,6 +422,19 @@ export function AsinInventory() {
     notes: ''
   });
   const [bulkText, setBulkText] = useState('');
+  const [nextAvailableSerial, setNextAvailableSerial] = useState<string>('');
+
+  // Load next available serial number for display
+  useEffect(() => {
+    const loadNextSerial = async () => {
+      const next = await getNextSerialNumber();
+      setNextAvailableSerial(next);
+    };
+    
+    if (!fullInventoryLoading) {
+      loadNextSerial();
+    }
+  }, [fullInventory, fullInventoryLoading]);
 
   // Inventory is already filtered and paginated by the backend hook
   const handleAddItem = async () => {
@@ -484,9 +464,11 @@ export function AsinInventory() {
       dateAdded: new Date().toISOString()
     });
     setIsAddDialogOpen(false);
+    // Reset form with next available serial
+    const nextSerial = await getNextSerialNumber();
     setNewItem({
       asin: '',
-      serialNumber: getNextSerialNumber(), // Auto-fill next available serial
+      serialNumber: nextSerial,
       sku: '',
       title: '',
       status: 'in-stock',
@@ -1217,15 +1199,18 @@ export function AsinInventory() {
                                placeholder="Enter Serial Number..." 
                                className="flex-1"
                              />
-                             <Button
-                               type="button"
-                               variant="outline"
-                               size="sm"
-                               onClick={() => setNewItem(prev => ({ ...prev, serialNumber: getNextSerialNumber() }))}
-                               title="Use next available serial number"
-                             >
-                               <Hash className="w-4 h-4" />
-                             </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                  const nextSerial = await getNextSerialNumber();
+                                  setNewItem(prev => ({ ...prev, serialNumber: nextSerial }));
+                                }}
+                                title="Use next available serial number"
+                              >
+                                <Hash className="w-4 h-4" />
+                              </Button>
                            </div>
                          </div>
                          <div>
@@ -2114,7 +2099,7 @@ export function AsinInventory() {
               </div>
               
               <div className="text-xs text-muted-foreground">
-                Click any number to use it for a new item. The next available number will be: <span className="font-mono font-semibold">{getNextSerialNumber()}</span>
+                Click any number to use it for a new item. The next available number will be: <span className="font-mono font-semibold">{nextAvailableSerial || 'Loading...'}</span>
               </div>
             </div>
             
