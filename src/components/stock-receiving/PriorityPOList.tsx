@@ -54,29 +54,46 @@ export function PriorityPOList() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Get ALL POs grouped by PO number with aggregated quantities
-      const { data, error, count } = await supabase
-        .from('po_orders')
-        .select('id, po_number, status, priority, quantity, asin, sku_code, model_number, title, expected_delivery', { count: 'exact' })
-        .eq('user_id', user.id)
-        // Removed status filter to show ALL POs
-        .order('priority', { ascending: true })
-        .order('expected_delivery', { ascending: true })
-        .range(0, 9999); // Fetch up to 10,000 line items
+      // Fetch all items in batches to overcome Supabase's 1000-item limit
+      let allItems: any[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      let hasMore = true;
 
-      if (error) throw error;
+      console.log('Fetching PO orders in batches...');
+      
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('po_orders')
+          .select('id, po_number, status, priority, quantity, asin, sku_code, model_number, title, expected_delivery')
+          .eq('user_id', user.id)
+          .order('priority', { ascending: true })
+          .order('expected_delivery', { ascending: true })
+          .range(from, from + batchSize - 1);
 
-      console.log(`Fetched ${data?.length || 0} PO items (total: ${count})`);
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          allItems = [...allItems, ...data];
+          console.log(`Fetched batch: ${data.length} items (total so far: ${allItems.length})`);
+          from += batchSize;
+          hasMore = data.length === batchSize; // Continue if we got a full batch
+        } else {
+          hasMore = false;
+        }
+      }
+
+      console.log(`Fetched ${allItems.length} PO items total`);
 
       // Group by PO number and sum quantities
-      const grouped = (data || []).reduce((acc: any, po: any) => {
+      const grouped = allItems.reduce((acc: any, po: any) => {
         const key = po.po_number;
         if (!acc[key]) {
           acc[key] = { ...po, quantity: 0, items: [] };
         }
         acc[key].quantity += po.quantity;
         acc[key].items.push(po);
-        // Use the highest priority (lowest number) for the group
+        // Use the highest priority (lowest number) among all items in the PO
         if (!acc[key].priority || po.priority < acc[key].priority) {
           acc[key].priority = po.priority || 3;
         }
