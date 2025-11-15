@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ImagePreview } from './ImagePreview';
-import { POPriorityBadge } from '@/components/po/POPriorityBadge';
+import { getPriorityLabel } from '@/utils/po-group-helpers';
 
 interface SearchResult {
   type: 'po' | 'inventory' | 'recent' | 'po_group';
@@ -304,13 +304,13 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
                           <Folder className="w-3 h-3 mr-1" />
                           {result.po_group.name}
                         </Badge>
-                        {result.priority && result.priority < 3 && (
+                        {result.priority && (
                           <Badge 
-                            variant={result.priority === 1 ? "destructive" : "default"}
-                            className="text-xs"
+                            variant={result.priority === 1 ? "destructive" : result.priority === 2 ? "default" : "secondary"}
+                            className="text-xs whitespace-nowrap"
                             title={`Priority inherited from group: ${result.po_group.name}`}
                           >
-                            Priority {result.priority}
+                            {getPriorityLabel(result.priority)}
                           </Badge>
                         )}
                       </>
