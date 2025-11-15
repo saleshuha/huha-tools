@@ -158,10 +158,10 @@ export function AsinInventory() {
   
   // Missing serial numbers calculation
   const missingSerialNumbers = useMemo(() => {
-    if (loading || inventory.length === 0) return [];
+    if (fullInventory.length === 0) return [];
     
-    // Extract all serial numbers and convert to numbers
-    const serialNumbers = inventory
+    // Extract all serial numbers and convert to numbers from FULL inventory
+    const serialNumbers = fullInventory
       .map(item => item.serialNumber)
       .filter(serial => serial && /^\d{5}$/.test(serial)) // Only 5-digit numbers
       .map(serial => parseInt(serial, 10))
@@ -180,7 +180,7 @@ export function AsinInventory() {
     }
     
     return missing;
-  }, [inventory, loading]);
+  }, [fullInventory]);
   
   // Get next available serial number (either missing or next in sequence)
   const getNextSerialNumber = () => {
@@ -188,8 +188,8 @@ export function AsinInventory() {
       return missingSerialNumbers[0].toString().padStart(5, '0');
     }
     
-    // Find the highest existing serial number and add 1
-    const serialNumbers = inventory
+    // Find the highest existing serial number and add 1 from FULL inventory
+    const serialNumbers = fullInventory
       .map(item => item.serialNumber)
       .filter(serial => serial && /^\d{5}$/.test(serial))
       .map(serial => parseInt(serial, 10));
