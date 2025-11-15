@@ -605,7 +605,14 @@ export function useAsinInventory() {
 
   // Update Serial Number for an item with auto-retry - simplified
   const updateSerialNumber = async (id: string, newSerialNumber: string) => {
-    if (!profile) return;
+    if (!profile) {
+      toast({
+        title: "Error",
+        description: "User profile not loaded",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const requestedSerial = newSerialNumber.trim();
 
@@ -618,7 +625,10 @@ export function useAsinInventory() {
           .eq('id', id)
           .eq('user_id', profile.id));
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error clearing serial:', error);
+          throw new Error(`Database error: ${error.message || 'Unknown error'}`);
+        }
 
         // Update local state
         setInventory(prev => prev.map(item => 
@@ -640,7 +650,10 @@ export function useAsinInventory() {
         .eq('serial_number', requestedSerial)
         .neq('id', id));
 
-      if (checkError) throw checkError;
+      if (checkError) {
+        console.error('Error checking for duplicates:', checkError);
+        throw new Error(`Could not verify serial number uniqueness: ${checkError.message}`);
+      }
 
       let finalSerial = requestedSerial;
 
@@ -653,9 +666,14 @@ export function useAsinInventory() {
         
         if (!finalSerial) {
           throw new Error(
-            `Serial "${requestedSerial}" is already used by ASIN "${existingAsin}" and no alternative found.`
+            `Serial "${requestedSerial}" is already used by ASIN "${existingAsin}" and no alternative serial number could be generated.`
           );
         }
+
+        toast({
+          title: "Serial Number Auto-Adjusted",
+          description: `Serial "${requestedSerial}" was in use. Assigned "${finalSerial}" instead.`,
+        });
       }
 
       // Update with final serial
@@ -665,27 +683,33 @@ export function useAsinInventory() {
         .eq('id', id)
         .eq('user_id', profile.id));
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error updating serial in database:', error);
+        throw new Error(`Failed to save serial number: ${error.message || 'Database error'}`);
+      }
 
       // Update local state
       setInventory(prev => prev.map(item => 
         item.id === id ? { ...item, serialNumber: finalSerial } : item
       ));
 
-      // Show appropriate toast
-      const message = finalSerial !== requestedSerial
-        ? `Serial auto-adjusted to ${finalSerial} (${requestedSerial} was already in use)`
-        : 'Serial number updated successfully';
-
-      toast({
-        title: "Serial Number Updated",
-        description: message,
-      });
+      // Show success toast only if we didn't already show auto-adjust message
+      if (finalSerial === requestedSerial) {
+        toast({
+          title: "Serial Number Updated",
+          description: 'Serial number updated successfully',
+        });
+      }
 
     } catch (error) {
+      console.error('Serial number update error:', error);
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : "An unknown error occurred while updating the serial number";
+      
       toast({
         title: "Error updating serial number",
-        description: error instanceof Error ? error.message : "Failed to update serial number",
+        description: errorMessage,
         variant: "destructive",
       });
     }
