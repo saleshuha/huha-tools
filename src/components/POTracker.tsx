@@ -38,7 +38,7 @@ import { useCountry } from '@/contexts/CountryContext';
 import { useProductImages } from '@/hooks/useProductImages';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PrintService } from '@/services/print-service';
 import { LabelDoc, LabelDataset, LabelElement, LabelSize } from '@/types/label';
 import { exportMetricToCSV, exportAllMetrics, calculateMetricPercentage } from '@/utils/po-metrics-export';
@@ -91,7 +91,8 @@ interface POGroup {
   orders: POOrder[];
 }
 export const POTracker = () => {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(''); // Add debounced search
   const [isSearching, setIsSearching] = useState(false); // Add searching indicator
@@ -3289,6 +3290,9 @@ export const POTracker = () => {
                    newTab === 'analytics' ? 'Analytics' : 
                    newTab === 'purchase-links' ? 'Purchase Links' : newTab
         });
+        
+        // Update URL with tab parameter
+        setSearchParams({ tab: newTab });
         setActiveTab(newTab);
       }} className="w-full">
         <TabsList className="grid w-full grid-cols-6 h-12 bg-muted/30 rounded-lg p-1 border border-border shadow-soft">
