@@ -43,10 +43,11 @@ export function SerialNumberEditor({
       try {
         const nextSerial = await getNextSerial();
         if (nextSerial) {
-          onUpdate(nextSerial);
+          await onUpdate(nextSerial);
         }
       } catch (error) {
-        console.error('Error getting next serial:', error);
+        console.error('Error auto-assigning serial:', error);
+        // Error toast is already shown by getNextSerial or onUpdate
       } finally {
         setIsLoadingSerial(false);
       }

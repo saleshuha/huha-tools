@@ -194,11 +194,26 @@ export function AsinInventory() {
   const getNextSerialNumber = async () => {
     // Don't suggest a number if full inventory is still loading
     if (fullInventoryLoading) {
-      return ''; // Return empty string to disable auto-assign
+      toast({
+        title: "Please wait",
+        description: "Inventory is still loading. Please try again in a moment.",
+        variant: "default",
+      });
+      throw new Error('Inventory still loading');
     }
     
     // Query database directly for fresh data
     const nextSerial = await fullInventoryHook.getNextAvailableSerial();
+    
+    if (!nextSerial) {
+      toast({
+        title: "Error",
+        description: "Could not generate next serial number. Please try again.",
+        variant: "destructive",
+      });
+      throw new Error('Failed to generate next serial number');
+    }
+    
     return nextSerial;
   };
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
