@@ -8,7 +8,6 @@ import { useAsinInventory, AsinInventoryItem } from './useAsinInventory';
 export interface PaginationFilters {
   searchTerm?: string;
   searchMethod?: 'all' | 'asin' | 'sku' | 'serial' | 'title' | 'notes';
-  searchMode?: 'starts' | 'contains'; // New: Search mode toggle
   statusFilter?: string;
   quickFilter?: 'all' | 'low-stock' | 'out-of-stock' | 'recent';
   dateFilterFrom?: Date;
@@ -60,39 +59,35 @@ export function useAsinInventoryPaginated(
     // NOTE: is_active filter removed from DB query for performance
     // It will be applied client-side after fetching data
 
-    // Apply search filters with optimized query strategy
-    const searchMode = filters.searchMode || 'contains';
+    // Apply search filters - always use 'contains' mode for consistency
     if (filters.searchTerm && filters.searchTerm.trim()) {
       const searchTerms = filters.searchTerm.toLowerCase().trim().split(' ').filter(t => t.length > 0);
       
       if (filters.searchMethod === 'asin') {
-        // Search by ASIN - use starts-with for better performance
-        const pattern = searchMode === 'starts' ? `${searchTerms[0]}%` : `%${searchTerms[0]}%`;
-        const asinFilters = searchTerms.map(term => `asin.ilike.${searchMode === 'starts' ? `${term}%` : `%${term}%`}`).join(',');
+        // Search by ASIN
+        const asinFilters = searchTerms.map(term => `asin.ilike.%${term}%`).join(',');
         query = query.or(asinFilters);
       } else if (filters.searchMethod === 'sku') {
-        // Search by SKU - use starts-with for better performance
-        const skuFilters = searchTerms.map(term => `sku.ilike.${searchMode === 'starts' ? `${term}%` : `%${term}%`}`).join(',');
+        // Search by SKU
+        const skuFilters = searchTerms.map(term => `sku.ilike.%${term}%`).join(',');
         query = query.or(skuFilters);
       } else if (filters.searchMethod === 'serial') {
-        // Search by Serial Number - use starts-with for better performance
-        const serialFilters = searchTerms.map(term => `serial_number.ilike.${searchMode === 'starts' ? `${term}%` : `%${term}%`}`).join(',');
+        // Search by Serial Number
+        const serialFilters = searchTerms.map(term => `serial_number.ilike.%${term}%`).join(',');
         query = query.or(serialFilters);
       } else if (filters.searchMethod === 'title') {
-        // Search by Title - always use contains for text fields
+        // Search by Title
         searchTerms.forEach(term => {
           query = query.ilike('title', `%${term}%`);
         });
       } else if (filters.searchMethod === 'notes') {
-        // Search by Notes - always use contains
+        // Search by Notes
         const notesFilters = searchTerms.map(term => `notes.ilike.%${term}%`).join(',');
         query = query.or(notesFilters);
       } else {
         // Search all fields (method === 'all')
-        // For ID fields (ASIN, SKU, Serial), use starts-with when in starts mode for 10x speed boost
         const orFilters = searchTerms.map(term => {
-          const idPattern = searchMode === 'starts' ? `${term}%` : `%${term}%`;
-          return `asin.ilike.${idPattern},serial_number.ilike.${idPattern},sku.ilike.${idPattern},title.ilike.%${term}%,notes.ilike.%${term}%`;
+          return `asin.ilike.%${term}%,serial_number.ilike.%${term}%,sku.ilike.%${term}%,title.ilike.%${term}%,notes.ilike.%${term}%`;
         }).join(',');
         query = query.or(orFilters);
       }
@@ -103,10 +98,8 @@ export function useAsinInventoryPaginated(
       // Only apply specific status filter when explicitly set
       const effectiveStatus = filters.statusFilter === 'ordered' ? 'sold' : filters.statusFilter;
       query = query.eq('status', effectiveStatus);
-    } else {
-      // When 'all' is selected, exclude only sold items
-      query = query.not('status', 'eq', 'sold');
     }
+    // When 'all' is selected, show ALL items including sold (no exclusion)
 
     // Apply quick filters
     if (filters.quickFilter === 'low-stock') {
@@ -221,7 +214,6 @@ export function useAsinInventoryPaginated(
       pageSize,
       filters.searchTerm, // Use debounced search term passed from component
       filters.searchMethod,
-      filters.searchMode,
       filters.statusFilter,
       filters.sortBy,
       filters.sortOrder,

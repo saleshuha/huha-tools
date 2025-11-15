@@ -53,7 +53,6 @@ export function AsinInventory() {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [searchMethod, setSearchMethod] = useState<'all' | 'asin' | 'sku' | 'serial' | 'title' | 'notes'>('all');
-  const [searchMode, setSearchMode] = useState<'starts' | 'contains'>('contains'); // LAYER 5: Search mode toggle
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'dateAdded' | 'asin' | 'quantity' | 'status' | 'title' | 'serialNumber'>('dateAdded');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -104,7 +103,6 @@ export function AsinInventory() {
   } = useAsinInventoryPaginated(currentPage, itemsPerPage, {
     searchTerm: debouncedSearchTerm,
     searchMethod,
-    searchMode, // LAYER 5: Pass search mode to hook
     statusFilter,
     sortBy,
     sortOrder,
@@ -1182,30 +1180,9 @@ export function AsinInventory() {
                        </div>
                      </SelectItem>
                    </SelectContent>
-                 </Select>
-                 
-                 {/* LAYER 5: Search Mode Toggle */}
-                 <Select value={searchMode} onValueChange={(value: 'starts' | 'contains') => setSearchMode(value)}>
-                   <SelectTrigger className="w-[140px] h-14 border-0 border-l border-border/40 rounded-none bg-transparent">
-                     <SelectValue />
-                   </SelectTrigger>
-                   <SelectContent>
-                     <SelectItem value="starts">
-                       <div className="flex items-center gap-2">
-                         <Zap className="w-4 h-4 text-yellow-500" />
-                         <span>Starts with</span>
-                       </div>
-                     </SelectItem>
-                     <SelectItem value="contains">
-                       <div className="flex items-center gap-2">
-                         <Search className="w-4 h-4" />
-                         <span>Contains</span>
-                       </div>
-                     </SelectItem>
-                   </SelectContent>
-                 </Select>
-                 
-                   <div className="relative flex-1">
+                  </Select>
+                  
+                  <div className="relative flex-1">
                      <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5 z-10" />
                      <Input placeholder={searchMethod === 'all' ? "Search across all fields..." : searchMethod === 'asin' ? "Search by ASIN..." : searchMethod === 'sku' ? "Search by SKU..." : searchMethod === 'serial' ? "Search by Serial Number..." : searchMethod === 'title' ? "Search by Title..." : "Search by Notes..."} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-12 pr-4 h-14 text-base border-0 bg-transparent focus:ring-0 focus:ring-offset-0 rounded-none placeholder:text-muted-foreground/60" />
                      {/* Show spinner only during actual search API calls */}
