@@ -522,6 +522,8 @@ export function AsinInventory() {
     // Validate for duplicates
     const validationErrors = [];
     const seenSkus = new Set();
+    const seenSerials = new Set();
+    
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
 
@@ -540,7 +542,30 @@ export function AsinInventory() {
         }
         seenSkus.add(item.sku.toLowerCase());
       }
+
+      // Check for duplicate SERIAL NUMBER (if provided)
+      if (item.serialNumber && item.serialNumber.trim()) {
+        const duplicateSerial = inventory.find(existing => 
+          existing.serialNumber === item.serialNumber
+        );
+        if (duplicateSerial) {
+          validationErrors.push(
+            `Row ${i + 1}: Serial "${item.serialNumber}" already used by ASIN "${duplicateSerial.asin}"`
+          );
+          continue;
+        }
+
+        // Check for duplicate serial within bulk data
+        if (seenSerials.has(item.serialNumber)) {
+          validationErrors.push(
+            `Row ${i + 1}: Serial "${item.serialNumber}" appears multiple times in bulk data`
+          );
+          continue;
+        }
+        seenSerials.add(item.serialNumber);
+      }
     }
+    
     if (validationErrors.length > 0) {
       toast({
         title: "Validation Errors",
