@@ -104,8 +104,8 @@ export function useAsinInventoryPaginated(
       const effectiveStatus = filters.statusFilter === 'ordered' ? 'sold' : filters.statusFilter;
       query = query.eq('status', effectiveStatus);
     } else {
-      // When 'all' is selected, exclude ordered/sold by default to match previous behavior
-      query = query.not('status', 'in', '(ordered,sold)');
+      // When 'all' is selected, exclude only sold items
+      query = query.not('status', 'eq', 'sold');
     }
 
     // Apply quick filters
