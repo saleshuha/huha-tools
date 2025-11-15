@@ -318,7 +318,7 @@ export function QuantityConfirmDialog({
               <Package className="h-4 w-4 text-green-600" />
               <AlertDescription className="text-sm">
                 <p className="font-medium text-green-700 dark:text-green-400 mb-2">
-                  Will automatically fulfill from {availablePOs.length} PO(s):
+                  Will mark {availablePOs.length} PO(s) as printed/received:
                 </p>
                 <div className="space-y-1 text-xs">
                   {availablePOs.slice(0, 5).map(po => (
@@ -343,7 +343,7 @@ export function QuantityConfirmDialog({
               <AlertDescription className="text-sm">
                 <p className="font-medium mb-1">No matching POs found!</p>
                 <p className="text-xs">
-                  This item was found in POs but no valid POs are available for fulfillment.
+                  This item was found in POs but no valid POs are available to mark as printed.
                   Check PO status or item identifiers.
                 </p>
               </AlertDescription>
