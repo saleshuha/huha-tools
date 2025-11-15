@@ -280,7 +280,24 @@ export function useAsinInventoryPaginated(
       invalidateCache();
     },
     updateSerialNumber: async (id: string, newSerialNumber: string) => {
+      // Optimistic update: immediately update the cached data
+      queryClient.setQueryData<PaginatedResult>(
+        ['asinInventoryPaginated', selectedCountry, page, pageSize, filters],
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            items: old.items.map(item =>
+              item.id === id ? { ...item, serialNumber: newSerialNumber.trim() } : item
+            ),
+          };
+        }
+      );
+      
+      // Perform the actual update
       await baseHook.updateSerialNumber(id, newSerialNumber);
+      
+      // Refetch in background to ensure data consistency
       invalidateCache();
     },
     updateTitle: async (id: string, newTitle: string) => {
