@@ -494,20 +494,25 @@ export function LabelPrintDialog({ open, onOpenChange, selectedItems, inventoryT
                 </div>
                 
                 <div className="space-y-2">
-                  <Label>Print Darkness (0-30)</Label>
-                  <div className="space-y-2">
+                  <Label className="text-sm font-semibold">Print Darkness (0-30)</Label>
+                  <div className="p-4 bg-muted/50 rounded-lg border border-border space-y-3">
                     <Slider
                       value={[printSettings.darkness]}
-                      onValueChange={(value) => setPrintSettings({ darkness: value[0] })}
+                      onValueChange={(value) => {
+                        console.log('Darkness changed to:', value[0]);
+                        setPrintSettings({ darkness: value[0] });
+                      }}
                       max={30}
                       min={0}
                       step={1}
                       className="w-full"
                     />
-                    <div className="flex justify-between text-sm text-muted-foreground">
-                      <span>Light (0)</span>
-                      <span className="text-sm font-medium">{printSettings.darkness}</span>
-                      <span>Dark (30)</span>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">Light (0)</span>
+                      <Badge variant="secondary" className="font-mono font-bold text-base">
+                        {printSettings.darkness}
+                      </Badge>
+                      <span className="text-muted-foreground">Dark (30)</span>
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground">
