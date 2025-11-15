@@ -1,15 +1,25 @@
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Check, X, Edit2, Hash, Loader2 } from 'lucide-react';
+import { Check, X, Edit2, Hash, Loader2, Trash2, AlertCircle } from 'lucide-react';
 
 interface SerialNumberEditorProps {
   currentSerialNumber?: string;
   onUpdate: (newSerialNumber: string) => void;
+  onDelete?: () => void;
+  onViewDuplicates?: () => void;
+  hasDuplicates?: boolean;
   getNextSerial?: () => Promise<string> | string; // Allow async
 }
 
-export function SerialNumberEditor({ currentSerialNumber = '', onUpdate, getNextSerial }: SerialNumberEditorProps) {
+export function SerialNumberEditor({ 
+  currentSerialNumber = '', 
+  onUpdate, 
+  onDelete,
+  onViewDuplicates,
+  hasDuplicates = false,
+  getNextSerial 
+}: SerialNumberEditorProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [serialValue, setSerialValue] = useState(currentSerialNumber);
   const [isLoadingSerial, setIsLoadingSerial] = useState(false);
@@ -78,10 +88,21 @@ export function SerialNumberEditor({ currentSerialNumber = '', onUpdate, getNext
   }
 
   return (
-    <div className="flex items-center gap-2 group min-w-[100px]">
-      <span className="font-mono text-sm flex-1">
+    <div className="flex items-center gap-1 group min-w-[100px]">
+      <span className={`font-mono text-sm flex-1 ${hasDuplicates ? 'text-destructive font-semibold' : ''}`}>
         {currentSerialNumber || '-'}
       </span>
+      {hasDuplicates && onViewDuplicates && (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={onViewDuplicates}
+          className="h-6 w-6 p-0 text-destructive hover:text-destructive opacity-100"
+          title="View duplicate serial numbers"
+        >
+          <AlertCircle className="w-4 h-4" />
+        </Button>
+      )}
       {getNextSerial && !currentSerialNumber && (
         <Button
           size="sm"
@@ -103,9 +124,21 @@ export function SerialNumberEditor({ currentSerialNumber = '', onUpdate, getNext
         variant="ghost"
         onClick={() => setIsEditing(true)}
         className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+        title="Edit serial number"
       >
         <Edit2 className="w-3 h-3" />
       </Button>
+      {currentSerialNumber && onDelete && (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={onDelete}
+          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+          title="Delete serial number"
+        >
+          <Trash2 className="w-3 h-3" />
+        </Button>
+      )}
     </div>
   );
 }
