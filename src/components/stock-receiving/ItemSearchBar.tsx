@@ -56,7 +56,7 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
         // Search in open POs
         const { data: poData } = await supabase
           .from('po_orders')
-          .select('asin, sku_code, model_number, title, po_number')
+          .select('asin, sku_code, model_number, title, po_number, priority, group_id')
           .or(`asin.ilike.%${term}%,sku_code.ilike.%${term}%,model_number.ilike.%${term}%`)
           .in('status', ['pending', 'placed'])
           .limit(20);
@@ -94,21 +94,46 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
 
         // Add PO results (group and collect PO numbers)
         if (poData && poData.length > 0) {
+          // Fetch group information if any POs have group_id
+          const groupIds = [...new Set(poData.map(item => item.group_id).filter(Boolean))];
+          let groupMap = new Map();
+          
+          if (groupIds.length > 0) {
+            const { data: groupData } = await supabase
+              .from('po_groups')
+              .select('id, group_name')
+              .in('id', groupIds);
+            
+            groupMap = new Map(groupData?.map(g => [g.id, g]) || []);
+          }
+
           const grouped = poData.reduce((acc, item) => {
             const key = item.asin || item.sku_code || item.model_number || 'unknown';
             if (!acc[key]) {
-              acc[key] = { ...item, count: 0, po_numbers: [] };
+              acc[key] = { 
+                ...item, 
+                count: 0, 
+                po_numbers: [],
+                max_priority: item.priority || 0,
+                group_id: item.group_id
+              };
             }
             acc[key].count++;
             if (item.po_number && !acc[key].po_numbers.includes(item.po_number)) {
               acc[key].po_numbers.push(item.po_number);
             }
+            // Track the highest priority
+            if (item.priority && item.priority > acc[key].max_priority) {
+              acc[key].max_priority = item.priority;
+            }
             return acc;
           }, {} as any);
 
           Object.values(grouped).forEach((item: any) => {
+            const groupInfo = item.group_id ? groupMap.get(item.group_id) : null;
+            
             searchResults.push({
-              type: 'po',
+              type: groupInfo ? 'po_group' : 'po',
               asin: item.asin,
               sku_code: item.sku_code,
               model_number: item.model_number,
@@ -116,6 +141,14 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
               context: `Found in ${item.count} pending PO${item.count > 1 ? 's' : ''}`,
               po_count: item.count,
               po_numbers: item.po_numbers,
+              priority: item.max_priority,
+              po_group: groupInfo ? {
+                id: item.group_id,
+                name: groupInfo.group_name,
+                total_quantity: item.count,
+                po_ids: [],
+                po_numbers: item.po_numbers
+              } : undefined,
               image_url: item.asin ? imageMap.get(item.asin) : undefined
             });
           });
