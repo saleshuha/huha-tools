@@ -74,6 +74,30 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
         
         const { data: invData } = await invQuery.limit(5);
 
+        // Fetch images for PO items
+        const poAsins = [...new Set(poData?.map(item => item.asin).filter(Boolean))];
+        const { data: poImages } = poAsins.length > 0 
+          ? await supabase
+              .from('po_asin_images')
+              .select('asin, image_url')
+              .in('asin', poAsins)
+              .order('created_at', { ascending: false })
+          : { data: null };
+
+        const poImageMap = new Map(poImages?.map(img => [img.asin, img.image_url]) || []);
+
+        // Fetch images for inventory items
+        const invAsins = [...new Set(invData?.map(item => item.asin).filter(Boolean))];
+        const { data: invImages } = invAsins.length > 0
+          ? await supabase
+              .from('inventory_asin_images')
+              .select('asin, image_url')
+              .in('asin', invAsins)
+              .order('created_at', { ascending: false })
+          : { data: null };
+
+        const invImageMap = new Map(invImages?.map(img => [img.asin, img.image_url]) || []);
+
         const searchResults: SearchResult[] = [];
 
         // Add PO results (group and collect PO numbers)
@@ -99,7 +123,8 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
               title: item.title,
               context: `Found in ${item.count} pending PO${item.count > 1 ? 's' : ''}`,
               po_count: item.count,
-              po_numbers: item.po_numbers
+              po_numbers: item.po_numbers,
+              image_url: item.asin ? poImageMap.get(item.asin) : undefined
             });
           });
         }
@@ -119,7 +144,8 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
                 serial_number: item.serial_number,
                 context: item.serial_number 
                   ? `Already in inventory (SN: ${item.serial_number})`
-                  : 'Already in inventory'
+                  : 'Already in inventory',
+                image_url: item.asin ? invImageMap.get(item.asin) : undefined
               });
             }
           });
