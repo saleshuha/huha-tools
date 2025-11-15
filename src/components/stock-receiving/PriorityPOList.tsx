@@ -54,12 +54,12 @@ export function PriorityPOList() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Get open POs grouped by PO number with aggregated quantities
+      // Get ALL POs grouped by PO number with aggregated quantities
       const { data, error } = await supabase
         .from('po_orders')
         .select('id, po_number, status, priority, quantity, asin, sku_code, model_number, title, expected_delivery')
         .eq('user_id', user.id)
-        .in('status', ['pending', 'placed'])
+        // Removed status filter to show ALL POs
         .order('priority', { ascending: true })
         .order('expected_delivery', { ascending: true });
 
