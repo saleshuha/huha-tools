@@ -23,6 +23,11 @@ export const SUBCATEGORIES: Record<TaxonomyCategory, string[]> = {
   'Amazon': [
     'Order Processing',
     'PO Tracker',
+    'PO Upload',
+    'PO Labels',
+    'PO Reports',
+    'PO Analytics',
+    'PO Purchase Links',
     'PO Details',
     'Fulfillment',
     'Image Upload',

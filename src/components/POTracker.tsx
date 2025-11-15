@@ -3264,9 +3264,22 @@ export const POTracker = () => {
 
 
       <Tabs value={activeTab} onValueChange={(newTab) => {
+        // Map tab values to unique subcategories
+        const getSubcategoryForTab = (tab: string): string => {
+          switch(tab) {
+            case 'overview': return 'PO Tracker';
+            case 'upload': return 'PO Upload';
+            case 'labels': return 'PO Labels';
+            case 'reports': return 'PO Reports';
+            case 'analytics': return 'PO Analytics';
+            case 'purchase-links': return 'PO Purchase Links';
+            default: return 'PO Tracker';
+          }
+        };
+
         trackTabChange({
           category: 'Amazon',
-          subcategory: 'PO Tracker',
+          subcategory: getSubcategoryForTab(newTab),
           fromTab: activeTab,
           toTab: newTab,
           tabTitle: newTab === 'overview' ? 'PO Overview' : 
