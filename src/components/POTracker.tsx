@@ -29,6 +29,7 @@ import { PurchaseLinkManagement } from '@/components/po/PurchaseLinkManagement';
 import { PurchaseUpdatesPanel } from '@/components/po/PurchaseUpdatesPanel';
 import { SmartMatchingPanel } from '@/components/po/matching/SmartMatchingPanel';
 import { FulfillFromStockDialog } from '@/components/po/FulfillFromStockDialog';
+import { PrintHistoryDialog } from '@/components/po/PrintHistoryDialog';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { usePOOrders } from '@/hooks/usePOOrders';
 import { useSKUManager } from '@/hooks/useSKUManager';
@@ -73,6 +74,7 @@ export interface POOrder {
   created_at: string;
   updated_at: string;
   is_printed?: boolean;
+  label_printed_at?: string;
   sunsky_sku?: any;
   batch_id?: string;
   // Consolidation properties for merged ASIN view
@@ -183,6 +185,10 @@ export const POTracker = () => {
     consolidatedOrders: any[];
   } | null>(null);
   const [isFulfilling, setIsFulfilling] = useState(false);
+
+  // Print history dialog state
+  const [printHistoryDialogOpen, setPrintHistoryDialogOpen] = useState(false);
+  const [printHistoryOrder, setPrintHistoryOrder] = useState<POOrder | null>(null);
 
   // Debounce main search query (300ms delay)
   useEffect(() => {
@@ -6312,7 +6318,11 @@ export const POTracker = () => {
                                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                                              <Badge 
                                                variant="default"
-                                               className="text-xs px-2 py-1 font-medium bg-green-500/15 text-green-700 dark:text-green-300 border border-green-500/30"
+                                               className="text-xs px-2 py-1 font-medium bg-green-500/15 text-green-700 dark:text-green-300 border border-green-500/30 cursor-pointer hover:bg-green-500/25 transition-colors"
+                                               onClick={() => {
+                                                 setPrintHistoryOrder(order);
+                                                 setPrintHistoryDialogOpen(true);
+                                               }}
                                              >
                                                <Printer className="h-3 w-3 mr-1" />
                                                Fully Printed
@@ -6323,7 +6333,11 @@ export const POTracker = () => {
                                              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
                                              <Badge 
                                                variant="default"
-                                               className="text-xs px-2 py-1 font-medium bg-yellow-500/15 text-yellow-700 dark:text-yellow-300 border border-yellow-500/30"
+                                               className="text-xs px-2 py-1 font-medium bg-yellow-500/15 text-yellow-700 dark:text-yellow-300 border border-yellow-500/30 cursor-pointer hover:bg-yellow-500/25 transition-colors"
+                                               onClick={() => {
+                                                 setPrintHistoryOrder(order);
+                                                 setPrintHistoryDialogOpen(true);
+                                               }}
                                              >
                                                <AlertCircle className="h-3 w-3 mr-1" />
                                                Partial ({order.printed_quantity}/{order.quantity})
@@ -6890,6 +6904,15 @@ export const POTracker = () => {
         onOpenChange={setGenerateLinkDialogOpen}
         poNumbers={Array.from(selectedPOsForLabels)}
       />
+
+      {/* Print History Dialog */}
+      {printHistoryOrder && (
+        <PrintHistoryDialog
+          open={printHistoryDialogOpen}
+          onOpenChange={setPrintHistoryDialogOpen}
+          order={printHistoryOrder}
+        />
+      )}
     </div>
   );
 };
