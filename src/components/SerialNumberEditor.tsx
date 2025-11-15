@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Check, X, Edit2, Hash } from 'lucide-react';
+import { Check, X, Edit2, Hash, Loader2 } from 'lucide-react';
 
 interface SerialNumberEditorProps {
   currentSerialNumber?: string;
@@ -12,6 +12,7 @@ interface SerialNumberEditorProps {
 export function SerialNumberEditor({ currentSerialNumber = '', onUpdate, getNextSerial }: SerialNumberEditorProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [serialValue, setSerialValue] = useState(currentSerialNumber);
+  const [isLoadingSerial, setIsLoadingSerial] = useState(false);
 
   const handleSave = () => {
     const trimmedValue = serialValue.trim();
@@ -28,9 +29,16 @@ export function SerialNumberEditor({ currentSerialNumber = '', onUpdate, getNext
 
   const handleAutoSerial = async () => {
     if (getNextSerial) {
-      const nextSerial = await getNextSerial(); // Await the promise
-      if (nextSerial) {
-        onUpdate(nextSerial);
+      setIsLoadingSerial(true);
+      try {
+        const nextSerial = await getNextSerial();
+        if (nextSerial) {
+          onUpdate(nextSerial);
+        }
+      } catch (error) {
+        console.error('Error getting next serial:', error);
+      } finally {
+        setIsLoadingSerial(false);
       }
     }
   };
@@ -79,10 +87,15 @@ export function SerialNumberEditor({ currentSerialNumber = '', onUpdate, getNext
           size="sm"
           variant="ghost"
           onClick={handleAutoSerial}
+          disabled={isLoadingSerial}
           className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
           title="Auto-assign next serial number"
         >
-          <Hash className="w-3 h-3" />
+          {isLoadingSerial ? (
+            <Loader2 className="w-3 h-3 animate-spin" />
+          ) : (
+            <Hash className="w-3 h-3" />
+          )}
         </Button>
       )}
       <Button

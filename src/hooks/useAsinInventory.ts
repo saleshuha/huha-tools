@@ -559,14 +559,17 @@ export function useAsinInventory() {
 
     try {
       // Query database directly for ALL existing 5-digit serial numbers
+      console.log('🔍 Querying database for existing serial numbers...');
       const { data: existingSerials, error } = await ((supabase as any)
         .from('asin_inventory')
-        .select('serial_number')
+        .select('serial_number, asin')
         .eq('user_id', profile.id)
         .like('serial_number', '_____') // 5 characters
         .order('serial_number', { ascending: true }));
 
       if (error) throw error;
+
+      console.log(`📊 Database returned ${existingSerials?.length || 0} records`);
 
       // Build Set of existing serials
       const serialSet = new Set(
@@ -575,7 +578,16 @@ export function useAsinInventory() {
           .filter((s: string) => s && /^\d{5}$/.test(s))
       );
 
-      console.log(`🔍 Found ${serialSet.size} existing serials in database`);
+      console.log(`✅ Found ${serialSet.size} valid 5-digit serials in use`);
+      
+      // Log first 10 and last 10 serials for debugging
+      const sortedSerials = Array.from(serialSet).sort();
+      if (sortedSerials.length > 0) {
+        const first10 = sortedSerials.slice(0, 10).join(', ');
+        const last10 = sortedSerials.length > 10 ? sortedSerials.slice(-10).join(', ') : '';
+        console.log(`📝 First serials: ${first10}`);
+        if (last10) console.log(`📝 Last serials: ${last10}`);
+      }
 
       // Find all missing numbers in the range
       const serialNumbers = Array.from(serialSet)
@@ -583,75 +595,167 @@ export function useAsinInventory() {
         .sort((a, b) => a - b);
 
       if (serialNumbers.length === 0) {
+        console.log('🎯 No serials exist, suggesting 00001');
         return '00001'; // First serial
       }
 
       const maxSerial = Math.max(...serialNumbers);
+      console.log(`📈 Max serial in use: ${maxSerial.toString().padStart(5, '0')}`);
       
       // Strategy 1: Fill gaps first
       for (let i = 1; i <= maxSerial; i++) {
         const candidateSerial = i.toString().padStart(5, '0');
         if (!serialSet.has(candidateSerial)) {
-          console.log(`✅ Suggesting missing serial: ${candidateSerial}`);
-          return candidateSerial;
+          console.log(`🎯 Found gap at ${candidateSerial}, validating...`);
+          
+          // Double-check in database before returning
+          const { data: doubleCheck } = await ((supabase as any)
+            .from('asin_inventory')
+            .select('id')
+            .eq('user_id', profile.id)
+            .eq('serial_number', candidateSerial)
+            .limit(1));
+          
+          if (!doubleCheck || doubleCheck.length === 0) {
+            console.log(`✅ Validated ${candidateSerial} is available (gap fill)`);
+            return candidateSerial;
+          } else {
+            console.warn(`⚠️ ${candidateSerial} appeared in double-check, skipping`);
+          }
         }
       }
 
       // Strategy 2: Continue from max serial
       const nextSerial = (maxSerial + 1).toString().padStart(5, '0');
-      console.log(`✅ Suggesting next serial: ${nextSerial}`);
+      console.log(`🎯 No gaps found, suggesting next: ${nextSerial}, validating...`);
+      
+      // Double-check in database before returning
+      const { data: doubleCheck } = await ((supabase as any)
+        .from('asin_inventory')
+        .select('id')
+        .eq('user_id', profile.id)
+        .eq('serial_number', nextSerial)
+        .limit(1));
+      
+      if (!doubleCheck || doubleCheck.length === 0) {
+        console.log(`✅ Validated ${nextSerial} is available (continuation)`);
+        return nextSerial;
+      } else {
+        console.error(`❌ ${nextSerial} is already in use, trying next number`);
+        // If even this fails, try incrementing further
+        for (let offset = 2; offset <= 10; offset++) {
+          const fallbackSerial = (maxSerial + offset).toString().padStart(5, '0');
+          const { data: fallbackCheck } = await ((supabase as any)
+            .from('asin_inventory')
+            .select('id')
+            .eq('user_id', profile.id)
+            .eq('serial_number', fallbackSerial)
+            .limit(1));
+          
+          if (!fallbackCheck || fallbackCheck.length === 0) {
+            console.log(`✅ Fallback serial ${fallbackSerial} is available`);
+            return fallbackSerial;
+          }
+        }
+      }
+      
       return nextSerial;
       
     } catch (error) {
-      console.error('Error getting next available serial:', error);
+      console.error('❌ Error getting next available serial:', error);
       return '';
     }
   };
 
-  // Update Serial Number for an item
+  // Update Serial Number for an item with auto-retry
   const updateSerialNumber = async (id: string, newSerialNumber: string) => {
     if (!profile) return;
 
-    try {
-      // Check for duplicate serial numbers
-      const { data: existingItems, error: checkError } = await ((supabase as any)
-        .from('asin_inventory')
-        .select('id, asin, serial_number')
-        .eq('user_id', profile.id)
-        .eq('serial_number', newSerialNumber.trim())
-        .neq('id', id));
+    const originalSerial = newSerialNumber.trim();
+    let currentSerial = originalSerial;
+    let attempts = 0;
+    const maxAttempts = 100;
 
-      if (checkError) throw checkError;
+    while (attempts < maxAttempts) {
+      try {
+        attempts++;
+        console.log(`🔄 Attempt ${attempts}: Trying serial ${currentSerial}`);
 
-      if (existingItems && existingItems.length > 0) {
-        const existingAsin = (existingItems[0] as any).asin;
-        throw new Error(`Serial number "${newSerialNumber}" is already used by ASIN "${existingAsin}". Each serial number must be unique.`);
+        // Check for duplicate serial numbers
+        const { data: existingItems, error: checkError } = await ((supabase as any)
+          .from('asin_inventory')
+          .select('id, asin, serial_number')
+          .eq('user_id', profile.id)
+          .eq('serial_number', currentSerial)
+          .neq('id', id));
+
+        if (checkError) throw checkError;
+
+        if (existingItems && existingItems.length > 0) {
+          const existingAsin = (existingItems[0] as any).asin;
+          console.warn(`⚠️ Serial ${currentSerial} is in use by ASIN ${existingAsin}`);
+          
+          // Auto-increment and retry
+          const serialNum = parseInt(currentSerial, 10);
+          if (isNaN(serialNum)) {
+            throw new Error(`Invalid serial number format: "${currentSerial}"`);
+          }
+          
+          currentSerial = (serialNum + 1).toString().padStart(5, '0');
+          console.log(`🔄 Auto-adjusting to ${currentSerial}`);
+          continue; // Try again with new serial
+        }
+
+        // Serial is available, proceed with update
+        console.log(`✅ Serial ${currentSerial} is available, updating...`);
+        const { error } = await ((supabase as any)
+          .from('asin_inventory')
+          .update({ serial_number: currentSerial })
+          .eq('id', id)
+          .eq('user_id', profile.id));
+
+        if (error) throw error;
+
+        setInventory(prev => prev.map(item => 
+          item.id === id ? { ...item, serialNumber: currentSerial } : item
+        ));
+
+        // Show appropriate toast message
+        if (currentSerial !== originalSerial) {
+          toast({
+            title: "Serial Number Updated",
+            description: `Serial number auto-adjusted to ${currentSerial} (${originalSerial} was already in use)`,
+          });
+        } else {
+          toast({
+            title: "Serial Number Updated",
+            description: `Serial number updated successfully.`,
+          });
+        }
+        
+        return; // Success, exit function
+        
+      } catch (error) {
+        // Non-duplicate errors should throw immediately
+        if (!error?.message?.includes('already used')) {
+          console.error('❌ Error updating serial number:', error);
+          toast({
+            title: "Error updating serial number",
+            description: error instanceof Error ? error.message : "Failed to update serial number",
+            variant: "destructive",
+          });
+          return;
+        }
       }
-
-      const { error } = await ((supabase as any)
-        .from('asin_inventory')
-        .update({ serial_number: newSerialNumber.trim() })
-        .eq('id', id)
-        .eq('user_id', profile.id));
-
-      if (error) throw error;
-
-      setInventory(prev => prev.map(item => 
-        item.id === id ? { ...item, serialNumber: newSerialNumber.trim() } : item
-      ));
-
-      toast({
-        title: "Serial Number Updated",
-        description: `Serial number updated successfully.`,
-      });
-    } catch (error) {
-      console.error('Error updating serial number:', error);
-      toast({
-        title: "Error updating serial number",
-        description: error instanceof Error ? error.message : "Failed to update serial number",
-        variant: "destructive",
-      });
     }
+
+    // Max attempts reached
+    console.error(`❌ Failed to find available serial after ${maxAttempts} attempts`);
+    toast({
+      title: "Error updating serial number",
+      description: `Could not find an available serial number after ${maxAttempts} attempts`,
+      variant: "destructive",
+    });
   };
 
   // Bulk update SKUs for multiple items by ASIN
