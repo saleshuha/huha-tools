@@ -578,7 +578,22 @@ export function AsinInventory() {
       });
       return;
     }
-    await bulkAdd(items);
+
+    // Auto-assign serial numbers for items without serials
+    const itemsWithAutoSerial = [];
+    for (const item of items) {
+      if (!item.serialNumber || item.serialNumber.trim() === '') {
+        const nextSerial = await getNextSerialNumber();
+        itemsWithAutoSerial.push({
+          ...item,
+          serialNumber: nextSerial
+        });
+      } else {
+        itemsWithAutoSerial.push(item);
+      }
+    }
+
+    await bulkAdd(itemsWithAutoSerial);
     setBulkText('');
     setIsBulkDialogOpen(false);
     toast({
@@ -2239,7 +2254,13 @@ export function AsinInventory() {
                                 const nextSerial = await getNextSerialNumber();
                                 if (nextSerial) {
                                   await updateSerialNumber(item.id, nextSerial);
-                                  setDuplicateSerialItems(prev => prev.filter(i => i.id !== item.id));
+                                  // Refresh duplicate list
+                                  const currentSerial = item.serialNumber;
+                                  const updatedDuplicates = duplicateSerialItems.filter(i => i.id !== item.id);
+                                  setDuplicateSerialItems(updatedDuplicates);
+                                  if (updatedDuplicates.length === 0) {
+                                    setIsDuplicatesDialogOpen(false);
+                                  }
                                 }
                               }}
                               title="Auto-assign next available serial"

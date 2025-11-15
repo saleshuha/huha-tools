@@ -558,11 +558,12 @@ export function useAsinInventory() {
     if (!profile) return '';
 
     try {
-      // Single query to get all existing 5-digit serial numbers
+      // Single query to get all existing 5-digit serial numbers (exclude empty serials)
       const { data: existingSerials, error } = await ((supabase as any)
         .from('asin_inventory')
         .select('serial_number')
         .eq('user_id', profile.id)
+        .neq('serial_number', '')
         .like('serial_number', '_____') // 5 digits
         .order('serial_number', { ascending: true }));
 
@@ -609,6 +610,28 @@ export function useAsinInventory() {
     const requestedSerial = newSerialNumber.trim();
 
     try {
+      // Allow empty serial without duplicate checking (for delete functionality)
+      if (requestedSerial === '') {
+        const { error } = await ((supabase as any)
+          .from('asin_inventory')
+          .update({ serial_number: '' })
+          .eq('id', id)
+          .eq('user_id', profile.id));
+
+        if (error) throw error;
+
+        // Update local state
+        setInventory(prev => prev.map(item => 
+          item.id === id ? { ...item, serialNumber: '' } : item
+        ));
+
+        toast({
+          title: "Serial Number Cleared",
+          description: "Serial number has been removed",
+        });
+        return;
+      }
+
       // Check if serial is already in use
       const { data: existingItems, error: checkError } = await ((supabase as any)
         .from('asin_inventory')
