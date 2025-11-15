@@ -55,25 +55,26 @@ export const usePOGroups = () => {
 
   // Create new PO group
   const createGroup = useMutation({
-    mutationFn: async ({ name, description, poIds }: { name: string; description?: string; poIds: string[] }) => {
+    mutationFn: async ({ name, description, poIds, priority }: { name: string; description?: string; poIds: string[]; priority?: number }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Create group
+      // Create group with priority
       const { data: group, error: groupError } = await supabase
         .from('po_groups')
         .insert({
           user_id: user.id,
           group_name: name,
           description,
-          status: 'active'
+          status: 'active',
+          priority: priority || 3
         })
         .select()
         .single();
 
       if (groupError) throw groupError;
 
-      // Add members
+      // Add members and update their priority
       if (poIds.length > 0) {
         const members = poIds.map(po_id => ({
           group_id: group.id,
@@ -85,6 +86,14 @@ export const usePOGroups = () => {
           .insert(members);
 
         if (membersError) throw membersError;
+
+        // Update all member POs with the group's priority
+        const { error: updateError } = await supabase
+          .from('po_orders')
+          .update({ priority: priority || 3 })
+          .in('id', poIds);
+
+        if (updateError) throw updateError;
       }
 
       return group;

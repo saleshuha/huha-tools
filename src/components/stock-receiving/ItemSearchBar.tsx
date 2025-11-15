@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Loader2, Users } from 'lucide-react';
+import { Search, Loader2, Users, Folder } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
@@ -298,13 +298,26 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
 
                   {/* Priority and Group Badges on the Right */}
                   <div className="flex flex-col gap-2 items-end ml-auto shrink-0">
-                    {result.priority && result.priority > 0 && (
-                      <POPriorityBadge priority={result.priority} onUpdate={() => {}} disabled />
-                    )}
                     {isGrouped && result.po_group && (
-                      <Badge variant="outline" className="text-xs">
-                        <Users className="w-3 h-3 mr-1" />
-                        {result.po_group.name}
+                      <>
+                        <Badge variant="outline" className="text-xs">
+                          <Folder className="w-3 h-3 mr-1" />
+                          {result.po_group.name}
+                        </Badge>
+                        {result.priority && result.priority < 3 && (
+                          <Badge 
+                            variant={result.priority === 1 ? "destructive" : "default"}
+                            className="text-xs"
+                            title={`Priority inherited from group: ${result.po_group.name}`}
+                          >
+                            Priority {result.priority}
+                          </Badge>
+                        )}
+                      </>
+                    )}
+                    {!isGrouped && (
+                      <Badge variant="outline" className="text-xs text-muted-foreground">
+                        Not in group
                       </Badge>
                     )}
                   </div>
