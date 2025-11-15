@@ -274,34 +274,36 @@ export function QuantityConfirmDialog({
             />
           </div>
 
-          {/* Serial Number - HIGHLIGHTED */}
-          <div className="space-y-2 p-3 bg-primary/5 rounded-lg border-2 border-primary/20">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="serial" className="font-semibold text-primary">
-                📦 Serial/Bin Number
-              </Label>
-              <span className="text-xs text-muted-foreground">Will print on label</span>
+          {/* Serial Number - Only for inventory items */}
+          {item.type !== 'po' && item.type !== 'po_group' && (
+            <div className="space-y-2 p-3 bg-primary/5 rounded-lg border-2 border-primary/20">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="serial" className="font-semibold text-primary">
+                  📦 Serial/Bin Number
+                </Label>
+                <span className="text-xs text-muted-foreground">Will print on label</span>
+              </div>
+              <Input
+                id="serial"
+                value={serialNumber}
+                onChange={(e) => setSerialNumber(e.target.value)}
+                placeholder="Enter serial number (e.g., SN123456)"
+                className="font-mono text-base border-primary/30 focus-visible:ring-primary"
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">
+                {initialSerialNumber ? (
+                  <span className="text-green-600 dark:text-green-400">
+                    ✅ Auto-fetched from inventory: {serialNumber || 'N/A'}
+                  </span>
+                ) : serialNumber ? (
+                  `Will print: ${serialNumber}`
+                ) : (
+                  'If empty, label will show "N/A"'
+                )}
+              </p>
             </div>
-            <Input
-              id="serial"
-              value={serialNumber}
-              onChange={(e) => setSerialNumber(e.target.value)}
-              placeholder="Enter serial number (e.g., SN123456)"
-              className="font-mono text-base border-primary/30 focus-visible:ring-primary"
-              autoFocus
-            />
-            <p className="text-xs text-muted-foreground">
-              {initialSerialNumber ? (
-                <span className="text-green-600 dark:text-green-400">
-                  ✅ Auto-fetched from inventory: {serialNumber || 'N/A'}
-                </span>
-              ) : serialNumber ? (
-                `Will print: ${serialNumber}`
-              ) : (
-                'If empty, label will show "N/A"'
-              )}
-            </p>
-          </div>
+          )}
 
           {/* Auto-Print Toggle */}
           <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border">
