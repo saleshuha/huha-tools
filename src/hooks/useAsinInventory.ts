@@ -554,59 +554,24 @@ export function useAsinInventory() {
   };
 
   // Get next available serial number - simplified logic
+  // Get next available serial number - ATOMIC database-level generation
   const getNextAvailableSerial = async (): Promise<string> => {
     if (!profile) return '';
 
     try {
-      // Single query to get all existing 5-digit serial numbers (exclude empty serials)
-      const { data: existingSerials, error } = await ((supabase as any)
-        .from('asin_inventory')
-        .select('serial_number')
-        .eq('user_id', profile.id)
-        .neq('serial_number', '')
-        .like('serial_number', '_____') // 5 digits
-        .order('serial_number', { ascending: true }));
+      const { data, error } = await supabase
+        .rpc('get_next_serial_number', { p_user_id: profile.id });
 
       if (error) throw error;
-
-      // Build Set of existing serials for fast lookup
-      const serialSet = new Set(
-        (existingSerials || [])
-          .map((item: any) => item.serial_number)
-          .filter((s: string) => s && /^\d{5}$/.test(s))
-      );
-
-      // If no serials exist, start at 00001
-      if (serialSet.size === 0) {
-        return '00001';
-      }
-
-      // Convert to numbers and find max
-      const serialNumbers = Array.from(serialSet)
-        .map((s: string) => parseInt(s, 10));
-      const maxSerial = Math.max(...serialNumbers);
-
-      // Strategy 1: Fill gaps first (1 to max)
-      for (let i = 1; i <= maxSerial; i++) {
-        const candidate = i.toString().padStart(5, '0');
-        if (!serialSet.has(candidate)) {
-          return candidate; // Found a gap!
-        }
-      }
-
-      // Strategy 2: No gaps, continue from max
-      return (maxSerial + 1).toString().padStart(5, '0');
-
+      return data || '';
     } catch (error) {
       console.error('Error getting next serial:', error);
       return '';
     }
   };
 
-  // Update Serial Number for an item with auto-retry - simplified
-  const updateSerialNumber = async (id: string, newSerialNumber: string, retryCount = 0): Promise<void> => {
-    const MAX_RETRIES = 3;
-    
+  // Update Serial Number for an item - ATOMIC with single retry
+  const updateSerialNumber = async (id: string, newSerialNumber: string): Promise<void> => {
     if (!profile) {
       toast({
         title: "Error",
@@ -619,20 +584,16 @@ export function useAsinInventory() {
     const requestedSerial = newSerialNumber.trim();
 
     try {
-      // Allow empty serial without duplicate checking (for delete functionality)
+      // Allow empty serial (for clear/delete functionality)
       if (requestedSerial === '') {
-        const { error } = await ((supabase as any)
+        const { error } = await supabase
           .from('asin_inventory')
           .update({ serial_number: '' })
           .eq('id', id)
-          .eq('user_id', profile.id));
+          .eq('user_id', profile.id);
 
-        if (error) {
-          console.error('Error clearing serial:', error);
-          throw new Error(`Database error: ${error.message || 'Unknown error'}`);
-        }
+        if (error) throw error;
 
-        // Update local state
         setInventory(prev => prev.map(item => 
           item.id === id ? { ...item, serialNumber: '' } : item
         ));
@@ -644,96 +605,57 @@ export function useAsinInventory() {
         return;
       }
 
-      // Check if serial is already in use
-      const { data: existingItems, error: checkError } = await ((supabase as any)
+      // Try to update directly - database constraint handles duplicates
+      const { error } = await supabase
         .from('asin_inventory')
-        .select('id, asin')
-        .eq('user_id', profile.id)
-        .eq('serial_number', requestedSerial)
-        .neq('id', id));
-
-      if (checkError) {
-        console.error('Error checking for duplicates:', checkError);
-        throw new Error(`Could not verify serial number uniqueness: ${checkError.message}`);
-      }
-
-      let finalSerial = requestedSerial;
-      let wasAutoAdjusted = false;
-
-      // If duplicate found, get next available serial
-      if (existingItems && existingItems.length > 0) {
-        const existingAsin = existingItems[0].asin;
-        finalSerial = await getNextAvailableSerial();
-        
-        if (!finalSerial) {
-          throw new Error(
-            `Serial "${requestedSerial}" is already used by ASIN "${existingAsin}" and no alternative serial number could be generated.`
-          );
-        }
-        wasAutoAdjusted = true;
-      }
-
-      // Update with final serial
-      const { error } = await ((supabase as any)
-        .from('asin_inventory')
-        .update({ serial_number: finalSerial })
+        .update({ serial_number: requestedSerial })
         .eq('id', id)
-        .eq('user_id', profile.id));
+        .eq('user_id', profile.id);
 
-      // Handle unique constraint violation with retry
       if (error) {
-        if (error.code === '23505' && retryCount < MAX_RETRIES) {
-          // Unique constraint violation - get next available and retry
-          console.warn(`Serial ${finalSerial} caused duplicate, retrying... (${retryCount + 1}/${MAX_RETRIES})`);
-          const nextSerial = await getNextAvailableSerial();
-          if (nextSerial) {
-            return updateSerialNumber(id, nextSerial, retryCount + 1);
+        // If unique constraint violation, auto-assign new serial from atomic counter
+        if (error.code === '23505') {
+          const newSerial = await getNextAvailableSerial();
+          if (newSerial) {
+            // Retry once with database-provided atomic serial
+            const { error: retryError } = await supabase
+              .from('asin_inventory')
+              .update({ serial_number: newSerial })
+              .eq('id', id)
+              .eq('user_id', profile.id);
+            
+            if (retryError) throw retryError;
+            
+            setInventory(prev => prev.map(item => 
+              item.id === id ? { ...item, serialNumber: newSerial } : item
+            ));
+            
+            toast({
+              title: "Serial Number Updated",
+              description: `Auto-assigned to ${newSerial} (${requestedSerial} was in use)`,
+            });
+            return;
           }
         }
-        
-        console.error('Error updating serial in database:', error);
-        throw new Error(
-          error.code === '23505' 
-            ? `Serial number "${finalSerial}" is already in use. Please try again.`
-            : `Failed to save serial number: ${error.message || 'Database error'}`
-        );
+        throw error;
       }
 
       // Update local state
       setInventory(prev => prev.map(item => 
-        item.id === id ? { ...item, serialNumber: finalSerial } : item
+        item.id === id ? { ...item, serialNumber: requestedSerial } : item
       ));
 
-      // Show success toast
-      if (wasAutoAdjusted) {
-        toast({
-          title: "Serial Number Auto-Adjusted",
-          description: `Serial "${requestedSerial}" was in use. Assigned "${finalSerial}" instead.`,
-        });
-      } else if (retryCount > 0) {
-        toast({
-          title: "Serial Number Updated",
-          description: `Assigned serial "${finalSerial}" after resolving conflicts.`,
-        });
-      } else {
-        toast({
-          title: "Serial Number Updated",
-          description: 'Serial number updated successfully',
-        });
-      }
+      toast({
+        title: "Serial Number Updated",
+        description: "Serial number updated successfully",
+      });
 
     } catch (error) {
-      console.error('Serial number update error:', error);
-      const errorMessage = error instanceof Error 
-        ? error.message 
-        : "An unknown error occurred while updating the serial number";
-      
       toast({
         title: "Error updating serial number",
-        description: errorMessage,
+        description: error instanceof Error ? error.message : "Failed to update",
         variant: "destructive",
       });
-      throw error; // Re-throw to prevent silent failures
     }
   };
 

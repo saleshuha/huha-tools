@@ -594,11 +594,19 @@ export function AsinInventory() {
       return;
     }
 
-    // Auto-assign serial numbers for items without serials
+    // Auto-assign serial numbers for items without serials using ATOMIC counter
     const itemsWithAutoSerial = [];
     for (const item of items) {
       if (!item.serialNumber || item.serialNumber.trim() === '') {
         const nextSerial = await getNextSerialNumber();
+        if (!nextSerial) {
+          toast({
+            title: "Error",
+            description: "Failed to generate serial numbers",
+            variant: "destructive",
+          });
+          return;
+        }
         itemsWithAutoSerial.push({
           ...item,
           serialNumber: nextSerial
