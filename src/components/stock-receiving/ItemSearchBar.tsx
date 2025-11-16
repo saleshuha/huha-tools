@@ -8,7 +8,7 @@ import { ImagePreview } from './ImagePreview';
 import { getPriorityLabel } from '@/utils/po-group-helpers';
 
 interface SearchResult {
-  type: 'po' | 'inventory' | 'recent' | 'po_group';
+  type: 'po' | 'inventory' | 'recent' | 'po_group' | 'not_found';
   asin?: string;
   sku_code?: string;
   model_number?: string;
@@ -19,6 +19,7 @@ interface SearchResult {
   po_numbers?: string[];
   image_url?: string;
   priority?: number;
+  searched_term?: string;
   po_group?: {
     id: string;
     name: string;
@@ -227,9 +228,20 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
           });
         }
 
-        // Only show dropdown if we have actual results
+        // If no results found, add a "not found" message
+        if (searchResults.length === 0) {
+          searchResults.push({
+            type: 'not_found',
+            searched_term: term,
+            asin: term,
+            context: 'Item not found in PO orders or inventory'
+          });
+        }
+
+        // Return combined results
+        console.log('✅ Search - Total results:', searchResults.length);
         setResults(searchResults);
-        setShowDropdown(searchResults.length > 0);
+        setShowDropdown(searchTerm.length >= 3);
       } catch (error) {
         console.error('Search error:', error);
         toast.error('Search failed');
@@ -243,6 +255,11 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
   }, [searchTerm, country]);
 
   const handleSelect = (result: SearchResult) => {
+    // Don't allow selection of "not found" items
+    if (result.type === 'not_found') {
+      return;
+    }
+    
     setShowDropdown(false);
     setSearchTerm('');
     onItemSelect(result);
@@ -267,6 +284,46 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
       {showDropdown && results.length > 0 && (
         <div className="absolute z-50 w-full mt-2 bg-background border border-border rounded-lg shadow-lg max-h-80 overflow-auto">
           {results.map((result, index) => {
+            // Handle "not found" case
+            if (result.type === 'not_found') {
+              return (
+                <div
+                  key={index}
+                  className="w-full px-4 py-4 border-b border-border/50 last:border-0"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-12 h-12 bg-muted/50 rounded flex items-center justify-center">
+                      <Search className="w-6 h-6 text-muted-foreground" />
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge variant="outline" className="text-xs text-yellow-600 bg-yellow-50 border-yellow-200">
+                          ⚠️ Not Found
+                        </Badge>
+                        <div className="font-medium text-foreground">
+                          "{result.searched_term}"
+                        </div>
+                      </div>
+                      
+                      <div className="text-sm text-muted-foreground mb-3">
+                        This item was not found in any pending PO orders or inventory.
+                      </div>
+                      
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                        <div className="font-medium text-blue-900 mb-1">
+                          📝 Next Steps:
+                        </div>
+                        <div className="text-blue-700">
+                          Please add this item to inventory first before receiving stock.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+            
             const identifier = result.asin || result.sku_code || result.model_number;
             const isPO = result.type === 'po' || result.type === 'po_group';
             const isGrouped = result.type === 'po_group';
