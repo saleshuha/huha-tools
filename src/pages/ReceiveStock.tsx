@@ -127,13 +127,13 @@ export default function ReceiveStock() {
   }, [navigate]);
 
   // Helper to convert item to dataset format (same as Inventory page)
-  const createDatasetFromItem = (item: any, result: any): LabelDataset => {
+  const createDatasetFromItem = (item: any, result: any, poNumbers?: string): LabelDataset => {
     return {
       id: 'receive-stock-data',
       name: 'Received Stock Data',
       description: 'Stock receiving item',
-      headers: ['ASIN', 'SKU', 'Title', 'Serial', 'Quantity', 'Status', 'Date'],
-      data: [[item.asin || 'N/A', item.sku_code || 'N/A', item.title || 'No Title', item.serial_number || 'N/A', item.quantity.toString(), result.template_type === 'po' ? 'Fulfilled' : 'In Stock', new Date().toLocaleDateString()]],
+      headers: ['PO Number', 'ASIN', 'SKU', 'Title', 'Serial', 'Quantity', 'Status', 'Date'],
+      data: [[poNumbers || 'N/A', item.asin || 'N/A', item.sku_code || 'N/A', item.title || 'No Title', item.serial_number || 'N/A', item.quantity.toString(), result.template_type === 'po' ? 'Fulfilled' : 'In Stock', new Date().toLocaleDateString()]],
       rowCount: 1,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -362,9 +362,13 @@ export default function ReceiveStock() {
             };
 
             // Create dataset with item data
-            const dataset = createDatasetFromItem(item, {
-              template_type: templateType
-            });
+            const dataset = createDatasetFromItem(
+              item,
+              { template_type: templateType },
+              result.matched_pos && result.matched_pos.length > 0
+                ? result.matched_pos.map((a: any) => a.po_number).join(', ')
+                : undefined
+            );
 
             // Get print settings
             const printSettings: PrintSettings = {
