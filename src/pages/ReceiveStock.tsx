@@ -341,9 +341,21 @@ export default function ReceiveStock() {
               updatedAt: template.updated_at || new Date().toISOString()
             };
 
+            // Wait for receiving to complete first to get allocations from response
+            const receiveResult = await receivePromise;
+            
+            // Extract allocations from the edge function response
+            // receiveResult is ProcessingResult[] from the hook
+            const resultItem = Array.isArray(receiveResult) && receiveResult.length > 0 
+              ? receiveResult[0] 
+              : null;
+            const manualPOAllocations = resultItem?.manual_po_allocations || data.manualPOAllocations || [];
+
+            console.log('[Auto-Print] Using allocations from response:', manualPOAllocations);
+
             // Extract PO numbers and priority from allocations
-            const poNumbers = data.manualPOAllocations?.map(a => a.po_number).join(', ') || 'N/A';
-            const priority = data.manualPOAllocations?.[0]?.priority || 3;
+            const poNumbers = manualPOAllocations?.map(a => a.po_number).join(', ') || 'N/A';
+            const priority = manualPOAllocations?.[0]?.priority || 3;
 
             const dataset: LabelDataset = {
               id: 'receive-stock',

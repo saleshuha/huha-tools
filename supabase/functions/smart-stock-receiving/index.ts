@@ -197,7 +197,35 @@ serve(async (req) => {
     const itemPreparations = await Promise.all(items.map(async (item) => {
       const enrichedItem = { ...item, country: targetCountry };
       
-      // Fast PO lookup with batch query optimization
+      // Resolve manual allocations if provided
+      let resolvedAllocations: Array<{po_id: string, po_number: string, quantity: number, priority: number}> = [];
+      
+      const itemManualAllocations = manual_po_allocations?.filter(alloc => 
+        alloc.po_id || alloc.po_number
+      );
+
+      if (itemManualAllocations && itemManualAllocations.length > 0) {
+        // Fetch and validate manual POs immediately
+        for (const manualAlloc of itemManualAllocations) {
+          const { data: po } = await supabase
+            .from('po_orders')
+            .select('*')
+            .eq('id', manualAlloc.po_id)
+            .eq('user_id', user.id)
+            .single();
+
+          if (po) {
+            resolvedAllocations.push({
+              po_id: po.id,
+              po_number: po.po_number,
+              quantity: manualAlloc.quantity,
+              priority: po.priority || 3
+            });
+          }
+        }
+      }
+      
+      // Fast PO lookup for auto-matching fallback
       const poQuery = supabase
         .from('po_orders')
         .select('*')
@@ -214,7 +242,8 @@ serve(async (req) => {
       return {
         item: enrichedItem,
         potentialPOs: matchingPOs || [],
-        manualAllocations: manual_po_allocations?.filter(alloc => true) || []
+        manualAllocations: itemManualAllocations || [],
+        resolvedAllocations: resolvedAllocations
       };
     }));
 
@@ -479,7 +508,10 @@ serve(async (req) => {
     // PHASE 2: Return immediate optimistic response
     const immediateResponse = {
       session_id: activeSessionId,
-      results: validationResults,
+      results: validationResults.map((result, index) => ({
+        ...result,
+        manual_po_allocations: itemPreparations[index].resolvedAllocations
+      })),
       summary: {
         total_items: items.length,
         status: 'processing',

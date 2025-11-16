@@ -36,6 +36,7 @@ export interface ProcessingResult {
   success: boolean;
   message: string;
   error?: string;
+  manual_po_allocations?: Array<{po_id: string, po_number: string, quantity: number, priority: number}>;
 }
 
 export interface ReceivingSession {
