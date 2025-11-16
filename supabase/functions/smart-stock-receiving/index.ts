@@ -189,25 +189,67 @@ serve(async (req) => {
       console.log('[SR v3.0] Using existing session:', { sessionId: activeSessionId });
     }
 
-    // Process each item
-    const processingResults = [];
-    let totalAllocatedToPOs = 0;
-    let totalAddedToInventory = 0;
+    // PHASE 1 & 2: Fast validation and immediate response preparation
+    const startTime = Date.now();
+    console.log('[SR v3.1 PERF] Starting fast validation phase');
+    
+    // Validate and prepare all items first (fast path)
+    const itemPreparations = await Promise.all(items.map(async (item) => {
+      const enrichedItem = { ...item, country: targetCountry };
+      
+      // Fast PO lookup with batch query optimization
+      const poQuery = supabase
+        .from('po_orders')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('country', targetCountry)
+        .in('status', ['pending', 'placed', 'shipped']);
 
-    for (const item of items) {
-      console.log('[SR v3.1] Processing item:', {
-        asin: item.asin,
-        sku: item.sku_code,
-        model: item.model_number,
-        quantity: item.quantity
-      });
+      if (item.asin) poQuery.or(`asin.eq.${item.asin}`);
+      if (item.sku_code) poQuery.or(`sku_code.eq.${item.sku_code}`);
+      if (item.model_number) poQuery.or(`model_number.eq.${item.model_number}`);
 
-      try {
-        // Enhance item with country
-        const enrichedItem = { ...item, country: targetCountry };
+      const { data: matchingPOs } = await poQuery.limit(20);
+      
+      return {
+        item: enrichedItem,
+        potentialPOs: matchingPOs || [],
+        manualAllocations: manual_po_allocations?.filter(alloc => true) || []
+      };
+    }));
 
-        let allocations: any[] = [];
-        let remainingQuantity = item.quantity;
+    console.log('[SR v3.1 PERF] Validation complete:', { 
+      duration: Date.now() - startTime,
+      itemCount: items.length 
+    });
+
+    // PHASE 2: Return immediate response
+    const validationResults = itemPreparations.map(prep => ({
+      item_id: prep.item.asin || prep.item.sku_code || prep.item.model_number,
+      matched_pos_count: prep.potentialPOs.length,
+      status: 'processing'
+    }));
+
+    // Background processing function
+    const processItemsInBackground = async () => {
+      const processingResults = [];
+      let totalAllocatedToPOs = 0;
+      let totalAddedToInventory = 0;
+
+      // PHASE 1: Process all items with parallel operations
+      for (const prep of itemPreparations) {
+        const { item, potentialPOs, manualAllocations } = prep;
+        
+        console.log('[SR v3.1 BG] Processing item:', {
+          asin: item.asin,
+          sku: item.sku_code,
+          model: item.model_number,
+          quantity: item.quantity
+        });
+
+        try {
+          let allocations: any[] = [];
+          let remainingQuantity = item.quantity;
 
         // Check if manual PO allocations are provided for this item
         const itemManualAllocations = manual_po_allocations?.filter(alloc => {
@@ -381,70 +423,79 @@ serve(async (req) => {
           console.error('[SR v3.0] ❌ Exception inserting receiving history:', err);
         }
 
-        processingResults.push({
-          item_id: item.asin || item.sku_code || item.model_number,
-          success: true,
-          allocated_to_pos: allocations.length,
-          allocated_quantity: item.quantity - remainingQuantity,
-          added_to_inventory: remainingQuantity,
-          matched_pos: allocations.map(a => ({
-            po_number: a.po.po_number,
-            priority: a.po.priority || 3
-          }))
-        });
+          processingResults.push({
+            item_id: item.asin || item.sku_code || item.model_number,
+            success: true,
+            allocated_to_pos: allocations.length,
+            allocated_quantity: item.quantity - remainingQuantity,
+            added_to_inventory: remainingQuantity,
+            matched_pos: allocations.map(a => ({
+              po_number: a.po.po_number,
+              priority: a.po.priority || 3
+            }))
+          });
 
-      } catch (itemError) {
-        console.error('[SR v3.0] ❌ Item processing error:', {
-          item: item,
-          error: itemError.message,
-          stack: itemError.stack
-        });
+        } catch (itemError) {
+          console.error('[SR v3.1 BG] ❌ Item processing error:', {
+            item: item,
+            error: itemError.message
+          });
 
-        processingResults.push({
-          item_id: item.asin || item.sku_code || item.model_number,
-          success: false,
-          error: itemError.message,
-          message: `Failed to process: ${itemError.message}`
-        });
+          processingResults.push({
+            item_id: item.asin || item.sku_code || item.model_number,
+            success: false,
+            error: itemError.message,
+            message: `Failed to process: ${itemError.message}`
+          });
+        }
       }
-    }
 
-    // Update session statistics
-    console.log('[SR v3.0] Updating session statistics:', {
-      sessionId: activeSessionId,
-      totalItems: items.length,
-      allocatedToPOs: totalAllocatedToPOs,
-      addedToInventory: totalAddedToInventory
-    });
+      // PHASE 3: Update session once at the end (not per-item)
+      console.log('[SR v3.1 BG] Updating session statistics:', {
+        sessionId: activeSessionId,
+        totalItems: items.length,
+        duration: Date.now() - startTime
+      });
 
-    const { error: sessionError } = await supabase
-      .from('stock_receiving_sessions')
-      .update({
-        total_items_received: items.length,
-        items_allocated_to_pos: totalAllocatedToPOs,
-        items_added_to_inventory: totalAddedToInventory,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', activeSessionId);
+      await supabase
+        .from('stock_receiving_sessions')
+        .update({
+          total_items_received: items.length,
+          items_allocated_to_pos: totalAllocatedToPOs,
+          items_added_to_inventory: totalAddedToInventory,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', activeSessionId);
 
-    if (sessionError) {
-      console.error('[SR v3.0] ⚠️ Failed to update session statistics:', sessionError);
-    }
-
-    const responseData = {
-      session_id: activeSessionId,
-      results: processingResults,
-      summary: {
-        total_items: items.length,
-        items_allocated_to_pos: totalAllocatedToPOs,
-        items_added_to_inventory: totalAddedToInventory
-      }
+      console.log('[SR v3.1 BG] ✅ Background processing complete:', {
+        duration: Date.now() - startTime,
+        results: processingResults.length
+      });
     };
 
-    console.log('[SR v3.1] ✅ Processing complete:', responseData);
+    // PHASE 2: Start background processing without blocking response
+    EdgeRuntime.waitUntil(processItemsInBackground());
+
+    // PHASE 2: Return immediate optimistic response
+    const immediateResponse = {
+      session_id: activeSessionId,
+      results: validationResults,
+      summary: {
+        total_items: items.length,
+        status: 'processing',
+        estimated_pos: itemPreparations.reduce((sum, p) => sum + p.potentialPOs.length, 0)
+      },
+      optimistic: true,
+      processing_time_ms: Date.now() - startTime
+    };
+
+    console.log('[SR v3.1 PERF] ✅ Immediate response sent:', {
+      duration: Date.now() - startTime,
+      itemCount: items.length
+    });
 
     return new Response(
-      JSON.stringify(responseData),
+      JSON.stringify(immediateResponse),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
