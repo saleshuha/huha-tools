@@ -6,6 +6,7 @@ export interface POPrintItem {
   title: string;
   quantity: number;
   poNumbers: string[];
+  priority?: number;
   imageUrl?: string;
   model_number?: string;
   sku_code?: string;
@@ -34,12 +35,17 @@ export const aggregatePOItemsByASIN = (orders: POOrder[]): POPrintItem[] => {
       if (!existing.poNumbers.includes(order.po_number)) {
         existing.poNumbers.push(order.po_number);
       }
+      // Track highest priority (lowest number)
+      if (order.priority && (!existing.priority || order.priority < existing.priority)) {
+        existing.priority = order.priority;
+      }
     } else {
       asinMap.set(asinKey, {
         asin: order.asin || asinKey,
         title: order.title || 'No Title',
         quantity: order.quantity,
         poNumbers: [order.po_number],
+        priority: order.priority || 3,
         model_number: order.model_number,
         sku_code: order.sku_code
       });
@@ -58,6 +64,7 @@ export const convertOrdersToPrintItems = (orders: POOrder[]): POPrintItem[] => {
     title: order.title || 'No Title',
     quantity: order.quantity,
     poNumbers: [order.po_number],
+    priority: order.priority || 3,
     model_number: order.model_number,
     sku_code: order.sku_code
   }));

@@ -226,9 +226,10 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
           id: 'po-print-session',
           name: 'PO Print Session',
           description: 'Temporary dataset for PO label printing',
-          headers: ['PO Number', 'asin', 'sku_code', 'model_number', 'title', 'quantity'],
+          headers: ['PO Number', 'Priority', 'asin', 'sku_code', 'model_number', 'title', 'quantity'],
           data: printItems.map(item => [
             item.poNumbers.join(', '),  // Map to PO Number column
+            item.priority ? `P${item.priority}` : 'P3',
             item.asin || '',
             item.sku_code || '',
             item.model_number || '',
