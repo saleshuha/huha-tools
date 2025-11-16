@@ -366,7 +366,7 @@ export default function ReceiveStock() {
               item,
               { template_type: templateType },
               result.matched_pos && result.matched_pos.length > 0
-                ? result.matched_pos.map((a: any) => a.po_number).join(', ')
+                ? result.matched_pos.join(', ')
                 : undefined
             );
 
