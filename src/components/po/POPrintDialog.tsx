@@ -149,15 +149,27 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
   const printItems = React.useMemo(() => {
     const selectedOrders = orders.filter((_, index) => selectedItems.has(index));
     
+    console.log('🔍 POPrintDialog - Selected orders for printing:', {
+      count: selectedOrders.length,
+      sample: selectedOrders[0],
+      allPriorities: selectedOrders.map(o => ({ po: o.po_number, asin: o.asin, priority: o.priority }))
+    });
+    
     let items: POPrintItem[];
     if (mode === 'bulk' && bulkAggregate) {
       items = aggregatePOItemsByASIN(selectedOrders);
     } else {
       items = convertOrdersToPrintItems(selectedOrders);
     }
+    
+    console.log('📦 POPrintDialog - Items after aggregation/conversion:', {
+      count: items.length,
+      sample: items[0],
+      allPriorities: items.map(i => ({ asin: i.asin, priority: i.priority }))
+    });
 
     // Add images and stock fulfillment data, then sort by quantity (high to low)
-    return items
+    const enrichedItems = items
       .map(item => {
         // Find matching order to extract stock metadata
         const matchingOrder = selectedOrders.find(o => o.asin === item.asin) as any;
@@ -177,6 +189,14 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
         };
       })
       .sort((a, b) => b.quantity - a.quantity);
+    
+    console.log('✅ POPrintDialog - Final printItems:', {
+      count: enrichedItems.length,
+      sample: enrichedItems[0],
+      priorities: enrichedItems.map(i => ({ asin: i.asin, priority: i.priority }))
+    });
+    
+    return enrichedItems;
   }, [orders, selectedItems, mode, bulkAggregate, getImageByAsin]);
 
   const toggleItem = (index: number) => {
@@ -241,13 +261,35 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
           updatedAt: new Date().toISOString()
         };
 
-        console.log('📊 Dataset created with', dataset.data.length, 'items');
-        console.log('📋 Sample PO numbers:', dataset.data[0]?.[0]);
+        console.log('📊 POPrintDialog - Dataset created:', {
+          headers: dataset.headers,
+          rowCount: dataset.data.length,
+          firstRow: dataset.data[0],
+          priorityColumn: dataset.data.map(row => row[1]), // Priority is index 1
+          allData: dataset.data
+        });
 
         // Get print darkness from localStorage (set in ReceiveStock page)
         const printDarkness = parseInt(localStorage.getItem('stock-receiving-print-darkness') || '10');
 
         // Generate ZPL using PrintService
+        console.log('🎯 POPrintDialog - Passing to PrintService.generateZPL:', {
+          templateName: poTemplate.name,
+          templateElements: poTemplate.elements.length,
+          templateMappings: poTemplate.elements.filter((e: any) => e.columnMapping).map((e: any) => ({
+            type: e.type,
+            columnMapping: e.columnMapping
+          })),
+          datasetHeaders: dataset.headers,
+          datasetRows: dataset.data.length,
+          printSettings: {
+            format: 'zpl',
+            dpi: 203,
+            copies: copies,
+            darkness: printDarkness
+          }
+        });
+        
         zpl = PrintService.generateZPL(poTemplate, dataset, {
           format: 'zpl',
           dpi: 203,
@@ -258,6 +300,8 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
           orientation: 'portrait',
           margin: 0
         });
+        
+        console.log('✅ POPrintDialog - ZPL generated, length:', zpl.length);
 
         console.log('✅ ZPL generated using template, length:', zpl.length);
       } else {
