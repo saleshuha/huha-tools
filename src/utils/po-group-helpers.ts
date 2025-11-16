@@ -59,3 +59,12 @@ export const sortPOsByPriority = (pos: any[]): any[] => {
     return 0;
   });
 };
+
+export const isAutoPriority = (priority?: number): boolean => {
+  return (priority || 0) >= 6;
+};
+
+export const getAutoPriorityLabel = (priority?: number): string => {
+  if (!priority || priority < 6) return '';
+  return `📋 Unassigned (Priority ${priority})`;
+};
