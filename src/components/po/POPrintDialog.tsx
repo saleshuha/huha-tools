@@ -229,7 +229,7 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
           headers: ['PO Number', 'Priority', 'asin', 'sku_code', 'model_number', 'title', 'quantity'],
           data: printItems.map(item => [
             item.poNumbers.join(', '),  // Map to PO Number column
-            item.priority ? `P${item.priority}` : 'P3',
+            item.priority?.toString() || '3',
             item.asin || '',
             item.sku_code || '',
             item.model_number || '',
