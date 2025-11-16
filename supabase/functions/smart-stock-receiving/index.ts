@@ -239,6 +239,31 @@ serve(async (req) => {
 
       const { data: matchingPOs } = await poQuery.limit(20);
       
+      // If no manual allocations, try auto-matching immediately
+      if (resolvedAllocations.length === 0 && matchingPOs && matchingPOs.length > 0) {
+        // Sort by priority (highest first)
+        const sortedPOs = matchingPOs.sort((a, b) => (b.priority || 3) - (a.priority || 3));
+        
+        // Allocate to highest priority PO
+        const topPO = sortedPOs[0];
+        const availableQty = (topPO.quantity || 0) - (topPO.printed_quantity || 0);
+        
+        if (availableQty > 0) {
+          resolvedAllocations.push({
+            po_id: topPO.id,
+            po_number: topPO.po_number,
+            quantity: Math.min(item.quantity, availableQty),
+            priority: topPO.priority || 3
+          });
+          
+          console.log('[SR v3.1] Auto-matched in validation:', {
+            po_number: topPO.po_number,
+            quantity: resolvedAllocations[0].quantity,
+            priority: topPO.priority
+          });
+        }
+      }
+      
       return {
         item: enrichedItem,
         potentialPOs: matchingPOs || [],
@@ -256,7 +281,9 @@ serve(async (req) => {
     const validationResults = itemPreparations.map(prep => ({
       item_id: prep.item.asin || prep.item.sku_code || prep.item.model_number,
       matched_pos_count: prep.potentialPOs.length,
-      status: 'processing'
+      status: 'processing',
+      success: true,
+      message: 'Item validated and queued for processing'
     }));
 
     // Background processing function
