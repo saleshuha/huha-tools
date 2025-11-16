@@ -1,6 +1,18 @@
 import { LabelElement, LabelDataset } from '@/types/label';
 
 /**
+ * Column name aliases for flexible matching
+ * Maps canonical names to possible variations
+ */
+const COLUMN_ALIASES: Record<string, string[]> = {
+  'serial number': ['serial', 'serial number', 'serial_number', 'serial no', 'serial#', 'serialnumber'],
+  'model number': ['model', 'model number', 'model_number', 'model no', 'modelnumber'],
+  'sku code': ['sku', 'sku code', 'sku_code', 'skucode'],
+  'po number': ['po', 'po number', 'po_number', 'po#', 'ponumber'],
+  'order number': ['order', 'order number', 'order_number', 'order#', 'ordernumber'],
+};
+
+/**
  * Resolves the content for a label element with data mapping and transforms
  */
 export function resolveMappedContent(
@@ -19,10 +31,23 @@ export function resolveMappedContent(
     });
     
     if (headers.length > 0 && dataRow.length > 0) {
-      // Case-insensitive column matching
-      const columnIndex = headers.findIndex(header => 
-        header.toLowerCase() === element.dataColumn.toLowerCase()
-      );
+      // Smart column matching with alias support
+      const columnIndex = headers.findIndex(header => {
+        const searchTerm = element.dataColumn.toLowerCase();
+        const headerLower = header.toLowerCase();
+        
+        // Try exact match first
+        if (headerLower === searchTerm) return true;
+        
+        // Try alias matching - check if both are in the same alias group
+        for (const aliases of Object.values(COLUMN_ALIASES)) {
+          if (aliases.includes(searchTerm) && aliases.includes(headerLower)) {
+            return true;
+          }
+        }
+        
+        return false;
+      });
       
       console.log('🔍 Column search:', {
         searchingFor: element.dataColumn,
