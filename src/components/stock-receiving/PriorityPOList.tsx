@@ -620,14 +620,15 @@ export function PriorityPOList() {
                         </div>
 
                         <div className="flex flex-col items-end gap-1">
-                          <POPriorityBadge
-                            priority={po.priority || 3}
-                            onUpdate={() => {}}
-                            disabled
-                          />
-                          {po.priority >= 6 && (
-                            <Badge variant="outline" className="text-xs border-dashed">
-                              Auto-Priority
+                          {po.priority < 6 ? (
+                            <POPriorityBadge
+                              priority={po.priority || 3}
+                              onUpdate={() => {}}
+                              disabled
+                            />
+                          ) : (
+                            <Badge variant="outline" className="text-xs border-dashed text-muted-foreground">
+                              📋 Auto-Priority {po.priority}
                             </Badge>
                           )}
                         </div>
