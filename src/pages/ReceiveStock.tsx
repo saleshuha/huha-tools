@@ -127,13 +127,13 @@ export default function ReceiveStock() {
   }, [navigate]);
 
   // Helper to convert item to dataset format (same as Inventory page)
-  const createDatasetFromItem = (item: any, result: any, poNumbers?: string): LabelDataset => {
+  const createDatasetFromItem = (item: any, result: any, poNumbers?: string, priority?: number): LabelDataset => {
     return {
       id: 'receive-stock-data',
       name: 'Received Stock Data',
       description: 'Stock receiving item',
-      headers: ['PO Number', 'ASIN', 'SKU', 'Title', 'Serial', 'Quantity', 'Status', 'Date'],
-      data: [[poNumbers || 'N/A', item.asin || 'N/A', item.sku_code || 'N/A', item.title || 'No Title', item.serial_number || 'N/A', item.quantity.toString(), result.template_type === 'po' ? 'Fulfilled' : 'In Stock', new Date().toLocaleDateString()]],
+      headers: ['PO Number', 'Priority', 'ASIN', 'SKU', 'Title', 'Serial', 'Quantity', 'Status', 'Date'],
+      data: [[poNumbers || 'N/A', priority?.toString() || '3', item.asin || 'N/A', item.sku_code || 'N/A', item.title || 'No Title', item.serial_number || 'N/A', item.quantity.toString(), result.template_type === 'po' ? 'Fulfilled' : 'In Stock', new Date().toLocaleDateString()]],
       rowCount: 1,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -308,7 +308,7 @@ export default function ReceiveStock() {
       let destination = 'Inventory';
       let templateType: 'po' | 'inventory' = 'inventory';
       if (result.matched_pos && result.matched_pos.length > 0) {
-        const poNumbers = result.matched_pos.map((a: any) => a.po_number).join(', ');
+        const poNumbers = result.matched_pos.map((p: any) => p.po_number || p).join(', ');
         destination = `PO ${poNumbers}`;
         templateType = 'po';
       }
@@ -366,7 +366,10 @@ export default function ReceiveStock() {
               item,
               { template_type: templateType },
               result.matched_pos && result.matched_pos.length > 0
-                ? result.matched_pos.join(', ')
+                ? result.matched_pos.map((p: any) => p.po_number || p).join(', ')
+                : undefined,
+              result.matched_pos && result.matched_pos.length > 0
+                ? Math.min(...result.matched_pos.map((p: any) => p.priority || 3))
                 : undefined
             );
 
