@@ -256,8 +256,8 @@ serve(async (req) => {
       
       // If no manual allocations, try auto-matching immediately
       if (resolvedAllocations.length === 0 && matchingPOs && matchingPOs.length > 0) {
-        // Sort by priority (highest first)
-        const sortedPOs = matchingPOs.sort((a, b) => (b.priority || 3) - (a.priority || 3));
+        // Sort by priority (highest first - lower number = higher priority)
+        const sortedPOs = matchingPOs.sort((a, b) => (a.priority || 3) - (b.priority || 3));
         
         // Allocate to highest priority PO
         const topPO = sortedPOs[0];
