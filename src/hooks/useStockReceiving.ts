@@ -23,9 +23,9 @@ export interface POAllocation {
 }
 
 export interface ManualPOAllocation {
-  po_id: string;
-  po_number: string;
+  po_number: string;  // Primary identifier - backend will find matching item
   quantity: number;
+  priority?: number;
 }
 
 export interface ProcessingResult {

@@ -36,9 +36,9 @@ interface ReceivedItemData {
 }
 
 interface ManualPOAllocation {
-  po_id: string;
-  po_number: string;
+  po_number: string;  // Primary identifier - backend will find matching item
   quantity: number;
+  priority?: number;
 }
 
 interface RequestPayload {
@@ -205,14 +205,20 @@ serve(async (req) => {
       );
 
       if (itemManualAllocations && itemManualAllocations.length > 0) {
-        // Fetch and validate manual POs immediately
+        // Fetch and validate manual POs immediately - query by PO number, match by item
         for (const manualAlloc of itemManualAllocations) {
-          const { data: po } = await supabase
+          const { data: matchingPOs } = await supabase
             .from('po_orders')
             .select('*')
-            .eq('id', manualAlloc.po_id)
-            .eq('user_id', user.id)
-            .single();
+            .eq('po_number', manualAlloc.po_number)
+            .eq('user_id', user.id);
+
+          // Find the specific item that matches the received item
+          const po = matchingPOs?.find(p => 
+            p.asin === item.asin ||
+            p.sku_code === item.sku_code ||
+            p.model_number === item.model_number
+          );
 
           if (po) {
             const allocation = {
@@ -224,8 +230,12 @@ serve(async (req) => {
             
             resolvedAllocations.push(allocation);
             
-            // ✅ Manual allocation confirmation
-            console.log(`✅ [SR v3.1] Manual allocation confirmed:`, allocation);
+            // ✅ Manual allocation confirmation with item matching details
+            console.log(`✅ [SR v3.1] Manual allocation confirmed:`, {
+              po_number: po.po_number,
+              matched_item: { id: po.id, asin: po.asin, sku: po.sku_code },
+              priority: po.priority || 3
+            });
           }
         }
       }
@@ -336,42 +346,50 @@ serve(async (req) => {
         if (itemManualAllocations && itemManualAllocations.length > 0) {
           console.log('[SR v3.1] Using manual PO allocations:', itemManualAllocations);
 
-          // Validate and fetch the manually selected POs
+          // Validate and fetch manually selected POs - query by PO number, match by item
           for (const manualAlloc of itemManualAllocations) {
-            const { data: po, error: poError } = await supabase
+            // Step 1: Find all items in the specified PO
+            const { data: matchingPOs, error: poError } = await supabase
               .from('po_orders')
               .select('*')
-              .eq('id', manualAlloc.po_id)
+              .eq('po_number', manualAlloc.po_number)
               .eq('user_id', user.id)
-              .in('status', ['pending', 'placed', 'shipped'])
-              .single();
+              .in('status', ['pending', 'placed', 'shipped']);
 
-            if (poError || !po) {
-              const errorMsg = `Manual PO ${manualAlloc.po_id} (${manualAlloc.po_number}) not found or invalid status. Error: ${poError?.message}`;
+            if (poError || !matchingPOs || matchingPOs.length === 0) {
+              const errorMsg = `Manual PO ${manualAlloc.po_number} not found or all items closed. Error: ${poError?.message}`;
               console.error('[SR v3.1] ❌ Manual PO validation failed:', errorMsg);
               throw new Error(errorMsg);
             }
 
-            console.log('[SR v3.1] ✅ Manual PO validated:', {
-              poId: po.id,
-              poNumber: po.po_number,
-              status: po.status,
-              asin: po.asin,
-              sku: po.sku_code,
-              model: po.model_number
-            });
+            // Step 2: Find the specific item that matches the received item
+            const po = matchingPOs.find(p => 
+              p.asin === item.asin ||
+              p.sku_code === item.sku_code ||
+              p.model_number === item.model_number
+            );
 
-            // Verify PO matches the item
-            const poMatchesItem = 
-              po.asin === item.asin ||
-              po.sku_code === item.sku_code ||
-              po.model_number === item.model_number;
-
-            if (!poMatchesItem) {
-              const errorMsg = `Manual PO ${po.po_number} does not match item. PO: {asin: ${po.asin}, sku: ${po.sku_code}, model: ${po.model_number}}, Item: {asin: ${item.asin}, sku: ${item.sku_code}, model: ${item.model_number}}`;
+            if (!po) {
+              const errorMsg = `No matching item found in PO ${manualAlloc.po_number} for item ${item.asin || item.sku_code || item.model_number}. Available items: ${matchingPOs.map(p => p.asin || p.sku_code).join(', ')}`;
               console.error('[SR v3.1] ❌ PO item mismatch:', errorMsg);
               throw new Error(errorMsg);
             }
+
+            console.log('[SR v3.1] 🎯 Item Match Found:', {
+              received_item: {
+                asin: item.asin,
+                sku: item.sku_code,
+                model: item.model_number
+              },
+              matched_po_item: {
+                id: po.id,
+                asin: po.asin,
+                sku: po.sku_code,
+                status: po.status,
+                is_printed: po.is_printed
+              },
+              po_number: manualAlloc.po_number
+            });
 
             allocations.push({
               po: po,
