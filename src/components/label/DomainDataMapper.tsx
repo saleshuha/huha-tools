@@ -33,6 +33,7 @@ export const DomainDataMapper: React.FC<DomainDataMapperProps> = ({ domain }) =>
   const { poOrders, isLoading: poLoading, fetchPOOrders } = usePOOrders();
   
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
 
   // Auto-load data when component mounts based on domain
   useEffect(() => {
@@ -281,19 +282,136 @@ export const DomainDataMapper: React.FC<DomainDataMapperProps> = ({ domain }) =>
               </div>
             )}
 
-            {hasData && domainInfo.data.slice(0, 50).map((item: any, index: number) => (
-              <div key={index} className="p-3 border rounded-lg hover:bg-accent/20">
-                <div className="font-medium text-sm truncate">
-                  {item.title || item.item_title || 'Untitled Item'}
+            {hasData && domainInfo.data.slice(0, 50).map((item: any, index: number) => {
+              const isSelected = selectedItemIndex === index;
+              
+              const handleItemClick = () => {
+                setSelectedItemIndex(index);
+                
+                // Create dataset for this single item
+                let dataset: LabelDataset;
+                
+                if (domain === 'inventory') {
+                  dataset = {
+                    id: 'inventory-item',
+                    name: 'Selected Inventory Item',
+                    description: `Item: ${item.title || 'Untitled'}`,
+                    headers: ['ASIN', 'SKU', 'Title', 'Quantity', 'Serial', 'Status'],
+                    data: [[
+                      item.asin || '',
+                      item.sku || '',
+                      item.title || '',
+                      item.quantity?.toString() || '0',
+                      item.serial_number || '',
+                      item.status || 'in-stock'
+                    ]],
+                    rowCount: 1,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                  };
+                } else if (domain === 'amazon') {
+                  dataset = {
+                    id: 'order-item',
+                    name: 'Selected Amazon Order',
+                    description: `Order: ${item.order_number || 'N/A'}`,
+                    headers: ['Order ID', 'ASIN', 'SKU', 'Title', 'Quantity', 'Status'],
+                    data: [[
+                      item.order_number || '',
+                      item.asin || '',
+                      item.sku || '',
+                      item.item_title || '',
+                      item.quantity_processed?.toString() || '1',
+                      item.match_type || 'pending'
+                    ]],
+                    rowCount: 1,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                  };
+                } else if (domain === 'noon') {
+                  dataset = {
+                    id: 'noon-order-item',
+                    name: 'Selected Noon Order',
+                    description: `Order: ${item.order_nr || 'N/A'}`,
+                    headers: ['Order Number', 'Purchase Item', 'SKU', 'Partner SKU', 'Title', 'Quantity', 'Status'],
+                    data: [[
+                      item.order_nr || '',
+                      item.purchase_item_nr || '',
+                      item.sku || '',
+                      item.partner_sku || '',
+                      item.title || '',
+                      item.quantity?.toString() || '1',
+                      item.item_status || 'pending'
+                    ]],
+                    rowCount: 1,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                  };
+                } else if (domain === 'po') {
+                  dataset = {
+                    id: 'po-item',
+                    name: 'Selected PO Item',
+                    description: `PO: ${item.po_number || 'N/A'}`,
+                    headers: ['PO Number', 'ASIN', 'SKU', 'Model', 'Title', 'Quantity', 'Status', 'Supplier'],
+                    data: [[
+                      item.po_number || '',
+                      item.asin || '',
+                      item.sku_code || '',
+                      item.model_number || '',
+                      item.title || '',
+                      item.quantity?.toString() || '0',
+                      item.status || 'pending',
+                      item.supplier_name || ''
+                    ]],
+                    rowCount: 1,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                  };
+                } else {
+                  dataset = {
+                    id: 'selected-item',
+                    name: 'Selected Item',
+                    description: 'Single item selected',
+                    headers: ['Data'],
+                    data: [['No data']],
+                    rowCount: 1,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                  };
+                }
+                
+                setDataset(dataset);
+                toast.success(`Selected item - columns mapped to canvas`);
+              };
+              
+              return (
+                <div 
+                  key={index} 
+                  onClick={handleItemClick}
+                  className={`p-3 border rounded-lg cursor-pointer transition-all ${
+                    isSelected 
+                      ? 'bg-primary/10 border-primary shadow-sm' 
+                      : 'hover:bg-accent/20 border-border'
+                  }`}
+                >
+                  <div className="font-medium text-sm truncate">
+                    {item.title || item.item_title || 'Untitled Item'}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {domain === 'inventory' && `ASIN: ${item.asin || 'N/A'} • SKU: ${item.sku || 'N/A'}`}
+                    {domain === 'amazon' && `Order: ${item.order_number || 'N/A'} • ASIN: ${item.asin || 'N/A'}`}
+                    {domain === 'noon' && `Order: ${item.order_nr || 'N/A'} • SKU: ${item.sku || 'N/A'}`}
+                    {domain === 'po' && `PO: ${item.po_number || 'N/A'} • Model: ${item.model_number || 'N/A'}`}
+                  </div>
+                  {isSelected && (
+                    <div className="mt-2 pt-2 border-t border-primary/20">
+                      <Badge variant="default" className="text-xs">
+                        Selected - Mapped to Canvas
+                      </Badge>
+                    </div>
+                  )}
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  {domain === 'inventory' && `ASIN: ${item.asin || 'N/A'} • SKU: ${item.sku || 'N/A'}`}
-                  {domain === 'amazon' && `Order: ${item.order_number || 'N/A'} • ASIN: ${item.asin || 'N/A'}`}
-                  {domain === 'noon' && `Order: ${item.order_nr || 'N/A'} • SKU: ${item.sku || 'N/A'}`}
-                  {domain === 'po' && `PO: ${item.po_number || 'N/A'} • Model: ${item.model_number || 'N/A'}`}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </ScrollArea>
       </CardContent>
