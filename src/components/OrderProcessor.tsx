@@ -418,11 +418,28 @@ export function OrderProcessor() {
       
       await Promise.all(
         batch.map(async (order) => {
-          const itemNo = order.sku || order.asin;
-          if (!itemNo) return;
+          // Properly validate and trim the identifier
+          const itemNo = ((order.sku || order.asin || '').trim());
+          
+          // Skip if no valid identifier exists
+          if (!itemNo || itemNo === '' || itemNo === 'undefined' || itemNo === 'null') {
+            console.log(`⚠️ Skipping order ${order.orderId}: no valid SKU or ASIN`);
+            errorCount++;
+            results.push({
+              orderId: order.orderId,
+              sku: order.sku,
+              asin: order.asin,
+              status: 'error',
+              errorMessage: 'No valid SKU or ASIN to check'
+            });
+            setApiCheckProgress(prev => ({ ...prev, current: prev.current + 1 }));
+            return;
+          }
 
           try {
             setApiCheckProgress(prev => ({ ...prev, current: prev.current + 1 }));
+            
+            console.log(`🔍 Checking item: ${itemNo}`);
 
             const { data, error } = await supabase.functions.invoke('sunsky-api', {
               body: {
