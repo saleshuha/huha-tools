@@ -28,6 +28,7 @@ export const AdvancedLabelWorkspace: React.FC = () => {
   const { 
     document, 
     dataset, 
+    previewIndex,
     selectedElement, 
     selectElement, 
     updateElement, 
@@ -295,11 +296,12 @@ export const AdvancedLabelWorkspace: React.FC = () => {
         darkness: 10
       };
       
-      // For label designer, only print a single label with first row of data
+      // For label designer, only print the currently displayed row
+      const currentRowData = dataset && dataset.data[previewIndex] ? [dataset.data[previewIndex]] : [];
       const singleLabelDataset = dataset ? {
         ...dataset,
-        data: dataset.data.length > 0 ? [dataset.data[0]] : [],
-        rowCount: dataset.data.length > 0 ? 1 : 0
+        data: currentRowData,
+        rowCount: currentRowData.length
       } : null;
       
       const zplCode = PrintService.generateZPL(document, singleLabelDataset, printSettings);
@@ -658,9 +660,10 @@ export const AdvancedLabelWorkspace: React.FC = () => {
   // Helper function to get display text for elements with data mapping
   const getDisplayText = (element: LabelElement, fallbackText: string) => {
     if (element.dataColumn && dataset && dataset.data.length > 0) {
+      const currentRow = dataset.data[previewIndex] || dataset.data[0];
       const columnIndex = dataset.headers.indexOf(element.dataColumn);
-      if (columnIndex !== -1 && dataset.data[0] && dataset.data[0][columnIndex] !== undefined) {
-        let value = String(dataset.data[0][columnIndex]);
+      if (columnIndex !== -1 && currentRow && currentRow[columnIndex] !== undefined) {
+        let value = String(currentRow[columnIndex]);
         
         // Handle common inventory data transformations
         if (element.dataColumn === 'Title' && dataset.id === 'inventory') {
@@ -668,8 +671,8 @@ export const AdvancedLabelWorkspace: React.FC = () => {
           if (value.includes('ASIN:') || value.includes('SKU:')) {
             // Try to find actual title from other columns if this is a generated title
             const titleIndex = dataset.headers.findIndex(h => h.toLowerCase().includes('title') && h !== element.dataColumn);
-            if (titleIndex !== -1 && dataset.data[0][titleIndex]) {
-              value = String(dataset.data[0][titleIndex]);
+            if (titleIndex !== -1 && currentRow[titleIndex]) {
+              value = String(currentRow[titleIndex]);
             }
           }
         }
@@ -1021,6 +1024,11 @@ export const AdvancedLabelWorkspace: React.FC = () => {
               <Printer className="h-4 w-4 mr-1" />
               Print
             </Button>
+            {dataset && dataset.data.length > 1 && (
+              <Badge variant="outline" className="text-xs">
+                Row {previewIndex + 1}/{dataset.data.length}
+              </Badge>
+            )}
           </div>
         </div>
         
