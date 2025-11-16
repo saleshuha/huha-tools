@@ -21,11 +21,14 @@ import { SortableTableHeader } from './order-processing/SortableTableHeader';
 import { TablePagination } from './order-processing/TablePagination';
 import { BulkActionsToolbar } from './order-processing/BulkActionsToolbar';
 import { TableViewToggle } from './order-processing/TableViewToggle';
+import { LiveSunskyCheckDialog } from './order-processing/LiveSunskyCheckDialog';
+import { LiveApiCheckProgress } from './order-processing/LiveApiCheckProgress';
 import { useDropzone } from 'react-dropzone';
 import { useAsinInventory, AsinInventoryItem } from '@/hooks/useAsinInventory';
 import { useSkuInventory, SkuInventoryItem } from '@/hooks/useSkuInventory';
 import { useToast } from '@/hooks/use-toast';
 import { useProductImages } from '@/hooks/useProductImages';
+import { useSunskyCredentials } from '@/hooks/useSunskyCredentials';
 import { supabase } from '@/integrations/supabase/client';
 import { LabelPrintDialog } from '@/components/inventory/LabelPrintDialog';
 import * as XLSX from 'xlsx';
@@ -95,6 +98,22 @@ export function OrderProcessor() {
   const [selectAll, setSelectAll] = useState(false);
   const [fileName, setFileName] = useState<string>('');
   const [dbResults, setDbResults] = useState<any[]>([]);
+  const [liveApiCheckResults, setLiveApiCheckResults] = useState<{
+    totalChecked: number;
+    foundInSunsky: number;
+    notFoundInSunsky: number;
+    apiErrors: number;
+    matchDetails: Array<{
+      orderId: string;
+      sku: string;
+      asin: string;
+      status: 'found' | 'not_found' | 'error';
+      sunskyData?: any;
+      errorMessage?: string;
+    }>;
+  }>({ totalChecked: 0, foundInSunsky: 0, notFoundInSunsky: 0, apiErrors: 0, matchDetails: [] });
+  const [showLiveCheckDialog, setShowLiveCheckDialog] = useState(false);
+  const [apiCheckProgress, setApiCheckProgress] = useState({ current: 0, total: 0, checking: false });
   const [activeTab, setActiveTab] = useState('upload');
   const [processingProgress, setProcessingProgress] = useState(0);
   
@@ -145,6 +164,8 @@ export function OrderProcessor() {
   const { getImageByAsin, isLoading: imagesLoading, productImages } = useProductImages();
   
   const { toast } = useToast();
+  
+  const { credentials } = useSunskyCredentials();
 
   // Debug: Log inventory changes
   useEffect(() => {
@@ -355,7 +376,152 @@ export function OrderProcessor() {
     );
   };
 
-  // Match orders with Sunsky catalog
+  // Check orders against live Sunsky API
+  const checkOrdersAgainstSunskyAPI = async (orders: OrderItem[]) => {
+    console.log(`🌐 Starting live Sunsky API check for ${orders.length} orders...`);
+    
+    // Check if user has active Sunsky credentials
+    const activeCredential = credentials.find(c => c.is_active);
+    if (!activeCredential) {
+      console.log('⚠️ No active Sunsky credentials found');
+      toast({
+        title: "Sunsky Credentials Required",
+        description: "Please configure your Sunsky API credentials to use live catalog checking.",
+        variant: "destructive"
+      });
+      return orders;
+    }
+
+    // Extract unique SKUs and ASINs
+    const uniqueItems = new Map<string, OrderItem>();
+    orders.forEach(order => {
+      const key = order.sku || order.asin;
+      if (key && !uniqueItems.has(key)) {
+        uniqueItems.set(key, order);
+      }
+    });
+
+    const itemsToCheck = Array.from(uniqueItems.values());
+    console.log(`🌐 Checking ${itemsToCheck.length} unique items against Sunsky API...`);
+
+    setApiCheckProgress({ current: 0, total: itemsToCheck.length, checking: true });
+
+    const results: typeof liveApiCheckResults.matchDetails = [];
+    let foundCount = 0;
+    let notFoundCount = 0;
+    let errorCount = 0;
+
+    // Process in batches of 5 to avoid overwhelming the API
+    const batchSize = 5;
+    for (let i = 0; i < itemsToCheck.length; i += batchSize) {
+      const batch = itemsToCheck.slice(i, i + batchSize);
+      
+      await Promise.all(
+        batch.map(async (order) => {
+          const itemNo = order.sku || order.asin;
+          if (!itemNo) return;
+
+          try {
+            setApiCheckProgress(prev => ({ ...prev, current: prev.current + 1 }));
+
+            const { data, error } = await supabase.functions.invoke('sunsky-api', {
+              body: {
+                action: 'getProductDetails',
+                apiId: activeCredential.id,
+                data: {
+                  itemNo: itemNo,
+                  lang: 'en'
+                }
+              }
+            });
+
+            if (error) {
+              console.error(`❌ Error checking ${itemNo}:`, error);
+              errorCount++;
+              results.push({
+                orderId: order.orderId,
+                sku: order.sku,
+                asin: order.asin,
+                status: 'error',
+                errorMessage: error.message || 'Unknown error'
+              });
+            } else if (data?.code === 200 && data?.result) {
+              console.log(`✅ Found in Sunsky: ${itemNo}`, data.result.title?.substring(0, 50));
+              foundCount++;
+              results.push({
+                orderId: order.orderId,
+                sku: order.sku,
+                asin: order.asin,
+                status: 'found',
+                sunskyData: data.result
+              });
+            } else {
+              console.log(`❌ Not found in Sunsky: ${itemNo}`);
+              notFoundCount++;
+              results.push({
+                orderId: order.orderId,
+                sku: order.sku,
+                asin: order.asin,
+                status: 'not_found'
+              });
+            }
+          } catch (err) {
+            console.error(`❌ Exception checking ${itemNo}:`, err);
+            errorCount++;
+            results.push({
+              orderId: order.orderId,
+              sku: order.sku,
+              asin: order.asin,
+              status: 'error',
+              errorMessage: err instanceof Error ? err.message : 'Unknown error'
+            });
+          }
+        })
+      );
+
+      // Small delay between batches
+      if (i + batchSize < itemsToCheck.length) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+
+    setApiCheckProgress({ current: 0, total: 0, checking: false });
+
+    // Store results
+    setLiveApiCheckResults({
+      totalChecked: itemsToCheck.length,
+      foundInSunsky: foundCount,
+      notFoundInSunsky: notFoundCount,
+      apiErrors: errorCount,
+      matchDetails: results
+    });
+
+    console.log(`🌐 Live API check complete: ${foundCount} found, ${notFoundCount} not found, ${errorCount} errors`);
+
+    // Enrich orders with live API data
+    const enrichedOrders = orders.map(order => {
+      const key = order.sku || order.asin;
+      const result = results.find(r => (r.sku === order.sku || r.asin === order.asin));
+      
+      if (result?.status === 'found' && result.sunskyData) {
+        return {
+          ...order,
+          sunskyMatch: {
+            sku_code: result.sunskyData.itemNo,
+            title: result.sunskyData.title,
+            cost: result.sunskyData.price,
+            product_data: result.sunskyData
+          }
+        };
+      }
+      
+      return order;
+    });
+
+    return enrichedOrders;
+  };
+
+  // Match orders with Sunsky catalog (local database)
   const matchOrdersWithSunsky = async (orders: OrderItem[]) => {
     console.log(`🌞 Starting Sunsky catalog matching for ${orders.length} orders...`);
     
@@ -600,8 +766,11 @@ export function OrderProcessor() {
         shippedDate: row['Shipped Date'] || ''
       }));
 
-      // Match with Sunsky catalog first
-      const ordersWithSunskyMatches = await matchOrdersWithSunsky(formattedOrders);
+      // Check against live Sunsky API first
+      const ordersWithLiveApiCheck = await checkOrdersAgainstSunskyAPI(formattedOrders);
+      
+      // Also check local Sunsky database for faster matching
+      const ordersWithSunskyMatches = await matchOrdersWithSunsky(ordersWithLiveApiCheck);
       
       setOrderData(ordersWithSunskyMatches);
       setAllOrders(ordersWithSunskyMatches);
@@ -629,11 +798,15 @@ export function OrderProcessor() {
         setActiveTab('pending'); // Auto-switch to pending tab
       }
       
+      const apiCheckSummary = liveApiCheckResults.totalChecked > 0
+        ? ` | Live Sunsky: ${liveApiCheckResults.foundInSunsky} found, ${liveApiCheckResults.notFoundInSunsky} not found`
+        : '';
+      
       toast({
         title: "Orders Upload Complete",
         description: saveResult 
-          ? `Added ${saveResult.newCount} new orders (${saveResult.duplicateCount} duplicates skipped). Found ${matchedCount} inventory matches and ${sunskyMatchedCount} Sunsky catalog matches.`
-          : `Processed ${formattedOrders.length} orders. Found ${matchedCount} inventory matches and ${sunskyMatchedCount} Sunsky catalog matches.`
+          ? `Added ${saveResult.newCount} new orders (${saveResult.duplicateCount} duplicates skipped). Found ${matchedCount} inventory matches and ${sunskyMatchedCount} Sunsky catalog matches.${apiCheckSummary}`
+          : `Processed ${formattedOrders.length} orders. Found ${matchedCount} inventory matches and ${sunskyMatchedCount} Sunsky catalog matches.${apiCheckSummary}`
       });
     } catch (error) {
       console.error('Error processing file:', error);
@@ -1402,6 +1575,46 @@ export function OrderProcessor() {
                       </p>
                     )}
                   </div>
+                )}
+
+                {/* Live API Check Progress */}
+                <LiveApiCheckProgress 
+                  current={apiCheckProgress.current} 
+                  total={apiCheckProgress.total} 
+                  checking={apiCheckProgress.checking} 
+                />
+
+                {/* Live Sunsky Check Results */}
+                {liveApiCheckResults.totalChecked > 0 && (
+                  <Card className="p-6 border-primary/20 bg-gradient-to-br from-primary/5 via-card to-primary/5">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                        <span className="text-2xl">🌐</span>
+                        Live Sunsky Catalog Check
+                      </h3>
+                      <Button 
+                        onClick={() => setShowLiveCheckDialog(true)} 
+                        variant="outline" 
+                        size="sm"
+                      >
+                        View Details
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="text-center p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+                        <div className="text-3xl font-bold text-green-500">{liveApiCheckResults.foundInSunsky}</div>
+                        <div className="text-sm text-muted-foreground mt-1">Found in Sunsky</div>
+                      </div>
+                      <div className="text-center p-4 rounded-lg bg-red-500/10 border border-red-500/20">
+                        <div className="text-3xl font-bold text-red-500">{liveApiCheckResults.notFoundInSunsky}</div>
+                        <div className="text-sm text-muted-foreground mt-1">Not Found</div>
+                      </div>
+                      <div className="text-center p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                        <div className="text-3xl font-bold text-yellow-500">{liveApiCheckResults.apiErrors}</div>
+                        <div className="text-sm text-muted-foreground mt-1">Errors</div>
+                      </div>
+                    </div>
+                  </Card>
                 )}
 
               </div>
@@ -2252,6 +2465,13 @@ export function OrderProcessor() {
           </Tabs>
         </div>
       </Card>
+
+      {/* Live Sunsky Check Dialog */}
+      <LiveSunskyCheckDialog 
+        open={showLiveCheckDialog}
+        onOpenChange={setShowLiveCheckDialog}
+        results={liveApiCheckResults}
+      />
     </div>
   );
 }
