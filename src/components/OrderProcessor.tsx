@@ -428,10 +428,8 @@ export function OrderProcessor() {
               body: {
                 action: 'getProductDetails',
                 apiId: activeCredential.id,
-                data: {
-                  itemNo: itemNo,
-                  lang: 'en'
-                }
+                itemNo: itemNo,
+                lang: 'en'
               }
             });
 
