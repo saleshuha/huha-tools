@@ -196,67 +196,6 @@ export function useReceivingHistory(
     }
   });
 
-  // Load more function
-  const loadMore = async () => {
-    if (!data || !data.hasMore) return;
-
-    let query = supabase
-      .from('receiving_history')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    // Apply the same filters as main query
-    if (filterType === 'po') {
-      query = query.not('destination_details->po_numbers', 'is', null);
-    } else if (filterType === 'inventory') {
-      query = query.or('destination_details->po_numbers.is.null,destination_details->po_numbers.eq.[]');
-    }
-
-    if (filters.searchTerm) {
-      const searchTerm = filters.searchTerm.toLowerCase();
-      query = query.or(`asin.ilike.%${searchTerm}%,sku_code.ilike.%${searchTerm}%,model_number.ilike.%${searchTerm}%,title.ilike.%${searchTerm}%`);
-    }
-    if (filters.poNumber) {
-      query = query.like('destination_details', `%${filters.poNumber}%`);
-    }
-    if (filters.supplierName) {
-      query = query.ilike('supplier_name', `%${filters.supplierName}%`);
-    }
-    if (filters.startDate) {
-      const startDateStr = filters.startDate.toISOString().split('T')[0];
-      query = query.gte('created_at', startDateStr);
-    }
-    if (filters.endDate) {
-      const endDate = new Date(filters.endDate);
-      endDate.setHours(23, 59, 59, 999);
-      query = query.lte('created_at', endDate.toISOString());
-    }
-    if (filters.hasSerial !== undefined) {
-      if (filters.hasSerial) {
-        query = query.not('serial_number', 'is', null);
-      } else {
-        query = query.is('serial_number', null);
-      }
-    }
-
-    query = query.range(data.nextOffset, data.nextOffset + pageSize - 1);
-
-    const { data: moreData, error } = await query;
-
-    if (error) {
-      console.error('Failed to load more history:', error);
-      return;
-    }
-
-    queryClient.setQueryData(['receiving-history', filterType, filters], (old: any) => ({
-      ...old,
-      items: [...old.items, ...(moreData || [])],
-      nextOffset: old.nextOffset + pageSize,
-      hasMore: (moreData?.length || 0) === pageSize
-    }));
-  };
-
-  // Update print status
   const updatePrintStatus = useMutation({
     mutationFn: async ({ id, printed, printer_name }: { 
       id: string; 
@@ -277,10 +216,11 @@ export function useReceivingHistory(
 
   return {
     history: data?.items || [],
+    totalCount: data?.totalCount || 0,
+    totalPages: Math.ceil((data?.totalCount || 0) / pageSize),
+    currentPage,
     isLoading,
     error,
-    loadMore,
-    hasMore: data?.hasMore || false,
     poCount: data?.poCount || 0,
     inventoryCount: data?.inventoryCount || 0,
     updatePrintStatus: updatePrintStatus.mutate
