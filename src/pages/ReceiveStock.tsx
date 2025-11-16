@@ -271,7 +271,7 @@ export default function ReceiveStock() {
     supplier_name?: string;
     notes?: string;
     autoPrint: boolean;
-    manualPOAllocations?: Array<{ po_id: string; po_number: string; quantity: number }>;
+    manualPOAllocations?: Array<{ po_id: string; po_number: string; quantity: number; priority?: number }>;
   }) => {
     if (!selectedItem) return;
 
@@ -341,12 +341,18 @@ export default function ReceiveStock() {
               updatedAt: template.updated_at || new Date().toISOString()
             };
 
+            // Extract PO numbers and priority from allocations
+            const poNumbers = data.manualPOAllocations?.map(a => a.po_number).join(', ') || 'N/A';
+            const priority = data.manualPOAllocations?.[0]?.priority || 3;
+
             const dataset: LabelDataset = {
               id: 'receive-stock',
               name: 'Stock Receiving',
               description: 'Stock receiving data',
-              headers: ['ASIN', 'SKU', 'Model', 'Title', 'Quantity', 'Serial Number'],
+              headers: ['PO Number', 'Priority', 'ASIN', 'SKU', 'Model', 'Title', 'Quantity', 'Serial Number'],
               data: [[
+                poNumbers,
+                String(priority),
                 item.asin || '',
                 item.sku_code || '',
                 item.model_number || '',
