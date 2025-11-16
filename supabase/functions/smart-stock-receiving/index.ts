@@ -387,7 +387,10 @@ serve(async (req) => {
           allocated_to_pos: allocations.length,
           allocated_quantity: item.quantity - remainingQuantity,
           added_to_inventory: remainingQuantity,
-          matched_pos: allocations.map(a => a.po.po_number)
+          matched_pos: allocations.map(a => ({
+            po_number: a.po.po_number,
+            priority: a.po.priority || 3
+          }))
         });
 
       } catch (itemError) {

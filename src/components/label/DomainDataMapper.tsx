@@ -124,9 +124,10 @@ export const DomainDataMapper: React.FC<DomainDataMapperProps> = ({ domain }) =>
       id: 'po-orders',
       name: 'PO Items',
       description: 'Purchase order items',
-      headers: ['PO Number', 'Model Number', 'ASIN', 'SKU', 'Title', 'Quantity', 'Status', 'Ship To'],
+      headers: ['PO Number', 'Priority', 'Model Number', 'ASIN', 'SKU', 'Title', 'Quantity', 'Status', 'Ship To'],
       data: poOrders.map(po => [
         po.po_number || '',
+        po.priority?.toString() || '3',
         po.model_number || '',
         po.asin || '',
         po.sku_code || '',
