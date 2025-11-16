@@ -187,23 +187,26 @@ export function QuantityConfirmDialog({
       for (const po of availablePOs) {
         if (remainingQty <= 0) break;
         
-        // Only allocate to POs that match this item
-        const poMatchesItem = 
-          (item.asin && po.asin === item.asin) ||
-          (item.sku_code && po.sku_code === item.sku_code) ||
-          (item.model_number && po.model_number === item.model_number);
-        
-        if (!poMatchesItem) {
-          console.log('[Stock Receiving] Skipping non-matching PO:', {
-            poNumber: po.po_number,
-            poAsin: po.asin,
-            poSku: po.sku_code,
-            poModel: po.model_number,
-            itemAsin: item.asin,
-            itemSku: item.sku_code,
-            itemModel: item.model_number
-          });
-          continue;
+        // For PO and PO_GROUP items, we already loaded the correct POs by PO number
+        // For inventory items, we need to verify the match since we loaded by OR conditions
+        if (item.type === 'inventory' || item.type === 'recent') {
+          const poMatchesItem = 
+            (item.asin && po.asin === item.asin) ||
+            (item.sku_code && po.sku_code === item.sku_code) ||
+            (item.model_number && po.model_number === item.model_number);
+          
+          if (!poMatchesItem) {
+            console.log('[Stock Receiving] Inventory item - Skipping non-matching PO:', {
+              poNumber: po.po_number,
+              poAsin: po.asin,
+              poSku: po.sku_code,
+              poModel: po.model_number,
+              itemAsin: item.asin,
+              itemSku: item.sku_code,
+              itemModel: item.model_number
+            });
+            continue;
+          }
         }
         
         const allocateQty = Math.min(po.quantity, remainingQty);
@@ -214,6 +217,8 @@ export function QuantityConfirmDialog({
           priority: po.priority || 3
         });
         remainingQty -= allocateQty;
+        
+        console.log(`[Stock Receiving] Allocated ${allocateQty} to PO ${po.po_number} (Priority: ${po.priority || 3})`);
       }
     }
     
