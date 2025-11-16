@@ -215,12 +215,17 @@ serve(async (req) => {
             .single();
 
           if (po) {
-            resolvedAllocations.push({
+            const allocation = {
               po_id: po.id,
               po_number: po.po_number,
               quantity: manualAlloc.quantity,
               priority: po.priority || 3
-            });
+            };
+            
+            resolvedAllocations.push(allocation);
+            
+            // ✅ Manual allocation confirmation
+            console.log(`✅ [SR v3.1] Manual allocation confirmed:`, allocation);
           }
         }
       }
@@ -260,6 +265,21 @@ serve(async (req) => {
             po_number: topPO.po_number,
             quantity: resolvedAllocations[0].quantity,
             priority: topPO.priority
+          });
+
+          // ✅ Validation confirmation with full details
+          console.log(`✅ [SR v3.1] CONFIRMED allocation:`, {
+            item: {
+              asin: item.asin,
+              sku: item.sku_code,
+              quantity: item.quantity
+            },
+            allocation: {
+              po_id: topPO.id,
+              po_number: topPO.po_number,
+              priority: topPO.priority || 3,
+              allocated_qty: resolvedAllocations[0].quantity
+            }
           });
         }
       }
