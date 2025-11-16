@@ -29,14 +29,23 @@ export function SessionHistory({ sessions, onEndSession }: SessionHistoryProps) 
   const [loading, setLoading] = useState(false);
 
   // Prepare printable items from inventory
-  const printableItems = sessionInventory.map(inv => ({
-    inventory_id: inv.id,
-    asin: inv.asin,
-    sku: inv.sku,
-    title: inv.title,
-    quantity: inv.quantity,
-    serial_number: inv.serial_number
-  }));
+  const printableItems = sessionInventory.map(inv => {
+    // Find the original session item that created this inventory record
+    const sessionItem = sessionItems.find(item => item.serial_number === inv.serial_number);
+    
+    // Extract PO numbers if available
+    const poNumbers = sessionItem?.matched_pos?.map((po: any) => po.po_number).filter(Boolean).join(', ') || '';
+    
+    return {
+      inventory_id: inv.id,
+      asin: inv.asin,
+      sku: inv.sku,
+      title: inv.title,
+      quantity: inv.quantity,
+      serial_number: inv.serial_number,
+      po_numbers: poNumbers
+    };
+  });
 
   const loadSessionDetails = async (session: ReceivingSession) => {
     setLoading(true);

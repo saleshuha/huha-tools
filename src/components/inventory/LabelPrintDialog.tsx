@@ -37,6 +37,7 @@ interface LabelPrintDialogProps {
     type: 'asin' | 'sku' | 'mixed';
     order_id?: string;
     order_quantity?: number;
+    po_numbers?: string;
   }>;
   inventoryType: 'asin' | 'sku' | 'mixed';
 }
@@ -129,14 +130,15 @@ export function LabelPrintDialog({ open, onOpenChange, selectedItems, inventoryT
   };
 
   const createDataset = () => {
-    const headers = ['asin', 'sku', 'title', 'quantity', 'order_id', 'order_quantity'];
+    const headers = ['asin', 'sku', 'title', 'quantity', 'order_id', 'order_quantity', 'po_numbers'];
     const data = selectedItems.map(item => [
       item.asin || '',
       item.sku || '',
       item.title,
       item.quantity.toString(),
       item.order_id || '',
-      item.order_quantity?.toString() || ''
+      item.order_quantity?.toString() || '',
+      item.po_numbers || ''
     ]);
     
     return { headers, data };
@@ -178,8 +180,9 @@ export function LabelPrintDialog({ open, onOpenChange, selectedItems, inventoryT
       pdf.text(`${row[0] || row[1]} - ${row[2]}`, 20, yOffset);
       pdf.text(`Qty: ${row[3]} | Order: ${row[4]}`, 20, yOffset + 5);
       
-      if (row[0]) pdf.text(`ASIN: ${row[0]}`, 20, yOffset + 10);
-      if (row[1]) pdf.text(`SKU: ${row[1]}`, 20, yOffset + 15);
+      if (row[6]) pdf.text(`PO: ${row[6]}`, 20, yOffset + 10);
+      if (row[0]) pdf.text(`ASIN: ${row[0]}`, 20, yOffset + 15);
+      if (row[1]) pdf.text(`SKU: ${row[1]}`, 20, yOffset + 20);
 
       yOffset += labelHeight;
     });
@@ -222,14 +225,17 @@ export function LabelPrintDialog({ open, onOpenChange, selectedItems, inventoryT
 
     // Generate basic ZPL for each item
     dataset.data.forEach((row, index) => {
-      const [asin, sku, title, quantity, order_id] = row;
+      const [asin, sku, title, quantity, order_id, order_quantity, po_numbers] = row;
       
       zplCode += `^XA\n`; // Start label
       zplCode += `^FO20,20^A0N,30,30^FD${asin || sku}^FS\n`; // Main identifier
       zplCode += `^FO20,60^A0N,20,20^FD${title.substring(0, 30)}^FS\n`; // Title (truncated)
       zplCode += `^FO20,90^A0N,20,20^FDQty: ${quantity}^FS\n`; // Quantity
+      if (po_numbers) {
+        zplCode += `^FO20,120^A0N,15,15^FDPO: ${po_numbers}^FS\n`; // PO Numbers
+      }
       if (order_id) {
-        zplCode += `^FO20,120^A0N,15,15^FDOrder: ${order_id}^FS\n`; // Order ID
+        zplCode += `^FO20,150^A0N,15,15^FDOrder: ${order_id}^FS\n`; // Order ID
       }
       zplCode += `^XZ\n`; // End label
     });
