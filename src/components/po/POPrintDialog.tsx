@@ -84,7 +84,7 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
             id: data.id,
             name: data.name,
             size: { width: data.width, height: data.height, unit: 'mm' },
-            elements: data.canvas_data?.objects || [],
+            elements: data.canvas_data?.elements || [],
             createdAt: data.created_at,
             updatedAt: data.updated_at
           });
