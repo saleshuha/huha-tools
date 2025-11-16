@@ -402,6 +402,17 @@ export function OrderProcessor() {
     });
 
     const itemsToCheck = Array.from(uniqueItems.values());
+    
+    if (itemsToCheck.length === 0) {
+      console.log('⚠️ No valid items to check against Sunsky API');
+      toast({
+        title: "No Items to Check",
+        description: "No valid SKU or ASIN found in the uploaded orders.",
+        variant: "default"
+      });
+      return orders;
+    }
+    
     console.log(`🌐 Checking ${itemsToCheck.length} unique items against Sunsky API...`);
 
     setApiCheckProgress({ current: 0, total: itemsToCheck.length, checking: true });
