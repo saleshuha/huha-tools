@@ -307,8 +307,9 @@ export default function ReceiveStock() {
     let printPromise: Promise<boolean> | null = null;
     
     if (data.autoPrint && directPrintEnabled && selectedPrinter) {
-      // Determine template type based on item
-      const templateType = item.asin ? 'inventory' : 'po';
+      // Determine template type based on item type property
+      const templateType = (selectedItem.type === 'inventory' || selectedItem.type === 'recent') ? 'inventory' : 'po';
+      console.log(`[Auto-Print] Item type: ${selectedItem.type}, Using template: ${templateType}`);
       const templateId = templateType === 'po' ? selectedPoTemplate : selectedInventoryTemplate;
       
       if (templateId) {
