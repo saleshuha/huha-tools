@@ -136,7 +136,7 @@ export const POTracker = () => {
 
   // Multi-tag search state
   const [searchTags, setSearchTags] = useState<string[]>([]);
-  const [chipMode, setChipMode] = useState<'auto' | 'manual'>('auto');
+  const [chipMode, setChipMode] = useState<'auto' | 'manual'>('manual');
   const [chipDelay, setChipDelay] = useState(2); // Default 2 seconds
 
   // Bulk delete state
