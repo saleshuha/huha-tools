@@ -2849,8 +2849,8 @@ export const POTracker = () => {
         id: 'po-data',
         name: 'PO Order Data',
         description: 'Purchase Order Data',
-        headers: ['sku', 'title', 'quantity', 'po_number', 'status', 'asin', 'model_number', 'PO Number'],
-        data: [[order.sku_code || order.model_number || order.asin || 'N/A', order.title || 'No title available', order.quantity.toString(), order.po_number, order.status, order.asin || 'No ASIN', order.model_number || 'No model', order.po_number // Add duplicate with different case
+        headers: ['sku', 'title', 'quantity', 'po_number', 'status', 'asin', 'model_number', 'PO Number', 'Priority'],
+        data: [[order.sku_code || order.model_number || order.asin || 'N/A', order.title || 'No title available', order.quantity.toString(), order.po_number, order.status, order.asin || 'No ASIN', order.model_number || 'No model', order.po_number, order.priority?.toString() || '3' // Add duplicate with different case and priority
         ]],
         rowCount: 1,
         createdAt: new Date().toISOString(),
