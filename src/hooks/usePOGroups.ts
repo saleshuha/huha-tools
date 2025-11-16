@@ -53,6 +53,26 @@ export const usePOGroups = () => {
     staleTime: 2 * 60 * 1000,
   });
 
+  // Update ungrouped PO priorities - defined first so it can be used in other mutations
+  const updateUngroupedPriorities = useMutation({
+    mutationFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .rpc('update_ungrouped_po_priorities', { user_id_param: user.id });
+
+      if (error) throw error;
+      return data[0];
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['po-groups'] });
+      if (data && data.updated_count > 0) {
+        console.log(`Updated ${data.updated_count} ungrouped POs to priority ${data.new_priority}`);
+      }
+    },
+  });
+
   // Create new PO group
   const createGroup = useMutation({
     mutationFn: async ({ name, description, poIds, priority }: { name: string; description?: string; poIds: string[]; priority?: number }) => {
@@ -98,8 +118,10 @@ export const usePOGroups = () => {
 
       return group;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['po-groups'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['po-groups'] });
+      // Trigger auto-update for remaining ungrouped POs
+      updateUngroupedPriorities.mutate();
       toast({
         title: 'Group created',
         description: 'PO group created successfully',
@@ -212,8 +234,10 @@ export const usePOGroups = () => {
 
       if (groupError) throw groupError;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['po-groups'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['po-groups'] });
+      // Trigger auto-update for remaining ungrouped POs
+      updateUngroupedPriorities.mutate();
       toast({
         title: 'Priority updated',
         description: 'Group priority updated successfully',
@@ -247,6 +271,7 @@ export const usePOGroups = () => {
     removePOFromGroup,
     deleteGroup,
     updateGroupPriority,
+    updateUngroupedPriorities,
     getPOsInGroup,
   };
 };

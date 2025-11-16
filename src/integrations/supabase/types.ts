@@ -5921,6 +5921,14 @@ export type Database = {
           updated_inactive_count: number
         }[]
       }
+      update_ungrouped_po_priorities: {
+        Args: { user_id_param: string }
+        Returns: {
+          max_grouped_priority: number
+          new_priority: number
+          updated_count: number
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "user"

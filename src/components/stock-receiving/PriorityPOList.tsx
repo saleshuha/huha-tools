@@ -42,7 +42,7 @@ export function PriorityPOList() {
   const [newGroupPriority, setNewGroupPriority] = useState<number>(3);
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
   const { toast } = useToast();
-  const { poGroups, createGroup, addPOsToGroup, updateGroupPriority, deleteGroup } = usePOGroups();
+  const { poGroups, createGroup, addPOsToGroup, updateGroupPriority, deleteGroup, updateUngroupedPriorities } = usePOGroups();
 
   useEffect(() => {
     loadPOs();
@@ -51,6 +51,10 @@ export function PriorityPOList() {
   const loadPOs = async () => {
     try {
       setLoading(true);
+      
+      // First, update ungrouped PO priorities
+      await updateUngroupedPriorities.mutateAsync();
+      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -615,11 +619,18 @@ export function PriorityPOList() {
                           </div>
                         </div>
 
-                        <POPriorityBadge
-                          priority={po.priority || 3}
-                          onUpdate={() => {}}
-                          disabled
-                        />
+                        <div className="flex flex-col items-end gap-1">
+                          <POPriorityBadge
+                            priority={po.priority || 3}
+                            onUpdate={() => {}}
+                            disabled
+                          />
+                          {po.priority >= 6 && (
+                            <Badge variant="outline" className="text-xs border-dashed">
+                              Auto-Priority
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
