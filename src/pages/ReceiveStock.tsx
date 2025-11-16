@@ -133,7 +133,7 @@ export default function ReceiveStock() {
       name: 'Received Stock Data',
       description: 'Stock receiving item',
       headers: ['PO Number', 'Priority', 'ASIN', 'SKU', 'Title', 'Serial', 'Quantity', 'Status', 'Date'],
-      data: [[poNumbers || 'N/A', priority?.toString() || '3', item.asin || 'N/A', item.sku_code || 'N/A', item.title || 'No Title', item.serial_number || 'N/A', item.quantity.toString(), result.template_type === 'po' ? 'Fulfilled' : 'In Stock', new Date().toLocaleDateString()]],
+      data: [[poNumbers || 'N/A', priority ? `P${priority}` : 'P3', item.asin || 'N/A', item.sku_code || 'N/A', item.title || 'No Title', item.serial_number || 'N/A', item.quantity.toString(), result.template_type === 'po' ? 'Fulfilled' : 'In Stock', new Date().toLocaleDateString()]],
       rowCount: 1,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()

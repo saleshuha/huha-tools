@@ -36,6 +36,7 @@ export function convertWorkspaceOrdersToPrintItems(
     
     return {
       ...item,
+      priority: item.priority || 3,
       imageUrl: imageUrl,
       fulfilledFromStock: hasLocalStock,
       stockQuantity: totalLocalStockQty,

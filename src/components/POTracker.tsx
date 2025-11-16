@@ -59,6 +59,7 @@ export interface POOrder {
   sku_code?: string;
   serial_number?: string;
   status: 'pending' | 'placed' | 'received' | 'cancelled' | 'closed';
+  priority?: number;
   order_date?: string;
   expected_delivery?: string;
   notes?: string;
