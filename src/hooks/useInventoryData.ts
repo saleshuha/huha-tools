@@ -156,7 +156,7 @@ export function useInventoryData() {
   };
 
   const getInventoryDataset = () => {
-    const headers = ['ID', 'Type', 'ASIN', 'SKU', 'Title', 'Quantity', 'Status', 'Serial/Bin'];
+    const headers = ['ID', 'Type', 'ASIN', 'SKU', 'Title', 'Quantity', 'Status', 'Serial Number'];
     const data = inventory.map(item => [
       item.id,
       item.type,
