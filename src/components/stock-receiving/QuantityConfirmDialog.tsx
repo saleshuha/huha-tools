@@ -39,8 +39,7 @@ interface SearchResult {
 }
 
 interface ManualPOAllocation {
-  po_id: string;
-  po_number: string;
+  po_number: string;  // Primary identifier - backend will find matching item
   quantity: number;
   priority?: number;
 }
@@ -211,8 +210,7 @@ export function QuantityConfirmDialog({
         
         const allocateQty = Math.min(po.quantity, remainingQty);
         manualAllocations.push({
-          po_id: po.id,
-          po_number: po.po_number,
+          po_number: po.po_number,  // Let backend find the correct item by ASIN/SKU/Model
           quantity: allocateQty,
           priority: po.priority || 3
         });
