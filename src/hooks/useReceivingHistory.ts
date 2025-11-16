@@ -40,7 +40,8 @@ export interface ReceivingHistoryItem {
 }
 
 export function useReceivingHistory(
-  pageSize: number = 50, 
+  pageSize: number = 20,
+  currentPage: number = 1,
   filterType: 'all' | 'po' | 'inventory' = 'all',
   filters: HistoryFilterOptions = {}
 ) {
@@ -52,7 +53,7 @@ export function useReceivingHistory(
     isLoading,
     error
   } = useQuery({
-    queryKey: ['receiving-history', filterType, filters],
+    queryKey: ['receiving-history', pageSize, currentPage, filterType, filters],
     queryFn: async () => {
       const userId = (await supabase.auth.getUser()).data.user?.id;
       
@@ -104,7 +105,9 @@ export function useReceivingHistory(
         }
       }
 
-      query = query.limit(pageSize);
+      // Apply pagination with range
+      const offset = (currentPage - 1) * pageSize;
+      query = query.range(offset, offset + pageSize - 1);
 
       const { data, error, count } = await query;
 
@@ -186,8 +189,7 @@ export function useReceivingHistory(
       
       return {
         items: dataWithImages || [],
-        hasMore: (count || 0) > pageSize,
-        nextOffset: pageSize,
+        totalCount: count || 0,
         poCount: poCount || 0,
         inventoryCount: invCount || 0
       };
