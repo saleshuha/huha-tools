@@ -296,7 +296,13 @@ serve(async (req) => {
       
       return {
         item: enrichedItem,
-        potentialPOs: matchingPOs || [],
+        // ✅ If manual allocations were resolved, only return those POs
+        // This prevents auto-matched POs from interfering with manual selection
+        potentialPOs: resolvedAllocations.length > 0 
+          ? matchingPOs?.filter(po => 
+              resolvedAllocations.some(alloc => alloc.po_id === po.id)
+            ) || []
+          : matchingPOs || [],
         manualAllocations: itemManualAllocations || [],
         resolvedAllocations: resolvedAllocations
       };
