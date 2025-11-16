@@ -392,11 +392,11 @@ export function OrderProcessor() {
       return orders;
     }
 
-    // Extract unique SKUs and ASINs
+    // Extract unique SKUs and ASINs - only include valid non-empty values
     const uniqueItems = new Map<string, OrderItem>();
     orders.forEach(order => {
-      const key = order.sku || order.asin;
-      if (key && !uniqueItems.has(key)) {
+      const key = ((order.sku || order.asin || '').trim());
+      if (key && key !== '' && key !== 'undefined' && key !== 'null' && !uniqueItems.has(key)) {
         uniqueItems.set(key, order);
       }
     });
