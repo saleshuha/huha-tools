@@ -1,9 +1,17 @@
 import { useState } from 'react';
 import { Clock } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { TrackedTabs } from '@/components/ui/tracked-tabs';
 import { TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 import { HistoryItemCard } from './HistoryItemCard';
 import { HistoryFilters, HistoryFilterOptions } from './HistoryFilters';
 import { useReceivingHistory } from '@/hooks/useReceivingHistory';
@@ -32,25 +40,100 @@ export function RecentActivityFeed({
 }: RecentActivityFeedProps) {
   const [activeTab, setActiveTab] = useState<'po' | 'inventory'>('po');
   const [filters, setFilters] = useState<HistoryFilterOptions>({});
+  const [poPage, setPoPage] = useState(1);
+  const [invPage, setInvPage] = useState(1);
   
   const {
     history: poHistory,
     isLoading: poLoading,
-    loadMore: loadMorePO,
-    hasMore: hasMorePO,
+    totalPages: poTotalPages,
     poCount
-  } = useReceivingHistory(50, 'po', filters);
+  } = useReceivingHistory(20, poPage, 'po', filters);
 
   const {
     history: inventoryHistory,
     isLoading: invLoading,
-    loadMore: loadMoreInv,
-    hasMore: hasMoreInv,
+    totalPages: invTotalPages,
     inventoryCount
-  } = useReceivingHistory(50, 'inventory', filters);
+  } = useReceivingHistory(20, invPage, 'inventory', filters);
 
   const handleFilterChange = (newFilters: HistoryFilterOptions) => {
     setFilters(newFilters);
+    setPoPage(1);
+    setInvPage(1);
+  };
+
+  const renderPagination = (currentPage: number, totalPages: number, onPageChange: (page: number) => void) => {
+    if (totalPages <= 1) return null;
+    
+    const pages = [];
+    const showEllipsis = totalPages > 7;
+    
+    if (showEllipsis) {
+      // Always show first page
+      pages.push(1);
+      
+      if (currentPage > 3) {
+        pages.push(-1); // Ellipsis marker
+      }
+      
+      // Show pages around current
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+        pages.push(i);
+      }
+      
+      if (currentPage < totalPages - 2) {
+        pages.push(-2); // Ellipsis marker
+      }
+      
+      // Always show last page
+      if (totalPages > 1) {
+        pages.push(totalPages);
+      }
+    } else {
+      // Show all pages if 7 or fewer
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    }
+    
+    return (
+      <Pagination className="mt-4">
+        <PaginationContent>
+          <PaginationItem>
+            <PaginationPrevious 
+              onClick={() => currentPage > 1 && onPageChange(currentPage - 1)}
+              className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+            />
+          </PaginationItem>
+          
+          {pages.map((page, idx) => (
+            page < 0 ? (
+              <PaginationItem key={`ellipsis-${idx}`}>
+                <PaginationEllipsis />
+              </PaginationItem>
+            ) : (
+              <PaginationItem key={page}>
+                <PaginationLink
+                  onClick={() => onPageChange(page)}
+                  isActive={currentPage === page}
+                  className="cursor-pointer"
+                >
+                  {page}
+                </PaginationLink>
+              </PaginationItem>
+            )
+          ))}
+          
+          <PaginationItem>
+            <PaginationNext 
+              onClick={() => currentPage < totalPages && onPageChange(currentPage + 1)}
+              className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+            />
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
+    );
   };
 
   const totalHistory = poHistory.length + inventoryHistory.length;
@@ -123,22 +206,10 @@ export function RecentActivityFeed({
                       }) : undefined}
                     />
                   ))}
-                  
-                  {hasMorePO && (
-                    <div className="p-4 text-center">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={loadMorePO}
-                        disabled={poLoading}
-                      >
-                        {poLoading ? 'Loading...' : 'Load More'}
-                      </Button>
-                    </div>
-                  )}
                 </>
               )}
             </div>
+            {renderPagination(poPage, poTotalPages, setPoPage)}
           </ScrollArea>
         </TabsContent>
 
@@ -168,22 +239,10 @@ export function RecentActivityFeed({
                       }) : undefined}
                     />
                   ))}
-                  
-                  {hasMoreInv && (
-                    <div className="p-4 text-center">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={loadMoreInv}
-                        disabled={invLoading}
-                      >
-                        {invLoading ? 'Loading...' : 'Load More'}
-                      </Button>
-                    </div>
-                  )}
                 </>
               )}
             </div>
+            {renderPagination(invPage, invTotalPages, setInvPage)}
           </ScrollArea>
         </TabsContent>
       </TrackedTabs>
