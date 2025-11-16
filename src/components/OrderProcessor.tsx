@@ -471,7 +471,18 @@ export function OrderProcessor() {
                 sku: order.sku,
                 asin: order.asin,
                 status: 'error',
-                errorMessage: error.message || 'Unknown error'
+                errorMessage: error.message || JSON.stringify(error) || 'Unknown error'
+              });
+            } else if (data?.result === 'error') {
+              // Handle edge function errors
+              console.error(`❌ API Error for ${itemNo}:`, data.message);
+              errorCount++;
+              results.push({
+                orderId: order.orderId,
+                sku: order.sku,
+                asin: order.asin,
+                status: 'error',
+                errorMessage: data.message || data.details || 'API returned error'
               });
             } else if (data?.code === 200 && data?.result) {
               console.log(`✅ Found in Sunsky: ${itemNo}`, data.result.title?.substring(0, 50));
