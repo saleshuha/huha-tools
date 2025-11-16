@@ -605,13 +605,18 @@ serve(async (req) => {
         ...result,
         manual_po_allocations: itemPreparations[index].resolvedAllocations
       })),
-      summary: {
-        total_items: items.length,
-        status: 'processing',
-        estimated_pos: itemPreparations.reduce((sum, p) => sum + p.potentialPOs.length, 0),
-        items_allocated_to_pos: 0, // Will be updated in background
-        items_added_to_inventory: 0 // Will be updated in background
-      },
+    summary: {
+      total_items: items.length,
+      status: 'processing',
+      estimated_pos: itemPreparations.reduce((sum, p) => sum + p.potentialPOs.length, 0),
+      // ✅ Calculate accurate counts from validation results
+      items_allocated_to_pos: validationResults.filter(r => 
+        r.matched_pos && r.matched_pos.length > 0
+      ).length,
+      items_added_to_inventory: validationResults.filter(r => 
+        !r.matched_pos || r.matched_pos.length === 0
+      ).length
+    },
       optimistic: true,
       processing_time_ms: Date.now() - startTime
     };
