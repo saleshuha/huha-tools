@@ -294,13 +294,100 @@ export default function ReceiveStock() {
       notes: data.notes,
       country: selectedCountry
     };
-    const results = await processSingleItem(
+    // PHASE 4: Start both operations in parallel for faster UX
+    const receivePromise = processSingleItem(
       item, 
       true, 
       undefined, 
       selectedCountry,
       data.manualPOAllocations
     );
+
+    // PHASE 4: Start print preparation immediately if auto-print enabled
+    let printPromise: Promise<boolean> | null = null;
+    
+    if (data.autoPrint && directPrintEnabled && selectedPrinter) {
+      // Determine template type based on item
+      const templateType = item.asin ? 'inventory' : 'po';
+      const templateId = templateType === 'po' ? selectedPoTemplate : selectedInventoryTemplate;
+      
+      if (templateId) {
+        // Start fetching template immediately (in parallel with processing)
+        printPromise = (async () => {
+          try {
+            const { data: template, error: templateError } = await supabase
+              .from('label_templates')
+              .select('*')
+              .eq('id', templateId)
+              .single();
+
+            if (templateError || !template) {
+              console.error('[Auto-Print] Template fetch error:', templateError);
+              toast.error('Failed to load label template');
+              return false;
+            }
+
+            const labelDoc: LabelDoc = {
+              id: template.id,
+              name: template.name,
+              size: {
+                width: template.width || 100,
+                height: template.height || 60,
+                unit: 'mm'
+              },
+              elements: template.canvas_data?.elements || [],
+              createdAt: template.created_at || new Date().toISOString(),
+              updatedAt: template.updated_at || new Date().toISOString()
+            };
+
+            const dataset: LabelDataset = {
+              id: 'receive-stock',
+              name: 'Stock Receiving',
+              description: 'Stock receiving data',
+              headers: ['ASIN', 'SKU', 'Model', 'Title', 'Quantity', 'Serial Number'],
+              data: [[
+                item.asin || '',
+                item.sku_code || '',
+                item.model_number || '',
+                item.title || '',
+                String(data.quantity),
+                data.serial_number || ''
+              ]],
+              rowCount: 1,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            };
+
+            const printSettings: PrintSettings = {
+              format: 'zpl',
+              paperSize: 'custom',
+              orientation: 'portrait',
+              dpi: 203,
+              copies: 1,
+              labelsPerPage: 1,
+              margin: 0,
+              darkness: printDarkness
+            };
+
+            const zplCode = PrintService.generateZPL(labelDoc, dataset, printSettings);
+            
+            // Use QZ singleton instance print method
+            const qzManager = QZConnectionManager.getInstance();
+            await qzManager.print(zplCode, selectedPrinter);
+            console.log('[Auto-Print] ✅ Label printed successfully');
+            return true;
+          } catch (err) {
+            console.error('[Auto-Print] ❌ Print error:', err);
+            toast.error('Failed to print label');
+            return false;
+          }
+        })();
+      }
+    }
+
+    // Wait for receiving to complete
+    const results = await receivePromise;
+    
     if (results && results.length > 0) {
       const result = results[0];
 
@@ -313,7 +400,7 @@ export default function ReceiveStock() {
         templateType = 'po';
       }
 
-      // Create activity item
+      // Create activity item with optimistic state
       const activity: ActivityItem = {
         id: `${Date.now()}-${Math.random()}`,
         success: result.success,
@@ -326,8 +413,9 @@ export default function ReceiveStock() {
         error: result.error
       };
 
-      // Auto-print if requested (using PrintService - same as Inventory page)
-      if (data.autoPrint && result.success && directPrintEnabled && selectedPrinter) {
+      // PHASE 4: Wait for print if it was started
+      if (printPromise && result.success) {
+        const printed = await printPromise;
         try {
           console.log('[Auto-Print] Starting with PrintService method...');
 
