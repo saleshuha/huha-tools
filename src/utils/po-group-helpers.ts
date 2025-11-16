@@ -7,6 +7,7 @@ export const consolidatePOGroupQuantity = (group: POGroupWithMembers): number =>
 export const getPriorityLabel = (priority?: number): string => {
   if (!priority) return '📦 3rd Nearest Shipment';
   
+  // Priorities 1-5 are for grouped POs
   switch (priority) {
     case 1:
       return '🚀 1st Nearest Shipment';
@@ -19,6 +20,7 @@ export const getPriorityLabel = (priority?: number): string => {
     case 5:
       return '⏰ 5th Nearest Shipment';
     default:
+      // Priority 6+ are auto-assigned to ungrouped POs
       return '📦 3rd Nearest Shipment';
   }
 };
