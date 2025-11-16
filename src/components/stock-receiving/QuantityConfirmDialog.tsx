@@ -42,6 +42,7 @@ interface ManualPOAllocation {
   po_id: string;
   po_number: string;
   quantity: number;
+  priority?: number;
 }
 
 interface QuantityConfirmDialogProps {
@@ -209,7 +210,8 @@ export function QuantityConfirmDialog({
         manualAllocations.push({
           po_id: po.id,
           po_number: po.po_number,
-          quantity: allocateQty
+          quantity: allocateQty,
+          priority: po.priority || 3
         });
         remainingQty -= allocateQty;
       }
