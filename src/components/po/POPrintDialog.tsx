@@ -20,6 +20,9 @@ import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { useReactToPrint } from 'react-to-print';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import Papa from 'papaparse';
+import { supabase } from '@/integrations/supabase/client';
+import { PrintService } from '@/services/print-service';
+import { LabelDoc, LabelDataset } from '@/types/label';
 
 interface POPrintDialogProps {
   open: boolean;
@@ -44,11 +47,58 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set(Array.from({ length: orders.length }, (_, i) => i)));
   const [isPrinting, setIsPrinting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [poTemplate, setPoTemplate] = useState<LabelDoc | null>(null);
+  const [loadingTemplate, setLoadingTemplate] = useState(false);
   const navigate = useNavigate();
   
   const printRef = useRef<HTMLDivElement>(null);
   const { getImageByAsin } = useProductImages();
   const { toast } = useToast();
+
+  // Load PO template when dialog opens
+  React.useEffect(() => {
+    const loadTemplate = async () => {
+      if (!open) return;
+      
+      setLoadingTemplate(true);
+      try {
+        // Get selected template ID from localStorage (set in ReceiveStock page)
+        const selectedTemplateId = localStorage.getItem('stock-receiving-po-template-id');
+        
+        if (!selectedTemplateId) {
+          console.log('No PO template selected, will use fallback generator');
+          setPoTemplate(null);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from('label_templates')
+          .select('*')
+          .eq('id', selectedTemplateId)
+          .single();
+
+        if (error) throw error;
+
+        if (data) {
+          setPoTemplate({
+            id: data.id,
+            name: data.name,
+            size: { width: data.width, height: data.height, unit: 'mm' },
+            elements: data.canvas_data?.objects || [],
+            createdAt: data.created_at,
+            updatedAt: data.updated_at
+          });
+          console.log('✅ Loaded PO template:', data.name);
+        }
+      } catch (error) {
+        console.error('Failed to load PO template:', error);
+      } finally {
+        setLoadingTemplate(false);
+      }
+    };
+
+    loadTemplate();
+  }, [open]);
 
   // Debug: Log total orders received
   React.useEffect(() => {
@@ -165,13 +215,65 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
         throw new Error('QZ Tray is not connected. Please ensure QZ Tray is running.');
       }
 
-      // Generate ZPL
-      const zpl = generateBulkPOLabelsZPL(printItems, {
-        dpi: 203,
-        labelWidth: 4 * 203,
-        labelHeight: 6 * 203,
-        includeBarcode: true
-      }, copies);
+      let zpl: string;
+
+      // Use template system if template is loaded
+      if (poTemplate) {
+        console.log('🏷️ Using template system for PO labels');
+        
+        // Create dataset with PO fields
+        const dataset: LabelDataset = {
+          id: 'po-print-session',
+          name: 'PO Print Session',
+          description: 'Temporary dataset for PO label printing',
+          headers: ['po_number', 'asin', 'sku_code', 'model_number', 'title', 'quantity'],
+          data: printItems.map(item => [
+            item.poNumbers.join(', '),  // Map to po_number column
+            item.asin || '',
+            item.sku_code || '',
+            item.model_number || '',
+            item.title,
+            item.quantity.toString()
+          ]),
+          rowCount: printItems.length,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        console.log('📊 Dataset created with', dataset.data.length, 'items');
+        console.log('📋 Sample PO numbers:', dataset.data[0]?.[0]);
+
+        // Get print darkness from localStorage (set in ReceiveStock page)
+        const printDarkness = parseInt(localStorage.getItem('stock-receiving-print-darkness') || '10');
+
+        // Generate ZPL using PrintService
+        zpl = PrintService.generateZPL(poTemplate, dataset, {
+          format: 'zpl',
+          dpi: 203,
+          copies: copies,
+          darkness: printDarkness,
+          labelsPerPage: 1,
+          paperSize: 'custom',
+          orientation: 'portrait',
+          margin: 0
+        });
+
+        console.log('✅ ZPL generated using template, length:', zpl.length);
+      } else {
+        // Fallback to hardcoded generator
+        console.log('⚠️ No template selected, using fallback generator');
+        toast({
+          title: "Using default labels",
+          description: "Select a PO template in Receive Stock settings for custom labels",
+        });
+
+        zpl = generateBulkPOLabelsZPL(printItems, {
+          dpi: 203,
+          labelWidth: 4 * 203,
+          labelHeight: 6 * 203,
+          includeBarcode: true
+        }, copies);
+      }
 
       // Get printers and use default
       const printers = await qzConnectionManager.getPrinters();
