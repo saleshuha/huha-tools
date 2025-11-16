@@ -311,9 +311,14 @@ serve(async (req) => {
     const validationResults = itemPreparations.map(prep => ({
       item_id: prep.item.asin || prep.item.sku_code || prep.item.model_number,
       matched_pos_count: prep.potentialPOs.length,
+      matched_pos: prep.resolvedAllocations.length > 0 
+        ? prep.resolvedAllocations.map(alloc => alloc.po_number)
+        : [],
       status: 'processing',
       success: true,
-      message: 'Item validated and queued for processing'
+      message: prep.resolvedAllocations.length > 0
+        ? `Item allocated to ${prep.resolvedAllocations.length} PO(s)`
+        : 'Item will be added to inventory'
     }));
 
     // Background processing function
