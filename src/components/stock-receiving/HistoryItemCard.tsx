@@ -19,6 +19,9 @@ interface HistoryItemCardProps {
     destination_type: string;
     destination_details?: {
       po_numbers?: string[];
+      priorities?: number[];
+      group_names?: string[];
+      group_ids?: string[];
       inventory_added?: number;
       fulfillment_source?: string;
     };
@@ -90,16 +93,28 @@ export function HistoryItemCard({ item, type, onReprint }: HistoryItemCardProps)
           <div className="flex items-center gap-2 flex-wrap mb-2">
             {type === 'po' ? (
               <>
-                {poNumbers.map((poNumber) => (
-                  <Badge
-                    key={poNumber}
-                    variant="secondary"
-                    className="cursor-pointer hover:bg-primary/20 text-xs"
-                    onClick={() => navigate(`/po-tracker?search=${poNumber}`)}
-                  >
-                    PO: {poNumber}
-                  </Badge>
+                {poNumbers.map((poNumber, index) => (
+                  <div key={poNumber} className="flex items-center gap-1 flex-wrap">
+                    <Badge
+                      variant="secondary"
+                      className="cursor-pointer hover:bg-primary/20 text-xs"
+                      onClick={() => navigate(`/po-tracker?search=${poNumber}`)}
+                    >
+                      PO: {poNumber}
+                    </Badge>
+                    {item.destination_details?.priorities?.[index] && (
+                      <Badge variant="outline" className="text-xs">
+                        Priority {item.destination_details.priorities[index]}
+                      </Badge>
+                    )}
+                  </div>
                 ))}
+                {item.destination_details?.group_names?.[0] && (
+                  <Badge variant="secondary" className="text-xs gap-1">
+                    <Package className="w-3 h-3" />
+                    Group: {item.destination_details.group_names[0]}
+                  </Badge>
+                )}
                 {fulfillmentSource && (
                   <FulfillmentSourceBadge source={fulfillmentSource} className="text-xs" />
                 )}
@@ -132,9 +147,19 @@ export function HistoryItemCard({ item, type, onReprint }: HistoryItemCardProps)
 
           {/* Timestamp & Print Status */}
           <div className="flex items-center gap-3 mt-2">
-            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            <span 
+              className="flex items-center gap-1 text-xs text-muted-foreground"
+              title={formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
+            >
               <Clock className="w-3 h-3" />
-              {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
+              {new Date(item.created_at).toLocaleString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+              })}
             </span>
             {item.printed && (
               <span className="flex items-center gap-1 text-xs text-success">

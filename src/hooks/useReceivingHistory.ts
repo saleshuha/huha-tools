@@ -21,13 +21,22 @@ export interface ReceivingHistoryItem {
   serial_number?: string;
   supplier_name?: string;
   destination_type: string;
-  destination_details?: any;
+  destination_details?: {
+    po_numbers?: string[];
+    priorities?: number[];
+    group_names?: string[];
+    group_ids?: string[];
+    inventory_added?: number;
+    pos_allocated?: number;
+    fulfillment_source?: string;
+  };
   template_type?: string;
   printed: boolean;
   printer_name?: string;
   success: boolean;
   error_message?: string;
   created_at: string;
+  image_url?: string;
 }
 
 export function useReceivingHistory(
