@@ -487,21 +487,43 @@ serve(async (req) => {
             
             const priorityMap = new Map(poData?.map(po => [po.id, po.priority]) || []);
             
-            // Get group info from po_group_members and po_groups
+            console.log('[SR v3.0] Fetched priorities for POs:', {
+              poIds,
+              priorities: poData?.map(po => ({ id: po.id, priority: po.priority }))
+            });
+            
+            // Get group info from po_group_members and po_groups - explicit two-step fetch
             const { data: groupMembers } = await supabase
               .from('po_group_members')
-              .select('po_id, group_id, po_groups(group_name)')
+              .select('po_id, group_id')
               .in('po_id', poIds);
+            
+            // Then fetch group names separately
+            const groupIds_temp = groupMembers?.map(gm => gm.group_id).filter(Boolean) || [];
+            const { data: groups } = await supabase
+              .from('po_groups')
+              .select('id, group_name')
+              .in('id', groupIds_temp);
+            
+            const groupInfoMap = new Map(
+              groups?.map(g => [g.id, g.group_name]) || []
+            );
             
             const groupMap = new Map(
               groupMembers?.map(gm => [
-                gm.po_id, 
-                { 
-                  groupId: gm.group_id, 
-                  groupName: (gm.po_groups as any)?.group_name 
+                gm.po_id,
+                {
+                  groupId: gm.group_id,
+                  groupName: groupInfoMap.get(gm.group_id)
                 }
               ]) || []
             );
+            
+            console.log('[SR v3.0] Fetched group info:', {
+              groupMembers: groupMembers?.length || 0,
+              groups: groups?.length || 0,
+              groupMap: Array.from(groupMap.entries())
+            });
             
             // Build arrays matching allocation order
             allocations.forEach(a => {
@@ -511,6 +533,14 @@ serve(async (req) => {
                 groupNames.push(groupInfo.groupName);
                 groupIds.push(groupInfo.groupId);
               }
+            });
+            
+            console.log('[SR v3.0] Saving history with metadata:', {
+              po_numbers: allocations.map(a => a.po.po_number),
+              priorities_count: priorities.length,
+              priorities,
+              group_names_count: groupNames.length,
+              group_names: groupNames
             });
           }
           

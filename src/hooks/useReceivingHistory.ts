@@ -63,7 +63,9 @@ export function useReceivingHistory(
 
       // Apply filter based on type
       if (filterType === 'po') {
-        query = query.not('destination_details->po_numbers', 'is', null);
+        query = query
+          .not('destination_details->po_numbers', 'is', null)
+          .filter('destination_details->po_numbers', 'neq', '[]');
       } else if (filterType === 'inventory') {
         query = query.or('destination_details->po_numbers.is.null,destination_details->po_numbers.eq.[]');
       }
