@@ -237,69 +237,50 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
 
       let zpl: string;
 
-      // Use template system if template is loaded
-      if (poTemplate) {
-        console.log('🏷️ Using template system for PO labels');
-        
-        // Create dataset with PO fields
-        const dataset: LabelDataset = {
-          id: 'po-print-session',
-          name: 'PO Print Session',
-          description: 'Temporary dataset for PO label printing',
-          headers: ['PO Number', 'Priority', 'asin', 'sku_code', 'model_number', 'title', 'quantity'],
-          data: printItems.map(item => [
-            item.poNumbers.join(', '),  // Map to PO Number column
-            item.priority?.toString() || '3',
-            item.asin || '',
-            item.sku_code || '',
-            item.model_number || '',
-            item.title,
-            item.quantity.toString()
-          ]),
-          rowCount: printItems.length,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
+        // Use template system if template is loaded
+        if (poTemplate) {
+          console.log('🏷️ Using template system for PO labels');
+          
+          // Create dataset with standard PO columns
+          const dataset: LabelDataset = {
+            id: 'po-print-session',
+            name: 'PO Print Session',
+            description: 'Temporary dataset for PO label printing',
+            headers: ['PO Number', 'Priority', 'asin', 'sku_code', 'model_number', 'title', 'quantity'],
+            data: printItems.map(item => [
+              item.poNumbers.join(', '),
+              item.priority?.toString() || '3',
+              item.asin || '',
+              item.sku_code || '',
+              item.model_number || '',
+              item.title,
+              item.quantity.toString()
+            ]),
+            rowCount: printItems.length,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
 
-        console.log('📊 POPrintDialog - Dataset created:', {
-          headers: dataset.headers,
-          rowCount: dataset.data.length,
-          firstRow: dataset.data[0],
-          priorityColumn: dataset.data.map(row => row[1]), // Priority is index 1
-          allData: dataset.data
-        });
+          console.log('📊 POPrintDialog - Dataset created:', {
+            headers: dataset.headers,
+            rowCount: dataset.data.length,
+            firstRow: dataset.data[0]
+          });
 
-        // Get print darkness from localStorage (set in ReceiveStock page)
-        const printDarkness = parseInt(localStorage.getItem('stock-receiving-print-darkness') || '10');
+          const printDarkness = parseInt(localStorage.getItem('stock-receiving-print-darkness') || '10');
 
-        // Generate ZPL using PrintService
-        console.log('🎯 POPrintDialog - Passing to PrintService.generateZPL:', {
-          templateName: poTemplate.name,
-          templateElements: poTemplate.elements.length,
-          templateMappings: poTemplate.elements.filter((e: any) => e.columnMapping).map((e: any) => ({
-            type: e.type,
-            columnMapping: e.columnMapping
-          })),
-          datasetHeaders: dataset.headers,
-          datasetRows: dataset.data.length,
-          printSettings: {
+          console.log('🎯 Using PrintService.generateZPL with standard column names');
+          
+          zpl = PrintService.generateZPL(poTemplate, dataset, {
             format: 'zpl',
             dpi: 203,
             copies: copies,
-            darkness: printDarkness
-          }
-        });
-        
-        zpl = PrintService.generateZPL(poTemplate, dataset, {
-          format: 'zpl',
-          dpi: 203,
-          copies: copies,
-          darkness: printDarkness,
-          labelsPerPage: 1,
-          paperSize: 'custom',
-          orientation: 'portrait',
-          margin: 0
-        });
+            darkness: printDarkness,
+            labelsPerPage: 1,
+            paperSize: 'custom',
+            orientation: 'portrait',
+            margin: 0
+          });
         
         console.log('✅ POPrintDialog - ZPL generated, length:', zpl.length);
 

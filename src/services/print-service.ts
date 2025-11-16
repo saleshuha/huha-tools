@@ -58,13 +58,32 @@ export class PrintService {
     dataset: LabelDataset | null,
     settings: PrintSettings
   ): string {
-    console.log('🖨️ PrintService.generateZPL called with:', {
-      documentName: document.name,
-      elementCount: document.elements.length,
-      datasetHeaders: dataset?.headers || [],
-      datasetRowCount: dataset?.data?.length || 0,
-      firstRow: dataset?.data?.[0] || []
+    // Enhanced debugging with detailed logging
+    console.group('🖨️ PrintService.generateZPL');
+    console.log('📋 Template:', { 
+      name: document.name, 
+      elements: document.elements.length,
+      size: document.size 
     });
+    console.log('📊 Dataset:', { 
+      headers: dataset?.headers, 
+      rows: dataset?.data?.length,
+      sampleRow: dataset?.data?.[0]
+    });
+    console.log('🔧 Settings:', settings);
+    
+    // Log each element's mapping
+    document.elements.forEach((el, idx) => {
+      if (el.dataColumn) {
+        console.log(`🔗 Element ${idx + 1} [${el.type}] -> "${el.dataColumn}"`, {
+          hasTransform: !!el.dataTransform,
+          transform: el.dataTransform,
+          position: { x: el.x, y: el.y },
+          size: { width: el.width, height: el.height }
+        });
+      }
+    });
+    console.groupEnd();
     
     const isBulk = dataset && dataset.data.length > 0;
     const totalLabels = isBulk ? dataset.data.length * settings.copies : settings.copies;
