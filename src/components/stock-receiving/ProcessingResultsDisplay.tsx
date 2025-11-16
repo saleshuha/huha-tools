@@ -36,13 +36,18 @@ export function ProcessingResultsDisplay({
         (item.sku_code && item.sku_code === r.item_id) ||
         (item.model_number && item.model_number === r.item_id)
       );
+      
+      // Extract PO numbers from matched_pos
+      const poNumbers = r.matched_pos?.map(po => po.po_number).filter(Boolean).join(', ') || '';
+      
       return {
         inventory_id: r.inventory_id!,
         asin: originalItem?.asin,
         sku: originalItem?.sku_code,
         title: originalItem?.title || r.item_id,
         quantity: r.quantity_to_inventory,
-        serial_number: originalItem?.serial_number
+        serial_number: originalItem?.serial_number,
+        po_numbers: poNumbers
       };
     });
 
