@@ -311,7 +311,7 @@ serve(async (req) => {
           });
         } else {
           // Use automatic matching (existing logic)
-          const matchingPOs = await locateMatchingPurchaseOrders(supabase, user.id, enrichedItem);
+          const matchingPOs = await locateMatchingPurchaseOrders(supabase, user.id, item);
           
           console.log('[SR v3.1] Matching POs found (auto):', { 
             count: matchingPOs.length,
@@ -348,7 +348,7 @@ serve(async (req) => {
             sku: item.sku_code,
             quantity: remainingQuantity
           });
-          await updateInventoryStock(supabase, enrichedItem, remainingQuantity, user.id);
+          await updateInventoryStock(supabase, item, remainingQuantity, user.id);
           totalAddedToInventory += remainingQuantity;
         } else if (remainingQuantity > 0 && allocations.length > 0) {
           console.log('[SR v3.1] ⚠️ Skipping inventory add for PO item with remaining quantity:', {
