@@ -471,6 +471,49 @@ serve(async (req) => {
 
         // Log to receiving history with proper error handling
         try {
+          // Fetch priorities and group info for allocated POs
+          const priorities: number[] = [];
+          const groupNames: string[] = [];
+          const groupIds: string[] = [];
+          
+          if (allocations.length > 0) {
+            const poIds = allocations.map(a => a.po.id);
+            
+            // Get priorities from po_orders
+            const { data: poData } = await supabase
+              .from('po_orders')
+              .select('id, priority')
+              .in('id', poIds);
+            
+            const priorityMap = new Map(poData?.map(po => [po.id, po.priority]) || []);
+            
+            // Get group info from po_group_members and po_groups
+            const { data: groupMembers } = await supabase
+              .from('po_group_members')
+              .select('po_id, group_id, po_groups(group_name)')
+              .in('po_id', poIds);
+            
+            const groupMap = new Map(
+              groupMembers?.map(gm => [
+                gm.po_id, 
+                { 
+                  groupId: gm.group_id, 
+                  groupName: (gm.po_groups as any)?.group_name 
+                }
+              ]) || []
+            );
+            
+            // Build arrays matching allocation order
+            allocations.forEach(a => {
+              priorities.push(priorityMap.get(a.po.id) || 3);
+              const groupInfo = groupMap.get(a.po.id);
+              if (groupInfo) {
+                groupNames.push(groupInfo.groupName);
+                groupIds.push(groupInfo.groupId);
+              }
+            });
+          }
+          
           const { error: historyError } = await supabase.from('receiving_history').insert({
             user_id: user.id,
             asin: item.asin,
@@ -484,7 +527,10 @@ serve(async (req) => {
             destination_details: {
               inventory_added: remainingQuantity,
               pos_allocated: allocations.length,
-              po_numbers: allocations.map(a => a.po.po_number)
+              po_numbers: allocations.map(a => a.po.po_number),
+              priorities: priorities.length > 0 ? priorities : undefined,
+              group_names: groupNames.length > 0 ? groupNames : undefined,
+              group_ids: groupIds.length > 0 ? groupIds : undefined
             },
             success: true
           });
