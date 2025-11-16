@@ -388,6 +388,15 @@ export default function ReceiveStock() {
     // Wait for receiving to complete
     const results = await receivePromise;
     
+    // Check if receiving failed
+    if (!results || results.length === 0 || !results[0].success) {
+      console.error('[Receive] Failed to process item:', results);
+      toast.error('Failed to receive item. Please check logs.');
+      setShowDialog(false);
+      setSelectedItem(null);
+      return;
+    }
+    
     if (results && results.length > 0) {
       const result = results[0];
 
@@ -415,80 +424,7 @@ export default function ReceiveStock() {
 
       // PHASE 4: Wait for print if it was started
       if (printPromise && result.success) {
-        const printed = await printPromise;
-        try {
-          console.log('[Auto-Print] Starting with PrintService method...');
-
-          // Select appropriate template based on type
-          const templateId = templateType === 'po' ? selectedPoTemplate : selectedInventoryTemplate;
-          if (!templateId) {
-            toast.error('No template selected for auto-print');
-            return;
-          }
-
-          // Fetch template from database
-          const {
-            data: template,
-            error: templateError
-          } = await supabase.from('label_templates').select('*').eq('id', templateId).single();
-          if (templateError || !template) {
-            console.error('[Auto-Print] Template fetch error:', templateError);
-            toast.error('Failed to load label template');
-          } else {
-            // Create LabelDoc from template (same as Inventory)
-            const labelDoc: LabelDoc = {
-              id: template.id,
-              name: template.name,
-              size: {
-                width: template.width || 100,
-                height: template.height || 60,
-                unit: 'mm'
-              },
-              elements: template.canvas_data?.elements || [],
-              createdAt: template.created_at,
-              updatedAt: template.updated_at
-            };
-
-            // Create dataset with item data
-            const dataset = createDatasetFromItem(
-              item,
-              { template_type: templateType },
-              result.matched_pos && result.matched_pos.length > 0
-                ? result.matched_pos.map((p: any) => p.po_number || p).join(', ')
-                : undefined,
-              result.matched_pos && result.matched_pos.length > 0
-                ? Math.min(...result.matched_pos.map((p: any) => p.priority || 3))
-                : undefined
-            );
-
-            // Get print settings
-            const printSettings: PrintSettings = {
-              format: 'zpl',
-              dpi: 203,
-              darkness: printDarkness,
-              copies: 1,
-              orientation: 'portrait',
-              paperSize: 'custom',
-              labelsPerPage: 1,
-              margin: 0
-            };
-
-            // Generate ZPL using PrintService (proven method)
-            const zplCode = PrintService.generateZPL(labelDoc, dataset, printSettings);
-            console.log('[Auto-Print] Generated ZPL length:', zplCode.length);
-            console.log('[Auto-Print] ZPL preview:', zplCode.substring(0, 200));
-
-            // Print using QZ Tray (same as Inventory)
-            const qzManager = QZConnectionManager.getInstance();
-            await qzManager.print(zplCode, selectedPrinter);
-            toast.success(`Label printed to ${selectedPrinter}`);
-            activity.printed = true;
-          }
-        } catch (error) {
-          console.error('[Auto-Print] Failed:', error);
-          toast.error(`Print failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-          activity.printed = false;
-        }
+        await printPromise;
       }
       setLocalActivities(prev => [activity, ...prev]);
 

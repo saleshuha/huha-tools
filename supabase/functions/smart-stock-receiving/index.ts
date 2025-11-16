@@ -377,7 +377,7 @@ serve(async (req) => {
               po_id: a.po.id
             })),
             has_pending_po: allocations.length > 0,
-            status: 'processed',
+            status: 'completed',
             supplier_name: item.supplier_name,
             receiving_notes: item.notes,
             serial_number: item.serial_number
@@ -483,7 +483,9 @@ serve(async (req) => {
       summary: {
         total_items: items.length,
         status: 'processing',
-        estimated_pos: itemPreparations.reduce((sum, p) => sum + p.potentialPOs.length, 0)
+        estimated_pos: itemPreparations.reduce((sum, p) => sum + p.potentialPOs.length, 0),
+        items_allocated_to_pos: 0, // Will be updated in background
+        items_added_to_inventory: 0 // Will be updated in background
       },
       optimistic: true,
       processing_time_ms: Date.now() - startTime
