@@ -37,8 +37,11 @@ export function ProcessingResultsDisplay({
         (item.model_number && item.model_number === r.item_id)
       );
       
-      // Extract PO numbers from matched_pos
+      // Extract PO numbers and priority from matched_pos
       const poNumbers = r.matched_pos?.map(po => po.po_number).filter(Boolean).join(', ') || '';
+      const priority = r.matched_pos && r.matched_pos.length > 0 
+        ? Math.min(...r.matched_pos.map((po: any) => po.priority || 3))
+        : undefined;
       
       return {
         inventory_id: r.inventory_id!,
@@ -47,7 +50,8 @@ export function ProcessingResultsDisplay({
         title: originalItem?.title || r.item_id,
         quantity: r.quantity_to_inventory,
         serial_number: originalItem?.serial_number,
-        po_numbers: poNumbers
+        po_numbers: poNumbers,
+        priority
       };
     });
 

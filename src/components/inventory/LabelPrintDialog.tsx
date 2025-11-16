@@ -38,6 +38,7 @@ interface LabelPrintDialogProps {
     order_id?: string;
     order_quantity?: number;
     po_numbers?: string;
+    priority?: number;
   }>;
   inventoryType: 'asin' | 'sku' | 'mixed';
 }
@@ -130,7 +131,7 @@ export function LabelPrintDialog({ open, onOpenChange, selectedItems, inventoryT
   };
 
   const createDataset = () => {
-    const headers = ['asin', 'sku', 'title', 'quantity', 'order_id', 'order_quantity', 'po_numbers'];
+    const headers = ['asin', 'sku', 'title', 'quantity', 'order_id', 'order_quantity', 'po_numbers', 'priority'];
     const data = selectedItems.map(item => [
       item.asin || '',
       item.sku || '',
@@ -138,7 +139,8 @@ export function LabelPrintDialog({ open, onOpenChange, selectedItems, inventoryT
       item.quantity.toString(),
       item.order_id || '',
       item.order_quantity?.toString() || '',
-      item.po_numbers || ''
+      item.po_numbers || '',
+      item.priority?.toString() || ''
     ]);
     
     return { headers, data };

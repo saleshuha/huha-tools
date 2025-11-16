@@ -14,11 +14,11 @@ interface POPriorityBadgeProps {
 }
 
 const priorityConfig = {
-  1: { label: '🚀 1st Nearest Shipment', color: 'bg-red-100 text-red-700 border-red-300 dark:bg-red-950 dark:text-red-300 dark:border-red-800' },
-  2: { label: '🔥 2nd Nearest Shipment', color: 'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800' },
-  3: { label: '📦 3rd Nearest Shipment', color: 'bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-950 dark:text-yellow-300 dark:border-yellow-800' },
-  4: { label: '📅 4th Nearest Shipment', color: 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800' },
-  5: { label: '⏰ 5th Nearest Shipment', color: 'bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800' }
+  1: { label: '🚀 P1', fullLabel: '🚀 1st Nearest Shipment', color: 'bg-red-100 text-red-700 border-red-300 dark:bg-red-950 dark:text-red-300 dark:border-red-800' },
+  2: { label: '🔥 P2', fullLabel: '🔥 2nd Nearest Shipment', color: 'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800' },
+  3: { label: '📦 P3', fullLabel: '📦 3rd Nearest Shipment', color: 'bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-950 dark:text-yellow-300 dark:border-yellow-800' },
+  4: { label: '📅 P4', fullLabel: '📅 4th Nearest Shipment', color: 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800' },
+  5: { label: '⏰ P5', fullLabel: '⏰ 5th Nearest Shipment', color: 'bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800' }
 } as const;
 
 export function POPriorityBadge({ priority, onUpdate, disabled }: POPriorityBadgeProps) {
@@ -46,7 +46,7 @@ export function POPriorityBadge({ priority, onUpdate, disabled }: POPriorityBadg
               priority === parseInt(value) && "bg-accent font-medium"
             )}
           >
-            {cfg.label}
+            {cfg.fullLabel}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

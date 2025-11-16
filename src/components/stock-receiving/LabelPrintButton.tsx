@@ -12,6 +12,7 @@ interface LabelPrintButtonProps {
     quantity: number;
     serial_number?: string;
     po_numbers?: string;
+    priority?: number;
   }>;
   disabled?: boolean;
   variant?: 'default' | 'outline' | 'ghost';
@@ -29,6 +30,7 @@ export function LabelPrintButton({ receivedItems, disabled, variant = 'outline',
     title: item.title || item.asin || item.sku || 'Unknown Item',
     quantity: item.quantity,
     po_numbers: item.po_numbers,
+    priority: item.priority,
     type: (item.asin && item.sku ? 'mixed' : item.asin ? 'asin' : 'sku') as 'asin' | 'sku' | 'mixed'
   }));
 

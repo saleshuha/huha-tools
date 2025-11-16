@@ -33,8 +33,11 @@ export function SessionHistory({ sessions, onEndSession }: SessionHistoryProps) 
     // Find the original session item that created this inventory record
     const sessionItem = sessionItems.find(item => item.serial_number === inv.serial_number);
     
-    // Extract PO numbers if available
+    // Extract PO numbers and priority if available
     const poNumbers = sessionItem?.matched_pos?.map((po: any) => po.po_number).filter(Boolean).join(', ') || '';
+    const priority = sessionItem?.matched_pos && sessionItem.matched_pos.length > 0
+      ? Math.min(...sessionItem.matched_pos.map((po: any) => po.priority || 3))
+      : undefined;
     
     return {
       inventory_id: inv.id,
@@ -43,7 +46,8 @@ export function SessionHistory({ sessions, onEndSession }: SessionHistoryProps) 
       title: inv.title,
       quantity: inv.quantity,
       serial_number: inv.serial_number,
-      po_numbers: poNumbers
+      po_numbers: poNumbers,
+      priority
     };
   });
 
