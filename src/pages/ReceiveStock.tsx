@@ -358,6 +358,28 @@ export default function ReceiveStock() {
             const poNumbers = manualPOAllocations?.map(a => a.po_number).join(', ') || 'N/A';
             const priority = manualPOAllocations?.[0]?.priority || 3;
 
+            // ✅ Allocation validation logging
+            if (manualPOAllocations && manualPOAllocations.length > 0) {
+              console.log(`✅ [Stock Receiving] Item allocated to:`, {
+                po_numbers: poNumbers,
+                priority: priority,
+                allocations: manualPOAllocations
+              });
+              
+              toast.success(`Allocated to PO ${poNumbers} (Priority: ${priority})`, {
+                description: `Printing label with correct PO and priority`,
+                duration: 3000
+              });
+            } else {
+              console.log(`📦 [Stock Receiving] Item going to inventory (no PO match)`);
+            }
+
+            // ⚠️ Serial number validation warning
+            if (data.serial_number && manualPOAllocations.length === 0) {
+              console.warn('⚠️ [Print] Serial number provided for inventory item. Ensure inventory template has "Serial Number" field mapped!');
+              console.log('[Print] Serial Number:', data.serial_number);
+            }
+
             const dataset: LabelDataset = {
               id: 'receive-stock',
               name: 'Stock Receiving',
@@ -378,6 +400,14 @@ export default function ReceiveStock() {
               updatedAt: new Date().toISOString()
             };
 
+            console.log('[Print] Dataset created:', {
+              template_type: manualPOAllocations.length > 0 ? 'po' : 'inventory',
+              po_numbers: poNumbers,
+              priority: priority,
+              serial_number: data.serial_number || '(none)',
+              dataset_row: dataset.data[0]
+            });
+
             const printSettings: PrintSettings = {
               format: 'zpl',
               paperSize: 'custom',
@@ -388,6 +418,20 @@ export default function ReceiveStock() {
               margin: 0,
               darkness: printDarkness
             };
+
+            // 📋 Template instructions
+            const templateType = manualPOAllocations.length > 0 ? 'po' : 'inventory';
+            if (templateType === 'inventory') {
+              console.log('📋 [Print] Using INVENTORY template');
+              console.log('⚠️ [Print] If serial number is not showing, check your inventory template:');
+              console.log('   1. Open Label Designer');
+              console.log('   2. Edit your inventory template');
+              console.log('   3. Add a Text element');
+              console.log('   4. In the Data tab, select column: "Serial Number" (index 7)');
+              console.log('   5. Save template');
+            } else {
+              console.log('📋 [Print] Using PO template');
+            }
 
             const zplCode = PrintService.generateZPL(labelDoc, dataset, printSettings);
             
