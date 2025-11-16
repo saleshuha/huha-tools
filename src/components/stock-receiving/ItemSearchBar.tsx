@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import { Search, Loader2, Users, Folder } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -35,12 +35,27 @@ interface ItemSearchBarProps {
   country?: string;
 }
 
-export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBarProps) {
+export interface ItemSearchBarRef {
+  focusAndSelect: () => void;
+}
+
+export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
+  ({ onItemSelect, disabled, country }, ref) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [imageUrls, setImageUrls] = useState<Map<string, string>>(new Map());
   const [showDropdown, setShowDropdown] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    focusAndSelect: () => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+        inputRef.current.select();
+      }
+    }
+  }));
 
   useEffect(() => {
     const searchItems = async () => {
@@ -270,6 +285,7 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
         <Input
+          ref={inputRef}
           placeholder="Search by ASIN, SKU, or Model Number..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -419,4 +435,6 @@ export function ItemSearchBar({ onItemSelect, disabled, country }: ItemSearchBar
       )}
     </div>
   );
-}
+});
+
+ItemSearchBar.displayName = 'ItemSearchBar';

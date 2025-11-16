@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePageTracking } from '@/hooks/usePageTracking';
 import { useStockReceiving } from '@/hooks/useStockReceiving';
 import { useReceivingHistory } from '@/hooks/useReceivingHistory';
 import { useCountry } from '@/contexts/CountryContext';
 import { useQueryClient } from '@tanstack/react-query';
-import { ItemSearchBar } from '@/components/stock-receiving/ItemSearchBar';
+import { ItemSearchBar, ItemSearchBarRef } from '@/components/stock-receiving/ItemSearchBar';
 import { QuantityConfirmDialog } from '@/components/stock-receiving/QuantityConfirmDialog';
 import { RecentActivityFeed } from '@/components/stock-receiving/RecentActivityFeed';
 import { PriorityPOList } from '@/components/stock-receiving/PriorityPOList';
@@ -84,6 +84,7 @@ export default function ReceiveStock() {
   const [selectedPrinter, setSelectedPrinter] = useState<string>('');
   const [loadingPrinters, setLoadingPrinters] = useState(false);
   const [receivingHistoryOpen, setReceivingHistoryOpen] = useState(false);
+  const searchBarRef = useRef<ItemSearchBarRef>(null);
 
   // Check authentication on mount
   useEffect(() => {
@@ -455,6 +456,11 @@ export default function ReceiveStock() {
         queryKey: ['inventory-analytics']
       });
       toast.success(`Received ${data.quantity} unit(s)`);
+      
+      // Auto-focus and select search input for next scan
+      setTimeout(() => {
+        searchBarRef.current?.focusAndSelect();
+      }, 100);
     }
     setShowDialog(false);
     setSelectedItem(null);
@@ -548,7 +554,12 @@ export default function ReceiveStock() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <ItemSearchBar onItemSelect={handleItemSelect} disabled={isProcessing} country={selectedCountry} />
+            <ItemSearchBar 
+              ref={searchBarRef}
+              onItemSelect={handleItemSelect} 
+              disabled={isProcessing} 
+              country={selectedCountry} 
+            />
 
             {/* Print Settings - Collapsible */}
             <Collapsible open={printSettingsOpen} onOpenChange={setPrintSettingsOpen} className="space-y-4 pt-4 border-t border-border/50">
