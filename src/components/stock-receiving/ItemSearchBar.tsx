@@ -387,6 +387,17 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
                       <div className="font-medium text-foreground truncate">
                         {identifier}
                       </div>
+                      {/* Show SKU/Model if different from primary identifier */}
+                      {(result.sku_code && result.sku_code !== identifier) && (
+                        <span className="text-xs text-muted-foreground">
+                          • SKU: {result.sku_code}
+                        </span>
+                      )}
+                      {(result.model_number && result.model_number !== identifier && result.model_number !== result.sku_code) && (
+                        <span className="text-xs text-muted-foreground">
+                          • Model: {result.model_number}
+                        </span>
+                      )}
                     </div>
                     
                     {/* Title */}
