@@ -25,7 +25,7 @@ import { useLabelDataset } from "@/hooks/useLabelDataset";
 import { supabase } from "@/integrations/supabase/client";
 import { generateLabelZPL, getLabelSizePresets } from "@/utils/zpl-generator";
 
-import { resolveMappedContent, getElementBoundsMM } from "@/utils/label-runtime";
+import { resolveMappedContent, getElementBoundsMM } from "@/utils/label-serializer";
 
 interface PrintManagerProps {
   templateId?: string | null;

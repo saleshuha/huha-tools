@@ -14,6 +14,7 @@ import { useLabelPrintSettings } from '@/hooks/usePrintSettings';
 import { Slider } from '@/components/ui/slider';
 import jsPDF from 'jspdf';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
+import { PrintService } from '@/services/print-service';
 
 interface LabelTemplate {
   id: string;
@@ -221,29 +222,7 @@ export function LabelPrintDialog({ open, onOpenChange, selectedItems, inventoryT
     }
   };
 
-  const generateZPL = () => {
-    const dataset = createDataset();
-    let zplCode = '';
-
-    // Generate basic ZPL for each item
-    dataset.data.forEach((row, index) => {
-      const [asin, sku, title, quantity, order_id, order_quantity, po_numbers] = row;
-      
-      zplCode += `^XA\n`; // Start label
-      zplCode += `^FO20,20^A0N,30,30^FD${asin || sku}^FS\n`; // Main identifier
-      zplCode += `^FO20,60^A0N,20,20^FD${title.substring(0, 30)}^FS\n`; // Title (truncated)
-      zplCode += `^FO20,90^A0N,20,20^FDQty: ${quantity}^FS\n`; // Quantity
-      if (po_numbers) {
-        zplCode += `^FO20,120^A0N,15,15^FDPO: ${po_numbers}^FS\n`; // PO Numbers
-      }
-      if (order_id) {
-        zplCode += `^FO20,150^A0N,15,15^FDOrder: ${order_id}^FS\n`; // Order ID
-      }
-      zplCode += `^XZ\n`; // End label
-    });
-
-    return zplCode;
-  };
+  // Removed: generateZPL is now handled by PrintService.generateZPL()
 
   const handleDirectPrint = async () => {
     if (!selectedTemplate) {
@@ -266,18 +245,63 @@ export function LabelPrintDialog({ open, onOpenChange, selectedItems, inventoryT
 
     setLoading(true);
     try {
-      const zplCode = generateZPL();
+      // Use PrintService.generateZPL with template system
+      const template = templates.find(t => t.id === selectedTemplate);
+      if (!template) {
+        throw new Error('Template not found');
+      }
+
+      // Create standardized dataset for inventory labels
+      const dataset = {
+        id: 'inventory-print-session',
+        name: 'Inventory Print Session',
+        description: 'Temporary dataset for inventory label printing',
+        headers: ['asin', 'sku', 'title', 'quantity', 'order_id', 'order_quantity', 'po_numbers', 'priority'],
+        data: selectedItems.map(item => [
+          item.asin || '',
+          item.sku || '',
+          item.title,
+          item.quantity.toString(),
+          item.order_id || '',
+          item.order_quantity?.toString() || '',
+          item.po_numbers || '',
+          item.priority?.toString() || ''
+        ]),
+        rowCount: selectedItems.length,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      console.log('🏷️ Inventory Label Print - Using PrintService.generateZPL:', {
+        template: template.name,
+        datasetHeaders: dataset.headers,
+        itemCount: dataset.data.length,
+        sampleRow: dataset.data[0]
+      });
+
+      // Convert template format to LabelDoc
+      const labelDoc = {
+        id: template.id,
+        name: template.name,
+        size: { width: template.width, height: template.height, unit: 'mm' as const },
+        elements: template.canvas_data?.elements || [],
+        createdAt: template.created_at,
+        updatedAt: template.created_at // Use created_at as updatedAt fallback
+      };
+
+      const zplCode = PrintService.generateZPL(labelDoc, dataset, {
+        format: 'zpl' as const,
+        dpi: printSettings.dpi,
+        copies: printSettings.copies,
+        darkness: printSettings.darkness || 10,
+        labelsPerPage: 1,
+        paperSize: 'custom' as const,
+        orientation: 'portrait' as const,
+        margin: 0
+      });
       
-      // Print multiple copies if specified
-      const zplCodes = Array(printSettings.copies).fill(zplCode);
-      
-      if (zplCodes.length === 1) {
+      if (zplCode) {
         await qzConnectionManager.print(zplCode, selectedPrinter);
-      } else {
-        // Print all ZPL codes sequentially
-        for (const zplCode of zplCodes) {
-          await qzConnectionManager.print(zplCode, selectedPrinter);
-        }
       }
       
       toast({
