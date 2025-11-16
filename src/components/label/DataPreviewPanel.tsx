@@ -7,8 +7,7 @@ import { Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLabelDoc } from '@/contexts/SimpleLabelDocContext';
 
 export const DataPreviewPanel: React.FC = () => {
-  const { dataset, document: labelDoc } = useLabelDoc();
-  const [previewIndex, setPreviewIndex] = useState(0);
+  const { dataset, document: labelDoc, previewIndex, setPreviewIndex } = useLabelDoc();
 
   if (!dataset || !labelDoc || dataset.data.length === 0) {
     return (

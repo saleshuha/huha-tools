@@ -8,6 +8,7 @@ interface LabelDocContextType {
   dataset: LabelDataset | null;
   selectedElement: LabelElement | null;
   isLoading: boolean;
+  previewIndex: number;
   
   // Document operations
   createDocument: (name: string, size: LabelSize, domain?: LabelDomain) => Promise<void>;
@@ -19,6 +20,7 @@ interface LabelDocContextType {
   // Dataset operations
   loadDataset: (id: string) => Promise<void>;
   setDataset: (dataset: LabelDataset) => void;
+  setPreviewIndex: (index: number) => void;
   
   // Element operations
   addElement: (element: Omit<LabelElement, 'id'>) => void;
@@ -51,6 +53,12 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
   const [dataset, setDataset] = useState<LabelDataset | null>(null);
   const [selectedElement, setSelectedElement] = useState<LabelElement | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState(0);
+
+  // Reset previewIndex when dataset changes
+  useEffect(() => {
+    setPreviewIndex(0);
+  }, [dataset?.id]);
 
   const createDocument = useCallback(async (name: string, size: LabelSize, domain: LabelDomain = 'inventory') => {
     setIsLoading(true);
@@ -521,6 +529,7 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
     dataset,
     selectedElement,
     isLoading,
+    previewIndex,
     createDocument,
     loadDocument,
     saveDocument,
@@ -528,6 +537,7 @@ export const SimpleLabelDocProvider: React.FC<{ children: React.ReactNode }> = (
     deleteDocument,
     loadDataset,
     setDataset: setDatasetDirectly,
+    setPreviewIndex,
     addElement,
     updateElement,
     deleteElement,
