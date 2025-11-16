@@ -30,7 +30,7 @@ export function POPriorityBadge({ priority, onUpdate, disabled }: POPriorityBadg
         <Button 
           variant="outline" 
           size="sm" 
-          className={cn("text-xs border", config.color)}
+          className={cn("text-xs border flex-shrink-0", config.color)}
           disabled={disabled}
         >
           {config.label}
