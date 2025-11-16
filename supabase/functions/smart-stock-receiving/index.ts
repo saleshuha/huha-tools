@@ -778,14 +778,14 @@ async function updateInventoryStock(
     quantityToAdd: quantityToAdd
   });
 
-  // Try to find in asin_inventory with FLEXIBLE STATUS MATCHING
+  // Try to find in asin_inventory - ALLOW ALL STATUSES for receiving
   const { data: inventoryItem, error: inventoryError } = await supabase
     .from('asin_inventory')
     .select('*')
     .eq('user_id', userId)
     .eq('country', item.country)
-    .in('status', ['in-stock', 'ordered']) // ✅ KEY FIX - Only valid enum values
-    .or(`asin.eq.${item.asin || 'none'},sku.eq.${item.sku_code || 'none'}`) // ✅ Removed model_number - doesn't exist in asin_inventory
+    // ✅ REMOVED status filter - allow receiving for items in ANY status (sold, in-stock, ordered, no-stock)
+    .or(`asin.eq.${item.asin || 'none'},sku.eq.${item.sku_code || 'none'}`)
     .limit(1)
     .single();
 
@@ -795,7 +795,7 @@ async function updateInventoryStock(
   }
 
   if (!inventoryItem) {
-    const errorMsg = `Item ${itemIdentifier} not found in ${item.country} inventory with acceptable status (in-stock, ordered, or processing). Please add the item to inventory first before receiving stock.`;
+    const errorMsg = `Item ${itemIdentifier} not found in ${item.country} inventory. Please add the item to inventory first before receiving stock.`;
     console.error('[SR v3.0] Item not found:', errorMsg);
     throw new Error(errorMsg);
   }
