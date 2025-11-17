@@ -388,12 +388,59 @@ export function QuantityConfirmDialog({
                     </div>
                     
                     {/* Quantity Info */}
-                    <div className="flex items-center gap-4 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">Qty Needed:</span>{' '}
-                        <span className="font-bold text-foreground text-base">{po.quantity} units</span>
-                      </div>
+                <div className="space-y-2">
+                  {/* Total Quantity */}
+                  <div className="flex items-center gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Total Ordered:</span>{' '}
+                      <span className="font-bold text-foreground">{po.quantity} units</span>
                     </div>
+                  </div>
+                  
+                  {/* Printed vs Pending Breakdown */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Already Printed */}
+                    <div className="p-2 bg-green-50 dark:bg-green-950/20 rounded border border-green-200 dark:border-green-800">
+                      <div className="text-xs text-muted-foreground mb-0.5">✅ Already Printed</div>
+                      <div className="font-bold text-green-700 dark:text-green-400">
+                        {po.printed_quantity || 0} units
+                      </div>
+                      {po.label_printed_at && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {new Date(po.label_printed_at).toLocaleDateString()}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Still Pending */}
+                    <div className="p-2 bg-orange-50 dark:bg-orange-950/20 rounded border border-orange-200 dark:border-orange-800">
+                      <div className="text-xs text-muted-foreground mb-0.5">⏳ Still Pending</div>
+                      <div className="font-bold text-orange-700 dark:text-orange-400">
+                        {po.quantity - (po.printed_quantity || 0)} units
+                      </div>
+                      {po.quantity === (po.printed_quantity || 0) && (
+                        <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                          Fully Received ✓
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Progress Bar */}
+                  {po.printed_quantity && po.printed_quantity > 0 && (
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-green-500 transition-all"
+                          style={{ width: `${(po.printed_quantity / po.quantity) * 100}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {Math.round((po.printed_quantity / po.quantity) * 100)}%
+                      </span>
+                    </div>
+                  )}
+                </div>
                     
                     {/* Additional Info */}
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -404,11 +451,32 @@ export function QuantityConfirmDialog({
                 ))}
                 
                 {/* Total Summary */}
-                <div className="p-2 bg-primary/5 rounded border border-primary/20 text-sm">
-                  <span className="text-muted-foreground">Total Qty Across All POs:</span>{' '}
-                  <span className="font-bold text-primary">
-                    {availablePOs.reduce((sum, po) => sum + po.quantity, 0)} units
-                  </span>
+                <div className="p-3 bg-primary/5 rounded border border-primary/20 space-y-2">
+                  {/* Total Ordered */}
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      Total Ordered Across All {availablePOs.length} PO{availablePOs.length !== 1 ? 's' : ''}:
+                    </span>
+                    <span className="font-bold text-primary">
+                      {availablePOs.reduce((sum, po) => sum + po.quantity, 0)} units
+                    </span>
+                  </div>
+                  
+                  {/* Already Printed Total */}
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-green-700 dark:text-green-400">✅ Already Printed:</span>
+                    <span className="font-semibold text-green-700 dark:text-green-400">
+                      {availablePOs.reduce((sum, po) => sum + (po.printed_quantity || 0), 0)} units
+                    </span>
+                  </div>
+                  
+                  {/* Still Pending Total */}
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-orange-700 dark:text-orange-400">⏳ Still Pending:</span>
+                    <span className="font-semibold text-orange-700 dark:text-orange-400">
+                      {availablePOs.reduce((sum, po) => sum + (po.quantity - (po.printed_quantity || 0)), 0)} units
+                    </span>
+                  </div>
                 </div>
               </CollapsibleContent>
             </Collapsible>
