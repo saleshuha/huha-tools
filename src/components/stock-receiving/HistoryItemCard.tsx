@@ -70,9 +70,51 @@ export function HistoryItemCard({ item, type, onReprint }: HistoryItemCardProps)
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          {/* Primary identifier - large and bold */}
+          {/* PO/Destination Info - MOVED TO TOP and made more prominent */}
+          <div className="flex items-center gap-2 flex-wrap mb-3">
+            {type === 'po' ? (
+              <>
+                {poNumbers.map((poNumber, index) => (
+                  <div key={poNumber} className="flex items-center gap-1.5 flex-wrap">
+                    <Badge
+                      variant="secondary"
+                      className="cursor-pointer hover:bg-primary/20 text-sm font-semibold"
+                      onClick={() => navigate(`/po-tracker?search=${poNumber}`)}
+                    >
+                      PO: {poNumber}
+                    </Badge>
+                    {item.destination_details?.priorities?.[index] && (
+                      <Badge variant="outline" className="text-sm font-medium">
+                        Priority {item.destination_details.priorities[index]}
+                      </Badge>
+                    )}
+                  </div>
+                ))}
+                {item.destination_details?.group_names?.[0] && (
+                  <Badge variant="secondary" className="text-sm gap-1">
+                    <Package className="w-3.5 h-3.5" />
+                    {item.destination_details.group_names[0]}
+                  </Badge>
+                )}
+                {fulfillmentSource && (
+                  <FulfillmentSourceBadge source={fulfillmentSource} className="text-sm" />
+                )}
+              </>
+            ) : (
+              <Badge variant="outline" className="text-sm">
+                → Inventory
+              </Badge>
+            )}
+
+            <span className="flex items-center gap-1 text-sm text-muted-foreground">
+              <Package className="w-3.5 h-3.5" />
+              {item.quantity} {item.quantity === 1 ? 'unit' : 'units'}
+            </span>
+          </div>
+
+          {/* Primary identifier */}
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <span className="font-bold text-foreground text-base">
+            <span className="font-semibold text-foreground">
               {identifier}
             </span>
             {item.sku_code && item.asin && (
@@ -88,48 +130,6 @@ export function HistoryItemCard({ item, type, onReprint }: HistoryItemCardProps)
               {item.title}
             </div>
           )}
-
-          {/* Destination & Details */}
-          <div className="flex items-center gap-2 flex-wrap mb-2">
-            {type === 'po' ? (
-              <>
-                {poNumbers.map((poNumber, index) => (
-                  <div key={poNumber} className="flex items-center gap-1 flex-wrap">
-                    <Badge
-                      variant="secondary"
-                      className="cursor-pointer hover:bg-primary/20 text-xs"
-                      onClick={() => navigate(`/po-tracker?search=${poNumber}`)}
-                    >
-                      PO: {poNumber}
-                    </Badge>
-                    {item.destination_details?.priorities?.[index] && (
-                      <Badge variant="outline" className="text-xs">
-                        Priority {item.destination_details.priorities[index]}
-                      </Badge>
-                    )}
-                  </div>
-                ))}
-                {item.destination_details?.group_names?.[0] && (
-                  <Badge variant="secondary" className="text-xs gap-1">
-                    <Package className="w-3 h-3" />
-                    Group: {item.destination_details.group_names[0]}
-                  </Badge>
-                )}
-                {fulfillmentSource && (
-                  <FulfillmentSourceBadge source={fulfillmentSource} className="text-xs" />
-                )}
-              </>
-            ) : (
-              <Badge variant="outline" className="text-xs">
-                → Inventory
-              </Badge>
-            )}
-
-            <span className="flex items-center gap-1 text-sm text-muted-foreground">
-              <Package className="w-3.5 h-3.5" />
-              {item.quantity} {item.quantity === 1 ? 'unit' : 'units'}
-            </span>
-          </div>
 
           {/* Serial Number */}
           {item.serial_number && (
