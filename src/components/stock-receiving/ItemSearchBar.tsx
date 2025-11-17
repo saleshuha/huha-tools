@@ -86,11 +86,26 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
         
         const term = searchTerm.trim().toUpperCase();
         
+        // Split search term into keywords for multi-keyword title search
+        const keywords = term.split(/\s+/).filter(k => k.length > 0);
+        
+        // Helper to build title search with AND logic for multiple keywords
+        const buildTitleCondition = (keywords: string[]) => {
+          if (keywords.length === 1) {
+            return `title.ilike.%${keywords[0]}%`;
+          }
+          // For multiple keywords, each must be present in title
+          const conditions = keywords.map(kw => `title.ilike.%${kw}%`).join(',');
+          return `and(${conditions})`;
+        };
+        
+        const titleCondition = buildTitleCondition(keywords);
+        
         // Search in open POs
         const { data: poData, error: poError } = await supabase
           .from('po_orders')
           .select('id, asin, sku_code, model_number, title, po_number, priority')
-          .or(`asin.ilike.%${term}%,sku_code.ilike.%${term}%,model_number.ilike.%${term}%,title.ilike.%${term}%`)
+          .or(`asin.ilike.%${term}%,sku_code.ilike.%${term}%,model_number.ilike.%${term}%,${titleCondition}`)
           .in('status', ['pending', 'placed'])
           .limit(20);
         
@@ -119,7 +134,7 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
         let invQuery = supabase
           .from('asin_inventory')
           .select('asin, sku, title, country, serial_number')
-          .or(`asin.ilike.%${term}%,sku.ilike.%${term}%,title.ilike.%${term}%`);
+          .or(`asin.ilike.%${term}%,sku.ilike.%${term}%,${titleCondition}`);
         
         // Filter by country if provided
         if (country) {
