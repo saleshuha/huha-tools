@@ -114,7 +114,19 @@ export function QuantityConfirmDialog({
         query = query.in('po_number', item.po_group.po_numbers);
       } else if (item.po_numbers && item.po_numbers.length > 0) {
         query = query.in('po_number', item.po_numbers);
-      } else {
+      }
+
+      // Filter by specific ASIN/SKU/Model being received
+      const conditions = [];
+      if (item.asin) conditions.push(`asin.eq.${item.asin}`);
+      if (item.sku_code) conditions.push(`sku_code.eq.${item.sku_code}`);
+      if (item.model_number) conditions.push(`model_number.eq.${item.model_number}`);
+
+      if (conditions.length > 0) {
+        query = query.or(conditions.join(','));
+      }
+      
+      if (!item.po_numbers || item.po_numbers.length === 0) {
         const filters = [];
         if (item.asin) filters.push(supabase.from('po_orders').select('*').eq('asin', item.asin).eq('country', country));
         if (item.sku_code) filters.push(supabase.from('po_orders').select('*').eq('sku_code', item.sku_code).eq('country', country));
