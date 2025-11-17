@@ -413,7 +413,7 @@ export default function ReceiveStock() {
               paperSize: 'custom',
               orientation: 'portrait',
               dpi: 203,
-              copies: 1,
+              copies: data.quantity,
               labelsPerPage: 1,
               margin: 0,
               darkness: printDarkness
