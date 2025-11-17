@@ -29,6 +29,8 @@ interface SearchResult {
   po_count?: number;
   serial_number?: string;
   image_url?: string;
+  po_numbers?: string[];
+  priority?: number;
   po_group?: {
     id: string;
     name: string;
@@ -127,13 +129,16 @@ export function QuantityConfirmDialog({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // If item is from a PO group, only load those specific POs
-      if (item.po_group && item.po_group.po_numbers && item.po_group.po_numbers.length > 0) {
+      // Get PO numbers from search result (either from po_group or direct po_numbers)
+      const poNumbers = item.po_group?.po_numbers || item.po_numbers;
+      
+      if (poNumbers && poNumbers.length > 0) {
+        // Load only the specific POs from the search result
         const { data, error } = await supabase
           .from('po_orders')
           .select('*')
           .eq('user_id', user.id)
-          .in('po_number', item.po_group.po_numbers)
+          .in('po_number', poNumbers)
           .in('status', ['pending', 'placed', 'shipped', 'closed'])
           .order('priority', { ascending: true })
           .order('created_at', { ascending: false });
@@ -141,7 +146,7 @@ export function QuantityConfirmDialog({
         if (error) throw error;
         setAvailablePOs(data || []);
       } else {
-        // For non-grouped items, load all matching POs
+        // Fallback: For inventory/recent items without PO numbers, load matching POs
         let query = supabase
           .from('po_orders')
           .select('*')
