@@ -314,10 +314,88 @@ export function QuantityConfirmDialog({
                 {item.title}
               </div>
             )}
-            <div className="text-xs text-primary font-medium">
-              {item.context}
-            </div>
           </div>
+
+          {/* PO Details - Breakdown by PO */}
+          {loadingPOs && (
+            <div className="p-3 bg-accent/30 rounded-lg">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading PO details...
+              </div>
+            </div>
+          )}
+
+          {!loadingPOs && availablePOs.length > 0 && (
+            <Collapsible defaultOpen={availablePOs.length <= 5}>
+              <CollapsibleTrigger className="flex items-center justify-between w-full p-3 bg-accent/30 rounded-lg hover:bg-accent/40 transition-colors">
+                <div className="flex items-center gap-2">
+                  <Package className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-semibold">
+                    Found in {availablePOs.length} PO{availablePOs.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <ChevronDown className="w-4 h-4 transition-transform" />
+              </CollapsibleTrigger>
+              
+              <CollapsibleContent className="mt-2 space-y-2">
+                {availablePOs.map((po) => (
+                  <div
+                    key={po.id}
+                    className="border rounded-lg p-3 bg-muted/30 space-y-2"
+                  >
+                    {/* PO Number - Prominent at top */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge
+                          variant="secondary"
+                          className="text-sm font-semibold cursor-pointer hover:bg-primary/20"
+                          onClick={() => navigate(`/po-tracker?search=${po.po_number}`)}
+                        >
+                          📋 PO: {po.po_number}
+                        </Badge>
+                        
+                        {/* Priority Badge */}
+                        {po.priority && po.priority < 6 && (
+                          <Badge variant="outline" className="text-sm">
+                            Priority {po.priority}
+                          </Badge>
+                        )}
+                        
+                        {po.priority && po.priority >= 6 && (
+                          <Badge variant="outline" className="text-sm border-dashed text-muted-foreground">
+                            Auto-Priority {po.priority}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Quantity Info */}
+                    <div className="flex items-center gap-4 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Qty Needed:</span>{' '}
+                        <span className="font-bold text-foreground text-base">{po.quantity} units</span>
+                      </div>
+                    </div>
+                    
+                    {/* Additional Info */}
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>Status: {po.status}</span>
+                      {po.supplier_name && <span>• Supplier: {po.supplier_name}</span>}
+                    </div>
+                  </div>
+                ))}
+                
+                {/* Total Summary */}
+                <div className="p-2 bg-primary/5 rounded border border-primary/20 text-sm">
+                  <span className="text-muted-foreground">Total Qty Across All POs:</span>{' '}
+                  <span className="font-bold text-primary">
+                    {availablePOs.reduce((sum, po) => sum + po.quantity, 0)} units
+                  </span>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
 
           {/* Quantity */}
           <div className="space-y-2">
