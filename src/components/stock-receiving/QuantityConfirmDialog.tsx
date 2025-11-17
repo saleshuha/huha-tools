@@ -73,6 +73,7 @@ export function QuantityConfirmDialog({
   const [qzConnected, setQzConnected] = useState(false);
   const [availablePOs, setAvailablePOs] = useState<any[]>([]);
   const [loadingPOs, setLoadingPOs] = useState(false);
+  const [maxQuantity, setMaxQuantity] = useState<number>(999);
 
   useEffect(() => {
     if (open) {
@@ -150,6 +151,13 @@ export function QuantityConfirmDialog({
       
       const sortedPOs = (data || []).sort((a, b) => (a.priority || 999) - (b.priority || 999));
       setAvailablePOs(sortedPOs);
+
+      // Calculate total pending quantity
+      const totalPending = sortedPOs.reduce((sum, po) => {
+        const pending = po.quantity - (po.printed_quantity || 0);
+        return sum + pending;
+      }, 0);
+      setMaxQuantity(totalPending);
     } catch (error) {
       console.error('Error loading POs:', error);
       toast({
@@ -163,6 +171,16 @@ export function QuantityConfirmDialog({
   };
 
   const handleSubmit = async (withPrint: boolean = false) => {
+    // Validate quantity doesn't exceed available
+    if (quantity > maxQuantity) {
+      toast({
+        title: "Quantity Exceeds Available",
+        description: `You can only receive up to ${maxQuantity} unit(s) for this item.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     localStorage.setItem('stock-receiving-auto-print', String(autoPrintEnabled));
 
     const manualPOAllocations: ManualPOAllocation[] = [];
@@ -339,8 +357,25 @@ export function QuantityConfirmDialog({
         {/* Fixed input section */}
         <div className="space-y-4 py-4 border-t bg-background">
           <div className="space-y-2">
-            <Label htmlFor="quantity" className="font-semibold">Quantity *</Label>
-            <Input id="quantity" type="number" min="1" value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value) || 1)} className="text-lg font-semibold" autoFocus />
+            <Label htmlFor="quantity" className="font-semibold">
+              Quantity * 
+              <span className="text-xs text-muted-foreground ml-2">
+                (Max: {maxQuantity} units available)
+              </span>
+            </Label>
+            <Input 
+              id="quantity" 
+              type="number" 
+              min="1" 
+              max={maxQuantity}
+              value={quantity} 
+              onChange={(e) => {
+                const val = parseInt(e.target.value) || 1;
+                setQuantity(Math.min(val, maxQuantity));
+              }}
+              className="text-lg font-semibold" 
+              autoFocus 
+            />
           </div>
 
           {item.type !== 'po' && item.type !== 'po_group' && (
@@ -367,10 +402,10 @@ export function QuantityConfirmDialog({
 
         <DialogFooter className="flex gap-2">
           <Button variant="ghost" onClick={onClose} disabled={processing}>Cancel</Button>
-          <Button variant="outline" onClick={() => handleSubmit(false)} disabled={processing || quantity < 1}>
+          <Button variant="outline" onClick={() => handleSubmit(false)} disabled={processing || quantity < 1 || quantity > maxQuantity}>
             {processing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Processing...</> : 'Receive Only'}
           </Button>
-          <Button onClick={() => handleSubmit(true)} disabled={processing || quantity < 1 || (autoPrintEnabled && !qzConnected)}>
+          <Button onClick={() => handleSubmit(true)} disabled={processing || quantity < 1 || quantity > maxQuantity || (autoPrintEnabled && !qzConnected)}>
             {processing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Processing...</> : <><Printer className="w-4 h-4 mr-2" />Receive & Print</>}
           </Button>
         </DialogFooter>

@@ -104,20 +104,27 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
         // Search in open POs
         const { data: poData, error: poError } = await supabase
           .from('po_orders')
-          .select('id, asin, sku_code, model_number, title, po_number, priority')
+          .select('id, asin, sku_code, model_number, title, po_number, priority, quantity, printed_quantity')
           .or(`asin.ilike.%${term}%,sku_code.ilike.%${term}%,model_number.ilike.%${term}%,${titleCondition}`)
           .in('status', ['pending', 'placed'])
           .limit(20);
         
-        console.log('📦 Search - PO results:', poData?.length || 0, 'items');
+        // Filter out fully printed items
+        const filteredPoData = poData?.filter(po => {
+          const printed = po.printed_quantity || 0;
+          const pending = po.quantity - printed;
+          return pending > 0; // Only show items with pending quantity
+        }) || [];
+        
+        console.log('📦 Search - PO results:', filteredPoData?.length || 0, 'items (after filtering fully printed)');
         if (poError) {
           console.error('❌ Search - PO query error:', poError.message);
         }
 
         // Get group memberships for these POs
         let poGroupMap = new Map<string, string>();
-        if (poData && poData.length > 0) {
-          const poIds = poData.map(po => po.id);
+        if (filteredPoData && filteredPoData.length > 0) {
+          const poIds = filteredPoData.map(po => po.id);
           const { data: groupMembers } = await supabase
             .from('po_group_members')
             .select('po_id, group_id')
@@ -150,7 +157,7 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
 
         // Fetch images for all ASINs (both PO and inventory)
         const allAsins = [...new Set([
-          ...(poData?.map(item => item.asin).filter(Boolean) || []),
+          ...(filteredPoData?.map(item => item.asin).filter(Boolean) || []),
           ...(invData?.map(item => item.asin).filter(Boolean) || [])
         ])];
         
@@ -167,7 +174,7 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
         const searchResults: SearchResult[] = [];
 
         // Add PO results (group by item AND group membership)
-        if (poData && poData.length > 0) {
+        if (filteredPoData && filteredPoData.length > 0) {
           // Fetch group information if any POs have group_id
           const groupIds = [...new Set(Array.from(poGroupMap.values()))];
           let groupMap = new Map();
@@ -182,7 +189,7 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
           }
 
           // Group by BOTH item identifier AND group membership
-          const grouped = poData.reduce((acc, item) => {
+          const grouped = filteredPoData.reduce((acc, item) => {
             const itemKey = item.asin || item.sku_code || item.model_number || 'unknown';
             const groupId = poGroupMap.get(item.id);
             // Create a unique key combining item and group (or 'ungrouped')
@@ -268,9 +275,16 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
           });
         }
 
+        // Sort by priority (lower number = higher priority)
+        const sortedResults = searchResults.sort((a, b) => {
+          const priorityA = a.priority || 999;
+          const priorityB = b.priority || 999;
+          return priorityA - priorityB;
+        });
+
         // Return combined results
-        console.log('✅ Search - Total results:', searchResults.length);
-        setResults(searchResults);
+        console.log('✅ Search - Total results:', sortedResults.length);
+        setResults(sortedResults);
         setShowDropdown(searchTerm.length >= 3);
       } catch (error) {
         console.error('Search error:', error);
