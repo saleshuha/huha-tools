@@ -90,7 +90,7 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
         const { data: poData, error: poError } = await supabase
           .from('po_orders')
           .select('id, asin, sku_code, model_number, title, po_number, priority')
-          .or(`asin.ilike.%${term}%,sku_code.ilike.%${term}%,model_number.ilike.%${term}%`)
+          .or(`asin.ilike.%${term}%,sku_code.ilike.%${term}%,model_number.ilike.%${term}%,title.ilike.%${term}%`)
           .in('status', ['pending', 'placed'])
           .limit(20);
         
@@ -119,7 +119,7 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
         let invQuery = supabase
           .from('asin_inventory')
           .select('asin, sku, title, country, serial_number')
-          .or(`asin.ilike.%${term}%,sku.ilike.%${term}%`);
+          .or(`asin.ilike.%${term}%,sku.ilike.%${term}%,title.ilike.%${term}%`);
         
         // Filter by country if provided
         if (country) {
@@ -286,7 +286,7 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
         <Input
           ref={inputRef}
-          placeholder="Search by ASIN, SKU, or Model Number..."
+          placeholder="Search by ASIN, SKU, Model Number, or Title..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           disabled={disabled}
