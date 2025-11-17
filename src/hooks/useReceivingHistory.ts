@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface HistoryFilterOptions {
@@ -195,6 +196,50 @@ export function useReceivingHistory(
       };
     }
   });
+
+  // Real-time subscription for automatic updates
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+
+      console.log('Setting up real-time subscription for receiving history');
+
+      const channel = supabase
+        .channel('receiving-history-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'receiving_history',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('New receiving history record:', payload);
+            queryClient.invalidateQueries({ queryKey: ['receiving-history'] });
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'receiving_history',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('Receiving history record updated:', payload);
+            queryClient.invalidateQueries({ queryKey: ['receiving-history'] });
+          }
+        )
+        .subscribe();
+
+      return () => {
+        console.log('Cleaning up receiving history subscription');
+        supabase.removeChannel(channel);
+      };
+    });
+  }, [queryClient]);
 
   const updatePrintStatus = useMutation({
     mutationFn: async ({ id, printed, printer_name }: { 
