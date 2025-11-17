@@ -2074,6 +2074,33 @@ export const POTracker = () => {
     return filtered;
   }, [poOrders, debouncedSearchQuery, debouncedLabelSearch, searchType, statusFilter, shipToFilter, printedFilter, sourceFilter, sortField, sortDirection, activeTab, viewMode, selectedPOsForLabels, labelEligibleOrders, preventTableReorder, selectedCountry, inventoryMaps, findInventoryMatch, searchTags]);
 
+  // Helper function to get orders matching current print status filter
+  const getOrdersByPrintStatus = useCallback(() => {
+    if (printedFilter.length === 0) {
+      // If no filter, return all non-cancelled orders
+      return poOrders.filter(order => order.status !== 'cancelled');
+    }
+    
+    return poOrders.filter(order => {
+      if (order.status === 'cancelled') return false;
+      
+      const printedQty = order.printed_quantity || 0;
+      const totalQty = order.quantity || 0;
+      const isPrinted = order.is_printed || printedQty > 0;
+      
+      return printedFilter.some(status => {
+        if (status === 'printed') {
+          return isPrinted && printedQty >= totalQty;
+        } else if (status === 'partial-printed') {
+          return isPrinted && printedQty > 0 && printedQty < totalQty;
+        } else if (status === 'not-printed') {
+          return !isPrinted || printedQty === 0;
+        }
+        return false;
+      });
+    });
+  }, [poOrders, printedFilter]);
+
   // Export PO data to CSV
   const exportPOData = useCallback(() => {
     try {
@@ -5489,6 +5516,42 @@ export const POTracker = () => {
                             Clear
                           </Button>
                         )}
+                        
+                        {/* Print Preview Button */}
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => {
+                            const filteredOrders = getOrdersByPrintStatus();
+                            console.log('🖨️ Print Preview by Status:', {
+                              printedFilter,
+                              matchingOrders: filteredOrders.length
+                            });
+                            
+                            if (filteredOrders.length === 0) {
+                              toast({
+                                title: "No Items to Preview",
+                                description: "No items match the selected print status filter.",
+                                variant: "destructive"
+                              });
+                              return;
+                            }
+                            
+                            setPrintMode('bulk');
+                            setPrintOrders(filteredOrders);
+                            setPrintDialogOpen(true);
+                          }}
+                          disabled={poOrders.length === 0}
+                          className="h-8 gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground"
+                        >
+                          <FileText className="h-3.5 w-3.5" />
+                          Print Preview
+                          {printedFilter.length > 0 && (
+                            <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                              {getOrdersByPrintStatus().length}
+                            </Badge>
+                          )}
+                        </Button>
                       </div>
 
                       {/* Vertical Divider */}
