@@ -133,13 +133,25 @@ export function QuantityConfirmDialog({
       const poNumbers = item.po_group?.po_numbers || item.po_numbers;
       
       if (poNumbers && poNumbers.length > 0) {
-        // Load only the specific POs from the search result
-        const { data, error } = await supabase
+        // Load only the specific POs from the search result, filtered by current item
+        let query = supabase
           .from('po_orders')
           .select('*')
           .eq('user_id', user.id)
           .in('po_number', poNumbers)
-          .in('status', ['pending', 'placed', 'shipped', 'closed'])
+          .in('status', ['pending', 'placed', 'shipped', 'closed']);
+
+        // Filter by current item's identifiers (ASIN/SKU/Model)
+        const conditions = [];
+        if (item.asin) conditions.push(`asin.eq.${item.asin}`);
+        if (item.sku_code) conditions.push(`sku_code.eq.${item.sku_code}`);
+        if (item.model_number) conditions.push(`model_number.eq.${item.model_number}`);
+
+        if (conditions.length > 0) {
+          query = query.or(conditions.join(','));
+        }
+
+        const { data, error } = await query
           .order('priority', { ascending: true })
           .order('created_at', { ascending: false });
 
