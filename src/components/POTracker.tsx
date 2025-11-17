@@ -2530,9 +2530,11 @@ export const POTracker = () => {
         const newPrintedQuantity = (order.printed_quantity || 0) + copiesToRecord;
         console.log(`  📌 Order ${order.id}: ${order.printed_quantity || 0} + ${copiesToRecord} = ${newPrintedQuantity}`);
         
+        const newStatus = newPrintedQuantity >= order.quantity ? 'closed' : order.status;
         const { error } = await supabase.from('po_orders').update({
           is_printed: true,
-          printed_quantity: newPrintedQuantity
+          printed_quantity: newPrintedQuantity,
+          status: newStatus
         }).eq('id', order.id);
         
         if (error) {
@@ -3001,9 +3003,11 @@ export const POTracker = () => {
           
           // Update printed quantity in database for this underlying order
           const newPrintedQuantity = (underlyingOrder.printed_quantity || 0) + qty;
+          const newStatus = newPrintedQuantity >= underlyingOrder.quantity ? 'closed' : underlyingOrder.status;
           const { error } = await supabase.from('po_orders').update({
             is_printed: newPrintedQuantity >= underlyingOrder.quantity,
-            printed_quantity: newPrintedQuantity
+            printed_quantity: newPrintedQuantity,
+            status: newStatus
           }).eq('id', underlyingOrder.id);
           
           if (error) {
@@ -3096,11 +3100,13 @@ export const POTracker = () => {
       const newPrintedQuantity = (order.printed_quantity || 0) + copies;
       console.log(`📝 Updating order ${order.id}: ${order.printed_quantity || 0} + ${copies} = ${newPrintedQuantity}`);
       
+      const newStatus = newPrintedQuantity >= order.quantity ? 'closed' : order.status;
       const {
         error
       } = await supabase.from('po_orders').update({
         is_printed: newPrintedQuantity >= order.quantity,
-        printed_quantity: newPrintedQuantity
+        printed_quantity: newPrintedQuantity,
+        status: newStatus
       }).eq('id', order.id);
       
       if (error) {
