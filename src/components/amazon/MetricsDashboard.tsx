@@ -1,7 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { DollarSign, Package, Clock, CheckCircle, AlertTriangle, Calendar, CreditCard, ChevronLeft, ChevronRight } from 'lucide-react';
+import { DollarSign, Package, Clock, CheckCircle, AlertTriangle, Calendar, CreditCard, ChevronLeft, ChevronRight, TrendingUp } from 'lucide-react';
+import { ChartContainer, ChartTooltip } from '@/components/ui/chart';
+import { ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend } from 'recharts';
 import { DashboardMetrics } from '@/types/amazon-fulfillment';
 import { useCurrencyConverter } from '@/hooks/useCurrencyConverter';
 import { useCurrencyDisplay } from '@/components/amazon/CurrencySelector';
@@ -268,6 +270,87 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
 
   if (!metrics) return null;
 
+  // Monthly trend data for chart
+  const monthlyTrendData = useMemo(() => {
+    if (!orders || orders.length === 0) return [];
+    
+    // Helper to get month key (YYYY-MM format)
+    const getMonthKey = (date: Date) => {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    };
+    
+    // Helper to get month label (e.g., "Oct 2024")
+    const getMonthLabel = (monthKey: string) => {
+      const [year, month] = monthKey.split('-');
+      const date = new Date(parseInt(year), parseInt(month) - 1);
+      return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    };
+    
+    // Group orders by month
+    const monthlyData = new Map<string, {
+      totalOrders: number;
+      paidValue: number;
+      upcomingValue: number;
+    }>();
+    
+    const now = new Date();
+    
+    orders.forEach(order => {
+      if (!order.shipment_date) return;
+      
+      const shipmentDate = new Date(order.shipment_date);
+      const monthKey = getMonthKey(shipmentDate);
+      
+      if (!monthlyData.has(monthKey)) {
+        monthlyData.set(monthKey, {
+          totalOrders: 0,
+          paidValue: 0,
+          upcomingValue: 0
+        });
+      }
+      
+      const data = monthlyData.get(monthKey)!;
+      
+      // Increment total orders
+      data.totalOrders += 1;
+      
+      // Calculate order value in display currency
+      const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
+      const qty = parseInt(order.quantity?.toString() || '1') || 1;
+      const orderValueUSD = cost * qty;
+      const orderValue = convertCurrency(orderValueUSD, order.currency || 'USD', displayCurrency);
+      
+      // Check if paid
+      const paymentStatus = (order.payment_status || '').toLowerCase().trim();
+      const status = (order.status || '').toLowerCase().trim();
+      const isPaid = paymentStatus === 'completed' || status === 'paid';
+      
+      if (isPaid) {
+        data.paidValue += orderValue;
+      } else {
+        // Check if upcoming (due date in future)
+        const dueDate = new Date(shipmentDate);
+        dueDate.setDate(dueDate.getDate() + creditDays);
+        
+        if (dueDate > now) {
+          data.upcomingValue += orderValue;
+        }
+      }
+    });
+    
+    // Convert to array and sort by month
+    const sortedData = Array.from(monthlyData.entries())
+      .map(([monthKey, data]) => ({
+        month: getMonthLabel(monthKey),
+        monthKey,
+        ...data
+      }))
+      .sort((a, b) => a.monthKey.localeCompare(b.monthKey))
+      .slice(-12); // Last 12 months only
+    
+    return sortedData;
+  }, [orders, creditDays, displayCurrency, convertCurrency]);
+
   return (
     <div className="space-y-6">
       {/* Main Metrics Row */}
@@ -336,6 +419,134 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
           </CardContent>
         </Card>
       </div>
+
+      {/* Monthly Performance Graph */}
+      <Card className="border-l-4 border-l-primary">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" />
+            Monthly Performance Overview
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Trend analysis of orders, paid payments, and upcoming payments (Last 12 months)
+          </p>
+        </CardHeader>
+        <CardContent>
+          {!monthlyTrendData || monthlyTrendData.length === 0 ? (
+            <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+              <div className="text-center">
+                <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>No monthly data available</p>
+              </div>
+            </div>
+          ) : (
+            <ChartContainer
+              config={{
+                totalOrders: {
+                  label: "Total Orders",
+                  color: "hsl(var(--primary))",
+                },
+                paidValue: {
+                  label: "Paid Payments",
+                  color: "hsl(var(--chart-2))",
+                },
+                upcomingValue: {
+                  label: "Upcoming Payments",
+                  color: "hsl(var(--chart-3))",
+                },
+              }}
+              className="h-[300px] w-full"
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={monthlyTrendData}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                  <XAxis 
+                    dataKey="month" 
+                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                    tickLine={{ stroke: 'hsl(var(--border))' }}
+                  />
+                  <YAxis 
+                    yAxisId="left"
+                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                    tickLine={{ stroke: 'hsl(var(--border))' }}
+                    label={{ value: `Payment (${displayCurrency})`, angle: -90, position: 'insideLeft', style: { fill: 'hsl(var(--muted-foreground))' } }}
+                  />
+                  <YAxis 
+                    yAxisId="right"
+                    orientation="right"
+                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                    tickLine={{ stroke: 'hsl(var(--border))' }}
+                    label={{ value: 'Orders', angle: 90, position: 'insideRight', style: { fill: 'hsl(var(--muted-foreground))' } }}
+                  />
+                  <ChartTooltip 
+                    content={({ active, payload }) => {
+                      if (!active || !payload || payload.length === 0) return null;
+                      
+                      return (
+                        <div className="rounded-lg border bg-background p-3 shadow-lg">
+                          <div className="font-semibold mb-2">{payload[0].payload.month}</div>
+                          <div className="space-y-1 text-sm">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--primary))' }} />
+                              <span className="text-muted-foreground">Total Orders:</span>
+                              <span className="font-semibold">{payload[0].payload.totalOrders}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-2))' }} />
+                              <span className="text-muted-foreground">Paid:</span>
+                              <span className="font-semibold" style={{ color: 'hsl(var(--chart-2))' }}>
+                                {formatCurrency(payload[0].payload.paidValue, displayCurrency)}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-3))' }} />
+                              <span className="text-muted-foreground">Upcoming:</span>
+                              <span className="font-semibold" style={{ color: 'hsl(var(--chart-3))' }}>
+                                {formatCurrency(payload[0].payload.upcomingValue, displayCurrency)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }}
+                  />
+                  <Legend 
+                    wrapperStyle={{ paddingTop: '20px' }}
+                    iconType="circle"
+                  />
+                  <Bar 
+                    yAxisId="right"
+                    dataKey="totalOrders" 
+                    fill="hsl(var(--primary))" 
+                    radius={[4, 4, 0, 0]}
+                    opacity={0.8}
+                    name="Total Orders"
+                  />
+                  <Line 
+                    yAxisId="left"
+                    type="monotone" 
+                    dataKey="paidValue" 
+                    stroke="hsl(var(--chart-2))" 
+                    strokeWidth={3}
+                    dot={{ fill: 'hsl(var(--chart-2))', r: 4 }}
+                    name="Paid Payments"
+                  />
+                  <Line 
+                    yAxisId="left"
+                    type="monotone" 
+                    dataKey="upcomingValue" 
+                    stroke="hsl(var(--chart-3))" 
+                    strokeWidth={3}
+                    dot={{ fill: 'hsl(var(--chart-3))', r: 4 }}
+                    strokeDasharray="5 5"
+                    name="Upcoming Payments"
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Secondary Metrics Row */}
       <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
