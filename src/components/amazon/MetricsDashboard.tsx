@@ -330,84 +330,84 @@ export const MetricsDashboard = ({
   }
   if (!metrics) return null;
 
-  return <div className="space-y-6">
+  return <div className="space-y-4">
       {/* Main Metrics Row */}
-      <div className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-l-4 border-l-primary bg-gradient-to-br from-primary/5 via-background to-background hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Payments</CardTitle>
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Package className="h-5 w-5 text-primary" />
+      <div className="grid gap-3 md:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="border-l-4 border-l-primary bg-gradient-to-br from-primary/5 via-background to-background hover:shadow-lg transition-all duration-300 hover:scale-[1.01]">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5">
+            <CardTitle className="text-xs font-medium">Total Payments</CardTitle>
+            <div className="p-1.5 rounded-lg bg-primary/10">
+              <Package className="h-4 w-4 text-primary" />
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+          <CardContent className="pb-3">
+            <div className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
               {metrics.totalOrders}
             </div>
-            <div className="text-xl font-semibold text-primary mt-1">
+            <div className="text-base font-semibold text-primary">
               {formatCurrency(convertedTotalValue, displayCurrency)}
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
+            <p className="text-[10px] text-muted-foreground mt-1">
               All fulfillment orders ({displayCurrency})
             </p>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-green-500 bg-gradient-to-br from-green-500/5 via-background to-background hover:shadow-xl transition-all duration-300 hover:scale-[1.02]" key={renderKey}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Paid Payments</CardTitle>
-            <div className="p-2 rounded-lg bg-green-500/10">
-              <CreditCard className="h-5 w-5 text-green-600 dark:text-green-400" />
+        <Card className="border-l-4 border-l-green-500 bg-gradient-to-br from-green-500/5 via-background to-background hover:shadow-lg transition-all duration-300 hover:scale-[1.01]" key={renderKey}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5">
+            <CardTitle className="text-xs font-medium">Paid Payments</CardTitle>
+            <div className="p-1.5 rounded-lg bg-green-500/10">
+              <CreditCard className="h-4 w-4 text-green-600 dark:text-green-400" />
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold bg-gradient-to-r from-green-600 to-green-500/70 dark:from-green-400 dark:to-green-500/70 bg-clip-text text-transparent">
+          <CardContent className="pb-3">
+            <div className="text-2xl font-bold bg-gradient-to-r from-green-600 to-green-500/70 dark:from-green-400 dark:to-green-500/70 bg-clip-text text-transparent">
               {metrics.paidPayments}
             </div>
-            <div className="text-xl font-semibold text-green-600 dark:text-green-400 mt-1">
+            <div className="text-base font-semibold text-green-600 dark:text-green-400">
               {formatCurrency(convertedPaidValue, displayCurrency)}
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
+            <p className="text-[10px] text-muted-foreground mt-1">
               Completed payments ({displayCurrency})
             </p>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-yellow-500 bg-gradient-to-br from-yellow-500/5 via-background to-background hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Payments</CardTitle>
-            <div className="p-2 rounded-lg bg-yellow-500/10">
-              <Clock className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+        <Card className="border-l-4 border-l-yellow-500 bg-gradient-to-br from-yellow-500/5 via-background to-background hover:shadow-lg transition-all duration-300 hover:scale-[1.01]">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5">
+            <CardTitle className="text-xs font-medium">Pending Payments</CardTitle>
+            <div className="p-1.5 rounded-lg bg-yellow-500/10">
+              <Clock className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold bg-gradient-to-r from-yellow-600 to-yellow-500/70 dark:from-yellow-400 dark:to-yellow-500/70 bg-clip-text text-transparent">
+          <CardContent className="pb-3">
+            <div className="text-2xl font-bold bg-gradient-to-r from-yellow-600 to-yellow-500/70 dark:from-yellow-400 dark:to-yellow-500/70 bg-clip-text text-transparent">
               {metrics.pendingPayments}
             </div>
-            <div className="text-xl font-semibold text-yellow-600 dark:text-yellow-400 mt-1">
+            <div className="text-base font-semibold text-yellow-600 dark:text-yellow-400">
               {formatCurrency(convertedPendingValue, displayCurrency)}
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
+            <p className="text-[10px] text-muted-foreground mt-1">
               Approved + Non-submitted orders
             </p>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-red-500 bg-gradient-to-br from-red-500/5 via-background to-background hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Overdue Payments</CardTitle>
-            <div className="p-2 rounded-lg bg-red-500/10">
-              <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
+        <Card className="border-l-4 border-l-red-500 bg-gradient-to-br from-red-500/5 via-background to-background hover:shadow-lg transition-all duration-300 hover:scale-[1.01]">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5">
+            <CardTitle className="text-xs font-medium">Overdue Payments</CardTitle>
+            <div className="p-1.5 rounded-lg bg-red-500/10">
+              <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold bg-gradient-to-r from-red-600 to-red-500/70 dark:from-red-400 dark:to-red-500/70 bg-clip-text text-transparent">
+          <CardContent className="pb-3">
+            <div className="text-2xl font-bold bg-gradient-to-r from-red-600 to-red-500/70 dark:from-red-400 dark:to-red-500/70 bg-clip-text text-transparent">
               {metrics.overduePayments}
             </div>
-            <div className="text-xl font-semibold text-red-600 dark:text-red-400 mt-1">
+            <div className="text-base font-semibold text-red-600 dark:text-red-400">
               {formatCurrency(convertedOverdueValue, displayCurrency)}
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
+            <p className="text-[10px] text-muted-foreground mt-1">
               Past {selectedCountry === 'UAE' ? '60' : '45'}-day credit period ({selectedCountry})
             </p>
           </CardContent>
@@ -415,31 +415,31 @@ export const MetricsDashboard = ({
       </div>
 
       {/* Monthly Performance Graph */}
-      <Card className="relative border-l-4 border-l-primary border-2 shadow-2xl bg-gradient-to-br from-background via-background to-primary/5 overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -z-10"></div>
-        <CardHeader className="pb-6">
-          <div className="flex items-center justify-between flex-wrap gap-4">
+      <Card className="relative border-l-4 border-l-primary border shadow-xl bg-gradient-to-br from-background via-background to-primary/5 overflow-hidden">
+        <div className="absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-full blur-3xl -z-10"></div>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
-              <CardTitle className="text-2xl font-bold flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-gradient-to-br from-primary to-primary/70 shadow-lg">
-                  <TrendingUp className="h-6 w-6 text-white" />
+              <CardTitle className="text-lg font-bold flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-gradient-to-br from-primary to-primary/70 shadow-md">
+                  <TrendingUp className="h-4 w-4 text-white" />
                 </div>
                 Monthly Performance Overview
               </CardTitle>
-              <p className="text-sm text-muted-foreground mt-2">
+              <p className="text-xs text-muted-foreground mt-1">
                 Trend analysis of orders, paid payments, and upcoming payments (Last 12 months)
               </p>
             </div>
-            {monthlyTrendData && monthlyTrendData.length > 0 && <div className="flex gap-6">
+            {monthlyTrendData && monthlyTrendData.length > 0 && <div className="flex gap-4">
               <div className="text-right">
-                <p className="text-xs text-muted-foreground">Total Orders</p>
-                <p className="text-2xl font-bold text-primary">
+                <p className="text-[10px] text-muted-foreground">Total Orders</p>
+                <p className="text-lg font-bold text-primary">
                   {monthlyTrendData.reduce((sum, m) => sum + m.totalOrders, 0)}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-xs text-muted-foreground">Avg/Month</p>
-                <p className="text-2xl font-bold text-chart-2">
+                <p className="text-[10px] text-muted-foreground">Avg/Month</p>
+                <p className="text-lg font-bold text-chart-2">
                   {Math.round(monthlyTrendData.reduce((sum, m) => sum + m.totalOrders, 0) / monthlyTrendData.length)}
                 </p>
               </div>
@@ -447,7 +447,7 @@ export const MetricsDashboard = ({
           </div>
         </CardHeader>
         <CardContent>
-          {!monthlyTrendData || monthlyTrendData.length === 0 ? <div className="text-center py-8 text-muted-foreground">
+          {!monthlyTrendData || monthlyTrendData.length === 0 ? <div className="text-center py-6 text-muted-foreground text-sm">
               No monthly data available
             </div> : <ChartContainer config={{
             totalOrders: {
@@ -462,13 +462,13 @@ export const MetricsDashboard = ({
               label: "Upcoming Payments",
               color: "hsl(var(--chart-3))"
             }
-          }} className="h-[500px] w-full">
+          }} className="h-[350px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={monthlyTrendData} margin={{
-                  top: 30,
-                  right: 40,
-                  left: 30,
-                  bottom: 30
+                  top: 20,
+                  right: 30,
+                  left: 20,
+                  bottom: 20
                 }}>
                   <defs>
                     <linearGradient id="paidGradient" x1="0" y1="0" x2="0" y2="1">
@@ -487,13 +487,13 @@ export const MetricsDashboard = ({
                   <CartesianGrid strokeDasharray="3 3" opacity={0.2} className="stroke-muted" />
                   <XAxis dataKey="month" tick={{
                     fill: 'hsl(var(--foreground))',
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: 500
                   }} tickLine={{
                     stroke: 'hsl(var(--border))'
                   }} axisLine={{
                     stroke: 'hsl(var(--border))',
-                    strokeWidth: 2
+                    strokeWidth: 1.5
                   }} />
                   <YAxis yAxisId="left" tick={{
                     fill: 'hsl(var(--muted-foreground))'
@@ -528,38 +528,38 @@ export const MetricsDashboard = ({
                     payload
                   }) => {
                     if (!active || !payload || payload.length === 0) return null;
-                    return <div className="rounded-xl border-2 bg-background/95 backdrop-blur-sm p-4 shadow-2xl">
-                        <div className="flex items-center gap-2 font-bold text-lg mb-3 border-b pb-2">
-                          <Calendar className="h-4 w-4 text-primary" />
+                    return <div className="rounded-lg border bg-background/95 backdrop-blur-sm p-3 shadow-xl">
+                        <div className="flex items-center gap-2 font-bold text-base mb-2 border-b pb-1.5">
+                          <Calendar className="h-3.5 w-3.5 text-primary" />
                           {payload[0].payload.month}
                         </div>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-2">
-                              <div className="w-4 h-4 rounded-full bg-gradient-to-br from-primary to-primary/70" />
+                        <div className="space-y-1.5 text-xs">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-3 h-3 rounded-full bg-gradient-to-br from-primary to-primary/70" />
                               <span className="text-muted-foreground">Total Orders:</span>
                             </div>
-                            <span className="font-bold text-lg">{payload[0].payload.totalOrders}</span>
+                            <span className="font-bold text-sm">{payload[0].payload.totalOrders}</span>
                           </div>
-                          <div className="flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-2">
-                              <div className="w-4 h-4 rounded-full" style={{
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-3 h-3 rounded-full" style={{
                               backgroundColor: 'hsl(var(--chart-2))'
                             }} />
                               <span className="text-muted-foreground">Paid:</span>
                             </div>
-                            <span className="font-bold text-lg text-chart-2">
+                            <span className="font-bold text-sm text-chart-2">
                               {formatCurrency(payload[0].payload.paidValue, displayCurrency)}
                             </span>
                           </div>
-                          <div className="flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-2">
-                              <div className="w-4 h-4 rounded-full" style={{
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-3 h-3 rounded-full" style={{
                               backgroundColor: 'hsl(var(--chart-3))'
                             }} />
                               <span className="text-muted-foreground">Upcoming:</span>
                             </div>
-                            <span className="font-bold text-lg text-chart-3">
+                            <span className="font-bold text-sm text-chart-3">
                               {formatCurrency(payload[0].payload.upcomingValue, displayCurrency)}
                             </span>
                           </div>
@@ -567,35 +567,31 @@ export const MetricsDashboard = ({
                       </div>;
                   }} />
                   <Legend verticalAlign="top" align="right" wrapperStyle={{
-                    paddingBottom: '20px',
-                    fontSize: '13px',
+                    paddingBottom: '15px',
+                    fontSize: '11px',
                     fontWeight: 600
-                  }} iconType="circle" iconSize={12} />
+                  }} iconType="circle" iconSize={10} />
                   <Area yAxisId="left" type="monotone" dataKey="paidValue" fill="url(#paidGradient)" stroke="none" fillOpacity={1} />
                   <Area yAxisId="left" type="monotone" dataKey="upcomingValue" fill="url(#upcomingGradient)" stroke="none" fillOpacity={1} />
-                  <Bar yAxisId="right" dataKey="totalOrders" fill="url(#barGradient)" radius={[8, 8, 0, 0]} name="Total Orders" />
-                  <Line yAxisId="left" type="monotone" dataKey="paidValue" stroke="hsl(var(--chart-2))" strokeWidth={4} dot={{
+                  <Bar yAxisId="right" dataKey="totalOrders" fill="url(#barGradient)" radius={[6, 6, 0, 0]} name="Total Orders" />
+                  <Line yAxisId="left" type="monotone" dataKey="paidValue" stroke="hsl(var(--chart-2))" strokeWidth={3} dot={{
                     fill: 'hsl(var(--chart-2))',
-                    r: 6,
-                    strokeWidth: 3,
-                    stroke: '#fff',
-                    filter: 'drop-shadow(0 0 4px hsl(var(--chart-2)))'
+                    r: 4,
+                    strokeWidth: 2,
+                    stroke: '#fff'
                   }} activeDot={{
-                    r: 8,
-                    strokeWidth: 3,
-                    filter: 'drop-shadow(0 0 8px hsl(var(--chart-2)))'
+                    r: 6,
+                    strokeWidth: 2
                   }} name="Paid Payments" />
-                  <Line yAxisId="left" type="monotone" dataKey="upcomingValue" stroke="hsl(var(--chart-3))" strokeWidth={4} dot={{
+                  <Line yAxisId="left" type="monotone" dataKey="upcomingValue" stroke="hsl(var(--chart-3))" strokeWidth={3} dot={{
                     fill: 'hsl(var(--chart-3))',
-                    r: 6,
-                    strokeWidth: 3,
-                    stroke: '#fff',
-                    filter: 'drop-shadow(0 0 4px hsl(var(--chart-3)))'
+                    r: 4,
+                    strokeWidth: 2,
+                    stroke: '#fff'
                   }} activeDot={{
-                    r: 8,
-                    strokeWidth: 3,
-                    filter: 'drop-shadow(0 0 8px hsl(var(--chart-3)))'
-                  }} strokeDasharray="8 4" name="Upcoming Payments" />
+                    r: 6,
+                    strokeWidth: 2
+                  }} strokeDasharray="6 3" name="Upcoming Payments" />
                 </ComposedChart>
               </ResponsiveContainer>
             </ChartContainer>}
