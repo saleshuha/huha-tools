@@ -651,43 +651,8 @@ export function AsinInventory() {
   };
   
   const exportInventory = () => {
-    // Apply current filters to full inventory for export
-    const dataToExport = fullInventory.filter(item => {
-      // Apply same filters as current view
-      if (!showDisabledItems && item.isActive === false) return false;
-      
-      // Status filter
-      if (statusFilter !== 'all') {
-        const effectiveStatus = statusFilter === 'ordered' ? 'sold' : statusFilter;
-        if (item.status !== effectiveStatus) return false;
-      } else {
-        // When 'all' is selected, exclude ordered/sold by default
-        if (item.status === 'ordered' || item.status === 'sold') return false;
-      }
-      
-      // Quick filter
-      if (quickFilter === 'low-stock' && (item.quantity <= 0 || item.quantity > 5)) return false;
-      if (quickFilter === 'out-of-stock' && item.quantity !== 0) return false;
-      if (quickFilter === 'recent') {
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        if (new Date(item.dateAdded) < sevenDaysAgo) return false;
-      }
-      
-      // Search term filter
-      if (debouncedSearchTerm) {
-        const term = debouncedSearchTerm.toLowerCase();
-        const matchesSearch = 
-          item.asin?.toLowerCase().includes(term) ||
-          item.sku?.toLowerCase().includes(term) ||
-          item.title?.toLowerCase().includes(term) ||
-          item.serialNumber?.toLowerCase().includes(term) ||
-          item.notes?.toLowerCase().includes(term);
-        if (!matchesSearch) return false;
-      }
-      
-      return true;
-    });
+    // Export ALL inventory items (filters ignored to ensure complete export)
+    const dataToExport = fullInventory;
     
     const csvData = [['SKU', 'UPC', 'ASIN', 'Title', 'Warehouse', 'Warehouse name', 'Available units', 'Status'],
       ...dataToExport.map(item => {
@@ -726,7 +691,7 @@ export function AsinInventory() {
     document.body.removeChild(link);
     toast({
       title: "Export Complete",
-      description: `Exported ${dataToExport.length} items to CSV file`
+      description: `Exported all ${dataToExport.length} items from inventory (filters ignored)`
     });
   };
   const emailInventory = async () => {
