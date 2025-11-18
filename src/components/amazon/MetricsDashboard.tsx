@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DollarSign, Package, Clock, CheckCircle, AlertTriangle, Calendar, CreditCard, ChevronLeft, ChevronRight, TrendingUp } from 'lucide-react';
 import { ChartContainer, ChartTooltip } from '@/components/ui/chart';
-import { ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend } from 'recharts';
+import { ComposedChart, Line, Bar, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend } from 'recharts';
 import { DashboardMetrics } from '@/types/amazon-fulfillment';
 import { useCurrencyConverter } from '@/hooks/useCurrencyConverter';
 import { useCurrencyDisplay } from '@/components/amazon/CurrencySelector';
@@ -332,66 +332,82 @@ export const MetricsDashboard = ({
 
   return <div className="space-y-6">
       {/* Main Metrics Row */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-l-4 border-l-primary">
+      <div className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="border-l-4 border-l-primary bg-gradient-to-br from-primary/5 via-background to-background hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Payments</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Package className="h-5 w-5 text-primary" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics.totalOrders}</div>
-            <div className="text-lg font-semibold text-primary">
+            <div className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+              {metrics.totalOrders}
+            </div>
+            <div className="text-xl font-semibold text-primary mt-1">
               {formatCurrency(convertedTotalValue, displayCurrency)}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground mt-2">
               All fulfillment orders ({displayCurrency})
             </p>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-success" key={renderKey}>
+        <Card className="border-l-4 border-l-green-500 bg-gradient-to-br from-green-500/5 via-background to-background hover:shadow-xl transition-all duration-300 hover:scale-[1.02]" key={renderKey}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Paid Payments</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
+            <div className="p-2 rounded-lg bg-green-500/10">
+              <CreditCard className="h-5 w-5 text-green-600 dark:text-green-400" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-success">{metrics.paidPayments}</div>
-            <div className="text-lg font-semibold text-success">
+            <div className="text-3xl font-bold bg-gradient-to-r from-green-600 to-green-500/70 dark:from-green-400 dark:to-green-500/70 bg-clip-text text-transparent">
+              {metrics.paidPayments}
+            </div>
+            <div className="text-xl font-semibold text-green-600 dark:text-green-400 mt-1">
               {formatCurrency(convertedPaidValue, displayCurrency)}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground mt-2">
               Completed payments ({displayCurrency})
             </p>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-warning">
+        <Card className="border-l-4 border-l-yellow-500 bg-gradient-to-br from-yellow-500/5 via-background to-background hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending Payments</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <div className="p-2 rounded-lg bg-yellow-500/10">
+              <Clock className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-warning">{metrics.pendingPayments}</div>
-            <div className="text-lg font-semibold text-warning">
+            <div className="text-3xl font-bold bg-gradient-to-r from-yellow-600 to-yellow-500/70 dark:from-yellow-400 dark:to-yellow-500/70 bg-clip-text text-transparent">
+              {metrics.pendingPayments}
+            </div>
+            <div className="text-xl font-semibold text-yellow-600 dark:text-yellow-400 mt-1">
               {formatCurrency(convertedPendingValue, displayCurrency)}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground mt-2">
               Approved + Non-submitted orders
             </p>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-destructive">
+        <Card className="border-l-4 border-l-red-500 bg-gradient-to-br from-red-500/5 via-background to-background hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Overdue Payments</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            <div className="p-2 rounded-lg bg-red-500/10">
+              <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-destructive">{metrics.overduePayments}</div>
-            <div className="text-lg font-semibold text-destructive">
+            <div className="text-3xl font-bold bg-gradient-to-r from-red-600 to-red-500/70 dark:from-red-400 dark:to-red-500/70 bg-clip-text text-transparent">
+              {metrics.overduePayments}
+            </div>
+            <div className="text-xl font-semibold text-red-600 dark:text-red-400 mt-1">
               {formatCurrency(convertedOverdueValue, displayCurrency)}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground mt-2">
               Past {selectedCountry === 'UAE' ? '60' : '45'}-day credit period ({selectedCountry})
             </p>
           </CardContent>
@@ -399,130 +415,187 @@ export const MetricsDashboard = ({
       </div>
 
       {/* Monthly Performance Graph */}
-      <Card className="border-l-4 border-l-primary border-2 shadow-lg">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold flex items-center gap-2">
-            <TrendingUp className="h-6 w-6 text-primary" />
-            Monthly Performance Overview
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Trend analysis of orders, paid payments, and upcoming payments (Last 12 months)
-          </p>
+      <Card className="relative border-l-4 border-l-primary border-2 shadow-2xl bg-gradient-to-br from-background via-background to-primary/5 overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -z-10"></div>
+        <CardHeader className="pb-6">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <CardTitle className="text-2xl font-bold flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-gradient-to-br from-primary to-primary/70 shadow-lg">
+                  <TrendingUp className="h-6 w-6 text-white" />
+                </div>
+                Monthly Performance Overview
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-2">
+                Trend analysis of orders, paid payments, and upcoming payments (Last 12 months)
+              </p>
+            </div>
+            {monthlyTrendData && monthlyTrendData.length > 0 && <div className="flex gap-6">
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground">Total Orders</p>
+                <p className="text-2xl font-bold text-primary">
+                  {monthlyTrendData.reduce((sum, m) => sum + m.totalOrders, 0)}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground">Avg/Month</p>
+                <p className="text-2xl font-bold text-chart-2">
+                  {Math.round(monthlyTrendData.reduce((sum, m) => sum + m.totalOrders, 0) / monthlyTrendData.length)}
+                </p>
+              </div>
+            </div>}
+          </div>
         </CardHeader>
         <CardContent>
-          {!monthlyTrendData || monthlyTrendData.length === 0 ? <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-              <div className="text-center">
-                <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>No monthly data available</p>
-              </div>
+          {!monthlyTrendData || monthlyTrendData.length === 0 ? <div className="text-center py-8 text-muted-foreground">
+              No monthly data available
             </div> : <ChartContainer config={{
-          totalOrders: {
-            label: "Total Orders",
-            color: "hsl(var(--primary))"
-          },
-          paidValue: {
-            label: "Paid Payments",
-            color: "hsl(var(--chart-2))"
-          },
-          upcomingValue: {
-            label: "Upcoming Payments",
-            color: "hsl(var(--chart-3))"
-          }
-        }} className="h-[450px] w-full">
+            totalOrders: {
+              label: "Total Orders",
+              color: "hsl(var(--primary))"
+            },
+            paidValue: {
+              label: "Paid Payments",
+              color: "hsl(var(--chart-2))"
+            },
+            upcomingValue: {
+              label: "Upcoming Payments",
+              color: "hsl(var(--chart-3))"
+            }
+          }} className="h-[500px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={monthlyTrendData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} className="stroke-muted" />
+                <ComposedChart data={monthlyTrendData} margin={{
+                  top: 30,
+                  right: 40,
+                  left: 30,
+                  bottom: 30
+                }}>
+                  <defs>
+                    <linearGradient id="paidGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--chart-2))" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="hsl(var(--chart-2))" stopOpacity={0.1} />
+                    </linearGradient>
+                    <linearGradient id="upcomingGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--chart-3))" stopOpacity={0.6} />
+                      <stop offset="95%" stopColor="hsl(var(--chart-3))" stopOpacity={0.05} />
+                    </linearGradient>
+                    <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={1} />
+                      <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.6} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.2} className="stroke-muted" />
                   <XAxis dataKey="month" tick={{
-                fill: 'hsl(var(--muted-foreground))'
-              }} tickLine={{
-                stroke: 'hsl(var(--border))'
-              }} className="text-sm font-medium" />
+                    fill: 'hsl(var(--foreground))',
+                    fontSize: 12,
+                    fontWeight: 500
+                  }} tickLine={{
+                    stroke: 'hsl(var(--border))'
+                  }} axisLine={{
+                    stroke: 'hsl(var(--border))',
+                    strokeWidth: 2
+                  }} />
                   <YAxis yAxisId="left" tick={{
-                fill: 'hsl(var(--muted-foreground))'
-              }} tickLine={{
-                stroke: 'hsl(var(--border))'
-              }} label={{
-                value: `Payment (${displayCurrency})`,
-                angle: -90,
-                position: 'insideLeft',
-                style: {
-                  fill: 'hsl(var(--foreground))',
-                  fontWeight: 600,
-                  fontSize: 14
-                }
-              }} className="text-sm font-medium" />
+                    fill: 'hsl(var(--muted-foreground))'
+                  }} tickLine={{
+                    stroke: 'hsl(var(--border))'
+                  }} label={{
+                    value: `Payments (${displayCurrency})`,
+                    angle: -90,
+                    position: 'insideLeft',
+                    style: {
+                      fill: 'hsl(var(--foreground))',
+                      fontWeight: 600,
+                      fontSize: 14
+                    }
+                  }} className="text-sm font-medium" />
                   <YAxis yAxisId="right" orientation="right" tick={{
-                fill: 'hsl(var(--muted-foreground))'
-              }} tickLine={{
-                stroke: 'hsl(var(--border))'
-              }} label={{
-                value: 'Orders',
-                angle: 90,
-                position: 'insideRight',
-                style: {
-                  fill: 'hsl(var(--foreground))',
-                  fontWeight: 600,
-                  fontSize: 14
-                }
-              }} className="text-sm font-medium" />
+                    fill: 'hsl(var(--muted-foreground))'
+                  }} tickLine={{
+                    stroke: 'hsl(var(--border))'
+                  }} label={{
+                    value: 'Total Orders',
+                    angle: 90,
+                    position: 'insideRight',
+                    style: {
+                      fill: 'hsl(var(--foreground))',
+                      fontWeight: 600,
+                      fontSize: 14
+                    }
+                  }} className="text-sm font-medium" />
                   <ChartTooltip content={({
-                active,
-                payload
-              }) => {
-                if (!active || !payload || payload.length === 0) return null;
-                return <div className="rounded-lg border bg-background p-3 shadow-lg">
-                          <div className="font-semibold mb-2">{payload[0].payload.month}</div>
-                          <div className="space-y-1 text-sm">
+                    active,
+                    payload
+                  }) => {
+                    if (!active || !payload || payload.length === 0) return null;
+                    return <div className="rounded-xl border-2 bg-background/95 backdrop-blur-sm p-4 shadow-2xl">
+                        <div className="flex items-center gap-2 font-bold text-lg mb-3 border-b pb-2">
+                          <Calendar className="h-4 w-4 text-primary" />
+                          {payload[0].payload.month}
+                        </div>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex items-center justify-between gap-4">
                             <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full" style={{
-                        backgroundColor: 'hsl(var(--primary))'
-                      }} />
+                              <div className="w-4 h-4 rounded-full bg-gradient-to-br from-primary to-primary/70" />
                               <span className="text-muted-foreground">Total Orders:</span>
-                              <span className="font-semibold">{payload[0].payload.totalOrders}</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full" style={{
-                        backgroundColor: 'hsl(var(--chart-2))'
-                      }} />
-                              <span className="text-muted-foreground">Paid:</span>
-                              <span className="font-semibold" style={{
-                        color: 'hsl(var(--chart-2))'
-                      }}>
-                                {formatCurrency(payload[0].payload.paidValue, displayCurrency)}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full" style={{
-                        backgroundColor: 'hsl(var(--chart-3))'
-                      }} />
-                              <span className="text-muted-foreground">Upcoming:</span>
-                              <span className="font-semibold" style={{
-                        color: 'hsl(var(--chart-3))'
-                      }}>
-                                {formatCurrency(payload[0].payload.upcomingValue, displayCurrency)}
-                              </span>
-                            </div>
+                            <span className="font-bold text-lg">{payload[0].payload.totalOrders}</span>
                           </div>
-                        </div>;
-              }} />
-                  <Legend wrapperStyle={{
-                paddingTop: '20px',
-                fontSize: '14px',
-                fontWeight: 600
-              }} iconType="circle" />
-                  <Bar yAxisId="right" dataKey="totalOrders" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} opacity={0.85} name="Total Orders" />
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded-full" style={{
+                              backgroundColor: 'hsl(var(--chart-2))'
+                            }} />
+                              <span className="text-muted-foreground">Paid:</span>
+                            </div>
+                            <span className="font-bold text-lg text-chart-2">
+                              {formatCurrency(payload[0].payload.paidValue, displayCurrency)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 rounded-full" style={{
+                              backgroundColor: 'hsl(var(--chart-3))'
+                            }} />
+                              <span className="text-muted-foreground">Upcoming:</span>
+                            </div>
+                            <span className="font-bold text-lg text-chart-3">
+                              {formatCurrency(payload[0].payload.upcomingValue, displayCurrency)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>;
+                  }} />
+                  <Legend verticalAlign="top" align="right" wrapperStyle={{
+                    paddingBottom: '20px',
+                    fontSize: '13px',
+                    fontWeight: 600
+                  }} iconType="circle" iconSize={12} />
+                  <Area yAxisId="left" type="monotone" dataKey="paidValue" fill="url(#paidGradient)" stroke="none" fillOpacity={1} />
+                  <Area yAxisId="left" type="monotone" dataKey="upcomingValue" fill="url(#upcomingGradient)" stroke="none" fillOpacity={1} />
+                  <Bar yAxisId="right" dataKey="totalOrders" fill="url(#barGradient)" radius={[8, 8, 0, 0]} name="Total Orders" />
                   <Line yAxisId="left" type="monotone" dataKey="paidValue" stroke="hsl(var(--chart-2))" strokeWidth={4} dot={{
-                fill: 'hsl(var(--chart-2))',
-                r: 6,
-                strokeWidth: 2,
-                stroke: '#fff'
-              }} activeDot={{ r: 8 }} name="Paid Payments" />
+                    fill: 'hsl(var(--chart-2))',
+                    r: 6,
+                    strokeWidth: 3,
+                    stroke: '#fff',
+                    filter: 'drop-shadow(0 0 4px hsl(var(--chart-2)))'
+                  }} activeDot={{
+                    r: 8,
+                    strokeWidth: 3,
+                    filter: 'drop-shadow(0 0 8px hsl(var(--chart-2)))'
+                  }} name="Paid Payments" />
                   <Line yAxisId="left" type="monotone" dataKey="upcomingValue" stroke="hsl(var(--chart-3))" strokeWidth={4} dot={{
-                fill: 'hsl(var(--chart-3))',
-                r: 6,
-                strokeWidth: 2,
-                stroke: '#fff'
-              }} activeDot={{ r: 8 }} strokeDasharray="8 4" name="Upcoming Payments" />
+                    fill: 'hsl(var(--chart-3))',
+                    r: 6,
+                    strokeWidth: 3,
+                    stroke: '#fff',
+                    filter: 'drop-shadow(0 0 4px hsl(var(--chart-3)))'
+                  }} activeDot={{
+                    r: 8,
+                    strokeWidth: 3,
+                    filter: 'drop-shadow(0 0 8px hsl(var(--chart-3)))'
+                  }} strokeDasharray="8 4" name="Upcoming Payments" />
                 </ComposedChart>
               </ResponsiveContainer>
             </ChartContainer>}
