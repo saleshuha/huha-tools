@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { HuhaHeader01 } from '@/components/ui/huha-header-01';
-import { TrendingDown, Upload, Download, Trash2 } from 'lucide-react';
+import { TrendingDown, Upload, Download, Trash2, Brain } from 'lucide-react';
 import { useAmazonReturns } from '@/hooks/useAmazonReturns';
 import { useCountry } from '@/contexts/CountryContext';
 import { ReturnsMetricsDashboard } from '@/components/amazon/ReturnsMetricsDashboard';
 import { ReturnsFilterPanel } from '@/components/amazon/ReturnsFilterPanel';
 import { ReturnsDataTable } from '@/components/amazon/ReturnsDataTable';
 import { ReturnsUploadDialog } from '@/components/amazon/ReturnsUploadDialog';
+import { ReturnsAIInsightsPanel } from '@/components/amazon/ReturnsAIInsightsPanel';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +23,7 @@ const AmazonReturnsAnalysis = () => {
   const { selectedCountry } = useCountry();
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [showAIInsights, setShowAIInsights] = useState(false);
 
   const {
     returns,
@@ -34,11 +36,21 @@ const AmazonReturnsAnalysis = () => {
     bulkDelete,
     deleteAllReturns,
     exportToExcel,
+    aiInsights,
+    loadingInsights,
+    fetchAIInsights,
   } = useAmazonReturns(selectedCountry);
 
   const handleDeleteAll = async () => {
     await deleteAllReturns();
     setDeleteDialogOpen(false);
+  };
+
+  const handleAIInsightsClick = () => {
+    setShowAIInsights(true);
+    if (!aiInsights && !loadingInsights) {
+      fetchAIInsights();
+    }
   };
 
   return (
@@ -71,7 +83,21 @@ const AmazonReturnsAnalysis = () => {
 
       <div className="container mx-auto px-6 py-8 space-y-8">
         {/* Metrics Dashboard */}
-        <ReturnsMetricsDashboard metrics={metrics} loading={loading} returns={returns} />
+        <ReturnsMetricsDashboard 
+          metrics={metrics} 
+          loading={loading} 
+          returns={returns}
+          onAIInsightsClick={handleAIInsightsClick}
+        />
+
+        {/* AI Insights Panel */}
+        {showAIInsights && (
+          <ReturnsAIInsightsPanel
+            insights={aiInsights}
+            loading={loadingInsights}
+            onRefresh={fetchAIInsights}
+          />
+        )}
 
         {/* Filters Panel */}
         <ReturnsFilterPanel filters={filters} onFiltersChange={setFilters} />

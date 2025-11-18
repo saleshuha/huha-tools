@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Package, TrendingDown, TrendingUp, BarChart3, ImageOff, Download } from 'lucide-react';
+import { Package, TrendingDown, TrendingUp, BarChart3, ImageOff, Download, Brain, AlertTriangle } from 'lucide-react';
 import { ReturnsMetrics } from '@/types/amazon-returns';
 import { useProductImages } from '@/hooks/useProductImages';
 import { AmazonReturn } from '@/types/amazon-returns';
@@ -12,12 +12,14 @@ interface ReturnsMetricsDashboardProps {
   metrics: ReturnsMetrics | null;
   loading: boolean;
   returns: AmazonReturn[];
+  onAIInsightsClick?: () => void;
 }
 
 export const ReturnsMetricsDashboard: React.FC<ReturnsMetricsDashboardProps> = ({
   metrics,
   loading,
   returns,
+  onAIInsightsClick,
 }) => {
   const { productImages } = useProductImages();
 
@@ -31,6 +33,20 @@ export const ReturnsMetricsDashboard: React.FC<ReturnsMetricsDashboardProps> = (
   }, [productImages, returns]);
 
   const itemsWithoutImages = itemsWithoutImagesData.length;
+
+  // Calculate high confidence issues
+  const highConfidenceIssues = React.useMemo(() => {
+    return returns.filter(item => 
+      item.return_ratio > 50 && item.confidence_score > 70
+    ).length;
+  }, [returns]);
+
+  // Calculate estimated cost impact
+  const costImpact = React.useMemo(() => {
+    const totalReturned = returns.reduce((sum, item) => sum + item.returned_units, 0);
+    const avgCostPerReturn = 15; // Average cost per return
+    return Math.round(totalReturned * avgCostPerReturn * 0.7); // 70% loss
+  }, [returns]);
 
   const exportMissingImages = () => {
     if (itemsWithoutImagesData.length === 0) {
@@ -67,19 +83,34 @@ export const ReturnsMetricsDashboard: React.FC<ReturnsMetricsDashboardProps> = (
     XLSX.writeFile(wb, `missing-images-${new Date().toISOString().split('T')[0]}.xlsx`);
     toast.success(`Exported ${itemsWithoutImagesData.length} items without images`);
   };
+  
   if (loading || !metrics) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        {[1, 2, 3, 4, 5].map((i) => (
-          <Card key={i}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Loading...</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-8 bg-muted animate-pulse rounded" />
-            </CardContent>
-          </Card>
-        ))}
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Card key={i}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Loading...</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-8 bg-muted animate-pulse rounded" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[1, 2].map((i) => (
+            <Card key={i}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Loading...</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-8 bg-muted animate-pulse rounded" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }

@@ -7,6 +7,9 @@ export interface AmazonReturn {
   shipped_units: number;
   returned_units: number;
   return_ratio: number;
+  confidence_score: number;
+  priority_score: number;
+  impact_score: number;
   upload_date: string;
   file_name?: string;
   notes?: string;
@@ -53,4 +56,28 @@ export interface UploadedReturnsData {
   shipped_units: number;
   returned_units: number;
   notes?: string;
+}
+
+export interface AIInsights {
+  overall_insights: string;
+  high_priority_items: HighPriorityItem[];
+  patterns_detected: string[];
+  cost_impact: {
+    total_returned_value: number;
+    estimated_loss: number;
+  };
+  generated_at: string;
+}
+
+export interface HighPriorityItem {
+  asin: string;
+  product_title?: string;
+  return_ratio?: number;
+  shipped_units?: number;
+  returned_units?: number;
+  confidence_score?: number;
+  priority_score?: number;
+  reason: string;
+  recommendation: string;
+  urgency: 'critical' | 'high' | 'medium';
 }

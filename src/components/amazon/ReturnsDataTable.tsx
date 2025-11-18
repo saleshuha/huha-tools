@@ -33,7 +33,7 @@ interface ReturnsDataTableProps {
   onBulkDelete: (ids: string[]) => void;
 }
 
-type SortField = 'asin' | 'shipped_units' | 'returned_units' | 'return_ratio' | 'upload_date';
+type SortField = 'asin' | 'shipped_units' | 'returned_units' | 'return_ratio' | 'upload_date' | 'confidence_score' | 'priority_score' | 'impact_score';
 type SortDirection = 'asc' | 'desc';
 
 export const ReturnsDataTable: React.FC<ReturnsDataTableProps> = ({
@@ -43,7 +43,7 @@ export const ReturnsDataTable: React.FC<ReturnsDataTableProps> = ({
   onBulkDelete,
 }) => {
   const { productImages } = useProductImages();
-  const [sortField, setSortField] = useState<SortField>('return_ratio');
+  const [sortField, setSortField] = useState<SortField>('priority_score');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -205,6 +205,18 @@ export const ReturnsDataTable: React.FC<ReturnsDataTableProps> = ({
                 </Button>
               </TableHead>
               <TableHead>
+                <Button variant="ghost" size="sm" onClick={() => handleSort('confidence_score')}>
+                  Confidence
+                  <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+              </TableHead>
+              <TableHead>
+                <Button variant="ghost" size="sm" onClick={() => handleSort('priority_score')}>
+                  Priority
+                  <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+              </TableHead>
+              <TableHead>
                 <Button variant="ghost" size="sm" onClick={() => handleSort('upload_date')}>
                   Upload Date
                   <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -249,6 +261,23 @@ export const ReturnsDataTable: React.FC<ReturnsDataTableProps> = ({
                 <TableCell>{item.shipped_units.toLocaleString()}</TableCell>
                 <TableCell>{item.returned_units.toLocaleString()}</TableCell>
                 <TableCell>{getReturnRatioBadge(Number(item.return_ratio))}</TableCell>
+                <TableCell>
+                  <Badge variant={item.confidence_score > 70 ? 'default' : item.confidence_score > 30 ? 'secondary' : 'outline'}>
+                    {item.confidence_score.toFixed(0)}%
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Badge 
+                    className={
+                      item.priority_score > 85 ? 'bg-destructive text-destructive-foreground' :
+                      item.priority_score > 70 ? 'bg-orange-500 text-white' :
+                      item.priority_score > 50 ? 'bg-yellow-500 text-black' :
+                      'bg-green-600 text-white'
+                    }
+                  >
+                    {item.priority_score.toFixed(1)}
+                  </Badge>
+                </TableCell>
                 <TableCell>{new Date(item.upload_date).toLocaleDateString()}</TableCell>
               </TableRow>
             ))}

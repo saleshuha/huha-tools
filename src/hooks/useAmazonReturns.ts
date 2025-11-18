@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { AmazonReturn, ReturnsMetrics, ReturnsFilters, UploadedReturnsData } from '@/types/amazon-returns';
+import { AmazonReturn, ReturnsMetrics, ReturnsFilters, UploadedReturnsData, AIInsights } from '@/types/amazon-returns';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 
@@ -9,6 +9,8 @@ export const useAmazonReturns = (country: string) => {
   const [metrics, setMetrics] = useState<ReturnsMetrics | null>(null);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<ReturnsFilters>({});
+  const [aiInsights, setAiInsights] = useState<AIInsights | null>(null);
+  const [loadingInsights, setLoadingInsights] = useState(false);
   const { toast } = useToast();
 
   const fetchReturns = async () => {
@@ -25,7 +27,7 @@ export const useAmazonReturns = (country: string) => {
           .from('amazon_returns_data')
           .select('*', { count: 'exact' })
           .eq('country', country)
-          .order('return_ratio', { ascending: false })
+          .order('priority_score', { ascending: false })
           .range(from, from + pageSize - 1);
 
         // Apply filters
@@ -303,6 +305,9 @@ export const useAmazonReturns = (country: string) => {
         'Shipped Units': item.shipped_units,
         'Returned Units': item.returned_units,
         'Return Ratio (%)': Number(item.return_ratio).toFixed(2),
+        'Confidence Score': Number(item.confidence_score).toFixed(1),
+        'Priority Score': Number(item.priority_score).toFixed(1),
+        'Impact (Units)': item.impact_score,
         'Upload Date': new Date(item.upload_date).toLocaleDateString(),
         'File Name': item.file_name || '',
         Notes: item.notes || '',
@@ -327,6 +332,31 @@ export const useAmazonReturns = (country: string) => {
     }
   };
 
+  const fetchAIInsights = async () => {
+    setLoadingInsights(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-amazon-returns', {
+        body: { country, topN: 20 }
+      });
+
+      if (error) throw error;
+      
+      setAiInsights(data);
+      toast({
+        title: 'AI Analysis Complete',
+        description: 'Insights have been generated successfully',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error fetching AI insights',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingInsights(false);
+    }
+  };
+
   useEffect(() => {
     fetchReturns();
     calculateMetrics();
@@ -345,5 +375,8 @@ export const useAmazonReturns = (country: string) => {
     bulkDelete,
     deleteAllReturns,
     exportToExcel,
+    aiInsights,
+    loadingInsights,
+    fetchAIInsights,
   };
 };
