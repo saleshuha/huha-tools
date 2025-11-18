@@ -17,11 +17,14 @@ export type Database = {
       amazon_returns_data: {
         Row: {
           asin: string
+          confidence_score: number | null
           country: string
           created_at: string
           file_name: string | null
           id: string
+          impact_score: number | null
           notes: string | null
+          priority_score: number | null
           product_title: string | null
           return_ratio: number | null
           returned_units: number
@@ -32,11 +35,14 @@ export type Database = {
         }
         Insert: {
           asin: string
+          confidence_score?: number | null
           country?: string
           created_at?: string
           file_name?: string | null
           id?: string
+          impact_score?: number | null
           notes?: string | null
+          priority_score?: number | null
           product_title?: string | null
           return_ratio?: number | null
           returned_units: number
@@ -47,11 +53,14 @@ export type Database = {
         }
         Update: {
           asin?: string
+          confidence_score?: number | null
           country?: string
           created_at?: string
           file_name?: string | null
           id?: string
+          impact_score?: number | null
           notes?: string | null
+          priority_score?: number | null
           product_title?: string | null
           return_ratio?: number | null
           returned_units?: number
