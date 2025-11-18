@@ -2101,6 +2101,43 @@ export const POTracker = () => {
     });
   }, [poOrders, printedFilter]);
 
+  // Helper function to get orders count matching print status AND selected POs
+  const getSelectedPOsOrdersByPrintStatus = useCallback(() => {
+    // If no POs selected, return empty array
+    if (selectedPOsForLabels.size === 0) {
+      return [];
+    }
+
+    // Step 1: Filter by selected POs
+    const selectedPOsList = Array.from(selectedPOsForLabels);
+    const baseOrders = poOrders.filter(order => 
+      selectedPOsList.includes(order.po_number) && 
+      order.status !== 'cancelled'
+    );
+
+    // Step 2: Apply print status filter
+    if (printedFilter.length === 0) {
+      return baseOrders;
+    }
+
+    return baseOrders.filter(order => {
+      const printedQty = order.printed_quantity || 0;
+      const totalQty = order.quantity || 0;
+      const isPrinted = order.is_printed || printedQty > 0;
+      
+      return printedFilter.some(status => {
+        if (status === 'printed') {
+          return isPrinted && printedQty >= totalQty;
+        } else if (status === 'partial-printed') {
+          return isPrinted && printedQty > 0 && printedQty < totalQty;
+        } else if (status === 'not-printed') {
+          return !isPrinted || printedQty === 0;
+        }
+        return false;
+      });
+    });
+  }, [poOrders, printedFilter, selectedPOsForLabels]);
+
   // Export PO data to CSV
   const exportPOData = useCallback(() => {
     try {
@@ -5524,45 +5561,14 @@ export const POTracker = () => {
                 disabled={selectedPOsForLabels.size === 0 || poOrders.length === 0}
                 title={selectedPOsForLabels.size === 0 ? "Select POs first to preview labels" : "Preview labels for selected POs"}
                 onClick={() => {
-                  // Step 1: Get base orders from selected POs only
-                  const selectedPOsList = Array.from(selectedPOsForLabels);
-                  const baseOrders = poOrders.filter(order => 
-                    selectedPOsList.includes(order.po_number) && 
-                    order.status !== 'cancelled'
-                  );
-                            
-                            // Step 2: Apply print status filter
-                            let filteredOrders;
-                            if (printedFilter.length === 0) {
-                              // No print status filter - show all base orders
-                              filteredOrders = baseOrders;
-                            } else {
-                              // Apply print status filter to base orders
-                              filteredOrders = baseOrders.filter(order => {
-                                const printedQty = order.printed_quantity || 0;
-                                const totalQty = order.quantity || 0;
-                                const isPrinted = order.is_printed || printedQty > 0;
-                                
-                                return printedFilter.some(status => {
-                                  if (status === 'printed') {
-                                    return isPrinted && printedQty >= totalQty;
-                                  } else if (status === 'partial-printed') {
-                                    return isPrinted && printedQty > 0 && printedQty < totalQty;
-                                  } else if (status === 'not-printed') {
-                                    return !isPrinted || printedQty === 0;
-                                  }
-                                  return false;
-                                });
-                              });
-                            }
-                            
-                            console.log('🖨️ Print Preview by Status:', {
-                              selectedPOs: Array.from(selectedPOsForLabels),
-                              printedFilter,
-                              baseOrders: baseOrders.length,
-                              matchingOrders: filteredOrders.length
-                            });
-                            
+                  const filteredOrders = getSelectedPOsOrdersByPrintStatus();
+                  
+                  console.log('🖨️ Print Preview by Status:', {
+                    selectedPOs: Array.from(selectedPOsForLabels),
+                    printedFilter,
+                    matchingOrders: filteredOrders.length
+                  });
+                  
                   if (filteredOrders.length === 0) {
                     toast({
                       title: "No Items to Preview",
@@ -5571,18 +5577,18 @@ export const POTracker = () => {
                     });
                     return;
                   }
-                            
-                            setPrintMode('bulk');
-                            setPrintOrders(filteredOrders);
-                            setPrintDialogOpen(true);
-                          }}
+                  
+                  setPrintMode('bulk');
+                  setPrintOrders(filteredOrders);
+                  setPrintDialogOpen(true);
+                }}
                           className="h-8 gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground"
                         >
                           <FileText className="h-3.5 w-3.5" />
                           Print Preview
                           {printedFilter.length > 0 && (
                             <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
-                              {getOrdersByPrintStatus().length}
+                              {getSelectedPOsOrdersByPrintStatus().length}
                             </Badge>
                           )}
                         </Button>
