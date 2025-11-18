@@ -399,10 +399,10 @@ export const MetricsDashboard = ({
       </div>
 
       {/* Monthly Performance Graph */}
-      <Card className="border-l-4 border-l-primary">
+      <Card className="border-l-4 border-l-primary border-2 shadow-lg">
         <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-primary" />
+          <CardTitle className="text-2xl font-bold flex items-center gap-2">
+            <TrendingUp className="h-6 w-6 text-primary" />
             Monthly Performance Overview
           </CardTitle>
           <p className="text-sm text-muted-foreground">
@@ -428,15 +428,15 @@ export const MetricsDashboard = ({
             label: "Upcoming Payments",
             color: "hsl(var(--chart-3))"
           }
-        }} className="h-[300px] w-full">
+        }} className="h-[450px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={monthlyTrendData}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                <ComposedChart data={monthlyTrendData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} className="stroke-muted" />
                   <XAxis dataKey="month" tick={{
                 fill: 'hsl(var(--muted-foreground))'
               }} tickLine={{
                 stroke: 'hsl(var(--border))'
-              }} />
+              }} className="text-sm font-medium" />
                   <YAxis yAxisId="left" tick={{
                 fill: 'hsl(var(--muted-foreground))'
               }} tickLine={{
@@ -446,9 +446,11 @@ export const MetricsDashboard = ({
                 angle: -90,
                 position: 'insideLeft',
                 style: {
-                  fill: 'hsl(var(--muted-foreground))'
+                  fill: 'hsl(var(--foreground))',
+                  fontWeight: 600,
+                  fontSize: 14
                 }
-              }} />
+              }} className="text-sm font-medium" />
                   <YAxis yAxisId="right" orientation="right" tick={{
                 fill: 'hsl(var(--muted-foreground))'
               }} tickLine={{
@@ -458,9 +460,11 @@ export const MetricsDashboard = ({
                 angle: 90,
                 position: 'insideRight',
                 style: {
-                  fill: 'hsl(var(--muted-foreground))'
+                  fill: 'hsl(var(--foreground))',
+                  fontWeight: 600,
+                  fontSize: 14
                 }
-              }} />
+              }} className="text-sm font-medium" />
                   <ChartTooltip content={({
                 active,
                 payload
@@ -502,17 +506,23 @@ export const MetricsDashboard = ({
                         </div>;
               }} />
                   <Legend wrapperStyle={{
-                paddingTop: '20px'
+                paddingTop: '20px',
+                fontSize: '14px',
+                fontWeight: 600
               }} iconType="circle" />
-                  <Bar yAxisId="right" dataKey="totalOrders" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} opacity={0.8} name="Total Orders" />
-                  <Line yAxisId="left" type="monotone" dataKey="paidValue" stroke="hsl(var(--chart-2))" strokeWidth={3} dot={{
+                  <Bar yAxisId="right" dataKey="totalOrders" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} opacity={0.85} name="Total Orders" />
+                  <Line yAxisId="left" type="monotone" dataKey="paidValue" stroke="hsl(var(--chart-2))" strokeWidth={4} dot={{
                 fill: 'hsl(var(--chart-2))',
-                r: 4
-              }} name="Paid Payments" />
-                  <Line yAxisId="left" type="monotone" dataKey="upcomingValue" stroke="hsl(var(--chart-3))" strokeWidth={3} dot={{
+                r: 6,
+                strokeWidth: 2,
+                stroke: '#fff'
+              }} activeDot={{ r: 8 }} name="Paid Payments" />
+                  <Line yAxisId="left" type="monotone" dataKey="upcomingValue" stroke="hsl(var(--chart-3))" strokeWidth={4} dot={{
                 fill: 'hsl(var(--chart-3))',
-                r: 4
-              }} strokeDasharray="5 5" name="Upcoming Payments" />
+                r: 6,
+                strokeWidth: 2,
+                stroke: '#fff'
+              }} activeDot={{ r: 8 }} strokeDasharray="8 4" name="Upcoming Payments" />
                 </ComposedChart>
               </ResponsiveContainer>
             </ChartContainer>}
