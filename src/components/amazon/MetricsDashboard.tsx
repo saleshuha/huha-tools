@@ -147,6 +147,80 @@ export const MetricsDashboard = ({
     };
   }, [metrics, orders, convertCurrency, displayCurrency, selectedCountry, creditDays]);
 
+  // Monthly trend data for chart - MUST be before any early returns
+  const monthlyTrendData = useMemo(() => {
+    if (!orders || orders.length === 0) return [];
+
+    // Helper to get month key (YYYY-MM format)
+    const getMonthKey = (date: Date) => {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    };
+
+    // Helper to get month label (e.g., "Oct 2024")
+    const getMonthLabel = (monthKey: string) => {
+      const [year, month] = monthKey.split('-');
+      const date = new Date(parseInt(year), parseInt(month) - 1);
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        year: 'numeric'
+      });
+    };
+
+    // Group orders by month
+    const monthlyData = new Map<string, {
+      totalOrders: number;
+      paidValue: number;
+      upcomingValue: number;
+    }>();
+    const now = new Date();
+    orders.forEach(order => {
+      if (!order.shipment_date) return;
+      const shipmentDate = new Date(order.shipment_date);
+      const monthKey = getMonthKey(shipmentDate);
+      if (!monthlyData.has(monthKey)) {
+        monthlyData.set(monthKey, {
+          totalOrders: 0,
+          paidValue: 0,
+          upcomingValue: 0
+        });
+      }
+      const data = monthlyData.get(monthKey)!;
+
+      // Increment total orders
+      data.totalOrders += 1;
+
+      // Calculate order value in display currency
+      const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
+      const qty = parseInt(order.quantity?.toString() || '1') || 1;
+      const orderValueUSD = cost * qty;
+      const orderValue = convertCurrency(orderValueUSD, order.currency || 'USD', displayCurrency);
+
+      // Check if paid
+      const paymentStatus = (order.payment_status || '').toLowerCase().trim();
+      const status = (order.status || '').toLowerCase().trim();
+      const isPaid = paymentStatus === 'completed' || status === 'paid';
+      if (isPaid) {
+        data.paidValue += orderValue;
+      } else {
+        // Check if upcoming (due date in future)
+        const dueDate = new Date(shipmentDate);
+        dueDate.setDate(dueDate.getDate() + creditDays);
+        if (dueDate > now) {
+          data.upcomingValue += orderValue;
+        }
+      }
+    });
+
+    // Convert to array and sort by month
+    const sortedData = Array.from(monthlyData.entries()).map(([monthKey, data]) => ({
+      month: getMonthLabel(monthKey),
+      monthKey,
+      ...data
+    })).sort((a, b) => a.monthKey.localeCompare(b.monthKey)).slice(-12); // Last 12 months only
+
+    return sortedData;
+  }, [orders, creditDays, displayCurrency, convertCurrency]);
+
   // Calculate weekly upcoming payments with navigation
   const weeklyUpcomingPayments = useMemo(() => {
     if (!orders) return [];
@@ -256,79 +330,6 @@ export const MetricsDashboard = ({
   }
   if (!metrics) return null;
 
-  // Monthly trend data for chart
-  const monthlyTrendData = useMemo(() => {
-    if (!orders || orders.length === 0) return [];
-
-    // Helper to get month key (YYYY-MM format)
-    const getMonthKey = (date: Date) => {
-      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    };
-
-    // Helper to get month label (e.g., "Oct 2024")
-    const getMonthLabel = (monthKey: string) => {
-      const [year, month] = monthKey.split('-');
-      const date = new Date(parseInt(year), parseInt(month) - 1);
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        year: 'numeric'
-      });
-    };
-
-    // Group orders by month
-    const monthlyData = new Map<string, {
-      totalOrders: number;
-      paidValue: number;
-      upcomingValue: number;
-    }>();
-    const now = new Date();
-    orders.forEach(order => {
-      if (!order.shipment_date) return;
-      const shipmentDate = new Date(order.shipment_date);
-      const monthKey = getMonthKey(shipmentDate);
-      if (!monthlyData.has(monthKey)) {
-        monthlyData.set(monthKey, {
-          totalOrders: 0,
-          paidValue: 0,
-          upcomingValue: 0
-        });
-      }
-      const data = monthlyData.get(monthKey)!;
-
-      // Increment total orders
-      data.totalOrders += 1;
-
-      // Calculate order value in display currency
-      const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
-      const qty = parseInt(order.quantity?.toString() || '1') || 1;
-      const orderValueUSD = cost * qty;
-      const orderValue = convertCurrency(orderValueUSD, order.currency || 'USD', displayCurrency);
-
-      // Check if paid
-      const paymentStatus = (order.payment_status || '').toLowerCase().trim();
-      const status = (order.status || '').toLowerCase().trim();
-      const isPaid = paymentStatus === 'completed' || status === 'paid';
-      if (isPaid) {
-        data.paidValue += orderValue;
-      } else {
-        // Check if upcoming (due date in future)
-        const dueDate = new Date(shipmentDate);
-        dueDate.setDate(dueDate.getDate() + creditDays);
-        if (dueDate > now) {
-          data.upcomingValue += orderValue;
-        }
-      }
-    });
-
-    // Convert to array and sort by month
-    const sortedData = Array.from(monthlyData.entries()).map(([monthKey, data]) => ({
-      month: getMonthLabel(monthKey),
-      monthKey,
-      ...data
-    })).sort((a, b) => a.monthKey.localeCompare(b.monthKey)).slice(-12); // Last 12 months only
-
-    return sortedData;
-  }, [orders, creditDays, displayCurrency, convertCurrency]);
   return <div className="space-y-6">
       {/* Main Metrics Row */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
