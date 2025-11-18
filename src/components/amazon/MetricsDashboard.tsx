@@ -12,26 +12,36 @@ import { useMemo, useState } from 'react';
 import { usePaymentTerms } from '@/hooks/usePaymentTerms';
 import { DatePickerWithRange } from '@/components/ui/date-range-picker';
 import { DateRange } from 'react-day-picker';
-
 interface MetricsDashboardProps {
   metrics: DashboardMetrics | null;
   loading: boolean;
   orders?: any[];
 }
-
-export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardProps) => {
-  const { formatCurrency, convertCurrency } = useCurrencyConverter();
-  const { displayCurrency } = useCurrencyDisplay();
-  const { selectedCountry } = useCountry();
-  const { creditDays } = usePaymentTerms();
+export const MetricsDashboard = ({
+  metrics,
+  loading,
+  orders
+}: MetricsDashboardProps) => {
+  const {
+    formatCurrency,
+    convertCurrency
+  } = useCurrencyConverter();
+  const {
+    displayCurrency
+  } = useCurrencyDisplay();
+  const {
+    selectedCountry
+  } = useCountry();
+  const {
+    creditDays
+  } = usePaymentTerms();
   const [weekOffset, setWeekOffset] = useState(0); // 0 = current 4 weeks, positive = future, negative = past
   const [upcomingWeeksOffset, setUpcomingWeeksOffset] = useState(0); // Separate offset for upcoming payments
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  
-  
+
   // Force re-render when display currency or metrics change by creating a unique key
   const renderKey = `${displayCurrency}-${metrics?.totalValue || 0}`;
-  
+
   // All hooks must be called before any early returns
   const convertedTotalValue = useMemo(() => {
     if (!metrics?.totalValue) return 0;
@@ -58,7 +68,6 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
     console.log(`Dashboard Converting Pending ${pendingValue} USD to ${displayCurrency}: ${converted}`);
     return converted;
   }, [metrics?.pendingValue, displayCurrency, convertCurrency]);
-
   const convertedOverdueValue = useMemo(() => {
     if (!metrics?.overdueValue) return 0;
     const overdueValue = parseFloat(metrics.overdueValue?.toString()) || 0;
@@ -70,41 +79,42 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
   // Calculate values for status breakdown (convert to USD then to display currency)
   const statusValues = useMemo(() => {
     if (!metrics?.statusBreakdown || !orders) return {};
-    const values: { [key: string]: number } = {};
-    
+    const values: {
+      [key: string]: number;
+    } = {};
     Object.keys(metrics.statusBreakdown).forEach(status => {
       const ordersWithStatus = orders.filter(order => order.status === status);
       const totalValueUSD = ordersWithStatus.reduce((sum, order) => {
         const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
         const qty = parseInt(order.quantity?.toString() || '1') || 1;
         const orderValue = cost * qty;
-        
+
         // Use the centralized currency converter instead of hardcoded rates
         return sum + convertCurrency(orderValue, order.currency || 'USD', 'USD');
       }, 0);
       values[status] = convertCurrency(totalValueUSD, 'USD', displayCurrency);
     });
-    
     return values;
   }, [metrics?.statusBreakdown, orders, convertCurrency, displayCurrency]);
 
   // Calculate values for upcoming payments (convert to USD then to display currency)
   const upcomingValues = useMemo(() => {
-    if (!metrics || !orders) return { next7Days: 0, next30Days: 0, next90Days: 0, dateRange: 0 };
-    
+    if (!metrics || !orders) return {
+      next7Days: 0,
+      next30Days: 0,
+      next90Days: 0,
+      dateRange: 0
+    };
     const now = new Date();
     const next7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     const next30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     const next90Days = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
-
     const pendingOrders = orders.filter(o => {
       const status = (o.status || '').toLowerCase().trim();
       return status === 'approved' || status === 'non-submitted';
     });
-
     const calculateUpcomingValue = (endDate: Date, startDate?: Date) => {
       const start = startDate || now;
-      
       const upcomingOrders = pendingOrders.filter(o => {
         if (!o.shipment_date) return false;
         try {
@@ -116,22 +126,19 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
           return false;
         }
       });
-      
       const totalValueUSD = upcomingOrders.reduce((sum, order) => {
         const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
         const qty = parseInt(order.quantity?.toString() || '1') || 1;
         const orderValue = cost * qty;
-        
+
         // Use the centralized currency converter instead of hardcoded rates
         return sum + convertCurrency(orderValue, order.currency || 'USD', 'USD');
       }, 0);
-      
       return convertCurrency(totalValueUSD, 'USD', displayCurrency);
     };
 
     // Calculate custom date range value if both dates are selected
     const dateRangeValue = 0;
-
     return {
       next7Days: calculateUpcomingValue(next7Days),
       next30Days: calculateUpcomingValue(next30Days),
@@ -143,26 +150,21 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
   // Calculate weekly upcoming payments with navigation
   const weeklyUpcomingPayments = useMemo(() => {
     if (!orders) return [];
-    
     const now = new Date();
-    
     const pendingOrders = orders.filter(o => {
       const status = (o.status || '').toLowerCase().trim();
       return status === 'approved' || status === 'non-submitted';
     });
-
     const weeks = [];
     // Show 4 weeks based on offset: offset 0 = current week + 3 future, offset -1 = 1 past + current + 2 future, etc.
     for (let i = 0; i < 4; i++) {
       const weekStart = new Date(now);
       // Calculate week start based on offset
-      weekStart.setDate(now.getDate() + ((upcomingWeeksOffset * 4) + i) * 7);
+      weekStart.setDate(now.getDate() + (upcomingWeeksOffset * 4 + i) * 7);
       weekStart.setHours(0, 0, 0, 0);
-      
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekStart.getDate() + 6);
       weekEnd.setHours(23, 59, 59, 999);
-      
       const weekOrders = pendingOrders.filter(o => {
         if (!o.shipment_date) return false;
         try {
@@ -174,27 +176,22 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
           return false;
         }
       });
-      
       const weekValue = weekOrders.reduce((sum, order) => {
         const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
         const qty = parseInt(order.quantity?.toString() || '1') || 1;
         const orderValue = cost * qty;
-        
+
         // Use the centralized currency converter instead of hardcoded rates
         return sum + convertCurrency(orderValue, order.currency || 'USD', 'USD');
       }, 0);
-      
       const formatDate = (date: Date) => {
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         return `${date.getDate()}-${months[date.getMonth()]}`;
       };
-      
       const currentWeek = new Date();
       currentWeek.setHours(0, 0, 0, 0);
       const isPast = weekEnd < currentWeek;
       const isCurrentWeek = weekStart <= currentWeek && weekEnd >= currentWeek;
-      
       weeks.push({
         label: `${formatDate(weekStart)} - ${formatDate(weekEnd)}`,
         orders: weekOrders.length,
@@ -203,104 +200,92 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
         isCurrentWeek
       });
     }
-    
     return weeks;
   }, [orders, convertCurrency, displayCurrency, selectedCountry, upcomingWeeksOffset]);
 
   // Calculate weekly performance data
   const weeklyData = useMemo(() => {
     if (!orders) return [];
-    
     const now = new Date();
     const weeks = [];
-    
     for (let i = 0; i < 4; i++) {
       const weekStart = new Date(now);
       // Adjust for weekOffset: negative = past weeks, positive = future weeks
-      weekStart.setDate(now.getDate() - (i + 1) * 7 + (weekOffset * 28)); // 28 days = 4 weeks
+      weekStart.setDate(now.getDate() - (i + 1) * 7 + weekOffset * 28); // 28 days = 4 weeks
       weekStart.setHours(0, 0, 0, 0);
-      
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekStart.getDate() + 6);
       weekEnd.setHours(23, 59, 59, 999);
-      
       const weekOrders = orders.filter(order => {
         if (!order.shipment_date) return false;
         const shipmentDate = new Date(order.shipment_date);
         return shipmentDate >= weekStart && shipmentDate <= weekEnd;
       });
-      
       const weekValue = weekOrders.reduce((sum, order) => {
         const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
         const qty = parseInt(order.quantity?.toString() || '1') || 1;
         const orderValue = cost * qty;
-        
+
         // Use the centralized currency converter instead of hardcoded rates
         return sum + convertCurrency(orderValue, order.currency || 'USD', 'USD');
       }, 0);
-      
       weeks.unshift({
-        label: `${weekStart.getDate()}-${weekStart.toLocaleDateString('en-US', { month: 'short' })} to ${weekEnd.getDate()}-${weekEnd.toLocaleDateString('en-US', { month: 'short' })}`,
+        label: `${weekStart.getDate()}-${weekStart.toLocaleDateString('en-US', {
+          month: 'short'
+        })} to ${weekEnd.getDate()}-${weekEnd.toLocaleDateString('en-US', {
+          month: 'short'
+        })}`,
         orders: weekOrders.length,
         value: convertCurrency(weekValue, 'USD', displayCurrency)
       });
     }
-    
     return weeks;
   }, [orders, convertCurrency, displayCurrency, weekOffset]);
-
   console.log('MetricsDashboard render - Country:', selectedCountry, 'Display Currency:', displayCurrency, 'Total Value:', metrics?.totalValue, 'Converted:', convertedTotalValue);
-
   if (loading) {
-    return (
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {[...Array(8)].map((_, i) => (
-          <Card key={i} className="animate-pulse">
+    return <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {[...Array(8)].map((_, i) => <Card key={i} className="animate-pulse">
             <CardHeader className="pb-2">
               <div className="h-4 bg-muted rounded w-3/4"></div>
             </CardHeader>
             <CardContent>
               <div className="h-8 bg-muted rounded w-1/2"></div>
             </CardContent>
-          </Card>
-        ))}
-      </div>
-    );
+          </Card>)}
+      </div>;
   }
-
   if (!metrics) return null;
 
   // Monthly trend data for chart
   const monthlyTrendData = useMemo(() => {
     if (!orders || orders.length === 0) return [];
-    
+
     // Helper to get month key (YYYY-MM format)
     const getMonthKey = (date: Date) => {
       return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
     };
-    
+
     // Helper to get month label (e.g., "Oct 2024")
     const getMonthLabel = (monthKey: string) => {
       const [year, month] = monthKey.split('-');
       const date = new Date(parseInt(year), parseInt(month) - 1);
-      return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        year: 'numeric'
+      });
     };
-    
+
     // Group orders by month
     const monthlyData = new Map<string, {
       totalOrders: number;
       paidValue: number;
       upcomingValue: number;
     }>();
-    
     const now = new Date();
-    
     orders.forEach(order => {
       if (!order.shipment_date) return;
-      
       const shipmentDate = new Date(order.shipment_date);
       const monthKey = getMonthKey(shipmentDate);
-      
       if (!monthlyData.has(monthKey)) {
         monthlyData.set(monthKey, {
           totalOrders: 0,
@@ -308,51 +293,43 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
           upcomingValue: 0
         });
       }
-      
       const data = monthlyData.get(monthKey)!;
-      
+
       // Increment total orders
       data.totalOrders += 1;
-      
+
       // Calculate order value in display currency
       const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
       const qty = parseInt(order.quantity?.toString() || '1') || 1;
       const orderValueUSD = cost * qty;
       const orderValue = convertCurrency(orderValueUSD, order.currency || 'USD', displayCurrency);
-      
+
       // Check if paid
       const paymentStatus = (order.payment_status || '').toLowerCase().trim();
       const status = (order.status || '').toLowerCase().trim();
       const isPaid = paymentStatus === 'completed' || status === 'paid';
-      
       if (isPaid) {
         data.paidValue += orderValue;
       } else {
         // Check if upcoming (due date in future)
         const dueDate = new Date(shipmentDate);
         dueDate.setDate(dueDate.getDate() + creditDays);
-        
         if (dueDate > now) {
           data.upcomingValue += orderValue;
         }
       }
     });
-    
+
     // Convert to array and sort by month
-    const sortedData = Array.from(monthlyData.entries())
-      .map(([monthKey, data]) => ({
-        month: getMonthLabel(monthKey),
-        monthKey,
-        ...data
-      }))
-      .sort((a, b) => a.monthKey.localeCompare(b.monthKey))
-      .slice(-12); // Last 12 months only
-    
+    const sortedData = Array.from(monthlyData.entries()).map(([monthKey, data]) => ({
+      month: getMonthLabel(monthKey),
+      monthKey,
+      ...data
+    })).sort((a, b) => a.monthKey.localeCompare(b.monthKey)).slice(-12); // Last 12 months only
+
     return sortedData;
   }, [orders, creditDays, displayCurrency, convertCurrency]);
-
-  return (
-    <div className="space-y-6">
+  return <div className="space-y-6">
       {/* Main Metrics Row */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card className="border-l-4 border-l-primary">
@@ -432,119 +409,112 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
           </p>
         </CardHeader>
         <CardContent>
-          {!monthlyTrendData || monthlyTrendData.length === 0 ? (
-            <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+          {!monthlyTrendData || monthlyTrendData.length === 0 ? <div className="h-[300px] flex items-center justify-center text-muted-foreground">
               <div className="text-center">
                 <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
                 <p>No monthly data available</p>
               </div>
-            </div>
-          ) : (
-            <ChartContainer
-              config={{
-                totalOrders: {
-                  label: "Total Orders",
-                  color: "hsl(var(--primary))",
-                },
-                paidValue: {
-                  label: "Paid Payments",
-                  color: "hsl(var(--chart-2))",
-                },
-                upcomingValue: {
-                  label: "Upcoming Payments",
-                  color: "hsl(var(--chart-3))",
-                },
-              }}
-              className="h-[300px] w-full"
-            >
+            </div> : <ChartContainer config={{
+          totalOrders: {
+            label: "Total Orders",
+            color: "hsl(var(--primary))"
+          },
+          paidValue: {
+            label: "Paid Payments",
+            color: "hsl(var(--chart-2))"
+          },
+          upcomingValue: {
+            label: "Upcoming Payments",
+            color: "hsl(var(--chart-3))"
+          }
+        }} className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={monthlyTrendData}>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-                  <XAxis 
-                    dataKey="month" 
-                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                    tickLine={{ stroke: 'hsl(var(--border))' }}
-                  />
-                  <YAxis 
-                    yAxisId="left"
-                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                    tickLine={{ stroke: 'hsl(var(--border))' }}
-                    label={{ value: `Payment (${displayCurrency})`, angle: -90, position: 'insideLeft', style: { fill: 'hsl(var(--muted-foreground))' } }}
-                  />
-                  <YAxis 
-                    yAxisId="right"
-                    orientation="right"
-                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                    tickLine={{ stroke: 'hsl(var(--border))' }}
-                    label={{ value: 'Orders', angle: 90, position: 'insideRight', style: { fill: 'hsl(var(--muted-foreground))' } }}
-                  />
-                  <ChartTooltip 
-                    content={({ active, payload }) => {
-                      if (!active || !payload || payload.length === 0) return null;
-                      
-                      return (
-                        <div className="rounded-lg border bg-background p-3 shadow-lg">
+                  <XAxis dataKey="month" tick={{
+                fill: 'hsl(var(--muted-foreground))'
+              }} tickLine={{
+                stroke: 'hsl(var(--border))'
+              }} />
+                  <YAxis yAxisId="left" tick={{
+                fill: 'hsl(var(--muted-foreground))'
+              }} tickLine={{
+                stroke: 'hsl(var(--border))'
+              }} label={{
+                value: `Payment (${displayCurrency})`,
+                angle: -90,
+                position: 'insideLeft',
+                style: {
+                  fill: 'hsl(var(--muted-foreground))'
+                }
+              }} />
+                  <YAxis yAxisId="right" orientation="right" tick={{
+                fill: 'hsl(var(--muted-foreground))'
+              }} tickLine={{
+                stroke: 'hsl(var(--border))'
+              }} label={{
+                value: 'Orders',
+                angle: 90,
+                position: 'insideRight',
+                style: {
+                  fill: 'hsl(var(--muted-foreground))'
+                }
+              }} />
+                  <ChartTooltip content={({
+                active,
+                payload
+              }) => {
+                if (!active || !payload || payload.length === 0) return null;
+                return <div className="rounded-lg border bg-background p-3 shadow-lg">
                           <div className="font-semibold mb-2">{payload[0].payload.month}</div>
                           <div className="space-y-1 text-sm">
                             <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--primary))' }} />
+                              <div className="w-3 h-3 rounded-full" style={{
+                        backgroundColor: 'hsl(var(--primary))'
+                      }} />
                               <span className="text-muted-foreground">Total Orders:</span>
                               <span className="font-semibold">{payload[0].payload.totalOrders}</span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-2))' }} />
+                              <div className="w-3 h-3 rounded-full" style={{
+                        backgroundColor: 'hsl(var(--chart-2))'
+                      }} />
                               <span className="text-muted-foreground">Paid:</span>
-                              <span className="font-semibold" style={{ color: 'hsl(var(--chart-2))' }}>
+                              <span className="font-semibold" style={{
+                        color: 'hsl(var(--chart-2))'
+                      }}>
                                 {formatCurrency(payload[0].payload.paidValue, displayCurrency)}
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-3))' }} />
+                              <div className="w-3 h-3 rounded-full" style={{
+                        backgroundColor: 'hsl(var(--chart-3))'
+                      }} />
                               <span className="text-muted-foreground">Upcoming:</span>
-                              <span className="font-semibold" style={{ color: 'hsl(var(--chart-3))' }}>
+                              <span className="font-semibold" style={{
+                        color: 'hsl(var(--chart-3))'
+                      }}>
                                 {formatCurrency(payload[0].payload.upcomingValue, displayCurrency)}
                               </span>
                             </div>
                           </div>
-                        </div>
-                      );
-                    }}
-                  />
-                  <Legend 
-                    wrapperStyle={{ paddingTop: '20px' }}
-                    iconType="circle"
-                  />
-                  <Bar 
-                    yAxisId="right"
-                    dataKey="totalOrders" 
-                    fill="hsl(var(--primary))" 
-                    radius={[4, 4, 0, 0]}
-                    opacity={0.8}
-                    name="Total Orders"
-                  />
-                  <Line 
-                    yAxisId="left"
-                    type="monotone" 
-                    dataKey="paidValue" 
-                    stroke="hsl(var(--chart-2))" 
-                    strokeWidth={3}
-                    dot={{ fill: 'hsl(var(--chart-2))', r: 4 }}
-                    name="Paid Payments"
-                  />
-                  <Line 
-                    yAxisId="left"
-                    type="monotone" 
-                    dataKey="upcomingValue" 
-                    stroke="hsl(var(--chart-3))" 
-                    strokeWidth={3}
-                    dot={{ fill: 'hsl(var(--chart-3))', r: 4 }}
-                    strokeDasharray="5 5"
-                    name="Upcoming Payments"
-                  />
+                        </div>;
+              }} />
+                  <Legend wrapperStyle={{
+                paddingTop: '20px'
+              }} iconType="circle" />
+                  <Bar yAxisId="right" dataKey="totalOrders" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} opacity={0.8} name="Total Orders" />
+                  <Line yAxisId="left" type="monotone" dataKey="paidValue" stroke="hsl(var(--chart-2))" strokeWidth={3} dot={{
+                fill: 'hsl(var(--chart-2))',
+                r: 4
+              }} name="Paid Payments" />
+                  <Line yAxisId="left" type="monotone" dataKey="upcomingValue" stroke="hsl(var(--chart-3))" strokeWidth={3} dot={{
+                fill: 'hsl(var(--chart-3))',
+                r: 4
+              }} strokeDasharray="5 5" name="Upcoming Payments" />
                 </ComposedChart>
               </ResponsiveContainer>
-            </ChartContainer>
-          )}
+            </ChartContainer>}
         </CardContent>
       </Card>
 
@@ -559,8 +529,7 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {Object.entries(metrics.statusBreakdown).map(([status, count]) => (
-                <div key={status} className="flex justify-between items-center">
+              {Object.entries(metrics.statusBreakdown).map(([status, count]) => <div key={status} className="flex justify-between items-center">
                   <span className="text-sm">{status}</span>
                   <div className="flex flex-col items-end">
                     <Badge variant="outline">{count}</Badge>
@@ -568,8 +537,7 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
                       {formatCurrency(statusValues[status] || 0, displayCurrency)}
                     </span>
                   </div>
-                </div>
-              ))}
+                </div>)}
             </div>
           </CardContent>
         </Card>
@@ -625,113 +593,7 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
       </div>
 
       {/* Third Row - Full Width Cards */}
-      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <DollarSign className="h-5 w-5 text-primary" />
-                Weekly Performance (4 Weeks)
-              </CardTitle>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setWeekOffset(weekOffset - 1)}
-                  className="h-7 w-7 p-0"
-                >
-                  <ChevronLeft className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setWeekOffset(weekOffset + 1)}
-                  className="h-7 w-7 p-0"
-                >
-                  <ChevronRight className="h-3 w-3" />
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {weeklyData.map((week, index) => (
-                <div key={index} className="flex justify-between items-center">
-                  <div className="flex flex-col">
-                    <span className="text-xs font-medium">{week.label}</span>
-                    <span className="text-xs text-muted-foreground">{week.orders} orders</span>
-                  </div>
-                  <div className="flex flex-col items-end">
-                    <span className="text-xs text-muted-foreground font-medium">
-                      {formatCurrency(week.value, displayCurrency)}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-primary" />
-                Weekly Upcoming Payments
-              </CardTitle>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setUpcomingWeeksOffset(upcomingWeeksOffset - 1)}
-                  className="h-7 w-7 p-0"
-                >
-                  <ChevronLeft className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setUpcomingWeeksOffset(upcomingWeeksOffset + 1)}
-                  className="h-7 w-7 p-0"
-                >
-                  <ChevronRight className="h-3 w-3" />
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {weeklyUpcomingPayments.map((week, index) => (
-                <div key={index} className="flex justify-between items-center">
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium">{week.label}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {week.isPast ? 'Past week' : week.isCurrentWeek ? 'Current week' : 'Upcoming week'}
-                    </span>
-                  </div>
-                  <div className="flex flex-col items-end">
-                    <Badge 
-                      variant={
-                        week.orders > 0 
-                          ? week.isPast 
-                            ? 'secondary' 
-                            : 'destructive' 
-                          : 'outline'
-                      } 
-                      className="text-xs"
-                    >
-                      {week.orders} orders
-                    </Badge>
-                    <span className="text-xs text-muted-foreground font-medium">
-                      {formatCurrency(week.value, displayCurrency)}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      
 
       {/* Payment Details Section - Simple Date Range with Amount */}
       <div className="w-full">
@@ -746,156 +608,138 @@ export const MetricsDashboard = ({ metrics, loading, orders }: MetricsDashboardP
             <div className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Select Date Range:</label>
-                <DatePickerWithRange
-                  date={dateRange}
-                  onDateChange={setDateRange}
-                  className="w-full max-w-md"
-                />
+                <DatePickerWithRange date={dateRange} onDateChange={setDateRange} className="w-full max-w-md" />
               </div>
               
-              {dateRange?.from && dateRange?.to && (
-                <div className="grid gap-4 md:grid-cols-3">
+              {dateRange?.from && dateRange?.to && <div className="grid gap-4 md:grid-cols-3">
                   <div className="text-center p-4 bg-destructive/10 rounded-lg border border-destructive/20">
                     <div className="text-2xl font-bold text-destructive">
                       {orders?.filter(o => {
-                        if (!o.shipment_date) return false;
-                        const status = (o.status || '').toLowerCase().trim();
-                        if (status !== 'approved' && status !== 'non-submitted') return false;
-                        try {
-                          const shipmentDate = new Date(o.shipment_date);
-                          const dueDate = new Date(shipmentDate);
-                          dueDate.setDate(dueDate.getDate() + creditDays);
-                          const now = new Date();
-                          return dueDate < now && dueDate >= dateRange.from && dueDate <= dateRange.to;
-                        } catch {
-                          return false;
-                        }
-                      }).length || 0}
+                    if (!o.shipment_date) return false;
+                    const status = (o.status || '').toLowerCase().trim();
+                    if (status !== 'approved' && status !== 'non-submitted') return false;
+                    try {
+                      const shipmentDate = new Date(o.shipment_date);
+                      const dueDate = new Date(shipmentDate);
+                      dueDate.setDate(dueDate.getDate() + creditDays);
+                      const now = new Date();
+                      return dueDate < now && dueDate >= dateRange.from && dueDate <= dateRange.to;
+                    } catch {
+                      return false;
+                    }
+                  }).length || 0}
                     </div>
                     <p className="text-sm font-medium text-destructive">Overdue</p>
                     <p className="text-xs text-muted-foreground">
-                      {formatCurrency(
-                        orders?.filter(o => {
-                          if (!o.shipment_date) return false;
-                          const status = (o.status || '').toLowerCase().trim();
-                          if (status !== 'approved' && status !== 'non-submitted') return false;
-                          try {
-                            const shipmentDate = new Date(o.shipment_date);
-                            const dueDate = new Date(shipmentDate);
-                            dueDate.setDate(dueDate.getDate() + creditDays);
-                            const now = new Date();
-                            return dueDate < now && dueDate >= dateRange.from && dueDate <= dateRange.to;
-                          } catch {
-                            return false;
-                          }
-                        }).reduce((sum, order) => {
-                          const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
-                          const qty = parseInt(order.quantity?.toString() || '1') || 1;
-                          const orderValue = cost * qty;
-                          return sum + convertCurrency(orderValue, order.currency || 'USD', displayCurrency);
-                        }, 0) || 0,
-                        displayCurrency
-                      )}
+                      {formatCurrency(orders?.filter(o => {
+                    if (!o.shipment_date) return false;
+                    const status = (o.status || '').toLowerCase().trim();
+                    if (status !== 'approved' && status !== 'non-submitted') return false;
+                    try {
+                      const shipmentDate = new Date(o.shipment_date);
+                      const dueDate = new Date(shipmentDate);
+                      dueDate.setDate(dueDate.getDate() + creditDays);
+                      const now = new Date();
+                      return dueDate < now && dueDate >= dateRange.from && dueDate <= dateRange.to;
+                    } catch {
+                      return false;
+                    }
+                  }).reduce((sum, order) => {
+                    const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
+                    const qty = parseInt(order.quantity?.toString() || '1') || 1;
+                    const orderValue = cost * qty;
+                    return sum + convertCurrency(orderValue, order.currency || 'USD', displayCurrency);
+                  }, 0) || 0, displayCurrency)}
                     </p>
                   </div>
 
                   <div className="text-center p-4 bg-warning/10 rounded-lg border border-warning/20">
                     <div className="text-2xl font-bold text-warning">
                       {orders?.filter(o => {
-                        if (!o.shipment_date) return false;
-                        const status = (o.status || '').toLowerCase().trim();
-                        if (status !== 'approved' && status !== 'non-submitted') return false;
-                        try {
-                          const shipmentDate = new Date(o.shipment_date);
-                          const dueDate = new Date(shipmentDate);
-                          dueDate.setDate(dueDate.getDate() + creditDays);
-                          const now = new Date();
-                          return dueDate >= now && dueDate >= dateRange.from && dueDate <= dateRange.to;
-                        } catch {
-                          return false;
-                        }
-                      }).length || 0}
+                    if (!o.shipment_date) return false;
+                    const status = (o.status || '').toLowerCase().trim();
+                    if (status !== 'approved' && status !== 'non-submitted') return false;
+                    try {
+                      const shipmentDate = new Date(o.shipment_date);
+                      const dueDate = new Date(shipmentDate);
+                      dueDate.setDate(dueDate.getDate() + creditDays);
+                      const now = new Date();
+                      return dueDate >= now && dueDate >= dateRange.from && dueDate <= dateRange.to;
+                    } catch {
+                      return false;
+                    }
+                  }).length || 0}
                     </div>
                     <p className="text-sm font-medium text-warning">Pending</p>
                     <p className="text-xs text-muted-foreground">
-                      {formatCurrency(
-                        orders?.filter(o => {
-                          if (!o.shipment_date) return false;
-                          const status = (o.status || '').toLowerCase().trim();
-                          if (status !== 'approved' && status !== 'non-submitted') return false;
-                          try {
-                            const shipmentDate = new Date(o.shipment_date);
-                            const dueDate = new Date(shipmentDate);
-                            dueDate.setDate(dueDate.getDate() + creditDays);
-                            const now = new Date();
-                            return dueDate >= now && dueDate >= dateRange.from && dueDate <= dateRange.to;
-                          } catch {
-                            return false;
-                          }
-                        }).reduce((sum, order) => {
-                          const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
-                          const qty = parseInt(order.quantity?.toString() || '1') || 1;
-                          const orderValue = cost * qty;
-                          return sum + convertCurrency(orderValue, order.currency || 'USD', displayCurrency);
-                        }, 0) || 0,
-                        displayCurrency
-                      )}
+                      {formatCurrency(orders?.filter(o => {
+                    if (!o.shipment_date) return false;
+                    const status = (o.status || '').toLowerCase().trim();
+                    if (status !== 'approved' && status !== 'non-submitted') return false;
+                    try {
+                      const shipmentDate = new Date(o.shipment_date);
+                      const dueDate = new Date(shipmentDate);
+                      dueDate.setDate(dueDate.getDate() + creditDays);
+                      const now = new Date();
+                      return dueDate >= now && dueDate >= dateRange.from && dueDate <= dateRange.to;
+                    } catch {
+                      return false;
+                    }
+                  }).reduce((sum, order) => {
+                    const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
+                    const qty = parseInt(order.quantity?.toString() || '1') || 1;
+                    const orderValue = cost * qty;
+                    return sum + convertCurrency(orderValue, order.currency || 'USD', displayCurrency);
+                  }, 0) || 0, displayCurrency)}
                     </p>
                   </div>
 
                   <div className="text-center p-4 bg-primary/10 rounded-lg border border-primary/20">
                     <div className="text-2xl font-bold text-primary">
                       {orders?.filter(o => {
-                        if (!o.shipment_date) return false;
-                        const status = (o.status || '').toLowerCase().trim();
-                        if (status !== 'approved' && status !== 'non-submitted') return false;
-                        try {
-                          const shipmentDate = new Date(o.shipment_date);
-                          const dueDate = new Date(shipmentDate);
-                          dueDate.setDate(dueDate.getDate() + creditDays);
-                          return dueDate >= dateRange.from && dueDate <= dateRange.to;
-                        } catch {
-                          return false;
-                        }
-                      }).length || 0}
+                    if (!o.shipment_date) return false;
+                    const status = (o.status || '').toLowerCase().trim();
+                    if (status !== 'approved' && status !== 'non-submitted') return false;
+                    try {
+                      const shipmentDate = new Date(o.shipment_date);
+                      const dueDate = new Date(shipmentDate);
+                      dueDate.setDate(dueDate.getDate() + creditDays);
+                      return dueDate >= dateRange.from && dueDate <= dateRange.to;
+                    } catch {
+                      return false;
+                    }
+                  }).length || 0}
                     </div>
                     <p className="text-sm font-medium text-primary">Total</p>
                     <p className="text-xs text-muted-foreground">
-                      {formatCurrency(
-                        orders?.filter(o => {
-                          if (!o.shipment_date) return false;
-                          const status = (o.status || '').toLowerCase().trim();
-                          if (status !== 'approved' && status !== 'non-submitted') return false;
-                          try {
-                            const shipmentDate = new Date(o.shipment_date);
-                            const dueDate = new Date(shipmentDate);
-                            dueDate.setDate(dueDate.getDate() + creditDays);
-                            return dueDate >= dateRange.from && dueDate <= dateRange.to;
-                          } catch {
-                            return false;
-                          }
-                        }).reduce((sum, order) => {
-                          const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
-                          const qty = parseInt(order.quantity?.toString() || '1') || 1;
-                          const orderValue = cost * qty;
-                          return sum + convertCurrency(orderValue, order.currency || 'USD', displayCurrency);
-                        }, 0) || 0,
-                        displayCurrency
-                      )}
+                      {formatCurrency(orders?.filter(o => {
+                    if (!o.shipment_date) return false;
+                    const status = (o.status || '').toLowerCase().trim();
+                    if (status !== 'approved' && status !== 'non-submitted') return false;
+                    try {
+                      const shipmentDate = new Date(o.shipment_date);
+                      const dueDate = new Date(shipmentDate);
+                      dueDate.setDate(dueDate.getDate() + creditDays);
+                      return dueDate >= dateRange.from && dueDate <= dateRange.to;
+                    } catch {
+                      return false;
+                    }
+                  }).reduce((sum, order) => {
+                    const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
+                    const qty = parseInt(order.quantity?.toString() || '1') || 1;
+                    const orderValue = cost * qty;
+                    return sum + convertCurrency(orderValue, order.currency || 'USD', displayCurrency);
+                  }, 0) || 0, displayCurrency)}
                     </p>
                   </div>
-                </div>
-              )}
+                </div>}
 
-              {(!dateRange?.from || !dateRange?.to) && (
-                <div className="text-center py-8 text-muted-foreground">
+              {(!dateRange?.from || !dateRange?.to) && <div className="text-center py-8 text-muted-foreground">
                   Please select a date range to view payment details
-                </div>
-              )}
+                </div>}
             </div>
           </CardContent>
         </Card>
       </div>
-    </div>
-  );
+    </div>;
 };
