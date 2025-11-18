@@ -5518,24 +5518,18 @@ export const POTracker = () => {
                         )}
                         
                         {/* Print Preview Button */}
-                        <Button
-                          variant="default"
-                          size="sm"
-                        onClick={() => {
-                            // Step 1: Get base orders to filter from
-                            let baseOrders;
-                            
-                            if (selectedPOsForLabels.size > 0) {
-                              // If POs are selected, start with orders from those POs only
-                              const selectedPOsList = Array.from(selectedPOsForLabels);
-                              baseOrders = poOrders.filter(order => 
-                                selectedPOsList.includes(order.po_number) && 
-                                order.status !== 'cancelled'
-                              );
-                            } else {
-                              // If no POs selected, use all orders
-                              baseOrders = poOrders.filter(order => order.status !== 'cancelled');
-                            }
+              <Button
+                variant="default"
+                size="sm"
+                disabled={selectedPOsForLabels.size === 0 || poOrders.length === 0}
+                title={selectedPOsForLabels.size === 0 ? "Select POs first to preview labels" : "Preview labels for selected POs"}
+                onClick={() => {
+                  // Step 1: Get base orders from selected POs only
+                  const selectedPOsList = Array.from(selectedPOsForLabels);
+                  const baseOrders = poOrders.filter(order => 
+                    selectedPOsList.includes(order.po_number) && 
+                    order.status !== 'cancelled'
+                  );
                             
                             // Step 2: Apply print status filter
                             let filteredOrders;
@@ -5569,22 +5563,19 @@ export const POTracker = () => {
                               matchingOrders: filteredOrders.length
                             });
                             
-                            if (filteredOrders.length === 0) {
-                              toast({
-                                title: "No Items to Preview",
-                                description: selectedPOsForLabels.size > 0 
-                                  ? "No items from selected POs match the print status filter."
-                                  : "No items match the selected print status filter.",
-                                variant: "destructive"
-                              });
-                              return;
-                            }
+                  if (filteredOrders.length === 0) {
+                    toast({
+                      title: "No Items to Preview",
+                      description: "No items from selected POs match the print status filter.",
+                      variant: "destructive"
+                    });
+                    return;
+                  }
                             
                             setPrintMode('bulk');
                             setPrintOrders(filteredOrders);
                             setPrintDialogOpen(true);
                           }}
-                          disabled={poOrders.length === 0}
                           className="h-8 gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground"
                         >
                           <FileText className="h-3.5 w-3.5" />
