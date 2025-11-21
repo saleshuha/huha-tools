@@ -168,9 +168,9 @@ export const MetricsDashboard = ({
 
     // Group orders by month
     const monthlyData = new Map<string, {
-      totalOrders: number;
-      paidValue: number;
-      upcomingValue: number;
+      totalUnits: number;
+      totalAmount: number;
+      unpaidAmount: number;
     }>();
     const now = new Date();
     orders.forEach(order => {
@@ -179,35 +179,31 @@ export const MetricsDashboard = ({
       const monthKey = getMonthKey(shipmentDate);
       if (!monthlyData.has(monthKey)) {
         monthlyData.set(monthKey, {
-          totalOrders: 0,
-          paidValue: 0,
-          upcomingValue: 0
+          totalUnits: 0,
+          totalAmount: 0,
+          unpaidAmount: 0
         });
       }
       const data = monthlyData.get(monthKey)!;
 
-      // Increment total orders
-      data.totalOrders += 1;
+      // Sum total units (quantities)
+      const qty = parseInt(order.quantity?.toString() || '1') || 1;
+      data.totalUnits += qty;
 
       // Calculate order value in display currency
       const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
-      const qty = parseInt(order.quantity?.toString() || '1') || 1;
       const orderValueUSD = cost * qty;
       const orderValue = convertCurrency(orderValueUSD, order.currency || 'USD', displayCurrency);
+      
+      // Add to total amount
+      data.totalAmount += orderValue;
 
-      // Check if paid
+      // Check if unpaid (not paid/completed)
       const paymentStatus = (order.payment_status || '').toLowerCase().trim();
       const status = (order.status || '').toLowerCase().trim();
       const isPaid = paymentStatus === 'completed' || status === 'paid';
-      if (isPaid) {
-        data.paidValue += orderValue;
-      } else {
-        // Check if upcoming (due date in future)
-        const dueDate = new Date(shipmentDate);
-        dueDate.setDate(dueDate.getDate() + creditDays);
-        if (dueDate > now) {
-          data.upcomingValue += orderValue;
-        }
+      if (!isPaid) {
+        data.unpaidAmount += orderValue;
       }
     });
 
@@ -219,7 +215,7 @@ export const MetricsDashboard = ({
     })).sort((a, b) => a.monthKey.localeCompare(b.monthKey)).slice(-12); // Last 12 months only
 
     return sortedData;
-  }, [orders, creditDays, displayCurrency, convertCurrency]);
+  }, [orders, displayCurrency, convertCurrency]);
 
   // Calculate weekly upcoming payments with navigation
   const weeklyUpcomingPayments = useMemo(() => {
@@ -427,20 +423,20 @@ export const MetricsDashboard = ({
                 Monthly Performance Overview
               </CardTitle>
               <p className="text-xs text-muted-foreground mt-1">
-                Trend analysis of orders, paid payments, and upcoming payments (Last 12 months)
+                Trend analysis of units, order amounts, and unpaid payments (Last 12 months)
               </p>
             </div>
             {monthlyTrendData && monthlyTrendData.length > 0 && <div className="flex gap-4">
               <div className="text-right">
-                <p className="text-[10px] text-muted-foreground">Total Orders</p>
+                <p className="text-[10px] text-muted-foreground">Total Units</p>
                 <p className="text-lg font-bold text-primary">
-                  {monthlyTrendData.reduce((sum, m) => sum + m.totalOrders, 0)}
+                  {monthlyTrendData.reduce((sum, m) => sum + m.totalUnits, 0).toLocaleString()}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-[10px] text-muted-foreground">Avg/Month</p>
+                <p className="text-[10px] text-muted-foreground">Total Amount</p>
                 <p className="text-lg font-bold text-chart-2">
-                  {Math.round(monthlyTrendData.reduce((sum, m) => sum + m.totalOrders, 0) / monthlyTrendData.length)}
+                  {formatCurrency(monthlyTrendData.reduce((sum, m) => sum + m.totalAmount, 0), displayCurrency)}
                 </p>
               </div>
             </div>}
@@ -450,16 +446,16 @@ export const MetricsDashboard = ({
           {!monthlyTrendData || monthlyTrendData.length === 0 ? <div className="text-center py-6 text-muted-foreground text-sm">
               No monthly data available
             </div> : <ChartContainer config={{
-            totalOrders: {
-              label: "Total Orders",
+            totalUnits: {
+              label: "Total Units",
               color: "hsl(var(--primary))"
             },
-            paidValue: {
-              label: "Paid Payments",
+            totalAmount: {
+              label: "Total Amount",
               color: "hsl(var(--chart-2))"
             },
-            upcomingValue: {
-              label: "Upcoming Payments",
+            unpaidAmount: {
+              label: "Unpaid/Overdue",
               color: "hsl(var(--chart-3))"
             }
           }} className="h-[350px] w-full">
@@ -471,11 +467,11 @@ export const MetricsDashboard = ({
                   bottom: 20
                 }}>
                   <defs>
-                    <linearGradient id="paidGradient" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="totalAmountGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="hsl(var(--chart-2))" stopOpacity={0.8} />
                       <stop offset="95%" stopColor="hsl(var(--chart-2))" stopOpacity={0.1} />
                     </linearGradient>
-                    <linearGradient id="upcomingGradient" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="unpaidGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="hsl(var(--chart-3))" stopOpacity={0.6} />
                       <stop offset="95%" stopColor="hsl(var(--chart-3))" stopOpacity={0.05} />
                     </linearGradient>
@@ -500,7 +496,7 @@ export const MetricsDashboard = ({
                   }} tickLine={{
                     stroke: 'hsl(var(--border))'
                   }} label={{
-                    value: `Payments (${displayCurrency})`,
+                    value: `Amount (${displayCurrency})`,
                     angle: -90,
                     position: 'insideLeft',
                     style: {
@@ -514,7 +510,7 @@ export const MetricsDashboard = ({
                   }} tickLine={{
                     stroke: 'hsl(var(--border))'
                   }} label={{
-                    value: 'Total Orders',
+                    value: 'Total Units',
                     angle: 90,
                     position: 'insideRight',
                     style: {
@@ -537,19 +533,19 @@ export const MetricsDashboard = ({
                           <div className="flex items-center justify-between gap-3">
                             <div className="flex items-center gap-1.5">
                               <div className="w-3 h-3 rounded-full bg-gradient-to-br from-primary to-primary/70" />
-                              <span className="text-muted-foreground">Total Orders:</span>
+                              <span className="text-muted-foreground">Total Units:</span>
                             </div>
-                            <span className="font-bold text-sm">{payload[0].payload.totalOrders}</span>
+                            <span className="font-bold text-sm">{payload[0].payload.totalUnits?.toLocaleString()}</span>
                           </div>
                           <div className="flex items-center justify-between gap-3">
                             <div className="flex items-center gap-1.5">
                               <div className="w-3 h-3 rounded-full" style={{
                               backgroundColor: 'hsl(var(--chart-2))'
                             }} />
-                              <span className="text-muted-foreground">Paid:</span>
+                              <span className="text-muted-foreground">Total Amount:</span>
                             </div>
                             <span className="font-bold text-sm text-chart-2">
-                              {formatCurrency(payload[0].payload.paidValue, displayCurrency)}
+                              {formatCurrency(payload[0].payload.totalAmount, displayCurrency)}
                             </span>
                           </div>
                           <div className="flex items-center justify-between gap-3">
@@ -557,10 +553,10 @@ export const MetricsDashboard = ({
                               <div className="w-3 h-3 rounded-full" style={{
                               backgroundColor: 'hsl(var(--chart-3))'
                             }} />
-                              <span className="text-muted-foreground">Upcoming:</span>
+                              <span className="text-muted-foreground">Unpaid/Overdue:</span>
                             </div>
                             <span className="font-bold text-sm text-chart-3">
-                              {formatCurrency(payload[0].payload.upcomingValue, displayCurrency)}
+                              {formatCurrency(payload[0].payload.unpaidAmount, displayCurrency)}
                             </span>
                           </div>
                         </div>
@@ -571,10 +567,9 @@ export const MetricsDashboard = ({
                     fontSize: '11px',
                     fontWeight: 600
                   }} iconType="circle" iconSize={10} />
-                  <Area yAxisId="left" type="monotone" dataKey="paidValue" fill="url(#paidGradient)" stroke="none" fillOpacity={1} />
-                  <Area yAxisId="left" type="monotone" dataKey="upcomingValue" fill="url(#upcomingGradient)" stroke="none" fillOpacity={1} />
-                  <Bar yAxisId="right" dataKey="totalOrders" fill="url(#barGradient)" radius={[6, 6, 0, 0]} name="Total Orders" />
-                  <Line yAxisId="left" type="monotone" dataKey="paidValue" stroke="hsl(var(--chart-2))" strokeWidth={3} dot={{
+                  <Bar yAxisId="right" dataKey="totalUnits" fill="url(#barGradient)" radius={[6, 6, 0, 0]} name="Total Units" />
+                  <Area yAxisId="left" type="monotone" dataKey="totalAmount" fill="url(#totalAmountGradient)" stroke="none" fillOpacity={1} />
+                  <Line yAxisId="left" type="monotone" dataKey="totalAmount" stroke="hsl(var(--chart-2))" strokeWidth={3} dot={{
                     fill: 'hsl(var(--chart-2))',
                     r: 4,
                     strokeWidth: 2,
@@ -582,8 +577,9 @@ export const MetricsDashboard = ({
                   }} activeDot={{
                     r: 6,
                     strokeWidth: 2
-                  }} name="Paid Payments" />
-                  <Line yAxisId="left" type="monotone" dataKey="upcomingValue" stroke="hsl(var(--chart-3))" strokeWidth={3} dot={{
+                  }} name="Total Amount" />
+                  <Area yAxisId="left" type="monotone" dataKey="unpaidAmount" fill="url(#unpaidGradient)" stroke="none" fillOpacity={1} />
+                  <Line yAxisId="left" type="monotone" dataKey="unpaidAmount" stroke="hsl(var(--chart-3))" strokeWidth={3} dot={{
                     fill: 'hsl(var(--chart-3))',
                     r: 4,
                     strokeWidth: 2,
@@ -591,7 +587,7 @@ export const MetricsDashboard = ({
                   }} activeDot={{
                     r: 6,
                     strokeWidth: 2
-                  }} strokeDasharray="6 3" name="Upcoming Payments" />
+                  }} strokeDasharray="6 3" name="Unpaid/Overdue" />
                 </ComposedChart>
               </ResponsiveContainer>
             </ChartContainer>}
