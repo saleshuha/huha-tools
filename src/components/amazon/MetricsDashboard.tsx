@@ -166,17 +166,19 @@ export const MetricsDashboard = ({
       });
     };
 
-    // Group orders by month
+    // Initialize data structure
     const monthlyData = new Map<string, {
       totalUnits: number;
       totalAmount: number;
       unpaidAmount: number;
     }>();
-    const now = new Date();
+
+    // First pass: Calculate totalUnits and totalAmount by shipment month
     orders.forEach(order => {
       if (!order.shipment_date) return;
       const shipmentDate = new Date(order.shipment_date);
       const monthKey = getMonthKey(shipmentDate);
+      
       if (!monthlyData.has(monthKey)) {
         monthlyData.set(monthKey, {
           totalUnits: 0,
@@ -197,12 +199,42 @@ export const MetricsDashboard = ({
       
       // Add to total amount
       data.totalAmount += orderValue;
+    });
 
+    // Second pass: Calculate unpaidAmount by due date month
+    orders.forEach(order => {
+      if (!order.shipment_date) return;
+      
       // Check if unpaid (not paid/completed)
       const paymentStatus = (order.payment_status || '').toLowerCase().trim();
       const status = (order.status || '').toLowerCase().trim();
       const isPaid = paymentStatus === 'completed' || status === 'paid';
+      
       if (!isPaid) {
+        const shipmentDate = new Date(order.shipment_date);
+        
+        // Calculate due date (shipment date + credit days)
+        const dueDate = new Date(shipmentDate);
+        dueDate.setDate(dueDate.getDate() + creditDays);
+        
+        const dueDateMonthKey = getMonthKey(dueDate);
+        
+        if (!monthlyData.has(dueDateMonthKey)) {
+          monthlyData.set(dueDateMonthKey, {
+            totalUnits: 0,
+            totalAmount: 0,
+            unpaidAmount: 0
+          });
+        }
+        
+        const data = monthlyData.get(dueDateMonthKey)!;
+        
+        // Calculate order value in display currency
+        const cost = parseFloat(order.item_cost?.toString() || '0') || 0;
+        const qty = parseInt(order.quantity?.toString() || '1') || 1;
+        const orderValueUSD = cost * qty;
+        const orderValue = convertCurrency(orderValueUSD, order.currency || 'USD', displayCurrency);
+        
         data.unpaidAmount += orderValue;
       }
     });
@@ -215,7 +247,7 @@ export const MetricsDashboard = ({
     })).sort((a, b) => a.monthKey.localeCompare(b.monthKey)).slice(-12); // Last 12 months only
 
     return sortedData;
-  }, [orders, displayCurrency, convertCurrency]);
+  }, [orders, displayCurrency, convertCurrency, creditDays]);
 
   // Calculate weekly upcoming payments with navigation
   const weeklyUpcomingPayments = useMemo(() => {
