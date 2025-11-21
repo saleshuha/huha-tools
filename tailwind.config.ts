@@ -20,19 +20,20 @@ export default {
     	extend: {
     		fontFamily: {
     			sans: [
-    				'Roboto',
+    				'Source Sans Pro',
     				'ui-sans-serif',
     				'system-ui',
     				'-apple-system',
     				'BlinkMacSystemFont',
     				'Segoe UI',
+    				'Roboto',
     				'Helvetica Neue',
     				'Arial',
     				'Noto Sans',
     				'sans-serif'
     			],
     			mono: [
-    				'Roboto Mono',
+    				'Source Code Pro',
     				'ui-monospace',
     				'SFMono-Regular',
     				'Menlo',
@@ -49,7 +50,7 @@ export default {
     				'sans-serif'
     			],
     			serif: [
-    				'Libre Caslon Text',
+    				'Source Serif Pro',
     				'ui-serif',
     				'Georgia',
     				'Cambria',
