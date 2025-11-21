@@ -1196,10 +1196,10 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
                       onCheckedChange={() => handleItemToggle(item.itemNo)}
                     />
                     <ImagePreview
-                      imageUrl={item.imageUrl || item.thumbnailUrl}
+                      imageUrl={item.imageUrl || item.thumbnailUrl || undefined}
                       alt={item.title}
                       size="md"
-                      showFullOnClick={true}
+                      showFullOnClick={!!item.imageUrl || !!item.thumbnailUrl}
                     />
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
