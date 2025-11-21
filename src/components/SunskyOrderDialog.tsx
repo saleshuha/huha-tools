@@ -12,6 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { SunskyDataViewer } from '@/components/SunskyDataViewer';
+import { useSunskyImages } from '@/hooks/useSunskyImages';
+import { ImagePreview } from '@/components/stock-receiving/ImagePreview';
 
 interface SunskyOrderDialogProps {
   open: boolean;
@@ -51,6 +53,8 @@ interface OrderItem {
   remark?: string;
   recommendedQty?: number;
   quantitySource?: 'advanced' | 'simple' | 'manual';
+  imageUrl?: string | null;
+  thumbnailUrl?: string | null;
 }
 
 interface SavedAddress {
@@ -111,6 +115,9 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
   // Order items state
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
+  
+  // Image fetching hook
+  const { getProductImages } = useSunskyImages();
   
   // Delivery address state
   const [deliveryAddress, setDeliveryAddress] = useState({
@@ -402,6 +409,36 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
     
     setOrderItems(validItems);
     setCheckedItems(new Set(validItems.map(item => item.itemNo)));
+    loadProductImages(validItems);
+  };
+
+  const loadProductImages = async (items: OrderItem[]) => {
+    const itemsWithImages = await Promise.all(
+      items.map(async (item) => {
+        try {
+          const images = await getProductImages(item.itemNo);
+          const firstImage = images.find(img => img.download_status === 'completed');
+          
+          if (firstImage && firstImage.storage_path) {
+            const { data } = supabase.storage
+              .from('sunsky-images')
+              .getPublicUrl(firstImage.storage_path);
+            
+            return {
+              ...item,
+              imageUrl: data?.publicUrl || null,
+              thumbnailUrl: data?.publicUrl || null
+            };
+          }
+          return item;
+        } catch (error) {
+          console.error(`Failed to load image for ${item.itemNo}:`, error);
+          return item;
+        }
+      })
+    );
+    
+    setOrderItems(itemsWithImages);
   };
 
   const loadCountries = async () => {
@@ -1157,6 +1194,12 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
                     <Checkbox
                       checked={checkedItems.has(item.itemNo)}
                       onCheckedChange={() => handleItemToggle(item.itemNo)}
+                    />
+                    <ImagePreview
+                      imageUrl={item.imageUrl || item.thumbnailUrl}
+                      alt={item.title}
+                      size="md"
+                      showFullOnClick={true}
                     />
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
