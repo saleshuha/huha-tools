@@ -825,6 +825,24 @@ export const POTracker = () => {
     setIsFulfilling(true);
     
     try {
+      // Determine the correct originalQuantity
+      let originalQuantity = fulfillDialogOrder.quantity;
+      
+      // If consolidated, find the specific PO's quantity
+      if (fulfillDialogOrder.isConsolidated && fulfillDialogOrder.consolidatedOrders) {
+        const specificPO = fulfillDialogOrder.consolidatedOrders.find(
+          po => po.po_number === poNumber
+        );
+        if (specificPO) {
+          originalQuantity = specificPO.quantity;
+          console.log('✅ Consolidated PO fulfillment:', {
+            selectedPO: poNumber,
+            specificQuantity: originalQuantity,
+            totalConsolidated: fulfillDialogOrder.quantity
+          });
+        }
+      }
+      
       // Call edge function with retry logic for cold starts and network errors
       let data, error;
       let retryCount = 0;
@@ -842,7 +860,7 @@ export const POTracker = () => {
               quantity,
               asin: fulfillDialogOrder.asin,
               title: fulfillDialogOrder.title,
-              originalQuantity: fulfillDialogOrder.quantity,
+              originalQuantity,
             },
           });
           
