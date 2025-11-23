@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { HuhaHeader01 } from '@/components/ui/huha-header-01';
 import { FileUploadZone } from '@/components/product-file-manager/FileUploadZone';
 import { ColumnSelector } from '@/components/product-file-manager/ColumnSelector';
@@ -268,12 +268,17 @@ export default function ProductFileManager() {
     setHasUnsavedChanges(true);
   };
 
-  // Track changes for unsaved indicator
+  // Track changes for unsaved indicator (skip initial mount)
+  const isInitialMount = useRef(true);
   useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
     if (uploadedFile && currentSessionId) {
       setHasUnsavedChanges(true);
     }
-  }, [parsedData, selectedRows, searchTerm, visibleColumns, imageColumnIndex, titleColumnIndex, sortColumn, sortDirection]);
+  }, [parsedData.length, selectedRows.size, searchTerm, visibleColumns.size, imageColumnIndex, titleColumnIndex, sortColumn, sortDirection]);
 
   // Auto-save every 30 seconds if there are unsaved changes
   useEffect(() => {
