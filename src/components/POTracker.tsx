@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
+import { format } from 'date-fns';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -6244,10 +6245,69 @@ export const POTracker = () => {
                       return (
                         <div className="flex items-center gap-2">
                           <div className="w-2 h-2 bg-muted rounded-full flex-shrink-0"></div>
-                          <Badge variant="outline" className="text-xs px-2 py-1 font-medium bg-muted/50 text-muted-foreground border-border">
-                            <XCircle className="w-3 h-3 mr-1" />
-                            Closed
-                          </Badge>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Badge 
+                                variant="outline" 
+                                className="text-xs px-2 py-1 font-medium bg-muted/50 text-muted-foreground border-border cursor-pointer hover:bg-muted/70 transition-colors"
+                              >
+                                <XCircle className="w-3 h-3 mr-1" />
+                                Closed
+                              </Badge>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-80" align="start">
+                              <div className="space-y-3">
+                                <div className="flex items-center gap-2 pb-2 border-b">
+                                  <XCircle className="w-4 h-4 text-muted-foreground" />
+                                  <h4 className="font-semibold text-sm">Closure Details</h4>
+                                </div>
+                                
+                                {isFullyFulfilled && (
+                                  <div className="space-y-2 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                                    <div className="flex items-center gap-2">
+                                      <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                                      <span className="font-medium text-sm text-green-700 dark:text-green-400">Fulfilled from Stock</span>
+                                    </div>
+                                    <div className="text-xs text-muted-foreground space-y-1">
+                                      <div>Quantity: {fulfilledQty} units</div>
+                                      {order.updated_at && (
+                                        <div className="flex items-center gap-1">
+                                          <Clock className="w-3 h-3" />
+                                          <span>{format(new Date(order.updated_at), 'MMM dd, yyyy HH:mm')}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                    {order.notes && order.notes.includes('/') && (
+                                      <div className="text-xs text-muted-foreground mt-1">
+                                        <div className="font-medium">Serial Numbers:</div>
+                                        <div className="text-xs bg-white dark:bg-gray-900 p-2 rounded mt-1 max-h-20 overflow-y-auto">
+                                          {order.notes.match(/\/([^)]+)/)?.[1]}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                                
+                                {isFullyPrinted && (
+                                  <div className="space-y-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                                    <div className="flex items-center gap-2">
+                                      <Printer className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                      <span className="font-medium text-sm text-blue-700 dark:text-blue-400">Fully Printed</span>
+                                    </div>
+                                    <div className="text-xs text-muted-foreground space-y-1">
+                                      <div>Printed: {order.printed_quantity || 0} / {order.quantity} units</div>
+                                      {order.label_printed_at && (
+                                        <div className="flex items-center gap-1">
+                                          <Clock className="w-3 h-3" />
+                                          <span>{format(new Date(order.label_printed_at), 'MMM dd, yyyy HH:mm')}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
                         </div>
                       );
                     }
