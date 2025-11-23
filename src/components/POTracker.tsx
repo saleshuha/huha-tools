@@ -6247,13 +6247,10 @@ export const POTracker = () => {
                           <div className="w-2 h-2 bg-muted rounded-full flex-shrink-0"></div>
                           <Popover>
                             <PopoverTrigger asChild>
-                              <Badge 
-                                variant="outline" 
-                                className="text-xs px-2 py-1 font-medium bg-muted/50 text-muted-foreground border-border cursor-pointer hover:bg-muted/70 transition-colors"
-                              >
+                              <button className="text-xs px-2 py-1 font-medium bg-muted/50 text-muted-foreground border border-border rounded-md cursor-pointer hover:bg-muted/70 transition-colors inline-flex items-center">
                                 <XCircle className="w-3 h-3 mr-1" />
                                 Closed
-                              </Badge>
+                              </button>
                             </PopoverTrigger>
                             <PopoverContent className="w-80" align="start">
                               <div className="space-y-3">
