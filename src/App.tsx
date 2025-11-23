@@ -70,6 +70,7 @@ import { VelocityAnalyticsSimple } from "@/components/VelocityAnalyticsSimple";
 import PurchaseLink from "./pages/PurchaseLink";
 import ReceiveStock from "./pages/ReceiveStock";
 import QuranApiDocs from "./pages/QuranApiDocs";
+import ProductFileManager from "./pages/ProductFileManager";
 
 import { useState as useReactState } from "react";
 import { useToast } from "@/components/ui/use-toast";
@@ -263,6 +264,7 @@ const App = () => {
                             <Route path="/bulk-column-editor" element={<BulkColumnEditor />} />
                             <Route path="/excel-editor" element={<ExcelEditorPage />} />
                             <Route path="/noon-file-cleaner" element={<NoonFileCleaner />} />
+                            <Route path="/product-file-manager" element={<ProductFileManager />} />
                           </>
                         )}
 
