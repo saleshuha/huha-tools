@@ -1,7 +1,10 @@
+import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Package } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Package, ChevronDown } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface ColumnSelectorProps {
   headers: string[];
@@ -20,9 +23,22 @@ export function ColumnSelector({
   onTitleColumnChange,
   parsedData,
 }: ColumnSelectorProps) {
+  const [isOpen, setIsOpen] = useState(true);
+
   return (
     <Card className="glass-container p-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold">Column Configuration</h3>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="p-2 h-8 w-8">
+              <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+            </Button>
+          </CollapsibleTrigger>
+        </div>
+        
+        <CollapsibleContent className="animate-accordion-down data-[state=closed]:animate-accordion-up">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="image-column" className="text-sm font-medium">
             Image Column
@@ -100,7 +116,9 @@ export function ColumnSelector({
             Select the column to search by product title/name
           </p>
         </div>
-      </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
     </Card>
   );
 }
