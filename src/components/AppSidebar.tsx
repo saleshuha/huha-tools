@@ -75,6 +75,11 @@ const toolsItems = [
     title: "Noon File Cleaner",
     url: "/noon-file-cleaner",
     icon: Trash2
+  },
+  {
+    title: "Product File Manager",
+    url: "/product-file-manager",
+    icon: FileSpreadsheet
   }
 ]
 
