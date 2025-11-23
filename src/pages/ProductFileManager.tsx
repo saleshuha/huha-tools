@@ -441,6 +441,7 @@ export default function ProductFileManager() {
             <ProductTable
               data={paginatedData}
               headers={visibleHeaders}
+              fullHeaders={headers}
               imageColumnIndex={imageColumnIndex}
               titleColumnIndex={titleColumnIndex}
               selectedRows={selectedRows}

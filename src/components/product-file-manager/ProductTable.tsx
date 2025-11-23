@@ -6,6 +6,7 @@ import { Package, ArrowUpDown, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
 interface ProductTableProps {
   data: Record<string, any>[];
   headers: string[];
+  fullHeaders: string[];
   imageColumnIndex: number;
   titleColumnIndex: number;
   selectedRows: Set<number>;
@@ -22,6 +23,7 @@ interface ProductTableProps {
 export function ProductTable({
   data,
   headers,
+  fullHeaders,
   imageColumnIndex,
   titleColumnIndex,
   selectedRows,
@@ -35,7 +37,7 @@ export function ProductTable({
   itemsPerPage,
 }: ProductTableProps) {
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const imageColumn = imageColumnIndex >= 0 ? headers[imageColumnIndex] : null;
+  const imageColumn = imageColumnIndex >= 0 ? fullHeaders[imageColumnIndex] : null;
   
   // Check if all visible rows are selected
   const allSelected = data.every((_, index) => selectedRows.has(startIndex + index));
@@ -134,7 +136,7 @@ export function ProductTable({
                         {row[imageColumn] ? (
                           <img
                             src={row[imageColumn]}
-                            alt={titleColumnIndex >= 0 ? row[headers[titleColumnIndex]] : 'Product'}
+                            alt={titleColumnIndex >= 0 ? row[fullHeaders[titleColumnIndex]] : 'Product'}
                             className="h-[60px] w-[60px] object-contain rounded border border-border bg-muted"
                             onError={(e) => {
                               e.currentTarget.src = '';
