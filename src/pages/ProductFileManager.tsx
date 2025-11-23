@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { HuhaHeader01 } from '@/components/ui/huha-header-01';
 import { FileUploadZone } from '@/components/product-file-manager/FileUploadZone';
 import { ColumnSelector } from '@/components/product-file-manager/ColumnSelector';
@@ -7,8 +7,20 @@ import { ProductSearch } from '@/components/product-file-manager/ProductSearch';
 import { ProductTable } from '@/components/product-file-manager/ProductTable';
 import { SelectionControls } from '@/components/product-file-manager/SelectionControls';
 import { ExportControls } from '@/components/product-file-manager/ExportControls';
+import { SessionManager } from '@/components/product-file-manager/SessionManager';
 import { Card } from '@/components/ui/card';
-import { Package } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Package, Save, FolderOpen } from 'lucide-react';
+import { saveSession, loadSession, type ProductSession } from '@/utils/sessionStorage';
+import { toast } from '@/components/ui/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function ProductFileManager() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -23,6 +35,12 @@ export default function ProductFileManager() {
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(new Set());
+  
+  // Session management state
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [sessionName, setSessionName] = useState<string>('');
+  const [showSessionManager, setShowSessionManager] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Create filtered headers based on visibility
   const visibleHeaders = useMemo(() => {
@@ -66,6 +84,11 @@ export default function ProductFileManager() {
   const totalPages = Math.ceil(sortedData.length / itemsPerPage);
 
   const handleFileUpload = (file: File, data: Record<string, any>[], detectedHeaders: string[]) => {
+    if (hasUnsavedChanges) {
+      const confirmed = window.confirm('You have unsaved changes. Continue without saving?');
+      if (!confirmed) return;
+    }
+
     setUploadedFile(file);
     setParsedData(data);
     setHeaders(detectedHeaders);
@@ -85,6 +108,101 @@ export default function ProductFileManager() {
     
     // Initialize all columns as visible by default
     setVisibleColumns(new Set(detectedHeaders));
+    
+    // Reset session state
+    setCurrentSessionId(null);
+    setSessionName('');
+    setHasUnsavedChanges(false);
+  };
+
+  const handleSaveSession = async (name?: string) => {
+    const sessionData: ProductSession = {
+      id: currentSessionId || `session_${Date.now()}`,
+      name: name || sessionName || uploadedFile?.name || 'Untitled Session',
+      createdAt: currentSessionId ? sessionName : new Date().toISOString(),
+      lastModified: new Date().toISOString(),
+      fileName: uploadedFile?.name || '',
+      fileSize: uploadedFile?.size || 0,
+      fileType: uploadedFile?.type || '',
+      totalRows: parsedData.length,
+      totalColumns: headers.length,
+      selectedRowsCount: selectedRows.size,
+      parsedData,
+      headers,
+      imageColumnIndex,
+      titleColumnIndex,
+      searchTerm,
+      selectedRows: Array.from(selectedRows),
+      currentPage,
+      itemsPerPage,
+      sortColumn,
+      sortDirection,
+      visibleColumns: Array.from(visibleColumns)
+    };
+    
+    try {
+      await saveSession(sessionData);
+      setCurrentSessionId(sessionData.id);
+      setSessionName(sessionData.name);
+      setHasUnsavedChanges(false);
+      toast({
+        title: "Success",
+        description: "Session saved successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save session",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleLoadSession = async (sessionId: string) => {
+    try {
+      const session = await loadSession(sessionId);
+      if (!session) {
+        toast({
+          title: "Error",
+          description: "Session not found",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Restore all state
+      setParsedData(session.parsedData);
+      setHeaders(session.headers);
+      setImageColumnIndex(session.imageColumnIndex);
+      setTitleColumnIndex(session.titleColumnIndex);
+      setSearchTerm(session.searchTerm);
+      setSelectedRows(new Set(session.selectedRows));
+      setCurrentPage(session.currentPage);
+      setItemsPerPage(session.itemsPerPage);
+      setSortColumn(session.sortColumn);
+      setSortDirection(session.sortDirection);
+      setVisibleColumns(new Set(session.visibleColumns));
+      
+      // Create a pseudo-File object for display
+      const pseudoFile = new File([''], session.fileName, { type: session.fileType });
+      setUploadedFile(pseudoFile);
+      
+      setCurrentSessionId(session.id);
+      setSessionName(session.name);
+      setHasUnsavedChanges(false);
+      setShowSessionManager(false);
+      
+      toast({
+        title: "Success",
+        description: `Loaded session: ${session.name}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load session",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSort = (column: string) => {
@@ -146,7 +264,40 @@ export default function ProductFileManager() {
     if (currentPage > newTotalPages && newTotalPages > 0) {
       setCurrentPage(newTotalPages);
     }
+
+    setHasUnsavedChanges(true);
   };
+
+  // Track changes for unsaved indicator
+  useEffect(() => {
+    if (uploadedFile && currentSessionId) {
+      setHasUnsavedChanges(true);
+    }
+  }, [parsedData, selectedRows, searchTerm, visibleColumns, imageColumnIndex, titleColumnIndex, sortColumn, sortDirection]);
+
+  // Auto-save every 30 seconds if there are unsaved changes
+  useEffect(() => {
+    if (!currentSessionId || !hasUnsavedChanges) return;
+    
+    const autoSaveInterval = setInterval(() => {
+      handleSaveSession();
+    }, 30000);
+    
+    return () => clearInterval(autoSaveInterval);
+  }, [currentSessionId, hasUnsavedChanges]);
+
+  // Warn before leaving with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   return (
     <div className="min-h-screen bg-gradient-surface">
@@ -158,32 +309,86 @@ export default function ProductFileManager() {
 
       <div className="container mx-auto px-4 py-6 space-y-6">
         {!uploadedFile ? (
-          <FileUploadZone onFileUpload={handleFileUpload} />
+          <>
+            <Card className="glass-container p-4">
+              <Button
+                onClick={() => setShowSessionManager(true)}
+                variant="outline"
+                className="w-full"
+              >
+                <FolderOpen className="h-4 w-4 mr-2" />
+                Load Saved Session
+              </Button>
+            </Card>
+            <FileUploadZone onFileUpload={handleFileUpload} />
+          </>
         ) : (
           <>
-            {/* File Info Card */}
+            {/* Session Controls */}
             <Card className="glass-container p-4">
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center gap-3 flex-1">
+                  <Input
+                    type="text"
+                    value={sessionName || uploadedFile.name}
+                    onChange={(e) => setSessionName(e.target.value)}
+                    placeholder="Session name..."
+                    className="max-w-xs"
+                  />
+                  <Button
+                    onClick={() => handleSaveSession()}
+                    variant={hasUnsavedChanges ? 'default' : 'outline'}
+                    size="sm"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {hasUnsavedChanges ? 'Save Changes' : 'Saved'}
+                  </Button>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={() => setShowSessionManager(true)}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <FolderOpen className="h-4 w-4 mr-2" />
+                    Manage Sessions
+                  </Button>
+                  <button
+                    onClick={() => {
+                      if (hasUnsavedChanges) {
+                        const confirmed = window.confirm('You have unsaved changes. Continue without saving?');
+                        if (!confirmed) return;
+                      }
+                      setUploadedFile(null);
+                      setParsedData([]);
+                      setHeaders([]);
+                      setSelectedRows(new Set());
+                      setSearchTerm('');
+                      setCurrentSessionId(null);
+                      setSessionName('');
+                      setHasUnsavedChanges(false);
+                    }}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Upload New File
+                  </button>
+                </div>
+              </div>
+            </Card>
+
+            {/* File Info */}
+            <Card className="glass-container p-3">
               <div className="flex items-center justify-between">
-                <div>
+                <div className="flex items-center gap-2">
+                  <Package className="h-4 w-4 text-muted-foreground" />
                   <p className="text-sm font-medium text-foreground">
                     {uploadedFile.name}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    {parsedData.length} rows • {headers.length} columns
-                  </p>
                 </div>
-                <button
-                  onClick={() => {
-                    setUploadedFile(null);
-                    setParsedData([]);
-                    setHeaders([]);
-                    setSelectedRows(new Set());
-                    setSearchTerm('');
-                  }}
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Upload New File
-                </button>
+                <p className="text-xs text-muted-foreground">
+                  {parsedData.length} rows • {headers.length} columns
+                </p>
               </div>
             </Card>
 
@@ -304,6 +509,24 @@ export default function ProductFileManager() {
             </Card>
           </>
         )}
+
+        {/* Session Manager Dialog */}
+        <Dialog open={showSessionManager} onOpenChange={setShowSessionManager}>
+          <DialogContent className="max-w-4xl max-h-[80vh]">
+            <DialogHeader>
+              <DialogTitle>Manage Sessions</DialogTitle>
+              <DialogDescription>
+                Load, rename, or delete your saved work sessions
+              </DialogDescription>
+            </DialogHeader>
+            
+            <SessionManager
+              onLoad={handleLoadSession}
+              onClose={() => setShowSessionManager(false)}
+              currentSessionId={currentSessionId}
+            />
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
