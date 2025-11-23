@@ -1,7 +1,7 @@
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Package, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Package, ArrowUpDown, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
 
 interface ProductTableProps {
   data: Record<string, any>[];
@@ -11,6 +11,7 @@ interface ProductTableProps {
   selectedRows: Set<number>;
   onSelectRow: (rowIndex: number) => void;
   onSelectAll: (checked: boolean) => void;
+  onDeleteRow: (rowIndex: number) => void;
   sortColumn: string | null;
   sortDirection: 'asc' | 'desc';
   onSort: (column: string) => void;
@@ -26,6 +27,7 @@ export function ProductTable({
   selectedRows,
   onSelectRow,
   onSelectAll,
+  onDeleteRow,
   sortColumn,
   sortDirection,
   onSort,
@@ -45,6 +47,8 @@ export function ProductTable({
         <Table>
           <TableHeader className="sticky top-0 bg-muted/50 backdrop-blur-sm z-10">
             <TableRow>
+              <TableHead className="w-12">Delete</TableHead>
+              
               <TableHead className="w-12">
                 <Checkbox
                   checked={allSelected}
@@ -88,7 +92,7 @@ export function ProductTable({
           <TableBody>
             {data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={headers.length + (imageColumn ? 2 : 1)} className="text-center py-12">
+                <TableCell colSpan={headers.length + (imageColumn ? 3 : 2)} className="text-center py-12">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <Package className="h-8 w-8 opacity-50" />
                     <p>No products found</p>
@@ -108,6 +112,16 @@ export function ProductTable({
                     } transition-colors`}
                   >
                     <TableCell>
+                      <button
+                        onClick={() => onDeleteRow(globalRowIndex)}
+                        className="p-1 hover:text-destructive transition-colors"
+                        aria-label={`Delete row ${globalRowIndex + 1}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </TableCell>
+                    
+                    <TableCell>
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={() => onSelectRow(globalRowIndex)}
@@ -121,7 +135,7 @@ export function ProductTable({
                           <img
                             src={row[imageColumn]}
                             alt={titleColumnIndex >= 0 ? row[headers[titleColumnIndex]] : 'Product'}
-                            className="h-[60px] w-[60px] object-cover rounded border border-border"
+                            className="h-[60px] w-[60px] object-contain rounded border border-border bg-muted"
                             onError={(e) => {
                               e.currentTarget.src = '';
                               e.currentTarget.style.display = 'none';

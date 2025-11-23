@@ -1,6 +1,7 @@
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Package } from 'lucide-react';
 
 interface ColumnSelectorProps {
   headers: string[];
@@ -8,6 +9,7 @@ interface ColumnSelectorProps {
   titleColumnIndex: number;
   onImageColumnChange: (index: number) => void;
   onTitleColumnChange: (index: number) => void;
+  parsedData: Record<string, any>[];
 }
 
 export function ColumnSelector({
@@ -16,6 +18,7 @@ export function ColumnSelector({
   titleColumnIndex,
   onImageColumnChange,
   onTitleColumnChange,
+  parsedData,
 }: ColumnSelectorProps) {
   return (
     <Card className="glass-container p-4">
@@ -43,6 +46,34 @@ export function ColumnSelector({
           <p className="text-xs text-muted-foreground">
             Select the column containing product image URLs
           </p>
+          
+          {imageColumnIndex >= 0 && (
+            <div className="mt-3 space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Preview:</p>
+              <div className="flex gap-2 flex-wrap">
+                {parsedData
+                  .slice(0, 5)
+                  .map((row, idx) => {
+                    const imageUrl = row[headers[imageColumnIndex]];
+                    return imageUrl ? (
+                      <img
+                        key={idx}
+                        src={imageUrl}
+                        alt={`Preview ${idx + 1}`}
+                        className="h-12 w-12 object-contain rounded border border-border bg-muted"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <div key={idx} className="h-12 w-12 rounded border border-border bg-muted flex items-center justify-center">
+                        <Package className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">
