@@ -6228,17 +6228,39 @@ export const POTracker = () => {
                                  </TableCell>
 
                                  {/* In-Stock Qty Cell */}
-                                 <TableCell className="min-w-[120px] border-r border-border/50 p-3">
-                                   {(() => {
-                                      const inventoryMatch = findInventoryMatch(
-                                        order.asin,
-                                        order.sunsky_sku?.sku_code,
-                                        order.sku_code,
-                                        order.model_number,
-                                        order.sunsky_sku
-                                      );
-                                      
-                                       if (inventoryMatch && inventoryMatch.status === 'in-stock') {
+                <TableCell className="min-w-[120px] border-r border-border/50 p-3">
+                  {(() => {
+                    // Check if fully fulfilled from stock
+                    const isFulfilledFromStock = order.notes?.includes('Fulfilled from stock:');
+                    const fulfilledMatch = order.notes?.match(/Fulfilled from stock:\s*(\d+)/);
+                    const fulfilledQty = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
+                    const isFullyFulfilled = isFulfilledFromStock && fulfilledQty >= order.quantity;
+                    
+                    // Check if fully printed
+                    const isFullyPrinted = (order.printed_quantity || 0) >= order.quantity;
+                    
+                    // If fully fulfilled OR fully printed → Show "Closed"
+                    if (isFullyFulfilled || isFullyPrinted) {
+                      return (
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-muted rounded-full flex-shrink-0"></div>
+                          <Badge variant="outline" className="text-xs px-2 py-1 font-medium bg-muted/50 text-muted-foreground border-border">
+                            <XCircle className="w-3 h-3 mr-1" />
+                            Closed
+                          </Badge>
+                        </div>
+                      );
+                    }
+                    
+                    const inventoryMatch = findInventoryMatch(
+                      order.asin,
+                      order.sunsky_sku?.sku_code,
+                      order.sku_code,
+                      order.model_number,
+                      order.sunsky_sku
+                    );
+
+                    if (inventoryMatch && inventoryMatch.status === 'in-stock') {
                                          return (
                                            <div className="flex flex-col gap-2">
                                              {/* Clickable Quantity badge with fulfill from stock */}
