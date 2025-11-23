@@ -118,6 +118,26 @@ export default function ProductFileManager() {
     setSelectedRows(new Set());
   };
 
+  const handleDeleteRow = (rowIndex: number) => {
+    const newData = parsedData.filter((_, index) => index !== rowIndex);
+    setParsedData(newData);
+    
+    const newSelected = new Set<number>();
+    selectedRows.forEach(selectedIndex => {
+      if (selectedIndex < rowIndex) {
+        newSelected.add(selectedIndex);
+      } else if (selectedIndex > rowIndex) {
+        newSelected.add(selectedIndex - 1);
+      }
+    });
+    setSelectedRows(newSelected);
+    
+    const newTotalPages = Math.ceil(newData.length / itemsPerPage);
+    if (currentPage > newTotalPages && newTotalPages > 0) {
+      setCurrentPage(newTotalPages);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-surface">
       <HuhaHeader01
@@ -164,6 +184,7 @@ export default function ProductFileManager() {
               titleColumnIndex={titleColumnIndex}
               onImageColumnChange={setImageColumnIndex}
               onTitleColumnChange={setTitleColumnIndex}
+              parsedData={parsedData}
             />
 
             {/* Search and Controls */}
@@ -198,6 +219,7 @@ export default function ProductFileManager() {
               selectedRows={selectedRows}
               onSelectRow={handleSelectRow}
               onSelectAll={handleSelectAll}
+              onDeleteRow={handleDeleteRow}
               sortColumn={sortColumn}
               sortDirection={sortDirection}
               onSort={handleSort}
