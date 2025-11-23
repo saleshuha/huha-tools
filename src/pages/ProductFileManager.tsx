@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { HuhaHeader01 } from '@/components/ui/huha-header-01';
 import { FileUploadZone } from '@/components/product-file-manager/FileUploadZone';
 import { ColumnSelector } from '@/components/product-file-manager/ColumnSelector';
+import { ColumnVisibilitySelector } from '@/components/product-file-manager/ColumnVisibilitySelector';
 import { ProductSearch } from '@/components/product-file-manager/ProductSearch';
 import { ProductTable } from '@/components/product-file-manager/ProductTable';
 import { SelectionControls } from '@/components/product-file-manager/SelectionControls';
@@ -21,6 +22,12 @@ export default function ProductFileManager() {
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(new Set());
+
+  // Create filtered headers based on visibility
+  const visibleHeaders = useMemo(() => {
+    return headers.filter((header) => visibleColumns.has(header));
+  }, [headers, visibleColumns]);
 
   // Filter data based on search term
   const filteredData = useMemo(() => {
@@ -75,6 +82,9 @@ export default function ProductFileManager() {
     
     setImageColumnIndex(imageIndex);
     setTitleColumnIndex(titleIndex);
+    
+    // Initialize all columns as visible by default
+    setVisibleColumns(new Set(detectedHeaders));
   };
 
   const handleSort = (column: string) => {
@@ -187,6 +197,13 @@ export default function ProductFileManager() {
               parsedData={parsedData}
             />
 
+            {/* Column Visibility Selector */}
+            <ColumnVisibilitySelector
+              headers={headers}
+              visibleColumns={visibleColumns}
+              onVisibleColumnsChange={setVisibleColumns}
+            />
+
             {/* Search and Controls */}
             <div className="flex items-center gap-4 flex-wrap">
               <div className="flex-1">
@@ -213,7 +230,7 @@ export default function ProductFileManager() {
             {/* Product Table */}
             <ProductTable
               data={paginatedData}
-              headers={headers}
+              headers={visibleHeaders}
               imageColumnIndex={imageColumnIndex}
               titleColumnIndex={titleColumnIndex}
               selectedRows={selectedRows}
