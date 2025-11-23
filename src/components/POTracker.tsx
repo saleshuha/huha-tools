@@ -101,6 +101,7 @@ export const POTracker = () => {
   const [shipToFilter, setShipToFilter] = useState<string | 'all'>('all');
   const [printedFilter, setPrintedFilter] = useState<string[]>([]);
   const [sourceFilter, setSourceFilter] = useState<'all' | 'sunsky-matched' | 'not-matched'>('all');
+  const [fulfillmentFilter, setFulfillmentFilter] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const [viewMode, setViewMode] = useState<'grouped' | 'detailed'>('grouped');
@@ -1998,23 +1999,36 @@ export const POTracker = () => {
         } else if (sourceFilter === 'not-matched') {
           return !hasSunskyMatch;
         }
+      });
+      console.log('🔍 FILTERING DEBUG: After source filter:', filtered.length, 'orders');
+    }
+
+    // Apply fulfillment status filter (NEW)
+    if (fulfillmentFilter.length > 0) {
+      filtered = filtered.filter(order => {
+        const isFulfilledFromStock = order.notes?.includes('Fulfilled from stock:');
         
-        return true;
+        if (!isFulfilledFromStock) {
+          return false; // Not fulfilled from stock at all
+        }
+        
+        // Extract fulfilled quantity from notes
+        const fulfilledMatch = order.notes?.match(/Fulfilled from stock:\s*(\d+)/);
+        const fulfilledQty = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
+        const totalQty = order.quantity || 0;
+        
+        return fulfillmentFilter.some(status => {
+          if (status === 'fully-fulfilled') {
+            // Fully fulfilled from stock: fulfilled quantity >= total quantity
+            return fulfilledQty >= totalQty;
+          } else if (status === 'partial-fulfilled') {
+            // Partially fulfilled from stock: 0 < fulfilled quantity < total quantity
+            return fulfilledQty > 0 && fulfilledQty < totalQty;
+          }
+          return false;
+        });
       });
-      
-      console.log('🔍 SOURCE FILTER DEBUG:', {
-        filter: sourceFilter,
-        beforeFilter: poOrders.length,
-        afterFilter: filtered.length,
-        matchedItems: filtered.filter(o => o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id)).length,
-        notMatchedItems: filtered.filter(o => !o.sunsky_sku || (!o.sunsky_sku.sku_code && !o.sunsky_sku.id)).length,
-        sampleMatches: filtered.slice(0, 3).map(o => ({
-          sku_code: o.sku_code,
-          hasSunsky: !!o.sunsky_sku,
-          sunskySkuCode: o.sunsky_sku?.sku_code,
-          sunskyId: o.sunsky_sku?.id
-        }))
-      });
+      console.log('🔍 FILTERING DEBUG: After fulfillment filter:', filtered.length, 'orders');
     }
 
     // Apply sorting (only if table reordering is not prevented)
@@ -2090,7 +2104,7 @@ export const POTracker = () => {
       console.warn('⚠️ SLOW FILTER:', `${filterDuration.toFixed(2)}ms - Consider further optimization`);
     }
     return filtered;
-  }, [poOrders, debouncedSearchQuery, debouncedLabelSearch, searchType, statusFilter, shipToFilter, printedFilter, sourceFilter, sortField, sortDirection, activeTab, viewMode, selectedPOsForLabels, labelEligibleOrders, preventTableReorder, selectedCountry, inventoryMaps, findInventoryMatch, searchTags]);
+  }, [poOrders, debouncedSearchQuery, debouncedLabelSearch, searchType, statusFilter, shipToFilter, printedFilter, sourceFilter, fulfillmentFilter, sortField, sortDirection, activeTab, viewMode, selectedPOsForLabels, labelEligibleOrders, preventTableReorder, selectedCountry, inventoryMaps, findInventoryMatch, searchTags]);
 
   // Helper function to get orders matching current print status filter
   const getOrdersByPrintStatus = useCallback(() => {
@@ -5654,6 +5668,72 @@ export const POTracker = () => {
                           </Button>
                         )}
                       </div>
+
+                      {/* Vertical Divider */}
+                      <div className="h-8 w-px bg-border" />
+
+                      {/* Fulfillment Status Filter */}
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium text-muted-foreground">Fulfillment:</span>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-[200px] border-2 border-border focus:border-primary justify-between">
+                              <span className="text-sm">{fulfillmentFilter.length > 0 ? `${fulfillmentFilter.length} selected` : 'All Items'}</span>
+                              <ChevronDown className="h-4 w-4 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-56 p-3 z-50 bg-background" align="start">
+                            <div className="space-y-3">
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <Checkbox
+                                    id="fulfill-fully"
+                                    checked={fulfillmentFilter.includes('fully-fulfilled')}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setFulfillmentFilter([...fulfillmentFilter, 'fully-fulfilled']);
+                                      } else {
+                                        setFulfillmentFilter(fulfillmentFilter.filter(f => f !== 'fully-fulfilled'));
+                                      }
+                                    }}
+                                  />
+                                  <Label htmlFor="fulfill-fully" className="text-sm cursor-pointer">
+                                    ✓ Fully Fulfilled from Stock
+                                  </Label>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Checkbox
+                                    id="fulfill-partial"
+                                    checked={fulfillmentFilter.includes('partial-fulfilled')}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setFulfillmentFilter([...fulfillmentFilter, 'partial-fulfilled']);
+                                      } else {
+                                        setFulfillmentFilter(fulfillmentFilter.filter(f => f !== 'partial-fulfilled'));
+                                      }
+                                    }}
+                                  />
+                                  <Label htmlFor="fulfill-partial" className="text-sm cursor-pointer">
+                                    ⚠ Partially Fulfilled from Stock
+                                  </Label>
+                                </div>
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                        {fulfillmentFilter.length > 0 && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => setFulfillmentFilter([])} 
+                            className="h-8 px-2 text-xs hover:bg-destructive/10"
+                          >
+                            <X className="h-3 w-3 mr-1" />
+                            Clear
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                   
@@ -5804,6 +5884,31 @@ export const POTracker = () => {
           }
           
           return true;
+        }).filter(order => {
+          // Apply fulfillment status filter
+          if (fulfillmentFilter.length === 0) return true;
+          
+          const isFulfilledFromStock = order.notes?.includes('Fulfilled from stock:');
+          
+          if (!isFulfilledFromStock) {
+            return false; // Not fulfilled from stock at all
+          }
+          
+          // Extract fulfilled quantity from notes
+          const fulfilledMatch = order.notes?.match(/Fulfilled from stock:\s*(\d+)/);
+          const fulfilledQty = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
+          const totalQty = order.quantity || 0;
+          
+          return fulfillmentFilter.some(status => {
+            if (status === 'fully-fulfilled') {
+              // Fully fulfilled from stock: fulfilled quantity >= total quantity
+              return fulfilledQty >= totalQty;
+            } else if (status === 'partial-fulfilled') {
+              // Partially fulfilled from stock: 0 < fulfilled quantity < total quantity
+              return fulfilledQty > 0 && fulfilledQty < totalQty;
+            }
+            return false;
+          });
         });
 
                       // NEW: Consolidate orders by ASIN when multiple POs are selected
