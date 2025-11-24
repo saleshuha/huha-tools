@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Card } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 import { Upload, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { parseFileSimply } from '@/components/SimpleFileParser';
 import { useToast } from '@/hooks/use-toast';
@@ -11,6 +12,12 @@ interface FileUploadZoneProps {
 
 export function FileUploadZone({ onFileUpload }: FileUploadZoneProps) {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({
+    current: 0,
+    total: 0,
+    currentFileName: '',
+    percentage: 0
+  });
   const { toast } = useToast();
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
@@ -18,9 +25,19 @@ export function FileUploadZone({ onFileUpload }: FileUploadZoneProps) {
 
     setIsProcessing(true);
     const maxSize = 50 * 1024 * 1024; // 50MB per file
+    const totalFiles = acceptedFiles.length;
 
     try {
-      for (const file of acceptedFiles) {
+      for (let i = 0; i < acceptedFiles.length; i++) {
+        const file = acceptedFiles[i];
+        
+        // Update progress
+        setUploadProgress({
+          current: i + 1,
+          total: totalFiles,
+          currentFileName: file.name,
+          percentage: Math.round(((i + 1) / totalFiles) * 100)
+        });
         // Check file size
         if (file.size > maxSize) {
           toast({
@@ -71,7 +88,7 @@ export function FileUploadZone({ onFileUpload }: FileUploadZoneProps) {
 
         toast({
           title: 'File uploaded successfully',
-          description: `${parsedData.length} rows loaded from ${file.name}`,
+          description: `${parsedData.length} rows loaded from ${file.name} (${i + 1}/${totalFiles})`,
         });
       }
     } catch (error) {
@@ -83,6 +100,7 @@ export function FileUploadZone({ onFileUpload }: FileUploadZoneProps) {
       });
     } finally {
       setIsProcessing(false);
+      setUploadProgress({ current: 0, total: 0, currentFileName: '', percentage: 0 });
     }
   }, [onFileUpload, toast]);
 
@@ -113,10 +131,19 @@ export function FileUploadZone({ onFileUpload }: FileUploadZoneProps) {
           {isProcessing ? (
             <>
               <Loader2 className="h-12 w-12 text-primary animate-spin" />
-              <p className="text-lg font-medium text-foreground">Processing file...</p>
-              <p className="text-sm text-muted-foreground">
-                Please wait while we parse your data
+              <p className="text-lg font-medium text-foreground">
+                Processing {uploadProgress.currentFileName}
               </p>
+              <p className="text-sm text-muted-foreground">
+                File {uploadProgress.current} of {uploadProgress.total}
+              </p>
+              
+              <div className="w-full max-w-md space-y-2">
+                <Progress value={uploadProgress.percentage} className="h-2" />
+                <p className="text-xs text-center text-muted-foreground">
+                  {uploadProgress.percentage}% Complete
+                </p>
+              </div>
             </>
           ) : (
             <>
