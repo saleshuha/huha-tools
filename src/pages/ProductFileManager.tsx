@@ -28,7 +28,7 @@ export default function ProductFileManager() {
   const [headers, setHeaders] = useState<string[]>([]);
   const [imageColumnIndex, setImageColumnIndex] = useState<number>(-1);
   const [titleColumnIndex, setTitleColumnIndex] = useState<number>(-1);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerms, setSearchTerms] = useState<string[]>([]);
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
@@ -47,16 +47,16 @@ export default function ProductFileManager() {
     return headers.filter((header) => visibleColumns.has(header));
   }, [headers, visibleColumns]);
 
-  // Filter data based on search term
+  // Filter data based on search terms (OR logic)
   const filteredData = useMemo(() => {
-    if (!searchTerm || titleColumnIndex === -1) return parsedData;
+    if (searchTerms.length === 0 || titleColumnIndex === -1) return parsedData;
     
     const titleColumn = headers[titleColumnIndex];
     return parsedData.filter((row) => {
       const titleValue = String(row[titleColumn] || '').toLowerCase();
-      return titleValue.includes(searchTerm.toLowerCase());
+      return searchTerms.some(term => titleValue.includes(term.toLowerCase()));
     });
-  }, [parsedData, searchTerm, titleColumnIndex, headers]);
+  }, [parsedData, searchTerms, titleColumnIndex, headers]);
 
   // Sort filtered data
   const sortedData = useMemo(() => {
@@ -131,7 +131,7 @@ export default function ProductFileManager() {
       headers,
       imageColumnIndex,
       titleColumnIndex,
-      searchTerm,
+      searchTerms,
       selectedRows: Array.from(selectedRows),
       currentPage,
       itemsPerPage,
@@ -175,7 +175,7 @@ export default function ProductFileManager() {
       setHeaders(session.headers);
       setImageColumnIndex(session.imageColumnIndex);
       setTitleColumnIndex(session.titleColumnIndex);
-      setSearchTerm(session.searchTerm);
+      setSearchTerms(session.searchTerms || []);
       setSelectedRows(new Set(session.selectedRows));
       setCurrentPage(session.currentPage);
       setItemsPerPage(session.itemsPerPage);
@@ -246,6 +246,22 @@ export default function ProductFileManager() {
     setSelectedRows(new Set());
   };
 
+  const handleSelectAllFiltered = () => {
+    const allFilteredIndices = new Set<number>();
+    sortedData.forEach((item) => {
+      const originalIndex = parsedData.indexOf(item);
+      if (originalIndex !== -1) {
+        allFilteredIndices.add(originalIndex);
+      }
+    });
+    setSelectedRows(allFilteredIndices);
+    
+    toast({
+      title: "Success",
+      description: `Selected ${allFilteredIndices.size} products from search results`,
+    });
+  };
+
   const handleDeleteRow = (rowIndex: number) => {
     const newData = parsedData.filter((_, index) => index !== rowIndex);
     setParsedData(newData);
@@ -278,7 +294,7 @@ export default function ProductFileManager() {
     if (uploadedFile && currentSessionId) {
       setHasUnsavedChanges(true);
     }
-  }, [parsedData.length, selectedRows.size, searchTerm, visibleColumns.size, imageColumnIndex, titleColumnIndex, sortColumn, sortDirection]);
+  }, [parsedData.length, selectedRows.size, searchTerms.length, visibleColumns.size, imageColumnIndex, titleColumnIndex, sortColumn, sortDirection]);
 
   // Auto-save every 30 seconds if there are unsaved changes
   useEffect(() => {
@@ -369,7 +385,7 @@ export default function ProductFileManager() {
                       setParsedData([]);
                       setHeaders([]);
                       setSelectedRows(new Set());
-                      setSearchTerm('');
+                      setSearchTerms([]);
                       setCurrentSessionId(null);
                       setSessionName('');
                       setHasUnsavedChanges(false);
@@ -418,8 +434,8 @@ export default function ProductFileManager() {
             <div className="flex items-center gap-4 flex-wrap">
               <div className="flex-1">
                 <ProductSearch
-                  searchTerm={searchTerm}
-                  onSearchChange={setSearchTerm}
+                  searchTerms={searchTerms}
+                  onSearchTermsChange={setSearchTerms}
                   resultsCount={sortedData.length}
                   totalCount={parsedData.length}
                 />
@@ -428,6 +444,8 @@ export default function ProductFileManager() {
                 selectedCount={selectedRows.size}
                 totalCount={sortedData.length}
                 onClearSelection={handleClearSelection}
+                onSelectAllFiltered={handleSelectAllFiltered}
+                hasActiveSearch={searchTerms.length > 0}
               />
               <ExportControls
                 parsedData={parsedData}
