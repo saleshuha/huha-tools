@@ -8,6 +8,7 @@ import { ProductTable } from '@/components/product-file-manager/ProductTable';
 import { SelectionControls } from '@/components/product-file-manager/SelectionControls';
 import { ExportControls } from '@/components/product-file-manager/ExportControls';
 import { SessionManager } from '@/components/product-file-manager/SessionManager';
+import { UploadedFilesList } from '@/components/product-file-manager/UploadedFilesList';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,8 +23,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+interface FileInfo {
+  name: string;
+  size: number;
+  type: string;
+  rowCount: number;
+}
+
 export default function ProductFileManager() {
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<FileInfo[]>([]);
   const [parsedData, setParsedData] = useState<Record<string, any>[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
   const [imageColumnIndex, setImageColumnIndex] = useState<number>(-1);
@@ -84,46 +92,94 @@ export default function ProductFileManager() {
   const totalPages = Math.ceil(sortedData.length / itemsPerPage);
 
   const handleFileUpload = (file: File, data: Record<string, any>[], detectedHeaders: string[]) => {
-    if (hasUnsavedChanges) {
-      const confirmed = window.confirm('You have unsaved changes. Continue without saving?');
-      if (!confirmed) return;
+    // Add _source_file to each row
+    const dataWithSource = data.map(row => ({ ...row, _source_file: file.name }));
+    
+    // Merge with existing data
+    const newParsedData = [...parsedData, ...dataWithSource];
+    setParsedData(newParsedData);
+    
+    // Merge headers (union)
+    const newHeaders = Array.from(new Set([...headers, ...detectedHeaders, '_source_file']));
+    setHeaders(newHeaders);
+    
+    // Add file info
+    const newFileInfo: FileInfo = {
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      rowCount: data.length
+    };
+    setUploadedFiles([...uploadedFiles, newFileInfo]);
+    
+    // Auto-detect image and title columns only on first file
+    if (uploadedFiles.length === 0) {
+      const imageIndex = detectedHeaders.findIndex(h => 
+        /image|img|picture|photo|url/i.test(h)
+      );
+      const titleIndex = detectedHeaders.findIndex(h => 
+        /title|name|product/i.test(h)
+      );
+      
+      setImageColumnIndex(imageIndex);
+      setTitleColumnIndex(titleIndex);
+      
+      // Initialize visible columns
+      setVisibleColumns(new Set(newHeaders));
+      
+      // Reset session state on first file
+      setCurrentSessionId(null);
+      setSessionName('');
+    } else {
+      // Update visible columns to include new headers
+      setVisibleColumns(new Set(newHeaders));
     }
+    
+    setCurrentPage(1);
+    setHasUnsavedChanges(true);
+  };
 
-    setUploadedFile(file);
-    setParsedData(data);
-    setHeaders(detectedHeaders);
+  const handleRemoveFile = (fileName: string) => {
+    // Remove file from list
+    const newFiles = uploadedFiles.filter(f => f.name !== fileName);
+    setUploadedFiles(newFiles);
+    
+    // Remove data from removed file
+    const newData = parsedData.filter(row => row._source_file !== fileName);
+    setParsedData(newData);
+    
+    // Recalculate headers from remaining data
+    if (newData.length > 0) {
+      const allKeys = new Set<string>();
+      newData.forEach(row => {
+        Object.keys(row).forEach(key => allKeys.add(key));
+      });
+      setHeaders(Array.from(allKeys));
+    } else {
+      setHeaders([]);
+      setImageColumnIndex(-1);
+      setTitleColumnIndex(-1);
+    }
+    
+    // Clear selections
     setSelectedRows(new Set());
     setCurrentPage(1);
+    setHasUnsavedChanges(true);
     
-    // Auto-detect image and title columns
-    const imageIndex = detectedHeaders.findIndex(h => 
-      /image|img|picture|photo|url/i.test(h)
-    );
-    const titleIndex = detectedHeaders.findIndex(h => 
-      /title|name|product/i.test(h)
-    );
-    
-    setImageColumnIndex(imageIndex);
-    setTitleColumnIndex(titleIndex);
-    
-    // Initialize all columns as visible by default
-    setVisibleColumns(new Set(detectedHeaders));
-    
-    // Reset session state
-    setCurrentSessionId(null);
-    setSessionName('');
-    setHasUnsavedChanges(false);
+    toast({
+      title: "File removed",
+      description: `Removed ${fileName} and its data`,
+    });
   };
 
   const handleSaveSession = async (name?: string) => {
     const sessionData: ProductSession = {
       id: currentSessionId || `session_${Date.now()}`,
-      name: name || sessionName || uploadedFile?.name || 'Untitled Session',
+      name: name || sessionName || (uploadedFiles.length > 0 ? uploadedFiles[0].name : 'Untitled Session'),
       createdAt: currentSessionId ? sessionName : new Date().toISOString(),
       lastModified: new Date().toISOString(),
-      fileName: uploadedFile?.name || '',
-      fileSize: uploadedFile?.size || 0,
-      fileType: uploadedFile?.type || '',
+      fileNames: uploadedFiles.map(f => f.name),
+      fileInfos: uploadedFiles,
       totalRows: parsedData.length,
       totalColumns: headers.length,
       selectedRowsCount: selectedRows.size,
@@ -183,9 +239,8 @@ export default function ProductFileManager() {
       setSortDirection(session.sortDirection);
       setVisibleColumns(new Set(session.visibleColumns));
       
-      // Create a pseudo-File object for display
-      const pseudoFile = new File([''], session.fileName, { type: session.fileType });
-      setUploadedFile(pseudoFile);
+      // Restore file infos
+      setUploadedFiles(session.fileInfos || []);
       
       setCurrentSessionId(session.id);
       setSessionName(session.name);
@@ -291,7 +346,7 @@ export default function ProductFileManager() {
       isInitialMount.current = false;
       return;
     }
-    if (uploadedFile && currentSessionId) {
+    if (uploadedFiles.length > 0 && currentSessionId) {
       setHasUnsavedChanges(true);
     }
   }, [parsedData.length, selectedRows.size, searchTerms.length, visibleColumns.size, imageColumnIndex, titleColumnIndex, sortColumn, sortDirection]);
@@ -305,7 +360,7 @@ export default function ProductFileManager() {
     }, 30000);
     
     return () => clearInterval(autoSaveInterval);
-  }, [currentSessionId, hasUnsavedChanges]);
+  }, [uploadedFiles.length, currentSessionId, hasUnsavedChanges]);
 
   // Warn before leaving with unsaved changes
   useEffect(() => {
@@ -329,7 +384,7 @@ export default function ProductFileManager() {
       />
 
       <div className="container mx-auto px-4 py-6 space-y-6">
-        {!uploadedFile ? (
+        {uploadedFiles.length === 0 ? (
           <>
             <Card className="glass-container p-4">
               <Button
@@ -351,7 +406,7 @@ export default function ProductFileManager() {
                 <div className="flex items-center gap-3 flex-1">
                   <Input
                     type="text"
-                    value={sessionName || uploadedFile.name}
+                    value={sessionName || (uploadedFiles.length > 0 ? uploadedFiles[0].name : '')}
                     onChange={(e) => setSessionName(e.target.value)}
                     placeholder="Session name..."
                     className="max-w-xs"
@@ -381,7 +436,7 @@ export default function ProductFileManager() {
                         const confirmed = window.confirm('You have unsaved changes. Continue without saving?');
                         if (!confirmed) return;
                       }
-                      setUploadedFile(null);
+                      setUploadedFiles([]);
                       setParsedData([]);
                       setHeaders([]);
                       setSelectedRows(new Set());
@@ -398,18 +453,24 @@ export default function ProductFileManager() {
               </div>
             </Card>
 
-            {/* File Info */}
+            {/* Uploaded Files List */}
+            <UploadedFilesList
+              files={uploadedFiles}
+              onRemoveFile={handleRemoveFile}
+            />
+
+            {/* File Upload Zone for additional files */}
+            <FileUploadZone onFileUpload={handleFileUpload} />
+
+            {/* File Info Summary */}
             <Card className="glass-container p-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Package className="h-4 w-4 text-muted-foreground" />
                   <p className="text-sm font-medium text-foreground">
-                    {uploadedFile.name}
+                    {uploadedFiles.length} file{uploadedFiles.length !== 1 ? 's' : ''} • {parsedData.length} total rows • {headers.length} columns
                   </p>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {parsedData.length} rows • {headers.length} columns
-                </p>
               </div>
             </Card>
 
@@ -451,7 +512,7 @@ export default function ProductFileManager() {
                 parsedData={parsedData}
                 headers={headers}
                 selectedRows={selectedRows}
-                fileName={uploadedFile.name}
+                fileName={uploadedFiles.length > 0 ? uploadedFiles[0].name : 'export'}
               />
             </div>
 

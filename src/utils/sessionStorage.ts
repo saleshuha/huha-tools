@@ -3,9 +3,8 @@ export interface ProductSession {
   name: string;
   createdAt: string;
   lastModified: string;
-  fileName: string;
-  fileSize: number;
-  fileType: string;
+  fileNames: string[];
+  fileInfos: Array<{ name: string; size: number; type: string; rowCount: number }>;
   totalRows: number;
   totalColumns: number;
   selectedRowsCount: number;
@@ -27,7 +26,7 @@ export interface SessionMetadata {
   name: string;
   createdAt: string;
   lastModified: string;
-  fileName: string;
+  fileNames: string[];
   totalRows: number;
   totalColumns: number;
   selectedRowsCount: number;
@@ -95,7 +94,7 @@ export async function getAllSessions(): Promise<SessionMetadata[]> {
         name: session.name,
         createdAt: session.createdAt,
         lastModified: session.lastModified,
-        fileName: session.fileName,
+        fileNames: session.fileNames || [],
         totalRows: session.totalRows,
         totalColumns: session.totalColumns,
         selectedRowsCount: session.selectedRowsCount,
