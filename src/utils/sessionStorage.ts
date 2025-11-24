@@ -13,7 +13,7 @@ export interface ProductSession {
   headers: string[];
   imageColumnIndex: number;
   titleColumnIndex: number;
-  searchTerm: string;
+  searchTerms: string[];
   selectedRows: number[];
   currentPage: number;
   itemsPerPage: number;
