@@ -95,45 +95,42 @@ export default function ProductFileManager() {
     // Add _source_file to each row
     const dataWithSource = data.map(row => ({ ...row, _source_file: file.name }));
     
-    // Merge with existing data
-    const newParsedData = [...parsedData, ...dataWithSource];
-    setParsedData(newParsedData);
+    // Use functional updates to prevent race conditions
+    setParsedData(prevData => [...prevData, ...dataWithSource]);
     
-    // Merge headers (union)
-    const newHeaders = Array.from(new Set([...headers, ...detectedHeaders, '_source_file']));
-    setHeaders(newHeaders);
-    
-    // Add file info
-    const newFileInfo: FileInfo = {
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      rowCount: data.length
-    };
-    setUploadedFiles([...uploadedFiles, newFileInfo]);
-    
-    // Auto-detect image and title columns only on first file
-    if (uploadedFiles.length === 0) {
-      const imageIndex = detectedHeaders.findIndex(h => 
-        /image|img|picture|photo|url/i.test(h)
-      );
-      const titleIndex = detectedHeaders.findIndex(h => 
-        /title|name|product/i.test(h)
-      );
-      
-      setImageColumnIndex(imageIndex);
-      setTitleColumnIndex(titleIndex);
-      
-      // Initialize visible columns
+    setHeaders(prevHeaders => {
+      const newHeaders = Array.from(new Set([...prevHeaders, ...detectedHeaders, '_source_file']));
       setVisibleColumns(new Set(newHeaders));
+      return newHeaders;
+    });
+    
+    setUploadedFiles(prevFiles => {
+      const newFileInfo: FileInfo = {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        rowCount: data.length
+      };
       
-      // Reset session state on first file
-      setCurrentSessionId(null);
-      setSessionName('');
-    } else {
-      // Update visible columns to include new headers
-      setVisibleColumns(new Set(newHeaders));
-    }
+      const updatedFiles = [...prevFiles, newFileInfo];
+      
+      // Auto-detect image and title columns only on first file
+      if (prevFiles.length === 0) {
+        const imageIndex = detectedHeaders.findIndex(h => 
+          /image|img|picture|photo|url/i.test(h)
+        );
+        const titleIndex = detectedHeaders.findIndex(h => 
+          /title|name|product/i.test(h)
+        );
+        
+        setImageColumnIndex(imageIndex);
+        setTitleColumnIndex(titleIndex);
+        setCurrentSessionId(null);
+        setSessionName('');
+      }
+      
+      return updatedFiles;
+    });
     
     setCurrentPage(1);
     setHasUnsavedChanges(true);
