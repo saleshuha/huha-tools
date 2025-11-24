@@ -16,64 +16,64 @@ export function FileUploadZone({ onFileUpload }: FileUploadZoneProps) {
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
 
-    const file = acceptedFiles[0];
-    const maxSize = 50 * 1024 * 1024; // 50MB
-
-    // Check file size
-    if (file.size > maxSize) {
-      toast({
-        title: 'File too large',
-        description: 'Please upload a file smaller than 50MB',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Check file type
-    const validExtensions = ['.csv', '.xlsx', '.xls'];
-    const fileExtension = file.name.toLowerCase().match(/\.[^.]+$/)?.[0];
-    
-    if (!fileExtension || !validExtensions.includes(fileExtension)) {
-      toast({
-        title: 'Invalid file format',
-        description: 'Please upload a CSV (.csv) or Excel (.xlsx, .xls) file',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     setIsProcessing(true);
+    const maxSize = 50 * 1024 * 1024; // 50MB per file
 
     try {
-      const parsedData = await parseFileSimply(file);
+      for (const file of acceptedFiles) {
+        // Check file size
+        if (file.size > maxSize) {
+          toast({
+            title: `File too large: ${file.name}`,
+            description: 'Please upload files smaller than 50MB',
+            variant: 'destructive',
+          });
+          continue;
+        }
 
-      if (!parsedData || parsedData.length === 0) {
+        // Check file type
+        const validExtensions = ['.csv', '.xlsx', '.xls'];
+        const fileExtension = file.name.toLowerCase().match(/\.[^.]+$/)?.[0];
+        
+        if (!fileExtension || !validExtensions.includes(fileExtension)) {
+          toast({
+            title: `Invalid file format: ${file.name}`,
+            description: 'Please upload CSV (.csv) or Excel (.xlsx, .xls) files',
+            variant: 'destructive',
+          });
+          continue;
+        }
+
+        const parsedData = await parseFileSimply(file);
+
+        if (!parsedData || parsedData.length === 0) {
+          toast({
+            title: `Empty file: ${file.name}`,
+            description: 'This file contains no data',
+            variant: 'destructive',
+          });
+          continue;
+        }
+
+        // Extract headers from first row
+        const headers = Object.keys(parsedData[0]);
+
+        if (headers.length === 0) {
+          toast({
+            title: `No columns found: ${file.name}`,
+            description: 'Unable to detect columns in this file',
+            variant: 'destructive',
+          });
+          continue;
+        }
+
+        onFileUpload(file, parsedData, headers);
+
         toast({
-          title: 'Empty file',
-          description: 'The uploaded file contains no data',
-          variant: 'destructive',
+          title: 'File uploaded successfully',
+          description: `${parsedData.length} rows loaded from ${file.name}`,
         });
-        return;
       }
-
-      // Extract headers from first row
-      const headers = Object.keys(parsedData[0]);
-
-      if (headers.length === 0) {
-        toast({
-          title: 'No columns found',
-          description: 'Unable to detect columns in the file',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      onFileUpload(file, parsedData, headers);
-
-      toast({
-        title: 'File uploaded successfully',
-        description: `${parsedData.length} rows loaded from ${file.name}`,
-      });
     } catch (error) {
       console.error('File parsing error:', error);
       toast({
@@ -93,7 +93,7 @@ export function FileUploadZone({ onFileUpload }: FileUploadZoneProps) {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
       'application/vnd.ms-excel': ['.xls'],
     },
-    maxFiles: 1,
+    multiple: true,
     disabled: isProcessing,
   });
 
@@ -130,10 +130,10 @@ export function FileUploadZone({ onFileUpload }: FileUploadZoneProps) {
               
               <div>
                 <p className="text-lg font-medium text-foreground mb-2">
-                  {isDragActive ? 'Drop your file here' : 'Upload Product File'}
+                  {isDragActive ? 'Drop your files here' : 'Upload Product Files'}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Drag and drop or click to browse
+                  Drag and drop multiple files or click to browse
                 </p>
               </div>
 

@@ -124,7 +124,7 @@ export function SessionManager({ onLoad, onClose, currentSessionId }: SessionMan
 
   const filteredSessions = sessions.filter(session =>
     session.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    session.fileName.toLowerCase().includes(searchTerm.toLowerCase())
+    session.fileNames.some(fn => fn.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const formatDate = (dateString: string) => {
@@ -234,7 +234,7 @@ export function SessionManager({ onLoad, onClose, currentSessionId }: SessionMan
                         <div className="flex items-center gap-1 mt-1">
                           <File className="h-3 w-3 text-muted-foreground" />
                           <p className="text-xs text-muted-foreground truncate">
-                            {session.fileName}
+                            {session.fileNames.length} file{session.fileNames.length !== 1 ? 's' : ''}: {session.fileNames.join(', ')}
                           </p>
                         </div>
                       </>
