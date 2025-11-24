@@ -71,6 +71,7 @@ import PurchaseLink from "./pages/PurchaseLink";
 import ReceiveStock from "./pages/ReceiveStock";
 import QuranApiDocs from "./pages/QuranApiDocs";
 import ProductFileManager from "./pages/ProductFileManager";
+import NoonFinancialStatements from "./pages/NoonFinancialStatements";
 
 import { useState as useReactState } from "react";
 import { useToast } from "@/components/ui/use-toast";
@@ -265,6 +266,7 @@ const App = () => {
                             <Route path="/excel-editor" element={<ExcelEditorPage />} />
                             <Route path="/noon-file-cleaner" element={<NoonFileCleaner />} />
                             <Route path="/product-file-manager" element={<ProductFileManager />} />
+                            <Route path="/noon-financial-statements" element={<NoonFinancialStatements />} />
                           </>
                         )}
 
