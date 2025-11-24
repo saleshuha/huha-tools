@@ -80,6 +80,11 @@ const toolsItems = [
     title: "Product File Manager",
     url: "/product-file-manager",
     icon: FileSpreadsheet
+  },
+  {
+    title: "Noon Statement Analyzer",
+    url: "/noon-financial-statements",
+    icon: BarChart3
   }
 ]
 
