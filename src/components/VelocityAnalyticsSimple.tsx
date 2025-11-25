@@ -530,8 +530,8 @@ export function VelocityAnalyticsSimple() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-bold">Velocity Analytics</h2>
-          <p className="text-muted-foreground">Items eligible for restock based on sales velocity</p>
+          <h2 className="text-2xl font-bold">Daily Orders Queue</h2>
+          <p className="text-muted-foreground">Manage daily sold items that need reordering</p>
         </div>
         <div className="flex gap-2">
           {selectedItems.size > 0 && (
