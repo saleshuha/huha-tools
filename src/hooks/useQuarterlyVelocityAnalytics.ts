@@ -78,6 +78,10 @@ export function useQuarterlyVelocityAnalytics() {
         console.error('Error loading all ordered items:', allOrderedItemsResult.error);
       }
 
+      // Debug logging
+      console.log('🔍 [VelocityAnalytics] Velocity items from RPC:', velocityResult.data?.length || 0);
+      console.log('🔍 [VelocityAnalytics] All ordered items from asin_inventory:', allOrderedItemsResult.data?.length || 0);
+
       // Create maps for quick lookup
       const overridesMap = new Map(
         ((overridesResult.data as any) || []).map((o: any) => [o.asin_id, o.recommended_quantity])
@@ -126,9 +130,15 @@ export function useQuarterlyVelocityAnalytics() {
       // Get IDs of items already in velocity analysis
       const velocityItemIds = new Set(itemsWithOverrides.map((item: any) => item.asin_id));
 
+      console.log('🔍 [VelocityAnalytics] Items in velocity analysis:', itemsWithOverrides.length);
+
       // Add ordered items that aren't in velocity analysis (directly ordered items)
       const additionalOrderedItems = ((allOrderedItemsResult.data || []) as any)
         .filter((orderedItem: any) => !velocityItemIds.has(orderedItem.id))
+        .filter((orderedItem: any) => {
+          const exportMode = exportModesMap.get(orderedItem.id) || 'global';
+          return exportMode === 'global';
+        })
         .map((orderedItem: any) => ({
           asin_id: orderedItem.id,
           asin: orderedItem.asin,
@@ -151,8 +161,13 @@ export function useQuarterlyVelocityAnalytics() {
           ordered_at: orderedItem.ordered_at
         }));
 
+      console.log('🔍 [VelocityAnalytics] Additional ordered items (not in velocity):', additionalOrderedItems.length);
+
       // Combine velocity items with additional ordered items
       const allItems = [...itemsWithOverrides, ...additionalOrderedItems];
+
+      console.log('🔍 [VelocityAnalytics] Final combined items:', allItems.length);
+      console.log('🔍 [VelocityAnalytics] Items with sunsky_order_number:', allItems.filter((item: any) => item.sunsky_order_number).length);
 
       setItems(allItems);
 
