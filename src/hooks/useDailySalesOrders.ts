@@ -171,6 +171,22 @@ export function useDailySalesOrders() {
 
       if (error) throw error;
 
+      // Also update asin_inventory to sync with Ordered tab
+      const { error: inventoryError } = await supabase
+        .from('asin_inventory')
+        .update({
+          sunsky_order_number: sunskyOrderNumber,
+          ordered_at: new Date().toISOString(),
+          ordered_quantity: item.recommended_quantity,
+          velocity_order_ref: `DAILY-${today}`
+        })
+        .eq('id', inventoryId);
+
+      if (inventoryError) {
+        console.error('Error updating asin_inventory:', inventoryError);
+        throw inventoryError;
+      }
+
       await loadTodaysSales();
       
       toast({
