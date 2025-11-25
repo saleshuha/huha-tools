@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useDailySalesOrders, type DailySoldItem } from "@/hooks/useDailySalesOrders";
+import { useCountry } from "@/contexts/CountryContext";
 import { DailyOrderWarningBanner } from "./DailyOrderWarningBanner";
 import { DailyOrderMetricCards } from "./DailyOrderMetricCards";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +27,7 @@ export function DailySalesOrderQueue() {
   } = useDailySalesOrders();
   const { getImageByAsin } = useProductImages();
   const { toast } = useToast();
+  const { selectedCountry } = useCountry();
 
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [sunskyDialogOpen, setSunskyDialogOpen] = useState(false);
@@ -199,10 +201,42 @@ export function DailySalesOrderQueue() {
         </CardHeader>
         <CardContent>
           {pendingItems.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
+            <div className="text-center py-12 text-muted-foreground space-y-4">
               <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No pending items for today</p>
-              <p className="text-sm mt-2">All sold items have been ordered or skipped</p>
+              <div>
+                <p className="text-base font-medium">No items found for today</p>
+                <p className="text-sm mt-2">
+                  {todaysSales.length === 0 
+                    ? "No sales recorded today with available stock"
+                    : "All sold items have been ordered or skipped"
+                  }
+                </p>
+              </div>
+              
+              <div className="bg-muted/50 rounded-lg p-4 max-w-md mx-auto text-left space-y-2">
+                <p className="text-xs font-semibold text-foreground/70">Items appear here when they meet ALL criteria:</p>
+                <ul className="text-xs space-y-1.5 ml-4">
+                  <li className="flex items-start gap-2">
+                    <span className="text-primary mt-0.5">•</span>
+                    <span>Sold today ({new Date().toLocaleDateString()})</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-primary mt-0.5">•</span>
+                    <span>Current stock {">"} 0 units</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-primary mt-0.5">•</span>
+                    <span>Eligible for restock (auto-reorder enabled)</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-primary mt-0.5">•</span>
+                    <span>Country: <Badge variant="outline" className="ml-1 font-mono text-xs">{selectedCountry.toUpperCase()}</Badge></span>
+                  </li>
+                </ul>
+                <p className="text-xs text-muted-foreground mt-3 pt-2 border-t border-border/50">
+                  💡 Try switching country filter or check if items have stock available
+                </p>
+              </div>
             </div>
           ) : (
             <div className="border rounded-lg overflow-hidden">
