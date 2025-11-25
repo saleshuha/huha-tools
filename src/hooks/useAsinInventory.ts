@@ -445,10 +445,23 @@ export function useAsinInventory() {
       const previousQuantity = currentItem.quantity;
       const changeAmount = newQuantity - previousQuantity;
 
-      // Update the inventory quantity (triggers will handle status automatically)
+      // Prepare update data
+      const updateData: any = { quantity: newQuantity };
+      
+      // Auto-set status based on quantity changes
+      if (previousQuantity === 0 && newQuantity > 0 && 
+          (currentItem.status === 'out-of-stock' || currentItem.status === 'no-stock')) {
+        updateData.status = 'in-stock';
+      }
+      
+      if (previousQuantity > 0 && newQuantity === 0) {
+        updateData.status = 'out-of-stock';
+      }
+
+      // Update the inventory quantity and status
       const { error: updateError } = await ((supabase as any)
         .from('asin_inventory')
-        .update({ quantity: newQuantity })
+        .update(updateData)
         .eq('id', id));
 
       if (updateError) throw updateError;
