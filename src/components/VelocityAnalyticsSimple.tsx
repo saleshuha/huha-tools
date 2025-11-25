@@ -17,6 +17,7 @@ import { VelocityItemCard } from "@/components/replenishment/VelocityItemCard";
 import { VelocityItemsTable } from "@/components/replenishment/VelocityItemsTable";
 import { ReplenishmentPagination } from "@/components/replenishment/ReplenishmentPagination";
 import { SunskyOrderDialog } from "@/components/SunskyOrderDialog";
+import { DailySalesOrderQueue } from "@/components/replenishment/DailySalesOrderQueue";
 import { supabase } from "@/integrations/supabase/client";
 
 export function VelocityAnalyticsSimple() {
@@ -36,7 +37,7 @@ export function VelocityAnalyticsSimple() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState<"ready" | "ordered">("ready");
+  const [activeTab, setActiveTab] = useState<"daily" | "ready" | "ordered">("daily");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const [sortBy, setSortBy] = useState<"velocity" | "stock" | "recommended">("recommended");
@@ -114,7 +115,7 @@ export function VelocityAnalyticsSimple() {
   
   // Reset to page 1 when tab or search changes (keep selections)
   const handleTabChange = (value: string) => {
-    setActiveTab(value as "ready" | "ordered");
+    setActiveTab(value as "daily" | "ready" | "ordered");
     setCurrentPage(1);
     // Don't reset selections when changing tabs
   };
@@ -586,7 +587,11 @@ export function VelocityAnalyticsSimple() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2 h-14 p-2 bg-gradient-subtle rounded-xl shadow-elegant">
+        <TabsList className="grid w-full max-w-2xl grid-cols-3 h-14 p-2 bg-gradient-subtle rounded-xl shadow-elegant">
+          <TabsTrigger value="daily" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10 flex items-center gap-2">
+            <Package className="w-4 h-4" />
+            Daily Orders
+          </TabsTrigger>
           <TabsTrigger value="ready" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10 flex items-center gap-2">
             <ShoppingCart className="w-4 h-4" />
             Ready to Order ({readyToOrderItems.length})
@@ -596,6 +601,10 @@ export function VelocityAnalyticsSimple() {
             Ordered ({orderedItems.length})
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="daily" className="mt-6 space-y-4">
+          <DailySalesOrderQueue />
+        </TabsContent>
 
         <TabsContent value="ready" className="mt-6 space-y-4">
           {/* Search and Filter Bar */}

@@ -477,6 +477,68 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_order_tracking: {
+        Row: {
+          asin: string
+          created_at: string | null
+          id: string
+          inventory_id: string
+          order_status: string
+          ordered_at: string | null
+          remaining_stock: number
+          sale_date: string
+          skip_reason: string | null
+          sku: string | null
+          sold_quantity: number
+          sunsky_order_number: string | null
+          title: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          asin: string
+          created_at?: string | null
+          id?: string
+          inventory_id: string
+          order_status?: string
+          ordered_at?: string | null
+          remaining_stock: number
+          sale_date: string
+          skip_reason?: string | null
+          sku?: string | null
+          sold_quantity: number
+          sunsky_order_number?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          asin?: string
+          created_at?: string | null
+          id?: string
+          inventory_id?: string
+          order_status?: string
+          ordered_at?: string | null
+          remaining_stock?: number
+          sale_date?: string
+          skip_reason?: string | null
+          sku?: string | null
+          sold_quantity?: number
+          sunsky_order_number?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_order_tracking_inventory_id_fkey"
+            columns: ["inventory_id"]
+            isOneToOne: false
+            referencedRelation: "asin_inventory"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exchange_rates: {
         Row: {
           from_currency: string
@@ -5454,6 +5516,22 @@ export type Database = {
           tracking_url: string
           updated_at: string
           user_id: string
+        }[]
+      }
+      get_daily_sold_items_needing_orders: {
+        Args: { country_filter?: string; target_date?: string }
+        Returns: {
+          asin: string
+          inventory_id: string
+          order_status: string
+          ordered_at: string
+          recommended_quantity: number
+          remaining_stock: number
+          sku: string
+          sold_today: number
+          sunsky_order_number: string
+          title: string
+          velocity_score: number
         }[]
       }
       get_exchange_rate: {
