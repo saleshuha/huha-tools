@@ -5518,39 +5518,19 @@ export type Database = {
           user_id: string
         }[]
       }
-      get_daily_sold_items_needing_orders:
-        | {
-            Args: { country_filter?: string; target_date?: string }
-            Returns: {
-              asin: string
-              inventory_id: string
-              order_status: string
-              ordered_at: string
-              recommended_quantity: number
-              remaining_stock: number
-              sku: string
-              sold_today: number
-              sunsky_order_number: string
-              title: string
-              velocity_score: number
-            }[]
-          }
-        | {
-            Args: { country_filter?: string; target_date?: string }
-            Returns: {
-              asin: string
-              inventory_id: string
-              order_status: string
-              ordered_at: string
-              recommended_quantity: number
-              remaining_stock: number
-              sku: string
-              sold_today: number
-              sunsky_order_number: string
-              title: string
-              velocity_score: number
-            }[]
-          }
+      get_daily_sold_items_needing_orders: {
+        Args: { country_filter?: string; target_date?: string }
+        Returns: {
+          asin: string
+          inventory_id: string
+          order_status: string
+          remaining_stock: number
+          sale_date: string
+          sku: string
+          sold_quantity: number
+          title: string
+        }[]
+      }
       get_exchange_rate: {
         Args: { from_currency: string; to_currency: string }
         Returns: number

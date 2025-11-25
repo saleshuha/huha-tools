@@ -133,7 +133,7 @@ const coreItems = [
     icon: TrendingUp
   },
   {
-    title: "Velocity Analytics",
+    title: "Daily Orders Queue",
     url: "/velocity-analytics",
     icon: BarChart3
   },
