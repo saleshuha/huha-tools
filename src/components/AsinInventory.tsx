@@ -476,8 +476,12 @@ export function AsinInventory() {
         return;
       }
     }
+    // Auto-set status based on quantity
+    const status = newItem.quantity === 0 ? 'out-of-stock' : newItem.status;
+    
     await addItem({
       ...newItem,
+      status,
       dateAdded: new Date().toISOString()
     });
     setIsAddDialogOpen(false);
@@ -514,7 +518,7 @@ export function AsinInventory() {
       const parts = line.split('\t');
       if (parts.length >= 1 && parts[0].trim()) { // Only ASIN is mandatory
         const quantity = parseInt(parts[4]) || 0; // Allow 0 quantity
-        const status = quantity === 0 ? 'no-stock' : (parts[3]?.trim() as AsinInventoryItem['status'] || 'in-stock');
+        const status = quantity === 0 ? 'out-of-stock' : (parts[3]?.trim() as AsinInventoryItem['status'] || 'in-stock');
         
         items.push({
           asin: parts[0].trim(), // Mandatory ASIN
@@ -1276,13 +1280,16 @@ export function AsinInventory() {
                           title: e.target.value
                         })} placeholder="Enter title (optional)" />
                          </div>
-                         <div>
-                           <Label htmlFor="quantity">Quantity</Label>
-                           <Input id="quantity" type="number" min="1" value={newItem.quantity} onChange={e => setNewItem({
-                          ...newItem,
-                          quantity: parseInt(e.target.value) || 1
-                        })} />
-                         </div>
+                          <div>
+                            <Label htmlFor="quantity">Quantity</Label>
+                            <Input id="quantity" type="number" min="0" value={newItem.quantity} onChange={e => {
+                              const value = parseInt(e.target.value);
+                              setNewItem({
+                                ...newItem,
+                                quantity: value >= 0 ? value : 0
+                              });
+                            }} />
+                          </div>
                         <div>
                           <Label htmlFor="status">Status</Label>
                           <Select value={newItem.status} onValueChange={(value: AsinInventoryItem['status']) => setNewItem({
