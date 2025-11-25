@@ -84,7 +84,7 @@ export function VelocityAnalyticsSimple() {
     );
     
     const ordered = searchFiltered.filter(item => 
-      item.manual_override === 0
+      item.sunsky_order_number && item.sunsky_order_number.trim() !== ''
     );
     
     // Get current tab items
@@ -363,7 +363,7 @@ export function VelocityAnalyticsSimple() {
       setSelectedItems(new Set());
       setSunskyDialogOpen(false);
       
-      // Reload analytics data
+      // Reload analytics data to refresh Ordered tab
       console.log('🔄 Reloading analytics data...');
       await loadAnalytics();
       console.log('✅ Analytics reload complete');
