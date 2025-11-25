@@ -42,7 +42,7 @@ export function useQuarterlyVelocityAnalytics() {
       setLoading(true);
       
       // Parallelize all data fetching for better performance (~50% faster)
-      const [velocityResult, overridesResult, exportModesResult, orderInfoResult] = await Promise.all([
+      const [velocityResult, overridesResult, exportModesResult, orderInfoResult, allOrderedItemsResult] = await Promise.all([
         supabase.rpc('get_quarterly_velocity_analysis', {
           country_filter: selectedCountry,
           lookback_years: lookbackYears
@@ -53,7 +53,13 @@ export function useQuarterlyVelocityAnalytics() {
           .select('item_id, export_mode')
           .eq('item_type', 'asin_inventory')),
         // Fetch order-related fields from asin_inventory
-        supabase.from('asin_inventory').select('id, velocity_order_ref, sunsky_order_number, ordered_quantity, ordered_at')
+        supabase.from('asin_inventory').select('id, velocity_order_ref, sunsky_order_number, ordered_quantity, ordered_at'),
+        // Fetch ALL ordered items directly (bypassing velocity filters)
+        supabase
+          .from('asin_inventory')
+          .select('id, asin, sku, title, serial_number, quantity, sunsky_order_number, ordered_quantity, ordered_at, velocity_order_ref, status')
+          .not('sunsky_order_number', 'is', null)
+          .eq('country', selectedCountry)
       ]);
 
       if (velocityResult.error) throw velocityResult.error;
@@ -67,6 +73,9 @@ export function useQuarterlyVelocityAnalytics() {
       }
       if (orderInfoResult.error) {
         console.error('Error loading order info:', orderInfoResult.error);
+      }
+      if (allOrderedItemsResult.error) {
+        console.error('Error loading all ordered items:', allOrderedItemsResult.error);
       }
 
       // Create maps for quick lookup
@@ -114,7 +123,38 @@ export function useQuarterlyVelocityAnalytics() {
         })
         .filter((item: any) => item.export_mode === 'global');
 
-      setItems(itemsWithOverrides);
+      // Get IDs of items already in velocity analysis
+      const velocityItemIds = new Set(itemsWithOverrides.map((item: any) => item.asin_id));
+
+      // Add ordered items that aren't in velocity analysis (directly ordered items)
+      const additionalOrderedItems = ((allOrderedItemsResult.data || []) as any)
+        .filter((orderedItem: any) => !velocityItemIds.has(orderedItem.id))
+        .map((orderedItem: any) => ({
+          asin_id: orderedItem.id,
+          asin: orderedItem.asin,
+          sku: orderedItem.sku || '',
+          title: orderedItem.title || '',
+          serial_number: orderedItem.serial_number || '',
+          current_quantity: orderedItem.quantity || 0,
+          total_added: 0,
+          total_sold: 0,
+          first_added_date: null,
+          quarterly_data: {},
+          recommended_quantity: 0,
+          velocity_score: 0,
+          manual_override: overridesMap.get(orderedItem.id),
+          export_mode: exportModesMap.get(orderedItem.id) || 'global',
+          status: orderedItem.status,
+          velocity_order_ref: orderedItem.velocity_order_ref,
+          sunsky_order_number: orderedItem.sunsky_order_number,
+          ordered_quantity: orderedItem.ordered_quantity,
+          ordered_at: orderedItem.ordered_at
+        }));
+
+      // Combine velocity items with additional ordered items
+      const allItems = [...itemsWithOverrides, ...additionalOrderedItems];
+
+      setItems(allItems);
 
     } catch (error: any) {
       console.error('Error loading quarterly velocity analytics:', error);
