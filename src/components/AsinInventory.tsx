@@ -426,7 +426,6 @@ export function AsinInventory() {
     serialNumber: string;
     sku: string;
     title: string;
-    status: AsinInventoryItem['status'];
     quantity: number;
     notes: string;
   }>({
@@ -434,7 +433,6 @@ export function AsinInventory() {
     serialNumber: '',
     sku: '',
     title: '',
-    status: 'in-stock',
     quantity: 1,
     notes: ''
   });
@@ -476,8 +474,8 @@ export function AsinInventory() {
         return;
       }
     }
-    // Auto-set status based on quantity
-    const status = newItem.quantity === 0 ? 'out-of-stock' : newItem.status;
+    // Auto-set status based on quantity only
+    const status = newItem.quantity === 0 ? 'out-of-stock' : 'in-stock';
     
     await addItem({
       ...newItem,
@@ -492,7 +490,6 @@ export function AsinInventory() {
       serialNumber: nextSerial,
       sku: '',
       title: '',
-      status: 'in-stock',
       quantity: 1,
       notes: ''
     });
@@ -1290,31 +1287,13 @@ export function AsinInventory() {
                               });
                             }} />
                           </div>
-                        <div>
-                          <Label htmlFor="status">Status</Label>
-                          <Select value={newItem.status} onValueChange={(value: AsinInventoryItem['status']) => setNewItem({
-                          ...newItem,
-                          status: value
-                        })}>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                             <SelectContent>
-                              <SelectItem value="in-stock">In Stock</SelectItem>
-                              <SelectItem value="no-stock">No Stock</SelectItem>
-                              <SelectItem value="sold">Sold</SelectItem>
-                              <SelectItem value="reserved">Reserved</SelectItem>
-                              <SelectItem value="damaged">Damaged</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label htmlFor="notes">Notes (Optional)</Label>
-                          <Textarea id="notes" value={newItem.notes} onChange={e => setNewItem({
+                         <div>
+                           <Label htmlFor="notes">Notes (Optional)</Label>
+                           <Textarea id="notes" value={newItem.notes} onChange={e => setNewItem({
                           ...newItem,
                           notes: e.target.value
                         })} placeholder="Add any notes..." rows={2} />
-                        </div>
+                         </div>
                       </div>
                       <DialogFooter>
                         <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
