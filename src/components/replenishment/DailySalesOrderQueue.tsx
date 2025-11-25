@@ -11,9 +11,10 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useProductImages } from "@/hooks/useProductImages";
 import { useToast } from "@/hooks/use-toast";
-import { ShoppingCart, X, Package, Calendar } from "lucide-react";
+import { ShoppingCart, X, Package, Calendar, CheckCircle } from "lucide-react";
 import { SunskyOrderDialog } from "@/components/SunskyOrderDialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { format } from "date-fns";
 
 export function DailySalesOrderQueue() {
   const {
@@ -37,6 +38,12 @@ export function DailySalesOrderQueue() {
   // Filter to show only pending items
   const pendingItems = useMemo(() => 
     todaysSales.filter(item => item.order_status === 'pending'),
+    [todaysSales]
+  );
+
+  // Filter to show ordered items
+  const orderedItems = useMemo(() => 
+    todaysSales.filter(item => item.order_status === 'ordered'),
     [todaysSales]
   );
 
@@ -328,6 +335,97 @@ export function DailySalesOrderQueue() {
           )}
         </CardContent>
       </Card>
+
+      {/* Ordered Items Today */}
+      {orderedItems.length > 0 && (
+        <Card className="border-green-200 bg-green-50/30">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-green-700">
+              <CheckCircle className="h-5 w-5" />
+              Ordered Today ({orderedItems.length} items)
+            </CardTitle>
+            <CardDescription>
+              Items successfully ordered to Sunsky today
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-16">Image</TableHead>
+                    <TableHead>ASIN</TableHead>
+                    <TableHead>SKU</TableHead>
+                    <TableHead>Title</TableHead>
+                    <TableHead className="text-center">Sold</TableHead>
+                    <TableHead className="text-center">Stock</TableHead>
+                    <TableHead className="text-center">Qty Ordered</TableHead>
+                    <TableHead>Order #</TableHead>
+                    <TableHead>Ordered At</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {orderedItems.map((item) => {
+                    const image = getImageByAsin(item.asin);
+                    return (
+                      <TableRow key={item.inventory_id}>
+                        <TableCell>
+                          {image?.image_url ? (
+                            <img 
+                              src={image.image_url} 
+                              alt={item.asin}
+                              className="w-10 h-10 object-contain rounded border"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 bg-muted rounded border flex items-center justify-center">
+                              <Package className="h-5 w-5 text-muted-foreground" />
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">{item.asin}</TableCell>
+                        <TableCell className="font-mono text-sm">
+                          {item.sku || <span className="text-muted-foreground">-</span>}
+                        </TableCell>
+                        <TableCell className="max-w-xs truncate">
+                          {item.title || <span className="text-muted-foreground">No title</span>}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="secondary">{item.sold_today}</Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="outline">{item.remaining_stock}</Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="default">{item.recommended_quantity}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-mono text-sm text-primary">
+                            {item.sunsky_order_number || '-'}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm text-muted-foreground">
+                            {item.ordered_at 
+                              ? format(new Date(item.ordered_at), 'MMM d, HH:mm')
+                              : '-'
+                            }
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                            Ordered
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Previous Days Pending */}
       {previousDaysPending.length > 0 && (
