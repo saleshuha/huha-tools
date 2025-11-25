@@ -52,8 +52,8 @@ export function useQuarterlyVelocityAnalytics() {
           .from('export_mode_preferences')
           .select('item_id, export_mode')
           .eq('item_type', 'asin_inventory')),
-        // Fetch order-related fields from asin_inventory
-        supabase.from('asin_inventory').select('id, velocity_order_ref, sunsky_order_number, ordered_quantity, ordered_at'),
+        // Fetch order-related fields from asin_inventory (only items with orders)
+        supabase.from('asin_inventory').select('id, velocity_order_ref, sunsky_order_number, ordered_quantity, ordered_at').not('sunsky_order_number', 'is', null),
         // Fetch ALL ordered items directly (bypassing velocity filters)
         supabase
           .from('asin_inventory')
