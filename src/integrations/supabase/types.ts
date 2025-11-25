@@ -5524,11 +5524,14 @@ export type Database = {
           asin: string
           inventory_id: string
           order_status: string
+          ordered_at: string
+          recommended_quantity: number
           remaining_stock: number
-          sale_date: string
           sku: string
-          sold_quantity: number
+          sold_today: number
+          sunsky_order_number: string
           title: string
+          velocity_score: number
         }[]
       }
       get_exchange_rate: {
