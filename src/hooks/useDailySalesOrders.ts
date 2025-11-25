@@ -51,12 +51,22 @@ export function useDailySalesOrders() {
       
       const today = new Date().toISOString().split('T')[0];
       
+      console.log('[DailySalesOrders] Calling RPC with:', { 
+        target_date: today, 
+        country_filter: selectedCountry 
+      });
+      
       const { data, error } = await supabase.rpc('get_daily_sold_items_needing_orders', {
         target_date: today,
         country_filter: selectedCountry
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[DailySalesOrders] RPC Error:', error);
+        throw error;
+      }
+
+      console.log('[DailySalesOrders] RPC returned:', data?.length || 0, 'items');
 
       const items = (data || []) as DailySoldItem[];
       setTodaysSales(items);
