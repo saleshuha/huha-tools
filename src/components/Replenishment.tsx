@@ -2387,12 +2387,12 @@ export function Replenishment() {
           subcategory: 'Replenishment',
           fromTab: 'restock',
           toTab: newTab,
-          tabTitle: newTab === 'restock' ? 'Restock Management' : 'Velocity Analytics'
+          tabTitle: newTab === 'restock' ? 'Restock Management' : 'Daily Orders Queue'
         });
       }}>
         <TabsList className="grid w-full grid-cols-2 h-14 p-2 bg-gradient-subtle rounded-xl shadow-elegant">
           <TabsTrigger value="restock" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10">📦 Restock Management</TabsTrigger>
-          <TabsTrigger value="velocity" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10">⚡ Velocity Analytics</TabsTrigger>
+          <TabsTrigger value="velocity" className="text-sm font-semibold px-6 py-3 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-glow transition-all duration-300 hover:bg-white/10">📦 Daily Orders Queue</TabsTrigger>
         </TabsList>
 
 
