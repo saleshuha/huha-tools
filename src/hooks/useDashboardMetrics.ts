@@ -74,7 +74,7 @@ export function useDashboardMetrics() {
         const { data, error } = await supabase
           .from('stock_changes')
           .select('change_amount')
-          .eq('change_type', 'sale')
+          .lt('change_amount', 0) // Sales are negative stock changes
           .gte('created_at', sevenDaysAgo.toISOString());
         
         if (!error && data) {

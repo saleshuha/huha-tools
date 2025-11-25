@@ -90,7 +90,7 @@ export function useInventoryAnalytics() {
         let soldQuery = supabase
           .from('stock_changes')
           .select('change_amount')
-          .eq('change_type', 'sale')
+          .lt('change_amount', 0) // Sales are negative stock changes
           .gte('created_at', startDate.toISOString());
 
         // Note: Cannot filter stock_changes by country directly

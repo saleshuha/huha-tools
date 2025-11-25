@@ -50,6 +50,11 @@ export function VelocityAnalyticsSimple() {
   const [currentAdjustingItem, setCurrentAdjustingItem] = useState<{ asin: string; oldQty: number; newQty: number } | null>(null);
   const [proceedToOrder, setProceedToOrder] = useState(false);
 
+  // Auto-load data on mount
+  useEffect(() => {
+    loadAnalytics();
+  }, []);
+
   // Debounce search input for better performance (300ms delay)
   useEffect(() => {
     const timer = setTimeout(() => {
