@@ -251,9 +251,9 @@ export const POTracker = () => {
   const [isPrintConfigCollapsed, setIsPrintConfigCollapsed] = useState(() => {
     try {
       const stored = localStorage.getItem('poTracker_printConfigCollapsed');
-      return stored ? JSON.parse(stored) : false;
+      return stored ? JSON.parse(stored) : true;
     } catch {
-      return true; // Collapsed by default
+      return true;
     }
   });
 
@@ -4352,20 +4352,110 @@ export const POTracker = () => {
               {/* Enhanced Print Settings Panel with Collapsible Tabbed Interface */}
               <Card className="bg-card/50 backdrop-blur-sm border border-border/20 shadow-sm rounded-xl">
                 <CardHeader className={cn("border-b border-border/20 cursor-pointer transition-all duration-200", isPrintConfigCollapsed ? "bg-muted/20 hover:bg-muted/30 py-3" : "bg-muted/10 hover:bg-muted/20 py-4")} onClick={() => setIsPrintConfigCollapsed(!isPrintConfigCollapsed)}>
-                  {isPrintConfigCollapsed ?
-              // Simplified collapsed state - just a simple row
-              <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="p-1.5 bg-primary/10 rounded-lg border border-primary/20">
-                          <Printer className="h-4 w-4 text-primary" />
-                        </div>
-                        <span className="text-sm font-medium text-foreground">Print Settings</span>
-                        <Badge variant="outline" className="text-xs text-muted-foreground">Optional</Badge>
-                      </div>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <ChevronDown className="h-4 w-4" />
-                      </Button>
-                    </div> :
+                  {isPrintConfigCollapsed ? (
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                {/* Title */}
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-primary/10 rounded-lg border border-primary/20">
+                    <Printer className="h-4 w-4 text-primary" />
+                  </div>
+                  <span className="text-sm font-medium">Print Settings</span>
+                </div>
+                
+                <div className="h-4 w-px bg-border/30" />
+                
+                {/* QZ Status */}
+                <div className="flex items-center gap-1.5 text-xs">
+                  {qzConnected ? (
+                    <>
+                      <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+                      <span className="text-success font-medium">QZ Connected</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="h-3.5 w-3.5 text-warning" />
+                      <span className="text-warning font-medium">Disconnected</span>
+                    </>
+                  )}
+                </div>
+                
+                <div className="h-4 w-px bg-border/30" />
+                
+                {/* Printer Selection (inline) */}
+                {qzConnected && availablePrinters.length > 0 && (
+                  <>
+                    <Select value={selectedPrinter} onValueChange={setSelectedPrinter}>
+                      <SelectTrigger className="h-7 w-[160px] text-xs bg-background/70 border-border/30">
+                        <SelectValue placeholder="Select printer" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availablePrinters.map(printer => (
+                          <SelectItem key={printer} value={printer} className="text-xs">
+                            {printer}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <div className="h-4 w-px bg-border/30" />
+                  </>
+                )}
+                
+                {/* Selection Count */}
+                <div className="flex items-center gap-1.5 text-xs">
+                  <span className={selectedForPrint.size > 0 ? 'font-medium' : 'text-muted-foreground'}>
+                    Selected: {selectedForPrint.size}
+                  </span>
+                </div>
+                
+                <div className="flex-1" />
+                
+                {/* Action Buttons */}
+                <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => console.log('Preview clicked with selection:', selectedForPrint.size)}
+                    disabled={selectedForPrint.size === 0} 
+                    className="h-7 text-xs"
+                  >
+                    <FileText className="h-3 w-3 mr-1" />
+                    Preview
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleDownloadZPL} 
+                    disabled={selectedForPrint.size === 0} 
+                    className="h-7 text-xs"
+                  >
+                    <Download className="h-3 w-3 mr-1" />
+                    ZPL
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    onClick={handleDirectPrint} 
+                    disabled={!qzConnected || !selectedPrinter || selectedForPrint.size === 0 || isPrinting}
+                    className="h-7 text-xs bg-primary"
+                  >
+                    <Printer className="h-3 w-3 mr-1" />
+                    {isPrinting ? 'Printing...' : `Print${selectedForPrint.size > 0 ? ` (${selectedForPrint.size})` : ''}`}
+                  </Button>
+                </div>
+                
+                {/* Expand Button */}
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-7 w-7 p-0" 
+                  onClick={e => {
+                    e.stopPropagation();
+                    setIsPrintConfigCollapsed(false);
+                  }}
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </div>
+            ) :
               // Full expanded state - detailed header
               <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
