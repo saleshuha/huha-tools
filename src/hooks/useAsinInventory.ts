@@ -849,15 +849,22 @@ export function useAsinInventory() {
 
       for (const item of itemsNeedingTitles) {
         try {
-        const { data, error } = await supabase.functions.invoke('sunsky-api', {
-          body: {
-            action: 'getProductDetails',
-            itemNo: item.sku
+          // Defensive check: ensure SKU exists and is valid
+          const trimmedSku = item.sku?.trim();
+          if (!trimmedSku) {
+            console.warn(`Skipping item ${item.asin}: invalid SKU`);
+            continue;
           }
-        });
+
+          const { data, error } = await supabase.functions.invoke('sunsky-api', {
+            body: {
+              action: 'getProductDetails',
+              itemNo: trimmedSku  // Send trimmed SKU
+            }
+          });
 
           if (error) {
-            console.warn(`Failed to fetch title for SKU ${item.sku}:`, error);
+            console.warn(`Failed to fetch title for SKU ${trimmedSku}:`, error);
             continue;
           }
 
