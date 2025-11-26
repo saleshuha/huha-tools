@@ -5612,6 +5612,10 @@ export type Database = {
         }[]
       }
       get_next_serial_number: { Args: { p_user_id: string }; Returns: string }
+      get_next_serial_numbers_batch: {
+        Args: { p_count: number; p_user_id: string }
+        Returns: string[]
+      }
       get_noon_sales_upload_summary: {
         Args: { country_filter?: string }
         Returns: {

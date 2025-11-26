@@ -106,7 +106,8 @@ export function AsinInventory() {
     bulkUpdateTitles,
     fetchTitlesFromSunsky,
     toggleItemActive,
-    refetch
+    refetch,
+    getNextSerialsBatch
   } = useAsinInventoryPaginated(currentPage, itemsPerPage, {
     searchTerm: debouncedSearchTerm,
     searchMethod,
@@ -601,36 +602,41 @@ export function AsinInventory() {
         return;
       }
 
-      // Auto-assign serial numbers for items without serials using ATOMIC counter
-      const itemsWithAutoSerial = [];
-      for (const item of items) {
-        if (!item.serialNumber || item.serialNumber.trim() === '') {
-          try {
-            const nextSerial = await getNextSerialNumber();
-            if (!nextSerial) {
-              toast({
-                title: "Error",
-                description: "Failed to generate serial number",
-                variant: "destructive",
-              });
-              return;
-            }
-            itemsWithAutoSerial.push({
-              ...item,
-              serialNumber: nextSerial
-            });
-          } catch (error: any) {
+      // Auto-assign serial numbers for items without serials using ATOMIC batch counter
+      // Count items needing auto-generated serials
+      const itemsNeedingSerials = items.filter(item => !item.serialNumber || item.serialNumber.trim() === '').length;
+
+      // Get ALL needed serials in one atomic batch call to prevent race conditions
+      let batchSerials: string[] = [];
+      if (itemsNeedingSerials > 0) {
+        try {
+          batchSerials = await getNextSerialsBatch(itemsNeedingSerials);
+          if (batchSerials.length !== itemsNeedingSerials) {
             toast({
-              title: "Serial Generation Error",
-              description: error.message || "Failed to generate serial number for item",
+              title: "Error",
+              description: "Failed to generate all required serial numbers",
               variant: "destructive",
             });
             return;
           }
-        } else {
-          itemsWithAutoSerial.push(item);
+        } catch (error: any) {
+          toast({
+            title: "Serial Generation Error",
+            description: error.message || "Failed to generate serial numbers",
+            variant: "destructive",
+          });
+          return;
         }
       }
+
+      // Assign serials from the batch
+      let serialIndex = 0;
+      const itemsWithAutoSerial = items.map(item => {
+        if (!item.serialNumber || item.serialNumber.trim() === '') {
+          return { ...item, serialNumber: batchSerials[serialIndex++] };
+        }
+        return item;
+      });
 
       // Start bulk add with progress tracking
       setBulkAddProgress({ current: 0, total: itemsWithAutoSerial.length, isProcessing: true });
