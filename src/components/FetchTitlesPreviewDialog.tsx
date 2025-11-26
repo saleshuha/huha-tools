@@ -1,11 +1,10 @@
 import { useState, useMemo } from 'react';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
-import { Badge } from './ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Database, Loader2, AlertTriangle } from 'lucide-react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { ScrollArea } from './ui/scroll-area';
+import { Progress } from './ui/progress';
+import { Card, CardContent } from './ui/card';
 
 interface FetchTitlesPreviewDialogProps {
   inventory: any[];
@@ -20,6 +19,8 @@ export function FetchTitlesPreviewDialog({
 }: FetchTitlesPreviewDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [processedCount, setProcessedCount] = useState(0);
   const { toast } = useToast();
 
   // Filter items from FULL inventory that need titles
@@ -31,9 +32,16 @@ export function FetchTitlesPreviewDialog({
     if (itemsNeedingTitles.length === 0) return;
 
     setIsFetching(true);
+    setProgress(0);
+    setProcessedCount(0);
+    
     try {
       // Start background task for title fetching
       await onFetchTitles(itemsNeedingTitles, async titleUpdates => {
+        // Update progress
+        setProcessedCount(prev => prev + titleUpdates.length);
+        setProgress((prev) => Math.min(100, ((prev + titleUpdates.length) / itemsNeedingTitles.length) * 100));
+        
         // When updates are ready, save them to the database
         if (titleUpdates.length > 0) {
           await onTitleUpdate(titleUpdates);
@@ -41,8 +49,8 @@ export function FetchTitlesPreviewDialog({
       });
 
       toast({
-        title: "Title Fetch Started",
-        description: `Fetching titles for ${itemsNeedingTitles.length} items in the background`
+        title: "Title Fetch Completed",
+        description: `Successfully fetched titles for ${itemsNeedingTitles.length} items`
       });
       
       setIsOpen(false);
@@ -50,17 +58,14 @@ export function FetchTitlesPreviewDialog({
       console.error('Error fetching titles:', error);
       toast({
         title: "Error",
-        description: "Failed to start title fetch process",
+        description: "Failed to fetch titles",
         variant: "destructive"
       });
     } finally {
       setIsFetching(false);
+      setProgress(0);
+      setProcessedCount(0);
     }
-  };
-
-  // Generate Amazon image URL based on ASIN
-  const getAmazonImageUrl = (asin: string) => {
-    return `https://images-na.ssl-images-amazon.com/images/I/${asin}.jpg`;
   };
 
   return (
@@ -71,14 +76,14 @@ export function FetchTitlesPreviewDialog({
           Fetch Titles from Source
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Fetch Titles from Source</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
+        <div className="space-y-4">
           {itemsNeedingTitles.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="flex flex-col items-center justify-center py-8 text-center">
               <AlertTriangle className="w-12 h-12 text-muted-foreground mb-4" />
               <p className="text-lg font-medium">No Items Need Titles</p>
               <p className="text-sm text-muted-foreground mt-2">
@@ -87,51 +92,30 @@ export function FetchTitlesPreviewDialog({
             </div>
           ) : (
             <>
-              <div className="bg-muted/50 p-4 rounded-lg">
-                <p className="text-sm font-medium">
-                  Found <span className="text-primary font-bold">{itemsNeedingTitles.length}</span> items with SKU but missing titles
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Titles will be fetched from Sunsky API using SKU
-                </p>
-              </div>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Database className="w-5 h-5 text-primary" />
+                      <p className="text-sm font-medium">
+                        Found <span className="text-primary font-bold">{itemsNeedingTitles.length}</span> items needing titles
+                      </p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Titles will be fetched from Sunsky API using SKU
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
 
-              <ScrollArea className="flex-1 border rounded-lg">
-                <Table>
-                  <TableHeader className="sticky top-0 bg-background z-10">
-                    <TableRow>
-                      <TableHead className="w-[80px]">Image</TableHead>
-                      <TableHead>ASIN</TableHead>
-                      <TableHead>SKU</TableHead>
-                      <TableHead>Title Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {itemsNeedingTitles.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>
-                          <img
-                            src={getAmazonImageUrl(item.asin)}
-                            alt={item.asin}
-                            className="w-[60px] h-[60px] object-contain rounded border bg-white"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = '/placeholder.svg';
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell className="font-mono text-sm">{item.asin}</TableCell>
-                        <TableCell className="font-mono text-sm">{item.sku}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="gap-1">
-                            <AlertTriangle className="w-3 h-3" />
-                            Missing
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
+              {isFetching && (
+                <div className="space-y-2">
+                  <Progress value={progress} className="h-2" />
+                  <p className="text-xs text-center text-muted-foreground">
+                    Processing... {processedCount} / {itemsNeedingTitles.length} ({Math.round(progress)}%)
+                  </p>
+                </div>
+              )}
             </>
           )}
         </div>
