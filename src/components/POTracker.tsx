@@ -4412,26 +4412,6 @@ export const POTracker = () => {
                 {/* Action Buttons */}
                 <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
                   <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => console.log('Preview clicked with selection:', selectedForPrint.size)}
-                    disabled={selectedForPrint.size === 0} 
-                    className="h-7 text-xs"
-                  >
-                    <FileText className="h-3 w-3 mr-1" />
-                    Preview
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={handleDownloadZPL} 
-                    disabled={selectedForPrint.size === 0} 
-                    className="h-7 text-xs"
-                  >
-                    <Download className="h-3 w-3 mr-1" />
-                    ZPL
-                  </Button>
-                  <Button 
                     size="sm" 
                     onClick={handleDirectPrint} 
                     disabled={!qzConnected || !selectedPrinter || selectedForPrint.size === 0 || isPrinting}
@@ -4773,8 +4753,8 @@ export const POTracker = () => {
                   </Tabs>
                 </CardContent>}
 
-                {/* Print Action Section - Always Visible */}
-                <CardContent className="p-4 border-t border-border/30 bg-gradient-to-b from-card/80 to-card max-h-[180px] overflow-y-auto">
+                {/* Print Action Section - Only in Expanded State */}
+                {!isPrintConfigCollapsed && <CardContent className="p-4 border-t border-border/30 bg-gradient-to-b from-card/80 to-card max-h-[180px] overflow-y-auto">
                   {/* Compact Status Bar */}
                   <div className="flex items-center gap-4 mb-3 p-2.5 bg-gradient-to-r from-muted/30 to-muted/50 rounded-md border border-border/20 text-sm">
                     {/* QZ Status */}
@@ -4823,29 +4803,7 @@ export const POTracker = () => {
                   </div>
 
                   {/* Compact Action Buttons */}
-                  <div className="flex items-center justify-between p-2.5 bg-card/50 rounded-md border border-border/20">
-                    <div className="flex items-center gap-2">
-                      {/* Preview Button */}
-                      <Button variant="outline" size="sm" disabled={selectedForPrint.size === 0} className="h-8 text-xs hover:shadow-soft transition-all" onClick={() => console.log('Preview clicked with selection:', selectedForPrint.size)}>
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-2.5 h-2.5 bg-accent rounded-sm"></div>
-                          Preview
-                        </div>
-                      </Button>
-
-                      {/* Download Button */}
-                      <Button variant="outline" size="sm" onClick={() => {
-                    console.log('Download clicked with selection:', selectedForPrint.size);
-                    handleDownloadZPL();
-                  }} disabled={selectedForPrint.size === 0} className="h-8 text-xs hover:shadow-soft transition-all">
-                        <Download className="h-3 w-3 mr-1.5" />
-                        Download ZPL
-                        {selectedForPrint.size > 0 && <Badge variant="secondary" className="ml-1.5 h-4 px-1 text-[10px]">
-                            {selectedForPrint.size}
-                          </Badge>}
-                      </Button>
-                    </div>
-                    
+                  <div className="flex items-center justify-end p-2.5 bg-card/50 rounded-md border border-border/20">
                     {/* Primary Print Button */}
                     {(() => {
                   const isPrintDisabled = selectedForPrint.size === 0 || !qzConnected || !selectedPrinter || isPrinting || isPrintStatusUpdating;
@@ -4908,7 +4866,7 @@ export const POTracker = () => {
                         </Button>
                       </div>
                     </div>}
-                </CardContent>
+                  </CardContent>}
               </Card>
 
               {/* Enhanced Items Selection Table */}
