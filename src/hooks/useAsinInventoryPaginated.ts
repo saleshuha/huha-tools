@@ -251,8 +251,11 @@ export function useAsinInventoryPaginated(
       await baseHook.deleteItem(id);
       invalidateCache();
     },
-    bulkAdd: async (items: Omit<AsinInventoryItem, 'id'>[]) => {
-      await baseHook.bulkAdd(items);
+    bulkAdd: async (
+      items: Omit<AsinInventoryItem, 'id'>[],
+      onProgress?: (current: number, total: number) => void
+    ) => {
+      await baseHook.bulkAdd(items, onProgress);
       invalidateCache();
     },
     restockItem: async (id: string, quantity: number) => {

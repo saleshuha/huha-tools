@@ -17,7 +17,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collap
 import { useLabelPrintSettings } from '@/hooks/usePrintSettings';
 import { useToast } from '@/hooks/use-toast';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from './ui/pagination';
-import { Package, Plus, Search, Edit, Download, Upload, Check, X, RefreshCw, AlertTriangle, Printer, Hash, Mail, BarChart3, Filter, Grid3X3, List, SortAsc, SortDesc, Calendar as CalendarIcon, TrendingUp, TrendingDown, Eye, Archive, Zap, Clock, ShoppingCart, Trash2, Settings, FileText, Copy, Star, Edit3, Activity, Database, ChevronDown, ChevronUp } from 'lucide-react';
+import { Package, Plus, Search, Edit, Download, Upload, Check, X, RefreshCw, AlertTriangle, Printer, Hash, Mail, BarChart3, Filter, Grid3X3, List, SortAsc, SortDesc, Calendar as CalendarIcon, TrendingUp, TrendingDown, Eye, Archive, Zap, Clock, ShoppingCart, Trash2, Settings, FileText, Copy, Star, Edit3, Activity, Database, ChevronDown, ChevronUp, Loader2, CheckCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
 import { Textarea } from './ui/textarea';
 import { useAsinInventory, AsinInventoryItem } from '@/hooks/useAsinInventory';
@@ -60,6 +60,13 @@ export function AsinInventory() {
   const [dateFilterFrom, setDateFilterFrom] = useState<Date>();
   const [dateFilterTo, setDateFilterTo] = useState<Date>();
   const [showDisabledItems, setShowDisabledItems] = useState(false);
+  
+  // Bulk add progress state
+  const [bulkAddProgress, setBulkAddProgress] = useState({ 
+    current: 0, 
+    total: 0, 
+    isProcessing: false 
+  });
   
   // Debounce search term for performance (300ms delay)
   useEffect(() => {
@@ -625,13 +632,26 @@ export function AsinInventory() {
         }
       }
 
-      await bulkAdd(itemsWithAutoSerial);
-      setBulkText('');
-      setIsBulkDialogOpen(false);
-      toast({
-        title: "Success",
-        description: `Added ${items.length} items to inventory`
+      // Start bulk add with progress tracking
+      setBulkAddProgress({ current: 0, total: itemsWithAutoSerial.length, isProcessing: true });
+      
+      await bulkAdd(itemsWithAutoSerial, (current, total) => {
+        setBulkAddProgress({ current, total, isProcessing: true });
       });
+      
+      // Show completion state briefly
+      setBulkAddProgress({ 
+        current: itemsWithAutoSerial.length, 
+        total: itemsWithAutoSerial.length, 
+        isProcessing: false 
+      });
+      
+      // Auto-close after showing completion
+      setTimeout(() => {
+        setBulkText('');
+        setIsBulkDialogOpen(false);
+        setBulkAddProgress({ current: 0, total: 0, isProcessing: false });
+      }, 1500);
     } catch (error: any) {
       toast({
         title: "Bulk Add Failed",
@@ -1338,7 +1358,15 @@ export function AsinInventory() {
                             <Label htmlFor="bulkText">
                               Paste tab-separated data (Only ASIN is required, other fields are optional)
                             </Label>
-                            <Textarea id="bulkText" value={bulkText} onChange={e => setBulkText(e.target.value)} placeholder="B123456789	SN001	SKU123	in-stock	5	Optional notes&#10;B987654321		SKU456		0	Zero qty item (auto-sold)&#10;B555555555			in-stock	3	Only ASIN and quantity" rows={8} className="font-mono text-sm" />
+                            <Textarea 
+                              id="bulkText" 
+                              value={bulkText} 
+                              onChange={e => setBulkText(e.target.value)} 
+                              placeholder="B123456789	SN001	SKU123	in-stock	5	Optional notes&#10;B987654321		SKU456		0	Zero qty item (auto-sold)&#10;B555555555			in-stock	3	Only ASIN and quantity" 
+                              rows={8} 
+                              className="font-mono text-sm"
+                              disabled={bulkAddProgress.isProcessing}
+                            />
                           </div>
                           <div className="text-sm text-muted-foreground">
                             <p><strong>Format:</strong> Each line should contain tab-separated values</p>
@@ -1347,12 +1375,57 @@ export function AsinInventory() {
                             <p><strong>Note:</strong> Items with 0 quantity are automatically marked as 'out-of-stock'</p>
                             <p><strong>Status:</strong> Auto-assigned based on quantity (0 = out-of-stock, &gt;0 = in-stock)</p>
                           </div>
+
+                          {/* Progress Section */}
+                          {bulkAddProgress.isProcessing && (
+                            <div className="space-y-2 p-4 bg-muted/50 rounded-lg border border-border">
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="flex items-center gap-2 font-medium">
+                                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                                  Adding items...
+                                </span>
+                                <span className="font-semibold tabular-nums">
+                                  {bulkAddProgress.current} / {bulkAddProgress.total}
+                                </span>
+                              </div>
+                              <Progress 
+                                value={(bulkAddProgress.current / bulkAddProgress.total) * 100} 
+                                className="h-2"
+                              />
+                            </div>
+                          )}
+
+                          {/* Completion Message */}
+                          {bulkAddProgress.current === bulkAddProgress.total && 
+                           bulkAddProgress.total > 0 && 
+                           !bulkAddProgress.isProcessing && (
+                            <div className="flex items-center gap-2 text-green-600 dark:text-green-400 p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-900">
+                              <CheckCircle className="w-5 h-5" />
+                              <span className="font-medium">Successfully added {bulkAddProgress.total} items!</span>
+                            </div>
+                          )}
                       </div>
                       <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsBulkDialogOpen(false)}>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setIsBulkDialogOpen(false)}
+                          disabled={bulkAddProgress.isProcessing}
+                        >
                           Cancel
                         </Button>
-                        <Button onClick={handleBulkAdd}>Add Items</Button>
+                        <Button 
+                          onClick={handleBulkAdd}
+                          disabled={bulkAddProgress.isProcessing}
+                        >
+                          {bulkAddProgress.isProcessing ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Adding...
+                            </>
+                          ) : (
+                            'Add Items'
+                          )}
+                        </Button>
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
