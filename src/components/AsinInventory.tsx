@@ -33,6 +33,7 @@ import { InventoryMetrics } from './InventoryMetrics';
 import { InventoryDashboard } from './InventoryDashboard';
 import { BulkSkuUpload } from './BulkSkuUpload';
 import { BulkTitleUpload } from './BulkTitleUpload';
+import { FetchTitlesPreviewDialog } from './FetchTitlesPreviewDialog';
 import { SimpleWarehouseManager } from './SimpleWarehouseManager';
 import { DisableItemsDialog } from './DisableItemsDialog';
 import { EnableItemDialog } from './EnableItemDialog';
@@ -801,26 +802,7 @@ export function AsinInventory() {
       description: "Inventory data refreshed"
     });
   };
-  const handleFetchTitlesFromSunsky = async () => {
-    // Get items with SKU Numbers but missing titles
-    const itemsNeedingTitles = inventory.filter(item => item.sku && item.sku.trim() && !item.title);
-    if (itemsNeedingTitles.length === 0) {
-      toast({
-        title: "No Items to Update",
-        description: "All items either have titles or are missing SKU numbers"
-      });
-      return;
-    }
-
-    // Start background task for title fetching
-    await runTitleFetch(itemsNeedingTitles, async titleUpdates => {
-      // The background task will handle the API calls
-      // When updates are ready, save them to the database
-      if (titleUpdates.length > 0) {
-        await bulkUpdateTitles(titleUpdates);
-      }
-    });
-  };
+  // Removed handleFetchTitlesFromSunsky - now using FetchTitlesPreviewDialog component
 
   // Find all items with duplicate serial numbers
   const serialNumberMap = useMemo(() => {
@@ -1464,11 +1446,12 @@ export function AsinInventory() {
                   {/* Bulk Title Update */}
                   <BulkTitleUpload inventory={fullInventory} onTitleUpdate={bulkUpdateTitles} />
 
-                  {/* Fetch Titles from Source */}
-                  <Button size="sm" variant="outline" onClick={handleFetchTitlesFromSunsky}>
-                    <Database className="w-4 h-4 mr-2" />
-                    Fetch Titles from Source
-                  </Button>
+                  {/* Fetch Titles from Source - with preview */}
+                  <FetchTitlesPreviewDialog 
+                    inventory={fullInventory}
+                    onFetchTitles={runTitleFetch}
+                    onTitleUpdate={bulkUpdateTitles}
+                  />
                 </div>
               </div>
 
