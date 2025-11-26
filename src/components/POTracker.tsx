@@ -3789,85 +3789,85 @@ export const POTracker = () => {
                                 )}
                               </div>
                             </TableHead>
-                            <TableHead 
-                              className={`cursor-pointer select-none hover:bg-muted/50 transition-colors ${groupedSortField === 'po_items' ? 'bg-primary/10 text-primary' : ''}`}
+                             <TableHead 
+                              className={`cursor-pointer select-none hover:bg-muted/20 transition-all text-xs font-medium uppercase tracking-wider ${groupedSortField === 'po_items' ? 'text-primary' : 'text-muted-foreground'}`}
                               onClick={() => handleGroupedSort('po_items')}
                             >
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1.5">
                                 <span>PO Items</span>
                                 {groupedSortField === 'po_items' ? (
-                                  groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                  groupedSortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
                                 ) : (
-                                  <ArrowUpDown className="h-3 w-3 opacity-30" />
+                                  <ArrowUpDown className="h-3.5 w-3.5 opacity-30" />
                                 )}
                               </div>
                             </TableHead>
                             <TableHead 
-                              className={`cursor-pointer select-none hover:bg-muted/50 transition-colors ${groupedSortField === 'asn_qty' ? 'bg-primary/10 text-primary' : ''}`}
+                              className={`cursor-pointer select-none hover:bg-muted/20 transition-all text-xs font-medium uppercase tracking-wider ${groupedSortField === 'asn_qty' ? 'text-primary' : 'text-muted-foreground'}`}
                               onClick={() => handleGroupedSort('asn_qty')}
                             >
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1.5">
                                 <span>ASN Qty</span>
                                 {groupedSortField === 'asn_qty' ? (
-                                  groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                  groupedSortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
                                 ) : (
-                                  <ArrowUpDown className="h-3 w-3 opacity-30" />
+                                  <ArrowUpDown className="h-3.5 w-3.5 opacity-30" />
                                 )}
                               </div>
                             </TableHead>
                             <TableHead 
-                              className={`cursor-pointer select-none hover:bg-muted/50 transition-colors ${groupedSortField === 'matched_percentage' ? 'bg-primary/10 text-primary' : ''}`}
+                              className={`cursor-pointer select-none hover:bg-muted/20 transition-all text-xs font-medium uppercase tracking-wider ${groupedSortField === 'matched_percentage' ? 'text-primary' : 'text-muted-foreground'}`}
                               onClick={() => handleGroupedSort('matched_percentage')}
                             >
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1.5">
                                 <span>Matched %</span>
                                 {groupedSortField === 'matched_percentage' ? (
-                                  groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                  groupedSortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
                                 ) : (
-                                  <ArrowUpDown className="h-3 w-3 opacity-30" />
+                                  <ArrowUpDown className="h-3.5 w-3.5 opacity-30" />
                                 )}
                               </div>
                             </TableHead>
                             <TableHead 
-                              className={`cursor-pointer select-none hover:bg-muted/50 transition-colors ${groupedSortField === 'matched_sunsky' ? 'bg-primary/10 text-primary' : ''}`}
+                              className={`cursor-pointer select-none hover:bg-muted/20 transition-all text-xs font-medium uppercase tracking-wider ${groupedSortField === 'matched_sunsky' ? 'text-primary' : 'text-muted-foreground'}`}
                               onClick={() => handleGroupedSort('matched_sunsky')}
                             >
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1.5">
                                 <span>Matched Details</span>
                                 {groupedSortField === 'matched_sunsky' ? (
-                                  groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                  groupedSortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
                                 ) : (
-                                  <ArrowUpDown className="h-3 w-3 opacity-30" />
+                                  <ArrowUpDown className="h-3.5 w-3.5 opacity-30" />
                                 )}
                               </div>
                             </TableHead>
                             <TableHead 
-                              className={`cursor-pointer select-none hover:bg-muted/50 transition-colors ${groupedSortField === 'pending_sunsky' ? 'bg-primary/10 text-primary' : ''}`}
+                              className={`cursor-pointer select-none hover:bg-muted/20 transition-all text-xs font-medium uppercase tracking-wider ${groupedSortField === 'pending_sunsky' ? 'text-primary' : 'text-muted-foreground'}`}
                               onClick={() => handleGroupedSort('pending_sunsky')}
                             >
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1.5">
                                 <span>Pending to Place</span>
                                 {groupedSortField === 'pending_sunsky' ? (
-                                  groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                  groupedSortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
                                 ) : (
-                                  <ArrowUpDown className="h-3 w-3 opacity-30" />
+                                  <ArrowUpDown className="h-3.5 w-3.5 opacity-30" />
                                 )}
                               </div>
                             </TableHead>
                             <TableHead 
-                              className={`cursor-pointer select-none hover:bg-muted/50 transition-colors ${groupedSortField === 'instock_qty' ? 'bg-primary/10 text-primary' : ''}`}
+                              className={`cursor-pointer select-none hover:bg-muted/20 transition-all text-xs font-medium uppercase tracking-wider ${groupedSortField === 'instock_qty' ? 'text-primary' : 'text-muted-foreground'}`}
                               onClick={() => handleGroupedSort('instock_qty')}
                             >
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1.5">
                                 <span>In-Stock Qty</span>
                                 {groupedSortField === 'instock_qty' ? (
-                                  groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                  groupedSortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
                                 ) : (
-                                  <ArrowUpDown className="h-3 w-3 opacity-30" />
+                                  <ArrowUpDown className="h-3.5 w-3.5 opacity-30" />
                                 )}
                               </div>
                             </TableHead>
-                            <TableHead>Actions</TableHead>
+                            <TableHead className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Actions</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -3908,12 +3908,12 @@ export const POTracker = () => {
                       return <TableRow 
                                 key={poNumber} 
                                 className={cn(
-                                  "hover:bg-muted/50 transition-colors",
-                                  isDisabled && "opacity-40 bg-muted/10",
-                                  hasClosedItems && !isDisabled && "opacity-75 bg-muted/20"
+                                  "border-b border-border/30 hover:bg-muted/30 hover:shadow-sm transition-all duration-150 ease-out",
+                                  isDisabled && "opacity-40",
+                                  hasClosedItems && !isDisabled && "opacity-75"
                                 )}
                               >
-                                  <TableCell className="w-[70px]">
+                                  <TableCell className="w-[70px] py-4">
                                     <Switch checked={!isDisabled} onCheckedChange={checked => {
                             const newDisabled = new Set(disabledPOs);
                             if (checked) {
@@ -3924,14 +3924,14 @@ export const POTracker = () => {
                             setDisabledPOs(newDisabled);
                           }} className="scale-75" />
                                   </TableCell>
-                                 <TableCell className="font-medium">
+                                 <TableCell className="font-mono text-sm py-4">
                                    <div className="flex items-center gap-2">
                                      <span className="text-xs opacity-60">{countryPrefix}</span>
-                                     <Button variant="link" className="p-0 h-auto font-medium text-left justify-start" onClick={() => navigate(`/po-details/${poNumber}`)}>
-                                       {poNumber}
-                                       <ExternalLink className="h-3 w-3 ml-1" />
-                                     </Button>
-                                     <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={e => {
+                                      <Button variant="link" className="p-0 h-auto font-semibold text-left justify-start hover:text-primary transition-colors" onClick={() => navigate(`/po-details/${poNumber}`)}>
+                                        {poNumber}
+                                        <ExternalLink className="h-3 w-3 ml-1" />
+                                      </Button>
+                                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-muted/50 transition-colors" onClick={e => {
                               e.stopPropagation();
                               navigator.clipboard.writeText(poNumber);
                               toast({
@@ -3939,14 +3939,14 @@ export const POTracker = () => {
                                 description: `PO Number "${poNumber}" copied to clipboard`
                               });
                              }} title="Copy PO Number">
-                                     <Copy className="h-3 w-3" />
-                                      </Button>
-                                      {hasClosedItems && <Badge variant="secondary" className="text-xs">
-                                         HAS FULFILLED ITEMS
-                                       </Badge>}
-                                  </div>
-                                </TableCell>
-                              <TableCell>
+                                      <Copy className="h-3 w-3" />
+                                       </Button>
+                                       {hasClosedItems && <Badge variant="secondary" className="text-xs rounded-full px-2.5 py-0.5">
+                                          HAS FULFILLED
+                                        </Badge>}
+                                   </div>
+                                 </TableCell>
+                              <TableCell className="py-4">
                                 <div className="text-xs text-muted-foreground truncate">
                                   {(() => {
                               const uniqueLocations = [...new Set(orders.map(o => o.ship_to_location).filter(Boolean))];
@@ -3956,98 +3956,101 @@ export const POTracker = () => {
                             })()}
                                 </div>
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="py-4">
                                 <div className="flex flex-col">
-                                  <span className="font-medium text-sm">{totalLineItems}</span>
+                                  <span className="font-mono text-sm">{totalLineItems}</span>
                                   <span className="text-xs text-muted-foreground">SKUs</span>
                                 </div>
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="py-4">
                                 <div className="flex flex-col">
-                                  <span className="font-medium text-sm">{asnQuantity}</span>
+                                  <span className="font-mono text-sm font-semibold">{asnQuantity}</span>
                                   <span className="text-xs text-muted-foreground">units</span>
                                 </div>
                               </TableCell>
-                              <TableCell>
-                                <Badge variant={parseInt(matchedPercentage) >= 80 ? "default" : parseInt(matchedPercentage) >= 50 ? "secondary" : "destructive"} className="text-xs">
+                              <TableCell className="py-4">
+                                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium" style={{
+                                  background: parseInt(matchedPercentage) >= 80 ? 'hsl(var(--success) / 0.15)' : parseInt(matchedPercentage) >= 50 ? 'hsl(var(--warning) / 0.15)' : 'hsl(var(--destructive) / 0.15)',
+                                  color: parseInt(matchedPercentage) >= 80 ? 'hsl(var(--success))' : parseInt(matchedPercentage) >= 50 ? 'hsl(var(--warning))' : 'hsl(var(--destructive))'
+                                }}>
+                                  <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                                   {matchedPercentage}%
-                                </Badge>
+                                </div>
                               </TableCell>
-                              <TableCell>
-                                <div className="flex flex-wrap gap-1">
+                              <TableCell className="py-4">
+                                <div className="flex flex-wrap gap-1.5">
                                   {(() => {
                                     const matchedUnits = group?.metrics.matchedUnitsBySource?.SUNSKY || 0;
                                     
                                     if (matchedUnits > 0) {
                                       return (
-                                        <Badge 
-                                          variant="outline" 
-                                          className="text-xs bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/50 cursor-pointer hover:bg-purple-500/30 transition-colors"
+                                        <div 
+                                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-purple-500/15 text-purple-700 dark:text-purple-300 cursor-pointer hover:bg-purple-500/25 transition-colors"
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             handleGroupedSort('matched_sunsky');
                                           }}
                                           title="Total units matched with Source (including placed/closed orders)"
                                         >
+                                          <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                                           {matchedUnits} units
-                                        </Badge>
+                                        </div>
                                       );
                                     } else {
                                       return (
-                                        <Badge variant="outline" className="text-xs text-muted-foreground">
-                                          No Source matches
-                                        </Badge>
+                                        <span className="text-xs text-muted-foreground">No Source matches</span>
                                       );
                                     }
                                   })()}
                                 </div>
                               </TableCell>
-                              <TableCell>
-                                <div className="flex flex-wrap gap-1">
+                              <TableCell className="py-4">
+                                <div className="flex flex-wrap gap-1.5">
                                   {(() => {
                                     const pendingUnits = group?.metrics.pendingUnitsBySource?.SUNSKY || 0;
                                     
                                     if (pendingUnits > 0) {
                                       return (
-                                        <Badge 
-                                          variant="outline" 
-                                          className="text-xs bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/50 cursor-pointer hover:bg-amber-500/30 transition-colors"
+                                        <div 
+                                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-500/15 text-amber-700 dark:text-amber-300 cursor-pointer hover:bg-amber-500/25 transition-colors"
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             handleGroupedSort('pending_sunsky');
                                           }}
                                           title="Total units pending to place with Source (not in inventory)"
                                         >
+                                          <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span>
                                           {pendingUnits} units
-                                        </Badge>
+                                        </div>
                                       );
                                     } else {
                                       return (
-                                        <Badge variant="outline" className="text-xs text-muted-foreground">
-                                          None pending
-                                        </Badge>
+                                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-green-500/15 text-green-700 dark:text-green-300">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+                                          ✓ All matched
+                                        </div>
                                       );
                                     }
                                   })()}
                                 </div>
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="py-4">
                                 <div className="flex flex-col">
-                                  <span className="font-medium text-sm">{group?.metrics.totalInStockQty || 0}</span>
+                                  <span className="font-mono text-sm font-semibold">{group?.metrics.totalInStockQty || 0}</span>
                                   <span className="text-xs text-muted-foreground">units</span>
                                 </div>
                               </TableCell>
-                              <TableCell>
-                                    <div className="flex items-center gap-1">
-                                      <Button variant="outline" size="sm" onClick={() => navigate(`/po-details/${poNumber}`)} className="text-xs px-2 py-1 h-7">
-                                        View
+                              <TableCell className="py-4">
+                                    <div className="flex items-center gap-2">
+                                      <Button variant="outline" size="sm" onClick={() => navigate(`/po-details/${poNumber}`)} className="text-xs px-3 py-1.5 h-8 hover:bg-muted/50 transition-colors">
+                                        View Details
                                       </Button>
                                       {(() => {
                               const orderWithBatch = orders.find(o => o.batch_id);
                               if (orderWithBatch?.batch_id) {
-                                return <Badge variant="outline" className="text-xs" title={`Batch ID: ${orderWithBatch.batch_id}`}>
-                                              Batch: {orderWithBatch.batch_id.slice(0, 8)}
-                                            </Badge>;
+                                return <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-700 dark:text-blue-300" title={`Batch ID: ${orderWithBatch.batch_id}`}>
+                                          Batch: {orderWithBatch.batch_id.slice(0, 8)}
+                                        </div>;
                               }
                               return null;
                             })()}
