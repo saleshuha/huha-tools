@@ -605,6 +605,25 @@ export function useAsinInventory() {
     }
   };
 
+  // Get batch of serial numbers - ATOMIC database-level generation for bulk operations
+  const getNextSerialsBatch = async (count: number): Promise<string[]> => {
+    if (!profile || count <= 0) return [];
+    
+    try {
+      const { data, error } = await supabase
+        .rpc('get_next_serial_numbers_batch', { 
+          p_user_id: profile.id,
+          p_count: count 
+        });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error getting batch serials:', error);
+      throw error;
+    }
+  };
+
   // Update Serial Number for an item - ATOMIC with single retry
   const updateSerialNumber = async (id: string, newSerialNumber: string): Promise<void> => {
     if (!profile) {
@@ -1038,5 +1057,6 @@ export function useAsinInventory() {
     loadInventory,
     refetch,
     getNextAvailableSerial,
+    getNextSerialsBatch,
   };
 }

@@ -317,6 +317,8 @@ export function useAsinInventoryPaginated(
       await baseHook.toggleItemActive(id, isActive);
       invalidateCache();
     },
+    getNextAvailableSerial: baseHook.getNextAvailableSerial,
+    getNextSerialsBatch: baseHook.getNextSerialsBatch,
   }), [baseHook, invalidateCache]);
 
   return {
