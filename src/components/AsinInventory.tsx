@@ -471,6 +471,19 @@ export function AsinInventory() {
       return;
     }
 
+    // Check for duplicate ASIN in current inventory (LAYER 1: UI validation)
+    const duplicateAsin = fullInventory.find(item => 
+      item.asin.toLowerCase() === newItem.asin.toLowerCase().trim()
+    );
+    if (duplicateAsin) {
+      toast({
+        title: "Duplicate ASIN",
+        description: `ASIN "${newItem.asin}" already exists in inventory (Serial: ${duplicateAsin.serialNumber}). Each ASIN must be unique.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
     // Check for duplicate SKU in current inventory (if SKU is provided)
     if (newItem.sku && newItem.sku.trim()) {
       const duplicateSku = inventory.find(item => item.sku && item.sku.toLowerCase() === newItem.sku.toLowerCase().trim());
@@ -547,13 +560,34 @@ export function AsinInventory() {
         return;
       }
 
-      // Validate for duplicates
+      // Validate for duplicates (LAYER 2: Bulk UI validation)
       const validationErrors = [];
       const seenSkus = new Set();
       const seenSerials = new Set();
+      const seenAsins = new Set(); // Track ASINs within bulk data
       
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
+
+        // Check for duplicate ASIN in existing inventory
+        const duplicateAsin = fullInventory.find(existing => 
+          existing.asin.toLowerCase() === item.asin.toLowerCase()
+        );
+        if (duplicateAsin) {
+          validationErrors.push(
+            `Row ${i + 1}: ASIN "${item.asin}" already exists (Serial: ${duplicateAsin.serialNumber})`
+          );
+          continue;
+        }
+
+        // Check for duplicate ASIN within bulk data
+        if (seenAsins.has(item.asin.toLowerCase())) {
+          validationErrors.push(
+            `Row ${i + 1}: ASIN "${item.asin}" appears multiple times in bulk data`
+          );
+          continue;
+        }
+        seenAsins.add(item.asin.toLowerCase());
 
         // Check for duplicate SKU (if provided)
         if (item.sku && item.sku.trim()) {
