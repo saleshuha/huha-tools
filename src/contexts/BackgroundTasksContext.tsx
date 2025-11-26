@@ -441,8 +441,19 @@ export function BackgroundTasksProvider({ children }: { children: React.ReactNod
         const batch = items.slice(i, i + batchSize);
         const batchPromises = batch.map(async (item) => {
           try {
+            // Defensive check: ensure SKU exists and is valid
+            const trimmedSku = item.sku?.trim();
+            if (!trimmedSku) {
+              processed++;
+              updateTask(taskId, { 
+                progress: (processed / items.length) * 100,
+                processedItems: processed
+              });
+              return;
+            }
+
             const { data, error } = await supabase.functions.invoke('sunsky-api', {
-              body: { action: 'getProductDetails', skuCode: item.sku }
+              body: { action: 'getProductDetails', itemNo: trimmedSku }  // Changed from skuCode to itemNo
             });
 
             processed++;

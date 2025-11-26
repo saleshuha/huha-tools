@@ -384,10 +384,19 @@ export function SSInventory() {
 
       for (const item of itemsNeedingTitles) {
         try {
+          // Defensive check: ensure SKU exists and is valid
+          const trimmedSku = item.skuNumber?.trim();
+          if (!trimmedSku) {
+            console.warn(`Skipping item ${item.skuNumber}: invalid SKU`);
+            currentIndex++;
+            failed++;
+            continue;
+          }
+
           const { data, error } = await supabase.functions.invoke('sunsky-api', {
             body: {
               action: 'getProductDetails',
-              skuCode: item.skuNumber
+              itemNo: trimmedSku  // Changed from skuCode to itemNo
             }
           });
 
