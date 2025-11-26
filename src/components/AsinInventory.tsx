@@ -1459,10 +1459,10 @@ export function AsinInventory() {
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {/* Bulk SKU Update */}
-                  <BulkSkuUpload inventory={inventory} onSkuUpdate={bulkUpdateSkus} />
+                  <BulkSkuUpload inventory={fullInventory} onSkuUpdate={bulkUpdateSkus} />
 
                   {/* Bulk Title Update */}
-                  <BulkTitleUpload inventory={inventory} onTitleUpdate={bulkUpdateTitles} />
+                  <BulkTitleUpload inventory={fullInventory} onTitleUpdate={bulkUpdateTitles} />
 
                   {/* Fetch Titles from Source */}
                   <Button size="sm" variant="outline" onClick={handleFetchTitlesFromSunsky}>
