@@ -291,51 +291,72 @@ export function useAsinInventory() {
     }
   };
 
-  // Bulk add items
-  const bulkAdd = async (items: Omit<AsinInventoryItem, 'id'>[]) => {
+  // Bulk add items with batch processing and progress tracking
+  const bulkAdd = async (
+    items: Omit<AsinInventoryItem, 'id'>[],
+    onProgress?: (current: number, total: number) => void
+  ) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || !selectedCountry) throw new Error('User not authenticated or no country');
 
-      const insertData = items.map(item => ({
-        user_id: user.id,
-        asin: item.asin,
-        serial_number: item.serialNumber,
-        sku: item.sku || null,
-        status: item.status,
-        date_added: item.dateAdded,
-        date_sold: item.dateSold || null,
-        notes: item.notes || null,
-        quantity: item.quantity ?? 1,
-        restock_date: item.restockDate || null,
-        restock_quantity: item.restockQuantity || null,
-        last_restock_date: item.lastRestockDate || null,
-        country: selectedCountry,
-      }));
+      const BATCH_SIZE = 10; // Process 10 items at a time
+      const total = items.length;
+      let current = 0;
+      const allNewItems: AsinInventoryItem[] = [];
 
-      const { data, error } = await supabase
-        .from('asin_inventory')
-        .insert(insertData as any) // Type will be updated after types regenerate
-        .select();
+      // Process items in batches
+      for (let i = 0; i < items.length; i += BATCH_SIZE) {
+        const batch = items.slice(i, i + BATCH_SIZE);
+        
+        const insertData = batch.map(item => ({
+          user_id: user.id,
+          asin: item.asin,
+          serial_number: item.serialNumber,
+          sku: item.sku || null,
+          status: item.status,
+          date_added: item.dateAdded,
+          date_sold: item.dateSold || null,
+          notes: item.notes || null,
+          quantity: item.quantity ?? 1,
+          restock_date: item.restockDate || null,
+          restock_quantity: item.restockQuantity || null,
+          last_restock_date: item.lastRestockDate || null,
+          country: selectedCountry,
+        }));
 
-      if (error) throw error;
+        const { data, error } = await supabase
+          .from('asin_inventory')
+          .insert(insertData as any)
+          .select();
 
-      const newItems: AsinInventoryItem[] = (data as any).map((item: any) => ({
-        id: item.id,
-        asin: item.asin,
-        serialNumber: item.serial_number,
-        sku: item.sku || undefined,
-        status: item.status,
-        dateAdded: item.date_added,
-        dateSold: item.date_sold || undefined,
-        notes: item.notes || undefined,
-        quantity: item.quantity ?? 1,
-        restockDate: item.restock_date || undefined,
-        restockQuantity: item.restock_quantity || undefined,
-        lastRestockDate: item.last_restock_date || undefined,
-      }));
+        if (error) throw error;
 
-      setInventory(prev => [...newItems, ...prev]);
+        const newItems: AsinInventoryItem[] = (data as any).map((item: any) => ({
+          id: item.id,
+          asin: item.asin,
+          serialNumber: item.serial_number,
+          sku: item.sku || undefined,
+          status: item.status,
+          dateAdded: item.date_added,
+          dateSold: item.date_sold || undefined,
+          notes: item.notes || undefined,
+          quantity: item.quantity ?? 1,
+          restockDate: item.restock_date || undefined,
+          restockQuantity: item.restock_quantity || undefined,
+          lastRestockDate: item.last_restock_date || undefined,
+        }));
+
+        // Update inventory state immediately for real-time display
+        setInventory(prev => [...newItems, ...prev]);
+        
+        allNewItems.push(...newItems);
+        current += batch.length;
+
+        // Call progress callback
+        onProgress?.(current, total);
+      }
+
       toast({
         title: "Items added successfully",
         description: `${items.length} items have been added to inventory.`,
@@ -346,6 +367,7 @@ export function useAsinInventory() {
         description: error.message,
         variant: "destructive",
       });
+      throw error; // Re-throw to allow caller to handle
     }
   };
 
