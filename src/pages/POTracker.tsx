@@ -95,7 +95,7 @@ export default function POTrackerPage() {
           />
           {authChecked && userAuth && (
             <div className="flex items-center gap-3 ml-4">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-md border">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/20 backdrop-blur-sm px-4 py-2 rounded-xl border border-border/20 shadow-sm">
                 <Clock className="h-3 w-3" />
                 <span>
                   Last updated: {lastRefreshTime.toLocaleTimeString()}
@@ -106,6 +106,7 @@ export default function POTrackerPage() {
                 size="sm"
                 onClick={handleHardRefresh}
                 disabled={isRefreshing}
+                className="border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200"
               >
                 <RefreshCw className={cn("h-4 w-4 mr-2", isRefreshing && "animate-spin")} />
                 {isRefreshing ? 'Refreshing...' : 'Hard Refresh'}

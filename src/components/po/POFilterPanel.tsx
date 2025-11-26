@@ -126,8 +126,8 @@ export function POFilterPanel({
   ];
 
   const hasActiveFilters = filters.quickFilter !== 'all' || filters.status.length > 0 || filters.inventoryStatus.length > 0 || filters.quantityMin || filters.quantityMax || filters.costMin || filters.costMax || filters.hasTracking !== 'all' || filters.hasSunskySku !== 'all' || filters.matchedPercentage !== 'all' || filters.matchedSource !== 'all' || filters.pendingToPlace !== 'all' || filters.pendingMin || filters.pendingMax || filters.inStockFilter !== 'all' || filters.inStockMin || filters.inStockMax;
-  return <Card className="border-border/40 bg-card/50 backdrop-blur-sm">
-      <CardContent className="p-4 space-y-4">
+  return <Card className="border border-border/20 bg-card/50 backdrop-blur-sm shadow-sm rounded-xl">
+      <CardContent className="p-5 space-y-5">
         {/* Header with Clear Button */}
         
 
@@ -140,7 +140,7 @@ export function POFilterPanel({
             <Filter className="h-4 w-4 text-muted-foreground" />
             <span className="text-xs font-medium text-muted-foreground">Advanced Filters</span>
           </div>
-          <div className="p-3 rounded-lg bg-muted/30 space-y-4">
+          <div className="p-4 rounded-xl bg-muted/10 border border-border/10 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Inventory Status - Multi-select */}
               <div className="space-y-2">
@@ -149,7 +149,7 @@ export function POFilterPanel({
                   <PopoverTrigger asChild>
                     <Button 
                       variant="outline" 
-                      className="h-9 w-full justify-between bg-background hover:bg-background"
+                      className="h-9 w-full justify-between border border-border/30 bg-background/80 backdrop-blur-sm hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200"
                     >
                       <span className="text-sm">
                         {filters.inventoryStatus.length === 0 
@@ -201,7 +201,7 @@ export function POFilterPanel({
                 ...filters,
                 hasTracking: value as FilterState['hasTracking']
               })}>
-                  <SelectTrigger className="h-9 bg-background">
+                  <SelectTrigger className="h-9 border border-border/30 bg-background/80 backdrop-blur-sm rounded-lg transition-all duration-200">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -219,7 +219,7 @@ export function POFilterPanel({
                 ...filters,
                 hasSunskySku: value as FilterState['hasSunskySku']
               })}>
-                  <SelectTrigger className="h-9 bg-background">
+                  <SelectTrigger className="h-9 border border-border/30 bg-background/80 backdrop-blur-sm rounded-lg transition-all duration-200">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -234,11 +234,11 @@ export function POFilterPanel({
               <div className="space-y-2">
                 <Label className="text-xs font-medium">Quantity Range</Label>
                 <div className="flex gap-2">
-                  <Input type="number" placeholder="Min" className="h-9 bg-background" value={filters.quantityMin} onChange={e => onFilterChange({
+                  <Input type="number" placeholder="Min" className="h-9 border border-border/30 bg-background/80 backdrop-blur-sm rounded-lg transition-all duration-200" value={filters.quantityMin} onChange={e => onFilterChange({
                   ...filters,
                   quantityMin: e.target.value
                 })} />
-                  <Input type="number" placeholder="Max" className="h-9 bg-background" value={filters.quantityMax} onChange={e => onFilterChange({
+                  <Input type="number" placeholder="Max" className="h-9 border border-border/30 bg-background/80 backdrop-blur-sm rounded-lg transition-all duration-200" value={filters.quantityMax} onChange={e => onFilterChange({
                   ...filters,
                   quantityMax: e.target.value
                 })} />
@@ -249,11 +249,11 @@ export function POFilterPanel({
               <div className="space-y-2">
                 <Label className="text-xs font-medium">Cost Range</Label>
                 <div className="flex gap-2">
-                  <Input type="number" placeholder="Min" className="h-9 bg-background" value={filters.costMin} onChange={e => onFilterChange({
+                  <Input type="number" placeholder="Min" className="h-9 border border-border/30 bg-background/80 backdrop-blur-sm rounded-lg transition-all duration-200" value={filters.costMin} onChange={e => onFilterChange({
                   ...filters,
                   costMin: e.target.value
                 })} />
-                  <Input type="number" placeholder="Max" className="h-9 bg-background" value={filters.costMax} onChange={e => onFilterChange({
+                  <Input type="number" placeholder="Max" className="h-9 border border-border/30 bg-background/80 backdrop-blur-sm rounded-lg transition-all duration-200" value={filters.costMax} onChange={e => onFilterChange({
                   ...filters,
                   costMax: e.target.value
                 })} />
@@ -267,7 +267,7 @@ export function POFilterPanel({
                   ...filters,
                   matchedPercentage: value as FilterState['matchedPercentage']
                 })}>
-                  <SelectTrigger className="h-9 bg-background">
+                  <SelectTrigger className="h-9 border border-border/30 bg-background/80 backdrop-blur-sm rounded-lg transition-all duration-200">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -287,7 +287,7 @@ export function POFilterPanel({
                   ...filters,
                   matchedSource: value as FilterState['matchedSource']
                 })}>
-                  <SelectTrigger className="h-9 bg-background">
+                  <SelectTrigger className="h-9 border border-border/30 bg-background/80 backdrop-blur-sm rounded-lg transition-all duration-200">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -305,7 +305,7 @@ export function POFilterPanel({
                   ...filters,
                   pendingToPlace: value as FilterState['pendingToPlace']
                 })}>
-                  <SelectTrigger className="h-9 bg-background">
+                  <SelectTrigger className="h-9 border border-border/30 bg-background/80 backdrop-blur-sm rounded-lg transition-all duration-200">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -320,11 +320,11 @@ export function POFilterPanel({
               <div className="space-y-2">
                 <Label className="text-xs font-medium">Pending Units Range</Label>
                 <div className="flex gap-2">
-                  <Input type="number" placeholder="Min" className="h-9 bg-background" value={filters.pendingMin} onChange={e => onFilterChange({
+                  <Input type="number" placeholder="Min" className="h-9 border border-border/30 bg-background/80 backdrop-blur-sm rounded-lg transition-all duration-200" value={filters.pendingMin} onChange={e => onFilterChange({
                     ...filters,
                     pendingMin: e.target.value
                   })} />
-                  <Input type="number" placeholder="Max" className="h-9 bg-background" value={filters.pendingMax} onChange={e => onFilterChange({
+                  <Input type="number" placeholder="Max" className="h-9 border border-border/30 bg-background/80 backdrop-blur-sm rounded-lg transition-all duration-200" value={filters.pendingMax} onChange={e => onFilterChange({
                     ...filters,
                     pendingMax: e.target.value
                   })} />
@@ -338,7 +338,7 @@ export function POFilterPanel({
                   ...filters,
                   inStockFilter: value as FilterState['inStockFilter']
                 })}>
-                  <SelectTrigger className="h-9 bg-background">
+                  <SelectTrigger className="h-9 border border-border/30 bg-background/80 backdrop-blur-sm rounded-lg transition-all duration-200">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -353,11 +353,11 @@ export function POFilterPanel({
               <div className="space-y-2">
                 <Label className="text-xs font-medium">In-Stock Qty Range</Label>
                 <div className="flex gap-2">
-                  <Input type="number" placeholder="Min" className="h-9 bg-background" value={filters.inStockMin} onChange={e => onFilterChange({
+                  <Input type="number" placeholder="Min" className="h-9 border border-border/30 bg-background/80 backdrop-blur-sm rounded-lg transition-all duration-200" value={filters.inStockMin} onChange={e => onFilterChange({
                     ...filters,
                     inStockMin: e.target.value
                   })} />
-                  <Input type="number" placeholder="Max" className="h-9 bg-background" value={filters.inStockMax} onChange={e => onFilterChange({
+                  <Input type="number" placeholder="Max" className="h-9 border border-border/30 bg-background/80 backdrop-blur-sm rounded-lg transition-all duration-200" value={filters.inStockMax} onChange={e => onFilterChange({
                     ...filters,
                     inStockMax: e.target.value
                   })} />
@@ -369,7 +369,7 @@ export function POFilterPanel({
 
         {/* Active Filters Summary */}
         {hasActiveFilters && (
-          <div className="flex items-center gap-3 p-3 bg-primary/5 rounded-lg border border-primary/10">
+          <div className="flex items-center gap-3 p-3 bg-muted/10 backdrop-blur-sm rounded-xl border border-border/20">
             <Filter className="h-4 w-4 text-primary flex-shrink-0" />
             <div className="flex items-center gap-2 flex-wrap flex-1">
               {filters.quickFilter !== 'all' && (
