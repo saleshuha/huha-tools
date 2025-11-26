@@ -20,7 +20,7 @@ export default {
     	extend: {
     		fontFamily: {
     			sans: [
-    				'Poppins',
+    				'Work Sans',
     				'ui-sans-serif',
     				'system-ui',
     				'-apple-system',
@@ -33,7 +33,7 @@ export default {
     				'sans-serif'
     			],
     			mono: [
-    				'JetBrains Mono',
+    				'Inconsolata',
     				'ui-monospace',
     				'SFMono-Regular',
     				'Menlo',
@@ -50,7 +50,7 @@ export default {
     				'sans-serif'
     			],
     			serif: [
-    				'Merriweather',
+    				'Lora',
     				'ui-serif',
     				'Georgia',
     				'Cambria',
@@ -162,7 +162,14 @@ export default {
     			'accent-glow': 'var(--shadow-accent-glow)',
     			'emerald-glow': 'var(--shadow-emerald-glow)',
     			'sky-glow': 'var(--shadow-sky-glow)',
-    			'cyan-glow': 'var(--shadow-cyan-glow)'
+    			'cyan-glow': 'var(--shadow-cyan-glow)',
+    			'2xs': 'var(--shadow-2xs)',
+    			xs: 'var(--shadow-xs)',
+    			sm: 'var(--shadow-sm)',
+    			md: 'var(--shadow-md)',
+    			lg: 'var(--shadow-lg)',
+    			xl: 'var(--shadow-xl)',
+    			'2xl': 'var(--shadow-2xl)'
     		},
     		transitionTimingFunction: {
     			smooth: 'var(--transition-smooth)',
