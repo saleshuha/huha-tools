@@ -3649,15 +3649,13 @@ export const POTracker = () => {
                       <SelectTrigger className="w-[180px] border-2 border-border focus:border-primary">
                         <SelectValue placeholder="Filter by status" />
                       </SelectTrigger>
-                       <SelectContent>
+                       <SelectContent className="bg-popover border-border shadow-medium z-50">
                          <SelectItem value="all">All Statuses</SelectItem>
                          <SelectItem value="pending">Pending</SelectItem>
-                         <SelectItem value="ordered">Ordered</SelectItem>
-                         <SelectItem value="shipped">Shipped</SelectItem>
-                         <SelectItem value="delivered">Delivered</SelectItem>
+                         <SelectItem value="placed">Placed</SelectItem>
+                         <SelectItem value="received">Received</SelectItem>
                          <SelectItem value="cancelled">Cancelled</SelectItem>
-                          <SelectItem value="closed">Fulfilled from Stock</SelectItem>
-                         <SelectItem value="partial-fulfilled">Partial Fulfilled</SelectItem>
+                         <SelectItem value="closed">Closed</SelectItem>
                        </SelectContent>
                     </Select>
                     <Select value={shipToFilter} onValueChange={value => setShipToFilter(value)}>
@@ -3758,102 +3756,121 @@ export const POTracker = () => {
                   </div>}
 
                 <div className="rounded-lg border-2 border-border overflow-hidden">
-                  {viewMode === 'grouped' ? <div className="grid">
-                        <div className="grid grid-cols-[70px_minmax(140px,1fr)_100px_110px_110px_100px_180px_180px_120px_200px] bg-muted/50 border-b min-h-[48px]">
-                          <div className="p-3 font-medium text-sm flex items-center">
-                            Enable
-                          </div>
-                         <div 
-                           className={`p-3 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'po_number' ? 'bg-primary/10 text-primary' : ''}`}
-                           onClick={() => handleGroupedSort('po_number')}
-                         >
-                           <span>PO Number</span>
-                           {groupedSortField === 'po_number' ? (
-                             groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                           ) : (
-                             <ArrowUpDown className="h-3 w-3 opacity-30" />
-                           )}
-                         </div>
-                         <div 
-                           className={`p-3 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'ship_to' ? 'bg-primary/10 text-primary' : ''}`}
-                           onClick={() => handleGroupedSort('ship_to')}
-                         >
-                           <span>Ship To</span>
-                           {groupedSortField === 'ship_to' ? (
-                             groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                           ) : (
-                             <ArrowUpDown className="h-3 w-3 opacity-30" />
-                           )}
-                         </div>
-                         <div 
-                           className={`p-3 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'po_items' ? 'bg-primary/10 text-primary' : ''}`}
-                           onClick={() => handleGroupedSort('po_items')}
-                         >
-                           <span>PO Items</span>
-                           {groupedSortField === 'po_items' ? (
-                             groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                           ) : (
-                             <ArrowUpDown className="h-3 w-3 opacity-30" />
-                           )}
-                         </div>
-                         <div 
-                           className={`p-3 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'asn_qty' ? 'bg-primary/10 text-primary' : ''}`}
-                           onClick={() => handleGroupedSort('asn_qty')}
-                         >
-                           <span>ASN Qty</span>
-                           {groupedSortField === 'asn_qty' ? (
-                             groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                           ) : (
-                             <ArrowUpDown className="h-3 w-3 opacity-30" />
-                           )}
-                         </div>
-                         <div 
-                           className={`p-3 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'matched_percentage' ? 'bg-primary/10 text-primary' : ''}`}
-                           onClick={() => handleGroupedSort('matched_percentage')}
-                         >
-                           <span>Matched %</span>
-                           {groupedSortField === 'matched_percentage' ? (
-                             groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                           ) : (
-                             <ArrowUpDown className="h-3 w-3 opacity-30" />
-                           )}
-                         </div>
-                          <div 
-                            className={`p-3 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'matched_sunsky' ? 'bg-primary/10 text-primary' : ''}`}
-                            onClick={() => handleGroupedSort('matched_sunsky')}
-                          >
-                            <span>Matched Details</span>
-                            {groupedSortField === 'matched_sunsky' ? (
-                             groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                           ) : (
-                             <ArrowUpDown className="h-3 w-3 opacity-30" />
-                           )}
-                         </div>
-                         <div 
-                            className={`p-3 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'pending_sunsky' ? 'bg-primary/10 text-primary' : ''}`}
-                            onClick={() => handleGroupedSort('pending_sunsky')}
-                          >
-                            <span>Pending to Place</span>
-                            {groupedSortField === 'pending_sunsky' ? (
-                             groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                           ) : (
-                             <ArrowUpDown className="h-3 w-3 opacity-30" />
-                           )}
-                         </div>
-                         <div 
-                           className={`p-3 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors flex items-center gap-1 select-none ${groupedSortField === 'instock_qty' ? 'bg-primary/10 text-primary' : ''}`}
-                           onClick={() => handleGroupedSort('instock_qty')}
-                         >
-                           <span>In-Stock Qty</span>
-                           {groupedSortField === 'instock_qty' ? (
-                             groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                           ) : (
-                             <ArrowUpDown className="h-3 w-3 opacity-30" />
-                           )}
-                         </div>
-                         <div className="p-3 font-medium text-sm flex items-center">Actions</div>
-                       </div>
-                      <div>
+                  {viewMode === 'grouped' ? <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm z-10">
+                          <TableRow className="hover:bg-transparent border-b-2">
+                            <TableHead className="w-[70px]">
+                              Enable
+                            </TableHead>
+                            <TableHead 
+                              className={`cursor-pointer select-none hover:bg-muted/50 transition-colors ${groupedSortField === 'po_number' ? 'bg-primary/10 text-primary' : ''}`}
+                              onClick={() => handleGroupedSort('po_number')}
+                            >
+                              <div className="flex items-center gap-1">
+                                <span>PO Number</span>
+                                {groupedSortField === 'po_number' ? (
+                                  groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                ) : (
+                                  <ArrowUpDown className="h-3 w-3 opacity-30" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className={`cursor-pointer select-none hover:bg-muted/50 transition-colors ${groupedSortField === 'ship_to' ? 'bg-primary/10 text-primary' : ''}`}
+                              onClick={() => handleGroupedSort('ship_to')}
+                            >
+                              <div className="flex items-center gap-1">
+                                <span>Ship To</span>
+                                {groupedSortField === 'ship_to' ? (
+                                  groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                ) : (
+                                  <ArrowUpDown className="h-3 w-3 opacity-30" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className={`cursor-pointer select-none hover:bg-muted/50 transition-colors ${groupedSortField === 'po_items' ? 'bg-primary/10 text-primary' : ''}`}
+                              onClick={() => handleGroupedSort('po_items')}
+                            >
+                              <div className="flex items-center gap-1">
+                                <span>PO Items</span>
+                                {groupedSortField === 'po_items' ? (
+                                  groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                ) : (
+                                  <ArrowUpDown className="h-3 w-3 opacity-30" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className={`cursor-pointer select-none hover:bg-muted/50 transition-colors ${groupedSortField === 'asn_qty' ? 'bg-primary/10 text-primary' : ''}`}
+                              onClick={() => handleGroupedSort('asn_qty')}
+                            >
+                              <div className="flex items-center gap-1">
+                                <span>ASN Qty</span>
+                                {groupedSortField === 'asn_qty' ? (
+                                  groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                ) : (
+                                  <ArrowUpDown className="h-3 w-3 opacity-30" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className={`cursor-pointer select-none hover:bg-muted/50 transition-colors ${groupedSortField === 'matched_percentage' ? 'bg-primary/10 text-primary' : ''}`}
+                              onClick={() => handleGroupedSort('matched_percentage')}
+                            >
+                              <div className="flex items-center gap-1">
+                                <span>Matched %</span>
+                                {groupedSortField === 'matched_percentage' ? (
+                                  groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                ) : (
+                                  <ArrowUpDown className="h-3 w-3 opacity-30" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className={`cursor-pointer select-none hover:bg-muted/50 transition-colors ${groupedSortField === 'matched_sunsky' ? 'bg-primary/10 text-primary' : ''}`}
+                              onClick={() => handleGroupedSort('matched_sunsky')}
+                            >
+                              <div className="flex items-center gap-1">
+                                <span>Matched Details</span>
+                                {groupedSortField === 'matched_sunsky' ? (
+                                  groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                ) : (
+                                  <ArrowUpDown className="h-3 w-3 opacity-30" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className={`cursor-pointer select-none hover:bg-muted/50 transition-colors ${groupedSortField === 'pending_sunsky' ? 'bg-primary/10 text-primary' : ''}`}
+                              onClick={() => handleGroupedSort('pending_sunsky')}
+                            >
+                              <div className="flex items-center gap-1">
+                                <span>Pending to Place</span>
+                                {groupedSortField === 'pending_sunsky' ? (
+                                  groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                ) : (
+                                  <ArrowUpDown className="h-3 w-3 opacity-30" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead 
+                              className={`cursor-pointer select-none hover:bg-muted/50 transition-colors ${groupedSortField === 'instock_qty' ? 'bg-primary/10 text-primary' : ''}`}
+                              onClick={() => handleGroupedSort('instock_qty')}
+                            >
+                              <div className="flex items-center gap-1">
+                                <span>In-Stock Qty</span>
+                                {groupedSortField === 'instock_qty' ? (
+                                  groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                ) : (
+                                  <ArrowUpDown className="h-3 w-3 opacity-30" />
+                                )}
+                              </div>
+                            </TableHead>
+                            <TableHead>Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
                          {paginatedPOGroups.map(({
                       poNumber,
                       orders
@@ -3888,11 +3905,15 @@ export const POTracker = () => {
                       const countryPrefix = selectedCountry === 'UAE' ? '🇦🇪' : '🇸🇦';
                       const currencySymbol = selectedCountry === 'UAE' ? 'AED' : 'SAR';
                       const isDisabled = disabledPOs.has(poNumber);
-                      return <div key={poNumber} className={`
-                                    grid grid-cols-[70px_minmax(140px,1fr)_100px_110px_110px_100px_180px_180px_120px_200px] border-b
-                                    ${isDisabled ? 'opacity-40 bg-muted/10' : hasClosedItems ? 'opacity-75 bg-muted/20' : 'hover:bg-muted/10 transition-colors'}
-                                  `}>
-                                  <div className="p-2 flex items-center">
+                      return <TableRow 
+                                key={poNumber} 
+                                className={cn(
+                                  "hover:bg-muted/50 transition-colors",
+                                  isDisabled && "opacity-40 bg-muted/10",
+                                  hasClosedItems && !isDisabled && "opacity-75 bg-muted/20"
+                                )}
+                              >
+                                  <TableCell className="w-[70px]">
                                     <Switch checked={!isDisabled} onCheckedChange={checked => {
                             const newDisabled = new Set(disabledPOs);
                             if (checked) {
@@ -3902,8 +3923,8 @@ export const POTracker = () => {
                             }
                             setDisabledPOs(newDisabled);
                           }} className="scale-75" />
-                                  </div>
-                                 <div className="p-2 font-medium flex items-center">
+                                  </TableCell>
+                                 <TableCell className="font-medium">
                                    <div className="flex items-center gap-2">
                                      <span className="text-xs opacity-60">{countryPrefix}</span>
                                      <Button variant="link" className="p-0 h-auto font-medium text-left justify-start" onClick={() => navigate(`/po-details/${poNumber}`)}>
@@ -3917,15 +3938,15 @@ export const POTracker = () => {
                                 title: "Copied!",
                                 description: `PO Number "${poNumber}" copied to clipboard`
                               });
-                            }} title="Copy PO Number">
+                             }} title="Copy PO Number">
                                      <Copy className="h-3 w-3" />
                                       </Button>
                                       {hasClosedItems && <Badge variant="secondary" className="text-xs">
                                          HAS FULFILLED ITEMS
                                        </Badge>}
                                   </div>
-                                </div>
-                              <div className="p-2 flex items-center">
+                                </TableCell>
+                              <TableCell>
                                 <div className="text-xs text-muted-foreground truncate">
                                   {(() => {
                               const uniqueLocations = [...new Set(orders.map(o => o.ship_to_location).filter(Boolean))];
@@ -3934,25 +3955,25 @@ export const POTracker = () => {
                               return `${uniqueLocations[0]} +${uniqueLocations.length - 1}`;
                             })()}
                                 </div>
-                              </div>
-                              <div className="p-2 flex items-center">
+                              </TableCell>
+                              <TableCell>
                                 <div className="flex flex-col">
                                   <span className="font-medium text-sm">{totalLineItems}</span>
                                   <span className="text-xs text-muted-foreground">SKUs</span>
                                 </div>
-                              </div>
-                              <div className="p-2 flex items-center">
+                              </TableCell>
+                              <TableCell>
                                 <div className="flex flex-col">
                                   <span className="font-medium text-sm">{asnQuantity}</span>
                                   <span className="text-xs text-muted-foreground">units</span>
                                 </div>
-                              </div>
-                              <div className="p-2 flex items-center">
+                              </TableCell>
+                              <TableCell>
                                 <Badge variant={parseInt(matchedPercentage) >= 80 ? "default" : parseInt(matchedPercentage) >= 50 ? "secondary" : "destructive"} className="text-xs">
                                   {matchedPercentage}%
                                 </Badge>
-                              </div>
-                              <div className="p-2">
+                              </TableCell>
+                              <TableCell>
                                 <div className="flex flex-wrap gap-1">
                                   {(() => {
                                     const matchedUnits = group?.metrics.matchedUnitsBySource?.SUNSKY || 0;
@@ -3980,8 +4001,8 @@ export const POTracker = () => {
                                     }
                                   })()}
                                 </div>
-                              </div>
-                              <div className="p-2">
+                              </TableCell>
+                              <TableCell>
                                 <div className="flex flex-wrap gap-1">
                                   {(() => {
                                     const pendingUnits = group?.metrics.pendingUnitsBySource?.SUNSKY || 0;
@@ -4009,14 +4030,14 @@ export const POTracker = () => {
                                     }
                                   })()}
                                 </div>
-                              </div>
-                              <div className="p-2 flex items-center">
+                              </TableCell>
+                              <TableCell>
                                 <div className="flex flex-col">
                                   <span className="font-medium text-sm">{group?.metrics.totalInStockQty || 0}</span>
                                   <span className="text-xs text-muted-foreground">units</span>
                                 </div>
-                              </div>
-                                  <div className="p-2 flex items-center">
+                              </TableCell>
+                              <TableCell>
                                     <div className="flex items-center gap-1">
                                       <Button variant="outline" size="sm" onClick={() => navigate(`/po-details/${poNumber}`)} className="text-xs px-2 py-1 h-7">
                                         View
@@ -4031,14 +4052,16 @@ export const POTracker = () => {
                               return null;
                             })()}
                                    </div>
-                                 </div>
-                             </div>;
+                              </TableCell>
+                             </TableRow>;
                     })}
-                       </div>
-                    </div> : <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Image</TableHead>
+                        </TableBody>
+                      </Table>
+                    </div> : <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm z-10">
+                          <TableRow className="hover:bg-transparent border-b-2">
+                            <TableHead className="w-[80px]">Image</TableHead>
                             <SortableTableHeader label="PO Number" sortKey="po_number" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
                             <SortableTableHeader label="Ship To" sortKey="ship_to_location" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
                             <SortableTableHeader label="ASIN" sortKey="asin" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
@@ -4212,7 +4235,8 @@ export const POTracker = () => {
                              </TableRow>;
                     })}
                        </TableBody>
-                    </Table>}
+                    </Table>
+                    </div>}
                 </div>
 
                 <div className="flex items-center justify-between">
