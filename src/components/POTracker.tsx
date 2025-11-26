@@ -4053,8 +4053,8 @@ export const POTracker = () => {
 
           {labelsStep === 'list' ?
         // Step 1: PO List View
-        <Card>
-              <CardHeader>
+        <Card className="bg-card/50 backdrop-blur-sm border border-border/20 shadow-sm rounded-xl">
+              <CardHeader className="pb-4 border-b border-border/10">
                 <CardTitle className="flex items-center gap-2">
                   <Printer className="h-5 w-5" />
                   Print Labels - Select Purchase Order
@@ -4066,14 +4066,14 @@ export const POTracker = () => {
               <CardContent>
                  <div className="space-y-4">
                      {/* Saved Presets Quick Access */}
-                     {savedPresets.length > 0 && <div className="flex items-center gap-2 flex-wrap p-3 bg-muted/30 rounded-lg border">
+                     {savedPresets.length > 0 && <div className="flex items-center gap-2 flex-wrap p-4 bg-muted/10 backdrop-blur-sm rounded-xl border border-border/20 shadow-sm">
                          <span className="text-sm text-muted-foreground font-medium">Quick Load:</span>
                          {savedPresets.sort((a, b) => (b.lastUsed || b.createdAt).localeCompare(a.lastUsed || a.createdAt)).slice(0, 3).map(preset => {
                   const availableCount = preset.poNumbers.filter(poNumber => {
                     const poExists = poOrders.some(order => order.po_number === poNumber);
                     return poExists;
                   }).length;
-                  return <Button key={preset.id} variant="outline" size="sm" onClick={() => loadPreset(preset)} disabled={availableCount === 0} className="border-primary/30 hover:border-primary">
+                  return <Button key={preset.id} variant="outline" size="sm" onClick={() => loadPreset(preset)} disabled={availableCount === 0} className="border border-border/30 hover:border-primary/50 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200">
                                  <Package className="h-3 w-3 mr-2" />
                                  {preset.name}
                                  <Badge variant="secondary" className="ml-2">
@@ -4093,7 +4093,7 @@ export const POTracker = () => {
                            <Input placeholder="Search PO number, ASIN, model, serial number..." value={labelSearchQuery} onChange={e => {
                     console.log('Label search query changed to:', e.target.value);
                     setLabelSearchQuery(e.target.value);
-                  }} className="pl-9 pr-20 border-2 border-border focus:border-primary" />
+                  }} className="pl-9 pr-20 border border-border/30 bg-background/80 backdrop-blur-sm focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-xl shadow-sm transition-all duration-200" />
                          {isSearching && <Loader2 className="absolute right-10 top-1/2 h-4 w-4 -translate-y-1/2 text-primary animate-spin z-10" />}
                          {labelSearchQuery && <Button variant="ghost" size="sm" className="absolute right-1 top-1/2 h-6 w-6 p-0 -translate-y-1/2" onClick={() => {
                     console.log('Clearing label search');
@@ -4108,12 +4108,12 @@ export const POTracker = () => {
                     </div>
 
                      {/* Multi-select Controls */}
-                     {selectedPOsForLabels.size > 0 && <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border">
+                     {selectedPOsForLabels.size > 0 && <div className="flex items-center justify-between p-4 bg-primary/5 backdrop-blur-sm rounded-xl border border-primary/20 shadow-sm">
                           <div className="flex items-center gap-2">
                             <Badge variant="secondary">
                               {selectedPOsForLabels.size} PO{selectedPOsForLabels.size !== 1 ? 's' : ''} selected
                             </Badge>
-                            <Button variant="outline" size="sm" onClick={() => setSelectedPOsForLabels(new Set())}>
+                            <Button variant="outline" size="sm" onClick={() => setSelectedPOsForLabels(new Set())} className="border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200">
                               Clear selection
                             </Button>
                           </div>
@@ -4122,7 +4122,7 @@ export const POTracker = () => {
                     setPresetNameInput('');
                     setEditingPresetId(null);
                     setShowPresetsDialog(true);
-                  }}>
+                  }} className="border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200">
                                <Plus className="h-4 w-4 mr-2" />
                                Save Selection
                              </Button>
@@ -4146,7 +4146,7 @@ export const POTracker = () => {
                     setPrintMode('bulk');
                     setPrintOrders(selectedOrders);
                     setPrintDialogOpen(true);
-                  }}>
+                  }} className="border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200">
                                <FileText className="h-4 w-4 mr-2" />
                                Print Preview
                              </Button>
@@ -4166,15 +4166,15 @@ export const POTracker = () => {
                     setSortField('po_number'); // Reset to original order
                     setSortDirection('asc');
                     console.log('🔍 VIEW ITEMS DEBUG: Switched to print labels interface with original order preserved');
-                  }}>
+                  }} className="border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200">
                                <Package className="h-4 w-4 mr-2" />
                                View Items
                              </Button>
-                             <Button variant="outline" size="sm" onClick={() => setGenerateLinkDialogOpen(true)} disabled={selectedPOsForLabels.size === 0}>
+                             <Button variant="outline" size="sm" onClick={() => setGenerateLinkDialogOpen(true)} disabled={selectedPOsForLabels.size === 0} className="border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200">
                                <ExternalLink className="h-4 w-4 mr-2" />
                                Generate Link
                              </Button>
-                             <Button variant="outline" size="sm" onClick={() => setActiveTab('purchase-links')}>
+                             <Button variant="outline" size="sm" onClick={() => setActiveTab('purchase-links')} className="border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200">
                                <ExternalLink className="h-4 w-4 mr-2" />
                                View All Links
                              </Button>
@@ -4182,7 +4182,7 @@ export const POTracker = () => {
                        </div>}
 
                   {/* PO Groups List */}
-                  <div className="rounded-lg border-2 border-border overflow-hidden">
+                  <div className="rounded-xl border border-border/20 overflow-hidden shadow-sm bg-card/30 backdrop-blur-sm">
                     {filteredPOGroups.length === 0 ? <Card className="p-8">
                         <div className="text-center">
                           <Package className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
@@ -4197,7 +4197,7 @@ export const POTracker = () => {
                         </div>
                       </Card> : <div className="grid">
                         {/* Header */}
-                        <div className="grid grid-cols-[50px_minmax(150px,1fr)_150px_120px_120px_minmax(150px,1fr)] bg-muted/50 border-b">
+                        <div className="grid grid-cols-[50px_minmax(150px,1fr)_150px_120px_120px_minmax(150px,1fr)] bg-muted/20 backdrop-blur-md border-b border-border/20">
                           <div className="p-3 font-medium text-sm">Select</div>
                           <div className="p-3 font-medium text-sm">PO Number</div>
                           <div className="p-3 font-medium text-sm">Ship To</div>
@@ -4228,8 +4228,8 @@ export const POTracker = () => {
                       const isDisabledByLocation = selectedShipToLocation && groupShipToLocation && selectedShipToLocation !== groupShipToLocation && !selectedPOsForLabels.has(group.poNumber);
                       const hasClosedItems = group.orders.some(order => order.status === 'closed');
                       return <div key={group.poNumber} className={`
-                              grid grid-cols-[50px_minmax(150px,1fr)_150px_120px_120px_minmax(150px,1fr)] border-b cursor-pointer
-                              ${isDisabledByLocation ? 'opacity-40 bg-muted/10 pointer-events-none cursor-not-allowed' : hasClosedItems ? 'opacity-75 bg-muted/20' : selectedPOsForLabels.has(group.poNumber) ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/10 transition-colors'}
+                              grid grid-cols-[50px_minmax(150px,1fr)_150px_120px_120px_minmax(150px,1fr)] border-b border-border/10 cursor-pointer
+                              ${isDisabledByLocation ? 'opacity-40 bg-muted/10 pointer-events-none cursor-not-allowed' : hasClosedItems ? 'opacity-75 bg-muted/20' : selectedPOsForLabels.has(group.poNumber) ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/30 hover:shadow-sm transition-all duration-200'}
                             `} onClick={() => {
                         // Prevent interaction if disabled by location
                         if (isDisabledByLocation) return;
@@ -4304,7 +4304,7 @@ export const POTracker = () => {
                             setSelectedPOForLabels(group.poNumber);
                             setSelectedPOsForLabels(new Set([group.poNumber]));
                             setLabelsStep('print');
-                          }}>
+                          }} className="border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200">
                                 <Printer className="h-4 w-4 mr-2" />
                                 {isDisabledByLocation ? 'Different Location' : 'Print'}
                               </Button>
@@ -4320,7 +4320,7 @@ export const POTracker = () => {
         // Step 2: Label Printing Interface
         <div className="space-y-6">
               {/* Header with Back Button */}
-              <Card>
+              <Card className="bg-card/50 backdrop-blur-sm border border-border/20 shadow-sm rounded-xl">
                 <CardHeader>
                   <div className="flex items-center gap-4">
                      <Button variant="outline" size="lg" onClick={() => {
@@ -4329,7 +4329,7 @@ export const POTracker = () => {
                   setSelectedPOsForLabels(new Set());
                   setSelectedForPrint(new Map());
                   setOriginalOrderPreserved(false); // Reset order preservation when going back
-                }} className="font-semibold border-2 hover:bg-accent/50">
+                }} className="font-semibold border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200">
                        <ArrowLeft className="h-5 w-5 mr-2" />
                        Back to PO List
                      </Button>
@@ -4347,8 +4347,8 @@ export const POTracker = () => {
               </Card>
 
               {/* Enhanced Print Settings Panel with Collapsible Tabbed Interface */}
-              <Card className="shadow-soft border-2 border-border bg-gradient-to-r from-card to-card/50">
-                <CardHeader className={cn("border-b border-border cursor-pointer transition-all", isPrintConfigCollapsed ? "bg-muted/30 hover:bg-muted/50 py-3" : "bg-gradient-to-r from-primary/5 to-accent/5 hover:from-primary/10 hover:to-accent/10 py-4")} onClick={() => setIsPrintConfigCollapsed(!isPrintConfigCollapsed)}>
+              <Card className="bg-card/50 backdrop-blur-sm border border-border/20 shadow-sm rounded-xl">
+                <CardHeader className={cn("border-b border-border/20 cursor-pointer transition-all duration-200", isPrintConfigCollapsed ? "bg-muted/20 hover:bg-muted/30 py-3" : "bg-muted/10 hover:bg-muted/20 py-4")} onClick={() => setIsPrintConfigCollapsed(!isPrintConfigCollapsed)}>
                   {isPrintConfigCollapsed ?
               // Simplified collapsed state - just a simple row
               <div className="flex items-center justify-between">
@@ -4383,7 +4383,7 @@ export const POTracker = () => {
                       </Button>
                     </div>}
                 </CardHeader>
-                {!isPrintConfigCollapsed && <CardContent className="p-6 border-2 border-border border-t-0 rounded-t-none">
+                {!isPrintConfigCollapsed && <CardContent className="p-6">
                   <Tabs defaultValue="template" className="w-full" onValueChange={newTab => {
                 trackTabChange({
                   category: 'Amazon',
@@ -4393,16 +4393,16 @@ export const POTracker = () => {
                   tabTitle: `Print Config - ${newTab}`
                 });
               }}>
-                    <TabsList className="grid w-full grid-cols-3 mb-6 bg-gradient-subtle p-1 rounded-lg border border-border shadow-soft">
-                      <TabsTrigger value="template" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-medium border border-transparent data-[state=active]:border-primary-dark rounded-md transition-all">
+                    <TabsList className="grid w-full grid-cols-3 mb-6 bg-background/60 backdrop-blur-md p-1.5 rounded-xl border border-border/20 shadow-sm">
+                      <TabsTrigger value="template" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm">
                         <div className="w-2 h-2 bg-current rounded-full"></div>
                         Template & Layout
                       </TabsTrigger>
-                      <TabsTrigger value="quality" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-medium border border-transparent data-[state=active]:border-primary-dark rounded-md transition-all">
+                      <TabsTrigger value="quality" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm">
                         <div className="w-2 h-2 bg-current rounded-full"></div>
                         Print Quality
                       </TabsTrigger>
-                      <TabsTrigger value="advanced" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-medium border border-transparent data-[state=active]:border-primary-dark rounded-md transition-all">
+                      <TabsTrigger value="advanced" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm">
                         <div className="w-2 h-2 bg-current rounded-full"></div>
                         Advanced
                       </TabsTrigger>
@@ -4512,7 +4512,7 @@ export const POTracker = () => {
                       </div>
 
                       {/* Custom Size Controls with Enhanced UI */}
-                      {printSettings.pageSize === 'custom' && <div className="space-y-4 p-6 bg-gradient-to-br from-muted/30 to-muted/50 border border-border/30 rounded-xl animate-slide-down">
+                      {printSettings.pageSize === 'custom' && <div className="space-y-4 p-5 bg-muted/10 backdrop-blur-sm border border-border/20 rounded-xl">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <div className="p-1.5 bg-primary/10 rounded-md">
@@ -4629,7 +4629,7 @@ export const POTracker = () => {
 
                     <TabsContent value="advanced" className="space-y-6 animate-fade-in">
                       {/* Copy Settings with Enhanced UI */}
-                      <div className="p-6 bg-gradient-to-br from-muted/20 to-muted/40 border border-border/30 rounded-xl">
+                      <div className="p-5 bg-muted/10 backdrop-blur-sm border border-border/20 rounded-xl">
                         <div className="flex items-center gap-2 mb-4">
                           <div className="p-1.5 bg-accent/10 rounded-md">
                             <div className="w-3 h-3 bg-accent rounded-sm"></div>
@@ -4819,8 +4819,8 @@ export const POTracker = () => {
               </Card>
 
               {/* Enhanced Items Selection Table */}
-              <Card className="shadow-soft border-border/50 bg-gradient-to-b from-card to-card/50">
-                <CardHeader className="bg-gradient-to-r from-primary/5 to-accent/5 border-b border-border/30">
+              <Card className="bg-card/50 backdrop-blur-sm border border-border/20 shadow-sm rounded-xl">
+                <CardHeader className="bg-muted/10 backdrop-blur-sm border-b border-border/20 pb-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-primary/10 rounded-lg">
@@ -4838,7 +4838,7 @@ export const POTracker = () => {
                       
                       {/* Enhanced Toolbar */}
                       <div className="flex items-center gap-3">
-                        {originalOrderPreserved && <Button variant="outline" size="sm" onClick={() => setOriginalOrderPreserved(false)} className="text-xs hover:bg-accent/10 hover:border-accent/30 transition-colors">
+                        {originalOrderPreserved && <Button variant="outline" size="sm" onClick={() => setOriginalOrderPreserved(false)} className="text-xs border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200">
                             <ArrowUpDown className="h-3 w-3 mr-1" />
                             Enable Sorting
                           </Button>}
@@ -4861,7 +4861,7 @@ export const POTracker = () => {
                         return newMap;
                       });
                     }
-                  }} className="hover:bg-primary/10 hover:border-primary/30 transition-colors">
+                  }} className="border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200">
                             {(() => {
                       const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : selectedPOForLabels ? [selectedPOForLabels] : [];
                       const allPOOrders = poOrders.filter(order => selectedPOsList.includes(order.po_number)).filter(order => order.status !== 'cancelled');
@@ -4887,7 +4887,7 @@ export const POTracker = () => {
                 </CardHeader>
 
                 {/* PO Details Metrics Summary Banner */}
-                <div className="px-4 py-3 bg-gradient-to-r from-muted/30 to-muted/20 border-b border-border/50">
+                <div className="px-4 py-3 bg-muted/10 backdrop-blur-sm border-b border-border/20">
                   {(() => {
                 const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : selectedPOForLabels ? [selectedPOForLabels] : [];
                 const ordersForMetrics = poOrders.filter(order => selectedPOsList.includes(order.po_number) && order.status !== 'cancelled');
@@ -4988,7 +4988,7 @@ export const POTracker = () => {
                   <div className="mb-6 space-y-4">
                     <div className="flex gap-2">
                       {/* Unified Search Controls */}
-                      <div className="flex items-center gap-2 border-2 border-primary/30 rounded-md h-12 bg-primary/5 px-3">
+                      <div className="flex items-center gap-2 border border-border/30 bg-background/80 backdrop-blur-sm rounded-xl h-12 px-3 shadow-sm">
                         {/* Search Type Selector */}
                         <Select value={searchType} onValueChange={(value: any) => setSearchType(value)}>
                           <SelectTrigger className="w-[140px] h-8 border-none bg-transparent focus:ring-0">
@@ -5032,7 +5032,7 @@ export const POTracker = () => {
                       <div className="relative group flex-1">
                         <Search className="absolute left-4 top-3 text-primary h-4 w-4 transition-colors z-10" />
                         <div className="relative">
-                          <div className="flex flex-wrap items-center gap-1.5 pl-12 pr-12 py-2 min-h-[48px] bg-primary/5 border-2 border-primary/30 focus-within:border-primary hover:border-primary/50 transition-all duration-300 shadow-medium ring-2 ring-primary/10 rounded-md">
+                          <div className="flex flex-wrap items-center gap-1.5 pl-12 pr-12 py-2 min-h-[48px] bg-background/80 backdrop-blur-sm border border-border/30 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 hover:border-primary/30 transition-all duration-200 shadow-sm rounded-xl">
                             {searchTags.map((tag, index) => <Badge key={index} variant="secondary" className="bg-primary text-primary-foreground px-2 py-1 text-sm flex items-center gap-1 border border-primary/20 shadow-sm hover:bg-primary/80 transition-colors">
                                 {tag}
                                 <button onClick={() => {
@@ -5075,12 +5075,12 @@ export const POTracker = () => {
                         <span className="text-sm font-medium text-muted-foreground">Print Status:</span>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <Button variant="outline" className="w-[200px] border-2 border-border focus:border-primary justify-between">
+                            <Button variant="outline" className="w-[200px] border border-border/30 bg-background/80 backdrop-blur-sm focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-lg shadow-sm transition-all duration-200 justify-between">
                               <span className="text-sm">{printedFilter.length > 0 ? `${printedFilter.length} selected` : 'All Items'}</span>
                               <ChevronDown className="h-4 w-4 opacity-50" />
                             </Button>
                           </PopoverTrigger>
-                          <PopoverContent className="w-56 p-3 z-50 bg-background" align="start">
+                          <PopoverContent className="w-56 p-4 z-50 bg-background/95 backdrop-blur-md border border-border/20 rounded-xl shadow-lg" align="start">
                             <div className="space-y-3">
                               <div className="space-y-2">
                                 <div className="flex items-center gap-2">
@@ -5164,7 +5164,7 @@ export const POTracker = () => {
                         <Package className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm font-medium text-muted-foreground">Source:</span>
                         <Select value={sourceFilter} onValueChange={value => setSourceFilter(value as 'all' | 'sunsky-matched' | 'not-matched')}>
-                          <SelectTrigger className="w-[200px] border-2 border-border focus:border-primary">
+                          <SelectTrigger className="w-[200px] border border-border/30 bg-background/80 backdrop-blur-sm focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-lg shadow-sm transition-all duration-200">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -5198,12 +5198,12 @@ export const POTracker = () => {
                         <span className="text-sm font-medium text-muted-foreground">Fulfillment:</span>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <Button variant="outline" className="w-[200px] border-2 border-border focus:border-primary justify-between">
+                            <Button variant="outline" className="w-[200px] border border-border/30 bg-background/80 backdrop-blur-sm focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-lg shadow-sm transition-all duration-200 justify-between">
                               <span className="text-sm">{fulfillmentFilter.length > 0 ? `${fulfillmentFilter.length} selected` : 'All Items'}</span>
                               <ChevronDown className="h-4 w-4 opacity-50" />
                             </Button>
                           </PopoverTrigger>
-                          <PopoverContent className="w-56 p-3 z-50 bg-background" align="start">
+                          <PopoverContent className="w-56 p-4 z-50 bg-background/95 backdrop-blur-md border border-border/20 rounded-xl shadow-lg" align="start">
                             <div className="space-y-3">
                               <div className="space-y-2">
                                 <div className="flex items-center gap-2">
@@ -5243,22 +5243,22 @@ export const POTracker = () => {
                   </div>
                   
                   {/* Enhanced Table Container with Borders and Grid */}
-                  <div className="rounded-xl border-2 border-border overflow-x-auto shadow-medium bg-gradient-to-b from-background to-background/50">
+                  <div className="rounded-xl border border-border/20 overflow-x-auto shadow-sm bg-card/30 backdrop-blur-sm">
                     <Table className="w-full table-fixed">
-                      <TableHeader className="bg-gradient-to-r from-primary/10 to-accent/10 border-b-2 border-border">
+                      <TableHeader className="bg-muted/20 backdrop-blur-md border-b border-border/20">
                         <TableRow className="hover:bg-muted/50 border-b border-border">
-                          <TableHead className="w-12 font-semibold border-r border-border/50 bg-muted/20">
+                          <TableHead className="w-12 font-semibold border-r border-border/10 bg-transparent">
                             <div className="flex items-center justify-center">
                               <CheckSquare className="h-4 w-4 text-foreground" />
                             </div>
                           </TableHead>
-                          <TableHead className="w-20 font-semibold border-r border-border/50 bg-muted/20">
+                          <TableHead className="w-20 font-semibold border-r border-border/10 bg-transparent">
                             <div className="flex items-center gap-2">
                               <ImageIcon className="h-4 w-4 text-foreground" />
                               <span className="text-foreground">Image</span>
                             </div>
                           </TableHead>
-                          <TableHead className={`cursor-pointer hover:bg-muted/50 select-none min-w-[140px] max-w-[180px] font-semibold transition-colors border-r border-border/50 bg-muted/20 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('sku_code')}>
+                          <TableHead className={`cursor-pointer hover:bg-muted/50 select-none min-w-[140px] max-w-[180px] font-semibold transition-colors border-r border-border/10 bg-transparent ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('sku_code')}>
                             <div className="flex items-center gap-2">
                               <div className="w-2 h-2 bg-primary rounded-full"></div>
                               <span className="text-foreground">SKU/Model</span>
@@ -5268,13 +5268,13 @@ export const POTracker = () => {
                               {originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' && <Badge variant="outline" className="text-xs ml-auto">Original Order</Badge>}
                             </div>
                           </TableHead>
-                          <TableHead className="min-w-[120px] font-semibold border-r border-border/50 bg-muted/20">
+                          <TableHead className="min-w-[120px] font-semibold border-r border-border/10 bg-transparent">
                             <div className="flex items-center gap-2">
                               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                               <span className="text-foreground">In-Stock Qty</span>
                             </div>
                           </TableHead>
-                          <TableHead className={`cursor-pointer hover:bg-muted/50 select-none min-w-[300px] max-w-[400px] font-semibold transition-colors border-r border-border/50 bg-muted/20 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('combined_title')}>
+                          <TableHead className={`cursor-pointer hover:bg-muted/50 select-none min-w-[300px] max-w-[400px] font-semibold transition-colors border-r border-border/10 bg-transparent ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('combined_title')}>
                             <div className="flex items-center gap-2">
                               <div className="w-2 h-2 bg-accent rounded-full"></div>
                               <span className="text-foreground">Title & ASIN</span>
@@ -5283,13 +5283,13 @@ export const POTracker = () => {
                                 </div>}
                             </div>
                           </TableHead>
-                          <TableHead className="min-w-[120px] max-w-[180px] font-semibold border-r border-border/50 bg-muted/20">
+                          <TableHead className="min-w-[120px] max-w-[180px] font-semibold border-r border-border/10 bg-transparent">
                             <div className="flex items-center gap-2">
                               <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
                               <span className="text-foreground">Ship To</span>
                             </div>
                           </TableHead>
-                          <TableHead className={`cursor-pointer hover:bg-muted/50 select-none font-semibold transition-colors border-r border-border/50 bg-muted/20 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('quantity')}>
+                          <TableHead className={`cursor-pointer hover:bg-muted/50 select-none font-semibold transition-colors border-r border-border/10 bg-transparent ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('quantity')}>
                             <div className="flex items-center gap-2">
                               <div className="w-2 h-2 bg-emerald rounded-full"></div>
                               <span className="text-foreground">Quantity</span>
@@ -5298,19 +5298,19 @@ export const POTracker = () => {
                                 </div>}
                             </div>
                           </TableHead>
-                           <TableHead className="min-w-[120px] font-semibold border-r border-border/50 bg-muted/20">
+                           <TableHead className="min-w-[120px] font-semibold border-r border-border/10 bg-transparent">
                              <div className="flex items-center gap-2">
                                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                                <span className="text-foreground">Print Status</span>
                              </div>
                            </TableHead>
-                           <TableHead className="min-w-[100px] font-semibold border-r border-border/50 bg-muted/20">
+                           <TableHead className="min-w-[100px] font-semibold border-r border-border/10 bg-transparent">
                              <div className="flex items-center gap-2">
                                <div className="w-2 h-2 bg-sky rounded-full"></div>
                                <span className="text-foreground">Print Qty</span>
                              </div>
                            </TableHead>
-                           <TableHead className="min-w-[120px] font-semibold border-r border-border/50 bg-muted/20">
+                           <TableHead className="min-w-[120px] font-semibold border-r border-border/10 bg-transparent">
                              <div className="flex items-center gap-2">
                                <div className="w-2 h-2 bg-cyan rounded-full"></div>
                                <span className="text-foreground">Status</span>
@@ -5319,7 +5319,7 @@ export const POTracker = () => {
                                </Badge>
                              </div>
                            </TableHead>
-                           <TableHead className="min-w-[100px] font-semibold bg-muted/20">
+                           <TableHead className="min-w-[100px] font-semibold bg-transparent">
                              <div className="flex items-center gap-2">
                                <div className="w-2 h-2 bg-secondary rounded-full"></div>
                                <span className="text-foreground">Actions</span>
@@ -5327,7 +5327,7 @@ export const POTracker = () => {
                            </TableHead>
                         </TableRow>
                       </TableHeader>
-                        <TableBody className="divide-y-2 divide-border">
+                        <TableBody className="divide-y divide-border/10">
                            {(() => {
                       const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : selectedPOForLabels ? [selectedPOForLabels] : [];
 
