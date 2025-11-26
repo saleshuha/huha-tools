@@ -501,127 +501,144 @@ export function AsinInventory() {
     setIsAddDialogOpen(true);
   };
   const handleBulkAdd = async () => {
-    if (!bulkText.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Please enter some data to import",
-        variant: "destructive"
-      });
-      return;
-    }
-    const lines = bulkText.trim().split('\n');
-    const items = [];
-    for (const line of lines) {
-      const parts = line.split('\t');
-      if (parts.length >= 1 && parts[0].trim()) { // Only ASIN is mandatory
-        const quantity = parseInt(parts[4]) || 0; // Allow 0 quantity
-        const status = quantity === 0 ? 'out-of-stock' : (parts[3]?.trim() as AsinInventoryItem['status'] || 'in-stock');
-        
-        items.push({
-          asin: parts[0].trim(), // Mandatory ASIN
-          serialNumber: parts[1]?.trim() || '', // Optional
-          sku: parts[2]?.trim() || '', // Optional
-          status: status, // Auto-set to 'no-stock' if quantity is 0
-          quantity: quantity,
-          notes: parts[5]?.trim() || '', // Optional
-          dateAdded: new Date().toISOString()
+    try {
+      if (!bulkText.trim()) {
+        toast({
+          title: "Validation Error",
+          description: "Please enter some data to import",
+          variant: "destructive"
         });
+        return;
       }
-    }
-    if (items.length === 0) {
-      toast({
-        title: "No Valid Data",
-        description: "No valid items found in the input",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Validate for duplicates
-    const validationErrors = [];
-    const seenSkus = new Set();
-    const seenSerials = new Set();
-    
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-
-      // Check for duplicate SKU (if provided)
-      if (item.sku && item.sku.trim()) {
-        const duplicateSku = inventory.find(existing => existing.sku && existing.sku.toLowerCase() === item.sku.toLowerCase());
-        if (duplicateSku) {
-          validationErrors.push(`Row ${i + 1}: SKU "${item.sku}" already exists in inventory`);
-          continue;
-        }
-
-        // Check for duplicate SKU within bulk data
-        if (seenSkus.has(item.sku.toLowerCase())) {
-          validationErrors.push(`Row ${i + 1}: SKU "${item.sku}" appears multiple times in bulk data`);
-          continue;
-        }
-        seenSkus.add(item.sku.toLowerCase());
-      }
-
-      // Check for duplicate SERIAL NUMBER (if provided)
-      if (item.serialNumber && item.serialNumber.trim()) {
-        const duplicateSerial = inventory.find(existing => 
-          existing.serialNumber === item.serialNumber
-        );
-        if (duplicateSerial) {
-          validationErrors.push(
-            `Row ${i + 1}: Serial "${item.serialNumber}" already used by ASIN "${duplicateSerial.asin}"`
-          );
-          continue;
-        }
-
-        // Check for duplicate serial within bulk data
-        if (seenSerials.has(item.serialNumber)) {
-          validationErrors.push(
-            `Row ${i + 1}: Serial "${item.serialNumber}" appears multiple times in bulk data`
-          );
-          continue;
-        }
-        seenSerials.add(item.serialNumber);
-      }
-    }
-    
-    if (validationErrors.length > 0) {
-      toast({
-        title: "Validation Errors",
-        description: `Found ${validationErrors.length} duplicate(s): ${validationErrors.slice(0, 3).join(', ')}${validationErrors.length > 3 ? '...' : ''}`,
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Auto-assign serial numbers for items without serials using ATOMIC counter
-    const itemsWithAutoSerial = [];
-    for (const item of items) {
-      if (!item.serialNumber || item.serialNumber.trim() === '') {
-        const nextSerial = await getNextSerialNumber();
-        if (!nextSerial) {
-          toast({
-            title: "Error",
-            description: "Failed to generate serial numbers",
-            variant: "destructive",
+      const lines = bulkText.trim().split('\n');
+      const items = [];
+      for (const line of lines) {
+        const parts = line.split('\t');
+        if (parts.length >= 1 && parts[0].trim()) { // Only ASIN is mandatory
+          const quantity = parseInt(parts[4]) || 0; // Allow 0 quantity
+          const status = quantity === 0 ? 'out-of-stock' : 'in-stock'; // Auto-set based on quantity
+          
+          items.push({
+            asin: parts[0].trim(), // Mandatory ASIN
+            serialNumber: parts[1]?.trim() || '', // Optional
+            sku: parts[2]?.trim() || '', // Optional
+            status: status, // Auto-set to 'out-of-stock' if quantity is 0
+            quantity: quantity,
+            notes: parts[5]?.trim() || '', // Optional
+            dateAdded: new Date().toISOString()
           });
-          return;
         }
-        itemsWithAutoSerial.push({
-          ...item,
-          serialNumber: nextSerial
-        });
-      } else {
-        itemsWithAutoSerial.push(item);
       }
-    }
+      if (items.length === 0) {
+        toast({
+          title: "No Valid Data",
+          description: "No valid items found in the input",
+          variant: "destructive"
+        });
+        return;
+      }
 
-    await bulkAdd(itemsWithAutoSerial);
-    setBulkText('');
-    setIsBulkDialogOpen(false);
-    toast({
-      title: "Success",
-      description: `Added ${items.length} items to inventory`
-    });
+      // Validate for duplicates
+      const validationErrors = [];
+      const seenSkus = new Set();
+      const seenSerials = new Set();
+      
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+
+        // Check for duplicate SKU (if provided)
+        if (item.sku && item.sku.trim()) {
+          const duplicateSku = inventory.find(existing => existing.sku && existing.sku.toLowerCase() === item.sku.toLowerCase());
+          if (duplicateSku) {
+            validationErrors.push(`Row ${i + 1}: SKU "${item.sku}" already exists in inventory`);
+            continue;
+          }
+
+          // Check for duplicate SKU within bulk data
+          if (seenSkus.has(item.sku.toLowerCase())) {
+            validationErrors.push(`Row ${i + 1}: SKU "${item.sku}" appears multiple times in bulk data`);
+            continue;
+          }
+          seenSkus.add(item.sku.toLowerCase());
+        }
+
+        // Check for duplicate SERIAL NUMBER (if provided)
+        if (item.serialNumber && item.serialNumber.trim()) {
+          const duplicateSerial = inventory.find(existing => 
+            existing.serialNumber === item.serialNumber
+          );
+          if (duplicateSerial) {
+            validationErrors.push(
+              `Row ${i + 1}: Serial "${item.serialNumber}" already used by ASIN "${duplicateSerial.asin}"`
+            );
+            continue;
+          }
+
+          // Check for duplicate serial within bulk data
+          if (seenSerials.has(item.serialNumber)) {
+            validationErrors.push(
+              `Row ${i + 1}: Serial "${item.serialNumber}" appears multiple times in bulk data`
+            );
+            continue;
+          }
+          seenSerials.add(item.serialNumber);
+        }
+      }
+      
+      if (validationErrors.length > 0) {
+        toast({
+          title: "Validation Errors",
+          description: `Found ${validationErrors.length} duplicate(s): ${validationErrors.slice(0, 3).join(', ')}${validationErrors.length > 3 ? '...' : ''}`,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Auto-assign serial numbers for items without serials using ATOMIC counter
+      const itemsWithAutoSerial = [];
+      for (const item of items) {
+        if (!item.serialNumber || item.serialNumber.trim() === '') {
+          try {
+            const nextSerial = await getNextSerialNumber();
+            if (!nextSerial) {
+              toast({
+                title: "Error",
+                description: "Failed to generate serial number",
+                variant: "destructive",
+              });
+              return;
+            }
+            itemsWithAutoSerial.push({
+              ...item,
+              serialNumber: nextSerial
+            });
+          } catch (error: any) {
+            toast({
+              title: "Serial Generation Error",
+              description: error.message || "Failed to generate serial number for item",
+              variant: "destructive",
+            });
+            return;
+          }
+        } else {
+          itemsWithAutoSerial.push(item);
+        }
+      }
+
+      await bulkAdd(itemsWithAutoSerial);
+      setBulkText('');
+      setIsBulkDialogOpen(false);
+      toast({
+        title: "Success",
+        description: `Added ${items.length} items to inventory`
+      });
+    } catch (error: any) {
+      toast({
+        title: "Bulk Add Failed",
+        description: error.message || "An unexpected error occurred while adding items",
+        variant: "destructive"
+      });
+    }
   };
   
   // Handle disabling items
@@ -1327,8 +1344,8 @@ export function AsinInventory() {
                             <p><strong>Format:</strong> Each line should contain tab-separated values</p>
                             <p><strong>Required:</strong> ASIN (first field only)</p>
                             <p><strong>Optional:</strong> Serial Number → SKU → Status → Quantity → Notes</p>
-                            <p><strong>Note:</strong> Items with 0 quantity are automatically marked as 'no-stock'</p>
-                            <p><strong>Status options:</strong> in-stock, sold, reserved, damaged, no-stock</p>
+                            <p><strong>Note:</strong> Items with 0 quantity are automatically marked as 'out-of-stock'</p>
+                            <p><strong>Status:</strong> Auto-assigned based on quantity (0 = out-of-stock, &gt;0 = in-stock)</p>
                           </div>
                       </div>
                       <DialogFooter>
