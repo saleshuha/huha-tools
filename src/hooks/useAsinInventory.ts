@@ -849,12 +849,12 @@ export function useAsinInventory() {
 
       for (const item of itemsNeedingTitles) {
         try {
-          const { data, error } = await supabase.functions.invoke('sunsky-api', {
-            body: {
-              action: 'getProductDetails',
-              skuCode: item.sku
-            }
-          });
+        const { data, error } = await supabase.functions.invoke('sunsky-api', {
+          body: {
+            action: 'getProductDetails',
+            itemNo: item.sku
+          }
+        });
 
           if (error) {
             console.warn(`Failed to fetch title for SKU ${item.sku}:`, error);
