@@ -3399,28 +3399,28 @@ export const POTracker = () => {
         setSearchParams({ tab: newTab });
         setActiveTab(newTab);
       }} className="w-full">
-        <TabsList className="grid w-full grid-cols-6 h-12 bg-muted/30 rounded-lg p-1 border border-border shadow-soft">
-          <TabsTrigger value="overview" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+        <TabsList className="grid w-full grid-cols-6 h-14 bg-background/60 backdrop-blur-md rounded-xl p-1.5 border border-border/20 shadow-sm">
+          <TabsTrigger value="overview" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
             <Package className="h-4 w-4" />
             PO Overview
           </TabsTrigger>
-          <TabsTrigger value="upload" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+          <TabsTrigger value="upload" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
             <FileUp className="h-4 w-4" />
             Uploads
           </TabsTrigger>
-          <TabsTrigger value="labels" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+          <TabsTrigger value="labels" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
             <Printer className="h-4 w-4" />
             Print Labels
           </TabsTrigger>
-          <TabsTrigger value="reports" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+          <TabsTrigger value="reports" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
             <BarChart3 className="h-4 w-4" />
             Reports
           </TabsTrigger>
-          <TabsTrigger value="analytics" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+          <TabsTrigger value="analytics" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
             <TrendingUp className="h-4 w-4" />
             Analytics
           </TabsTrigger>
-          <TabsTrigger value="purchase-links" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">
+          <TabsTrigger value="purchase-links" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
             <ExternalLink className="h-4 w-4" />
             Purchase Links
           </TabsTrigger>
@@ -3569,19 +3569,19 @@ export const POTracker = () => {
           
 
           {/* Active filter indicator */}
-          {selectedMetricFilter && <div className="flex items-center gap-2 p-3 bg-primary/10 rounded-md">
+          {selectedMetricFilter && <div className="flex items-center gap-2 p-3 bg-primary/10 backdrop-blur-sm rounded-xl border border-primary/20">
               <Filter className="h-4 w-4 text-primary" />
               <span className="text-sm font-medium">
                 Filtering by: <span className="capitalize">{selectedMetricFilter.replace('-', ' ')}</span>
               </span>
-              <Button variant="ghost" size="sm" onClick={() => setSelectedMetricFilter(null)} className="ml-auto">
+              <Button variant="ghost" size="sm" onClick={() => setSelectedMetricFilter(null)} className="ml-auto hover:bg-primary/10 rounded-lg">
                 Clear Filter
               </Button>
             </div>}
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+          <Card className="bg-card/50 backdrop-blur-sm border border-border/20 shadow-sm rounded-xl">
+            <CardHeader className="pb-4 border-b border-border/10">
+              <CardTitle className="flex items-center gap-2 text-lg font-medium">
                 <Package className="h-5 w-5" />
                 Purchase Orders Summary
                 {isLoadingMetrics && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -3592,7 +3592,7 @@ export const POTracker = () => {
                 {/* Full-width search bar */}
                 <div className="w-full relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground z-10" />
-                  <Input type="text" placeholder="Search PO number, ASIN, model, serial number..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full pl-10 pr-10 border-2 border-border focus:border-primary" />
+                  <Input type="text" placeholder="Search PO number, ASIN, model, serial number..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full pl-10 pr-10 h-11 border border-border/30 bg-background/80 backdrop-blur-sm focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-xl shadow-sm transition-all duration-200 placeholder:text-muted-foreground/60" />
                   {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary animate-spin z-10" />}
                   {!isSearching && filteredOrders.length > 0 && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground z-10">
                       {filteredOrders.length} results
@@ -3620,33 +3620,33 @@ export const POTracker = () => {
                         variant: "destructive"
                       });
                     }
-                  }} disabled={isLoading} title="Reload ALL PO orders from database" className="border-2 border-primary text-primary hover:bg-primary/10">
+                  }} disabled={isLoading} title="Reload ALL PO orders from database" className="border border-primary/30 text-primary hover:bg-primary/10 hover:shadow-sm rounded-lg transition-all duration-200">
                       {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>
                           <RefreshCw className="h-4 w-4 mr-1" />
                           Reload All
                         </>}
                     </Button>
-                    <Button variant="outline" size="sm" onClick={exportPOData} className="border-2 border-green-500 text-green-600 hover:bg-green-50" title="Export filtered PO orders to CSV">
+                    <Button variant="outline" size="sm" onClick={exportPOData} className="border border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10 hover:shadow-sm rounded-lg transition-all duration-200" title="Export filtered PO orders to CSV">
                       <Download className="h-4 w-4 mr-1" />
                       Export CSV
                     </Button>
-                    <Button variant="destructive" size="sm" onClick={() => setShowBulkDeleteDialog(true)} className="border-2">
+                    <Button variant="destructive" size="sm" onClick={() => setShowBulkDeleteDialog(true)} className="border border-destructive/30 hover:shadow-sm rounded-lg transition-all duration-200">
                       <Trash2 className="h-4 w-4 mr-1" />
                       Bulk Delete POs
                     </Button>
                   </div>
                   <div className="flex items-center gap-2">
                     
-                    <div className="flex items-center border-2 border-border rounded-lg p-1">
-                      <Button variant={viewMode === 'grouped' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('grouped')} className="h-8 border border-transparent hover:border-border">
+                    <div className="flex items-center bg-muted/30 backdrop-blur-sm rounded-lg p-1 gap-0.5">
+                      <Button variant={viewMode === 'grouped' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('grouped')} className="h-8 rounded-md px-4 transition-all duration-200">
                         Grouped
                       </Button>
-                      <Button variant={viewMode === 'detailed' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('detailed')} className="h-8 border border-transparent hover:border-border">
+                      <Button variant={viewMode === 'detailed' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('detailed')} className="h-8 rounded-md px-4 transition-all duration-200">
                         Line Items
                       </Button>
                     </div>
                     <Select value={statusFilter} onValueChange={value => setStatusFilter(value as POOrder['status'] | 'all')}>
-                      <SelectTrigger className="w-[180px] border-2 border-border focus:border-primary">
+                      <SelectTrigger className="w-[180px] border border-border/30 bg-background/80 backdrop-blur-sm focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-lg shadow-sm transition-all duration-200">
                         <SelectValue placeholder="Filter by status" />
                       </SelectTrigger>
                        <SelectContent className="bg-popover border-border shadow-medium z-50">
@@ -3659,7 +3659,7 @@ export const POTracker = () => {
                        </SelectContent>
                     </Select>
                     <Select value={shipToFilter} onValueChange={value => setShipToFilter(value)}>
-                      <SelectTrigger className="w-[180px] border-2 border-border focus:border-primary">
+                      <SelectTrigger className="w-[180px] border border-border/30 bg-background/80 backdrop-blur-sm focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-lg shadow-sm transition-all duration-200">
                         <SelectValue placeholder="Filter by location" />
                       </SelectTrigger>
                       <SelectContent>
@@ -3675,7 +3675,7 @@ export const POTracker = () => {
                 </div>
 
                 {/* Filter Status Indicators */}
-                <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border-2 border-border">
+                <div className="flex items-center justify-between p-4 bg-muted/20 backdrop-blur-sm rounded-xl border border-border/20 shadow-sm">
                   <div className="flex items-center gap-4 flex-wrap">
                     <div className="flex items-center gap-2">
                       <Package className="h-4 w-4 text-muted-foreground" />
