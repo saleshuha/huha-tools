@@ -693,6 +693,13 @@ export function Replenishment() {
         totalSoldUnits.set(change.inventory_id, currentTotal + Math.abs(change.change_amount));
       });
 
+      console.log('📊 Ready to Order - Total Sold Units:', {
+        itemsQueried: inventoryIds.length,
+        stockChangesFound: ((stockChanges as any) || []).length,
+        itemsWithSales: totalSoldUnits.size,
+        sampleSoldUnits: Array.from(totalSoldUnits.entries()).slice(0, 5)
+      });
+
       // Process ASIN items only (excluding non-source items)
       const asinItems = ((asinResult.data as any) || []).filter((item: any) => !nonSourceIdentifiers.has(`${item.asin}-${item.serial_number}`)).map((item: any) => {
         const lastSaleDate = lastSaleDates.get(item.id) || item.date_sold;
@@ -831,6 +838,13 @@ export function Replenishment() {
         if (!lastSaleDateMap.has(change.inventory_id)) {
           lastSaleDateMap.set(change.inventory_id, change.created_at);
         }
+      });
+
+      console.log('📊 Total Sold Units Summary:', {
+        itemsQueried: allItemIds.length,
+        stockChangesFound: (stockChanges || []).length,
+        itemsWithSales: totalSoldMap.size,
+        sampleSoldUnits: Array.from(totalSoldMap.entries()).slice(0, 5)
       });
 
       // 1. Items with status='no-stock' → Out of Stock tab
@@ -1250,6 +1264,13 @@ export function Replenishment() {
       ((stockChanges as any) || []).forEach((change: any) => {
         const currentTotal = totalSoldMap.get(change.inventory_id) || 0;
         totalSoldMap.set(change.inventory_id, currentTotal + Math.abs(change.change_amount));
+      });
+
+      console.log('📊 Ordered Items - Total Sold Units:', {
+        itemsQueried: inventoryIds.length,
+        stockChangesFound: ((stockChanges as any) || []).length,
+        itemsWithSales: totalSoldMap.size,
+        sampleSoldUnits: Array.from(totalSoldMap.entries()).slice(0, 5)
       });
       
       const orderedItemsData = [...((asinOrdered.data as any) || []).map((item: any) => ({
