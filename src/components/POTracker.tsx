@@ -4027,7 +4027,7 @@ export const POTracker = () => {
                                       return (
                                         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-green-500/15 text-green-700 dark:text-green-300">
                                           <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
-                                          ✓ All matched
+                                          ✓ All placed
                                         </div>
                                       );
                                     }
