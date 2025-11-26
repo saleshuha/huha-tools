@@ -3324,7 +3324,7 @@ export const POTracker = () => {
 
         <TabsContent value="overview" className="space-y-4">
           {/* PHASE 6: Enhanced responsive grid layout */}
-        <div className="grid grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-2">
+        <div className="grid grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-2 p-4 border border-border/20 rounded-xl bg-muted/5 backdrop-blur-sm">
             {/* 1. Total PO Numbers */}
             <POMetricsCard title="Total POs" icon={FileText} value={comprehensiveMetrics?.unique_po_numbers || groupedPOOrders.length} subValue={`${comprehensiveMetrics?.total_line_items || poOrders.length} items`} isLoading={isLoadingComprehensiveMetrics} colorClass="from-blue-500/5" borderColorClass="border-l-blue-500" textColorClass="text-blue-600" tooltipText="Unique PO numbers and total line items" />
 
