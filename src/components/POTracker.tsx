@@ -3271,10 +3271,6 @@ export const POTracker = () => {
             return 'PO Upload';
           case 'labels':
             return 'PO Labels';
-          case 'reports':
-            return 'PO Reports';
-          case 'analytics':
-            return 'PO Analytics';
           case 'purchase-links':
             return 'PO Purchase Links';
           default:
@@ -3286,7 +3282,7 @@ export const POTracker = () => {
         subcategory: getSubcategoryForTab(newTab),
         fromTab: activeTab,
         toTab: newTab,
-        tabTitle: newTab === 'overview' ? 'PO Overview' : newTab === 'upload' ? 'Uploads' : newTab === 'labels' ? 'Print Labels' : newTab === 'reports' ? 'Reports' : newTab === 'analytics' ? 'Analytics' : newTab === 'purchase-links' ? 'Purchase Links' : newTab
+        tabTitle: newTab === 'overview' ? 'PO Overview' : newTab === 'upload' ? 'Uploads' : newTab === 'labels' ? 'Print Labels' : newTab === 'purchase-links' ? 'Purchase Links' : newTab
       });
 
       // Update URL with tab parameter
@@ -3295,7 +3291,7 @@ export const POTracker = () => {
       });
       setActiveTab(newTab);
     }} className="w-full">
-        <TabsList className="grid w-full grid-cols-6 h-14 bg-background/60 backdrop-blur-md rounded-xl p-1.5 border border-border/20 shadow-sm">
+        <TabsList className="grid w-full grid-cols-4 h-14 bg-background/60 backdrop-blur-md rounded-xl p-1.5 border border-border/20 shadow-sm">
           <TabsTrigger value="overview" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
             <Package className="h-4 w-4" />
             PO Overview
@@ -3307,14 +3303,6 @@ export const POTracker = () => {
           <TabsTrigger value="labels" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
             <Printer className="h-4 w-4" />
             Print Labels
-          </TabsTrigger>
-          <TabsTrigger value="reports" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
-            <BarChart3 className="h-4 w-4" />
-            Reports
-          </TabsTrigger>
-          <TabsTrigger value="analytics" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
-            <TrendingUp className="h-4 w-4" />
-            Analytics
           </TabsTrigger>
           <TabsTrigger value="purchase-links" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
             <ExternalLink className="h-4 w-4" />
@@ -6302,14 +6290,6 @@ export const POTracker = () => {
                </Card>
              </div>}
          </TabsContent>
-
-        <TabsContent value="reports" className="space-y-6">
-          <POReportsSection poOrders={filteredOrders} inventoryData={inventoryData?.asinInventory || []} skuInventoryData={inventoryData?.skuInventory || []} />
-        </TabsContent>
-
-        <TabsContent value="analytics" className="space-y-6">
-          <POAnalyticsDashboard orders={poOrders} isLoading={loadingStatus !== '' || selectedPOForLabels && poOrders.length === 0} />
-        </TabsContent>
 
         <TabsContent value="purchase-links" className="space-y-6">
           <div className="grid gap-6">
