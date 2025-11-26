@@ -18,6 +18,15 @@ export type FilterState = {
   costMax: string;
   hasTracking: 'all' | 'yes' | 'no';
   hasSunskySku: 'all' | 'yes' | 'no';
+  // Advanced filters
+  matchedPercentage: 'all' | '0' | '1-50' | '51-80' | '81-100';
+  matchedSource: 'all' | 'has-matches' | 'no-matches';
+  pendingToPlace: 'all' | 'has-pending' | 'no-pending';
+  pendingMin: string;
+  pendingMax: string;
+  inStockFilter: 'all' | 'has-stock' | 'no-stock';
+  inStockMin: string;
+  inStockMax: string;
 };
 interface POFilterPanelProps {
   filters: FilterState;
@@ -89,7 +98,15 @@ export function POFilterPanel({
       costMin: '',
       costMax: '',
       hasTracking: 'all',
-      hasSunskySku: 'all'
+      hasSunskySku: 'all',
+      matchedPercentage: 'all',
+      matchedSource: 'all',
+      pendingToPlace: 'all',
+      pendingMin: '',
+      pendingMax: '',
+      inStockFilter: 'all',
+      inStockMin: '',
+      inStockMax: ''
     });
   };
 
@@ -108,7 +125,7 @@ export function POFilterPanel({
     { value: 'closed', label: '✅ Closed', color: 'text-blue-700 dark:text-blue-400' },
   ];
 
-  const hasActiveFilters = filters.quickFilter !== 'all' || filters.status.length > 0 || filters.inventoryStatus.length > 0 || filters.quantityMin || filters.quantityMax || filters.costMin || filters.costMax || filters.hasTracking !== 'all' || filters.hasSunskySku !== 'all';
+  const hasActiveFilters = filters.quickFilter !== 'all' || filters.status.length > 0 || filters.inventoryStatus.length > 0 || filters.quantityMin || filters.quantityMax || filters.costMin || filters.costMax || filters.hasTracking !== 'all' || filters.hasSunskySku !== 'all' || filters.matchedPercentage !== 'all' || filters.matchedSource !== 'all' || filters.pendingToPlace !== 'all' || filters.pendingMin || filters.pendingMax || filters.inStockFilter !== 'all' || filters.inStockMin || filters.inStockMax;
   return <Card className="border-border/40 bg-card/50 backdrop-blur-sm">
       <CardContent className="p-4 space-y-4">
         {/* Header with Clear Button */}
@@ -242,9 +259,155 @@ export function POFilterPanel({
                 })} />
                 </div>
               </div>
+
+              {/* Match Percentage */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Match %</Label>
+                <Select value={filters.matchedPercentage} onValueChange={value => onFilterChange({
+                  ...filters,
+                  matchedPercentage: value as FilterState['matchedPercentage']
+                })}>
+                  <SelectTrigger className="h-9 bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Ranges</SelectItem>
+                    <SelectItem value="0">0%</SelectItem>
+                    <SelectItem value="1-50">1-50%</SelectItem>
+                    <SelectItem value="51-80">51-80%</SelectItem>
+                    <SelectItem value="81-100">81-100%</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Match Status */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Match Status</Label>
+                <Select value={filters.matchedSource} onValueChange={value => onFilterChange({
+                  ...filters,
+                  matchedSource: value as FilterState['matchedSource']
+                })}>
+                  <SelectTrigger className="h-9 bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Items</SelectItem>
+                    <SelectItem value="has-matches">✓ Has Matches</SelectItem>
+                    <SelectItem value="no-matches">❌ No Matches</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Pending to Place */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Pending Status</Label>
+                <Select value={filters.pendingToPlace} onValueChange={value => onFilterChange({
+                  ...filters,
+                  pendingToPlace: value as FilterState['pendingToPlace']
+                })}>
+                  <SelectTrigger className="h-9 bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Items</SelectItem>
+                    <SelectItem value="has-pending">⏳ Has Pending</SelectItem>
+                    <SelectItem value="no-pending">✓ None Pending</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Pending Range */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Pending Units Range</Label>
+                <div className="flex gap-2">
+                  <Input type="number" placeholder="Min" className="h-9 bg-background" value={filters.pendingMin} onChange={e => onFilterChange({
+                    ...filters,
+                    pendingMin: e.target.value
+                  })} />
+                  <Input type="number" placeholder="Max" className="h-9 bg-background" value={filters.pendingMax} onChange={e => onFilterChange({
+                    ...filters,
+                    pendingMax: e.target.value
+                  })} />
+                </div>
+              </div>
+
+              {/* In-Stock Filter */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">In-Stock Status</Label>
+                <Select value={filters.inStockFilter} onValueChange={value => onFilterChange({
+                  ...filters,
+                  inStockFilter: value as FilterState['inStockFilter']
+                })}>
+                  <SelectTrigger className="h-9 bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Items</SelectItem>
+                    <SelectItem value="has-stock">✓ Has Stock</SelectItem>
+                    <SelectItem value="no-stock">❌ Out of Stock</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* In-Stock Range */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">In-Stock Qty Range</Label>
+                <div className="flex gap-2">
+                  <Input type="number" placeholder="Min" className="h-9 bg-background" value={filters.inStockMin} onChange={e => onFilterChange({
+                    ...filters,
+                    inStockMin: e.target.value
+                  })} />
+                  <Input type="number" placeholder="Max" className="h-9 bg-background" value={filters.inStockMax} onChange={e => onFilterChange({
+                    ...filters,
+                    inStockMax: e.target.value
+                  })} />
+                </div>
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Active Filters Summary */}
+        {hasActiveFilters && (
+          <div className="flex items-center gap-3 p-3 bg-primary/5 rounded-lg border border-primary/10">
+            <Filter className="h-4 w-4 text-primary flex-shrink-0" />
+            <div className="flex items-center gap-2 flex-wrap flex-1">
+              {filters.quickFilter !== 'all' && (
+                <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-destructive/10 rounded-full" onClick={() => onFilterChange({ ...filters, quickFilter: 'all' })}>
+                  Quick: {filters.quickFilter}
+                  <X className="h-3 w-3" />
+                </Badge>
+              )}
+              {filters.matchedPercentage !== 'all' && (
+                <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-destructive/10 rounded-full" onClick={() => onFilterChange({ ...filters, matchedPercentage: 'all' })}>
+                  Match: {filters.matchedPercentage}%
+                  <X className="h-3 w-3" />
+                </Badge>
+              )}
+              {filters.matchedSource !== 'all' && (
+                <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-destructive/10 rounded-full" onClick={() => onFilterChange({ ...filters, matchedSource: 'all' })}>
+                  {filters.matchedSource === 'has-matches' ? 'Has Matches' : 'No Matches'}
+                  <X className="h-3 w-3" />
+                </Badge>
+              )}
+              {filters.pendingToPlace !== 'all' && (
+                <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-destructive/10 rounded-full" onClick={() => onFilterChange({ ...filters, pendingToPlace: 'all' })}>
+                  {filters.pendingToPlace === 'has-pending' ? 'Has Pending' : 'None Pending'}
+                  <X className="h-3 w-3" />
+                </Badge>
+              )}
+              {filters.inStockFilter !== 'all' && (
+                <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-destructive/10 rounded-full" onClick={() => onFilterChange({ ...filters, inStockFilter: 'all' })}>
+                  {filters.inStockFilter === 'has-stock' ? 'Has Stock' : 'Out of Stock'}
+                  <X className="h-3 w-3" />
+                </Badge>
+              )}
+            </div>
+            <Button variant="ghost" size="sm" className="flex-shrink-0 h-8" onClick={handleClearAllFilters}>
+              Clear All
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>;
 }
