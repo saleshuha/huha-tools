@@ -5,13 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
 import { Textarea } from '@/components/ui/textarea';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
@@ -4182,7 +4182,7 @@ export const POTracker = () => {
                        </div>}
 
                   {/* PO Groups List */}
-                  <div className="rounded-xl border border-border/20 overflow-hidden shadow-sm bg-card/30 backdrop-blur-sm">
+                  <div className="rounded-xl border border-border/20 overflow-hidden shadow-sm bg-card/30 backdrop-blur-sm overflow-x-auto">
                     {filteredPOGroups.length === 0 ? <Card className="p-8">
                         <div className="text-center">
                           <Package className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
@@ -4195,19 +4195,19 @@ export const POTracker = () => {
                             Upload PO Data
                           </Button>
                         </div>
-                      </Card> : <div className="grid">
-                        {/* Header */}
-                        <div className="grid grid-cols-[50px_minmax(150px,1fr)_150px_120px_120px_minmax(150px,1fr)] bg-muted/20 backdrop-blur-md border-b border-border/20">
-                          <div className="p-3 font-medium text-sm">Select</div>
-                          <div className="p-3 font-medium text-sm">PO Number</div>
-                          <div className="p-3 font-medium text-sm">Ship To</div>
-                          <div className="p-3 font-medium text-sm">Items</div>
-                          <div className="p-3 font-medium text-sm">Quantity</div>
-                          <div className="p-3 font-medium text-sm">Actions</div>
-                        </div>
+                      </Card> : <Table>
+                        <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm z-10">
+                          <TableRow className="hover:bg-transparent border-b border-border/20">
+                            <TableHead className="w-[50px]">Select</TableHead>
+                            <TableHead className="min-w-[150px]">PO Number</TableHead>
+                            <TableHead className="w-[150px]">Ship To</TableHead>
+                            <TableHead className="w-[120px]">Items</TableHead>
+                            <TableHead className="w-[120px]">Quantity</TableHead>
+                            <TableHead className="min-w-[200px]">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
                         
-                        {/* Body */}
-                        <div>
+                        <TableBody>
                           {filteredPOGroups.map(group => {
                       // Get the primary ship-to location from first selected PO
                       const selectedShipToLocation = (() => {
@@ -4227,27 +4227,37 @@ export const POTracker = () => {
                       // Check if this PO should be disabled due to different ship-to location
                       const isDisabledByLocation = selectedShipToLocation && groupShipToLocation && selectedShipToLocation !== groupShipToLocation && !selectedPOsForLabels.has(group.poNumber);
                       const hasClosedItems = group.orders.some(order => order.status === 'closed');
-                      return <div key={group.poNumber} className={`
-                              grid grid-cols-[50px_minmax(150px,1fr)_150px_120px_120px_minmax(150px,1fr)] border-b border-border/10 cursor-pointer
-                              ${isDisabledByLocation ? 'opacity-40 bg-muted/10 pointer-events-none cursor-not-allowed' : hasClosedItems ? 'opacity-75 bg-muted/20' : selectedPOsForLabels.has(group.poNumber) ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/30 hover:shadow-sm transition-all duration-200'}
-                            `} onClick={() => {
-                        // Prevent interaction if disabled by location
-                        if (isDisabledByLocation) return;
-                        const newSelected = new Set(selectedPOsForLabels);
-                        if (newSelected.has(group.poNumber)) {
-                          newSelected.delete(group.poNumber);
-                        } else {
-                          newSelected.add(group.poNumber);
-                        }
-                        setSelectedPOsForLabels(newSelected);
-                      }}>
+                      return <TableRow 
+                        key={group.poNumber} 
+                        className={cn(
+                          "border-b border-border/30 hover:bg-muted/30 hover:shadow-sm transition-all duration-150 ease-out cursor-pointer",
+                          isDisabledByLocation && "opacity-40 bg-muted/10 pointer-events-none cursor-not-allowed",
+                          hasClosedItems && "opacity-75 bg-muted/20",
+                          selectedPOsForLabels.has(group.poNumber) && "bg-primary/5 hover:bg-primary/10"
+                        )}
+                        onClick={(e) => {
+                          if (!(e.target as HTMLElement).closest('button')) {
+                            if (isDisabledByLocation) return;
+                            const newSelected = new Set(selectedPOsForLabels);
+                            if (newSelected.has(group.poNumber)) {
+                              newSelected.delete(group.poNumber);
+                            } else {
+                              newSelected.add(group.poNumber);
+                            }
+                            setSelectedPOsForLabels(newSelected);
+                          }
+                        }}
+                      >
                             {/* Checkbox Column */}
-                            <div className="p-3 flex items-center justify-center">
-                              {selectedPOsForLabels.has(group.poNumber) ? <CheckSquare className="h-5 w-5 text-primary" /> : <Square className="h-5 w-5 text-muted-foreground" />}
-                            </div>
+                            <TableCell className="py-4">
+                              <div className="flex items-center justify-center">
+                                {selectedPOsForLabels.has(group.poNumber) ? <CheckSquare className="h-5 w-5 text-primary" /> : <Square className="h-5 w-5 text-muted-foreground" />}
+                              </div>
+                            </TableCell>
                             
                             {/* PO Number Column */}
-                            <div className="p-3 flex items-center gap-2">
+                            <TableCell className="py-4">
+                              <div className="flex items-center gap-2">
                               <span className="text-xs opacity-60">
                                 {selectedCountry === 'UAE' ? '🇦🇪' : '🇸🇦'}
                               </span>
@@ -4256,20 +4266,23 @@ export const POTracker = () => {
                               {isDisabledByLocation && <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30">
                                   Different Location
                                 </Badge>}
-                            </div>
+                              </div>
+                            </TableCell>
                             
                             {/* Ship To Column */}
-                            <div className="p-3 flex items-center text-sm text-muted-foreground">
+                            <TableCell className="py-4">
+                              <span className="text-xs text-muted-foreground">
                               {(() => {
                             const uniqueLocations = [...new Set(group.orders.map(o => o.ship_to_location).filter(Boolean))];
                             if (uniqueLocations.length === 0) return '-';
                             if (uniqueLocations.length === 1) return uniqueLocations[0];
                             return `${uniqueLocations[0]} +${uniqueLocations.length - 1}`;
                           })()}
-                            </div>
+                              </span>
+                            </TableCell>
                             
                             {/* Items Column */}
-                            <div className="p-3 flex items-center">
+                            <TableCell className="py-4">
                               {(() => {
                             // Get metrics from database function - same as PO Overview
                             const dbMetrics = poGroupMetrics?.find(m => m.po_number === group.poNumber);
@@ -4278,20 +4291,21 @@ export const POTracker = () => {
                                     {itemCount} item{itemCount !== 1 ? 's' : ''}
                                   </Badge>;
                           })()}
-                            </div>
+                            </TableCell>
                             
                             {/* Quantity Column */}
-                            <div className="p-3 flex items-center">
+                            <TableCell className="py-4">
                               {(() => {
                             // Get metrics from database function - same as PO Overview
                             const dbMetrics = poGroupMetrics?.find(m => m.po_number === group.poNumber);
                             const totalQty = dbMetrics?.asn_quantity || group.orders.reduce((sum, order) => sum + order.quantity, 0);
                             return <span className="font-medium">{totalQty}</span>;
                           })()}
-                            </div>
+                            </TableCell>
                             
                             {/* Actions Column */}
-                            <div className="p-3 flex items-center gap-2">
+                            <TableCell className="py-4">
+                              <div className="flex items-center gap-2">
                               <div className="text-xs text-muted-foreground">
                                 {group.orders.filter(o => o.is_printed).length}/{group.orders.length} Printed
                               </div>
@@ -4308,11 +4322,12 @@ export const POTracker = () => {
                                 <Printer className="h-4 w-4 mr-2" />
                                 {isDisabledByLocation ? 'Different Location' : 'Print'}
                               </Button>
-                            </div>
-                          </div>;
+                              </div>
+                            </TableCell>
+                          </TableRow>;
                     })}
-                        </div>
-                      </div>}
+                        </TableBody>
+                      </Table>}
                   </div>
                 </div>
               </CardContent>
