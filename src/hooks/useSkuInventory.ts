@@ -660,15 +660,22 @@ export function useSkuInventory() {
 
       for (const item of itemsNeedingTitles) {
         try {
+          // Defensive check: ensure SKU exists and is valid
+          const trimmedSku = item.skuNumber?.trim();
+          if (!trimmedSku) {
+            console.warn(`Skipping item ${item.skuNumber}: invalid SKU`);
+            continue;
+          }
+
           const { data, error } = await supabase.functions.invoke('sunsky-api', {
             body: {
               action: 'getProductDetails',
-              skuCode: item.skuNumber
+              itemNo: trimmedSku  // Changed from skuCode to itemNo
             }
           });
 
           if (error) {
-            console.warn(`Failed to fetch title for SKU ${item.skuNumber}:`, error);
+            console.warn(`Failed to fetch title for SKU ${trimmedSku}:`, error);
             continue;
           }
 
