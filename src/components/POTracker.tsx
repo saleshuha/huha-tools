@@ -117,7 +117,7 @@ export const POTracker = () => {
   const [sortField, setSortField] = useState<keyof POOrder | 'combined_title' | 'instock_qty'>('po_number');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [originalOrderPreserved, setOriginalOrderPreserved] = useState(false);
-  
+
   // Grouped view sorting state
   const [groupedSortField, setGroupedSortField] = useState<string>('po_number');
   const [groupedSortDirection, setGroupedSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -177,7 +177,7 @@ export const POTracker = () => {
   const [showPresetsDialog, setShowPresetsDialog] = useState(false);
   const [presetNameInput, setPresetNameInput] = useState('');
   const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
-  
+
   // Fulfill from stock dialog state
   const [fulfillDialogOpen, setFulfillDialogOpen] = useState(false);
   const [fulfillDialogOrder, setFulfillDialogOrder] = useState<{
@@ -253,7 +253,7 @@ export const POTracker = () => {
       const stored = localStorage.getItem('poTracker_printConfigCollapsed');
       return stored ? JSON.parse(stored) : false;
     } catch {
-    return true; // Collapsed by default
+      return true; // Collapsed by default
     }
   });
 
@@ -316,7 +316,7 @@ export const POTracker = () => {
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [printMode, setPrintMode] = useState<'single' | 'bulk'>('single');
   const [printOrders, setPrintOrders] = useState<POOrder[]>([]);
-  
+
   // Generate Purchase Link Dialog State
   const [generateLinkDialogOpen, setGenerateLinkDialogOpen] = useState(false);
 
@@ -455,7 +455,7 @@ export const POTracker = () => {
       setSortDirection('asc');
     }
   };
-  
+
   // Grouped view sorting handler
   const handleGroupedSort = (field: string) => {
     console.log('🔄 GROUPED SORT:', field);
@@ -607,7 +607,10 @@ export const POTracker = () => {
     console.log('🖨️ Loading printers...');
     try {
       const printers = await qzConnectionManager.getPrinters();
-      console.log('✅ Printers loaded:', { count: printers.length, printers });
+      console.log('✅ Printers loaded:', {
+        count: printers.length,
+        printers
+      });
       setAvailablePrinters(printers);
 
       // Set default printer
@@ -652,11 +655,19 @@ export const POTracker = () => {
     isLoading: imagesLoading,
     refreshImages
   } = useProductImages();
-  const { sunskySKUs } = useSKUManager();
-  const { toast } = useToast();
-  const { trackTabChange, trackAction, trackPageView } = useTaxonomy();
+  const {
+    sunskySKUs
+  } = useSKUManager();
+  const {
+    toast
+  } = useToast();
+  const {
+    trackTabChange,
+    trackAction,
+    trackPageView
+  } = useTaxonomy();
   const queryClient = useQueryClient();
-  
+
   // Debug: Log selectedForPrint changes
   useEffect(() => {
     console.log('🖨️ PRINT SELECTION STATE CHANGED:', {
@@ -665,7 +676,7 @@ export const POTracker = () => {
       printButtonDisabled: selectedForPrint.size === 0 || !qzConnected || !selectedPrinter
     });
   }, [selectedForPrint, qzConnected, selectedPrinter]);
-  
+
   // Persist presets to localStorage whenever they change
   useEffect(() => {
     try {
@@ -692,9 +703,10 @@ export const POTracker = () => {
   useEffect(() => {
     const handleFocus = async () => {
       console.log('🔄 Window focused, checking for PO updates...');
-      await queryClient.invalidateQueries({ queryKey: ['po-orders'] });
+      await queryClient.invalidateQueries({
+        queryKey: ['po-orders']
+      });
     };
-
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
   }, [queryClient]);
@@ -705,7 +717,9 @@ export const POTracker = () => {
       console.log('🔄 Starting auto-polling for Print Labels tab');
       const interval = setInterval(async () => {
         console.log('🔄 Auto-polling for PO updates...');
-        await queryClient.invalidateQueries({ queryKey: ['po-orders'] });
+        await queryClient.invalidateQueries({
+          queryKey: ['po-orders']
+        });
       }, 30000); // 30 seconds
 
       return () => {
@@ -718,38 +732,30 @@ export const POTracker = () => {
   // Real-time subscription for po_orders updates
   useEffect(() => {
     if (!selectedCountry) return;
-    
     console.log('🔴 Setting up real-time subscription for po_orders');
-    
-    const channel = supabase
-      .channel('po_orders_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'po_orders',
-          filter: `country=eq.${selectedCountry}`
-        },
-        async (payload) => {
-          console.log('🔴 Real-time update received:', payload);
-          
-          // Invalidate cache and trigger fresh fetch
-          queryClient.invalidateQueries({ queryKey: ['po-orders'] });
-          await fetchPOOrders(true);
-          
-          // Show toast notification
-          if (payload.new.is_printed) {
-            toast({
-              title: "✅ Status updated",
-              description: `${payload.new.asin || payload.new.sku_code} marked as printed`,
-              duration: 2000
-            });
-          }
-        }
-      )
-      .subscribe();
-    
+    const channel = supabase.channel('po_orders_changes').on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'po_orders',
+      filter: `country=eq.${selectedCountry}`
+    }, async payload => {
+      console.log('🔴 Real-time update received:', payload);
+
+      // Invalidate cache and trigger fresh fetch
+      queryClient.invalidateQueries({
+        queryKey: ['po-orders']
+      });
+      await fetchPOOrders(true);
+
+      // Show toast notification
+      if (payload.new.is_printed) {
+        toast({
+          title: "✅ Status updated",
+          description: `${payload.new.asin || payload.new.sku_code} marked as printed`,
+          duration: 2000
+        });
+      }
+    }).subscribe();
     return () => {
       console.log('🔴 Cleaning up real-time subscription');
       supabase.removeChannel(channel);
@@ -758,16 +764,11 @@ export const POTracker = () => {
 
   // Function to handle bulk PO closing
   // Delete all PO orders for fresh upload
-  
+
   // Helper function to detect network/timeout errors
   const isNetworkOrTimeoutError = (err: any): boolean => {
     const msg = err?.message?.toLowerCase() || '';
-    return msg.includes('failed to fetch') || 
-           msg.includes('failed to send') ||
-           msg.includes('network') ||
-           msg.includes('connection') ||
-           msg.includes('timeout') ||
-           msg.includes('aborted');
+    return msg.includes('failed to fetch') || msg.includes('failed to send') || msg.includes('network') || msg.includes('connection') || msg.includes('timeout') || msg.includes('aborted');
   };
 
   // Enhanced error logging helper
@@ -787,54 +788,47 @@ export const POTracker = () => {
   // Fallback function using direct fetch
   const fulfillWithFallback = async (poNumber: string, quantity: number, orderInfo: any) => {
     console.log('🔄 Attempting fallback with direct fetch...');
-    const { data: { session } } = await supabase.auth.getSession();
-    
+    const {
+      data: {
+        session
+      }
+    } = await supabase.auth.getSession();
     if (!session) {
       throw new Error('No active session for fallback');
     }
-
-    const response = await fetch(
-      'https://vfqqlifvhooefxvvyebm.supabase.co/functions/v1/fulfill-from-stock',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmcXFsaWZ2aG9vZWZ4dnZ5ZWJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MzY1OTgsImV4cCI6MjA2ODAxMjU5OH0.u-iIilnOACJTo_3AUCkmhREXdVV84JmbswtM_-NJJBM',
-        },
-        body: JSON.stringify({
-          poNumber,
-          quantity,
-          asin: orderInfo.asin,
-          title: orderInfo.title,
-          originalQuantity: orderInfo.quantity
-        }),
-      }
-    );
-
+    const response = await fetch('https://vfqqlifvhooefxvvyebm.supabase.co/functions/v1/fulfill-from-stock', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmcXFsaWZ2aG9vZWZ4dnZ5ZWJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MzY1OTgsImV4cCI6MjA2ODAxMjU5OH0.u-iIilnOACJTo_3AUCkmhREXdVV84JmbswtM_-NJJBM'
+      },
+      body: JSON.stringify({
+        poNumber,
+        quantity,
+        asin: orderInfo.asin,
+        title: orderInfo.title,
+        originalQuantity: orderInfo.quantity
+      })
+    });
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`HTTP ${response.status}: ${errorText}`);
     }
-
     return await response.json();
   };
-  
+
   // Handle fulfill from stock
   const handleFulfillFromStock = async (poNumber: string, quantity: number) => {
     if (!fulfillDialogOrder) return;
-    
     setIsFulfilling(true);
-    
     try {
       // Determine the correct originalQuantity
       let originalQuantity = fulfillDialogOrder.quantity;
-      
+
       // If consolidated, find the specific PO's quantity
       if (fulfillDialogOrder.isConsolidated && fulfillDialogOrder.consolidatedOrders) {
-        const specificPO = fulfillDialogOrder.consolidatedOrders.find(
-          po => po.po_number === poNumber
-        );
+        const specificPO = fulfillDialogOrder.consolidatedOrders.find(po => po.po_number === poNumber);
         if (specificPO) {
           originalQuantity = specificPO.quantity;
           console.log('✅ Consolidated PO fulfillment:', {
@@ -844,17 +838,16 @@ export const POTracker = () => {
           });
         }
       }
-      
+
       // Call edge function with retry logic for cold starts and network errors
       let data, error;
       let retryCount = 0;
       const maxRetries = 2;
-      
       while (retryCount <= maxRetries) {
         // Create abort controller for timeout
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
-        
+
         try {
           const result = await supabase.functions.invoke('fulfill-from-stock', {
             body: {
@@ -862,10 +855,9 @@ export const POTracker = () => {
               quantity,
               asin: fulfillDialogOrder.asin,
               title: fulfillDialogOrder.title,
-              originalQuantity,
-            },
+              originalQuantity
+            }
           });
-          
           clearTimeout(timeoutId);
           data = result.data;
           error = result.error;
@@ -873,17 +865,17 @@ export const POTracker = () => {
           clearTimeout(timeoutId);
           error = invokeError;
         }
-        
+
         // Log detailed error info for debugging
         if (error) {
           logDetailedError(error, `Fulfillment Error (Attempt ${retryCount + 1}/${maxRetries + 1})`);
         }
-        
+
         // If successful or non-retryable error, break
         if (!error || !isNetworkOrTimeoutError(error)) {
           break;
         }
-        
+
         // Wait before retry (cold start or network recovery)
         if (retryCount < maxRetries) {
           console.log(`⏳ Retrying fulfillment (attempt ${retryCount + 2}/${maxRetries + 1})...`);
@@ -893,7 +885,6 @@ export const POTracker = () => {
           break;
         }
       }
-
       if (error) {
         // Try fallback method before giving up
         console.log('⚠️ All standard attempts failed, attempting fallback method...');
@@ -912,12 +903,10 @@ export const POTracker = () => {
       // Show immediate success feedback
       toast({
         title: "✓ Fulfillment Started",
-        description: (
-          <div className="space-y-1">
+        description: <div className="space-y-1">
             <div>PO: <strong>{poNumber}</strong></div>
             <div>Processing {quantity} units in background...</div>
           </div>
-        ),
       });
 
       // Close dialog immediately
@@ -925,40 +914,31 @@ export const POTracker = () => {
 
       // Set up real-time listener for task completion
       if (data?.taskId) {
-        const channel = supabase
-          .channel(`task-${data.taskId}`)
-          .on(
-            'postgres_changes',
-            {
-              event: 'UPDATE',
-              schema: 'public',
-              table: 'background_tasks',
-              filter: `id=eq.${data.taskId}`,
-            },
-            (payload) => {
-              if (payload.new.status === 'completed') {
-                toast({
-                  title: "✅ Fulfillment Completed",
-                  description: (
-                    <div className="space-y-1">
+        const channel = supabase.channel(`task-${data.taskId}`).on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'background_tasks',
+          filter: `id=eq.${data.taskId}`
+        }, payload => {
+          if (payload.new.status === 'completed') {
+            toast({
+              title: "✅ Fulfillment Completed",
+              description: <div className="space-y-1">
                       <div>PO: <strong>{poNumber}</strong></div>
                       <div>Successfully fulfilled {quantity} units from stock</div>
                     </div>
-                  ),
-                });
-                fetchPOOrders(true);
-                channel.unsubscribe();
-              } else if (payload.new.status === 'failed') {
-                toast({
-                  title: "❌ Fulfillment Failed",
-                  description: payload.new.metadata?.error || 'Unknown error',
-                  variant: "destructive",
-                });
-                channel.unsubscribe();
-              }
-            }
-          )
-          .subscribe();
+            });
+            fetchPOOrders(true);
+            channel.unsubscribe();
+          } else if (payload.new.status === 'failed') {
+            toast({
+              title: "❌ Fulfillment Failed",
+              description: payload.new.metadata?.error || 'Unknown error',
+              variant: "destructive"
+            });
+            channel.unsubscribe();
+          }
+        }).subscribe();
       } else {
         // Fallback: refresh after a delay if no taskId
         setTimeout(() => {
@@ -1277,20 +1257,20 @@ export const POTracker = () => {
   // Listen to QZ Tray connection status changes
   useEffect(() => {
     const handleConnectionChange = (connected: boolean) => {
-      console.log('🔌 QZ Tray connection status changed:', { connected });
+      console.log('🔌 QZ Tray connection status changed:', {
+        connected
+      });
       setQzConnected(connected);
       if (connected) {
         loadPrinters();
       }
     };
-
     qzConnectionManager.addConnectionListener(handleConnectionChange);
-    
+
     // Check initial connection status
     const initialStatus = qzConnectionManager.getConnectionStatus();
     console.log('🔌 Initial QZ Tray status:', initialStatus);
     setQzConnected(initialStatus);
-
     return () => {
       qzConnectionManager.removeConnectionListener(handleConnectionChange);
     };
@@ -1310,12 +1290,16 @@ export const POTracker = () => {
     console.log('🔌 Initializing QZ Tray connection...');
     try {
       const connected = await qzConnectionManager.connect();
-      console.log('🔌 QZ Tray connection result:', { connected });
+      console.log('🔌 QZ Tray connection result:', {
+        connected
+      });
       setQzConnected(connected);
-      
       if (connected) {
         const printers = await qzConnectionManager.getPrinters();
-        console.log('🖨️ QZ Tray printers found:', { count: printers.length, printers });
+        console.log('🖨️ QZ Tray printers found:', {
+          count: printers.length,
+          printers
+        });
         setAvailablePrinters(printers);
 
         // Set default printer
@@ -1596,15 +1580,13 @@ export const POTracker = () => {
     // Calculate printed quantities
     const totalPrintedQty = poOrders.reduce((sum, o) => sum + (o.printed_quantity || 0), 0);
     const totalQty = poOrders.reduce((sum, o) => sum + (o.quantity || 0), 0);
-    const printCompletionRate = totalQty > 0 ? (totalPrintedQty / totalQty) * 100 : 0;
+    const printCompletionRate = totalQty > 0 ? totalPrintedQty / totalQty * 100 : 0;
 
     // Source breakdown (Sunsky matching)
-    const sunskyMatchedOrders = poOrders.filter(order => 
-      order.sunsky_sku && (order.sunsky_sku.sku_code || order.sunsky_sku.id)
-    );
+    const sunskyMatchedOrders = poOrders.filter(order => order.sunsky_sku && (order.sunsky_sku.sku_code || order.sunsky_sku.id));
     const sunskyMatchedQty = sunskyMatchedOrders.reduce((sum, o) => sum + (o.quantity || 0), 0);
     // notMatchedQty already calculated above
-    
+
     console.log('📊 Source Metrics:', {
       total: poOrders.length,
       sunskyMatched: sunskyMatchedOrders.length,
@@ -1618,7 +1600,6 @@ export const POTracker = () => {
         sunsky_sku: o.sunsky_sku
       }))
     });
-
     const endTime = performance.now();
     console.log('📊 Metrics calculated in', (endTime - startTime).toFixed(2), 'ms');
     return {
@@ -1691,39 +1672,24 @@ export const POTracker = () => {
   // Real-time subscription for inventory updates
   useEffect(() => {
     if (!profile?.id) return;
-
     console.log('🔄 Setting up real-time inventory subscription');
-    
-    const channel = supabase
-      .channel('inventory-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'asin_inventory',
-          filter: `user_id=eq.${profile.id}`
-        },
-        (payload) => {
-          console.log('📦 ASIN inventory updated:', payload);
-          fetchInventoryData();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'sku_inventory',
-          filter: `user_id=eq.${profile.id}`
-        },
-        (payload) => {
-          console.log('📦 SKU inventory updated:', payload);
-          fetchInventoryData();
-        }
-      )
-      .subscribe();
-
+    const channel = supabase.channel('inventory-changes').on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'asin_inventory',
+      filter: `user_id=eq.${profile.id}`
+    }, payload => {
+      console.log('📦 ASIN inventory updated:', payload);
+      fetchInventoryData();
+    }).on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'sku_inventory',
+      filter: `user_id=eq.${profile.id}`
+    }, payload => {
+      console.log('📦 SKU inventory updated:', payload);
+      fetchInventoryData();
+    }).subscribe();
     return () => {
       console.log('🔄 Cleaning up inventory subscription');
       supabase.removeChannel(channel);
@@ -1956,7 +1922,7 @@ export const POTracker = () => {
       filtered = filtered.filter(order => order.status === statusFilter);
       console.log('🔍 FILTERING DEBUG: After status filter:', filtered.length, 'orders');
     }
-    
+
     // Apply ship-to location filter
     if (shipToFilter !== 'all') {
       filtered = filtered.filter(order => order.ship_to_location === shipToFilter);
@@ -1969,7 +1935,7 @@ export const POTracker = () => {
         const printedQty = order.printed_quantity || 0;
         const totalQty = order.quantity || 0;
         const isPrinted = order.is_printed || printedQty > 0;
-        
+
         // Check if order matches any of the selected print statuses
         return printedFilter.some(status => {
           if (status === 'printed') {
@@ -1992,9 +1958,7 @@ export const POTracker = () => {
     if (sourceFilter !== 'all') {
       filtered = filtered.filter(order => {
         // Check if sunsky_sku exists and has actual data
-        const hasSunskyMatch = order.sunsky_sku && 
-                              (order.sunsky_sku.sku_code || order.sunsky_sku.id);
-        
+        const hasSunskyMatch = order.sunsky_sku && (order.sunsky_sku.sku_code || order.sunsky_sku.id);
         if (sourceFilter === 'sunsky-matched') {
           return hasSunskyMatch;
         } else if (sourceFilter === 'not-matched') {
@@ -2008,16 +1972,14 @@ export const POTracker = () => {
     if (fulfillmentFilter.length > 0) {
       filtered = filtered.filter(order => {
         const isFulfilledFromStock = order.notes?.includes('Fulfilled from stock:');
-        
         if (!isFulfilledFromStock) {
           return false; // Not fulfilled from stock at all
         }
-        
+
         // Extract fulfilled quantity from notes
         const fulfilledMatch = order.notes?.match(/Fulfilled from stock:\s*(\d+)/);
         const fulfilledQty = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
         const totalQty = order.quantity || 0;
-        
         return fulfillmentFilter.some(status => {
           if (status === 'fully-fulfilled') {
             // Fully fulfilled from stock: fulfilled quantity >= total quantity
@@ -2038,18 +2000,15 @@ export const POTracker = () => {
       filtered.sort((a, b) => {
         let aValue: string | number | undefined;
         let bValue: string | number | undefined;
-        
+
         // Handle special case for in-stock quantity sorting
         if (sortField === 'instock_qty') {
           const aMatch = findInventoryMatch(a.asin, a.sunsky_sku?.sku_code, a.sku_code, a.model_number, a.sunsky_sku);
           const bMatch = findInventoryMatch(b.asin, b.sunsky_sku?.sku_code, b.sku_code, b.model_number, b.sunsky_sku);
-          
-          const aQty = (aMatch && aMatch.status === 'in-stock') ? aMatch.quantity : 0;
-          const bQty = (bMatch && bMatch.status === 'in-stock') ? bMatch.quantity : 0;
-          
+          const aQty = aMatch && aMatch.status === 'in-stock' ? aMatch.quantity : 0;
+          const bQty = bMatch && bMatch.status === 'in-stock' ? bMatch.quantity : 0;
           return sortDirection === 'asc' ? aQty - bQty : bQty - aQty;
         }
-        
         if (sortField === 'combined_title') {
           aValue = `${a.title || ''} ${a.asin || ''}`.toLowerCase();
           bValue = `${b.title || ''} ${b.asin || ''}`.toLowerCase();
@@ -2113,14 +2072,11 @@ export const POTracker = () => {
       // If no filter, return all non-cancelled orders
       return poOrders.filter(order => order.status !== 'cancelled');
     }
-    
     return poOrders.filter(order => {
       if (order.status === 'cancelled') return false;
-      
       const printedQty = order.printed_quantity || 0;
       const totalQty = order.quantity || 0;
       const isPrinted = order.is_printed || printedQty > 0;
-      
       return printedFilter.some(status => {
         if (status === 'printed') {
           return isPrinted && printedQty >= totalQty;
@@ -2143,21 +2099,16 @@ export const POTracker = () => {
 
     // Step 1: Filter by selected POs
     const selectedPOsList = Array.from(selectedPOsForLabels);
-    const baseOrders = poOrders.filter(order => 
-      selectedPOsList.includes(order.po_number) && 
-      order.status !== 'cancelled'
-    );
+    const baseOrders = poOrders.filter(order => selectedPOsList.includes(order.po_number) && order.status !== 'cancelled');
 
     // Step 2: Apply print status filter
     if (printedFilter.length === 0) {
       return baseOrders;
     }
-
     return baseOrders.filter(order => {
       const printedQty = order.printed_quantity || 0;
       const totalQty = order.quantity || 0;
       const isPrinted = order.is_printed || printedQty > 0;
-      
       return printedFilter.some(status => {
         if (status === 'printed') {
           return isPrinted && printedQty >= totalQty;
@@ -2282,70 +2233,61 @@ export const POTracker = () => {
       }
       groups[order.po_number].push(order);
     });
-    
+
     // Calculate metrics for each PO group
     const poGroupsWithMetrics = Object.entries(groups).map(([poNumber, orders]) => {
       // Keep ALL orders for matched calculations
       const allOrdersInPO = orders;
 
       // Filter to only active orders for pending calculations
-      const activeOrdersInPO = orders.filter(
-        (order: any) => order.status === 'pending' || order.status === 'placed' || order.status === 'received'
-      );
-      
-      const matchedBySource = { ASIN: 0, SKU: 0, SUNSKY: 0 };
-      const pendingBySource = { ASIN: 0, SKU: 0, SUNSKY: 0 };
-      const matchedUnitsBySource = { ASIN: 0, SKU: 0, SUNSKY: 0 };
-      const pendingUnitsBySource = { ASIN: 0, SKU: 0, SUNSKY: 0 };
-      
+      const activeOrdersInPO = orders.filter((order: any) => order.status === 'pending' || order.status === 'placed' || order.status === 'received');
+      const matchedBySource = {
+        ASIN: 0,
+        SKU: 0,
+        SUNSKY: 0
+      };
+      const pendingBySource = {
+        ASIN: 0,
+        SKU: 0,
+        SUNSKY: 0
+      };
+      const matchedUnitsBySource = {
+        ASIN: 0,
+        SKU: 0,
+        SUNSKY: 0
+      };
+      const pendingUnitsBySource = {
+        ASIN: 0,
+        SKU: 0,
+        SUNSKY: 0
+      };
+
       // Calculate matched details from ALL orders (including closed)
       allOrdersInPO.forEach((order: any) => {
-        const inventoryMatch = findInventoryMatch(
-          order.asin, 
-          order.sunsky_sku?.sku_code, 
-          order.sku_code, 
-          order.model_number, 
-          order.sunsky_sku
-        );
-        
+        const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku);
         if (inventoryMatch) {
           matchedBySource[inventoryMatch.type]++;
-          matchedUnitsBySource[inventoryMatch.type] += (order.quantity || 0);
+          matchedUnitsBySource[inventoryMatch.type] += order.quantity || 0;
         }
       });
 
       // Calculate pending to place from ONLY active orders
       activeOrdersInPO.forEach((order: any) => {
-        const inventoryMatch = findInventoryMatch(
-          order.asin, 
-          order.sunsky_sku?.sku_code, 
-          order.sku_code, 
-          order.model_number, 
-          order.sunsky_sku
-        );
-        
+        const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku);
         if (inventoryMatch && order.status === 'pending' && !order.supplier_order_number) {
           pendingBySource[inventoryMatch.type]++;
-          pendingUnitsBySource[inventoryMatch.type] += (order.quantity || 0);
+          pendingUnitsBySource[inventoryMatch.type] += order.quantity || 0;
         }
       });
-      
+
       // Calculate total in-stock quantity for this PO group
       const totalInStockQty = allOrdersInPO.reduce((sum, order: any) => {
-        const inventoryMatch = findInventoryMatch(
-          order.asin,
-          order.sunsky_sku?.sku_code,
-          order.sku_code,
-          order.model_number,
-          order.sunsky_sku
-        );
-        
+        const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku);
         if (inventoryMatch && inventoryMatch.status === 'in-stock') {
           return sum + (inventoryMatch.quantity || 0);
         }
         return sum;
       }, 0);
-      
       return {
         poNumber,
         orders,
@@ -2366,7 +2308,6 @@ export const POTracker = () => {
         }
       };
     });
-    
     console.log('📦 GROUPING RESULT:', {
       totalPOGroups: poGroupsWithMetrics.length,
       firstFewPOs: poGroupsWithMetrics.slice(0, 5).map(g => g.poNumber),
@@ -2377,11 +2318,9 @@ export const POTracker = () => {
   // Apply sorting to grouped data
   const sortedGroupedPOOrders = useMemo(() => {
     if (viewMode !== 'grouped') return groupedPOOrders;
-    
     return [...groupedPOOrders].sort((a, b) => {
       let aValue: any;
       let bValue: any;
-      
       switch (groupedSortField) {
         case 'po_number':
           aValue = a.poNumber;
@@ -2402,8 +2341,8 @@ export const POTracker = () => {
         case 'matched_percentage':
           const aActiveOrders = a.orders.filter(o => ['pending', 'placed', 'received'].includes(o.status));
           const bActiveOrders = b.orders.filter(o => ['pending', 'placed', 'received'].includes(o.status));
-          aValue = aActiveOrders.length > 0 ? (a.metrics.total_matched / aActiveOrders.length) : 0;
-          bValue = bActiveOrders.length > 0 ? (b.metrics.total_matched / bActiveOrders.length) : 0;
+          aValue = aActiveOrders.length > 0 ? a.metrics.total_matched / aActiveOrders.length : 0;
+          bValue = bActiveOrders.length > 0 ? b.metrics.total_matched / bActiveOrders.length : 0;
           break;
         case 'total_matched':
           aValue = a.metrics.total_matched;
@@ -2444,16 +2383,16 @@ export const POTracker = () => {
         default:
           return 0;
       }
-      
+
       // Handle undefined values
       if (aValue === undefined) return groupedSortDirection === 'asc' ? 1 : -1;
       if (bValue === undefined) return groupedSortDirection === 'asc' ? -1 : 1;
-      
+
       // Numeric comparison
       if (typeof aValue === 'number' && typeof bValue === 'number') {
         return groupedSortDirection === 'asc' ? aValue - bValue : bValue - aValue;
       }
-      
+
       // String comparison
       const aStr = String(aValue).toLowerCase();
       const bStr = String(bValue).toLowerCase();
@@ -2462,7 +2401,6 @@ export const POTracker = () => {
       return 0;
     });
   }, [groupedPOOrders, groupedSortField, groupedSortDirection, viewMode]);
-  
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedPOGroups = useMemo(() => {
@@ -2509,27 +2447,28 @@ export const POTracker = () => {
       return;
     }
     setIsPrinting(true);
-    
     console.log('🖨️ Print quantities:', {
       selectedForPrint: Array.from(selectedForPrint.entries()),
       customPrintQuantities: Array.from(customPrintQuantities.entries()),
       message: 'Using customPrintQuantities for actual print counts'
     });
-    
     try {
       // Detect consolidated vs regular orders
       const selectedOrders: POOrder[] = [];
-      const consolidatedSelections = new Map<string, { qty: number, orders: POOrder[] }>();
-
+      const consolidatedSelections = new Map<string, {
+        qty: number;
+        orders: POOrder[];
+      }>();
       for (const orderId of selectedForPrint.keys()) {
         const quantity = customPrintQuantities.get(orderId) || 1; // Get actual quantity from customPrintQuantities
-        
+
         if (orderId.startsWith('consolidated-')) {
           // Find the consolidated order from the display list
           const displayedOrder = ordersToDisplayRef.current.find(o => o.id === orderId);
           if (displayedOrder?._consolidatedOrders) {
             consolidatedSelections.set(orderId, {
-              qty: quantity, // Use quantity from customPrintQuantities
+              qty: quantity,
+              // Use quantity from customPrintQuantities
               orders: displayedOrder._consolidatedOrders
             });
             // Add all underlying orders
@@ -2541,7 +2480,6 @@ export const POTracker = () => {
           if (order) selectedOrders.push(order);
         }
       }
-
       console.log('🖨️ Print selections:', {
         consolidated: consolidatedSelections.size,
         regular: selectedOrders.length - Array.from(consolidatedSelections.values()).reduce((sum, c) => sum + c.orders.length, 0)
@@ -2550,24 +2488,21 @@ export const POTracker = () => {
       // Generate ZPL for each selected item
       let allZPLCodes: string[] = [];
       const processedConsolidatedGroups = new Set<string>();
-
       for (const order of selectedOrders) {
         // Check if this order belongs to a consolidated group
-        const consolidatedEntry = Array.from(consolidatedSelections.entries()).find(([_, data]) =>
-          data.orders.some(o => o.id === order.id)
-        );
-
+        const consolidatedEntry = Array.from(consolidatedSelections.entries()).find(([_, data]) => data.orders.some(o => o.id === order.id));
         if (consolidatedEntry) {
-          const [consolidatedId, { qty: consolidatedQty }] = consolidatedEntry;
-          
+          const [consolidatedId, {
+            qty: consolidatedQty
+          }] = consolidatedEntry;
+
           // Only process this consolidated group once
           if (processedConsolidatedGroups.has(consolidatedId)) {
             continue;
           }
           processedConsolidatedGroups.add(consolidatedId);
-          
           console.log(`📦 Printing consolidated item ${consolidatedId}: ${consolidatedQty} copies`);
-          
+
           // Print based on consolidated quantity
           for (let i = 0; i < consolidatedQty; i++) {
             let zplCode = generateZPLFromTemplate(order, printSettings);
@@ -2587,11 +2522,9 @@ export const POTracker = () => {
       if (allZPLCodes.length === 0) {
         throw new Error("No labels generated");
       }
-
       const darknessCommand = `~SD${printSettings.darkness.toString().padStart(2, '0')}`;
       const finalZPL = darknessCommand + '\n' + allZPLCodes.join('\n');
       await qzConnectionManager.print(finalZPL, selectedPrinter);
-      
       toast({
         title: "Labels printed successfully",
         description: `Printed ${allZPLCodes.length} labels to ${selectedPrinter}`
@@ -2601,70 +2534,65 @@ export const POTracker = () => {
       console.group('🖨️ Bulk Print Status Update');
       console.log('📝 Updating print status for', selectedOrders.length, 'orders');
       setIsPrintStatusUpdating(true);
-      
       const updatePromises = selectedOrders.map(async order => {
         // Check if this order is part of a consolidated group
-        const consolidatedEntry = Array.from(consolidatedSelections.entries()).find(([_, data]) =>
-          data.orders.some(o => o.id === order.id)
-        );
-
+        const consolidatedEntry = Array.from(consolidatedSelections.entries()).find(([_, data]) => data.orders.some(o => o.id === order.id));
         let copiesToRecord: number;
-        
         if (consolidatedEntry) {
-          const [_, { qty: consolidatedQty, orders: underlyingOrders }] = consolidatedEntry;
-          
+          const [_, {
+            qty: consolidatedQty,
+            orders: underlyingOrders
+          }] = consolidatedEntry;
+
           // Distribute the consolidated quantity proportionally
           const totalQuantity = underlyingOrders.reduce((sum, o) => sum + (o.quantity || 0), 0);
           const proportion = (order.quantity || 0) / totalQuantity;
           copiesToRecord = Math.round(consolidatedQty * proportion);
-          
           console.log(`  📦 Consolidated order ${order.id}: Recording ${copiesToRecord}/${consolidatedQty} (${(proportion * 100).toFixed(1)}% of total)`);
         } else {
           // Regular order
           copiesToRecord = customPrintQuantities.get(order.id) || 1;
         }
-        
         const newPrintedQuantity = (order.printed_quantity || 0) + copiesToRecord;
         console.log(`  📌 Order ${order.id}: ${order.printed_quantity || 0} + ${copiesToRecord} = ${newPrintedQuantity}`);
-        
         const newStatus = newPrintedQuantity >= order.quantity ? 'closed' : order.status;
-        const { error } = await supabase.from('po_orders').update({
+        const {
+          error
+        } = await supabase.from('po_orders').update({
           is_printed: true,
           printed_quantity: newPrintedQuantity,
           status: newStatus
         }).eq('id', order.id);
-        
         if (error) {
           console.error(`  ❌ Failed to update order ${order.id}:`, error);
           throw error;
         }
-        
         return {
           success: true,
           orderId: order.id,
           newPrintedQuantity
         };
       });
-      
       const results = await Promise.all(updatePromises);
       console.log('✅ Database updates completed:', results);
 
       // Invalidate queries and refresh immediately (real-time will also update)
-      queryClient.invalidateQueries({ queryKey: ['po-orders'] });
-      queryClient.invalidateQueries({ queryKey: ['po_metrics'] });
-      
+      queryClient.invalidateQueries({
+        queryKey: ['po-orders']
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['po_metrics']
+      });
       console.log('🔄 Triggering immediate data refresh...');
       await fetchPOOrders(true);
       console.log('✅ Data refresh completed');
       console.groupEnd();
-
       setSelectedForPrint(new Map());
       setIsPrintStatusUpdating(false);
-      
       toast({
         title: "Print status updated",
         description: `${selectedOrders.length} item(s) marked as printed. Check the Print Status column for details.`,
-        duration: 5000,
+        duration: 5000
       });
     } catch (error) {
       console.error('Print error:', error);
@@ -2688,7 +2616,6 @@ export const POTracker = () => {
       });
       return;
     }
-
     if (selectedPOsForLabels.size === 0) {
       toast({
         title: "No selection",
@@ -2697,23 +2624,19 @@ export const POTracker = () => {
       });
       return;
     }
-
     const newPreset: POSelectionPreset = {
       id: Date.now().toString(),
       name: name.trim(),
       poNumbers: Array.from(selectedPOsForLabels),
       createdAt: new Date().toISOString()
     };
-
     setSavedPresets(prev => [...prev, newPreset]);
     setPresetNameInput('');
     setShowPresetsDialog(false);
-
     toast({
       title: "✅ Preset saved",
       description: `"${name}" saved with ${selectedPOsForLabels.size} PO(s).`
     });
-
     trackAction({
       category: 'Amazon',
       subcategory: 'PO Tracker',
@@ -2735,7 +2658,6 @@ export const POTracker = () => {
       const poExists = poOrders.some(order => order.po_number === poNumber);
       return poExists;
     });
-
     if (availablePOs.length === 0) {
       toast({
         title: "Preset unavailable",
@@ -2744,15 +2666,13 @@ export const POTracker = () => {
       });
       return;
     }
-
     setSelectedPOsForLabels(new Set(availablePOs));
 
     // Update last used timestamp
-    setSavedPresets(prev => prev.map(p => 
-      p.id === preset.id 
-        ? { ...p, lastUsed: new Date().toISOString() }
-        : p
-    ));
+    setSavedPresets(prev => prev.map(p => p.id === preset.id ? {
+      ...p,
+      lastUsed: new Date().toISOString()
+    } : p));
 
     // Show notification
     if (availablePOs.length === preset.poNumbers.length) {
@@ -2766,7 +2686,6 @@ export const POTracker = () => {
         description: `"${preset.name}" - ${availablePOs.length} of ${preset.poNumbers.length} PO(s) available.`
       });
     }
-
     trackAction({
       category: 'Amazon',
       subcategory: 'PO Tracker',
@@ -2784,14 +2703,11 @@ export const POTracker = () => {
   const deletePreset = useCallback((presetId: string) => {
     const preset = savedPresets.find(p => p.id === presetId);
     if (!preset) return;
-
     setSavedPresets(prev => prev.filter(p => p.id !== presetId));
-    
     toast({
       title: "Preset deleted",
       description: `"${preset.name}" has been removed.`
     });
-
     trackAction({
       category: 'Amazon',
       subcategory: 'PO Tracker',
@@ -2806,11 +2722,10 @@ export const POTracker = () => {
   // Rename a preset
   const renamePreset = useCallback((presetId: string, newName: string) => {
     if (!newName.trim()) return;
-
-    setSavedPresets(prev => prev.map(p =>
-      p.id === presetId ? { ...p, name: newName.trim() } : p
-    ));
-
+    setSavedPresets(prev => prev.map(p => p.id === presetId ? {
+      ...p,
+      name: newName.trim()
+    } : p));
     toast({
       title: "Preset renamed",
       description: `Preset renamed to "${newName}".`
@@ -3045,12 +2960,11 @@ export const POTracker = () => {
       });
       return;
     }
-    
     try {
       // Prevent table reordering during print
       setPreventTableReorder(true);
       setPrintingItems(prev => new Set([...prev, order.id]));
-      
+
       // Handle consolidated orders intelligently
       if (order._isConsolidated && order._consolidatedOrders && customQuantity) {
         console.log('🔄 Printing consolidated order with partial quantity:', {
@@ -3058,82 +2972,84 @@ export const POTracker = () => {
           requestedQuantity: customQuantity,
           underlyingOrders: order._consolidatedOrders.length
         });
-        
+
         // Distribute partial quantity across underlying POs
-        const underlyingOrders = [...order._consolidatedOrders].sort((a: any, b: any) => 
-          a.quantity - b.quantity // Sort by quantity ascending (print from smallest POs first)
+        const underlyingOrders = [...order._consolidatedOrders].sort((a: any, b: any) => a.quantity - b.quantity // Sort by quantity ascending (print from smallest POs first)
         );
-        
         let remainingToPrint = customQuantity;
-        const printTasks: Array<{order: POOrder, qty: number}> = [];
-        
+        const printTasks: Array<{
+          order: POOrder;
+          qty: number;
+        }> = [];
         for (const underlyingOrder of underlyingOrders) {
           if (remainingToPrint <= 0) break;
-          
           const availableQty = underlyingOrder.quantity - (underlyingOrder.printed_quantity || 0);
           const printThisOrder = Math.min(availableQty, remainingToPrint);
-          
           if (printThisOrder > 0) {
-            printTasks.push({ order: underlyingOrder, qty: printThisOrder });
+            printTasks.push({
+              order: underlyingOrder,
+              qty: printThisOrder
+            });
             remainingToPrint -= printThisOrder;
           }
         }
-        
         console.log('📋 Print distribution:', printTasks.map(t => ({
           po: t.order.po_number,
           printQty: t.qty,
           totalQty: t.order.quantity
         })));
-        
+
         // Print each task
         let totalPrinted = 0;
-        for (const { order: underlyingOrder, qty } of printTasks) {
+        for (const {
+          order: underlyingOrder,
+          qty
+        } of printTasks) {
           let allZPLCodes: string[] = [];
           for (let i = 0; i < qty; i++) {
             let zplCode = generateZPLFromTemplate(underlyingOrder, printSettings);
             allZPLCodes.push(zplCode);
           }
-          
           const darknessCommand = `~SD${printSettings.darkness.toString().padStart(2, '0')}`;
           const finalZPL = darknessCommand + '\n' + allZPLCodes.join('\n');
           await qzConnectionManager.print(finalZPL, selectedPrinter);
-          
+
           // Update printed quantity in database for this underlying order
           const newPrintedQuantity = (underlyingOrder.printed_quantity || 0) + qty;
           const newStatus = newPrintedQuantity >= underlyingOrder.quantity ? 'closed' : underlyingOrder.status;
-          const { error } = await supabase.from('po_orders').update({
+          const {
+            error
+          } = await supabase.from('po_orders').update({
             is_printed: newPrintedQuantity >= underlyingOrder.quantity,
             printed_quantity: newPrintedQuantity,
             status: newStatus
           }).eq('id', underlyingOrder.id);
-          
           if (error) {
             console.error(`❌ Failed to update order ${underlyingOrder.id}:`, error);
           } else {
             console.log(`✅ Updated ${underlyingOrder.po_number}: ${newPrintedQuantity}/${underlyingOrder.quantity}`);
           }
-          
           totalPrinted += qty;
         }
-        
         toast({
           title: "Labels printed successfully",
           description: `Printed ${totalPrinted} label(s) for ${order.asin || order.sku_code}`
         });
-        
+
         // Clear custom quantity after successful print
         setCustomPrintQuantities(prev => {
           const newMap = new Map(prev);
           newMap.delete(order.id);
           return newMap;
         });
-        
+
         // Refresh data
         console.log('🔄 Refreshing data from database...');
-        queryClient.invalidateQueries({ queryKey: ['po-orders'] });
+        queryClient.invalidateQueries({
+          queryKey: ['po-orders']
+        });
         await fetchPOOrders(true);
         console.log('✅ Data refresh completed');
-        
         setPrintingItems(prev => {
           const newSet = new Set(prev);
           newSet.delete(order.id);
@@ -3142,11 +3058,10 @@ export const POTracker = () => {
         setTimeout(() => setPreventTableReorder(false), 500);
         return;
       }
-      
+
       // Regular single order print
       const availableQty = order.quantity - (order.printed_quantity || 0);
       const requestedQty = customQuantity || (printSettings.copiesByQuantity ? order.quantity : printSettings.copies);
-      
       console.log('🖨️ Print request:', {
         asin: order.asin,
         poNumber: order.po_number,
@@ -3157,7 +3072,7 @@ export const POTracker = () => {
         customQuantitySet: !!customQuantity,
         orderId: order.id
       });
-      
+
       // Validate quantity
       if (requestedQty > availableQty) {
         toast({
@@ -3173,7 +3088,6 @@ export const POTracker = () => {
         setPreventTableReorder(false);
         return;
       }
-      
       const copies = requestedQty;
       let allZPLCodes: string[] = [];
       for (let i = 0; i < copies; i++) {
@@ -3193,10 +3107,8 @@ export const POTracker = () => {
       // Update printed quantity in database
       console.group('🖨️ Single Print Status Update');
       setIsPrintStatusUpdating(true);
-      
       const newPrintedQuantity = (order.printed_quantity || 0) + copies;
       console.log(`📝 Updating order ${order.id}: ${order.printed_quantity || 0} + ${copies} = ${newPrintedQuantity}`);
-      
       const newStatus = newPrintedQuantity >= order.quantity ? 'closed' : order.status;
       const {
         error
@@ -3205,7 +3117,6 @@ export const POTracker = () => {
         printed_quantity: newPrintedQuantity,
         status: newStatus
       }).eq('id', order.id);
-      
       if (error) {
         console.error(`❌ Failed to update order ${order.id}:`, error);
         throw error;
@@ -3215,26 +3126,26 @@ export const POTracker = () => {
       // Add delay before refresh to ensure database propagation
       console.log('⏳ Waiting for database propagation...');
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       // Force refresh and invalidate queries
       console.log('🔄 Refreshing data from database...');
-      queryClient.invalidateQueries({ queryKey: ['po-orders'] });
+      queryClient.invalidateQueries({
+        queryKey: ['po-orders']
+      });
       await fetchPOOrders(true);
       console.log('✅ Data refresh completed');
       console.groupEnd();
-      
       setIsPrintStatusUpdating(false);
-      
+
       // Clear custom quantity after successful print
       setCustomPrintQuantities(prev => {
         const newMap = new Map(prev);
         newMap.delete(order.id);
         return newMap;
       });
-      
       toast({
         title: "Print status updated",
-        description: `Item marked as printed (${newPrintedQuantity}/${order.quantity})`,
+        description: `Item marked as printed (${newPrintedQuantity}/${order.quantity})`
       });
     } catch (error) {
       console.error('Print error:', error);
@@ -3264,9 +3175,7 @@ export const POTracker = () => {
       });
       return;
     }
-
     setPrintingItems(prev => new Set(prev).add(order.id));
-    
     try {
       console.log('🔄 REPRINT (no tracking):', {
         asin: order.asin,
@@ -3286,7 +3195,6 @@ export const POTracker = () => {
       const darknessCommand = `~SD${printSettings.darkness.toString().padStart(2, '0')}`;
       const finalZPL = darknessCommand + '\n' + allZPLCodes.join('\n');
       await qzConnectionManager.print(finalZPL, selectedPrinter);
-      
       toast({
         title: "Label reprinted",
         description: `Reprinted ${quantity} label(s) - no tracking update`,
@@ -3307,7 +3215,6 @@ export const POTracker = () => {
       });
     }
   };
-
   const paginatedDetailedOrders = useMemo(() => {
     return filteredOrders.slice(startIndex, endIndex);
   }, [filteredOrders, startIndex, endIndex]);
@@ -3342,63 +3249,52 @@ export const POTracker = () => {
             </div>
           </div>
         </Card>
-      </div>
+      </div>;
   }
-  return (
-    <div className="space-y-6">
+  return <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-semibold mb-2">Purchase Order Dashboard</h2>
           <p className="text-muted-foreground">Monitor and manage your purchase orders across all suppliers</p>
         </div>
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" size="sm" onClick={() => fetchPOOrders(true)}>
-            <RefreshCw className="h-4 w-4 mr-2 animate-spin" style={{
-            animationPlayState: isLoading ? 'running' : 'paused'
-          }} />
-            Refresh
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => refreshImages()}>
-            <ImageIcon className="h-4 w-4 mr-2 animate-spin" style={{
-            animationPlayState: imagesLoading ? 'running' : 'paused'
-          }} />
-            Images
-          </Button>
-        </div>
+        
       </div>
 
 
-      <Tabs value={activeTab} onValueChange={(newTab) => {
-        // Map tab values to unique subcategories
-        const getSubcategoryForTab = (tab: string): string => {
-          switch(tab) {
-            case 'overview': return 'PO Tracker';
-            case 'upload': return 'PO Upload';
-            case 'labels': return 'PO Labels';
-            case 'reports': return 'PO Reports';
-            case 'analytics': return 'PO Analytics';
-            case 'purchase-links': return 'PO Purchase Links';
-            default: return 'PO Tracker';
-          }
-        };
+      <Tabs value={activeTab} onValueChange={newTab => {
+      // Map tab values to unique subcategories
+      const getSubcategoryForTab = (tab: string): string => {
+        switch (tab) {
+          case 'overview':
+            return 'PO Tracker';
+          case 'upload':
+            return 'PO Upload';
+          case 'labels':
+            return 'PO Labels';
+          case 'reports':
+            return 'PO Reports';
+          case 'analytics':
+            return 'PO Analytics';
+          case 'purchase-links':
+            return 'PO Purchase Links';
+          default:
+            return 'PO Tracker';
+        }
+      };
+      trackTabChange({
+        category: 'Amazon',
+        subcategory: getSubcategoryForTab(newTab),
+        fromTab: activeTab,
+        toTab: newTab,
+        tabTitle: newTab === 'overview' ? 'PO Overview' : newTab === 'upload' ? 'Uploads' : newTab === 'labels' ? 'Print Labels' : newTab === 'reports' ? 'Reports' : newTab === 'analytics' ? 'Analytics' : newTab === 'purchase-links' ? 'Purchase Links' : newTab
+      });
 
-        trackTabChange({
-          category: 'Amazon',
-          subcategory: getSubcategoryForTab(newTab),
-          fromTab: activeTab,
-          toTab: newTab,
-          tabTitle: newTab === 'overview' ? 'PO Overview' : 
-                   newTab === 'upload' ? 'Uploads' : 
-                   newTab === 'labels' ? 'Print Labels' : 
-                   newTab === 'reports' ? 'Reports' : 
-                   newTab === 'analytics' ? 'Analytics' : 
-                   newTab === 'purchase-links' ? 'Purchase Links' : newTab
-        });
-        
-        // Update URL with tab parameter
-        setSearchParams({ tab: newTab });
-        setActiveTab(newTab);
-      }} className="w-full">
+      // Update URL with tab parameter
+      setSearchParams({
+        tab: newTab
+      });
+      setActiveTab(newTab);
+    }} className="w-full">
         <TabsList className="grid w-full grid-cols-6 h-14 bg-background/60 backdrop-blur-md rounded-xl p-1.5 border border-border/20 shadow-sm">
           <TabsTrigger value="overview" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
             <Package className="h-4 w-4" />
@@ -3430,139 +3326,31 @@ export const POTracker = () => {
           {/* PHASE 6: Enhanced responsive grid layout */}
         <div className="grid grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-2">
             {/* 1. Total PO Numbers */}
-            <POMetricsCard 
-              title="Total POs" 
-              icon={FileText}
-              value={comprehensiveMetrics?.unique_po_numbers || groupedPOOrders.length}
-              subValue={`${comprehensiveMetrics?.total_line_items || poOrders.length} items`}
-              isLoading={isLoadingComprehensiveMetrics}
-              colorClass="from-blue-500/5"
-              borderColorClass="border-l-blue-500"
-              textColorClass="text-blue-600"
-              tooltipText="Unique PO numbers and total line items"
-            />
+            <POMetricsCard title="Total POs" icon={FileText} value={comprehensiveMetrics?.unique_po_numbers || groupedPOOrders.length} subValue={`${comprehensiveMetrics?.total_line_items || poOrders.length} items`} isLoading={isLoadingComprehensiveMetrics} colorClass="from-blue-500/5" borderColorClass="border-l-blue-500" textColorClass="text-blue-600" tooltipText="Unique PO numbers and total line items" />
 
             {/* 2. Total Items & Units */}
-            <POMetricsCard 
-              title="Total Items" 
-              icon={Package}
-              value={comprehensiveMetrics?.total_line_items || poOrders.length}
-              subValue={`${comprehensiveMetrics?.total_quantity || poOrders.reduce((sum, order) => sum + (order.quantity || 0), 0)} units`}
-              isLoading={isLoadingComprehensiveMetrics}
-              colorClass="from-primary/5"
-              borderColorClass="border-l-primary"
-              textColorClass="text-primary"
-              tooltipText="Total line items and their total units"
-            />
+            <POMetricsCard title="Total Items" icon={Package} value={comprehensiveMetrics?.total_line_items || poOrders.length} subValue={`${comprehensiveMetrics?.total_quantity || poOrders.reduce((sum, order) => sum + (order.quantity || 0), 0)} units`} isLoading={isLoadingComprehensiveMetrics} colorClass="from-primary/5" borderColorClass="border-l-primary" textColorClass="text-primary" tooltipText="Total line items and their total units" />
 
             {/* 3. Items In Stock */}
-            <POMetricsCard 
-              title="Items In Stock" 
-              icon={TrendingUp}
-              value={calculatedMetrics.inStock.count}
-              subValue={`${calculatedMetrics.inStock.qty} units`}
-              percentage={calculateMetricPercentage(calculatedMetrics.inStock.count, poOrders.length)}
-              onClick={() => handleMetricClick('in-stock')}
-              onExport={() => handleExportMetric('in-stock')}
-              isExporting={exportingMetric === 'in-stock'}
-              isActive={selectedMetricFilter === 'in-stock'}
-              colorClass="from-green-500/5"
-              borderColorClass="border-l-green-500"
-              textColorClass="text-green-600"
-              tooltipText="Items with inventory stock available"
-            />
+            <POMetricsCard title="Items In Stock" icon={TrendingUp} value={calculatedMetrics.inStock.count} subValue={`${calculatedMetrics.inStock.qty} units`} percentage={calculateMetricPercentage(calculatedMetrics.inStock.count, poOrders.length)} onClick={() => handleMetricClick('in-stock')} onExport={() => handleExportMetric('in-stock')} isExporting={exportingMetric === 'in-stock'} isActive={selectedMetricFilter === 'in-stock'} colorClass="from-green-500/5" borderColorClass="border-l-green-500" textColorClass="text-green-600" tooltipText="Items with inventory stock available" />
 
             {/* 4. Matched with Source */}
-            <POMetricsCard 
-              title="Matched (Source)" 
-              icon={CheckCircle}
-              value={calculatedMetrics.matched.count}
-              subValue={`${calculatedMetrics.matched.qty} units`}
-              percentage={calculateMetricPercentage(calculatedMetrics.matched.count, poOrders.length)}
-              onClick={() => handleMetricClick('matched')}
-              onExport={() => handleExportMetric('matched')}
-              isExporting={exportingMetric === 'matched'}
-              isActive={selectedMetricFilter === 'matched'}
-              colorClass="from-purple-500/5"
-              borderColorClass="border-l-purple-500"
-              textColorClass="text-purple-600"
-              tooltipText="Items matched with Source supplier"
-            />
+            <POMetricsCard title="Matched (Source)" icon={CheckCircle} value={calculatedMetrics.matched.count} subValue={`${calculatedMetrics.matched.qty} units`} percentage={calculateMetricPercentage(calculatedMetrics.matched.count, poOrders.length)} onClick={() => handleMetricClick('matched')} onExport={() => handleExportMetric('matched')} isExporting={exportingMetric === 'matched'} isActive={selectedMetricFilter === 'matched'} colorClass="from-purple-500/5" borderColorClass="border-l-purple-500" textColorClass="text-purple-600" tooltipText="Items matched with Source supplier" />
 
             {/* 5. Placed Orders */}
-            <POMetricsCard 
-              title="Placed to Source" 
-              icon={Truck}
-              value={calculatedMetrics.placed.count}
-              subValue={`${calculatedMetrics.placed.qty} units`}
-              percentage={calculateMetricPercentage(calculatedMetrics.placed.count, poOrders.length)}
-              onClick={() => handleMetricClick('placed')}
-              onExport={() => handleExportMetric('placed')}
-              isExporting={exportingMetric === 'placed'}
-              isActive={selectedMetricFilter === 'placed'}
-              colorClass="from-blue-500/5"
-              borderColorClass="border-l-blue-500"
-              textColorClass="text-blue-600"
-              tooltipText="Orders placed or received from source"
-            />
+            <POMetricsCard title="Placed to Source" icon={Truck} value={calculatedMetrics.placed.count} subValue={`${calculatedMetrics.placed.qty} units`} percentage={calculateMetricPercentage(calculatedMetrics.placed.count, poOrders.length)} onClick={() => handleMetricClick('placed')} onExport={() => handleExportMetric('placed')} isExporting={exportingMetric === 'placed'} isActive={selectedMetricFilter === 'placed'} colorClass="from-blue-500/5" borderColorClass="border-l-blue-500" textColorClass="text-blue-600" tooltipText="Orders placed or received from source" />
 
             {/* 6. Pending Orders */}
-            <POMetricsCard 
-              title="Pending to Source" 
-              icon={Clock}
-              value={calculatedMetrics.pending.count}
-              subValue={`${calculatedMetrics.pending.qty} units`}
-              percentage={calculateMetricPercentage(calculatedMetrics.pending.count, poOrders.length)}
-              onClick={() => handleMetricClick('pending')}
-              onExport={() => handleExportMetric('pending')}
-              isExporting={exportingMetric === 'pending'}
-              isActive={selectedMetricFilter === 'pending'}
-              colorClass="from-orange-500/5"
-              borderColorClass="border-l-orange-500"
-              textColorClass="text-orange-600"
-              tooltipText="Pending orders to source (matched but not placed)"
-            />
+            <POMetricsCard title="Pending to Source" icon={Clock} value={calculatedMetrics.pending.count} subValue={`${calculatedMetrics.pending.qty} units`} percentage={calculateMetricPercentage(calculatedMetrics.pending.count, poOrders.length)} onClick={() => handleMetricClick('pending')} onExport={() => handleExportMetric('pending')} isExporting={exportingMetric === 'pending'} isActive={selectedMetricFilter === 'pending'} colorClass="from-orange-500/5" borderColorClass="border-l-orange-500" textColorClass="text-orange-600" tooltipText="Pending orders to source (matched but not placed)" />
 
             {/* 7. Total Printed Items & Units (NEW) */}
-            <POMetricsCard 
-              title="Total Printed" 
-              icon={Printer}
-              value={calculatedMetrics.printed.totalPrinted}
-              subValue={`${calculatedMetrics.printed.totalPrintedQty} units printed`}
-              percentage={calculateMetricPercentage(calculatedMetrics.printed.totalPrinted, poOrders.length)}
-              isLoading={isLoadingComprehensiveMetrics}
-              colorClass="from-purple-500/5"
-              borderColorClass="border-l-purple-500"
-              textColorClass="text-purple-600"
-              tooltipText="Items that have been printed (fully or partially)"
-            />
+            <POMetricsCard title="Total Printed" icon={Printer} value={calculatedMetrics.printed.totalPrinted} subValue={`${calculatedMetrics.printed.totalPrintedQty} units printed`} percentage={calculateMetricPercentage(calculatedMetrics.printed.totalPrinted, poOrders.length)} isLoading={isLoadingComprehensiveMetrics} colorClass="from-purple-500/5" borderColorClass="border-l-purple-500" textColorClass="text-purple-600" tooltipText="Items that have been printed (fully or partially)" />
 
             {/* 8. Print Progress Rate (NEW) */}
-            <POMetricsCard 
-              title="Print Progress" 
-              icon={TrendingUp}
-              value={`${calculatedMetrics.printed.printCompletionRate.toFixed(1)}%`}
-              subValue={`${calculatedMetrics.printed.totalPrintedQty} / ${comprehensiveMetrics?.total_quantity || poOrders.reduce((sum, o) => sum + (o.quantity || 0), 0)} units`}
-              isLoading={isLoadingComprehensiveMetrics}
-              colorClass="from-indigo-500/5"
-              borderColorClass="border-l-indigo-500"
-              textColorClass="text-indigo-600"
-              tooltipText="Overall printing completion rate"
-            />
+            <POMetricsCard title="Print Progress" icon={TrendingUp} value={`${calculatedMetrics.printed.printCompletionRate.toFixed(1)}%`} subValue={`${calculatedMetrics.printed.totalPrintedQty} / ${comprehensiveMetrics?.total_quantity || poOrders.reduce((sum, o) => sum + (o.quantity || 0), 0)} units`} isLoading={isLoadingComprehensiveMetrics} colorClass="from-indigo-500/5" borderColorClass="border-l-indigo-500" textColorClass="text-indigo-600" tooltipText="Overall printing completion rate" />
 
             {/* 9. Sunsky Matched (NEW) */}
-            <POMetricsCard 
-              title="Sunsky Matched" 
-              icon={Package}
-              value={calculatedMetrics.source.sunskyMatched.count}
-              subValue={`${calculatedMetrics.source.sunskyMatched.qty} units`}
-              percentage={calculateMetricPercentage(calculatedMetrics.source.sunskyMatched.count, poOrders.length)}
-              isLoading={isLoadingComprehensiveMetrics}
-              colorClass="from-blue-500/5"
-              borderColorClass="border-l-blue-500"
-              textColorClass="text-blue-600"
-              tooltipText="Items matched with Sunsky supplier"
-            />
+            <POMetricsCard title="Sunsky Matched" icon={Package} value={calculatedMetrics.source.sunskyMatched.count} subValue={`${calculatedMetrics.source.sunskyMatched.qty} units`} percentage={calculateMetricPercentage(calculatedMetrics.source.sunskyMatched.count, poOrders.length)} isLoading={isLoadingComprehensiveMetrics} colorClass="from-blue-500/5" borderColorClass="border-l-blue-500" textColorClass="text-blue-600" tooltipText="Items matched with Sunsky supplier" />
         </div>
 
           {/* PHASE 4: Export All Metrics Button */}
@@ -3664,11 +3452,9 @@ export const POTracker = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Locations</SelectItem>
-                        {uniqueShipToLocations.filter(loc => loc !== 'all').map(location => (
-                          <SelectItem key={location} value={location}>
+                        {uniqueShipToLocations.filter(loc => loc !== 'all').map(location => <SelectItem key={location} value={location}>
                             {location}
-                          </SelectItem>
-                        ))}
+                          </SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
@@ -3763,108 +3549,52 @@ export const POTracker = () => {
                             <TableHead className="w-[70px]">
                               Enable
                             </TableHead>
-                            <TableHead 
-                              className={`cursor-pointer select-none hover:bg-muted/50 transition-colors ${groupedSortField === 'po_number' ? 'bg-primary/10 text-primary' : ''}`}
-                              onClick={() => handleGroupedSort('po_number')}
-                            >
+                            <TableHead className={`cursor-pointer select-none hover:bg-muted/50 transition-colors ${groupedSortField === 'po_number' ? 'bg-primary/10 text-primary' : ''}`} onClick={() => handleGroupedSort('po_number')}>
                               <div className="flex items-center gap-1">
                                 <span>PO Number</span>
-                                {groupedSortField === 'po_number' ? (
-                                  groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                                ) : (
-                                  <ArrowUpDown className="h-3 w-3 opacity-30" />
-                                )}
+                                {groupedSortField === 'po_number' ? groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" /> : <ArrowUpDown className="h-3 w-3 opacity-30" />}
                               </div>
                             </TableHead>
-                            <TableHead 
-                              className={`cursor-pointer select-none hover:bg-muted/50 transition-colors ${groupedSortField === 'ship_to' ? 'bg-primary/10 text-primary' : ''}`}
-                              onClick={() => handleGroupedSort('ship_to')}
-                            >
+                            <TableHead className={`cursor-pointer select-none hover:bg-muted/50 transition-colors ${groupedSortField === 'ship_to' ? 'bg-primary/10 text-primary' : ''}`} onClick={() => handleGroupedSort('ship_to')}>
                               <div className="flex items-center gap-1">
                                 <span>Ship To</span>
-                                {groupedSortField === 'ship_to' ? (
-                                  groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                                ) : (
-                                  <ArrowUpDown className="h-3 w-3 opacity-30" />
-                                )}
+                                {groupedSortField === 'ship_to' ? groupedSortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" /> : <ArrowUpDown className="h-3 w-3 opacity-30" />}
                               </div>
                             </TableHead>
-                             <TableHead 
-                              className={`cursor-pointer select-none hover:bg-muted/20 transition-all text-xs font-medium uppercase tracking-wider ${groupedSortField === 'po_items' ? 'text-primary' : 'text-muted-foreground'}`}
-                              onClick={() => handleGroupedSort('po_items')}
-                            >
+                             <TableHead className={`cursor-pointer select-none hover:bg-muted/20 transition-all text-xs font-medium uppercase tracking-wider ${groupedSortField === 'po_items' ? 'text-primary' : 'text-muted-foreground'}`} onClick={() => handleGroupedSort('po_items')}>
                               <div className="flex items-center gap-1.5">
                                 <span>PO Items</span>
-                                {groupedSortField === 'po_items' ? (
-                                  groupedSortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
-                                ) : (
-                                  <ArrowUpDown className="h-3.5 w-3.5 opacity-30" />
-                                )}
+                                {groupedSortField === 'po_items' ? groupedSortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" /> : <ArrowUpDown className="h-3.5 w-3.5 opacity-30" />}
                               </div>
                             </TableHead>
-                            <TableHead 
-                              className={`cursor-pointer select-none hover:bg-muted/20 transition-all text-xs font-medium uppercase tracking-wider ${groupedSortField === 'asn_qty' ? 'text-primary' : 'text-muted-foreground'}`}
-                              onClick={() => handleGroupedSort('asn_qty')}
-                            >
+                            <TableHead className={`cursor-pointer select-none hover:bg-muted/20 transition-all text-xs font-medium uppercase tracking-wider ${groupedSortField === 'asn_qty' ? 'text-primary' : 'text-muted-foreground'}`} onClick={() => handleGroupedSort('asn_qty')}>
                               <div className="flex items-center gap-1.5">
                                 <span>ASN Qty</span>
-                                {groupedSortField === 'asn_qty' ? (
-                                  groupedSortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
-                                ) : (
-                                  <ArrowUpDown className="h-3.5 w-3.5 opacity-30" />
-                                )}
+                                {groupedSortField === 'asn_qty' ? groupedSortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" /> : <ArrowUpDown className="h-3.5 w-3.5 opacity-30" />}
                               </div>
                             </TableHead>
-                            <TableHead 
-                              className={`cursor-pointer select-none hover:bg-muted/20 transition-all text-xs font-medium uppercase tracking-wider ${groupedSortField === 'matched_percentage' ? 'text-primary' : 'text-muted-foreground'}`}
-                              onClick={() => handleGroupedSort('matched_percentage')}
-                            >
+                            <TableHead className={`cursor-pointer select-none hover:bg-muted/20 transition-all text-xs font-medium uppercase tracking-wider ${groupedSortField === 'matched_percentage' ? 'text-primary' : 'text-muted-foreground'}`} onClick={() => handleGroupedSort('matched_percentage')}>
                               <div className="flex items-center gap-1.5">
                                 <span>Matched %</span>
-                                {groupedSortField === 'matched_percentage' ? (
-                                  groupedSortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
-                                ) : (
-                                  <ArrowUpDown className="h-3.5 w-3.5 opacity-30" />
-                                )}
+                                {groupedSortField === 'matched_percentage' ? groupedSortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" /> : <ArrowUpDown className="h-3.5 w-3.5 opacity-30" />}
                               </div>
                             </TableHead>
-                            <TableHead 
-                              className={`cursor-pointer select-none hover:bg-muted/20 transition-all text-xs font-medium uppercase tracking-wider ${groupedSortField === 'matched_sunsky' ? 'text-primary' : 'text-muted-foreground'}`}
-                              onClick={() => handleGroupedSort('matched_sunsky')}
-                            >
+                            <TableHead className={`cursor-pointer select-none hover:bg-muted/20 transition-all text-xs font-medium uppercase tracking-wider ${groupedSortField === 'matched_sunsky' ? 'text-primary' : 'text-muted-foreground'}`} onClick={() => handleGroupedSort('matched_sunsky')}>
                               <div className="flex items-center gap-1.5">
                                 <span>Matched Details</span>
-                                {groupedSortField === 'matched_sunsky' ? (
-                                  groupedSortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
-                                ) : (
-                                  <ArrowUpDown className="h-3.5 w-3.5 opacity-30" />
-                                )}
+                                {groupedSortField === 'matched_sunsky' ? groupedSortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" /> : <ArrowUpDown className="h-3.5 w-3.5 opacity-30" />}
                               </div>
                             </TableHead>
-                            <TableHead 
-                              className={`cursor-pointer select-none hover:bg-muted/20 transition-all text-xs font-medium uppercase tracking-wider ${groupedSortField === 'pending_sunsky' ? 'text-primary' : 'text-muted-foreground'}`}
-                              onClick={() => handleGroupedSort('pending_sunsky')}
-                            >
+                            <TableHead className={`cursor-pointer select-none hover:bg-muted/20 transition-all text-xs font-medium uppercase tracking-wider ${groupedSortField === 'pending_sunsky' ? 'text-primary' : 'text-muted-foreground'}`} onClick={() => handleGroupedSort('pending_sunsky')}>
                               <div className="flex items-center gap-1.5">
                                 <span>Pending to Place</span>
-                                {groupedSortField === 'pending_sunsky' ? (
-                                  groupedSortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
-                                ) : (
-                                  <ArrowUpDown className="h-3.5 w-3.5 opacity-30" />
-                                )}
+                                {groupedSortField === 'pending_sunsky' ? groupedSortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" /> : <ArrowUpDown className="h-3.5 w-3.5 opacity-30" />}
                               </div>
                             </TableHead>
-                            <TableHead 
-                              className={`cursor-pointer select-none hover:bg-muted/20 transition-all text-xs font-medium uppercase tracking-wider ${groupedSortField === 'instock_qty' ? 'text-primary' : 'text-muted-foreground'}`}
-                              onClick={() => handleGroupedSort('instock_qty')}
-                            >
+                            <TableHead className={`cursor-pointer select-none hover:bg-muted/20 transition-all text-xs font-medium uppercase tracking-wider ${groupedSortField === 'instock_qty' ? 'text-primary' : 'text-muted-foreground'}`} onClick={() => handleGroupedSort('instock_qty')}>
                               <div className="flex items-center gap-1.5">
                                 <span>In-Stock Qty</span>
-                                {groupedSortField === 'instock_qty' ? (
-                                  groupedSortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
-                                ) : (
-                                  <ArrowUpDown className="h-3.5 w-3.5 opacity-30" />
-                                )}
+                                {groupedSortField === 'instock_qty' ? groupedSortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" /> : <ArrowUpDown className="h-3.5 w-3.5 opacity-30" />}
                               </div>
                             </TableHead>
                             <TableHead className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Actions</TableHead>
@@ -3872,57 +3602,58 @@ export const POTracker = () => {
                         </TableHeader>
                         <TableBody>
                          {paginatedPOGroups.map(({
-                      poNumber,
-                      orders
-                    }) => {
-                      const firstOrder = orders[0];
-                      const ordersInPO = orders; // Alias for consistency
+                        poNumber,
+                        orders
+                      }) => {
+                        const firstOrder = orders[0];
+                        const ordersInPO = orders; // Alias for consistency
 
-                      // Get metrics from database function - includes ALL items
-                      const dbMetrics = poGroupMetrics?.find(m => m.po_number === poNumber);
-                      const totalLineItems = dbMetrics?.total_line_items || orders.length;
-                      // Use frontend calculation as fallback to ensure accuracy - count ALL items
-                      const asnQuantity = dbMetrics?.asn_quantity || orders.reduce((sum, o) => sum + (o.quantity || 0), 0);
+                        // Get metrics from database function - includes ALL items
+                        const dbMetrics = poGroupMetrics?.find(m => m.po_number === poNumber);
+                        const totalLineItems = dbMetrics?.total_line_items || orders.length;
+                        // Use frontend calculation as fallback to ensure accuracy - count ALL items
+                        const asnQuantity = dbMetrics?.asn_quantity || orders.reduce((sum, o) => sum + (o.quantity || 0), 0);
 
-                      // Calculate matched percentage and source breakdown for display
-                      const activeOrdersInPO = orders.filter((order: any) => order.status === 'pending' || order.status === 'placed' || order.status === 'received');
-                      
-                      // Use pre-calculated metrics from groupedPOOrders
-                      const group = groupedPOOrders.find(g => g.poNumber === poNumber);
-                      const matchedBySource = group?.metrics.matchedBySource || { ASIN: 0, SKU: 0, SUNSKY: 0 };
-                      const pendingBySource = group?.metrics.pendingBySource || { ASIN: 0, SKU: 0, SUNSKY: 0 };
-                      const matchedCount = group?.metrics.total_matched || 0;
-                      const matchedPercentage = activeOrdersInPO.length > 0 ? (matchedCount / activeOrdersInPO.length * 100).toFixed(0) : '0';
-                      const statusCounts = orders.reduce((counts: any, order: any) => {
-                        counts[order.status] = (counts[order.status] || 0) + 1;
-                        return counts;
-                      }, {});
+                        // Calculate matched percentage and source breakdown for display
+                        const activeOrdersInPO = orders.filter((order: any) => order.status === 'pending' || order.status === 'placed' || order.status === 'received');
 
-                      // Check if PO has closed items (but don't disable it)
-                      const hasClosedItems = ordersInPO.some(order => order.status === 'closed');
+                        // Use pre-calculated metrics from groupedPOOrders
+                        const group = groupedPOOrders.find(g => g.poNumber === poNumber);
+                        const matchedBySource = group?.metrics.matchedBySource || {
+                          ASIN: 0,
+                          SKU: 0,
+                          SUNSKY: 0
+                        };
+                        const pendingBySource = group?.metrics.pendingBySource || {
+                          ASIN: 0,
+                          SKU: 0,
+                          SUNSKY: 0
+                        };
+                        const matchedCount = group?.metrics.total_matched || 0;
+                        const matchedPercentage = activeOrdersInPO.length > 0 ? (matchedCount / activeOrdersInPO.length * 100).toFixed(0) : '0';
+                        const statusCounts = orders.reduce((counts: any, order: any) => {
+                          counts[order.status] = (counts[order.status] || 0) + 1;
+                          return counts;
+                        }, {});
 
-                      // Country-specific PO handling
-                      const countryPrefix = selectedCountry === 'UAE' ? '🇦🇪' : '🇸🇦';
-                      const currencySymbol = selectedCountry === 'UAE' ? 'AED' : 'SAR';
-                      const isDisabled = disabledPOs.has(poNumber);
-                      return <TableRow 
-                                key={poNumber} 
-                                className={cn(
-                                  "border-b border-border/30 hover:bg-muted/30 hover:shadow-sm transition-all duration-150 ease-out",
-                                  isDisabled && "opacity-40",
-                                  hasClosedItems && !isDisabled && "opacity-75"
-                                )}
-                              >
+                        // Check if PO has closed items (but don't disable it)
+                        const hasClosedItems = ordersInPO.some(order => order.status === 'closed');
+
+                        // Country-specific PO handling
+                        const countryPrefix = selectedCountry === 'UAE' ? '🇦🇪' : '🇸🇦';
+                        const currencySymbol = selectedCountry === 'UAE' ? 'AED' : 'SAR';
+                        const isDisabled = disabledPOs.has(poNumber);
+                        return <TableRow key={poNumber} className={cn("border-b border-border/30 hover:bg-muted/30 hover:shadow-sm transition-all duration-150 ease-out", isDisabled && "opacity-40", hasClosedItems && !isDisabled && "opacity-75")}>
                                   <TableCell className="w-[70px] py-4">
                                     <Switch checked={!isDisabled} onCheckedChange={checked => {
-                            const newDisabled = new Set(disabledPOs);
-                            if (checked) {
-                              newDisabled.delete(poNumber);
-                            } else {
-                              newDisabled.add(poNumber);
-                            }
-                            setDisabledPOs(newDisabled);
-                          }} className="scale-75" />
+                              const newDisabled = new Set(disabledPOs);
+                              if (checked) {
+                                newDisabled.delete(poNumber);
+                              } else {
+                                newDisabled.add(poNumber);
+                              }
+                              setDisabledPOs(newDisabled);
+                            }} className="scale-75" />
                                   </TableCell>
                                  <TableCell className="font-mono text-sm py-4">
                                    <div className="flex items-center gap-2">
@@ -3932,13 +3663,13 @@ export const POTracker = () => {
                                         <ExternalLink className="h-3 w-3 ml-1" />
                                       </Button>
                                       <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-muted/50 transition-colors" onClick={e => {
-                              e.stopPropagation();
-                              navigator.clipboard.writeText(poNumber);
-                              toast({
-                                title: "Copied!",
-                                description: `PO Number "${poNumber}" copied to clipboard`
-                              });
-                             }} title="Copy PO Number">
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(poNumber);
+                                toast({
+                                  title: "Copied!",
+                                  description: `PO Number "${poNumber}" copied to clipboard`
+                                });
+                              }} title="Copy PO Number">
                                       <Copy className="h-3 w-3" />
                                        </Button>
                                        {hasClosedItems && <Badge variant="secondary" className="text-xs rounded-full px-2.5 py-0.5">
@@ -3949,11 +3680,11 @@ export const POTracker = () => {
                               <TableCell className="py-4">
                                 <div className="text-xs text-muted-foreground truncate">
                                   {(() => {
-                              const uniqueLocations = [...new Set(orders.map(o => o.ship_to_location).filter(Boolean))];
-                              if (uniqueLocations.length === 0) return '-';
-                              if (uniqueLocations.length === 1) return uniqueLocations[0];
-                              return `${uniqueLocations[0]} +${uniqueLocations.length - 1}`;
-                            })()}
+                                const uniqueLocations = [...new Set(orders.map(o => o.ship_to_location).filter(Boolean))];
+                                if (uniqueLocations.length === 0) return '-';
+                                if (uniqueLocations.length === 1) return uniqueLocations[0];
+                                return `${uniqueLocations[0]} +${uniqueLocations.length - 1}`;
+                              })()}
                                 </div>
                               </TableCell>
                               <TableCell className="py-4">
@@ -3970,9 +3701,9 @@ export const POTracker = () => {
                               </TableCell>
                               <TableCell className="py-4">
                                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium" style={{
-                                  background: parseInt(matchedPercentage) >= 80 ? 'hsl(var(--success) / 0.15)' : parseInt(matchedPercentage) >= 50 ? 'hsl(var(--warning) / 0.15)' : 'hsl(var(--destructive) / 0.15)',
-                                  color: parseInt(matchedPercentage) >= 80 ? 'hsl(var(--success))' : parseInt(matchedPercentage) >= 50 ? 'hsl(var(--warning))' : 'hsl(var(--destructive))'
-                                }}>
+                              background: parseInt(matchedPercentage) >= 80 ? 'hsl(var(--success) / 0.15)' : parseInt(matchedPercentage) >= 50 ? 'hsl(var(--warning) / 0.15)' : 'hsl(var(--destructive) / 0.15)',
+                              color: parseInt(matchedPercentage) >= 80 ? 'hsl(var(--success))' : parseInt(matchedPercentage) >= 50 ? 'hsl(var(--warning))' : 'hsl(var(--destructive))'
+                            }}>
                                   <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                                   {matchedPercentage}%
                                 </div>
@@ -3980,58 +3711,40 @@ export const POTracker = () => {
                               <TableCell className="py-4">
                                 <div className="flex flex-wrap gap-1.5">
                                   {(() => {
-                                    const matchedUnits = group?.metrics.matchedUnitsBySource?.SUNSKY || 0;
-                                    
-                                    if (matchedUnits > 0) {
-                                      return (
-                                        <div 
-                                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-purple-500/15 text-purple-700 dark:text-purple-300 cursor-pointer hover:bg-purple-500/25 transition-colors"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleGroupedSort('matched_sunsky');
-                                          }}
-                                          title="Total units matched with Source (including placed/closed orders)"
-                                        >
+                                const matchedUnits = group?.metrics.matchedUnitsBySource?.SUNSKY || 0;
+                                if (matchedUnits > 0) {
+                                  return <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-purple-500/15 text-purple-700 dark:text-purple-300 cursor-pointer hover:bg-purple-500/25 transition-colors" onClick={e => {
+                                    e.stopPropagation();
+                                    handleGroupedSort('matched_sunsky');
+                                  }} title="Total units matched with Source (including placed/closed orders)">
                                           <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                                           {matchedUnits} units
-                                        </div>
-                                      );
-                                    } else {
-                                      return (
-                                        <span className="text-xs text-muted-foreground">No Source matches</span>
-                                      );
-                                    }
-                                  })()}
+                                        </div>;
+                                } else {
+                                  return <span className="text-xs text-muted-foreground">No Source matches</span>;
+                                }
+                              })()}
                                 </div>
                               </TableCell>
                               <TableCell className="py-4">
                                 <div className="flex flex-wrap gap-1.5">
                                   {(() => {
-                                    const pendingUnits = group?.metrics.pendingUnitsBySource?.SUNSKY || 0;
-                                    
-                                    if (pendingUnits > 0) {
-                                      return (
-                                        <div 
-                                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-500/15 text-amber-700 dark:text-amber-300 cursor-pointer hover:bg-amber-500/25 transition-colors"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleGroupedSort('pending_sunsky');
-                                          }}
-                                          title="Total units pending to place with Source (not in inventory)"
-                                        >
+                                const pendingUnits = group?.metrics.pendingUnitsBySource?.SUNSKY || 0;
+                                if (pendingUnits > 0) {
+                                  return <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-500/15 text-amber-700 dark:text-amber-300 cursor-pointer hover:bg-amber-500/25 transition-colors" onClick={e => {
+                                    e.stopPropagation();
+                                    handleGroupedSort('pending_sunsky');
+                                  }} title="Total units pending to place with Source (not in inventory)">
                                           <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span>
                                           {pendingUnits} units
-                                        </div>
-                                      );
-                                    } else {
-                                      return (
-                                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-green-500/15 text-green-700 dark:text-green-300">
+                                        </div>;
+                                } else {
+                                  return <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-green-500/15 text-green-700 dark:text-green-300">
                                           <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                                           ✓ All placed
-                                        </div>
-                                      );
-                                    }
-                                  })()}
+                                        </div>;
+                                }
+                              })()}
                                 </div>
                               </TableCell>
                               <TableCell className="py-4">
@@ -4046,18 +3759,18 @@ export const POTracker = () => {
                                         View Details
                                       </Button>
                                       {(() => {
-                              const orderWithBatch = orders.find(o => o.batch_id);
-                              if (orderWithBatch?.batch_id) {
-                                return <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-700 dark:text-blue-300" title={`Batch ID: ${orderWithBatch.batch_id}`}>
+                                const orderWithBatch = orders.find(o => o.batch_id);
+                                if (orderWithBatch?.batch_id) {
+                                  return <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-700 dark:text-blue-300" title={`Batch ID: ${orderWithBatch.batch_id}`}>
                                           Batch: {orderWithBatch.batch_id.slice(0, 8)}
                                         </div>;
-                              }
-                              return null;
-                            })()}
+                                }
+                                return null;
+                              })()}
                                    </div>
                               </TableCell>
                              </TableRow>;
-                    })}
+                      })}
                         </TableBody>
                       </Table>
                     </div> : <div className="overflow-x-auto">
@@ -4081,13 +3794,12 @@ export const POTracker = () => {
                         </TableHeader>
                        <TableBody>
                            {paginatedDetailedOrders.map(order => {
-                      const isClosedOrder = order.status === 'closed';
-                      const countryPrefix = selectedCountry === 'UAE' ? '🇦🇪' : '🇸🇦';
-                      const currencySymbol = selectedCountry === 'UAE' ? 'AED' : 'SAR';
-                      const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku);
-                      const canPlaceOrder = inventoryMatch && order.status === 'pending' && !order.supplier_order_number;
-                      
-                      return <TableRow key={order.id} className={`
+                        const isClosedOrder = order.status === 'closed';
+                        const countryPrefix = selectedCountry === 'UAE' ? '🇦🇪' : '🇸🇦';
+                        const currencySymbol = selectedCountry === 'UAE' ? 'AED' : 'SAR';
+                        const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku);
+                        const canPlaceOrder = inventoryMatch && order.status === 'pending' && !order.supplier_order_number;
+                        return <TableRow key={order.id} className={`
                                   ${isClosedOrder ? 'opacity-50 bg-muted/40 pointer-events-none cursor-not-allowed' : 'hover:bg-muted/10 transition-colors'}
                                 `}>
                              <TableCell>
@@ -4139,77 +3851,47 @@ export const POTracker = () => {
                                  </Badge>
                                </TableCell>
                             <TableCell>
-                              {inventoryMatch && inventoryMatch.type === 'SUNSKY' ? (
-                                <div className="flex flex-col gap-1">
-                                  <Badge 
-                                    variant="outline"
-                                    className="bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/50"
-                                  >
+                              {inventoryMatch && inventoryMatch.type === 'SUNSKY' ? <div className="flex flex-col gap-1">
+                                  <Badge variant="outline" className="bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/50">
                                     Source
                                   </Badge>
                                   <span className="text-xs text-muted-foreground">
                                     Qty: {inventoryMatch.quantity}
                                   </span>
-                                  {inventoryMatch.status === 'in-stock' && (
-                                    <Badge variant="outline" className="text-xs bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30">
+                                  {inventoryMatch.status === 'in-stock' && <Badge variant="outline" className="text-xs bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30">
                                       In Stock
-                                    </Badge>
-                                  )}
-                                </div>
-                              ) : (
-                                <Badge variant="outline" className="text-xs text-muted-foreground">
+                                    </Badge>}
+                                </div> : <Badge variant="outline" className="text-xs text-muted-foreground">
                                   No Source match
-                                </Badge>
-                              )}
+                                </Badge>}
                             </TableCell>
                             <TableCell>
-                              {canPlaceOrder ? (
-                                <div className="flex items-center gap-1">
+                              {canPlaceOrder ? <div className="flex items-center gap-1">
                                   <Badge variant="default" className="bg-green-500 hover:bg-green-600">
                                     Ready
                                   </Badge>
                                   <span className="text-xs text-muted-foreground">{inventoryMatch?.type}</span>
-                                </div>
-                              ) : order.supplier_order_number ? (
-                                <Badge variant="secondary" className="bg-blue-500/20 text-blue-700 dark:text-blue-300">
+                                </div> : order.supplier_order_number ? <Badge variant="secondary" className="bg-blue-500/20 text-blue-700 dark:text-blue-300">
                                   Placed
-                                </Badge>
-                              ) : !inventoryMatch ? (
-                                <Badge variant="destructive">No Source</Badge>
-                              ) : (
-                                <Badge variant="outline" className="text-muted-foreground">Not Pending</Badge>
-                              )}
+                                </Badge> : !inventoryMatch ? <Badge variant="destructive">No Source</Badge> : <Badge variant="outline" className="text-muted-foreground">Not Pending</Badge>}
                             </TableCell>
                             <TableCell>
                               {(() => {
-                                const inventoryMatch = findInventoryMatch(
-                                  order.asin, 
-                                  order.sunsky_sku?.sku_code, 
-                                  order.sku_code, 
-                                  order.model_number, 
-                                  order.sunsky_sku
-                                );
-                                
-                                if (inventoryMatch && inventoryMatch.status === 'in-stock') {
-                                  return (
-                                    <Badge variant="default" className="text-xs bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/50">
+                              const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku);
+                              if (inventoryMatch && inventoryMatch.status === 'in-stock') {
+                                return <Badge variant="default" className="text-xs bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/50">
                                       {inventoryMatch.quantity} units
-                                    </Badge>
-                                  );
-                                } else if (inventoryMatch && inventoryMatch.status === 'ordered') {
-                                  return (
-                                    <Badge variant="outline" className="text-xs text-amber-600 dark:text-amber-400">
+                                    </Badge>;
+                              } else if (inventoryMatch && inventoryMatch.status === 'ordered') {
+                                return <Badge variant="outline" className="text-xs text-amber-600 dark:text-amber-400">
                                       Ordered
-                                    </Badge>
-                                  );
-                                } else {
-                                  return (
-                                    <Badge variant="outline" className="text-xs text-muted-foreground">
+                                    </Badge>;
+                              } else {
+                                return <Badge variant="outline" className="text-xs text-muted-foreground">
                                       Not in stock
-                                    </Badge>
-                                  );
-                                }
-                              })()}
+                                    </Badge>;
+                              }
+                            })()}
                             </TableCell>
                             <TableCell>
                               <div className="space-y-1">
@@ -4224,10 +3906,10 @@ export const POTracker = () => {
                                 <TableCell>
                                   <div className="flex items-center gap-1">
                                     <Button variant="ghost" size="sm" onClick={() => {
-                              setPrintMode('single');
-                              setPrintOrders([order]);
-                              setPrintDialogOpen(true);
-                            }} title="Print this item">
+                                setPrintMode('single');
+                                setPrintOrders([order]);
+                                setPrintDialogOpen(true);
+                              }} title="Print this item">
                                       <Printer className="h-4 w-4" />
                                     </Button>
                                     <Button variant="outline" size="sm" onClick={() => navigate(`/po-details/${order.po_number}`)} disabled={isClosedOrder}>
@@ -4236,7 +3918,7 @@ export const POTracker = () => {
                                   </div>
                                 </TableCell>
                              </TableRow>;
-                    })}
+                      })}
                        </TableBody>
                     </Table>
                     </div>}
@@ -4367,11 +4049,7 @@ export const POTracker = () => {
 
         <TabsContent value="labels" className="space-y-6">
           {/* Smart Matching Assistant Panel */}
-          <SmartMatchingPanel 
-            orders={poOrders}
-            sunskySKUs={sunskySKUs}
-            userId={profile?.id}
-          />
+          <SmartMatchingPanel orders={poOrders} sunskySKUs={sunskySKUs} userId={profile?.id} />
 
           {labelsStep === 'list' ?
         // Step 1: PO List View
@@ -4388,45 +4066,25 @@ export const POTracker = () => {
               <CardContent>
                  <div className="space-y-4">
                      {/* Saved Presets Quick Access */}
-                     {savedPresets.length > 0 && (
-                       <div className="flex items-center gap-2 flex-wrap p-3 bg-muted/30 rounded-lg border">
+                     {savedPresets.length > 0 && <div className="flex items-center gap-2 flex-wrap p-3 bg-muted/30 rounded-lg border">
                          <span className="text-sm text-muted-foreground font-medium">Quick Load:</span>
-                         {savedPresets
-                           .sort((a, b) => (b.lastUsed || b.createdAt).localeCompare(a.lastUsed || a.createdAt))
-                           .slice(0, 3)
-                           .map(preset => {
-                             const availableCount = preset.poNumbers.filter(poNumber => {
-                               const poExists = poOrders.some(order => order.po_number === poNumber);
-                               return poExists;
-                             }).length;
-
-                             return (
-                               <Button
-                                 key={preset.id}
-                                 variant="outline"
-                                 size="sm"
-                                 onClick={() => loadPreset(preset)}
-                                 disabled={availableCount === 0}
-                                 className="border-primary/30 hover:border-primary"
-                               >
+                         {savedPresets.sort((a, b) => (b.lastUsed || b.createdAt).localeCompare(a.lastUsed || a.createdAt)).slice(0, 3).map(preset => {
+                  const availableCount = preset.poNumbers.filter(poNumber => {
+                    const poExists = poOrders.some(order => order.po_number === poNumber);
+                    return poExists;
+                  }).length;
+                  return <Button key={preset.id} variant="outline" size="sm" onClick={() => loadPreset(preset)} disabled={availableCount === 0} className="border-primary/30 hover:border-primary">
                                  <Package className="h-3 w-3 mr-2" />
                                  {preset.name}
                                  <Badge variant="secondary" className="ml-2">
                                    {availableCount}
                                  </Badge>
-                               </Button>
-                             );
-                           })}
-                         <Button
-                           variant="ghost"
-                           size="sm"
-                           onClick={() => setShowPresetsDialog(true)}
-                           className="text-primary"
-                         >
+                               </Button>;
+                })}
+                         <Button variant="ghost" size="sm" onClick={() => setShowPresetsDialog(true)} className="text-primary">
                            View All ({savedPresets.length})
                          </Button>
-                       </div>
-                     )}
+                       </div>}
 
                      {/* Search Bar and Controls */}
                       <div className="flex items-center gap-4">
@@ -4460,82 +4118,63 @@ export const POTracker = () => {
                             </Button>
                           </div>
                            <div className="flex items-center gap-2">
-                             <Button
-                               variant="outline"
-                               size="sm"
-                               onClick={() => {
-                                 setPresetNameInput('');
-                                 setEditingPresetId(null);
-                                 setShowPresetsDialog(true);
-                               }}
-                             >
+                             <Button variant="outline" size="sm" onClick={() => {
+                    setPresetNameInput('');
+                    setEditingPresetId(null);
+                    setShowPresetsDialog(true);
+                  }}>
                                <Plus className="h-4 w-4 mr-2" />
                                Save Selection
                              </Button>
-                             <Button 
-                               variant="outline" 
-                               size="sm"
-                               disabled={selectedPOsForLabels.size === 0 || Array.from(selectedPOsForLabels).every(poNumber => {
-                     const poGroup = filteredPOGroups.find(g => g.poNumber === poNumber);
-                     return poGroup?.orders.every(order => order.status === 'closed') || false;
-                   })} onClick={() => {
-                     // Get ALL orders for selected POs directly from poOrders (not filtered groups)
-                     const selectedPONumbers = Array.from(selectedPOsForLabels);
-                     console.log('🖨️ Print Preview: Selected POs:', selectedPONumbers.join(', '));
-                     console.log('🖨️ Total poOrders in state:', poOrders.length);
+                             <Button variant="outline" size="sm" disabled={selectedPOsForLabels.size === 0 || Array.from(selectedPOsForLabels).every(poNumber => {
+                    const poGroup = filteredPOGroups.find(g => g.poNumber === poNumber);
+                    return poGroup?.orders.every(order => order.status === 'closed') || false;
+                  })} onClick={() => {
+                    // Get ALL orders for selected POs directly from poOrders (not filtered groups)
+                    const selectedPONumbers = Array.from(selectedPOsForLabels);
+                    console.log('🖨️ Print Preview: Selected POs:', selectedPONumbers.join(', '));
+                    console.log('🖨️ Total poOrders in state:', poOrders.length);
 
-                     // Get ALL orders for these PO numbers - no aggregation, no filtering except by PO number and cancelled status
-                     const selectedOrders = poOrders.filter(order => selectedPONumbers.includes(order.po_number) && order.status !== 'cancelled');
-                     console.log('🖨️ Orders passed to print dialog:', selectedOrders.length);
-                     selectedPONumbers.forEach(po => {
-                       const ordersForPO = selectedOrders.filter(o => o.po_number === po);
-                       const uniqueASINs = new Set(ordersForPO.map(o => o.asin));
-                       console.log(`  - ${po}: ${ordersForPO.length} items, ${ordersForPO.reduce((sum, o) => sum + o.quantity, 0)} units, ${uniqueASINs.size} ASINs`);
-                     });
-                     setPrintMode('bulk');
-                     setPrintOrders(selectedOrders);
-                     setPrintDialogOpen(true);
-                   }}>
+                    // Get ALL orders for these PO numbers - no aggregation, no filtering except by PO number and cancelled status
+                    const selectedOrders = poOrders.filter(order => selectedPONumbers.includes(order.po_number) && order.status !== 'cancelled');
+                    console.log('🖨️ Orders passed to print dialog:', selectedOrders.length);
+                    selectedPONumbers.forEach(po => {
+                      const ordersForPO = selectedOrders.filter(o => o.po_number === po);
+                      const uniqueASINs = new Set(ordersForPO.map(o => o.asin));
+                      console.log(`  - ${po}: ${ordersForPO.length} items, ${ordersForPO.reduce((sum, o) => sum + o.quantity, 0)} units, ${uniqueASINs.size} ASINs`);
+                    });
+                    setPrintMode('bulk');
+                    setPrintOrders(selectedOrders);
+                    setPrintDialogOpen(true);
+                  }}>
                                <FileText className="h-4 w-4 mr-2" />
                                Print Preview
                              </Button>
-                             <Button 
-                               variant="outline" 
-                               size="sm"
-                               disabled={Array.from(selectedPOsForLabels).every(poNumber => {
-                     const poGroup = filteredPOGroups.find(g => g.poNumber === poNumber);
-                     return poGroup?.orders.every(order => order.status === 'closed') || false;
-                   })} onClick={() => {
-                     console.log('🔍 VIEW ITEMS DEBUG: Selected POs:', Array.from(selectedPOsForLabels));
+                             <Button variant="outline" size="sm" disabled={Array.from(selectedPOsForLabels).every(poNumber => {
+                    const poGroup = filteredPOGroups.find(g => g.poNumber === poNumber);
+                    return poGroup?.orders.every(order => order.status === 'closed') || false;
+                  })} onClick={() => {
+                    console.log('🔍 VIEW ITEMS DEBUG: Selected POs:', Array.from(selectedPOsForLabels));
 
-                     // Go directly to print labels interface with selected POs
-                     setSelectedPOForLabels(Array.from(selectedPOsForLabels)[0]); // Set first PO for compatibility
-                     setLabelsStep('print'); // Go directly to print interface
-                     setActiveTab('labels'); // Switch to labels tab
+                    // Go directly to print labels interface with selected POs
+                    setSelectedPOForLabels(Array.from(selectedPOsForLabels)[0]); // Set first PO for compatibility
+                    setLabelsStep('print'); // Go directly to print interface
+                    setActiveTab('labels'); // Switch to labels tab
 
-                     // Preserve original order for printing - disable sorting
-                     setOriginalOrderPreserved(true);
-                     setSortField('po_number'); // Reset to original order
-                     setSortDirection('asc');
-                     console.log('🔍 VIEW ITEMS DEBUG: Switched to print labels interface with original order preserved');
-                   }}>
+                    // Preserve original order for printing - disable sorting
+                    setOriginalOrderPreserved(true);
+                    setSortField('po_number'); // Reset to original order
+                    setSortDirection('asc');
+                    console.log('🔍 VIEW ITEMS DEBUG: Switched to print labels interface with original order preserved');
+                  }}>
                                <Package className="h-4 w-4 mr-2" />
                                View Items
                              </Button>
-                             <Button
-                               variant="outline"
-                               size="sm"
-                               onClick={() => setGenerateLinkDialogOpen(true)}
-                               disabled={selectedPOsForLabels.size === 0}
-                             >
+                             <Button variant="outline" size="sm" onClick={() => setGenerateLinkDialogOpen(true)} disabled={selectedPOsForLabels.size === 0}>
                                <ExternalLink className="h-4 w-4 mr-2" />
                                Generate Link
                              </Button>
-                             <Button
-                               variant="outline"
-                               size="sm"
-                               onClick={() => setActiveTab('purchase-links')}
-                             >
+                             <Button variant="outline" size="sm" onClick={() => setActiveTab('purchase-links')}>
                                <ExternalLink className="h-4 w-4 mr-2" />
                                View All Links
                              </Button>
@@ -4709,18 +4348,10 @@ export const POTracker = () => {
 
               {/* Enhanced Print Settings Panel with Collapsible Tabbed Interface */}
               <Card className="shadow-soft border-2 border-border bg-gradient-to-r from-card to-card/50">
-                <CardHeader 
-                  className={cn(
-                    "border-b border-border cursor-pointer transition-all",
-                    isPrintConfigCollapsed 
-                      ? "bg-muted/30 hover:bg-muted/50 py-3" 
-                      : "bg-gradient-to-r from-primary/5 to-accent/5 hover:from-primary/10 hover:to-accent/10 py-4"
-                  )}
-                  onClick={() => setIsPrintConfigCollapsed(!isPrintConfigCollapsed)}
-                >
-                  {isPrintConfigCollapsed ? (
-                    // Simplified collapsed state - just a simple row
-                    <div className="flex items-center justify-between">
+                <CardHeader className={cn("border-b border-border cursor-pointer transition-all", isPrintConfigCollapsed ? "bg-muted/30 hover:bg-muted/50 py-3" : "bg-gradient-to-r from-primary/5 to-accent/5 hover:from-primary/10 hover:to-accent/10 py-4")} onClick={() => setIsPrintConfigCollapsed(!isPrintConfigCollapsed)}>
+                  {isPrintConfigCollapsed ?
+              // Simplified collapsed state - just a simple row
+              <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="p-1.5 bg-primary/10 rounded-lg border border-primary/20">
                           <Printer className="h-4 w-4 text-primary" />
@@ -4731,10 +4362,9 @@ export const POTracker = () => {
                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                         <ChevronDown className="h-4 w-4" />
                       </Button>
-                    </div>
-                  ) : (
-                    // Full expanded state - detailed header
-                    <div className="flex items-center justify-between">
+                    </div> :
+              // Full expanded state - detailed header
+              <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-primary/10 rounded-lg border border-primary/20">
                           <Printer className="h-5 w-5 text-primary" />
@@ -4751,19 +4381,18 @@ export const POTracker = () => {
                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                         <ChevronUp className="h-4 w-4" />
                       </Button>
-                    </div>
-                  )}
+                    </div>}
                 </CardHeader>
                 {!isPrintConfigCollapsed && <CardContent className="p-6 border-2 border-border border-t-0 rounded-t-none">
-                  <Tabs defaultValue="template" className="w-full" onValueChange={(newTab) => {
-                    trackTabChange({
-                      category: 'Amazon',
-                      subcategory: 'PO Tracker',
-                      fromTab: 'template',
-                      toTab: newTab,
-                      tabTitle: `Print Config - ${newTab}`
-                    });
-                  }}>
+                  <Tabs defaultValue="template" className="w-full" onValueChange={newTab => {
+                trackTabChange({
+                  category: 'Amazon',
+                  subcategory: 'PO Tracker',
+                  fromTab: 'template',
+                  toTab: newTab,
+                  tabTitle: `Print Config - ${newTab}`
+                });
+              }}>
                     <TabsList className="grid w-full grid-cols-3 mb-6 bg-gradient-subtle p-1 rounded-lg border border-border shadow-soft">
                       <TabsTrigger value="template" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-medium border border-transparent data-[state=active]:border-primary-dark rounded-md transition-all">
                         <div className="w-2 h-2 bg-current rounded-full"></div>
@@ -5057,59 +4686,43 @@ export const POTracker = () => {
                   <div className="flex items-center gap-4 mb-3 p-2.5 bg-gradient-to-r from-muted/30 to-muted/50 rounded-md border border-border/20 text-sm">
                     {/* QZ Status */}
                     <div className="flex items-center gap-1.5">
-                      {qzConnected ? (
-                        <>
+                      {qzConnected ? <>
                           <CheckCircle2 className="h-3.5 w-3.5 text-success" />
                           <span className="text-foreground font-medium">QZ Connected</span>
-                        </>
-                      ) : (
-                        <>
+                        </> : <>
                           <AlertCircle className="h-3.5 w-3.5 text-warning" />
                           <span className="text-warning-foreground font-medium">QZ Disconnected</span>
-                        </>
-                      )}
+                        </>}
                     </div>
 
                     <div className="h-4 w-px bg-border/50"></div>
 
                     {/* Printer Selection */}
-                    {qzConnected && availablePrinters.length > 0 ? (
-                      <div className="flex items-center gap-2">
+                    {qzConnected && availablePrinters.length > 0 ? <div className="flex items-center gap-2">
                         <Printer className="h-3.5 w-3.5 text-muted-foreground" />
                         <Select value={selectedPrinter} onValueChange={setSelectedPrinter}>
                           <SelectTrigger className="h-7 w-[160px] text-xs bg-background/70 border-border/50">
                             <SelectValue placeholder="Select printer" />
                           </SelectTrigger>
                           <SelectContent className="bg-popover border shadow-medium z-50">
-                            {availablePrinters.map(printer => (
-                              <SelectItem key={printer} value={printer} className="text-xs">
+                            {availablePrinters.map(printer => <SelectItem key={printer} value={printer} className="text-xs">
                                 {printer}
-                              </SelectItem>
-                            ))}
+                              </SelectItem>)}
                           </SelectContent>
                         </Select>
-                      </div>
-                    ) : selectedPrinter ? (
-                      <div className="flex items-center gap-1.5">
+                      </div> : selectedPrinter ? <div className="flex items-center gap-1.5">
                         <Printer className="h-3.5 w-3.5 text-muted-foreground" />
                         <span className="text-muted-foreground">{selectedPrinter}</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1.5">
+                      </div> : <div className="flex items-center gap-1.5">
                         <Printer className="h-3.5 w-3.5 text-muted-foreground" />
                         <span className="text-muted-foreground">No Printer</span>
-                      </div>
-                    )}
+                      </div>}
 
                     <div className="h-4 w-px bg-border/50"></div>
 
                     {/* Selection Count */}
                     <div className="flex items-center gap-1.5">
-                      {selectedForPrint.size > 0 ? (
-                        <CheckCircle2 className="h-3.5 w-3.5 text-success" />
-                      ) : (
-                        <AlertCircle className="h-3.5 w-3.5 text-muted-foreground" />
-                      )}
+                      {selectedForPrint.size > 0 ? <CheckCircle2 className="h-3.5 w-3.5 text-success" /> : <AlertCircle className="h-3.5 w-3.5 text-muted-foreground" />}
                       <span className={selectedForPrint.size > 0 ? 'text-foreground font-medium' : 'text-muted-foreground'}>
                         Selected: {selectedForPrint.size}
                       </span>
@@ -5120,13 +4733,7 @@ export const POTracker = () => {
                   <div className="flex items-center justify-between p-2.5 bg-card/50 rounded-md border border-border/20">
                     <div className="flex items-center gap-2">
                       {/* Preview Button */}
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        disabled={selectedForPrint.size === 0} 
-                        className="h-8 text-xs hover:shadow-soft transition-all"
-                        onClick={() => console.log('Preview clicked with selection:', selectedForPrint.size)}
-                      >
+                      <Button variant="outline" size="sm" disabled={selectedForPrint.size === 0} className="h-8 text-xs hover:shadow-soft transition-all" onClick={() => console.log('Preview clicked with selection:', selectedForPrint.size)}>
                         <div className="flex items-center gap-1.5">
                           <div className="w-2.5 h-2.5 bg-accent rounded-sm"></div>
                           Preview
@@ -5134,96 +4741,62 @@ export const POTracker = () => {
                       </Button>
 
                       {/* Download Button */}
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => {
-                          console.log('Download clicked with selection:', selectedForPrint.size);
-                          handleDownloadZPL();
-                        }} 
-                        disabled={selectedForPrint.size === 0} 
-                        className="h-8 text-xs hover:shadow-soft transition-all"
-                      >
+                      <Button variant="outline" size="sm" onClick={() => {
+                    console.log('Download clicked with selection:', selectedForPrint.size);
+                    handleDownloadZPL();
+                  }} disabled={selectedForPrint.size === 0} className="h-8 text-xs hover:shadow-soft transition-all">
                         <Download className="h-3 w-3 mr-1.5" />
                         Download ZPL
-                        {selectedForPrint.size > 0 && (
-                          <Badge variant="secondary" className="ml-1.5 h-4 px-1 text-[10px]">
+                        {selectedForPrint.size > 0 && <Badge variant="secondary" className="ml-1.5 h-4 px-1 text-[10px]">
                             {selectedForPrint.size}
-                          </Badge>
-                        )}
+                          </Badge>}
                       </Button>
                     </div>
                     
                     {/* Primary Print Button */}
                     {(() => {
-                      const isPrintDisabled = selectedForPrint.size === 0 || !qzConnected || !selectedPrinter || isPrinting || isPrintStatusUpdating;
-                      const disabledReason = isPrintDisabled ? (
-                        selectedForPrint.size === 0 ? 'No items selected' :
-                        !qzConnected ? 'QZ Tray not connected' :
-                        !selectedPrinter ? 'No printer selected' :
-                        isPrinting ? 'Currently printing' :
-                        isPrintStatusUpdating ? 'Updating print status' : 'Unknown'
-                      ) : 'Ready to print';
-                      
-                      console.log('🎯 Print Button State:', {
-                        isPrintDisabled,
-                        selectedCount: selectedForPrint.size,
-                        qzConnected,
-                        selectedPrinter,
-                        isPrinting,
-                        isPrintStatusUpdating,
-                        reason: disabledReason
-                      });
-                      
-                      return (
-                        <Button 
-                          size="sm" 
-                          onClick={() => {
-                            console.log('🖨️ Print clicked:', {
-                              selection: selectedForPrint.size,
-                              qz: qzConnected,
-                              printer: selectedPrinter,
-                              reason: disabledReason
-                            });
-                            handleDirectPrint();
-                          }} 
-                          disabled={isPrintDisabled} 
-                          className="bg-primary hover:bg-primary-dark text-primary-foreground shadow-glow hover:shadow-accent-glow transition-all h-8 text-xs min-w-[140px]"
-                        >
-                          {isPrinting ? (
-                            <div className="flex items-center gap-1.5">
+                  const isPrintDisabled = selectedForPrint.size === 0 || !qzConnected || !selectedPrinter || isPrinting || isPrintStatusUpdating;
+                  const disabledReason = isPrintDisabled ? selectedForPrint.size === 0 ? 'No items selected' : !qzConnected ? 'QZ Tray not connected' : !selectedPrinter ? 'No printer selected' : isPrinting ? 'Currently printing' : isPrintStatusUpdating ? 'Updating print status' : 'Unknown' : 'Ready to print';
+                  console.log('🎯 Print Button State:', {
+                    isPrintDisabled,
+                    selectedCount: selectedForPrint.size,
+                    qzConnected,
+                    selectedPrinter,
+                    isPrinting,
+                    isPrintStatusUpdating,
+                    reason: disabledReason
+                  });
+                  return <Button size="sm" onClick={() => {
+                    console.log('🖨️ Print clicked:', {
+                      selection: selectedForPrint.size,
+                      qz: qzConnected,
+                      printer: selectedPrinter,
+                      reason: disabledReason
+                    });
+                    handleDirectPrint();
+                  }} disabled={isPrintDisabled} className="bg-primary hover:bg-primary-dark text-primary-foreground shadow-glow hover:shadow-accent-glow transition-all h-8 text-xs min-w-[140px]">
+                          {isPrinting ? <div className="flex items-center gap-1.5">
                               <Loader2 className="h-3 w-3 animate-spin" />
                               <span>Printing...</span>
-                            </div>
-                          ) : isPrintStatusUpdating ? (
-                            <div className="flex items-center gap-1.5">
+                            </div> : isPrintStatusUpdating ? <div className="flex items-center gap-1.5">
                               <Loader2 className="h-3 w-3 animate-spin" />
                               <span>Updating...</span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-1.5">
+                            </div> : <div className="flex items-center gap-1.5">
                               <Printer className="h-3 w-3" />
                               <span>Print Labels</span>
                 {selectedForPrint.size > 0 && (() => {
-                  const totalPrintQty = Array.from(customPrintQuantities.values())
-                    .reduce((sum, qty) => sum + qty, 0);
-                  
-                  return (
-                    <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px] bg-background/20 text-primary-foreground">
+                        const totalPrintQty = Array.from(customPrintQuantities.values()).reduce((sum, qty) => sum + qty, 0);
+                        return <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px] bg-background/20 text-primary-foreground">
                       {totalPrintQty || selectedForPrint.size}
-                    </Badge>
-                  );
+                    </Badge>;
+                      })()}
+                            </div>}
+                        </Button>;
                 })()}
-                            </div>
-                          )}
-                        </Button>
-                      );
-                    })()}
                   </div>
 
                   {/* Compact Connection Alert */}
-                  {!qzConnected && (
-                    <div className="mt-3 p-2.5 bg-gradient-to-r from-warning/10 to-warning/5 border border-warning/20 rounded-md animate-fade-in">
+                  {!qzConnected && <div className="mt-3 p-2.5 bg-gradient-to-r from-warning/10 to-warning/5 border border-warning/20 rounded-md animate-fade-in">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <AlertCircle className="h-3.5 w-3.5 text-warning flex-shrink-0" />
@@ -5236,18 +4809,12 @@ export const POTracker = () => {
                             </p>
                           </div>
                         </div>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={initializeQZ} 
-                          className="h-7 text-xs hover:bg-warning/10"
-                        >
+                        <Button variant="outline" size="sm" onClick={initializeQZ} className="h-7 text-xs hover:bg-warning/10">
                           <RefreshCw className="h-3 w-3 mr-1" />
                           Connect
                         </Button>
                       </div>
-                    </div>
-                  )}
+                    </div>}
                 </CardContent>
               </Card>
 
@@ -5322,77 +4889,44 @@ export const POTracker = () => {
                 {/* PO Details Metrics Summary Banner */}
                 <div className="px-4 py-3 bg-gradient-to-r from-muted/30 to-muted/20 border-b border-border/50">
                   {(() => {
-                    const selectedPOsList = selectedPOsForLabels.size > 0 
-                      ? Array.from(selectedPOsForLabels) 
-                      : selectedPOForLabels 
-                        ? [selectedPOForLabels] 
-                        : [];
-                    
-                    const ordersForMetrics = poOrders.filter(order => 
-                      selectedPOsList.includes(order.po_number) && 
-                      order.status !== 'cancelled'
-                    );
-                    
-                    // Calculate metrics
-                    const totalItems = ordersForMetrics.length;
-                    const totalUnits = ordersForMetrics.reduce((sum, o) => sum + (o.quantity || 0), 0);
-                    const printedItems = ordersForMetrics.filter(o => 
-                      (o.printed_quantity || 0) > 0
-                    ).length;
-                    const printedUnits = ordersForMetrics.reduce((sum, o) => sum + (o.printed_quantity || 0), 0);
-                    const fullyPrintedItems = ordersForMetrics.filter(o => 
-                      (o.printed_quantity || 0) >= (o.quantity || 0) && (o.printed_quantity || 0) > 0
-                    ).length;
-                    const partiallyPrintedItems = ordersForMetrics.filter(o => {
-                      const printed = o.printed_quantity || 0;
-                      const total = o.quantity || 0;
-                      return printed > 0 && printed < total;
-                    }).length;
-                    
-    // Sunsky matching metrics
-    const sunskyMatchedItems = ordersForMetrics.filter(o => 
-      o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id)
-    ).length;
-    const sunskyMatchedUnits = ordersForMetrics
-      .filter(o => o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id))
-      .reduce((sum, o) => sum + (o.quantity || 0), 0);
+                const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : selectedPOForLabels ? [selectedPOForLabels] : [];
+                const ordersForMetrics = poOrders.filter(order => selectedPOsList.includes(order.po_number) && order.status !== 'cancelled');
 
-    // Sunsky Printed metrics
-    const sunskyPrintedItems = ordersForMetrics.filter(o => 
-      (o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id)) &&
-      (o.printed_quantity || 0) > 0
-    ).length;
-    const sunskyPrintedUnits = ordersForMetrics
-      .filter(o => (o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id)) && (o.printed_quantity || 0) > 0)
-      .reduce((sum, o) => sum + (o.printed_quantity || 0), 0);
+                // Calculate metrics
+                const totalItems = ordersForMetrics.length;
+                const totalUnits = ordersForMetrics.reduce((sum, o) => sum + (o.quantity || 0), 0);
+                const printedItems = ordersForMetrics.filter(o => (o.printed_quantity || 0) > 0).length;
+                const printedUnits = ordersForMetrics.reduce((sum, o) => sum + (o.printed_quantity || 0), 0);
+                const fullyPrintedItems = ordersForMetrics.filter(o => (o.printed_quantity || 0) >= (o.quantity || 0) && (o.printed_quantity || 0) > 0).length;
+                const partiallyPrintedItems = ordersForMetrics.filter(o => {
+                  const printed = o.printed_quantity || 0;
+                  const total = o.quantity || 0;
+                  return printed > 0 && printed < total;
+                }).length;
 
-    // Sunsky Pending metrics (units that haven't been printed yet)
-    const sunskyPendingItems = ordersForMetrics.filter(o => 
-      (o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id)) &&
-      ((o.quantity || 0) - (o.printed_quantity || 0)) > 0
-    ).length;
-    const sunskyPendingUnits = ordersForMetrics
-      .filter(o => o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id))
-      .reduce((sum, o) => sum + Math.max(0, (o.quantity || 0) - (o.printed_quantity || 0)), 0);
-                    
-                    const isPluralPOs = selectedPOsList.length > 1;
-                    const poTitle = isPluralPOs 
-                      ? `${selectedPOsList.length} Purchase Orders` 
-                      : `PO: ${selectedPOsList[0] || 'N/A'}`;
-                    
-                    return (
-                      <div className="space-y-2">
+                // Sunsky matching metrics
+                const sunskyMatchedItems = ordersForMetrics.filter(o => o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id)).length;
+                const sunskyMatchedUnits = ordersForMetrics.filter(o => o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id)).reduce((sum, o) => sum + (o.quantity || 0), 0);
+
+                // Sunsky Printed metrics
+                const sunskyPrintedItems = ordersForMetrics.filter(o => o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id) && (o.printed_quantity || 0) > 0).length;
+                const sunskyPrintedUnits = ordersForMetrics.filter(o => o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id) && (o.printed_quantity || 0) > 0).reduce((sum, o) => sum + (o.printed_quantity || 0), 0);
+
+                // Sunsky Pending metrics (units that haven't been printed yet)
+                const sunskyPendingItems = ordersForMetrics.filter(o => o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id) && (o.quantity || 0) - (o.printed_quantity || 0) > 0).length;
+                const sunskyPendingUnits = ordersForMetrics.filter(o => o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id)).reduce((sum, o) => sum + Math.max(0, (o.quantity || 0) - (o.printed_quantity || 0)), 0);
+                const isPluralPOs = selectedPOsList.length > 1;
+                const poTitle = isPluralPOs ? `${selectedPOsList.length} Purchase Orders` : `PO: ${selectedPOsList[0] || 'N/A'}`;
+                return <div className="space-y-2">
                         {/* PO Title */}
                         <div className="flex items-center gap-2 mb-3">
                           <ShoppingCart className="h-4 w-4 text-primary" />
                           <h3 className="text-sm font-semibold text-foreground">
                             {poTitle}
                           </h3>
-                          {isPluralPOs && (
-                            <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
+                          {isPluralPOs && <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
                               Multiple POs
-                            </Badge>
-                          )}
+                            </Badge>}
                         </div>
                         
                         {/* Metrics Grid */}
@@ -5445,9 +4979,8 @@ export const POTracker = () => {
                 </span>
               </div>
                         </div>
-                      </div>
-                    );
-                  })()}
+                      </div>;
+              })()}
                 </div>
 
                 <CardContent className="px-3 py-4 lg:px-4">
@@ -5551,49 +5084,37 @@ export const POTracker = () => {
                             <div className="space-y-3">
                               <div className="space-y-2">
                                 <div className="flex items-center gap-2">
-                                  <Checkbox
-                                    id="print-printed"
-                                    checked={printedFilter.includes('printed')}
-                                    onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        setPrintedFilter([...printedFilter, 'printed']);
-                                      } else {
-                                        setPrintedFilter(printedFilter.filter(f => f !== 'printed'));
-                                      }
-                                    }}
-                                  />
+                                  <Checkbox id="print-printed" checked={printedFilter.includes('printed')} onCheckedChange={checked => {
+                                if (checked) {
+                                  setPrintedFilter([...printedFilter, 'printed']);
+                                } else {
+                                  setPrintedFilter(printedFilter.filter(f => f !== 'printed'));
+                                }
+                              }} />
                                   <Label htmlFor="print-printed" className="text-sm cursor-pointer">
                                     ✓ Fully Printed
                                   </Label>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <Checkbox
-                                    id="print-partial"
-                                    checked={printedFilter.includes('partial-printed')}
-                                    onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        setPrintedFilter([...printedFilter, 'partial-printed']);
-                                      } else {
-                                        setPrintedFilter(printedFilter.filter(f => f !== 'partial-printed'));
-                                      }
-                                    }}
-                                  />
+                                  <Checkbox id="print-partial" checked={printedFilter.includes('partial-printed')} onCheckedChange={checked => {
+                                if (checked) {
+                                  setPrintedFilter([...printedFilter, 'partial-printed']);
+                                } else {
+                                  setPrintedFilter(printedFilter.filter(f => f !== 'partial-printed'));
+                                }
+                              }} />
                                   <Label htmlFor="print-partial" className="text-sm cursor-pointer">
                                     ⚠ Partially Printed
                                   </Label>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <Checkbox
-                                    id="print-not"
-                                    checked={printedFilter.includes('not-printed')}
-                                    onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        setPrintedFilter([...printedFilter, 'not-printed']);
-                                      } else {
-                                        setPrintedFilter(printedFilter.filter(f => f !== 'not-printed'));
-                                      }
-                                    }}
-                                  />
+                                  <Checkbox id="print-not" checked={printedFilter.includes('not-printed')} onCheckedChange={checked => {
+                                if (checked) {
+                                  setPrintedFilter([...printedFilter, 'not-printed']);
+                                } else {
+                                  setPrintedFilter(printedFilter.filter(f => f !== 'not-printed'));
+                                }
+                              }} />
                                   <Label htmlFor="print-not" className="text-sm cursor-pointer">
                                     ○ Not Printed
                                   </Label>
@@ -5602,55 +5123,36 @@ export const POTracker = () => {
                             </div>
                           </PopoverContent>
                         </Popover>
-                        {printedFilter.length > 0 && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => setPrintedFilter([])} 
-                            className="h-8 px-2 text-xs hover:bg-destructive/10"
-                          >
+                        {printedFilter.length > 0 && <Button variant="ghost" size="sm" onClick={() => setPrintedFilter([])} className="h-8 px-2 text-xs hover:bg-destructive/10">
                             <X className="h-3 w-3 mr-1" />
                             Clear
-                          </Button>
-                        )}
+                          </Button>}
                         
                         {/* Print Preview Button */}
-              <Button
-                variant="default"
-                size="sm"
-                disabled={selectedPOsForLabels.size === 0 || poOrders.length === 0}
-                title={selectedPOsForLabels.size === 0 ? "Select POs first to preview labels" : "Preview labels for selected POs"}
-                onClick={() => {
-                  const filteredOrders = getSelectedPOsOrdersByPrintStatus();
-                  
-                  console.log('🖨️ Print Preview by Status:', {
-                    selectedPOs: Array.from(selectedPOsForLabels),
-                    printedFilter,
-                    matchingOrders: filteredOrders.length
-                  });
-                  
-                  if (filteredOrders.length === 0) {
-                    toast({
-                      title: "No Items to Preview",
-                      description: "No items from selected POs match the print status filter.",
-                      variant: "destructive"
-                    });
-                    return;
-                  }
-                  
-                  setPrintMode('bulk');
-                  setPrintOrders(filteredOrders);
-                  setPrintDialogOpen(true);
-                }}
-                          className="h-8 gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground"
-                        >
+              <Button variant="default" size="sm" disabled={selectedPOsForLabels.size === 0 || poOrders.length === 0} title={selectedPOsForLabels.size === 0 ? "Select POs first to preview labels" : "Preview labels for selected POs"} onClick={() => {
+                      const filteredOrders = getSelectedPOsOrdersByPrintStatus();
+                      console.log('🖨️ Print Preview by Status:', {
+                        selectedPOs: Array.from(selectedPOsForLabels),
+                        printedFilter,
+                        matchingOrders: filteredOrders.length
+                      });
+                      if (filteredOrders.length === 0) {
+                        toast({
+                          title: "No Items to Preview",
+                          description: "No items from selected POs match the print status filter.",
+                          variant: "destructive"
+                        });
+                        return;
+                      }
+                      setPrintMode('bulk');
+                      setPrintOrders(filteredOrders);
+                      setPrintDialogOpen(true);
+                    }} className="h-8 gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground">
                           <FileText className="h-3.5 w-3.5" />
                           Print Preview
-                          {printedFilter.length > 0 && (
-                            <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                          {printedFilter.length > 0 && <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
                               {getSelectedPOsOrdersByPrintStatus().length}
-                            </Badge>
-                          )}
+                            </Badge>}
                         </Button>
                       </div>
 
@@ -5661,10 +5163,7 @@ export const POTracker = () => {
                       <div className="flex items-center gap-2">
                         <Package className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm font-medium text-muted-foreground">Source:</span>
-                        <Select 
-                          value={sourceFilter} 
-                          onValueChange={(value) => setSourceFilter(value as 'all' | 'sunsky-matched' | 'not-matched')}
-                        >
+                        <Select value={sourceFilter} onValueChange={value => setSourceFilter(value as 'all' | 'sunsky-matched' | 'not-matched')}>
                           <SelectTrigger className="w-[200px] border-2 border-border focus:border-primary">
                             <SelectValue />
                           </SelectTrigger>
@@ -5684,17 +5183,10 @@ export const POTracker = () => {
                             </SelectItem>
                           </SelectContent>
                         </Select>
-                        {sourceFilter !== 'all' && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => setSourceFilter('all')} 
-                            className="h-8 px-2 text-xs hover:bg-destructive/10"
-                          >
+                        {sourceFilter !== 'all' && <Button variant="ghost" size="sm" onClick={() => setSourceFilter('all')} className="h-8 px-2 text-xs hover:bg-destructive/10">
                             <X className="h-3 w-3 mr-1" />
                             Clear
-                          </Button>
-                        )}
+                          </Button>}
                       </div>
 
                       {/* Vertical Divider */}
@@ -5715,33 +5207,25 @@ export const POTracker = () => {
                             <div className="space-y-3">
                               <div className="space-y-2">
                                 <div className="flex items-center gap-2">
-                                  <Checkbox
-                                    id="fulfill-fully"
-                                    checked={fulfillmentFilter.includes('fully-fulfilled')}
-                                    onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        setFulfillmentFilter([...fulfillmentFilter, 'fully-fulfilled']);
-                                      } else {
-                                        setFulfillmentFilter(fulfillmentFilter.filter(f => f !== 'fully-fulfilled'));
-                                      }
-                                    }}
-                                  />
+                                  <Checkbox id="fulfill-fully" checked={fulfillmentFilter.includes('fully-fulfilled')} onCheckedChange={checked => {
+                                if (checked) {
+                                  setFulfillmentFilter([...fulfillmentFilter, 'fully-fulfilled']);
+                                } else {
+                                  setFulfillmentFilter(fulfillmentFilter.filter(f => f !== 'fully-fulfilled'));
+                                }
+                              }} />
                                   <Label htmlFor="fulfill-fully" className="text-sm cursor-pointer">
                                     ✓ Fully Fulfilled from Stock
                                   </Label>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <Checkbox
-                                    id="fulfill-partial"
-                                    checked={fulfillmentFilter.includes('partial-fulfilled')}
-                                    onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        setFulfillmentFilter([...fulfillmentFilter, 'partial-fulfilled']);
-                                      } else {
-                                        setFulfillmentFilter(fulfillmentFilter.filter(f => f !== 'partial-fulfilled'));
-                                      }
-                                    }}
-                                  />
+                                  <Checkbox id="fulfill-partial" checked={fulfillmentFilter.includes('partial-fulfilled')} onCheckedChange={checked => {
+                                if (checked) {
+                                  setFulfillmentFilter([...fulfillmentFilter, 'partial-fulfilled']);
+                                } else {
+                                  setFulfillmentFilter(fulfillmentFilter.filter(f => f !== 'partial-fulfilled'));
+                                }
+                              }} />
                                   <Label htmlFor="fulfill-partial" className="text-sm cursor-pointer">
                                     ⚠ Partially Fulfilled from Stock
                                   </Label>
@@ -5750,17 +5234,10 @@ export const POTracker = () => {
                             </div>
                           </PopoverContent>
                         </Popover>
-                        {fulfillmentFilter.length > 0 && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => setFulfillmentFilter([])} 
-                            className="h-8 px-2 text-xs hover:bg-destructive/10"
-                          >
+                        {fulfillmentFilter.length > 0 && <Button variant="ghost" size="sm" onClick={() => setFulfillmentFilter([])} className="h-8 px-2 text-xs hover:bg-destructive/10">
                             <X className="h-3 w-3 mr-1" />
                             Clear
-                          </Button>
-                        )}
+                          </Button>}
                       </div>
                     </div>
                   </div>
@@ -5880,68 +5357,58 @@ export const POTracker = () => {
                           const lowerTerm = term.toLowerCase();
                           return order.po_number?.toLowerCase().includes(lowerTerm) || order.sku_code?.toLowerCase().includes(lowerTerm) || order.asin?.toLowerCase().includes(lowerTerm) || order.model_number?.toLowerCase().includes(lowerTerm) || order.title?.toLowerCase().includes(lowerTerm) || order.serial_number?.toLowerCase().includes(lowerTerm);
                         });
-        }).filter(order => {
-          // Apply printed status filter
-          if (printedFilter.length === 0) return true;
-          
-          const printedQty = order.printed_quantity || 0;
-          const totalQty = order.quantity || 0;
-          const isPrinted = order.is_printed || printedQty > 0;
-          
-          return printedFilter.some(status => {
-            if (status === 'printed') {
-              return isPrinted && printedQty >= totalQty;
-            } else if (status === 'partial-printed') {
-              return isPrinted && printedQty > 0 && printedQty < totalQty;
-            } else if (status === 'not-printed') {
-              return !isPrinted || printedQty === 0;
-            }
-            return false;
-          });
-        }).filter(order => {
-          // Apply source filter (Sunsky matching)
-          if (sourceFilter === 'all') return true;
-          
-          const hasSunskyMatch = order.sunsky_sku && 
-                                (order.sunsky_sku.sku_code || order.sunsky_sku.id);
-          
-          if (sourceFilter === 'sunsky-matched') {
-            return hasSunskyMatch;
-          } else if (sourceFilter === 'not-matched') {
-            return !hasSunskyMatch;
-          }
-          
-          return true;
-        }).filter(order => {
-          // Apply fulfillment status filter
-          if (fulfillmentFilter.length === 0) return true;
-          
-          const isFulfilledFromStock = order.notes?.includes('Fulfilled from stock:');
-          
-          if (!isFulfilledFromStock) {
-            return false; // Not fulfilled from stock at all
-          }
-          
-          // Extract fulfilled quantity from notes
-          const fulfilledMatch = order.notes?.match(/Fulfilled from stock:\s*(\d+)/);
-          const fulfilledQty = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
-          const totalQty = order.quantity || 0;
-          
-          return fulfillmentFilter.some(status => {
-            if (status === 'fully-fulfilled') {
-              // Fully fulfilled from stock: fulfilled quantity >= total quantity
-              return fulfilledQty >= totalQty;
-            } else if (status === 'partial-fulfilled') {
-              // Partially fulfilled from stock: 0 < fulfilled quantity < total quantity
-              return fulfilledQty > 0 && fulfilledQty < totalQty;
-            }
-            return false;
-          });
-        });
+                      }).filter(order => {
+                        // Apply printed status filter
+                        if (printedFilter.length === 0) return true;
+                        const printedQty = order.printed_quantity || 0;
+                        const totalQty = order.quantity || 0;
+                        const isPrinted = order.is_printed || printedQty > 0;
+                        return printedFilter.some(status => {
+                          if (status === 'printed') {
+                            return isPrinted && printedQty >= totalQty;
+                          } else if (status === 'partial-printed') {
+                            return isPrinted && printedQty > 0 && printedQty < totalQty;
+                          } else if (status === 'not-printed') {
+                            return !isPrinted || printedQty === 0;
+                          }
+                          return false;
+                        });
+                      }).filter(order => {
+                        // Apply source filter (Sunsky matching)
+                        if (sourceFilter === 'all') return true;
+                        const hasSunskyMatch = order.sunsky_sku && (order.sunsky_sku.sku_code || order.sunsky_sku.id);
+                        if (sourceFilter === 'sunsky-matched') {
+                          return hasSunskyMatch;
+                        } else if (sourceFilter === 'not-matched') {
+                          return !hasSunskyMatch;
+                        }
+                        return true;
+                      }).filter(order => {
+                        // Apply fulfillment status filter
+                        if (fulfillmentFilter.length === 0) return true;
+                        const isFulfilledFromStock = order.notes?.includes('Fulfilled from stock:');
+                        if (!isFulfilledFromStock) {
+                          return false; // Not fulfilled from stock at all
+                        }
+
+                        // Extract fulfilled quantity from notes
+                        const fulfilledMatch = order.notes?.match(/Fulfilled from stock:\s*(\d+)/);
+                        const fulfilledQty = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
+                        const totalQty = order.quantity || 0;
+                        return fulfillmentFilter.some(status => {
+                          if (status === 'fully-fulfilled') {
+                            // Fully fulfilled from stock: fulfilled quantity >= total quantity
+                            return fulfilledQty >= totalQty;
+                          } else if (status === 'partial-fulfilled') {
+                            // Partially fulfilled from stock: 0 < fulfilled quantity < total quantity
+                            return fulfilledQty > 0 && fulfilledQty < totalQty;
+                          }
+                          return false;
+                        });
+                      });
 
                       // NEW: Consolidate orders by ASIN when multiple POs are selected
                       let ordersToDisplay: POOrder[] = ordersForSelectedPOs;
-                      
                       if (selectedPOsList.length > 1 && consolidatedViewMode === 'merged') {
                         console.log('🔄 CONSOLIDATING: Multiple POs selected, merging items by ASIN');
 
@@ -5955,7 +5422,6 @@ export const POTracker = () => {
                           }
                           asinGroups.get(key)!.push(order);
                         });
-
                         console.log('📦 ASIN Groups:', Array.from(asinGroups.entries()).map(([asin, orders]) => ({
                           asin,
                           count: orders.length,
@@ -5984,9 +5450,7 @@ export const POTracker = () => {
 
                           // Collect all ship-to locations
                           const shipToLocations = [...new Set(group.map(o => o.ship_to_location).filter(Boolean))];
-
                           const consolidatedId = `consolidated-${baseOrder.asin}-${group.map(o => o.id).join('-')}`;
-
                           console.log(`🔗 CONSOLIDATED ${baseOrder.asin}:`, {
                             consolidatedId,
                             asin: baseOrder.asin,
@@ -6015,10 +5479,9 @@ export const POTracker = () => {
                             _isConsolidated: true
                           };
                         });
-                        
+
                         // Update ref for print operations
                         ordersToDisplayRef.current = ordersToDisplay;
-                        
                         console.log('🔄 CONSOLIDATION RESULT:', {
                           originalCount: ordersForSelectedPOs.length,
                           consolidatedCount: ordersToDisplay.length,
@@ -6084,7 +5547,7 @@ export const POTracker = () => {
                                 {/* Enhanced Checkbox Cell */}
                                 <TableCell className="w-12 border-r border-border/50 bg-background/50">
                                    <div className="flex items-center justify-center">
-                                     <Checkbox checked={order._isConsolidated ? (order._consolidatedOrders && order._consolidatedOrders.length > 0 ? order._consolidatedOrders.every((o: any) => selectedForPrint.has(o.id)) : selectedForPrint.has(order.id)) : selectedForPrint.has(order.id)} onCheckedChange={checked => {
+                                     <Checkbox checked={order._isConsolidated ? order._consolidatedOrders && order._consolidatedOrders.length > 0 ? order._consolidatedOrders.every((o: any) => selectedForPrint.has(o.id)) : selectedForPrint.has(order.id) : selectedForPrint.has(order.id)} onCheckedChange={checked => {
                                   const newSelected = new Map(selectedForPrint);
                                   console.log('🔘 Checkbox clicked:', {
                                     orderId: order.id,
@@ -6187,11 +5650,11 @@ export const POTracker = () => {
                                        <PopoverTrigger asChild>
                                           <div className="w-16 h-16 rounded-lg border border-border/30 overflow-hidden flex-shrink-0 cursor-pointer hover:border-primary/50 hover:shadow-soft transition-all duration-300 group-hover:scale-105 bg-background/80">
                                             <img src={productImage.image_url} alt={`Product image for ${order.asin}`} className="w-full h-full object-contain" onError={e => {
-                                         console.log('🖼️ Image failed to load:', productImage.image_url);
-                                         e.currentTarget.style.display = 'none';
-                                       }} onLoad={() => {
-                                         console.log('🖼️ Image loaded successfully:', productImage.image_url);
-                                       }} />
+                                        console.log('🖼️ Image failed to load:', productImage.image_url);
+                                        e.currentTarget.style.display = 'none';
+                                      }} onLoad={() => {
+                                        console.log('🖼️ Image loaded successfully:', productImage.image_url);
+                                      }} />
                                           </div>
                                         </PopoverTrigger>
                                         <PopoverContent side="left" className="w-80 p-3 bg-popover/95 backdrop-blur-sm border-border/50 shadow-strong">
@@ -6212,7 +5675,7 @@ export const POTracker = () => {
                                            </div>}
                                        </div>
                                      </div>;
-                               })()}
+                              })()}
                                 </TableCell>
 
                                  {/* Enhanced SKU/Model Cell with Matching System */}
@@ -6232,21 +5695,17 @@ export const POTracker = () => {
                                        </div>}
                                      
                                      {/* Sunsky Matching Indicator */}
-                                     {order.sunsky_sku && (order.sunsky_sku.sku_code || order.sunsky_sku.id) ? (
-                                       <div className="flex items-center gap-2">
+                                     {order.sunsky_sku && (order.sunsky_sku.sku_code || order.sunsky_sku.id) ? <div className="flex items-center gap-2">
                                          <Check className="h-3 w-3 text-blue-600 flex-shrink-0" />
                                          <Badge variant="outline" className="text-xs px-2 py-1 font-medium bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30">
                                            Source Matched
                                          </Badge>
-                                       </div>
-                                     ) : (
-                                       <div className="flex items-center gap-2">
+                                       </div> : <div className="flex items-center gap-2">
                                          <Info className="h-3 w-3 text-gray-500 flex-shrink-0" />
                                          <Badge variant="outline" className="text-xs px-2 py-1 font-medium bg-gray-500/15 text-gray-700 dark:text-gray-300 border-gray-500/30">
                                            No Match
                                          </Badge>
-                                       </div>
-                                     )}
+                                       </div>}
                                      
                                      {!order.sku_code && !order.model_number && <div className="flex items-center gap-2">
                                          <div className="w-2 h-2 bg-muted-foreground rounded-full flex-shrink-0"></div>
@@ -6258,19 +5717,18 @@ export const POTracker = () => {
                                  {/* In-Stock Qty Cell */}
                 <TableCell className="min-w-[120px] border-r border-border/50 p-3">
                   {(() => {
-                    // Check if fully fulfilled from stock
-                    const isFulfilledFromStock = order.notes?.includes('Fulfilled from stock:');
-                    const fulfilledMatch = order.notes?.match(/Fulfilled from stock:\s*(\d+)/);
-                    const fulfilledQty = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
-                    const isFullyFulfilled = isFulfilledFromStock && fulfilledQty >= order.quantity;
-                    
-                    // Check if fully printed
-                    const isFullyPrinted = (order.printed_quantity || 0) >= order.quantity;
-                    
-                    // If fully fulfilled OR fully printed → Show "Closed"
-                    if (isFullyFulfilled || isFullyPrinted) {
-                      return (
-                        <div className="flex items-center gap-2">
+                                // Check if fully fulfilled from stock
+                                const isFulfilledFromStock = order.notes?.includes('Fulfilled from stock:');
+                                const fulfilledMatch = order.notes?.match(/Fulfilled from stock:\s*(\d+)/);
+                                const fulfilledQty = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
+                                const isFullyFulfilled = isFulfilledFromStock && fulfilledQty >= order.quantity;
+
+                                // Check if fully printed
+                                const isFullyPrinted = (order.printed_quantity || 0) >= order.quantity;
+
+                                // If fully fulfilled OR fully printed → Show "Closed"
+                                if (isFullyFulfilled || isFullyPrinted) {
+                                  return <div className="flex items-center gap-2">
                           <div className="w-2 h-2 bg-muted rounded-full flex-shrink-0"></div>
                           <Popover>
                             <PopoverTrigger asChild>
@@ -6286,90 +5744,63 @@ export const POTracker = () => {
                                   <h4 className="font-semibold text-sm">Closure Details</h4>
                                 </div>
                                 
-                                {isFullyFulfilled && (
-                                  <div className="space-y-2 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                                {isFullyFulfilled && <div className="space-y-2 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
                                     <div className="flex items-center gap-2">
                                       <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
                                       <span className="font-medium text-sm text-green-700 dark:text-green-400">Fulfilled from Stock</span>
                                     </div>
                                     <div className="text-xs text-muted-foreground space-y-1">
                                       <div>Quantity: {fulfilledQty} units</div>
-                                      {order.updated_at && (
-                                        <div className="flex items-center gap-1">
+                                      {order.updated_at && <div className="flex items-center gap-1">
                                           <Clock className="w-3 h-3" />
                                           <span>{format(new Date(order.updated_at), 'MMM dd, yyyy HH:mm')}</span>
-                                        </div>
-                                      )}
+                                        </div>}
                                     </div>
-                                    {order.notes && order.notes.includes('/') && (
-                                      <div className="text-xs text-muted-foreground mt-1">
+                                    {order.notes && order.notes.includes('/') && <div className="text-xs text-muted-foreground mt-1">
                                         <div className="font-medium">Serial Numbers:</div>
                                         <div className="text-xs bg-white dark:bg-gray-900 p-2 rounded mt-1 max-h-20 overflow-y-auto">
                                           {order.notes.match(/\/([^)]+)/)?.[1]}
                                         </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
+                                      </div>}
+                                  </div>}
                                 
-                                {isFullyPrinted && (
-                                  <div className="space-y-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                                {isFullyPrinted && <div className="space-y-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
                                     <div className="flex items-center gap-2">
                                       <Printer className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                                       <span className="font-medium text-sm text-blue-700 dark:text-blue-400">Fully Printed</span>
                                     </div>
                                     <div className="text-xs text-muted-foreground space-y-1">
                                       <div>Printed: {order.printed_quantity || 0} / {order.quantity} units</div>
-                                      {order.label_printed_at && (
-                                        <div className="flex items-center gap-1">
+                                      {order.label_printed_at && <div className="flex items-center gap-1">
                                           <Clock className="w-3 h-3" />
                                           <span>{format(new Date(order.label_printed_at), 'MMM dd, yyyy HH:mm')}</span>
-                                        </div>
-                                      )}
+                                        </div>}
                                     </div>
-                                  </div>
-                                )}
+                                  </div>}
                               </div>
                             </PopoverContent>
                           </Popover>
-                        </div>
-                      );
-                    }
-                    
-                    const inventoryMatch = findInventoryMatch(
-                      order.asin,
-                      order.sunsky_sku?.sku_code,
-                      order.sku_code,
-                      order.model_number,
-                      order.sunsky_sku
-                    );
-
-                    if (inventoryMatch && inventoryMatch.status === 'in-stock') {
-                                         return (
-                                           <div className="flex flex-col gap-2">
+                        </div>;
+                                }
+                                const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku);
+                                if (inventoryMatch && inventoryMatch.status === 'in-stock') {
+                                  return <div className="flex flex-col gap-2">
                                              {/* Clickable Quantity badge with fulfill from stock */}
-                                             <Badge 
-                                               variant="default" 
-                                               className="text-xs px-2 py-1 font-medium bg-green-500/15 text-green-700 dark:text-green-300 border border-green-500/30 cursor-pointer hover:bg-green-500/20 hover:scale-105 transition-all w-fit"
-                                               onClick={() => {
-                                                 setFulfillDialogOrder({
-                                                   asin: order.asin,
-                                                   title: order.title,
-                                                   po_number: order.po_number,
-                                                   quantity: order.quantity,
-                                                   isConsolidated: order._isConsolidated || false,
-                                                   consolidatedOrders: order._consolidatedOrders 
-                                                     ? order._consolidatedOrders.map((po: any) => ({
-                                                         po_number: po.po_number,
-                                                         quantity: po.quantity,
-                                                         ship_to_location: po.ship_to_location
-                                                       }))
-                                                     : []
-                                                 });
-                                                 setFulfillDialogOpen(true);
-                                               }}
-                                               title="Click to fulfill from stock"
-                                             >
+                                             <Badge variant="default" className="text-xs px-2 py-1 font-medium bg-green-500/15 text-green-700 dark:text-green-300 border border-green-500/30 cursor-pointer hover:bg-green-500/20 hover:scale-105 transition-all w-fit" onClick={() => {
+                                      setFulfillDialogOrder({
+                                        asin: order.asin,
+                                        title: order.title,
+                                        po_number: order.po_number,
+                                        quantity: order.quantity,
+                                        isConsolidated: order._isConsolidated || false,
+                                        consolidatedOrders: order._consolidatedOrders ? order._consolidatedOrders.map((po: any) => ({
+                                          po_number: po.po_number,
+                                          quantity: po.quantity,
+                                          ship_to_location: po.ship_to_location
+                                        })) : []
+                                      });
+                                      setFulfillDialogOpen(true);
+                                    }} title="Click to fulfill from stock">
                                                <div className="flex items-center gap-2">
                                                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                                                  <span>{inventoryMatch.quantity} units</span>
@@ -6378,121 +5809,89 @@ export const POTracker = () => {
                                              </Badge>
                                              
                                              {/* Serial numbers badge - ASIN matches */}
-                                             {inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0 && (
-                                               <div className="flex items-center gap-2">
+                                             {inventoryMatch.serialNumbers && inventoryMatch.serialNumbers.length > 0 && <div className="flex items-center gap-2">
                                                  <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
                                                  <Badge variant="outline" className="text-xs px-2 py-1 font-medium font-mono bg-green-500/15 text-green-700 dark:text-green-300 border-green-500/30 max-w-[180px] truncate">
                                                    SN: {inventoryMatch.serialNumbers.slice(0, 3).join(', ')}
                                                    {inventoryMatch.serialNumbers.length > 3 && ` +${inventoryMatch.serialNumbers.length - 3}`}
                                                  </Badge>
-                                               </div>
-                                             )}
+                                               </div>}
                                              
                                              {/* Bin number badge - SKU matches */}
-                                             {inventoryMatch.type.startsWith('SKU') && inventoryMatch.serialNumber && (
-                                               <div className="flex items-center gap-2">
+                                             {inventoryMatch.type.startsWith('SKU') && inventoryMatch.serialNumber && <div className="flex items-center gap-2">
                                                  <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
                                                  <Badge variant="outline" className="text-xs px-2 py-1 font-medium font-mono bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30">
                                                    Bin: {inventoryMatch.serialNumber}
                                                  </Badge>
-                                               </div>
-                                             )}
-                                           </div>
-                                         );
-                                       } else {
-                                         // Show PO-specific status instead of inventory replenishment status
-                                         const poStatus = order.status?.toLowerCase();
-                                         
-                                         return (
-                                           <div className="flex flex-col gap-2">
+                                               </div>}
+                                           </div>;
+                                } else {
+                                  // Show PO-specific status instead of inventory replenishment status
+                                  const poStatus = order.status?.toLowerCase();
+                                  return <div className="flex flex-col gap-2">
                                              {/* PO Status Badge */}
-                                             {poStatus === 'received' && (
-                                               <div className="flex items-center gap-2">
+                                             {poStatus === 'received' && <div className="flex items-center gap-2">
                                                  <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
                                                  <Badge variant="default" className="text-xs px-2 py-1 font-medium bg-green-500/15 text-green-700 dark:text-green-300 border border-green-500/30">
                                                    <CheckCircle className="w-3 h-3 mr-1" />
                                                    Received
                                                  </Badge>
-                                               </div>
-                                             )}
+                                               </div>}
                                              
-                                             {poStatus === 'placed' && (
-                                               <div className="flex items-center gap-2">
+                                             {poStatus === 'placed' && <div className="flex items-center gap-2">
                                                  <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
                                                  <Badge variant="default" className="text-xs px-2 py-1 font-medium bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30">
                                                    <ShoppingCart className="w-3 h-3 mr-1" />
                                                    Placed with Supplier
                                                  </Badge>
-                                               </div>
-                                             )}
+                                               </div>}
                                              
-                                             {poStatus === 'closed' && (
-                                               <div className="flex items-center gap-2">
+                                             {poStatus === 'closed' && <div className="flex items-center gap-2">
                                                  <div className="w-2 h-2 bg-gray-500 rounded-full flex-shrink-0"></div>
                                                  <Badge variant="outline" className="text-xs px-2 py-1 font-medium bg-gray-500/15 text-gray-700 dark:text-gray-300 border-gray-500/30">
                                                    <XCircle className="w-3 h-3 mr-1" />
                                                    Closed
                                                  </Badge>
-                                               </div>
-                                             )}
+                                               </div>}
                                              
-                                             {poStatus === 'pending' && (
-                                               <div className="flex items-center gap-2">
+                                             {poStatus === 'pending' && <div className="flex items-center gap-2">
                                                  <div className="w-2 h-2 bg-amber-500 rounded-full flex-shrink-0"></div>
                                                  <Badge variant="outline" className="text-xs px-2 py-1 font-medium bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30">
                                                    <Clock className="w-3 h-3 mr-1" />
                                                    Pending
                                                  </Badge>
-                                               </div>
-                                             )}
+                                               </div>}
                                              
-                                             {poStatus === 'cancelled' && (
-                                               <div className="flex items-center gap-2">
+                                             {poStatus === 'cancelled' && <div className="flex items-center gap-2">
                                                  <div className="w-2 h-2 bg-red-500 rounded-full flex-shrink-0"></div>
                                                  <Badge variant="destructive" className="text-xs px-2 py-1 font-medium bg-red-500/15 text-red-700 dark:text-red-300 border border-red-500/30">
                                                    <XCircle className="w-3 h-3 mr-1" />
                                                    Cancelled
                                                  </Badge>
-                                               </div>
-                                             )}
+                                               </div>}
                                              
                                              {/* Show supplier order number for placed/closed/received statuses */}
-                                             {(poStatus === 'placed' || poStatus === 'closed' || poStatus === 'received') && order.supplier_order_number && (
-                                               <div className="flex items-center gap-2">
+                                             {(poStatus === 'placed' || poStatus === 'closed' || poStatus === 'received') && order.supplier_order_number && <div className="flex items-center gap-2">
                                                  <div className="w-2 h-2 bg-purple-500 rounded-full flex-shrink-0"></div>
                                                  <Badge variant="outline" className="text-xs px-2 py-1 font-medium font-mono bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30">
                                                    Order: {order.supplier_order_number}
                                                  </Badge>
-                                               </div>
-                                             )}
+                                               </div>}
                                              
                                              {/* Show tracking number/URL for placed/closed/received statuses */}
-                                             {(poStatus === 'placed' || poStatus === 'closed' || poStatus === 'received') && order.tracking_number && (
-                                               <div className="flex items-center gap-2">
+                                             {(poStatus === 'placed' || poStatus === 'closed' || poStatus === 'received') && order.tracking_number && <div className="flex items-center gap-2">
                                                  <div className="w-2 h-2 bg-purple-500 rounded-full flex-shrink-0"></div>
-                                                 {order.tracking_url ? (
-                                                   <a 
-                                                     href={order.tracking_url} 
-                                                     target="_blank" 
-                                                     rel="noopener noreferrer"
-                                                     className="text-xs px-2 py-1 font-medium font-mono bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 rounded-md hover:bg-purple-500/20 transition-colors flex items-center gap-1"
-                                                     onClick={(e) => e.stopPropagation()}
-                                                   >
+                                                 {order.tracking_url ? <a href={order.tracking_url} target="_blank" rel="noopener noreferrer" className="text-xs px-2 py-1 font-medium font-mono bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 rounded-md hover:bg-purple-500/20 transition-colors flex items-center gap-1" onClick={e => e.stopPropagation()}>
                                                      <Truck className="h-3 w-3" />
                                                      {order.tracking_number}
-                                                   </a>
-                                                 ) : (
-                                                   <Badge variant="outline" className="text-xs px-2 py-1 font-medium font-mono bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30">
+                                                   </a> : <Badge variant="outline" className="text-xs px-2 py-1 font-medium font-mono bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30">
                                                      <Truck className="h-3 w-3 mr-1" />
                                                      {order.tracking_number}
-                                                   </Badge>
-                                                 )}
-                                               </div>
-                                             )}
-                                           </div>
-                                         );
-                                       }
-                                    })()}
+                                                   </Badge>}
+                                               </div>}
+                                           </div>;
+                                }
+                              })()}
                                   </TableCell>
 
                                  {/* Enhanced Title & ASIN Cell */}
@@ -6537,13 +5936,13 @@ export const POTracker = () => {
                                               
                                               <Badge variant="outline" className="text-xs px-2 py-1 font-medium font-mono bg-green-500/15 text-green-700 dark:text-green-300 border-green-500/30 w-fit">
                                                  {(() => {
-                                           const fulfilledMatch = order.notes?.match(/Fulfilled from stock:\s*(\d+)/);
-                                           const originalMatch = order.notes?.match(/Original quantity:\s*(\d+)/);
-                                           const fulfilledQty = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
-                                           // If original quantity not in notes, assume fulfilled quantity was the original
-                                           const originalQty = originalMatch ? parseInt(originalMatch[1]) : fulfilledQty > 0 ? fulfilledQty : 1;
-                                           return `Fulfilled: ${fulfilledQty}/${originalQty}`;
-                                         })()}
+                                        const fulfilledMatch = order.notes?.match(/Fulfilled from stock:\s*(\d+)/);
+                                        const originalMatch = order.notes?.match(/Original quantity:\s*(\d+)/);
+                                        const fulfilledQty = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
+                                        // If original quantity not in notes, assume fulfilled quantity was the original
+                                        const originalQty = originalMatch ? parseInt(originalMatch[1]) : fulfilledQty > 0 ? fulfilledQty : 1;
+                                        return `Fulfilled: ${fulfilledQty}/${originalQty}`;
+                                      })()}
                                               </Badge>
                                               <div className="flex items-center gap-2">
                                                 <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
@@ -6553,30 +5952,17 @@ export const POTracker = () => {
                                               </div>
                                             </div> : <div className="flex flex-col gap-2">
                                                {/* PO Number(s) Display */}
-                                               {order._isConsolidated ? (
-                                                 <div className="flex flex-wrap gap-1">
-                                                   {order._consolidatedOrders.map((po: any, idx: number) => (
-                                                     <Badge 
-                                                       key={idx} 
-                                                       variant="outline" 
-                                                       className="text-xs px-2 py-1 font-medium font-mono bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30"
-                                                     >
+                                               {order._isConsolidated ? <div className="flex flex-wrap gap-1">
+                                                   {order._consolidatedOrders.map((po: any, idx: number) => <Badge key={idx} variant="outline" className="text-xs px-2 py-1 font-medium font-mono bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30">
                                                        {po.po_number}
-                                                     </Badge>
-                                                   ))}
-                                                 </div>
-                                               ) : (
-                                                 <Badge variant="outline" className="text-xs px-2 py-1 font-medium font-mono bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30 w-fit">
+                                                     </Badge>)}
+                                                 </div> : <Badge variant="outline" className="text-xs px-2 py-1 font-medium font-mono bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30 w-fit">
                                                    PO: {order.po_number}
-                                                 </Badge>
-                                               )}
+                                                 </Badge>}
                                                
                                                <div className="flex items-center gap-2">
                                                  {/* Quantity display - NOT clickable anymore */}
-                                                 <Badge 
-                                                   variant="secondary" 
-                                                   className={`text-xs px-2 py-1 font-medium font-mono ${order._isConsolidated ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30' : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'}`}
-                                                 >
+                                                 <Badge variant="secondary" className={`text-xs px-2 py-1 font-medium font-mono ${order._isConsolidated ? 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30' : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'}`}>
                                                    {order._isConsolidated ? `Total: ${order.quantity}` : `Qty: ${order.quantity}`}
                                                  </Badge>
                                                  
@@ -6616,21 +6002,13 @@ export const POTracker = () => {
                                                                    <span className="text-muted-foreground text-xs ml-1">units</span>
                                                                  </div>
                                                                  
-                                                                 {po.printed_quantity > 0 ? (
-                                                                   po.printed_quantity >= po.quantity ? (
-                                                                     <Badge variant="default" className="bg-green-500/20 text-green-700 dark:text-green-300 border-green-300 text-xs font-medium">
+                                                                 {po.printed_quantity > 0 ? po.printed_quantity >= po.quantity ? <Badge variant="default" className="bg-green-500/20 text-green-700 dark:text-green-300 border-green-300 text-xs font-medium">
                                                                        ✓ Printed ({po.printed_quantity}/{po.quantity})
-                                                                     </Badge>
-                                                                   ) : (
-                                                                     <Badge variant="outline" className="bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 border-yellow-300 text-xs font-medium">
+                                                                     </Badge> : <Badge variant="outline" className="bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 border-yellow-300 text-xs font-medium">
                                                                        ⚠ Partial ({po.printed_quantity}/{po.quantity})
-                                                                     </Badge>
-                                                                   )
-                                                                 ) : (
-                                                                   <Badge variant="outline" className="bg-gray-100 dark:bg-gray-800 text-gray-500 border-gray-300 text-xs">
+                                                                     </Badge> : <Badge variant="outline" className="bg-gray-100 dark:bg-gray-800 text-gray-500 border-gray-300 text-xs">
                                                                      ○ Not Printed
-                                                                   </Badge>
-                                                                 )}
+                                                                   </Badge>}
                                                                </div>
                                                              </div>)}
                                                          </div>
@@ -6668,46 +6046,30 @@ export const POTracker = () => {
                                    {/* Print Status Cell */}
                                    <TableCell className="w-32 border-r border-border/50 p-3">
                                      <div className="flex items-center justify-center">
-                                       {order.printed_quantity > 0 ? (
-                                         order.printed_quantity >= order.quantity ? (
-                                           <div className="flex items-center gap-2">
+                                       {order.printed_quantity > 0 ? order.printed_quantity >= order.quantity ? <div className="flex items-center gap-2">
                                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                             <Badge 
-                                               variant="default"
-                                               className="text-xs px-2 py-1 font-medium bg-green-500/15 text-green-700 dark:text-green-300 border border-green-500/30 cursor-pointer hover:bg-green-500/25 transition-colors"
-                                               onClick={() => {
-                                                 setPrintHistoryOrder(order);
-                                                 setPrintHistoryDialogOpen(true);
-                                               }}
-                                             >
+                                             <Badge variant="default" className="text-xs px-2 py-1 font-medium bg-green-500/15 text-green-700 dark:text-green-300 border border-green-500/30 cursor-pointer hover:bg-green-500/25 transition-colors" onClick={() => {
+                                    setPrintHistoryOrder(order);
+                                    setPrintHistoryDialogOpen(true);
+                                  }}>
                                                <Printer className="h-3 w-3 mr-1" />
                                                Fully Printed
                                              </Badge>
-                                           </div>
-                                         ) : (
-                                           <div className="flex items-center gap-2">
+                                           </div> : <div className="flex items-center gap-2">
                                              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                                             <Badge 
-                                               variant="default"
-                                               className="text-xs px-2 py-1 font-medium bg-yellow-500/15 text-yellow-700 dark:text-yellow-300 border border-yellow-500/30 cursor-pointer hover:bg-yellow-500/25 transition-colors"
-                                               onClick={() => {
-                                                 setPrintHistoryOrder(order);
-                                                 setPrintHistoryDialogOpen(true);
-                                               }}
-                                             >
+                                             <Badge variant="default" className="text-xs px-2 py-1 font-medium bg-yellow-500/15 text-yellow-700 dark:text-yellow-300 border border-yellow-500/30 cursor-pointer hover:bg-yellow-500/25 transition-colors" onClick={() => {
+                                    setPrintHistoryOrder(order);
+                                    setPrintHistoryDialogOpen(true);
+                                  }}>
                                                <AlertCircle className="h-3 w-3 mr-1" />
                                                Partial ({order.printed_quantity}/{order.quantity})
                                              </Badge>
-                                           </div>
-                                         )
-                                       ) : (
-                                         <div className="flex items-center gap-2">
+                                           </div> : <div className="flex items-center gap-2">
                                            <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
                                            <Badge variant="outline" className="text-xs px-2 py-1 font-medium bg-gray-500/15 text-gray-700 dark:text-gray-300 border-gray-500/30">
                                              Not Printed
                                            </Badge>
-                                         </div>
-                                       )}
+                                         </div>}
                                      </div>
                                    </TableCell>
 
@@ -6715,51 +6077,44 @@ export const POTracker = () => {
                                      <TableCell className="w-24 border-r border-border/50 p-3">
                                       <div className="flex items-center gap-2">
                                         {(() => {
-                                    // Check if this item (or its consolidated items) are selected
-                                    const isSelected = order._isConsolidated ? order._consolidatedOrders.some((o: any) => selectedForPrint.has(o.id)) : selectedForPrint.has(order.id);
-                                    
-                                    // Calculate available quantity (total - already printed)
-                                    const availableQty = order.quantity - (order.printed_quantity || 0);
-                                    const maxQty = Math.max(1, availableQty);
+                                  // Check if this item (or its consolidated items) are selected
+                                  const isSelected = order._isConsolidated ? order._consolidatedOrders.some((o: any) => selectedForPrint.has(o.id)) : selectedForPrint.has(order.id);
 
-                                     // Get custom quantity or default to 1 when selected
-                                     const qtyValue = customPrintQuantities.get(order.id) || (isSelected ? 1 : '');
-                                    
-                                    return <>
-                                              <Input 
-                                                type="number" 
-                                                min="1" 
-                                                max={maxQty}
-                                                placeholder="Qty" 
-                                                className="w-16 h-8 text-center bg-background border-2 border-border focus:border-primary group-hover:border-primary/50 transition-colors font-mono text-foreground" 
-                                                value={isSelected ? qtyValue : ''} 
-                                                onChange={e => {
-                                                  const value = parseInt(e.target.value) || 1;
-                                                  const clampedValue = Math.min(Math.max(1, value), maxQty);
-                                                  console.log('📝 Custom qty changed:', { value, clampedValue, maxQty, availableQty });
-                                                  
-                                                  if (isSelected) {
-                                                    setCustomPrintQuantities(prev => {
-                                                      const newMap = new Map(prev);
-                                                      newMap.set(order.id, clampedValue);
-                                                      return newMap;
-                                                    });
-                                                  }
-                                                }} 
-                                                disabled={!isSelected || printingItems.has(order.id) || availableQty <= 0} 
-                                              />
+                                  // Calculate available quantity (total - already printed)
+                                  const availableQty = order.quantity - (order.printed_quantity || 0);
+                                  const maxQty = Math.max(1, availableQty);
+
+                                  // Get custom quantity or default to 1 when selected
+                                  const qtyValue = customPrintQuantities.get(order.id) || (isSelected ? 1 : '');
+                                  return <>
+                                              <Input type="number" min="1" max={maxQty} placeholder="Qty" className="w-16 h-8 text-center bg-background border-2 border-border focus:border-primary group-hover:border-primary/50 transition-colors font-mono text-foreground" value={isSelected ? qtyValue : ''} onChange={e => {
+                                      const value = parseInt(e.target.value) || 1;
+                                      const clampedValue = Math.min(Math.max(1, value), maxQty);
+                                      console.log('📝 Custom qty changed:', {
+                                        value,
+                                        clampedValue,
+                                        maxQty,
+                                        availableQty
+                                      });
+                                      if (isSelected) {
+                                        setCustomPrintQuantities(prev => {
+                                          const newMap = new Map(prev);
+                                          newMap.set(order.id, clampedValue);
+                                          return newMap;
+                                        });
+                                      }
+                                    }} disabled={!isSelected || printingItems.has(order.id) || availableQty <= 0} />
                                               {!isSelected && <span className="text-xs text-muted-foreground whitespace-nowrap">Select first</span>}
                                               {isSelected && availableQty <= 0 && <span className="text-xs text-orange-500 whitespace-nowrap">All printed</span>}
                                             </>;
-                                  })()}
+                                })()}
                                       </div>
                                     </TableCell>
 
                                  {/* Enhanced Status Cell */}
                                  <TableCell className="border-r border-border/50 p-3">
                                    <div className="flex flex-col gap-2">
-                                     {order.printed_quantity > 0 && (
-                                       <>
+                                     {order.printed_quantity > 0 && <>
                                          <div className="flex items-center gap-2">
                                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                                            <Badge variant="outline" className="text-xs px-2 py-1 font-medium bg-green-500/15 text-green-700 dark:text-green-300 border-green-500/30 w-fit">
@@ -6767,16 +6122,13 @@ export const POTracker = () => {
                                              Printed: {order.printed_quantity}
                                            </Badge>
                                          </div>
-                                         {order.quantity > order.printed_quantity && (
-                                           <div className="flex items-center gap-2">
+                                         {order.quantity > order.printed_quantity && <div className="flex items-center gap-2">
                                              <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
                                              <Badge variant="outline" className="text-xs px-2 py-1 font-medium bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 w-fit">
                                                Remaining: {order.quantity - order.printed_quantity}
                                              </Badge>
-                                           </div>
-                                         )}
-                                       </>
-                                     )}
+                                           </div>}
+                                       </>}
                                    </div>
                                  </TableCell>
 
@@ -6785,41 +6137,33 @@ export const POTracker = () => {
                                     <div className="flex flex-col gap-2">
                                       {/* Main Print Button */}
                                        <Button variant="outline" size="sm" className="h-8 w-full" onClick={() => {
-                                     const availableQty = order.quantity - (order.printed_quantity || 0);
-                                     const printQty = customPrintQuantities.get(order.id);
+                                  const availableQty = order.quantity - (order.printed_quantity || 0);
+                                  const printQty = customPrintQuantities.get(order.id);
 
-                                     // Require explicit quantity - don't default to full available
-                                     if (!printQty || printQty <= 0) {
-                                       toast({
-                                         title: "Enter print quantity",
-                                         description: "Please enter the number of labels to print",
-                                         variant: "destructive"
-                                       });
-                                       return;
-                                     }
-
-                                     if (printQty > availableQty) {
-                                       toast({
-                                         title: "Invalid quantity",
-                                         description: `Cannot print ${printQty} labels. Only ${availableQty} available.`,
-                                         variant: "destructive"
-                                       });
-                                       return;
-                                     }
-
-                                     handleSingleItemPrint(order, printQty);
-                                    }} disabled={(() => {
-                                      // Check if item is selected (handle both consolidated and single orders)
-                                      const isSelected = order._isConsolidated 
-                                        ? (order._consolidatedOrders && order._consolidatedOrders.length > 0 
-                                            ? order._consolidatedOrders.some((o: any) => selectedForPrint.has(o.id))
-                                            : selectedForPrint.has(order.id))
-                                        : selectedForPrint.has(order.id);
-                                      
-                                      const availableQty = order.quantity - (order.printed_quantity || 0);
-                                      
-                                      return !qzConnected || !selectedPrinter || printingItems.has(order.id) || !isSelected || availableQty <= 0;
-                                    })()}>
+                                  // Require explicit quantity - don't default to full available
+                                  if (!printQty || printQty <= 0) {
+                                    toast({
+                                      title: "Enter print quantity",
+                                      description: "Please enter the number of labels to print",
+                                      variant: "destructive"
+                                    });
+                                    return;
+                                  }
+                                  if (printQty > availableQty) {
+                                    toast({
+                                      title: "Invalid quantity",
+                                      description: `Cannot print ${printQty} labels. Only ${availableQty} available.`,
+                                      variant: "destructive"
+                                    });
+                                    return;
+                                  }
+                                  handleSingleItemPrint(order, printQty);
+                                }} disabled={(() => {
+                                  // Check if item is selected (handle both consolidated and single orders)
+                                  const isSelected = order._isConsolidated ? order._consolidatedOrders && order._consolidatedOrders.length > 0 ? order._consolidatedOrders.some((o: any) => selectedForPrint.has(o.id)) : selectedForPrint.has(order.id) : selectedForPrint.has(order.id);
+                                  const availableQty = order.quantity - (order.printed_quantity || 0);
+                                  return !qzConnected || !selectedPrinter || printingItems.has(order.id) || !isSelected || availableQty <= 0;
+                                })()}>
                                        {printingItems.has(order.id) ? <div className="flex items-center gap-2">
                                            <Loader2 className="h-3 w-3 animate-spin" />
                                            <span className="text-xs">Printing...</span>
@@ -6833,8 +6177,8 @@ export const POTracker = () => {
                                     
                                     {/* Reprint Already Printed Quantity */}
                                     {order.printed_quantity > 0 && <Button variant="outline" size="sm" className="h-8 w-full" onClick={() => {
-                                   handleReprintWithoutTracking(order, 1);
-                                 }} disabled={!qzConnected || !selectedPrinter || printingItems.has(order.id)}>
+                                  handleReprintWithoutTracking(order, 1);
+                                }} disabled={!qzConnected || !selectedPrinter || printingItems.has(order.id)}>
                                         <div className="flex items-center gap-2">
                                           <RefreshCw className="h-3 w-3" />
                                           <span className="text-xs font-medium">Reprint (1)</span>
@@ -6848,28 +6192,27 @@ export const POTracker = () => {
                                     setIsPrintStatusUpdating(true);
                                     console.group('✅ Mark as Printed');
                                     console.log('Marking order', order.id, 'as printed with quantity:', printQty);
-                                    
+
                                     // Update printed quantity without actual printing
                                     const newPrintedQty = (order.printed_quantity || 0) + printQty;
-                                     const { error } = await supabase
-                                       .from('po_orders')
-                                       .update({
-                                         printed_quantity: newPrintedQty,
-                                         is_printed: true
-                                       })
-                                       .eq('id', order.id);
-                                     
-                                     if (error) throw error;
-                                     
-                                     toast({
-                                       title: "Marked as Printed",
-                                       description: `${printQty} labels marked as printed for ${order.asin || order.sku_code}`
-                                     });
+                                    const {
+                                      error
+                                    } = await supabase.from('po_orders').update({
+                                      printed_quantity: newPrintedQty,
+                                      is_printed: true
+                                    }).eq('id', order.id);
+                                    if (error) throw error;
+                                    toast({
+                                      title: "Marked as Printed",
+                                      description: `${printQty} labels marked as printed for ${order.asin || order.sku_code}`
+                                    });
 
-                                     // Trigger refresh (real-time will also update)
-                                     queryClient.invalidateQueries({ queryKey: ['po-orders'] });
-                                     await fetchPOOrders(true);
-                                     console.groupEnd();
+                                    // Trigger refresh (real-time will also update)
+                                    queryClient.invalidateQueries({
+                                      queryKey: ['po-orders']
+                                    });
+                                    await fetchPOOrders(true);
+                                    console.groupEnd();
                                   } catch (error) {
                                     console.error('Error marking as printed:', error);
                                     toast({
@@ -6890,7 +6233,7 @@ export const POTracker = () => {
                                  </TableCell>
                                 </TableRow>
                               </React.Fragment>;
-                        });
+                      });
                     })()}
                        </TableBody>
                      </Table>
@@ -6950,7 +6293,7 @@ export const POTracker = () => {
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-6">
-          <POAnalyticsDashboard orders={poOrders} isLoading={loadingStatus !== '' || (selectedPOForLabels && poOrders.length === 0)} />
+          <POAnalyticsDashboard orders={poOrders} isLoading={loadingStatus !== '' || selectedPOForLabels && poOrders.length === 0} />
         </TabsContent>
 
         <TabsContent value="purchase-links" className="space-y-6">
@@ -7085,24 +6428,18 @@ export const POTracker = () => {
           
           <div className="space-y-4">
             {/* Save New Preset Section */}
-            {selectedPOsForLabels.size > 0 && !editingPresetId && (
-              <Card>
+            {selectedPOsForLabels.size > 0 && !editingPresetId && <Card>
                 <CardContent className="pt-6">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <Label>Save current selection ({selectedPOsForLabels.size} PO(s))</Label>
                     </div>
                     <div className="flex gap-2">
-                      <Input
-                        placeholder="Enter preset name (e.g., 'Morning Batch')"
-                        value={presetNameInput}
-                        onChange={(e) => setPresetNameInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            saveCurrentSelectionAsPreset(presetNameInput);
-                          }
-                        }}
-                      />
+                      <Input placeholder="Enter preset name (e.g., 'Morning Batch')" value={presetNameInput} onChange={e => setPresetNameInput(e.target.value)} onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      saveCurrentSelectionAsPreset(presetNameInput);
+                    }
+                  }} />
                       <Button onClick={() => saveCurrentSelectionAsPreset(presetNameInput)}>
                         <Plus className="h-4 w-4 mr-2" />
                         Save
@@ -7110,53 +6447,36 @@ export const POTracker = () => {
                     </div>
                   </div>
                 </CardContent>
-              </Card>
-            )}
+              </Card>}
 
             {/* Saved Presets List */}
             <div className="space-y-2">
               <Label>Saved Presets ({savedPresets.length})</Label>
-              {savedPresets.length === 0 ? (
-                <Card>
+              {savedPresets.length === 0 ? <Card>
                   <CardContent className="py-8 text-center text-muted-foreground">
                     <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
                     <p>No saved presets yet.</p>
                     <p className="text-sm">Select POs and save them for quick access.</p>
                   </CardContent>
-                </Card>
-              ) : (
-                <div className="space-y-2">
-                  {savedPresets
-                    .sort((a, b) => (b.lastUsed || b.createdAt).localeCompare(a.lastUsed || a.createdAt))
-                    .map(preset => {
-                      const availableCount = preset.poNumbers.filter(poNumber => {
-                        const poExists = poOrders.some(order => order.po_number === poNumber);
-                        return poExists;
-                      }).length;
-
-                      const isEditing = editingPresetId === preset.id;
-
-                      return (
-                        <Card key={preset.id} className="hover:border-primary/50 transition-colors">
+                </Card> : <div className="space-y-2">
+                  {savedPresets.sort((a, b) => (b.lastUsed || b.createdAt).localeCompare(a.lastUsed || a.createdAt)).map(preset => {
+                const availableCount = preset.poNumbers.filter(poNumber => {
+                  const poExists = poOrders.some(order => order.po_number === poNumber);
+                  return poExists;
+                }).length;
+                const isEditing = editingPresetId === preset.id;
+                return <Card key={preset.id} className="hover:border-primary/50 transition-colors">
                           <CardContent className="p-4">
                             <div className="flex items-center justify-between gap-4">
                               <div className="flex-1 min-w-0">
-                                {isEditing ? (
-                                  <Input
-                                    value={presetNameInput}
-                                    onChange={(e) => setPresetNameInput(e.target.value)}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') {
-                                        renamePreset(preset.id, presetNameInput);
-                                        setEditingPresetId(null);
-                                      } else if (e.key === 'Escape') {
-                                        setEditingPresetId(null);
-                                      }
-                                    }}
-                                    autoFocus
-                                  />
-                                ) : (
-                                  <div>
+                                {isEditing ? <Input value={presetNameInput} onChange={e => setPresetNameInput(e.target.value)} onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            renamePreset(preset.id, presetNameInput);
+                            setEditingPresetId(null);
+                          } else if (e.key === 'Escape') {
+                            setEditingPresetId(null);
+                          }
+                        }} autoFocus /> : <div>
                                     <div className="flex items-center gap-2">
                                       <span className="font-medium">{preset.name}</span>
                                       <Badge variant="secondary">
@@ -7167,76 +6487,48 @@ export const POTracker = () => {
                                       Created: {new Date(preset.createdAt).toLocaleDateString()}
                                       {preset.lastUsed && ` • Last used: ${new Date(preset.lastUsed).toLocaleDateString()}`}
                                     </div>
-                                  </div>
-                                )}
+                                  </div>}
                               </div>
                               
                               <div className="flex items-center gap-2">
-                                {isEditing ? (
-                                  <>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => {
-                                        renamePreset(preset.id, presetNameInput);
-                                        setEditingPresetId(null);
-                                      }}
-                                    >
+                                {isEditing ? <>
+                                    <Button size="sm" variant="ghost" onClick={() => {
+                            renamePreset(preset.id, presetNameInput);
+                            setEditingPresetId(null);
+                          }}>
                                       <CheckCircle2 className="h-4 w-4" />
                                     </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => setEditingPresetId(null)}
-                                    >
+                                    <Button size="sm" variant="ghost" onClick={() => setEditingPresetId(null)}>
                                       <X className="h-4 w-4" />
                                     </Button>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Button
-                                      size="sm"
-                                      variant="default"
-                                      onClick={() => {
-                                        loadPreset(preset);
-                                        setShowPresetsDialog(false);
-                                      }}
-                                      disabled={availableCount === 0}
-                                    >
+                                  </> : <>
+                                    <Button size="sm" variant="default" onClick={() => {
+                            loadPreset(preset);
+                            setShowPresetsDialog(false);
+                          }} disabled={availableCount === 0}>
                                       <Package className="h-4 w-4 mr-2" />
                                       Load
                                     </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => {
-                                        setEditingPresetId(preset.id);
-                                        setPresetNameInput(preset.name);
-                                      }}
-                                    >
+                                    <Button size="sm" variant="ghost" onClick={() => {
+                            setEditingPresetId(preset.id);
+                            setPresetNameInput(preset.name);
+                          }}>
                                       <Edit2 className="h-4 w-4" />
                                     </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => {
-                                        if (confirm(`Delete preset "${preset.name}"?`)) {
-                                          deletePreset(preset.id);
-                                        }
-                                      }}
-                                    >
+                                    <Button size="sm" variant="ghost" onClick={() => {
+                            if (confirm(`Delete preset "${preset.name}"?`)) {
+                              deletePreset(preset.id);
+                            }
+                          }}>
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
-                                  </>
-                                )}
+                                  </>}
                               </div>
                             </div>
                           </CardContent>
-                        </Card>
-                      );
-                    })}
-                </div>
-              )}
+                        </Card>;
+              })}
+                </div>}
             </div>
           </div>
         </DialogContent>
@@ -7246,29 +6538,12 @@ export const POTracker = () => {
       <POPrintDialog open={printDialogOpen} onOpenChange={setPrintDialogOpen} orders={printOrders} mode={printMode} title={printMode === 'single' ? 'Print Item' : 'Print Purchase Order Items'} />
       
       {/* Fulfill from Stock Dialog */}
-      <FulfillFromStockDialog
-        open={fulfillDialogOpen}
-        onOpenChange={setFulfillDialogOpen}
-        orderInfo={fulfillDialogOrder}
-        onConfirm={handleFulfillFromStock}
-        isLoading={isFulfilling}
-      />
+      <FulfillFromStockDialog open={fulfillDialogOpen} onOpenChange={setFulfillDialogOpen} orderInfo={fulfillDialogOrder} onConfirm={handleFulfillFromStock} isLoading={isFulfilling} />
       
       {/* Generate Purchase Link Dialog */}
-      <GeneratePurchaseLinkDialog
-        open={generateLinkDialogOpen}
-        onOpenChange={setGenerateLinkDialogOpen}
-        poNumbers={Array.from(selectedPOsForLabels)}
-      />
+      <GeneratePurchaseLinkDialog open={generateLinkDialogOpen} onOpenChange={setGenerateLinkDialogOpen} poNumbers={Array.from(selectedPOsForLabels)} />
 
       {/* Print History Dialog */}
-      {printHistoryOrder && (
-        <PrintHistoryDialog
-          open={printHistoryDialogOpen}
-          onOpenChange={setPrintHistoryDialogOpen}
-          order={printHistoryOrder}
-        />
-      )}
-    </div>
-  );
+      {printHistoryOrder && <PrintHistoryDialog open={printHistoryDialogOpen} onOpenChange={setPrintHistoryDialogOpen} order={printHistoryOrder} />}
+    </div>;
 };
