@@ -817,12 +817,12 @@ export function Replenishment() {
       // Separate items based on eligibility for restocking
       const allEligibleItems = allInventoryItems.filter(item => item.status !== 'ordered');
 
-      // Get stock changes for all items to calculate total sold units and last sale dates
-      const allItemIds = allEligibleItems.map(item => item.id);
+      // Get stock changes for ALL items (including ordered) to calculate total sold units and last sale dates
+      const allItemIdsForSales = allInventoryItems.map(item => item.id);
       const { data: stockChanges } = await (supabase as any)
         .from('stock_changes')
         .select('inventory_id, change_amount, created_at')
-        .in('inventory_id', allItemIds)
+        .in('inventory_id', allItemIdsForSales)
         .lt('change_amount', 0)
         .order('created_at', { ascending: false });
 
@@ -841,7 +841,7 @@ export function Replenishment() {
       });
 
       console.log('📊 Total Sold Units Summary:', {
-        itemsQueried: allItemIds.length,
+        itemsQueried: allItemIdsForSales.length,
         stockChangesFound: (stockChanges || []).length,
         itemsWithSales: totalSoldMap.size,
         sampleSoldUnits: Array.from(totalSoldMap.entries()).slice(0, 5)
