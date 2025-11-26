@@ -51,6 +51,8 @@ export const POMetricsCard: React.FC<POMetricsCardProps> = ({
           <Card
             className={cn(
               'relative overflow-hidden border border-border/20 bg-card/50 backdrop-blur-sm shadow-sm transition-all duration-200',
+              'border-l-2',
+              borderColorClass,
               colorClass,
               onClick && 'cursor-pointer hover:shadow-md hover:bg-muted/20',
               isActive && 'ring-2 ring-primary shadow-lg scale-[1.02]'
