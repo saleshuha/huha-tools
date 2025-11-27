@@ -214,6 +214,29 @@ export function useAsinInventory() {
         lastRestockDate: (data as any).last_restock_date || undefined,
       };
 
+      // Log initial stock change if quantity > 0
+      const initialQuantity = (data as any).quantity ?? 1;
+      if (initialQuantity > 0) {
+        await supabase.from('stock_changes').insert({
+          user_id: user.id,
+          inventory_type: 'asin',
+          inventory_id: (data as any).id,
+          asin: (data as any).asin,
+          serial_number: (data as any).serial_number,
+          sku_number: (data as any).sku || null,
+          previous_quantity: 0,
+          new_quantity: initialQuantity,
+          change_amount: initialQuantity,
+          change_reason: 'Initial stock on item creation',
+          reference_type: 'initial',
+          changed_by: user.id,
+          metadata: {
+            sku: (data as any).sku,
+            title: (data as any).title
+          }
+        } as any);
+      }
+
       setInventory(prev => [newItem, ...prev]);
       toast({
         title: "Item added successfully",
@@ -361,6 +384,32 @@ export function useAsinInventory() {
           restockQuantity: item.restock_quantity || undefined,
           lastRestockDate: item.last_restock_date || undefined,
         }));
+
+        // Log initial stock changes for items with quantity > 0
+        const stockChanges = (data as any)
+          .filter((item: any) => (item.quantity ?? 1) > 0)
+          .map((item: any) => ({
+            user_id: user.id,
+            inventory_type: 'asin',
+            inventory_id: item.id,
+            asin: item.asin,
+            serial_number: item.serial_number,
+            sku_number: item.sku || null,
+            previous_quantity: 0,
+            new_quantity: item.quantity ?? 1,
+            change_amount: item.quantity ?? 1,
+            change_reason: 'Initial stock on item creation',
+            reference_type: 'initial',
+            changed_by: user.id,
+            metadata: {
+              sku: item.sku,
+              title: item.title
+            }
+          }));
+
+        if (stockChanges.length > 0) {
+          await supabase.from('stock_changes').insert(stockChanges as any);
+        }
 
         // Update inventory state immediately for real-time display
         setInventory(prev => [...newItems, ...prev]);
