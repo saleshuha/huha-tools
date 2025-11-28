@@ -2817,7 +2817,18 @@ export function Replenishment() {
         open={configDialogOpen}
         onOpenChange={setConfigDialogOpen}
         onSave={async () => {
-          await loadConfigs(); // This will update selectedConfigId, triggering useEffect
+          await loadConfigs();
+          // Force recalculation when config content changes (not just config selection)
+          if (selectedConfigId && allInventoryItems.length > 0) {
+            toast({
+              title: "Recalculating recommended quantities...",
+            });
+            await recalculateAllRecommendedQuantities();
+            toast({
+              title: "Recommended quantities updated",
+              description: "All items have been recalculated with the new configuration",
+            });
+          }
         }}
         currentConfig={selectedConfig}
       />
