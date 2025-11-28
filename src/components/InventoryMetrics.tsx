@@ -219,9 +219,9 @@ export const InventoryMetrics = memo(function InventoryMetrics({
 
       // Apply metric-specific filters
       if (metric === 'instock') {
-        query = query.eq('status', 'in-stock').gt('quantity', 0);
+        query = query.gt('quantity', 0);  // FIXED: Only check quantity > 0
       } else if (metric === 'outofstock') {
-        query = query.or('status.eq.out-of-stock,quantity.eq.0');
+        query = query.eq('quantity', 0);  // FIXED: Only check quantity = 0
       } else if (metric === 'missing-sku') {
         query = query.or('sku.is.null,sku.eq.');
       } else if (metric === 'missing-title') {
