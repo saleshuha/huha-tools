@@ -348,6 +348,34 @@ async function handleCreateOrder(params: any, key: string, secret: string) {
     throw new Error('deliveryAddress and items are required');
   }
   
+  // Validate MOQ for each item before creating order
+  console.log('🔍 Validating MOQ for all items...');
+  const moqErrors: string[] = [];
+  
+  for (const item of orderData.items) {
+    try {
+      const productDetails = await callSunskyAPI('/openapi/product!detail.do', {
+        lang: 'en',
+        itemNo: item.itemNo
+      }, key, secret);
+      
+      const moq = productDetails.data?.moq || 1;
+      
+      if (item.qty < moq) {
+        moqErrors.push(`${item.itemNo}: ordered ${item.qty}, but MOQ is ${moq}`);
+        console.log(`❌ MOQ Error: ${item.itemNo} qty=${item.qty} < MOQ=${moq}`);
+      } else {
+        console.log(`✅ MOQ OK: ${item.itemNo} qty=${item.qty} >= MOQ=${moq}`);
+      }
+    } catch (error) {
+      console.log(`⚠️ Could not verify MOQ for ${item.itemNo}, proceeding with order`);
+    }
+  }
+  
+  if (moqErrors.length > 0) {
+    throw new Error(`MOQ_VALIDATION_FAILED: ${moqErrors.join('; ')}`);
+  }
+  
   // Build order params according to Sunsky API docs
   const orderParams: Record<string, any> = {
     useBalanceOnly: orderData.useBalanceOnly || false

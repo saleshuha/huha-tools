@@ -1033,6 +1033,12 @@ export function SunskyOrderDialog({ open, onOpenChange, selectedOrders, onOrderS
           throw new Error('This order has already been placed. Please check your Sunsky account or try with different items.');
         }
         
+        // Handle MOQ validation errors
+        if (errorMsg.includes('MOQ_VALIDATION_FAILED') || errorMsg.includes('LESS_THAN_MOQ')) {
+          const moqDetails = errorMsg.replace('MOQ_VALIDATION_FAILED: ', '');
+          throw new Error(`Minimum Order Quantity (MOQ) not met:\n\n${moqDetails}\n\nPlease increase the quantities to meet the supplier's minimum requirements.`);
+        }
+        
         throw new Error(errorMsg);
       }
       
