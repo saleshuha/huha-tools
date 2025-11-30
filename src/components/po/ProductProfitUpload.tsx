@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileUp, Upload, AlertCircle } from 'lucide-react';
+import { FileUp, Upload, AlertCircle, Trash2 } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { parseFileSimply } from '@/components/SimpleFileParser';
 import { useToast } from '@/hooks/use-toast';
@@ -11,9 +11,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface ProductProfitUploadProps {
   onUpload: (data: any[], headers: string[], columnMapping: any) => void;
+  onClear?: () => void;
 }
 
-export const ProductProfitUpload: React.FC<ProductProfitUploadProps> = ({ onUpload }) => {
+export const ProductProfitUpload: React.FC<ProductProfitUploadProps> = ({ onUpload, onClear }) => {
   const { toast } = useToast();
   const [uploadedFile, setUploadedFile] = useState<any>(null);
   const [headers, setHeaders] = useState<string[]>([]);
@@ -136,11 +137,31 @@ export const ProductProfitUpload: React.FC<ProductProfitUploadProps> = ({ onUplo
                     {uploadedFile ? uploadedFile.name : 'Drop file or click to upload'}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    CSV, XLSX, XLS supported
+                    {uploadedFile && previewData.length > 0
+                      ? `${previewData.length} rows loaded`
+                      : 'CSV, XLSX, XLS supported'}
                   </p>
                 </div>
               </div>
             </div>
+
+            {/* Clear Button */}
+            {uploadedFile && onClear && (
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => {
+                  onClear();
+                  setUploadedFile(null);
+                  setHeaders([]);
+                  setPreviewData([]);
+                  setColumnMapping({});
+                }}
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

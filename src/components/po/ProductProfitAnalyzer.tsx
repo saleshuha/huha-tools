@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calculator, TrendingUp, TrendingDown, DollarSign, Package } from 'lucide-react';
+import { Calculator, TrendingUp, TrendingDown, DollarSign, Package, BarChart3, CheckCircle, AlertTriangle } from 'lucide-react';
 import { ProductProfitUpload } from './ProductProfitUpload';
 import { ProductProfitSettings } from './ProductProfitSettings';
 import { ProductProfitTable } from './ProductProfitTable';
@@ -199,7 +199,7 @@ export const ProductProfitAnalyzer: React.FC = () => {
 
     return {
       totalProfit,
-      averageMargin,
+      averageMargin: averageMargin,
       profitableItems,
       lossItems,
       matchRate,
@@ -207,104 +207,89 @@ export const ProductProfitAnalyzer: React.FC = () => {
     };
   }, [recalculatedItems]);
 
+  const clearData = () => {
+    setUploadedItems([]);
+  };
+
   return (
-    <div className="space-y-6">
-      {/* Summary Cards */}
-      {recalculatedItems.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <Card className="border-l-4 border-l-primary">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <DollarSign className="h-4 w-4" />
-                Total Profit
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${metrics.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {settings.currency} {metrics.totalProfit.toFixed(2)}
+    <div className="space-y-4">
+      {/* Upload and Settings Card */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <ProductProfitUpload onUpload={handleFileUpload} onClear={clearData} />
+            <ProductProfitSettings 
+              settings={settings}
+              onSettingsChange={setSettings}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Summary Metrics Bar */}
+      {uploadedItems.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+          <Card className="p-3">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-green-600" />
+              <div>
+                <p className="text-xs text-muted-foreground">Total Profit</p>
+                <p className="text-sm font-bold text-green-600">
+                  {settings.currency} {metrics.totalProfit.toFixed(2)}
+                </p>
               </div>
-            </CardContent>
+            </div>
           </Card>
 
-          <Card className="border-l-4 border-l-blue-500">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
-                Avg Margin
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${metrics.averageMargin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {metrics.averageMargin.toFixed(1)}%
+          <Card className="p-3">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-blue-600" />
+              <div>
+                <p className="text-xs text-muted-foreground">Avg Margin</p>
+                <p className="text-sm font-bold">{metrics.averageMargin.toFixed(1)}%</p>
               </div>
-            </CardContent>
+            </div>
           </Card>
 
-          <Card className="border-l-4 border-l-green-500">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
-                Profitable Items
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {metrics.profitableItems}
+          <Card className="p-3">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <div>
+                <p className="text-xs text-muted-foreground">Profitable</p>
+                <p className="text-sm font-bold text-green-600">{metrics.profitableItems}</p>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {((metrics.profitableItems / metrics.totalItems) * 100).toFixed(1)}% of total
-              </p>
-            </CardContent>
+            </div>
           </Card>
 
-          <Card className="border-l-4 border-l-red-500">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <TrendingDown className="h-4 w-4" />
-                Loss Items
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">
-                {metrics.lossItems}
+          <Card className="p-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-red-600" />
+              <div>
+                <p className="text-xs text-muted-foreground">Loss</p>
+                <p className="text-sm font-bold text-red-600">{metrics.lossItems}</p>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {((metrics.lossItems / metrics.totalItems) * 100).toFixed(1)}% of total
-              </p>
-            </CardContent>
+            </div>
           </Card>
 
-          <Card className="border-l-4 border-l-purple-500">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Package className="h-4 w-4" />
-                Match Rate
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-600">
-                {metrics.matchRate.toFixed(1)}%
+          <Card className="p-3">
+            <div className="flex items-center gap-2">
+              <Package className="h-4 w-4 text-purple-600" />
+              <div>
+                <p className="text-xs text-muted-foreground">Match Rate</p>
+                <p className="text-sm font-bold">{metrics.matchRate.toFixed(1)}%</p>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {recalculatedItems.filter(i => i.status === 'matched').length} of {metrics.totalItems}
-              </p>
-            </CardContent>
+            </div>
           </Card>
         </div>
       )}
 
-      {/* Upload & Settings - Horizontal Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2">
-          <ProductProfitUpload onUpload={handleFileUpload} />
-        </div>
-        <div className="lg:col-span-1">
-          <ProductProfitSettings settings={settings} onSettingsChange={setSettings} />
-        </div>
-      </div>
-
-      {/* Results Table - Full Width */}
-      <ProductProfitTable items={recalculatedItems} settings={settings} />
+      {/* Results Table */}
+      {uploadedItems.length > 0 && (
+        <ProductProfitTable 
+          items={recalculatedItems}
+          settings={settings}
+        />
+      )}
     </div>
   );
 };

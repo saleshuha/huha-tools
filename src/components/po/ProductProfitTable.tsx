@@ -67,14 +67,11 @@ export const ProductProfitTable: React.FC<ProductProfitTableProps> = ({ items, s
         'ASIN': item.asin || '',
         'Model Number': item.model_number || '',
         'Title': item.title || '',
-        'Quantity': item.quantity || 1,
-        'Selling Price': item.selling_price.toFixed(2),
+        'Cost to Amazon': item.selling_price.toFixed(2),
         'Buying Cost': (item.buying_cost || 0).toFixed(2),
         'Shipping Cost': item.shipping_cost.toFixed(2),
         'Commission': item.commission.toFixed(2),
-        'Additional Fees': item.additional_fees.toFixed(2),
-        'Profit (Per Unit)': item.profit.toFixed(2),
-        'Total Profit': (item.profit * (item.quantity || 1)).toFixed(2),
+        'Profit': item.profit.toFixed(2),
         'Margin %': item.margin.toFixed(2),
         'Status': item.status,
         'Source SKU': item.sunsky_sku_code || '',
@@ -158,43 +155,41 @@ export const ProductProfitTable: React.FC<ProductProfitTableProps> = ({ items, s
           <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
             <Table>
               <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm z-10">
-                <TableRow>
-                  <TableHead className="w-[100px]">Status</TableHead>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-muted/50 min-w-[250px]"
-                    onClick={() => handleSort('title')}
-                  >
-                    Product
-                  </TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
-                  <TableHead 
-                    className="text-right cursor-pointer hover:bg-muted/50"
-                    onClick={() => handleSort('selling_price')}
-                  >
-                    Selling Price
-                  </TableHead>
-                  <TableHead 
-                    className="text-right cursor-pointer hover:bg-muted/50"
-                    onClick={() => handleSort('buying_cost')}
-                  >
-                    Buying Cost
-                  </TableHead>
-                  <TableHead className="text-right">Shipping</TableHead>
-                  <TableHead className="text-right">Commission</TableHead>
-                  <TableHead 
-                    className="text-right cursor-pointer hover:bg-muted/50"
-                    onClick={() => handleSort('profit')}
-                  >
-                    Profit/Unit
-                  </TableHead>
-                  <TableHead className="text-right">Total Profit</TableHead>
-                  <TableHead 
-                    className="text-right cursor-pointer hover:bg-muted/50"
-                    onClick={() => handleSort('margin')}
-                  >
-                    Margin %
-                  </TableHead>
-                </TableRow>
+            <TableRow>
+              <TableHead className="w-[100px]">Status</TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50 min-w-[250px]"
+                onClick={() => handleSort('title')}
+              >
+                Product
+              </TableHead>
+              <TableHead 
+                className="text-right cursor-pointer hover:bg-muted/50"
+                onClick={() => handleSort('selling_price')}
+              >
+                Cost to Amazon
+              </TableHead>
+              <TableHead 
+                className="text-right cursor-pointer hover:bg-muted/50"
+                onClick={() => handleSort('buying_cost')}
+              >
+                Buying Cost
+              </TableHead>
+              <TableHead className="text-right">Shipping</TableHead>
+              <TableHead className="text-right">Commission</TableHead>
+              <TableHead 
+                className="text-right cursor-pointer hover:bg-muted/50"
+                onClick={() => handleSort('profit')}
+              >
+                Profit
+              </TableHead>
+              <TableHead 
+                className="text-right cursor-pointer hover:bg-muted/50"
+                onClick={() => handleSort('margin')}
+              >
+                Margin
+              </TableHead>
+            </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredItems.map((item, index) => (
@@ -216,48 +211,37 @@ export const ProductProfitTable: React.FC<ProductProfitTableProps> = ({ items, s
                       <div className="font-medium truncate" title={item.title}>
                         {item.title || '-'}
                       </div>
-                      <div className="text-xs text-muted-foreground font-mono mt-1 flex flex-wrap gap-x-2">
+                      <div className="text-xs text-muted-foreground font-mono mt-1">
                         {item.asin && <span>ASIN: {item.asin}</span>}
+                        {item.asin && item.model_number && <span className="mx-1">|</span>}
                         {item.model_number && <span>Model: {item.model_number}</span>}
                       </div>
-                      {item.sunsky_sku_code && (
-                        <div className="text-xs text-muted-foreground mt-1">
-                          Source: {item.sunsky_sku_code}
-                        </div>
-                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="font-mono font-semibold">
+                        {item.selling_price.toFixed(2)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {item.currency_code || settings.currency}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right font-mono">
-                      {item.quantity || 1}
+                      {item.buying_cost > 0 ? item.buying_cost.toFixed(2) : '-'}
                     </TableCell>
                     <TableCell className="text-right font-mono">
-                      {item.selling_price.toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {(item.buying_cost || 0).toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-xs">
                       {item.shipping_cost.toFixed(2)}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-xs">
+                    <TableCell className="text-right font-mono">
                       {item.commission.toFixed(2)}
                     </TableCell>
-                    <TableCell className={`text-right font-mono font-medium ${item.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {item.profit >= 0 ? (
-                        <span className="flex items-center justify-end gap-1">
-                          <TrendingUp className="h-3 w-3" />
-                          {item.profit.toFixed(2)}
-                        </span>
-                      ) : (
-                        <span className="flex items-center justify-end gap-1">
-                          <TrendingDown className="h-3 w-3" />
-                          {item.profit.toFixed(2)}
-                        </span>
-                      )}
+                    <TableCell className={`text-right font-mono font-semibold ${
+                      item.profit >= 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {item.profit.toFixed(2)}
                     </TableCell>
-                    <TableCell className={`text-right font-mono font-medium ${(item.profit * (item.quantity || 1)) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {(item.profit * (item.quantity || 1)).toFixed(2)}
-                    </TableCell>
-                    <TableCell className={`text-right font-mono font-medium ${item.margin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <TableCell className={`text-right font-mono font-semibold ${
+                      item.margin >= 15 ? 'text-green-600' : item.margin >= 5 ? 'text-orange-600' : 'text-red-600'
+                    }`}>
                       {item.margin.toFixed(1)}%
                     </TableCell>
                   </TableRow>
