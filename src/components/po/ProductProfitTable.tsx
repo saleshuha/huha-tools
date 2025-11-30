@@ -29,7 +29,7 @@ export const ProductProfitTable: React.FC<ProductProfitTableProps> = ({ items, s
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(item =>
         item.asin?.toLowerCase().includes(query) ||
-        item.sku?.toLowerCase().includes(query) ||
+        item.model_number?.toLowerCase().includes(query) ||
         item.title?.toLowerCase().includes(query) ||
         item.sunsky_sku_code?.toLowerCase().includes(query)
       );
@@ -65,7 +65,7 @@ export const ProductProfitTable: React.FC<ProductProfitTableProps> = ({ items, s
     try {
       const exportData = filteredItems.map(item => ({
         'ASIN': item.asin || '',
-        'SKU': item.sku || '',
+        'Model Number': item.model_number || '',
         'Title': item.title || '',
         'Quantity': item.quantity || 1,
         'Selling Price': item.selling_price.toFixed(2),
@@ -161,12 +161,11 @@ export const ProductProfitTable: React.FC<ProductProfitTableProps> = ({ items, s
                 <TableRow>
                   <TableHead className="w-[100px]">Status</TableHead>
                   <TableHead 
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => handleSort('asin')}
+                    className="cursor-pointer hover:bg-muted/50 min-w-[250px]"
+                    onClick={() => handleSort('title')}
                   >
-                    ASIN/SKU
+                    Product
                   </TableHead>
-                  <TableHead>Title</TableHead>
                   <TableHead className="text-right">Qty</TableHead>
                   <TableHead 
                     className="text-right cursor-pointer hover:bg-muted/50"
@@ -213,16 +212,19 @@ export const ProductProfitTable: React.FC<ProductProfitTableProps> = ({ items, s
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      <div>{item.asin || item.sku || '-'}</div>
+                    <TableCell className="max-w-[300px]">
+                      <div className="font-medium truncate" title={item.title}>
+                        {item.title || '-'}
+                      </div>
+                      <div className="text-xs text-muted-foreground font-mono mt-1 flex flex-wrap gap-x-2">
+                        {item.asin && <span>ASIN: {item.asin}</span>}
+                        {item.model_number && <span>Model: {item.model_number}</span>}
+                      </div>
                       {item.sunsky_sku_code && (
-                        <div className="text-muted-foreground text-xs mt-1">
+                        <div className="text-xs text-muted-foreground mt-1">
                           Source: {item.sunsky_sku_code}
                         </div>
                       )}
-                    </TableCell>
-                    <TableCell className="max-w-[200px] truncate" title={item.title}>
-                      {item.title || '-'}
                     </TableCell>
                     <TableCell className="text-right font-mono">
                       {item.quantity || 1}
