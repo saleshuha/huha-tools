@@ -7,23 +7,37 @@ import { ProductProfitTable } from './ProductProfitTable';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCountry } from '@/contexts/CountryContext';
+import { useCurrencyConverter } from '@/hooks/useCurrencyConverter';
 
 export interface ProductProfitItem {
   asin?: string;
   model_number?: string;
   title?: string;
-  selling_price: number;
-  buying_cost?: number;
+  
+  // Original values from uploaded file
+  selling_price: number;           // Original selling price
+  currency_code?: string;          // Original currency from Excel
+  
+  // Converted values (to display currency)
+  converted_selling_price?: number;
+  converted_buying_cost?: number;
+  
+  // Sunsky data
+  buying_cost?: number;            // Original from Sunsky
+  sunsky_currency?: string;        // Currency from Sunsky
+  
+  // Calculated fields (all in display currency)
   shipping_cost: number;
   commission: number;
   additional_fees: number;
   profit: number;
   margin: number;
+  
+  // Other
   status: 'matched' | 'unmatched';
   sunsky_sku_code?: string;
   weight?: number;
   currency?: string;
-  currency_code?: string;
   quantity?: number;
 }
 
@@ -39,6 +53,7 @@ export interface ProfitSettings {
 export const ProductProfitAnalyzer: React.FC = () => {
   const { toast } = useToast();
   const { selectedCountry } = useCountry();
+  const { convertCurrency, loading: currencyLoading } = useCurrencyConverter();
   const [uploadedItems, setUploadedItems] = useState<ProductProfitItem[]>([]);
   const [settings, setSettings] = useState<ProfitSettings>({
     shippingRatePerKg: 2.5,
@@ -96,7 +111,7 @@ export const ProductProfitAnalyzer: React.FC = () => {
 
       console.log('Fetched Sunsky SKUs:', sunskySKUs?.length);
 
-      // Match items with Sunsky SKUs
+      // Match items with Sunsky SKUs (store original values, conversion happens in recalculatedItems)
       const matchedItems: ProductProfitItem[] = items.map(item => {
         // Try to match by Model Number (primary) or ASIN (fallback)
         const matchedSKU = sunskySKUs?.find(sku => 
@@ -106,37 +121,25 @@ export const ProductProfitAnalyzer: React.FC = () => {
 
         const buyingCost = matchedSKU?.cost || 0;
         const weight = matchedSKU?.weight || 0;
-        
-        // Calculate shipping cost
-        const shippingCost = settings.useWeightBasedShipping 
-          ? weight * settings.shippingRatePerKg 
-          : settings.flatShippingRate;
-
-        // Calculate commission
-        const commission = (item.selling_price || 0) * (settings.commissionPercentage / 100);
-
-        // Calculate profit
-        const profit = (item.selling_price || 0) - buyingCost - shippingCost - commission - settings.additionalFees;
-        
-        // Calculate margin
-        const margin = item.selling_price ? (profit / item.selling_price) * 100 : 0;
+        const sunskyCurrency = matchedSKU?.currency || 'USD';
 
         return {
           ...item,
           buying_cost: buyingCost,
-          shipping_cost: shippingCost,
-          commission,
-          additional_fees: settings.additionalFees,
-          profit,
-          margin,
+          sunsky_currency: sunskyCurrency,
+          weight,
           status: matchedSKU ? 'matched' : 'unmatched',
           sunsky_sku_code: matchedSKU?.sku_code,
-          weight,
-          currency: matchedSKU?.currency || item.currency_code || settings.currency,
           title: item.title || matchedSKU?.title,
           selling_price: item.selling_price || 0,
           quantity: item.quantity,
-          model_number: item.model_number
+          model_number: item.model_number,
+          // These will be calculated in recalculatedItems
+          shipping_cost: 0,
+          commission: 0,
+          additional_fees: 0,
+          profit: 0,
+          margin: 0
         } as ProductProfitItem;
       });
 
@@ -160,22 +163,46 @@ export const ProductProfitAnalyzer: React.FC = () => {
     }
   };
 
-  // Recalculate profit when settings change
+  // Recalculate profit when settings change (with currency conversion)
   const recalculatedItems = useMemo(() => {
     return uploadedItems.map(item => {
-      const buyingCost = item.buying_cost || 0;
-      const weight = item.weight || 0;
+      const displayCurrency = settings.currency;
+      const originalCurrency = item.currency_code || 'USD';
+      const sunskyCurrency = item.sunsky_currency || 'USD';
       
+      // Convert selling price from original currency to display currency
+      const convertedSellingPrice = convertCurrency(
+        item.selling_price,
+        originalCurrency,
+        displayCurrency
+      );
+      
+      // Convert buying cost from Sunsky's currency to display currency
+      const convertedBuyingCost = convertCurrency(
+        item.buying_cost || 0,
+        sunskyCurrency,
+        displayCurrency
+      );
+      
+      // Calculate shipping cost (already in display currency from settings)
+      const weight = item.weight || 0;
       const shippingCost = settings.useWeightBasedShipping 
         ? weight * settings.shippingRatePerKg 
         : settings.flatShippingRate;
 
-      const commission = item.selling_price * (settings.commissionPercentage / 100);
-      const profit = item.selling_price - buyingCost - shippingCost - commission - settings.additionalFees;
-      const margin = item.selling_price ? (profit / item.selling_price) * 100 : 0;
+      // Calculate commission based on converted selling price
+      const commission = convertedSellingPrice * (settings.commissionPercentage / 100);
+      
+      // Calculate profit in display currency
+      const profit = convertedSellingPrice - convertedBuyingCost - shippingCost - commission - settings.additionalFees;
+      
+      // Calculate margin
+      const margin = convertedSellingPrice ? (profit / convertedSellingPrice) * 100 : 0;
 
       return {
         ...item,
+        converted_selling_price: convertedSellingPrice,
+        converted_buying_cost: convertedBuyingCost,
         shipping_cost: shippingCost,
         commission,
         additional_fees: settings.additionalFees,
@@ -183,7 +210,7 @@ export const ProductProfitAnalyzer: React.FC = () => {
         margin
       };
     });
-  }, [uploadedItems, settings]);
+  }, [uploadedItems, settings, convertCurrency]);
 
   // Calculate summary metrics
   const metrics = useMemo(() => {

@@ -40,7 +40,7 @@ export const ProductProfitSettings: React.FC<ProductProfitSettingsProps> = ({
           <div className="space-y-1.5">
             <Label htmlFor="currency" className="text-xs flex items-center gap-1.5">
               <DollarSign className="h-3 w-3" />
-              Currency
+              Display Currency
             </Label>
             <Select
               value={settings.currency}
@@ -55,6 +55,9 @@ export const ProductProfitSettings: React.FC<ProductProfitSettingsProps> = ({
                 <SelectItem value="USD">USD</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              All values converted to this currency
+            </p>
           </div>
 
           {/* Shipping Method Toggle */}

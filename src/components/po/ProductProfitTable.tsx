@@ -67,15 +67,17 @@ export const ProductProfitTable: React.FC<ProductProfitTableProps> = ({ items, s
         'ASIN': item.asin || '',
         'Model Number': item.model_number || '',
         'Title': item.title || '',
-        'Cost to Amazon': item.selling_price.toFixed(2),
-        'Buying Cost': (item.buying_cost || 0).toFixed(2),
+        'Original Currency': item.currency_code || '-',
+        'Original Price': item.selling_price.toFixed(2),
+        'Cost to Amazon': (item.converted_selling_price || item.selling_price).toFixed(2),
+        'Buying Cost': (item.converted_buying_cost || 0).toFixed(2),
         'Shipping Cost': item.shipping_cost.toFixed(2),
         'Commission': item.commission.toFixed(2),
         'Profit': item.profit.toFixed(2),
         'Margin %': item.margin.toFixed(2),
+        'Display Currency': settings.currency,
         'Status': item.status,
-        'Source SKU': item.sunsky_sku_code || '',
-        'Currency': item.currency || settings.currency
+        'Source SKU': item.sunsky_sku_code || ''
       }));
 
       const ws = XLSX.utils.json_to_sheet(exportData);
@@ -217,16 +219,16 @@ export const ProductProfitTable: React.FC<ProductProfitTableProps> = ({ items, s
                         {item.model_number && <span>Model: {item.model_number}</span>}
                       </div>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right" title={`Original: ${item.currency_code || 'N/A'} ${item.selling_price.toFixed(2)}`}>
                       <div className="font-mono font-semibold">
-                        {item.selling_price.toFixed(2)}
+                        {(item.converted_selling_price || item.selling_price).toFixed(2)}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {item.currency_code || settings.currency}
+                        {settings.currency}
                       </div>
                     </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {item.buying_cost > 0 ? item.buying_cost.toFixed(2) : '-'}
+                    <TableCell className="text-right font-mono" title={`Sunsky: ${item.sunsky_currency || 'USD'} ${(item.buying_cost || 0).toFixed(2)}`}>
+                      {item.converted_buying_cost ? item.converted_buying_cost.toFixed(2) : '-'}
                     </TableCell>
                     <TableCell className="text-right font-mono">
                       {item.shipping_cost.toFixed(2)}
