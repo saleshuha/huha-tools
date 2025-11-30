@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
-import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, FileText, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, Copy, CheckCircle2, Info, TrendingDown, Check, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, FileText, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, Copy, CheckCircle2, Info, TrendingDown, Check, XCircle, Calculator } from 'lucide-react';
 import { SortableTableHeader } from '@/components/order-processing/SortableTableHeader';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -31,6 +31,7 @@ import { PurchaseUpdatesPanel } from '@/components/po/PurchaseUpdatesPanel';
 import { SmartMatchingPanel } from '@/components/po/matching/SmartMatchingPanel';
 import { FulfillFromStockDialog } from '@/components/po/FulfillFromStockDialog';
 import { PrintHistoryDialog } from '@/components/po/PrintHistoryDialog';
+import { ProductProfitAnalyzer } from '@/components/po/ProductProfitAnalyzer';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { usePOOrders } from '@/hooks/usePOOrders';
 import { useSKUManager } from '@/hooks/useSKUManager';
@@ -3273,6 +3274,8 @@ export const POTracker = () => {
             return 'PO Labels';
           case 'purchase-links':
             return 'PO Purchase Links';
+          case 'profit-analyzer':
+            return 'Profit Analyzer';
           default:
             return 'PO Tracker';
         }
@@ -3282,7 +3285,7 @@ export const POTracker = () => {
         subcategory: getSubcategoryForTab(newTab),
         fromTab: activeTab,
         toTab: newTab,
-        tabTitle: newTab === 'overview' ? 'PO Overview' : newTab === 'upload' ? 'Uploads' : newTab === 'labels' ? 'Print Labels' : newTab === 'purchase-links' ? 'Purchase Links' : newTab
+        tabTitle: newTab === 'overview' ? 'PO Overview' : newTab === 'upload' ? 'Uploads' : newTab === 'labels' ? 'Print Labels' : newTab === 'purchase-links' ? 'Purchase Links' : newTab === 'profit-analyzer' ? 'Profit Analyzer' : newTab
       });
 
       // Update URL with tab parameter
@@ -3291,7 +3294,7 @@ export const POTracker = () => {
       });
       setActiveTab(newTab);
     }} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 h-14 bg-background/60 backdrop-blur-md rounded-xl p-1.5 border border-border/20 shadow-sm">
+        <TabsList className="grid w-full grid-cols-5 h-14 bg-background/60 backdrop-blur-md rounded-xl p-1.5 border border-border/20 shadow-sm">
           <TabsTrigger value="overview" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
             <Package className="h-4 w-4" />
             PO Overview
@@ -3307,6 +3310,10 @@ export const POTracker = () => {
           <TabsTrigger value="purchase-links" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
             <ExternalLink className="h-4 w-4" />
             Purchase Links
+          </TabsTrigger>
+          <TabsTrigger value="profit-analyzer" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
+            <Calculator className="h-4 w-4" />
+            Profit Analyzer
           </TabsTrigger>
         </TabsList>
 
@@ -6344,6 +6351,10 @@ export const POTracker = () => {
             <PurchaseLinkManagement />
             <PurchaseUpdatesPanel />
           </div>
+        </TabsContent>
+
+        <TabsContent value="profit-analyzer" className="space-y-6">
+          <ProductProfitAnalyzer />
         </TabsContent>
 
       </Tabs>
