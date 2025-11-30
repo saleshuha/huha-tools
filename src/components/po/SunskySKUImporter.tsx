@@ -396,6 +396,17 @@ export const SunskySKUImporter: React.FC = () => {
     totalFound: number;
   } | null>(null);
 
+  // Fix missing weights state
+  const [isFixingWeights, setIsFixingWeights] = useState(false);
+  const [fixWeightsProgress, setFixWeightsProgress] = useState(0);
+  const [fixWeightsStats, setFixWeightsStats] = useState({
+    total: 0,
+    processed: 0,
+    updated: 0,
+    failed: 0,
+    currentSku: ''
+  });
+
   // Export history
   const [exportHistory, setExportHistory] = useState<Array<{
     id: string;
@@ -2065,6 +2076,124 @@ export const SunskySKUImporter: React.FC = () => {
     } finally {
       setImporting(false);
       setImportProgress(0);
+    }
+  };
+
+  const fixMissingWeights = async () => {
+    if (!hasCredentials || !selectedSearchAPI) {
+      toast({
+        title: "No API Selected",
+        description: "Please select an API key to fetch product details",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsFixingWeights(true);
+    setFixWeightsProgress(0);
+    setFixWeightsStats({ total: 0, processed: 0, updated: 0, failed: 0, currentSku: '' });
+
+    try {
+      // Find SKUs with missing weights (weight is null or 0)
+      const { data: skusWithMissingWeights, error: queryError } = await supabase
+        .from('sunsky_skus')
+        .select('id, sku_code, weight')
+        .eq('user_id', profile?.id)
+        .or('weight.is.null,weight.eq.0');
+
+      if (queryError) throw queryError;
+
+      if (!skusWithMissingWeights || skusWithMissingWeights.length === 0) {
+        toast({
+          title: "No Missing Weights",
+          description: "All imported SKUs already have weight information",
+        });
+        return;
+      }
+
+      const total = skusWithMissingWeights.length;
+      let processed = 0;
+      let updated = 0;
+      let failed = 0;
+
+      toast({
+        title: "Fixing Missing Weights",
+        description: `Found ${total} SKUs with missing weights. Starting update...`,
+      });
+
+      // Process each SKU
+      for (const sku of skusWithMissingWeights) {
+        setFixWeightsStats({
+          total,
+          processed,
+          updated,
+          failed,
+          currentSku: sku.sku_code
+        });
+
+        try {
+          // Fetch product details from Sunsky API
+          const result = await callSunskyAPI('getProductDetails', {
+            itemNo: sku.sku_code
+          }, selectedSearchAPI);
+
+          if (result?.result === 'success' && result.data) {
+            const product = result.data;
+            const weight = product.unitWeight ? parseFloat(product.unitWeight) : 0;
+
+            // Update the database with weight and full product_data
+            const { error: updateError } = await supabase
+              .from('sunsky_skus')
+              .update({
+                weight: weight,
+                product_data: product,
+                cost: product.convertedPrice || (product.price ? parseFloat(product.price) : null),
+                currency: product.convertedCurrency || 'USD'
+              })
+              .eq('id', sku.id);
+
+            if (updateError) {
+              console.error(`Error updating ${sku.sku_code}:`, updateError);
+              failed++;
+            } else {
+              console.log(`✅ Updated ${sku.sku_code} with weight: ${weight}`);
+              updated++;
+            }
+          } else {
+            console.warn(`No product details found for ${sku.sku_code}`);
+            failed++;
+          }
+        } catch (error) {
+          console.error(`Error processing ${sku.sku_code}:`, error);
+          failed++;
+        }
+
+        processed++;
+        setFixWeightsProgress((processed / total) * 100);
+
+        // Small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      // Refresh SKU list
+      await fetchSKUs(1, false);
+
+      toast({
+        title: "Weight Fix Complete",
+        description: `Successfully updated ${updated} SKUs. ${failed > 0 ? `${failed} failed.` : ''}`,
+      });
+
+    } catch (error) {
+      console.error('Error fixing missing weights:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fix missing weights",
+        variant: "destructive"
+      });
+    } finally {
+      setIsFixingWeights(false);
+      setFixWeightsProgress(0);
+      setFixWeightsStats({ total: 0, processed: 0, updated: 0, failed: 0, currentSku: '' });
     }
   };
 
@@ -3879,6 +4008,34 @@ export const SunskySKUImporter: React.FC = () => {
                         </div>
                       </DialogContent>
                     </Dialog>
+
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            onClick={fixMissingWeights} 
+                            variant="secondary" 
+                            size="sm"
+                            disabled={isFixingWeights || !selectedSearchAPI}
+                          >
+                            {isFixingWeights ? (
+                              <>
+                                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                Fixing... ({Math.round(fixWeightsProgress)}%)
+                              </>
+                            ) : (
+                              <>
+                                <Zap className="h-4 w-4 mr-2" />
+                                Fix Missing Weights
+                              </>
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Fetch missing weights from Sunsky for SKUs with no weight data</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                     
                     <Button onClick={() => fetchSKUs(1, false)} variant="outline" size="sm">
                       <RefreshCw className="h-4 w-4 mr-2" />
@@ -3892,6 +4049,72 @@ export const SunskySKUImporter: React.FC = () => {
                   </div>
                 </div>
               </CardHeader>
+              
+              {/* Fix Missing Weights Progress */}
+              {isFixingWeights && (
+                <div className="px-6 pb-4">
+                  <Card className="border-primary/20 bg-primary/5">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Zap className="h-5 w-5 animate-pulse text-primary" />
+                        Fixing Missing Weights
+                      </CardTitle>
+                      <CardDescription>
+                        Fetching weight data from Sunsky API
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Progress Bar */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm text-muted-foreground">
+                          <span>Progress</span>
+                          <span>{Math.round(fixWeightsProgress)}%</span>
+                        </div>
+                        <Progress value={fixWeightsProgress} className="h-3" />
+                      </div>
+
+                      {/* Current SKU */}
+                      {fixWeightsStats.currentSku && (
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Currently Processing:</Label>
+                          <div className="text-sm font-mono bg-muted/50 p-2 rounded border">
+                            {fixWeightsStats.currentSku}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Statistics */}
+                      <div className="grid grid-cols-4 gap-3 text-center">
+                        <div className="bg-card p-3 rounded-lg border">
+                          <div className="text-2xl font-bold text-foreground">
+                            {fixWeightsStats.total}
+                          </div>
+                          <div className="text-xs text-muted-foreground">Total</div>
+                        </div>
+                        <div className="bg-card p-3 rounded-lg border">
+                          <div className="text-2xl font-bold text-blue-600">
+                            {fixWeightsStats.processed}
+                          </div>
+                          <div className="text-xs text-muted-foreground">Processed</div>
+                        </div>
+                        <div className="bg-card p-3 rounded-lg border">
+                          <div className="text-2xl font-bold text-green-600">
+                            {fixWeightsStats.updated}
+                          </div>
+                          <div className="text-xs text-muted-foreground">Updated</div>
+                        </div>
+                        <div className="bg-card p-3 rounded-lg border">
+                          <div className="text-2xl font-bold text-red-600">
+                            {fixWeightsStats.failed}
+                          </div>
+                          <div className="text-xs text-muted-foreground">Failed</div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+              
               <CardContent>
                 {skusLoading ? <div className="flex items-center justify-center py-8">
                     <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
