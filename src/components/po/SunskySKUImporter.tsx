@@ -2532,10 +2532,11 @@ export const SunskySKUImporter: React.FC = () => {
                     user_id: profile?.id,
                     sku_code: product.itemNo,
                     title: product.name || '',
-                    cost: product.price ? parseFloat(product.price) : null,
-                    weight: product.weight ? parseFloat(product.weight) : null,
-                    currency: product.currency || 'USD',
-                    country: profile?.country || 'UAE'
+                    cost: product.convertedPrice || (product.price ? parseFloat(product.price) : null),
+                    weight: product.unitWeight ? parseFloat(product.unitWeight) : 0,
+                    currency: product.convertedCurrency || 'USD',
+                    country: profile?.country || 'UAE',
+                    product_data: product
                   }, {
                     onConflict: 'user_id,sku_code'
                   })
