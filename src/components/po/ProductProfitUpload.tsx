@@ -20,10 +20,11 @@ export const ProductProfitUpload: React.FC<ProductProfitUploadProps> = ({ onUplo
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [columnMapping, setColumnMapping] = useState<{
     asin?: string;
-    sku?: string;
-    selling_price?: string;
-    quantity?: string;
+    model_number?: string;
     title?: string;
+    quantity?: string;
+    unit_cost?: string;
+    currency_code?: string;
   }>({});
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -51,10 +52,11 @@ export const ProductProfitUpload: React.FC<ProductProfitUploadProps> = ({ onUplo
       fileHeaders.forEach(header => {
         const lowerHeader = header.toLowerCase();
         if (lowerHeader.includes('asin')) autoMapping.asin = header;
-        if (lowerHeader.includes('sku') && !autoMapping.sku) autoMapping.sku = header;
-        if (lowerHeader.includes('price') || lowerHeader.includes('selling')) autoMapping.selling_price = header;
-        if (lowerHeader.includes('quantity') || lowerHeader.includes('qty')) autoMapping.quantity = header;
-        if (lowerHeader.includes('title') || lowerHeader.includes('name')) autoMapping.title = header;
+        if (lowerHeader.includes('model') || lowerHeader.includes('sku')) autoMapping.model_number = header;
+        if (lowerHeader.includes('title') || lowerHeader.includes('name') || lowerHeader.includes('product')) autoMapping.title = header;
+        if (lowerHeader.includes('qty') || lowerHeader.includes('quantity') || lowerHeader.includes('requested')) autoMapping.quantity = header;
+        if (lowerHeader.includes('cost') || lowerHeader.includes('price') || lowerHeader.includes('unit')) autoMapping.unit_cost = header;
+        if (lowerHeader.includes('currency') || lowerHeader.includes('code')) autoMapping.currency_code = header;
       });
 
       setColumnMapping(autoMapping);
@@ -96,10 +98,10 @@ export const ProductProfitUpload: React.FC<ProductProfitUploadProps> = ({ onUplo
       return;
     }
 
-    if (!columnMapping.selling_price) {
+    if (!columnMapping.unit_cost) {
       toast({
         title: "Missing required mapping",
-        description: "Please map the Selling Price column",
+        description: "Please map the Unit Cost column",
         variant: "destructive"
       });
       return;
@@ -112,161 +114,174 @@ export const ProductProfitUpload: React.FC<ProductProfitUploadProps> = ({ onUplo
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileUp className="h-5 w-5" />
-          Upload Selling Prices
-        </CardTitle>
-        <CardDescription>
-          Upload a CSV/Excel file with ASIN/SKU and selling prices
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Dropzone */}
-        <div
-          {...getRootProps()}
-          className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-            isDragActive
-              ? 'border-primary bg-primary/5'
-              : 'border-border hover:border-primary/50'
-          } ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
-        >
-          <input {...getInputProps()} />
-          <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-          {isDragActive ? (
-            <p className="text-sm">Drop the file here...</p>
-          ) : (
-            <>
-              <p className="text-sm font-medium mb-1">
-                {uploadedFile ? uploadedFile.name : 'Drag & drop file here'}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Supports CSV, XLSX, XLS
-              </p>
-            </>
-          )}
-        </div>
-
-        {/* Column Mapping */}
-        {headers.length > 0 && (
-          <div className="space-y-3 p-4 bg-muted/20 rounded-lg">
-            <h4 className="text-sm font-medium">Map Columns</h4>
-            
-            <div className="space-y-2">
-              <Label htmlFor="asin-col" className="text-xs">ASIN Column</Label>
-              <Select
-                value={columnMapping.asin}
-                onValueChange={(value) => setColumnMapping({ ...columnMapping, asin: value })}
-              >
-                <SelectTrigger id="asin-col" className="h-9">
-                  <SelectValue placeholder="Select ASIN column" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {headers.map(header => (
-                    <SelectItem key={header} value={header}>{header}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="sku-col" className="text-xs">SKU Column</Label>
-              <Select
-                value={columnMapping.sku}
-                onValueChange={(value) => setColumnMapping({ ...columnMapping, sku: value })}
-              >
-                <SelectTrigger id="sku-col" className="h-9">
-                  <SelectValue placeholder="Select SKU column" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {headers.map(header => (
-                    <SelectItem key={header} value={header}>{header}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="price-col" className="text-xs">
-                Selling Price Column <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                value={columnMapping.selling_price}
-                onValueChange={(value) => setColumnMapping({ ...columnMapping, selling_price: value })}
-              >
-                <SelectTrigger id="price-col" className="h-9">
-                  <SelectValue placeholder="Select price column" />
-                </SelectTrigger>
-                <SelectContent>
-                  {headers.map(header => (
-                    <SelectItem key={header} value={header}>{header}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="qty-col" className="text-xs">Quantity Column</Label>
-              <Select
-                value={columnMapping.quantity}
-                onValueChange={(value) => setColumnMapping({ ...columnMapping, quantity: value })}
-              >
-                <SelectTrigger id="qty-col" className="h-9">
-                  <SelectValue placeholder="Select quantity column (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None (default: 1)</SelectItem>
-                  {headers.map(header => (
-                    <SelectItem key={header} value={header}>{header}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="title-col" className="text-xs">Title Column</Label>
-              <Select
-                value={columnMapping.title}
-                onValueChange={(value) => setColumnMapping({ ...columnMapping, title: value })}
-              >
-                <SelectTrigger id="title-col" className="h-9">
-                  <SelectValue placeholder="Select title column (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {headers.map(header => (
-                    <SelectItem key={header} value={header}>{header}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+    <div className="space-y-4">
+      {/* Compact File Upload Bar */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-4">
+            {/* Dropzone - Compact */}
+            <div
+              {...getRootProps()}
+              className={`flex-1 border-2 border-dashed rounded-lg p-4 cursor-pointer transition-colors ${
+                isDragActive
+                  ? 'border-primary bg-primary/5'
+                  : 'border-border hover:border-primary/50'
+              } ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <input {...getInputProps()} />
+              <div className="flex items-center gap-3">
+                <Upload className="h-8 w-8 text-muted-foreground flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium">
+                    {uploadedFile ? uploadedFile.name : 'Drop file or click to upload'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    CSV, XLSX, XLS supported
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
-        )}
+        </CardContent>
+      </Card>
 
-        {/* Preview */}
-        {previewData.length > 0 && (
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription className="text-xs">
-              Preview: {previewData.length} of {previewData.length} rows shown
-            </AlertDescription>
-          </Alert>
-        )}
+      {/* Column Mapping - Horizontal Grid */}
+      {headers.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Column Mapping</CardTitle>
+            <CardDescription className="text-xs">Map your file columns to required fields</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="asin-col" className="text-xs">ASIN</Label>
+                <Select
+                  value={columnMapping.asin}
+                  onValueChange={(value) => setColumnMapping({ ...columnMapping, asin: value })}
+                >
+                  <SelectTrigger id="asin-col" className="h-8 text-xs">
+                    <SelectValue placeholder="Select..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {headers.map(header => (
+                      <SelectItem key={header} value={header}>{header}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-        {/* Process Button */}
-        {headers.length > 0 && (
-          <Button
-            onClick={handleProcess}
-            className="w-full"
-            disabled={!columnMapping.selling_price}
-          >
-            Process & Analyze
-          </Button>
-        )}
-      </CardContent>
-    </Card>
+              <div className="space-y-1.5">
+                <Label htmlFor="model-col" className="text-xs">Model Number</Label>
+                <Select
+                  value={columnMapping.model_number}
+                  onValueChange={(value) => setColumnMapping({ ...columnMapping, model_number: value })}
+                >
+                  <SelectTrigger id="model-col" className="h-8 text-xs">
+                    <SelectValue placeholder="Select..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {headers.map(header => (
+                      <SelectItem key={header} value={header}>{header}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="title-col" className="text-xs">Title</Label>
+                <Select
+                  value={columnMapping.title}
+                  onValueChange={(value) => setColumnMapping({ ...columnMapping, title: value })}
+                >
+                  <SelectTrigger id="title-col" className="h-8 text-xs">
+                    <SelectValue placeholder="Select..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {headers.map(header => (
+                      <SelectItem key={header} value={header}>{header}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="qty-col" className="text-xs">Requested Qty</Label>
+                <Select
+                  value={columnMapping.quantity}
+                  onValueChange={(value) => setColumnMapping({ ...columnMapping, quantity: value })}
+                >
+                  <SelectTrigger id="qty-col" className="h-8 text-xs">
+                    <SelectValue placeholder="Select..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None (default: 1)</SelectItem>
+                    {headers.map(header => (
+                      <SelectItem key={header} value={header}>{header}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="cost-col" className="text-xs">
+                  Unit Cost <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  value={columnMapping.unit_cost}
+                  onValueChange={(value) => setColumnMapping({ ...columnMapping, unit_cost: value })}
+                >
+                  <SelectTrigger id="cost-col" className="h-8 text-xs">
+                    <SelectValue placeholder="Select..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {headers.map(header => (
+                      <SelectItem key={header} value={header}>{header}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="currency-col" className="text-xs">Currency Code</Label>
+                <Select
+                  value={columnMapping.currency_code}
+                  onValueChange={(value) => setColumnMapping({ ...columnMapping, currency_code: value })}
+                >
+                  <SelectTrigger id="currency-col" className="h-8 text-xs">
+                    <SelectValue placeholder="Select..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {headers.map(header => (
+                      <SelectItem key={header} value={header}>{header}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Process Button */}
+            <div className="mt-4 flex items-center justify-between">
+              {previewData.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {previewData.length} rows ready to process
+                </p>
+              )}
+              <Button
+                onClick={handleProcess}
+                disabled={!columnMapping.unit_cost}
+                className="ml-auto"
+              >
+                Process & Analyze
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 };

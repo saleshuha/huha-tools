@@ -10,7 +10,7 @@ import { useCountry } from '@/contexts/CountryContext';
 
 export interface ProductProfitItem {
   asin?: string;
-  sku?: string;
+  model_number?: string;
   title?: string;
   selling_price: number;
   buying_cost?: number;
@@ -23,6 +23,7 @@ export interface ProductProfitItem {
   sunsky_sku_code?: string;
   weight?: number;
   currency?: string;
+  currency_code?: string;
   quantity?: number;
 }
 
@@ -56,10 +57,11 @@ export const ProductProfitAnalyzer: React.FC = () => {
       // Map columns to our structure
       const items: Partial<ProductProfitItem>[] = data.map(row => ({
         asin: columnMapping.asin ? row[columnMapping.asin] : undefined,
-        sku: columnMapping.sku ? row[columnMapping.sku] : undefined,
-        selling_price: parseFloat(row[columnMapping.selling_price]) || 0,
-        quantity: columnMapping.quantity ? parseInt(row[columnMapping.quantity]) || 1 : 1,
+        model_number: columnMapping.model_number ? row[columnMapping.model_number] : undefined,
         title: columnMapping.title ? row[columnMapping.title] : undefined,
+        selling_price: parseFloat(row[columnMapping.unit_cost]) || 0,
+        quantity: columnMapping.quantity ? parseInt(row[columnMapping.quantity]) || 1 : 1,
+        currency_code: columnMapping.currency_code ? row[columnMapping.currency_code] : undefined,
         status: 'unmatched' as const
       }));
 
@@ -96,9 +98,9 @@ export const ProductProfitAnalyzer: React.FC = () => {
 
       // Match items with Sunsky SKUs
       const matchedItems: ProductProfitItem[] = items.map(item => {
-        // Try to match by SKU or ASIN
+        // Try to match by Model Number (primary) or ASIN (fallback)
         const matchedSKU = sunskySKUs?.find(sku => 
-          (item.sku && sku.sku_code?.toLowerCase() === item.sku.toLowerCase()) ||
+          (item.model_number && sku.sku_code?.toLowerCase() === item.model_number.toLowerCase()) ||
           (item.asin && sku.sku_code?.toLowerCase() === item.asin.toLowerCase())
         );
 
@@ -130,10 +132,11 @@ export const ProductProfitAnalyzer: React.FC = () => {
           status: matchedSKU ? 'matched' : 'unmatched',
           sunsky_sku_code: matchedSKU?.sku_code,
           weight,
-          currency: matchedSKU?.currency || settings.currency,
+          currency: matchedSKU?.currency || item.currency_code || settings.currency,
           title: item.title || matchedSKU?.title,
           selling_price: item.selling_price || 0,
-          quantity: item.quantity
+          quantity: item.quantity,
+          model_number: item.model_number
         } as ProductProfitItem;
       });
 
@@ -290,19 +293,18 @@ export const ProductProfitAnalyzer: React.FC = () => {
         </div>
       )}
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Panel: Upload & Settings */}
-        <div className="lg:col-span-1 space-y-4">
+      {/* Upload & Settings - Horizontal Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2">
           <ProductProfitUpload onUpload={handleFileUpload} />
+        </div>
+        <div className="lg:col-span-1">
           <ProductProfitSettings settings={settings} onSettingsChange={setSettings} />
         </div>
-
-        {/* Right Panel: Results Table */}
-        <div className="lg:col-span-2">
-          <ProductProfitTable items={recalculatedItems} settings={settings} />
-        </div>
       </div>
+
+      {/* Results Table - Full Width */}
+      <ProductProfitTable items={recalculatedItems} settings={settings} />
     </div>
   );
 };
