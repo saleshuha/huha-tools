@@ -755,27 +755,44 @@ async function processSunskyExportBackground(supabaseClient: any, userId: string
             if (response?.result === 'success' && response.data?.products) {
               const products = response.data.products
 
-              // Process each product
+              // Process each product - fetch full details to get unitWeight
               for (const product of products) {
                 try {
-                  // Import to database
+                  // Fetch full product details to get unitWeight and complete data
+                  let productToImport = product
+                  
+                  try {
+                    const detailResponse = await callSunskyAPI('getProductDetails', {
+                      itemNo: product.itemNo,
+                      apiId: creds.id
+                    }, creds)
+                    
+                    if (detailResponse?.result === 'success' && detailResponse.data) {
+                      productToImport = detailResponse.data
+                      console.log(`Fetched full details for ${product.itemNo}, unitWeight: ${productToImport.unitWeight}`)
+                    }
+                  } catch (detailError) {
+                    console.warn(`Failed to fetch details for ${product.itemNo}, using search data:`, detailError)
+                  }
+                  
+                  // Import to database with full details
                   await supabaseClient
                     .from('sunsky_skus')
                     .upsert({
                       user_id: userId,
-                      sku_code: product.itemNo,
-                      title: product.name || '',
-                      cost: product.convertedPrice || parseFloat(product.price || '0') || 0,
-                      weight: product.unitWeight ? parseFloat(product.unitWeight) : 0,
-                      currency: product.convertedCurrency || 'USD',
+                      sku_code: productToImport.itemNo,
+                      title: productToImport.name || '',
+                      cost: productToImport.convertedPrice || parseFloat(productToImport.price || '0') || 0,
+                      weight: productToImport.unitWeight ? parseFloat(productToImport.unitWeight) : 0,
+                      currency: productToImport.convertedCurrency || 'USD',
                       country: userCountry,
-                      product_data: product
+                      product_data: productToImport
                     }, {
                       onConflict: 'user_id,sku_code',
                       ignoreDuplicates: false
                     })
 
-                  allProducts.push(product)
+                  allProducts.push(productToImport)
                 } catch (error) {
                   console.error(`Error importing product ${product.itemNo}:`, error)
                 }
