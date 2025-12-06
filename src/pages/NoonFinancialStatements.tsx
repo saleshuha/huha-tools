@@ -1,30 +1,31 @@
 import { useState } from 'react';
 import { HuhaHeader01 } from '@/components/ui/huha-header-01';
 import { FileUploadZone } from '@/components/noon-financial/FileUploadZone';
-import { TransactionTable } from '@/components/noon-financial/TransactionTable';
-import { WeeklySummaryCards } from '@/components/noon-financial/WeeklySummaryCards';
-import { WeeklyBreakdownTable } from '@/components/noon-financial/WeeklyBreakdownTable';
-import { NoonTransaction, WeeklySummary } from '@/types/noonFinancial';
-import { parseNoonStatement, groupTransactionsByWeek } from '@/utils/noonFinancialParser';
-import { BarChart3 } from 'lucide-react';
+import { DateGroupCards } from '@/components/noon-financial/DateGroupCards';
+import { NoonTransaction, DailySummary } from '@/types/noonFinancial';
+import { parseNoonStatement, groupTransactionsByDate } from '@/utils/noonFinancialParser';
+import { BarChart3, ChevronDown, Upload } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Button } from '@/components/ui/button';
 
 export default function NoonFinancialStatements() {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [transactions, setTransactions] = useState<NoonTransaction[]>([]);
-  const [weeklySummaries, setWeeklySummaries] = useState<WeeklySummary[]>([]);
+  const [dailySummaries, setDailySummaries] = useState<DailySummary[]>([]);
+  const [isUploadOpen, setIsUploadOpen] = useState(true);
 
   const handleFileUpload = (file: File, data: Record<string, any>[], headers: string[]) => {
-    // Parse the CSV data into NoonTransaction objects
     const parsedTransactions = parseNoonStatement(data);
     
-    // Append to existing transactions
-    setTransactions(prev => [...prev, ...parsedTransactions]);
+    const allTransactions = [...transactions, ...parsedTransactions];
+    setTransactions(allTransactions);
     setUploadedFiles(prev => [...prev, file]);
 
-    // Group transactions by week
-    const allTransactions = [...transactions, ...parsedTransactions];
-    const weeklyData = groupTransactionsByWeek(allTransactions);
-    setWeeklySummaries(weeklyData);
+    const dailyData = groupTransactionsByDate(allTransactions);
+    setDailySummaries(dailyData);
+    
+    // Collapse upload zone after successful upload
+    setIsUploadOpen(false);
   };
 
   const hasData = transactions.length > 0;
@@ -37,14 +38,23 @@ export default function NoonFinancialStatements() {
         subtitle="Upload and analyze your weekly Noon financial statements"
       />
 
-      <FileUploadZone onFileUpload={handleFileUpload} />
+      <Collapsible open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+        <CollapsibleTrigger asChild>
+          <Button variant="outline" className="w-full flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <Upload className="h-4 w-4" />
+              {hasData ? 'Upload More Files' : 'Upload Statement Files'}
+            </span>
+            <ChevronDown className={`h-4 w-4 transition-transform ${isUploadOpen ? 'rotate-180' : ''}`} />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-4">
+          <FileUploadZone onFileUpload={handleFileUpload} />
+        </CollapsibleContent>
+      </Collapsible>
 
       {hasData && (
-        <>
-          <WeeklySummaryCards summaries={weeklySummaries} />
-          <WeeklyBreakdownTable summaries={weeklySummaries} />
-          <TransactionTable transactions={transactions} />
-        </>
+        <DateGroupCards dailySummaries={dailySummaries} />
       )}
     </div>
   );

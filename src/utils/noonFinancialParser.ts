@@ -110,3 +110,37 @@ export function groupTransactionsByWeek(transactions: NoonTransaction[]): Weekly
   // Sort by date (most recent first)
   return summaries.sort((a, b) => b.weekEndDate.getTime() - a.weekEndDate.getTime());
 }
+
+export function groupTransactionsByDate(transactions: NoonTransaction[]): import('@/types/noonFinancial').DailySummary[] {
+  const dateMap = new Map<string, { date: Date; entries: import('@/types/noonFinancial').DailyEntry[]; total: number }>();
+
+  transactions.forEach(transaction => {
+    const dateKey = transaction.date.toISOString().split('T')[0];
+    
+    if (!dateMap.has(dateKey)) {
+      dateMap.set(dateKey, { date: transaction.date, entries: [], total: 0 });
+    }
+    
+    const dayData = dateMap.get(dateKey)!;
+    dayData.entries.push({
+      reference: transaction.reference,
+      amount: transaction.amount,
+      type: transaction.transaction,
+      detailsEN: transaction.detailsEN,
+    });
+    dayData.total += transaction.amount;
+  });
+
+  const summaries: import('@/types/noonFinancial').DailySummary[] = [];
+  
+  dateMap.forEach((data) => {
+    summaries.push({
+      date: data.date,
+      entries: data.entries,
+      totalAmount: data.total,
+    });
+  });
+
+  // Sort by date (newest first)
+  return summaries.sort((a, b) => b.date.getTime() - a.date.getTime());
+}
