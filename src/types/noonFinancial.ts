@@ -20,3 +20,16 @@ export interface WeeklySummary {
   transactions: NoonTransaction[];
   feeBreakdown: Record<string, number>;
 }
+
+export interface DailyEntry {
+  reference: string;
+  amount: number;
+  type: string;
+  detailsEN: string;
+}
+
+export interface DailySummary {
+  date: Date;
+  entries: DailyEntry[];
+  totalAmount: number;
+}
