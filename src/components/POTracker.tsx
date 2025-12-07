@@ -910,6 +910,9 @@ export const POTracker = () => {
           </div>
       });
 
+      // Immediately invalidate cache to trigger refresh
+      queryClient.invalidateQueries({ queryKey: ['po-orders'] });
+
       // Close dialog immediately
       setFulfillDialogOpen(false);
 
@@ -941,10 +944,11 @@ export const POTracker = () => {
           }
         }).subscribe();
       } else {
-        // Fallback: refresh after a delay if no taskId
+        // Fallback: refresh after a short delay if no taskId
         setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ['po-orders'] });
           fetchPOOrders(true);
-        }, 3000);
+        }, 1000);
       }
     } catch (error: any) {
       console.error('Error starting fulfillment:', error);
@@ -6592,7 +6596,19 @@ export const POTracker = () => {
       <POPrintDialog open={printDialogOpen} onOpenChange={setPrintDialogOpen} orders={printOrders} mode={printMode} title={printMode === 'single' ? 'Print Item' : 'Print Purchase Order Items'} />
       
       {/* Fulfill from Stock Dialog */}
-      <FulfillFromStockDialog open={fulfillDialogOpen} onOpenChange={setFulfillDialogOpen} orderInfo={fulfillDialogOrder} onConfirm={handleFulfillFromStock} isLoading={isFulfilling} />
+      <FulfillFromStockDialog 
+        open={fulfillDialogOpen} 
+        onOpenChange={(open) => {
+          setFulfillDialogOpen(open);
+          // When dialog closes, invalidate cache to ensure fresh data
+          if (!open) {
+            queryClient.invalidateQueries({ queryKey: ['po-orders'] });
+          }
+        }} 
+        orderInfo={fulfillDialogOrder} 
+        onConfirm={handleFulfillFromStock} 
+        isLoading={isFulfilling} 
+      />
       
       {/* Generate Purchase Link Dialog */}
       <GeneratePurchaseLinkDialog open={generateLinkDialogOpen} onOpenChange={setGenerateLinkDialogOpen} poNumbers={Array.from(selectedPOsForLabels)} />
