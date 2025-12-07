@@ -60,7 +60,7 @@ export function FulfillFromStockDialog({
           .select('quantity')
           .eq('asin', orderInfo.asin)
           .eq('user_id', user.id)
-          .eq('status', 'in-stock')
+          .gt('quantity', 0)
           .maybeSingle();
 
         if (!error && data) {
