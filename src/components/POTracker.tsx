@@ -84,6 +84,8 @@ export interface POOrder {
   _isConsolidated?: boolean;
   _consolidatedOrders?: POOrder[];
   _partiallyPrinted?: boolean;
+  _totalFulfilledFromStock?: number;
+  _fulfilledOrderCount?: number;
   // Workspace-specific local properties (not saved to DB)
   _localFromStock?: boolean;
   _localStockQuantity?: number;
@@ -5526,6 +5528,19 @@ export const POTracker = () => {
                           const allPrinted = group.every(order => order.is_printed === true);
                           const anyPrinted = group.some(order => order.is_printed === true);
 
+                          // Calculate fulfillment from underlying orders
+                          const fulfilledOrders = group.filter(o => o.notes?.includes('Fulfilled from stock:'));
+                          const totalFulfilledQty = group.reduce((sum, o) => {
+                            const match = o.notes?.match(/Fulfilled from stock:\s*(\d+)/);
+                            return sum + (match ? parseInt(match[1]) : 0);
+                          }, 0);
+
+                          // Build consolidated notes with fulfillment info
+                          let consolidatedNotes = `Consolidated from ${poNumbers.length} PO(s): ${poNumbers.join(', ')}`;
+                          if (totalFulfilledQty > 0) {
+                            consolidatedNotes += ` | Fulfilled from stock: ${totalFulfilledQty}`;
+                          }
+
                           // Return consolidated order
                           return {
                             ...baseOrder,
@@ -5535,10 +5550,12 @@ export const POTracker = () => {
                             is_printed: allPrinted,
                             _partiallyPrinted: anyPrinted && !allPrinted,
                             ship_to_location: shipToLocations.length > 1 ? `Multiple (${shipToLocations.length})` : shipToLocations[0] || baseOrder.ship_to_location,
-                            notes: `Consolidated from ${poNumbers.length} PO(s): ${poNumbers.join(', ')}`,
+                            notes: consolidatedNotes,
                             // Store original orders for reference
                             _consolidatedOrders: group,
-                            _isConsolidated: true
+                            _isConsolidated: true,
+                            _totalFulfilledFromStock: totalFulfilledQty,
+                            _fulfilledOrderCount: fulfilledOrders.length
                           };
                         });
 
