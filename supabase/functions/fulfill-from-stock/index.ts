@@ -173,12 +173,14 @@ async function processFulfillment(
     let inventoryItem = null;
 
     if (asin) {
+      // Use quantity-based filtering instead of status-based filtering
+      // This ensures items with stock are found even if status field is out of sync
       const result = await supabaseClient
         .from('asin_inventory')
         .select('id, quantity, asin, sku, serial_number, status')
         .eq('asin', asin)
         .eq('user_id', userId)
-        .eq('status', 'in-stock')
+        .gt('quantity', 0)  // quantity-based check instead of .eq('status', 'in-stock')
         .maybeSingle();
 
       inventoryItem = result.data;
@@ -216,11 +218,12 @@ async function processFulfillment(
     if (updateError) throw updateError;
     console.log('✅ PO status updated to closed');
 
-    // Step 4: Update inventory quantity
+    // Step 4: Update inventory quantity and sync status
     const { error: invUpdateError } = await supabaseClient
       .from('asin_inventory')
       .update({
         quantity: newQuantity,
+        status: newQuantity > 0 ? 'in-stock' : 'out-of-stock',  // Sync status with quantity
         updated_at: new Date().toISOString(),
       })
       .eq('id', inventoryItem.id);
