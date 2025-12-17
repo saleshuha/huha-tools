@@ -73,6 +73,7 @@ export type Database = {
       }
       asin_inventory: {
         Row: {
+          additional_serial_numbers: string[] | null
           asin: string
           country: string
           created_at: string
@@ -100,6 +101,7 @@ export type Database = {
           velocity_order_ref: string | null
         }
         Insert: {
+          additional_serial_numbers?: string[] | null
           asin: string
           country?: string
           created_at?: string
@@ -127,6 +129,7 @@ export type Database = {
           velocity_order_ref?: string | null
         }
         Update: {
+          additional_serial_numbers?: string[] | null
           asin?: string
           country?: string
           created_at?: string
@@ -5581,6 +5584,16 @@ export type Database = {
       }
       get_items_needing_restock:
         | {
+            Args: never
+            Returns: {
+              current_quantity: number
+              days_since_last_restock: number
+              identifier: string
+              item_id: string
+              table_name: string
+            }[]
+          }
+        | {
             Args: { country_filter?: string }
             Returns: {
               current_quantity: number
@@ -5588,16 +5601,6 @@ export type Database = {
               identifier: string
               item_id: string
               status: string
-              table_name: string
-            }[]
-          }
-        | {
-            Args: never
-            Returns: {
-              current_quantity: number
-              days_since_last_restock: number
-              identifier: string
-              item_id: string
               table_name: string
             }[]
           }

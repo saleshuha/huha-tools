@@ -146,6 +146,7 @@ export function useAsinInventoryPaginated(
       id: item.id,
       asin: item.asin,
       serialNumber: item.serial_number,
+      additionalSerialNumbers: item.additional_serial_numbers || [],
       sku: item.sku || undefined,
       title: item.title || undefined,
       status: item.status,
@@ -319,6 +320,14 @@ export function useAsinInventoryPaginated(
     },
     getNextAvailableSerial: baseHook.getNextAvailableSerial,
     getNextSerialsBatch: baseHook.getNextSerialsBatch,
+    addAdditionalSerial: async (id: string, serial: string) => {
+      await baseHook.addAdditionalSerial(id, serial);
+      invalidateCache();
+    },
+    removeAdditionalSerial: async (id: string, serial: string) => {
+      await baseHook.removeAdditionalSerial(id, serial);
+      invalidateCache();
+    },
   }), [baseHook, invalidateCache]);
 
   return {
