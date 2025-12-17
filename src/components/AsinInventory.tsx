@@ -37,6 +37,7 @@ import { FetchTitlesPreviewDialog } from './FetchTitlesPreviewDialog';
 import { SimpleWarehouseManager } from './SimpleWarehouseManager';
 import { DisableItemsDialog } from './DisableItemsDialog';
 import { EnableItemDialog } from './EnableItemDialog';
+import { PrintQuantityDialog } from './PrintQuantityDialog';
 
 import { useWarehouseManager } from '@/hooks/useWarehouseManager';
 import { useBackgroundTasks } from '@/contexts/BackgroundTasksContext';
@@ -240,6 +241,10 @@ export function AsinInventory() {
   const [isDisableDialogOpen, setIsDisableDialogOpen] = useState(false);
   const [itemToEnable, setItemToEnable] = useState<AsinInventoryItem | null>(null);
   const [isEnableDialogOpen, setIsEnableDialogOpen] = useState(false);
+  
+  // Print quantity dialog state
+  const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
+  const [itemToPrint, setItemToPrint] = useState<AsinInventoryItem | null>(null);
   
   // Export mode settings - stored in database for persistence across devices
   const [exportModes, setExportModes] = useState<Record<string, 'global' | 'local'>>({});
@@ -952,8 +957,32 @@ export function AsinInventory() {
     };
   };
 
-  // Print single item
-  const handlePrintItem = async (item: AsinInventoryItem) => {
+  // Open print dialog for an item
+  const openPrintDialog = (item: AsinInventoryItem) => {
+    if (!qzConnected) {
+      toast({
+        title: "QZ Tray Not Connected",
+        description: "Please connect QZ Tray from the status indicator in the header first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!selectedTemplate) {
+      toast({
+        title: "No Template Selected",
+        description: "Please select a label template first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setItemToPrint(item);
+    setIsPrintDialogOpen(true);
+  };
+
+  // Print single item with specified quantity
+  const handlePrintItem = async (item: AsinInventoryItem, quantity: number = 1) => {
     if (!qzConnected) {
       toast({
         title: "QZ Tray Not Connected",
@@ -1017,18 +1046,20 @@ export function AsinInventory() {
       console.log('Printing with data:', {
         headers: dataset.headers,
         dataRow: dataset.data[0],
-        elements: labelDoc.elements.map(el => ({ type: el.type, dataColumn: el.dataColumn, text: el.text }))
+        elements: labelDoc.elements.map(el => ({ type: el.type, dataColumn: el.dataColumn, text: el.text })),
+        copies: quantity
       });
 
-      // Generate ZPL using PrintService
-      const zplCode = PrintService.generateZPL(labelDoc, dataset, getPrintSettings());
+      // Generate ZPL using PrintService with quantity
+      const printSettingsWithQty = { ...getPrintSettings(), copies: quantity };
+      const zplCode = PrintService.generateZPL(labelDoc, dataset, printSettingsWithQty);
 
       // Print using QZ Tray
       await qzConnectionManager.print(zplCode, selectedPrinter);
 
       toast({
-        title: "Label Printed",
-        description: `Printed label for ${item.asin}`,
+        title: "Labels Printed",
+        description: `Printed ${quantity} label${quantity > 1 ? 's' : ''} for ${item.asin}`,
       });
     } catch (error) {
       console.error('Error printing item:', error);
@@ -2040,7 +2071,7 @@ export function AsinInventory() {
                                 variant="outline" 
                                 size="sm" 
                                 className="w-8 h-8 p-0" 
-                                onClick={() => handlePrintItem(item)} 
+                                onClick={() => openPrintDialog(item)} 
                                 title="Print Label"
                                 disabled={!qzConnected || !selectedTemplate}
                               >
@@ -2391,5 +2422,18 @@ export function AsinInventory() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Print Quantity Dialog */}
+        <PrintQuantityDialog
+          open={isPrintDialogOpen}
+          onOpenChange={setIsPrintDialogOpen}
+          itemName={itemToPrint?.asin || ''}
+          defaultQuantity={1}
+          onConfirm={(quantity) => {
+            if (itemToPrint) {
+              handlePrintItem(itemToPrint, quantity);
+            }
+          }}
+        />
     </div>;
 }
