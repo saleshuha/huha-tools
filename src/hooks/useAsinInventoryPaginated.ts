@@ -73,10 +73,13 @@ export function useAsinInventoryPaginated(
         query = query.or(skuFilters);
       } else if (filters.searchMethod === 'serial') {
         // Search by Serial Number (including additional serial numbers)
-        const serialFilters = searchTerms.map(term => 
-          `serial_number.ilike.%${term}%,additional_serial_numbers::text.ilike.%${term}%`
-        ).join(',');
-        query = query.or(serialFilters);
+        // NOTE: PostgREST does not support casting (e.g. ::text) inside filters.
+        // For text[] columns we use `cs` (contains) for exact matches.
+        const serialConditions = searchTerms.flatMap((term) => [
+          `serial_number.ilike.%${term}%`,
+          `additional_serial_numbers.cs.{${term}}`,
+        ]);
+        query = query.or(serialConditions.join(','));
       } else if (filters.searchMethod === 'title') {
         // Search by Title
         searchTerms.forEach(term => {
@@ -88,10 +91,15 @@ export function useAsinInventoryPaginated(
         query = query.or(notesFilters);
       } else {
         // Search all fields (method === 'all') - including additional serial numbers
-        const orFilters = searchTerms.map(term => {
-          return `asin.ilike.%${term}%,serial_number.ilike.%${term}%,additional_serial_numbers::text.ilike.%${term}%,sku.ilike.%${term}%,title.ilike.%${term}%,notes.ilike.%${term}%`;
-        }).join(',');
-        query = query.or(orFilters);
+        const allConditions = searchTerms.flatMap((term) => [
+          `asin.ilike.%${term}%`,
+          `serial_number.ilike.%${term}%`,
+          `additional_serial_numbers.cs.{${term}}`,
+          `sku.ilike.%${term}%`,
+          `title.ilike.%${term}%`,
+          `notes.ilike.%${term}%`,
+        ]);
+        query = query.or(allConditions.join(','));
       }
     }
 
