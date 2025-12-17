@@ -8,6 +8,7 @@ export interface AsinInventoryItem {
   id: string;
   asin: string;
   serialNumber: string;
+  additionalSerialNumbers?: string[];
   sku?: string;
   title?: string;
   status: 'in-stock' | 'sold' | 'reserved' | 'damaged' | 'ordered' | 'no-stock' | 'out-of-stock';
@@ -88,6 +89,7 @@ export function useAsinInventory() {
         id: item.id,
         asin: item.asin,
         serialNumber: item.serial_number,
+        additionalSerialNumbers: item.additional_serial_numbers || [],
         sku: item.sku || undefined,
         title: item.title || undefined,
         status: item.status,
@@ -1106,6 +1108,99 @@ export function useAsinInventory() {
     await loadInventory();
   };
 
+  // Add additional serial number to an item
+  const addAdditionalSerial = async (id: string, serial: string) => {
+    if (!profile) return;
+
+    const trimmedSerial = serial.trim();
+    if (!trimmedSerial) return;
+
+    try {
+      // Get current item
+      const item = inventory.find(i => i.id === id);
+      if (!item) throw new Error('Item not found');
+
+      // Check for duplicates across all serials
+      const allSerials = inventory.flatMap(i => [i.serialNumber, ...(i.additionalSerialNumbers || [])]);
+      if (allSerials.includes(trimmedSerial)) {
+        toast({
+          title: "Duplicate Serial",
+          description: `Serial number ${trimmedSerial} already exists`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const currentAdditional = item.additionalSerialNumbers || [];
+      const newAdditional = [...currentAdditional, trimmedSerial];
+
+      const { error } = await supabase
+        .from('asin_inventory')
+        .update({ additional_serial_numbers: newAdditional })
+        .eq('id', id)
+        .eq('user_id', profile.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setInventory(prev => prev.map(i => 
+        i.id === id ? { ...i, additionalSerialNumbers: newAdditional } : i
+      ));
+
+      toast({
+        title: "Serial Added",
+        description: `Added serial number ${trimmedSerial}`,
+      });
+    } catch (error) {
+      console.error('Error adding additional serial:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add serial number",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
+  // Remove additional serial number from an item
+  const removeAdditionalSerial = async (id: string, serial: string) => {
+    if (!profile) return;
+
+    try {
+      const item = inventory.find(i => i.id === id);
+      if (!item) throw new Error('Item not found');
+
+      const currentAdditional = item.additionalSerialNumbers || [];
+      const newAdditional = currentAdditional.filter(s => s !== serial);
+
+      const { error } = await supabase
+        .from('asin_inventory')
+        .update({ additional_serial_numbers: newAdditional })
+        .eq('id', id)
+        .eq('user_id', profile.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setInventory(prev => prev.map(i => 
+        i.id === id ? { ...i, additionalSerialNumbers: newAdditional } : i
+      ));
+
+      toast({
+        title: "Serial Removed",
+        description: `Removed serial number ${serial}`,
+      });
+    } catch (error) {
+      console.error('Error removing additional serial:', error);
+      toast({
+        title: "Error",
+        description: "Failed to remove serial number",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
   return {
     inventory,
     loading,
@@ -1129,5 +1224,7 @@ export function useAsinInventory() {
     refetch,
     getNextAvailableSerial,
     getNextSerialsBatch,
+    addAdditionalSerial,
+    removeAdditionalSerial,
   };
 }

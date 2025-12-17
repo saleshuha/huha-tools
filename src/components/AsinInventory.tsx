@@ -27,7 +27,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { DualQuantityEditor } from './DualQuantityEditor';
 import { StockHistoryDialog, EnhancedStockHistoryDialog } from './StockHistoryDialog';
 import { SkuEditor } from './SkuEditor';
-import { SerialNumberEditor } from './SerialNumberEditor';
+import { MultiSerialNumberEditor } from './MultiSerialNumberEditor';
 import { TitleEditor } from './TitleEditor';
 import { InventoryMetrics } from './InventoryMetrics';
 import { InventoryDashboard } from './InventoryDashboard';
@@ -108,7 +108,9 @@ export function AsinInventory() {
     fetchTitlesFromSunsky,
     toggleItemActive,
     refetch,
-    getNextSerialsBatch
+    getNextSerialsBatch,
+    addAdditionalSerial,
+    removeAdditionalSerial
   } = useAsinInventoryPaginated(currentPage, itemsPerPage, {
     searchTerm: debouncedSearchTerm,
     searchMethod,
@@ -1873,12 +1875,15 @@ export function AsinInventory() {
                           </td>
                           <td className="p-3 font-mono text-sm border-r align-middle">
                             <div className="flex items-center justify-center">
-                              <SerialNumberEditor 
-                                currentSerialNumber={item.serialNumber} 
-                                onUpdate={newSerialNumber => updateSerialNumber(item.id, newSerialNumber)}
-                                onDelete={() => handleDeleteSerial(item.id)}
-                                onViewDuplicates={() => handleViewDuplicates(item.serialNumber)}
+                              <MultiSerialNumberEditor 
+                                currentSerialNumber={item.serialNumber}
+                                additionalSerialNumbers={item.additionalSerialNumbers}
+                                onUpdatePrimary={newSerialNumber => updateSerialNumber(item.id, newSerialNumber)}
+                                onDeletePrimary={() => handleDeleteSerial(item.id)}
+                                onAddAdditional={(serial) => addAdditionalSerial(item.id, serial)}
+                                onRemoveAdditional={(serial) => removeAdditionalSerial(item.id, serial)}
                                 hasDuplicates={hasDuplicateSerial(item.serialNumber)}
+                                onViewDuplicates={() => handleViewDuplicates(item.serialNumber)}
                                 getNextSerial={fullInventoryLoading ? undefined : getNextSerialNumber}
                               />
                             </div>
@@ -2104,12 +2109,15 @@ export function AsinInventory() {
                     </div>
                       <div>
                         <Label className="text-xs text-muted-foreground">Serial Number</Label>
-                        <SerialNumberEditor 
-                          currentSerialNumber={item.serialNumber} 
-                          onUpdate={newSerialNumber => updateSerialNumber(item.id, newSerialNumber)}
-                          onDelete={() => handleDeleteSerial(item.id)}
-                          onViewDuplicates={() => handleViewDuplicates(item.serialNumber)}
+                        <MultiSerialNumberEditor 
+                          currentSerialNumber={item.serialNumber}
+                          additionalSerialNumbers={item.additionalSerialNumbers}
+                          onUpdatePrimary={newSerialNumber => updateSerialNumber(item.id, newSerialNumber)}
+                          onDeletePrimary={() => handleDeleteSerial(item.id)}
+                          onAddAdditional={(serial) => addAdditionalSerial(item.id, serial)}
+                          onRemoveAdditional={(serial) => removeAdditionalSerial(item.id, serial)}
                           hasDuplicates={hasDuplicateSerial(item.serialNumber)}
+                          onViewDuplicates={() => handleViewDuplicates(item.serialNumber)}
                           getNextSerial={fullInventoryLoading ? undefined : getNextSerialNumber}
                         />
                       </div>
