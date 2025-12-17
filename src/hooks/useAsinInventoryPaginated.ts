@@ -72,8 +72,10 @@ export function useAsinInventoryPaginated(
         const skuFilters = searchTerms.map(term => `sku.ilike.%${term}%`).join(',');
         query = query.or(skuFilters);
       } else if (filters.searchMethod === 'serial') {
-        // Search by Serial Number
-        const serialFilters = searchTerms.map(term => `serial_number.ilike.%${term}%`).join(',');
+        // Search by Serial Number (including additional serial numbers)
+        const serialFilters = searchTerms.map(term => 
+          `serial_number.ilike.%${term}%,additional_serial_numbers::text.ilike.%${term}%`
+        ).join(',');
         query = query.or(serialFilters);
       } else if (filters.searchMethod === 'title') {
         // Search by Title
@@ -85,9 +87,9 @@ export function useAsinInventoryPaginated(
         const notesFilters = searchTerms.map(term => `notes.ilike.%${term}%`).join(',');
         query = query.or(notesFilters);
       } else {
-        // Search all fields (method === 'all')
+        // Search all fields (method === 'all') - including additional serial numbers
         const orFilters = searchTerms.map(term => {
-          return `asin.ilike.%${term}%,serial_number.ilike.%${term}%,sku.ilike.%${term}%,title.ilike.%${term}%,notes.ilike.%${term}%`;
+          return `asin.ilike.%${term}%,serial_number.ilike.%${term}%,additional_serial_numbers::text.ilike.%${term}%,sku.ilike.%${term}%,title.ilike.%${term}%,notes.ilike.%${term}%`;
         }).join(',');
         query = query.or(orFilters);
       }

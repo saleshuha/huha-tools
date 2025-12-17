@@ -1,30 +1,42 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Printer, Minus, Plus } from 'lucide-react';
 
 interface PrintQuantityDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   itemName: string;
+  serialNumbers: string[];
   defaultQuantity?: number;
-  onConfirm: (quantity: number) => void;
+  onConfirm: (quantity: number, selectedSerial: string) => void;
 }
 
 export function PrintQuantityDialog({
   open,
   onOpenChange,
   itemName,
+  serialNumbers,
   defaultQuantity = 1,
   onConfirm
 }: PrintQuantityDialogProps) {
   const [quantity, setQuantity] = useState(defaultQuantity);
+  const [selectedSerial, setSelectedSerial] = useState(serialNumbers[0] || '');
+
+  // Reset state when dialog opens with new item
+  useEffect(() => {
+    if (open) {
+      setQuantity(defaultQuantity);
+      setSelectedSerial(serialNumbers[0] || '');
+    }
+  }, [open, serialNumbers, defaultQuantity]);
 
   const handleConfirm = () => {
-    if (quantity > 0) {
-      onConfirm(quantity);
+    if (quantity > 0 && selectedSerial) {
+      onConfirm(quantity, selectedSerial);
       onOpenChange(false);
     }
   };
@@ -34,7 +46,7 @@ export function PrintQuantityDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[350px]">
+      <DialogContent className="sm:max-w-[380px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Printer className="w-5 h-5" />
@@ -45,6 +57,23 @@ export function PrintQuantityDialog({
         <div className="space-y-4 py-4">
           <div className="text-sm text-muted-foreground">
             Printing label for: <span className="font-mono font-medium text-foreground">{itemName}</span>
+          </div>
+
+          {/* Serial Number Selector */}
+          <div className="space-y-2">
+            <Label htmlFor="serialSelect">Serial Number to Print</Label>
+            <Select value={selectedSerial} onValueChange={setSelectedSerial}>
+              <SelectTrigger id="serialSelect">
+                <SelectValue placeholder="Select serial number" />
+              </SelectTrigger>
+              <SelectContent>
+                {serialNumbers.map((serial, index) => (
+                  <SelectItem key={serial} value={serial}>
+                    {serial} {index === 0 ? '(primary)' : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           
           <div className="space-y-2">
@@ -90,7 +119,7 @@ export function PrintQuantityDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleConfirm} disabled={quantity < 1}>
+          <Button onClick={handleConfirm} disabled={quantity < 1 || !selectedSerial}>
             <Printer className="w-4 h-4 mr-2" />
             Print {quantity} Label{quantity > 1 ? 's' : ''}
           </Button>
