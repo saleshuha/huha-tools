@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Check, X, Edit2, Hash, Loader2, Trash2, Plus, ChevronDown, ChevronUp } from 'lucide-react';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Check, X, Edit2, Hash, Loader2, Trash2, Plus } from 'lucide-react';
 
 interface MultiSerialNumberEditorProps {
   currentSerialNumber: string;
@@ -32,10 +31,7 @@ export function MultiSerialNumberEditor({
   const [isLoadingSerial, setIsLoadingSerial] = useState(false);
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newSerialValue, setNewSerialValue] = useState('');
-  const [isExpanded, setIsExpanded] = useState(false);
   const [removingSerial, setRemovingSerial] = useState<string | null>(null);
-
-  const totalSerials = 1 + additionalSerialNumbers.length;
 
   const handleSavePrimary = () => {
     const trimmedValue = primaryValue.trim();
@@ -146,114 +142,101 @@ export function MultiSerialNumberEditor({
 
   return (
     <div className="min-w-[120px]">
-      <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-        {/* Primary serial row */}
-        <div className="flex items-center gap-1 group">
-          <span className={`font-mono text-sm flex-1 ${hasDuplicates ? 'text-destructive font-semibold' : ''}`}>
-            {currentSerialNumber || '-'}
+      {/* Primary serial row */}
+      <div className="flex items-center gap-1 group">
+        <span
+          className={`font-mono text-sm flex-1 ${hasDuplicates ? 'text-destructive font-semibold' : ''}`}
+        >
+          {currentSerialNumber || '-'}
+        </span>
+
+        {/* Badge showing additional count */}
+        {additionalSerialNumbers.length > 0 && (
+          <span className="text-xs font-medium text-muted-foreground">
+            (+{additionalSerialNumbers.length})
           </span>
-          
-          {/* Badge showing total count */}
-          {additionalSerialNumbers.length > 0 && (
-            <CollapsibleTrigger asChild>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-5 px-1.5 text-xs font-medium"
-              >
-                +{additionalSerialNumbers.length}
-                {isExpanded ? (
-                  <ChevronUp className="w-3 h-3 ml-0.5" />
-                ) : (
-                  <ChevronDown className="w-3 h-3 ml-0.5" />
-                )}
-              </Button>
-            </CollapsibleTrigger>
-          )}
-          
-          {/* Auto-assign for empty primary */}
-          {getNextSerial && !currentSerialNumber && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleAutoSerial}
-              disabled={isLoadingSerial}
-              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-              title="Auto-assign serial number"
-            >
-              {isLoadingSerial ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
-              ) : (
-                <Hash className="w-3 h-3" />
-              )}
-            </Button>
-          )}
-          
-          {/* Edit primary */}
+        )}
+
+        {/* Auto-assign for empty primary */}
+        {getNextSerial && !currentSerialNumber && (
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => setIsEditingPrimary(true)}
+            onClick={handleAutoSerial}
+            disabled={isLoadingSerial}
             className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-            title="Edit serial number"
+            title="Auto-assign serial number"
           >
-            <Edit2 className="w-3 h-3" />
+            {isLoadingSerial ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <Hash className="w-3 h-3" />
+            )}
           </Button>
-          
-          {/* Add additional serial */}
-          {currentSerialNumber && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setIsAddingNew(true)}
-              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-              title="Add additional serial number"
-            >
-              <Plus className="w-3 h-3" />
-            </Button>
-          )}
-          
-          {/* Delete primary */}
-          {currentSerialNumber && onDeletePrimary && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={onDeletePrimary}
-              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
-              title="Delete serial number"
-            >
-              <Trash2 className="w-3 h-3" />
-            </Button>
-          )}
-        </div>
+        )}
 
-        {/* Additional serials list */}
-        <CollapsibleContent>
-          <div className="mt-1 pl-2 border-l-2 border-muted space-y-1">
-            {additionalSerialNumbers.map((serial, index) => (
-              <div key={serial} className="flex items-center gap-1 group/item">
-                <span className="font-mono text-xs text-muted-foreground flex-1">
-                  {serial}
-                </span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => handleRemoveAdditional(serial)}
-                  disabled={removingSerial === serial}
-                  className="h-5 w-5 p-0 opacity-0 group-hover/item:opacity-100 transition-opacity text-destructive hover:text-destructive"
-                  title="Remove this serial"
-                >
-                  {removingSerial === serial ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : (
-                    <Trash2 className="w-3 h-3" />
-                  )}
-                </Button>
-              </div>
-            ))}
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
+        {/* Edit primary */}
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => setIsEditingPrimary(true)}
+          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+          title="Edit serial number"
+        >
+          <Edit2 className="w-3 h-3" />
+        </Button>
+
+        {/* Add additional serial */}
+        {currentSerialNumber && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setIsAddingNew(true)}
+            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+            title="Add additional serial number"
+          >
+            <Plus className="w-3 h-3" />
+          </Button>
+        )}
+
+        {/* Delete primary */}
+        {currentSerialNumber && onDeletePrimary && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onDeletePrimary}
+            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+            title="Delete serial number"
+          >
+            <Trash2 className="w-3 h-3" />
+          </Button>
+        )}
+      </div>
+
+      {/* Additional serials list (always visible) */}
+      {additionalSerialNumbers.length > 0 && (
+        <div className="mt-1 pl-2 border-l-2 border-muted space-y-1">
+          {additionalSerialNumbers.map((serial) => (
+            <div key={serial} className="flex items-center gap-1 group/item">
+              <span className="font-mono text-xs text-muted-foreground flex-1">{serial}</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => handleRemoveAdditional(serial)}
+                disabled={removingSerial === serial}
+                className="h-5 w-5 p-0 opacity-0 group-hover/item:opacity-100 transition-opacity text-destructive hover:text-destructive"
+                title="Remove this serial"
+              >
+                {removingSerial === serial ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Trash2 className="w-3 h-3" />
+                )}
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Add new serial form */}
       {isAddingNew && (
