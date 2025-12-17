@@ -936,8 +936,8 @@ export function AsinInventory() {
     }
   };
 
-  // Create dataset from inventory items
-  const createDatasetFromItems = (items: AsinInventoryItem[]): LabelDataset => {
+  // Create dataset from inventory items with optional serial number override
+  const createDatasetFromItems = (items: AsinInventoryItem[], overrideSerial?: string): LabelDataset => {
     return {
       id: 'inventory-data',
       name: 'Inventory Data',
@@ -947,7 +947,7 @@ export function AsinInventory() {
         item.asin,
         item.sku || 'No SKU',
         item.title || `Product ${item.asin}`,
-        item.serialNumber || '',
+        overrideSerial || item.serialNumber || '',
         item.quantity.toString(),
         item.status
       ]),
@@ -981,8 +981,8 @@ export function AsinInventory() {
     setIsPrintDialogOpen(true);
   };
 
-  // Print single item with specified quantity
-  const handlePrintItem = async (item: AsinInventoryItem, quantity: number = 1) => {
+  // Print single item with specified quantity and serial number
+  const handlePrintItem = async (item: AsinInventoryItem, quantity: number = 1, serialNumber?: string) => {
     if (!qzConnected) {
       toast({
         title: "QZ Tray Not Connected",
@@ -1026,8 +1026,8 @@ export function AsinInventory() {
         updatedAt: (template as any).updated_at
       };
 
-      // Create dataset with single item
-      const dataset = createDatasetFromItems([item]);
+      // Create dataset with single item, using override serial if provided
+      const dataset = createDatasetFromItems([item], serialNumber);
 
       // Validate template elements have data mappings (case-insensitive)
       const unmappedElements = labelDoc.elements.filter(el => 
@@ -2428,10 +2428,14 @@ export function AsinInventory() {
           open={isPrintDialogOpen}
           onOpenChange={setIsPrintDialogOpen}
           itemName={itemToPrint?.asin || ''}
+          serialNumbers={itemToPrint ? [
+            itemToPrint.serialNumber,
+            ...(itemToPrint.additionalSerialNumbers || [])
+          ].filter(Boolean) : []}
           defaultQuantity={1}
-          onConfirm={(quantity) => {
+          onConfirm={(quantity, selectedSerial) => {
             if (itemToPrint) {
-              handlePrintItem(itemToPrint, quantity);
+              handlePrintItem(itemToPrint, quantity, selectedSerial);
             }
           }}
         />
