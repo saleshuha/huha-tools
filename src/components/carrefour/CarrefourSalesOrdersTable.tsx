@@ -60,7 +60,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
   const [insertAtIndex, setInsertAtIndex] = useState<number | null>(null);
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(100);
   const [showFilters, setShowFilters] = useState(false);
   const [sortKey, setSortKey] = useState<string>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -1323,8 +1323,31 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-4">
-          <div className="text-sm text-muted-foreground">
-            Showing {startIndex + 1} to {Math.min(endIndex, filteredAndSearchedData.length)} of {filteredAndSearchedData.length} results
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-muted-foreground">
+              Showing {startIndex + 1} to {Math.min(endIndex, sortedData.length)} of {sortedData.length} results
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Rows per page:</span>
+              <Select
+                value={itemsPerPage.toString()}
+                onValueChange={(value) => {
+                  setItemsPerPage(Number(value));
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="w-20 h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                  <SelectItem value="200">200</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Button
