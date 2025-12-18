@@ -8,7 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Edit2, Trash2, Save, X, Plus, CheckSquare, CreditCard, Package, Download, Filter, CalendarIcon, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, DollarSign, Upload, Copy } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Edit2, Trash2, Save, X, Plus, CheckSquare, CreditCard, Package, Download, Filter, CalendarIcon, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, DollarSign, Upload, Copy, ClipboardList, Check, XCircle } from "lucide-react";
 import { BulkDataEntryWithFileUpload } from "./BulkDataEntryWithFileUpload";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -77,6 +80,9 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
     created_at: new Date(),
   });
   const [showBulkEntry, setShowBulkEntry] = useState(false);
+  const [showMissingOrdersDialog, setShowMissingOrdersDialog] = useState(false);
+  const [pastedOrderNumbers, setPastedOrderNumbers] = useState("");
+  const [missingOrdersResult, setMissingOrdersResult] = useState<{ missing: string[]; found: string[]; checked: boolean }>({ missing: [], found: [], checked: false });
   
   const tableRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -611,6 +617,19 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
           >
             <Copy className="h-4 w-4" />
             Check Duplicates
+          </Button>
+          <Button
+            onClick={() => {
+              setShowMissingOrdersDialog(true);
+              setPastedOrderNumbers("");
+              setMissingOrdersResult({ missing: [], found: [], checked: false });
+            }}
+            variant="outline"
+            className="gap-2 border-purple-300 text-purple-600 hover:bg-purple-50"
+            size="sm"
+          >
+            <ClipboardList className="h-4 w-4" />
+            Check Missing
           </Button>
           <Button
             onClick={() => setShowFilters(!showFilters)}
@@ -1241,6 +1260,168 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
         storeId={storeId}
         selectedCountry={selectedCountry}
       />
+
+      {/* Check Missing Orders Dialog */}
+      <Dialog open={showMissingOrdersDialog} onOpenChange={setShowMissingOrdersDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardList className="h-5 w-5 text-purple-600" />
+              Check Missing Orders
+            </DialogTitle>
+            <DialogDescription>
+              Paste order numbers below (one per line or comma-separated) to check which ones are missing from the system.
+            </DialogDescription>
+          </DialogHeader>
+
+          {!missingOrdersResult.checked ? (
+            <>
+              <Textarea
+                placeholder="Paste order numbers here...&#10;Example:&#10;ORDER-001&#10;ORDER-002&#10;ORDER-003"
+                value={pastedOrderNumbers}
+                onChange={(e) => setPastedOrderNumbers(e.target.value)}
+                className="min-h-[150px] font-mono text-sm"
+              />
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowMissingOrdersDialog(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    // Parse pasted order numbers (handle newlines, commas, spaces)
+                    const pastedList = pastedOrderNumbers
+                      .split(/[\n,]+/)
+                      .map(s => s.trim())
+                      .filter(s => s.length > 0);
+
+                    if (pastedList.length === 0) {
+                      toast({
+                        title: "No Order Numbers",
+                        description: "Please paste at least one order number to check.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+
+                    // Get existing order numbers (lowercase for comparison)
+                    const existingOrderNumbers = new Set(
+                      salesOrders.map(order => order.order_number.toLowerCase())
+                    );
+
+                    // Check each pasted order number
+                    const missing: string[] = [];
+                    const found: string[] = [];
+
+                    pastedList.forEach(orderNum => {
+                      if (existingOrderNumbers.has(orderNum.toLowerCase())) {
+                        found.push(orderNum);
+                      } else {
+                        missing.push(orderNum);
+                      }
+                    });
+
+                    setMissingOrdersResult({ missing, found, checked: true });
+                  }}
+                  className="gap-2 bg-purple-600 hover:bg-purple-700"
+                >
+                  <Check className="h-4 w-4" />
+                  Check Now
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                  <span className="text-sm font-medium">
+                    {missingOrdersResult.missing.length} of {missingOrdersResult.missing.length + missingOrdersResult.found.length} orders missing
+                  </span>
+                  <div className="flex gap-2">
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                      <Check className="h-3 w-3 mr-1" />
+                      {missingOrdersResult.found.length} Found
+                    </Badge>
+                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                      <XCircle className="h-3 w-3 mr-1" />
+                      {missingOrdersResult.missing.length} Missing
+                    </Badge>
+                  </div>
+                </div>
+
+                {missingOrdersResult.missing.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium mb-2 text-red-600 flex items-center gap-1">
+                      <XCircle className="h-4 w-4" />
+                      Missing Orders:
+                    </h4>
+                    <ScrollArea className="h-[150px] border rounded-lg p-2">
+                      <div className="space-y-1">
+                        {missingOrdersResult.missing.map((orderNum, index) => (
+                          <div key={index} className="text-sm font-mono bg-red-50 px-2 py-1 rounded text-red-700">
+                            {orderNum}
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                )}
+
+                {missingOrdersResult.found.length > 0 && missingOrdersResult.missing.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium mb-2 text-green-600 flex items-center gap-1">
+                      <Check className="h-4 w-4" />
+                      Found Orders:
+                    </h4>
+                    <ScrollArea className="h-[100px] border rounded-lg p-2">
+                      <div className="space-y-1">
+                        {missingOrdersResult.found.map((orderNum, index) => (
+                          <div key={index} className="text-sm font-mono bg-green-50 px-2 py-1 rounded text-green-700">
+                            {orderNum}
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                )}
+
+                {missingOrdersResult.missing.length === 0 && (
+                  <div className="text-center py-4 text-green-600">
+                    <Check className="h-8 w-8 mx-auto mb-2" />
+                    <p className="font-medium">All orders are in the system!</p>
+                  </div>
+                )}
+              </div>
+
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setMissingOrdersResult({ missing: [], found: [], checked: false })}
+                >
+                  Check Again
+                </Button>
+                {missingOrdersResult.missing.length > 0 && (
+                  <Button
+                    onClick={() => {
+                      navigator.clipboard.writeText(missingOrdersResult.missing.join("\n"));
+                      toast({
+                        title: "Copied!",
+                        description: `${missingOrdersResult.missing.length} missing order numbers copied to clipboard.`,
+                      });
+                    }}
+                    className="gap-2"
+                  >
+                    <Copy className="h-4 w-4" />
+                    Copy Missing
+                  </Button>
+                )}
+                <Button onClick={() => setShowMissingOrdersDialog(false)}>
+                  Close
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
