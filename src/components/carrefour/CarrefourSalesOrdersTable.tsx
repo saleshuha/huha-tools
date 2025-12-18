@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, Fragment } from "react";
+import { useState, useEffect, useRef, Fragment, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Edit2, Trash2, Save, X, Plus, CheckSquare, CreditCard, Package, Download, Filter, CalendarIcon, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, DollarSign, Upload, Copy, ClipboardList, Check, XCircle } from "lucide-react";
 import { BulkDataEntryWithFileUpload } from "./BulkDataEntryWithFileUpload";
+import { SortableTableHeader } from "@/components/order-processing/SortableTableHeader";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useCountry } from "@/contexts/CountryContext";
@@ -26,6 +27,8 @@ interface FilterOptions {
   maxSaleValue: string;
   minCost: string;
   maxCost: string;
+  minProfit: string;
+  maxProfit: string;
   startDate: Date | undefined;
   endDate: Date | undefined;
 }
@@ -59,6 +62,8 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [showFilters, setShowFilters] = useState(false);
+  const [sortKey, setSortKey] = useState<string>('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [filters, setFilters] = useState<FilterOptions>({
     status: 'all',
     paymentStatus: 'all',
@@ -66,6 +71,8 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
     maxSaleValue: '',
     minCost: '',
     maxCost: '',
+    minProfit: '',
+    maxProfit: '',
     startDate: undefined,
     endDate: undefined,
   });
@@ -106,6 +113,10 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
       if (filters.minCost && order.cost < parseFloat(filters.minCost)) return false;
       if (filters.maxCost && order.cost > parseFloat(filters.maxCost)) return false;
       
+      // Profit range filter
+      if (filters.minProfit && order.profit < parseFloat(filters.minProfit)) return false;
+      if (filters.maxProfit && order.profit > parseFloat(filters.maxProfit)) return false;
+      
       // Date range filter
       const orderDate = new Date(order.created_at);
       if (filters.startDate && orderDate < filters.startDate) return false;
@@ -117,11 +128,47 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
 
   const filteredAndSearchedData = getFilteredData();
   
+  // Sort handler
+  const handleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDirection('asc');
+    }
+  };
+
+  // Sort data
+  const sortedData = useMemo(() => {
+    return [...filteredAndSearchedData].sort((a, b) => {
+      let aValue: any = a[sortKey as keyof CarrefourSalesOrder];
+      let bValue: any = b[sortKey as keyof CarrefourSalesOrder];
+      
+      // Handle dates
+      if (sortKey === 'created_at') {
+        aValue = new Date(aValue).getTime();
+        bValue = new Date(bValue).getTime();
+      }
+      
+      // Handle numbers
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+      }
+      
+      // Handle strings
+      const aStr = String(aValue || '').toLowerCase();
+      const bStr = String(bValue || '').toLowerCase();
+      return sortDirection === 'asc' 
+        ? aStr.localeCompare(bStr) 
+        : bStr.localeCompare(aStr);
+    });
+  }, [filteredAndSearchedData, sortKey, sortDirection]);
+  
   // Pagination
-  const totalPages = Math.ceil(filteredAndSearchedData.length / itemsPerPage);
+  const totalPages = Math.ceil(sortedData.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentData = filteredAndSearchedData.slice(startIndex, endIndex);
+  const currentData = sortedData.slice(startIndex, endIndex);
 
   // Currency helper function
   const getCurrency = () => {
@@ -753,6 +800,27 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
                 </div>
               </div>
 
+              {/* Profit Range */}
+              <div>
+                <label className="text-sm font-medium">Profit Range</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    placeholder="Min"
+                    value={filters.minProfit}
+                    onChange={(e) => setFilters(prev => ({ ...prev, minProfit: e.target.value }))}
+                    className="w-20"
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Max"
+                    value={filters.maxProfit}
+                    onChange={(e) => setFilters(prev => ({ ...prev, maxProfit: e.target.value }))}
+                    className="w-20"
+                  />
+                </div>
+              </div>
+
               {/* Date Range */}
               <div className="col-span-2">
                 <label className="text-sm font-medium">Order Date Range</label>
@@ -805,6 +873,8 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
                       maxSaleValue: '',
                       minCost: '',
                       maxCost: '',
+                      minProfit: '',
+                      maxProfit: '',
                       startDate: undefined,
                       endDate: undefined,
                     });
@@ -820,7 +890,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
         </Card>
       )}
 
-      {filteredAndSearchedData.length === 0 && !isAddingNew ? (
+      {sortedData.length === 0 && !isAddingNew ? (
         <div className="text-center py-12">
           <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-muted-foreground mb-2">No Sales Orders Found</h3>
@@ -843,14 +913,69 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
                     }}
                   />
                 </TableHead>
-                <TableHead className="font-semibold text-emerald-700">Order Details</TableHead>
-                <TableHead className="font-semibold text-emerald-700">Sale Value</TableHead>
-                <TableHead className="font-semibold text-red-700">Cost</TableHead>
-                <TableHead className="font-semibold text-yellow-700">Platform Fees</TableHead>
-                <TableHead className="font-semibold text-blue-700">Net Profit</TableHead>
-                <TableHead className="font-semibold text-orange-700">Payment Status</TableHead>
-                <TableHead className="font-semibold text-purple-700">Order Status</TableHead>
-                <TableHead className="font-semibold">Date</TableHead>
+                <SortableTableHeader
+                  label="Order Details"
+                  sortKey="order_number"
+                  currentSort={sortKey}
+                  currentDirection={sortDirection}
+                  onSort={handleSort}
+                  className="text-emerald-700"
+                />
+                <SortableTableHeader
+                  label="Sale Value"
+                  sortKey="sale_value"
+                  currentSort={sortKey}
+                  currentDirection={sortDirection}
+                  onSort={handleSort}
+                  className="text-emerald-700"
+                />
+                <SortableTableHeader
+                  label="Cost"
+                  sortKey="cost"
+                  currentSort={sortKey}
+                  currentDirection={sortDirection}
+                  onSort={handleSort}
+                  className="text-red-700"
+                />
+                <SortableTableHeader
+                  label="Platform Fees"
+                  sortKey="seller_fees"
+                  currentSort={sortKey}
+                  currentDirection={sortDirection}
+                  onSort={handleSort}
+                  className="text-yellow-700"
+                />
+                <SortableTableHeader
+                  label="Net Profit"
+                  sortKey="profit"
+                  currentSort={sortKey}
+                  currentDirection={sortDirection}
+                  onSort={handleSort}
+                  className="text-blue-700"
+                />
+                <SortableTableHeader
+                  label="Payment Status"
+                  sortKey="payment_status"
+                  currentSort={sortKey}
+                  currentDirection={sortDirection}
+                  onSort={handleSort}
+                  className="text-orange-700"
+                />
+                <SortableTableHeader
+                  label="Order Status"
+                  sortKey="status"
+                  currentSort={sortKey}
+                  currentDirection={sortDirection}
+                  onSort={handleSort}
+                  className="text-purple-700"
+                />
+                <SortableTableHeader
+                  label="Date"
+                  sortKey="created_at"
+                  currentSort={sortKey}
+                  currentDirection={sortDirection}
+                  onSort={handleSort}
+                />
                 <TableHead className="font-semibold text-center">Actions</TableHead>
               </TableRow>
             </TableHeader>
