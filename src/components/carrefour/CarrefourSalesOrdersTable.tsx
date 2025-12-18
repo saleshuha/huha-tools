@@ -1288,10 +1288,10 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
                 </Button>
                 <Button
                   onClick={() => {
-                    // Parse pasted order numbers (handle newlines, commas, spaces)
+                    // Parse pasted order numbers (handle newlines, commas, spaces, trailing slashes/backslashes)
                     const pastedList = pastedOrderNumbers
                       .split(/[\n,]+/)
-                      .map(s => s.trim())
+                      .map(s => s.trim().replace(/[\\/]+$/, '').trim())
                       .filter(s => s.length > 0);
 
                     if (pastedList.length === 0) {
