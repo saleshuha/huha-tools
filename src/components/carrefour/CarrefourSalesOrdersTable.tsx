@@ -42,6 +42,7 @@ interface EditingOrder {
   cost: number;
   profit: number;
   status: 'Delivered' | 'Returned' | 'Cancelled' | 'Shipped' | 'Other';
+  created_at?: Date;
 }
 
 export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, storeId }: CarrefourSalesOrdersTableProps) {
@@ -73,6 +74,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
     cost: 0,
     profit: 0,
     status: 'Delivered',
+    created_at: new Date(),
   });
   const [showBulkEntry, setShowBulkEntry] = useState(false);
   
@@ -216,6 +218,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
       cost: 0,
       profit: 0,
       status: 'Delivered',
+      created_at: new Date(),
     });
   };
 
@@ -277,13 +280,15 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
         .eq("id", storeId)
         .single();
 
+      const { created_at, ...orderDataWithoutDate } = newOrderData;
       const { error } = await supabase
         .from("carrefour_payments")
         .insert([{
-          ...newOrderData,
+          ...orderDataWithoutDate,
+          created_at: (created_at || new Date()).toISOString(),
           user_id: user.id,
           store_id: storeId,
-          country: (storeData as any)?.country || selectedCountry, // Use store's country
+          country: (storeData as any)?.country || selectedCountry,
         }] as any);
 
       if (error) throw error;
@@ -303,6 +308,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
         cost: 0,
         profit: 0,
         status: 'Delivered',
+        created_at: new Date(),
       });
       onRefresh();
     } catch (error) {
@@ -423,7 +429,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
 
   const renderEditableCell = (
     value: string | number,
-    field: keyof EditingOrder,
+    field: Exclude<keyof EditingOrder, 'created_at'>,
     type: "text" | "number" | "select" = "text",
     isEditing: boolean = false,
     isNewRow: boolean = false
@@ -813,8 +819,24 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
                   <TableCell>
                     {renderEditableCell("Delivered", "status", "select", false, true)}
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    New
+                  <TableCell>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="h-8 w-full justify-start text-left font-normal text-sm">
+                          <CalendarIcon className="mr-2 h-3 w-3" />
+                          {newOrderData.created_at ? format(newOrderData.created_at, "MMM dd, yyyy") : "Today"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={newOrderData.created_at}
+                          onSelect={(date) => setNewOrderData(prev => ({ ...prev, created_at: date || new Date() }))}
+                          initialFocus
+                          className="p-3 pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-center space-x-1">
@@ -879,8 +901,24 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
                         <TableCell>
                           {renderEditableCell("Delivered", "status", "select", false, true)}
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          New
+                        <TableCell>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" className="h-8 w-full justify-start text-left font-normal text-sm">
+                                <CalendarIcon className="mr-2 h-3 w-3" />
+                                {newOrderData.created_at ? format(newOrderData.created_at, "MMM dd, yyyy") : "Today"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={newOrderData.created_at}
+                                onSelect={(date) => setNewOrderData(prev => ({ ...prev, created_at: date || new Date() }))}
+                                initialFocus
+                                className="p-3 pointer-events-auto"
+                              />
+                            </PopoverContent>
+                          </Popover>
                         </TableCell>
                         <TableCell>
                           <div className="flex justify-center space-x-1">
