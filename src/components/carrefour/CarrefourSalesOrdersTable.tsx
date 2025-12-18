@@ -260,10 +260,26 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
   };
 
   const handleNewOrderSave = async () => {
-    if (!newOrderData.order_number) {
+    const trimmedOrderNumber = newOrderData.order_number.trim();
+    
+    if (!trimmedOrderNumber) {
       toast({
         title: "Error",
         description: "Order number is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check for duplicate order number in current data
+    const existingOrder = salesOrders.find(
+      order => order.order_number.toLowerCase() === trimmedOrderNumber.toLowerCase()
+    );
+    
+    if (existingOrder) {
+      toast({
+        title: "Duplicate Order",
+        description: `Order number "${trimmedOrderNumber}" already exists. Please enter a unique order number.`,
         variant: "destructive",
       });
       return;
