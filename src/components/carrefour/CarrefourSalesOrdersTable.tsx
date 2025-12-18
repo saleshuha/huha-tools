@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Edit2, Trash2, Save, X, Plus, CheckSquare, CreditCard, Package, Download, Filter, CalendarIcon, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, DollarSign, Upload } from "lucide-react";
+import { Edit2, Trash2, Save, X, Plus, CheckSquare, CreditCard, Package, Download, Filter, CalendarIcon, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, DollarSign, Upload, Copy } from "lucide-react";
 import { BulkDataEntryWithFileUpload } from "./BulkDataEntryWithFileUpload";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -579,6 +579,39 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
         </div>
         
         <div className="flex items-center gap-2">
+          <Button
+            onClick={() => {
+              // Find duplicate order numbers
+              const orderCounts = salesOrders.reduce((acc, order) => {
+                const orderNum = order.order_number.toLowerCase();
+                acc[orderNum] = (acc[orderNum] || 0) + 1;
+                return acc;
+              }, {} as Record<string, number>);
+              
+              const duplicates = Object.entries(orderCounts)
+                .filter(([_, count]) => count > 1)
+                .map(([orderNum, count]) => `${orderNum} (${count}x)`);
+              
+              if (duplicates.length > 0) {
+                toast({
+                  title: `Found ${duplicates.length} Duplicate Order Numbers`,
+                  description: duplicates.join(", "),
+                  variant: "destructive",
+                });
+              } else {
+                toast({
+                  title: "No Duplicates Found",
+                  description: "All order numbers are unique.",
+                });
+              }
+            }}
+            variant="outline"
+            className="gap-2 border-orange-300 text-orange-600 hover:bg-orange-50"
+            size="sm"
+          >
+            <Copy className="h-4 w-4" />
+            Check Duplicates
+          </Button>
           <Button
             onClick={() => setShowFilters(!showFilters)}
             variant="outline"
