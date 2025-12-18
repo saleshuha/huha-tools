@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +50,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingData, setEditingData] = useState<EditingOrder | null>(null);
   const [isAddingNew, setIsAddingNew] = useState(false);
+  const [insertAtIndex, setInsertAtIndex] = useState<number | null>(null);
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
@@ -206,6 +207,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
 
   const handleNewOrderCancel = () => {
     setIsAddingNew(false);
+    setInsertAtIndex(null);
     setNewOrderData({
       order_number: "",
       sale_value: 0,
@@ -292,6 +294,7 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
       });
 
       setIsAddingNew(false);
+      setInsertAtIndex(null);
       setNewOrderData({
         order_number: "",
         sale_value: 0,
@@ -580,7 +583,10 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
             Bulk Import
           </Button>
           <Button
-            onClick={() => setIsAddingNew(true)}
+            onClick={() => {
+              setIsAddingNew(true);
+              setInsertAtIndex(null); // null means add at top
+            }}
             className="gap-2 bg-emerald-600 hover:bg-emerald-700"
             disabled={isAddingNew}
           >
@@ -775,8 +781,8 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
               </TableRow>
             </TableHeader>
             <TableBody>
-              {/* New Row for Adding */}
-              {isAddingNew && (
+              {/* New Row for Adding - at top when insertAtIndex is null */}
+              {isAddingNew && insertAtIndex === null && (
                 <TableRow className="bg-emerald-50 border-emerald-200">
                   <TableCell>
                     <Checkbox disabled />
@@ -837,133 +843,52 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
               {displayData.map((order, index) => {
                 const profitMargin = order.sale_value > 0 ? (order.profit / order.sale_value) * 100 : 0;
                 const isEditing = editingId === order.id;
+                const showNewRowAbove = isAddingNew && insertAtIndex === index;
                 
                 return (
-                  <TableRow 
-                    key={order.id} 
-                    className={`hover:bg-muted/20 transition-colors ${
-                      isEditing ? "bg-blue-50 border-blue-200" : 
-                      index % 2 === 0 ? "bg-background" : "bg-muted/5"
-                    }`}
-                  >
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedOrders.has(order.id)}
-                        onCheckedChange={(checked) => {
-                          const newSelected = new Set(selectedOrders);
-                          if (checked) {
-                            newSelected.add(order.id);
-                          } else {
-                            newSelected.delete(order.id);
-                          }
-                          setSelectedOrders(newSelected);
-                        }}
-                        disabled={editingId !== null || isAddingNew}
-                      />
-                    </TableCell>
-                    
-                    <TableCell>
-                      {isEditing ? (
-                        renderEditableCell(order.order_number, "order_number", "text", true)
-                      ) : (
-                        <div className="space-y-1">
-                          <Badge variant="outline" className="font-mono text-xs bg-emerald-50 border-emerald-200">
-                            {order.order_number}
-                          </Badge>
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Package className="h-3 w-3" />
-                            Order ID
-                          </div>
-                        </div>
-                      )}
-                    </TableCell>
-                    
-                    <TableCell>
-                      {isEditing ? (
-                        renderEditableCell(order.sale_value, "sale_value", "number", true)
-                      ) : (
-                        <div className="flex items-center gap-1">
-                          <DollarSign className="h-3 w-3 text-emerald-500" />
-                          <span className="font-semibold text-emerald-600">
-                            {formatCurrency(order.sale_value)}
-                          </span>
-                        </div>
-                      )}
-                    </TableCell>
-                    
-                    <TableCell>
-                      {isEditing ? (
-                        renderEditableCell(order.cost, "cost", "number", true)
-                      ) : (
-                        <span className="font-medium text-red-600">
-                          {formatCurrency(order.cost)}
-                        </span>
-                      )}
-                    </TableCell>
-                    
-                    <TableCell>
-                      {isEditing ? (
-                        renderEditableCell(order.seller_fees, "seller_fees", "number", true)
-                      ) : (
-                        <span className="font-medium text-yellow-600">
-                          {formatCurrency(order.seller_fees)}
-                        </span>
-                      )}
-                    </TableCell>
-                    
-                    <TableCell>
-                      {isEditing ? (
-                        <div className="flex items-center gap-1">
-                          <TrendingUp className="h-3 w-3 text-blue-500" />
-                          <span className="font-bold text-blue-600">
-                            {formatCurrency(editingData?.profit || 0)}
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="space-y-1">
+                  <Fragment key={order.id}>
+                    {/* New Row inserted above this row */}
+                    {showNewRowAbove && (
+                      <TableRow className="bg-emerald-50 border-emerald-200">
+                        <TableCell>
+                          <Checkbox disabled />
+                        </TableCell>
+                        <TableCell>
+                          {renderEditableCell("", "order_number", "text", false, true)}
+                        </TableCell>
+                        <TableCell>
+                          {renderEditableCell(0, "sale_value", "number", false, true)}
+                        </TableCell>
+                        <TableCell>
+                          {renderEditableCell(0, "cost", "number", false, true)}
+                        </TableCell>
+                        <TableCell>
+                          {renderEditableCell(0, "seller_fees", "number", false, true)}
+                        </TableCell>
+                        <TableCell>
                           <div className="flex items-center gap-1">
-                            {order.profit >= 0 ? (
-                              <TrendingUp className="h-3 w-3 text-emerald-500" />
-                            ) : (
-                              <TrendingDown className="h-3 w-3 text-red-500" />
-                            )}
-                            <span className={`font-bold ${
-                              order.profit >= 0 ? "text-emerald-600" : "text-red-600"
-                            }`}>
-                              {formatCurrency(order.profit)}
+                            <TrendingUp className="h-3 w-3 text-emerald-500" />
+                            <span className="font-bold text-emerald-600">
+                              {formatCurrency(newOrderData.profit)}
                             </span>
                           </div>
-                          <Badge 
-                            variant={order.profit >= 0 ? "secondary" : "destructive"}
-                            className="text-xs"
-                          >
-                            {profitMargin.toFixed(1)}% margin
-                          </Badge>
-                        </div>
-                      )}
-                    </TableCell>
-                    
-                    <TableCell>
-                      {renderEditableCell(order.payment_status, "payment_status", "select", isEditing)}
-                    </TableCell>
-                    
-                    <TableCell>
-                      {renderEditableCell(order.status, "status", "select", isEditing)}
-                    </TableCell>
-                    
-                    <TableCell className="text-sm text-muted-foreground">
-                      {new Date(order.created_at).toLocaleDateString()}
-                    </TableCell>
-                    
-                    <TableCell>
-                      <div className="flex justify-center space-x-1">
-                        {isEditing ? (
-                          <>
+                        </TableCell>
+                        <TableCell>
+                          {renderEditableCell("Pending", "payment_status", "select", false, true)}
+                        </TableCell>
+                        <TableCell>
+                          {renderEditableCell("Delivered", "status", "select", false, true)}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          New
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-center space-x-1">
                             <Button 
                               variant="ghost" 
                               size="sm" 
                               className="h-8 w-8 p-0 hover:bg-emerald-100"
-                              onClick={handleEditSave}
+                              onClick={handleNewOrderSave}
                             >
                               <Save className="h-3 w-3 text-emerald-600" />
                             </Button>
@@ -971,36 +896,192 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
                               variant="ghost" 
                               size="sm" 
                               className="h-8 w-8 p-0 hover:bg-red-100"
-                              onClick={handleEditCancel}
+                              onClick={handleNewOrderCancel}
                             >
                               <X className="h-3 w-3 text-red-600" />
                             </Button>
-                          </>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    
+                    {/* Existing Row */}
+                    <TableRow 
+                      key={order.id} 
+                      className={`hover:bg-muted/20 transition-colors ${
+                        isEditing ? "bg-blue-50 border-blue-200" : 
+                        index % 2 === 0 ? "bg-background" : "bg-muted/5"
+                      }`}
+                    >
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedOrders.has(order.id)}
+                          onCheckedChange={(checked) => {
+                            const newSelected = new Set(selectedOrders);
+                            if (checked) {
+                              newSelected.add(order.id);
+                            } else {
+                              newSelected.delete(order.id);
+                            }
+                            setSelectedOrders(newSelected);
+                          }}
+                          disabled={editingId !== null || isAddingNew}
+                        />
+                      </TableCell>
+                      
+                      <TableCell>
+                        {isEditing ? (
+                          renderEditableCell(order.order_number, "order_number", "text", true)
                         ) : (
-                          <>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-8 w-8 p-0 hover:bg-blue-100"
-                              onClick={() => handleEditClick(order)}
-                              disabled={editingId !== null || isAddingNew}
-                            >
-                              <Edit2 className="h-3 w-3 text-blue-600" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => handleDelete(order.id)}
-                              disabled={editingId !== null || isAddingNew}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </>
+                          <div className="space-y-1">
+                            <Badge variant="outline" className="font-mono text-xs bg-emerald-50 border-emerald-200">
+                              {order.order_number}
+                            </Badge>
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Package className="h-3 w-3" />
+                              Order ID
+                            </div>
+                          </div>
                         )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                      </TableCell>
+                      
+                      <TableCell>
+                        {isEditing ? (
+                          renderEditableCell(order.sale_value, "sale_value", "number", true)
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <DollarSign className="h-3 w-3 text-emerald-500" />
+                            <span className="font-semibold text-emerald-600">
+                              {formatCurrency(order.sale_value)}
+                            </span>
+                          </div>
+                        )}
+                      </TableCell>
+                      
+                      <TableCell>
+                        {isEditing ? (
+                          renderEditableCell(order.cost, "cost", "number", true)
+                        ) : (
+                          <span className="font-medium text-red-600">
+                            {formatCurrency(order.cost)}
+                          </span>
+                        )}
+                      </TableCell>
+                      
+                      <TableCell>
+                        {isEditing ? (
+                          renderEditableCell(order.seller_fees, "seller_fees", "number", true)
+                        ) : (
+                          <span className="font-medium text-yellow-600">
+                            {formatCurrency(order.seller_fees)}
+                          </span>
+                        )}
+                      </TableCell>
+                      
+                      <TableCell>
+                        {isEditing ? (
+                          <div className="flex items-center gap-1">
+                            <TrendingUp className="h-3 w-3 text-blue-500" />
+                            <span className="font-bold text-blue-600">
+                              {formatCurrency(editingData?.profit || 0)}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1">
+                              {order.profit >= 0 ? (
+                                <TrendingUp className="h-3 w-3 text-emerald-500" />
+                              ) : (
+                                <TrendingDown className="h-3 w-3 text-red-500" />
+                              )}
+                              <span className={`font-bold ${
+                                order.profit >= 0 ? "text-emerald-600" : "text-red-600"
+                              }`}>
+                                {formatCurrency(order.profit)}
+                              </span>
+                            </div>
+                            <Badge 
+                              variant={order.profit >= 0 ? "secondary" : "destructive"}
+                              className="text-xs"
+                            >
+                              {profitMargin.toFixed(1)}% margin
+                            </Badge>
+                          </div>
+                        )}
+                      </TableCell>
+                      
+                      <TableCell>
+                        {renderEditableCell(order.payment_status, "payment_status", "select", isEditing)}
+                      </TableCell>
+                      
+                      <TableCell>
+                        {renderEditableCell(order.status, "status", "select", isEditing)}
+                      </TableCell>
+                      
+                      <TableCell className="text-sm text-muted-foreground">
+                        {new Date(order.created_at).toLocaleDateString()}
+                      </TableCell>
+                      
+                      <TableCell>
+                        <div className="flex justify-center space-x-1">
+                          {isEditing ? (
+                            <>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-8 w-8 p-0 hover:bg-emerald-100"
+                                onClick={handleEditSave}
+                              >
+                                <Save className="h-3 w-3 text-emerald-600" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-8 w-8 p-0 hover:bg-red-100"
+                                onClick={handleEditCancel}
+                              >
+                                <X className="h-3 w-3 text-red-600" />
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-8 w-8 p-0 hover:bg-emerald-100"
+                                onClick={() => {
+                                  setIsAddingNew(true);
+                                  setInsertAtIndex(index);
+                                }}
+                                disabled={editingId !== null || isAddingNew}
+                                title="Add row above"
+                              >
+                                <Plus className="h-3 w-3 text-emerald-600" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-8 w-8 p-0 hover:bg-blue-100"
+                                onClick={() => handleEditClick(order)}
+                                disabled={editingId !== null || isAddingNew}
+                              >
+                                <Edit2 className="h-3 w-3 text-blue-600" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => handleDelete(order.id)}
+                                disabled={editingId !== null || isAddingNew}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  </Fragment>
                 );
               })}
             </TableBody>
