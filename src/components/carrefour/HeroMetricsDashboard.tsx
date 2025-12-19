@@ -67,16 +67,16 @@ export function HeroMetricsDashboard({ metrics, formatCurrency, onCardClick }: H
     <div className="space-y-4">
       {/* Hero KPIs - 4 Main Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Revenue - Primary KPI */}
+        {/* Total Sale */}
         <Card 
           className="relative overflow-hidden cursor-pointer group hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-emerald-500 to-emerald-600 dark:from-emerald-600 dark:to-emerald-700"
-          onClick={() => onCardClick('revenue', 'Total Sales Revenue')}
+          onClick={() => onCardClick('revenue', 'Total Sale')}
         >
           <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="absolute -top-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-emerald-100">Total Revenue</CardTitle>
+              <CardTitle className="text-sm font-medium text-emerald-100">Total Sale</CardTitle>
               <div className="p-2 rounded-lg bg-white/20 backdrop-blur-sm">
                 <DollarSign className="h-5 w-5 text-white" />
               </div>
@@ -92,48 +92,23 @@ export function HeroMetricsDashboard({ metrics, formatCurrency, onCardClick }: H
           </CardContent>
         </Card>
 
-        {/* Net Profit - Primary KPI */}
-        <Card 
-          className="relative overflow-hidden cursor-pointer group hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700"
-          onClick={() => onCardClick('profitable', 'Net Profit')}
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-          <div className="absolute -top-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-blue-100">Net Profit</CardTitle>
-              <div className="p-2 rounded-lg bg-white/20 backdrop-blur-sm">
-                {profitTrend ? <TrendingUp className="h-5 w-5 text-white" /> : <TrendingDown className="h-5 w-5 text-white" />}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-white mb-2">{formatCurrency(metrics.totalProfit)}</div>
-            <div className="flex items-center gap-2">
-              <Badge className={`border-0 text-xs ${profitTrend ? 'bg-emerald-400/30 text-emerald-100' : 'bg-red-400/30 text-red-100'}`}>
-                {metrics.profitMargin.toFixed(1)}% margin
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Delivered Investment - Primary KPI */}
+        {/* Total Delivered */}
         <Card 
           className="relative overflow-hidden cursor-pointer group hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-green-500 to-green-600 dark:from-green-600 dark:to-green-700"
-          onClick={() => onCardClick('delivered', 'Delivered Investment')}
+          onClick={() => onCardClick('delivered', 'Total Delivered')}
         >
           <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="absolute -top-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-green-100">Delivered Investment</CardTitle>
+              <CardTitle className="text-sm font-medium text-green-100">Total Delivered</CardTitle>
               <div className="p-2 rounded-lg bg-white/20 backdrop-blur-sm">
                 <Package className="h-5 w-5 text-white" />
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-white mb-2">{formatCurrency(deliveredInvestment)}</div>
+            <div className="text-3xl font-bold text-white mb-2">{formatCurrency(metrics.deliveredValue)}</div>
             <div className="flex items-center gap-2">
               <Badge className="bg-white/20 hover:bg-white/30 text-white border-0 text-xs">
                 {metrics.deliveredItems} delivered
@@ -142,10 +117,35 @@ export function HeroMetricsDashboard({ metrics, formatCurrency, onCardClick }: H
           </CardContent>
         </Card>
 
-        {/* Pending Amount - Primary KPI */}
+        {/* Total Paid */}
+        <Card 
+          className="relative overflow-hidden cursor-pointer group hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700"
+          onClick={() => onCardClick('paid', 'Total Paid')}
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="absolute -top-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-blue-100">Total Paid</CardTitle>
+              <div className="p-2 rounded-lg bg-white/20 backdrop-blur-sm">
+                <Wallet className="h-5 w-5 text-white" />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-white mb-2">{formatCurrency(metrics.totalPaidAmount)}</div>
+            <div className="flex items-center gap-2">
+              <Badge className="bg-white/20 hover:bg-white/30 text-white border-0 text-xs">
+                {metrics.totalPaidPayments} payments
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Total Pending to Receive */}
         <Card 
           className="relative overflow-hidden cursor-pointer group hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-orange-500 to-orange-600 dark:from-orange-600 dark:to-orange-700"
-          onClick={() => onCardClick('pending', 'Pending Payments')}
+          onClick={() => onCardClick('pending', 'Total Pending to Receive')}
         >
           <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="absolute -top-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
@@ -153,12 +153,12 @@ export function HeroMetricsDashboard({ metrics, formatCurrency, onCardClick }: H
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium text-orange-100">Pending to Receive</CardTitle>
               <div className="p-2 rounded-lg bg-white/20 backdrop-blur-sm">
-                <Wallet className="h-5 w-5 text-white" />
+                <Receipt className="h-5 w-5 text-white" />
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-white mb-2">{formatCurrency(pendingInvestment)}</div>
+            <div className="text-3xl font-bold text-white mb-2">{formatCurrency(metrics.totalPendingAmount)}</div>
             <div className="flex items-center gap-2">
               <Badge className="bg-white/20 hover:bg-white/30 text-white border-0 text-xs">
                 {metrics.totalPendingPayments} pending
