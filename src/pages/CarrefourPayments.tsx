@@ -170,6 +170,8 @@ export default function CarrefourSalesTracker() {
       profitableOrders: dateFilteredOrders.filter(o => o.profit > 0).length,
       deliveredItems: deliveredOrders.length,
       deliveredValue: deliveredOrders.reduce((sum, o) => sum + o.sale_value, 0),
+      deliveredCost: deliveredOrders.reduce((sum, o) => sum + o.cost, 0),
+      deliveredProfit: deliveredOrders.reduce((sum, o) => sum + o.profit, 0),
       returnedItems: returnedOrders.length,
       returnedValue: returnedOrders.reduce((sum, o) => sum + o.sale_value, 0),
       cancelledItems: cancelledOrders.length,
@@ -617,17 +619,17 @@ export default function CarrefourSalesTracker() {
         <Card className="shadow-md border-0 bg-gradient-to-br from-green-50 to-green-100 relative overflow-hidden cursor-pointer hover:shadow-lg transition-all" onClick={() => handleCardClick('paid', 'Total Paid Payments')}>
           <div className="absolute top-0 right-0 w-16 h-16 bg-green-600/10 rounded-full -translate-y-8 translate-x-8"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-            <CardTitle className="text-xs font-medium text-green-900">Total Paid Payments</CardTitle>
+            <CardTitle className="text-xs font-medium text-green-900">Delivered Investment</CardTitle>
             <Package className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent className="pb-2">
-            <div className="text-2xl font-bold text-green-900 mb-1">{formatCurrency(metrics.totalPaidAmount)}</div>
+            <div className="text-2xl font-bold text-green-900 mb-1">{formatCurrency(metrics.deliveredCost + metrics.deliveredProfit)}</div>
             <div className="flex items-center gap-2 text-xs">
               <TrendingUp className="h-3 w-3 text-green-600" />
-              <span className="text-green-700">{metrics.totalPaidPayments} orders received</span>
+              <span className="text-green-700">Cost: {formatCurrency(metrics.deliveredCost)} + Profit: {formatCurrency(metrics.deliveredProfit)}</span>
             </div>
             <p className="text-xs text-green-600 mt-1">
-              Successfully paid orders
+              {metrics.deliveredItems} delivered orders
             </p>
           </CardContent>
         </Card>
