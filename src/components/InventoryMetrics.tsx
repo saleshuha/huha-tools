@@ -11,7 +11,7 @@ import { Calendar } from './ui/calendar';
 import { useCountry } from '@/contexts/CountryContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Package, CheckCircle, XCircle, Download, RefreshCw, Activity, Radio, TrendingUp, CalendarIcon, Filter, LayoutDashboard, BarChart3, AlertTriangle, FileText, ImageIcon } from 'lucide-react';
+import { Package, CheckCircle, XCircle, Download, RefreshCw, Activity, Radio, TrendingUp, CalendarIcon, Filter, LayoutDashboard, BarChart3, AlertTriangle, ShoppingCart, DollarSign, CalendarPlus, CalendarDays } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -46,6 +46,9 @@ interface InventoryStats {
   missingImages: number;
   restockEligible: number;
   soldUnits: number;
+  orderedCount: number;
+  addedLast7Days: number;
+  addedLast30Days: number;
   lastUpdated: Date;
 }
 
@@ -131,6 +134,37 @@ export const InventoryMetrics = memo(function InventoryMetrics({
       const { data: soldData } = await soldQuery;
       const soldUnits = (soldData || []).reduce((sum, item) => sum + (item.quantity || 0), 0);
 
+      // Count ordered items
+      const { count: orderedCount } = await supabase
+        .from('asin_inventory')
+        .select('*', { count: 'exact', head: true })
+        .eq('country', selectedCountry)
+        .eq('user_id', user.id)
+        .eq('status', 'ordered')
+        .neq('is_active', false);
+
+      // Count items added in last 7 days
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const { count: addedLast7Days } = await supabase
+        .from('asin_inventory')
+        .select('*', { count: 'exact', head: true })
+        .eq('country', selectedCountry)
+        .eq('user_id', user.id)
+        .neq('is_active', false)
+        .gte('date_added', sevenDaysAgo.toISOString());
+
+      // Count items added in last 30 days
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const { count: addedLast30Days } = await supabase
+        .from('asin_inventory')
+        .select('*', { count: 'exact', head: true })
+        .eq('country', selectedCountry)
+        .eq('user_id', user.id)
+        .neq('is_active', false)
+        .gte('date_added', thirtyDaysAgo.toISOString());
+
       console.log('✅ Final Metrics:', {
         totalAsins: metrics.total_asins,
         totalUnits: metrics.total_units,
@@ -140,7 +174,10 @@ export const InventoryMetrics = memo(function InventoryMetrics({
         missingTitle: metrics.missing_title,
         missingImages,
         restockEligible: metrics.restock_eligible,
-        soldUnits
+        soldUnits,
+        orderedCount,
+        addedLast7Days,
+        addedLast30Days
       });
 
       return {
@@ -153,6 +190,9 @@ export const InventoryMetrics = memo(function InventoryMetrics({
         missingImages,
         restockEligible: metrics.restock_eligible || 0,
         soldUnits,
+        orderedCount: orderedCount || 0,
+        addedLast7Days: addedLast7Days || 0,
+        addedLast30Days: addedLast30Days || 0,
         lastUpdated: new Date()
       };
     } else if (showOnlySku) {
@@ -178,6 +218,9 @@ export const InventoryMetrics = memo(function InventoryMetrics({
         missingImages: 0,
         restockEligible: 0,
         soldUnits: 0,
+        orderedCount: 0,
+        addedLast7Days: 0,
+        addedLast30Days: 0,
         lastUpdated: new Date()
       };
     }
@@ -245,6 +288,16 @@ export const InventoryMetrics = memo(function InventoryMetrics({
         const itemsWithoutImages = (allItems || []).filter(item => !asinsWithImages.has(item.asin));
         setInventoryItems(itemsWithoutImages);
         return;
+      } else if (metric === 'ordered') {
+        query = query.eq('status', 'ordered');
+      } else if (metric === 'added-7d') {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        query = query.gte('date_added', sevenDaysAgo.toISOString());
+      } else if (metric === 'added-30d') {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        query = query.gte('date_added', thirtyDaysAgo.toISOString());
       }
 
       const { data, error } = await query;
@@ -593,45 +646,53 @@ export const InventoryMetrics = memo(function InventoryMetrics({
       {/* DATA QUALITY SECTION */}
       <div className="space-y-2">
         <MetricsSectionHeader icon={AlertTriangle} title="Data Quality" description="Items needing attention" />
-        <div className="grid gap-3 grid-cols-1 lg:grid-cols-2">
-          {/* Data Quality Summary Card */}
-          <DataQualitySummary
-            missingSku={stats.missingSku}
-            missingTitle={stats.missingTitle}
-            missingImages={stats.missingImages}
-            totalAsins={stats.totalAsins}
-            onClickSku={() => handleMetricClick('missing-sku')}
-            onClickTitle={() => handleMetricClick('missing-title')}
-            onClickImages={() => handleMetricClick('missing-images')}
-          />
+        <DataQualitySummary
+          missingSku={stats.missingSku}
+          missingTitle={stats.missingTitle}
+          missingImages={stats.missingImages}
+          totalAsins={stats.totalAsins}
+          onClickSku={() => handleMetricClick('missing-sku')}
+          onClickTitle={() => handleMetricClick('missing-title')}
+          onClickImages={() => handleMetricClick('missing-images')}
+        />
+      </div>
 
-          {/* Individual Issue Cards (hidden on small screens, visible on lg+) */}
-          <div className="hidden lg:grid grid-cols-3 gap-2">
-            <AdvancedMetricCard
-              title="Missing SKU"
-              value={stats.missingSku}
-              subtitle="ASINs without SKU"
-              icon={FileText}
-              color="orange"
-              onClick={() => handleMetricClick('missing-sku')}
-            />
-            <AdvancedMetricCard
-              title="Missing Title"
-              value={stats.missingTitle}
-              subtitle="ASINs without title"
-              icon={FileText}
-              color="yellow"
-              onClick={() => handleMetricClick('missing-title')}
-            />
-            <AdvancedMetricCard
-              title="Missing Images"
-              value={stats.missingImages}
-              subtitle="ASINs without images"
-              icon={ImageIcon}
-              color="pink"
-              onClick={() => handleMetricClick('missing-images')}
-            />
-          </div>
+      {/* ACTIVITY & STATUS SECTION */}
+      <div className="space-y-2">
+        <MetricsSectionHeader icon={Activity} title="Activity & Status" description="Recent activity" />
+        <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
+          <AdvancedMetricCard
+            title="Ordered"
+            value={stats.orderedCount}
+            subtitle="Items on order"
+            icon={ShoppingCart}
+            color="blue"
+            onClick={() => handleMetricClick('ordered')}
+          />
+          <AdvancedMetricCard
+            title="Sold"
+            value={stats.soldUnits}
+            subtitle="Units sold"
+            icon={DollarSign}
+            color="green"
+            onClick={() => handleMetricClick('sold')}
+          />
+          <AdvancedMetricCard
+            title="Added (7d)"
+            value={stats.addedLast7Days}
+            subtitle="Last 7 days"
+            icon={CalendarPlus}
+            color="cyan"
+            onClick={() => handleMetricClick('added-7d')}
+          />
+          <AdvancedMetricCard
+            title="Added (30d)"
+            value={stats.addedLast30Days}
+            subtitle="Last 30 days"
+            icon={CalendarDays}
+            color="purple"
+            onClick={() => handleMetricClick('added-30d')}
+          />
         </div>
       </div>
 
