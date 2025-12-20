@@ -1,4 +1,4 @@
-import { useState, useEffect, memo } from 'react';
+import { useState, useEffect, memo, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -11,10 +11,15 @@ import { Calendar } from './ui/calendar';
 import { useCountry } from '@/contexts/CountryContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Package, CheckCircle, XCircle, Search, Download, FileText, RefreshCw, Activity, Radio, TrendingUp, ImageIcon, CalendarIcon, Filter } from 'lucide-react';
+import { Package, CheckCircle, XCircle, Download, RefreshCw, Activity, Radio, TrendingUp, CalendarIcon, Filter, LayoutDashboard, BarChart3, AlertTriangle, FileText, ImageIcon } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { AdvancedMetricCard } from './inventory/AdvancedMetricCard';
+import { InventoryHealthScore, calculateHealthScore } from './inventory/InventoryHealthScore';
+import { StockDistributionChart } from './inventory/StockDistributionChart';
+import { DataQualitySummary } from './inventory/DataQualitySummary';
+import { MetricsSectionHeader } from './inventory/MetricsSectionHeader';
 
 interface InventoryItem {
   id: string;
@@ -410,6 +415,25 @@ export const InventoryMetrics = memo(function InventoryMetrics({
     );
   });
 
+  // Calculate health score
+  const healthScore = useMemo(() => {
+    if (!stats) return 0;
+    return calculateHealthScore({
+      inStockCount: stats.inStockCount,
+      outOfStockCount: stats.outOfStockCount,
+      missingSku: stats.missingSku,
+      missingTitle: stats.missingTitle,
+      missingImages: stats.missingImages,
+      totalAsins: stats.totalAsins,
+      restockEligible: stats.restockEligible
+    });
+  }, [stats]);
+
+  // Mock sparkline data (in production, this would come from historical data)
+  const mockSparklineData = useMemo(() => {
+    return [65, 72, 68, 85, 82, 90, stats?.totalUnits || 0].slice(-7);
+  }, [stats?.totalUnits]);
+
   if (loading || !stats) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -473,195 +497,142 @@ export const InventoryMetrics = memo(function InventoryMetrics({
         </div>
       </div>
 
-      {/* Metrics Grid - Single Row with Colored Borders */}
-      <div className="grid gap-2 grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 mb-3">
-        {/* Total ASINs - Show always */}
-        <Card 
-          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-blue-500"
-          onClick={() => handleMetricClick('active')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
-            <div className="flex flex-col justify-center min-w-0 flex-1">
-              <CardTitle className="text-xs font-medium text-muted-foreground truncate">
-                Total ASINs
-              </CardTitle>
-              <div className="text-xl font-bold text-blue-600 mt-1">
-                {stats.totalAsins.toLocaleString()}
-              </div>
-            </div>
-            <div className="w-8 h-8 bg-blue-500/10 rounded-full flex items-center justify-center flex-shrink-0">
-              <Package className="h-4 w-4 text-blue-600" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0 pb-2 flex-shrink-0">
-            <p className="text-xs text-muted-foreground truncate">Active inventory</p>
-          </CardContent>
-        </Card>
+      {/* HERO SECTION - Overview */}
+      <div className="space-y-2">
+        <MetricsSectionHeader icon={LayoutDashboard} title="Overview" description="Key health indicators" />
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Health Score */}
+          <InventoryHealthScore
+            score={healthScore}
+            onClick={() => handleMetricClick('active')}
+          />
 
-        {/* Total Units - Show always */}
-        <Card 
-          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-purple-500"
-          onClick={() => handleMetricClick('active')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
-            <div className="flex flex-col justify-center min-w-0 flex-1">
-              <CardTitle className="text-xs font-medium text-muted-foreground truncate">
-                Total Units
-              </CardTitle>
-              <div className="text-xl font-bold text-purple-600 mt-1">
-                {stats.totalUnits.toLocaleString()}
-              </div>
-            </div>
-            <div className="w-8 h-8 bg-purple-500/10 rounded-full flex items-center justify-center flex-shrink-0">
-              <TrendingUp className="h-4 w-4 text-purple-600" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0 pb-2 flex-shrink-0">
-            <p className="text-xs text-muted-foreground truncate">Sum of quantities</p>
-          </CardContent>
-        </Card>
+          {/* Total ASINs - Hero */}
+          <AdvancedMetricCard
+            title="Total ASINs"
+            value={stats.totalAsins}
+            subtitle="Active inventory items"
+            icon={Package}
+            color="blue"
+            size="hero"
+            sparklineData={mockSparklineData}
+            onClick={() => handleMetricClick('active')}
+          />
 
-        {/* In Stock - Hide when filtering by out of stock */}
-        {activeStatusFilter !== 'outofstock' && (
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-green-500"
+          {/* Stock Distribution Chart */}
+          <StockDistributionChart
+            inStock={stats.inStockCount}
+            outOfStock={stats.outOfStockCount}
             onClick={() => handleMetricClick('instock')}
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
-              <div className="flex flex-col justify-center min-w-0 flex-1">
-                <CardTitle className="text-xs font-medium text-muted-foreground truncate">
-                  In Stock
-                </CardTitle>
-                <div className="text-xl font-bold text-green-600 mt-1">
-                  {stats.inStockCount.toLocaleString()}
-                </div>
-              </div>
-              <div className="w-8 h-8 bg-green-500/10 rounded-full flex items-center justify-center flex-shrink-0">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-              </div>
-            </CardHeader>
-            <CardContent className="pt-0 pb-2 flex-shrink-0">
-              <p className="text-xs text-muted-foreground truncate">Available ASINs</p>
-            </CardContent>
-          </Card>
-        )}
+          />
+        </div>
+      </div>
 
-        {/* Out of Stock - Hide when filtering by in stock */}
-        {activeStatusFilter !== 'instock' && (
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-red-500"
-            onClick={() => handleMetricClick('outofstock')}
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
-              <div className="flex flex-col justify-center min-w-0 flex-1">
-                <CardTitle className="text-xs font-medium text-muted-foreground truncate">
-                  Out of Stock
-                </CardTitle>
-                <div className="text-xl font-bold text-red-600 mt-1">
-                  {stats.outOfStockCount.toLocaleString()}
-                </div>
-              </div>
-              <div className="w-8 h-8 bg-red-500/10 rounded-full flex items-center justify-center flex-shrink-0">
-                <XCircle className="h-4 w-4 text-red-600" />
-              </div>
-            </CardHeader>
-            <CardContent className="pt-0 pb-2 flex-shrink-0">
-              <p className="text-xs text-muted-foreground truncate">Unavailable ASINs</p>
-            </CardContent>
-          </Card>
-        )}
+      {/* STOCK METRICS SECTION */}
+      <div className="space-y-2">
+        <MetricsSectionHeader icon={BarChart3} title="Stock Metrics" description="Inventory levels" />
+        <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
+          {/* Total Units */}
+          <AdvancedMetricCard
+            title="Total Units"
+            value={stats.totalUnits}
+            subtitle="Sum of quantities"
+            icon={TrendingUp}
+            color="purple"
+            sparklineData={mockSparklineData}
+            onClick={() => handleMetricClick('active')}
+          />
 
-        {/* Missing SKU */}
-        <Card 
-          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-orange-500"
-          onClick={() => handleMetricClick('missing-sku')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
-            <div className="flex flex-col justify-center min-w-0 flex-1">
-              <CardTitle className="text-xs font-medium text-muted-foreground truncate">
-                Missing SKU
-              </CardTitle>
-              <div className="text-xl font-bold text-orange-600 mt-1">
-                {stats.missingSku.toLocaleString()}
-              </div>
-            </div>
-            <div className="w-8 h-8 bg-orange-500/10 rounded-full flex items-center justify-center flex-shrink-0">
-              <FileText className="h-4 w-4 text-orange-600" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0 pb-2 flex-shrink-0">
-            <p className="text-xs text-muted-foreground truncate">ASINs without SKU</p>
-          </CardContent>
-        </Card>
+          {/* In Stock - Hide when filtering by out of stock */}
+          {activeStatusFilter !== 'outofstock' && (
+            <AdvancedMetricCard
+              title="In Stock"
+              value={stats.inStockCount}
+              subtitle="Available ASINs"
+              icon={CheckCircle}
+              color="green"
+              progress={{ 
+                value: stats.inStockCount, 
+                max: stats.inStockCount + stats.outOfStockCount,
+                showPercentage: true 
+              }}
+              onClick={() => handleMetricClick('instock')}
+            />
+          )}
 
-        {/* Missing Title */}
-        <Card 
-          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-yellow-500"
-          onClick={() => handleMetricClick('missing-title')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
-            <div className="flex flex-col justify-center min-w-0 flex-1">
-              <CardTitle className="text-xs font-medium text-muted-foreground truncate">
-                Missing Title
-              </CardTitle>
-              <div className="text-xl font-bold text-yellow-600 mt-1">
-                {stats.missingTitle.toLocaleString()}
-              </div>
-            </div>
-            <div className="w-8 h-8 bg-yellow-500/10 rounded-full flex items-center justify-center flex-shrink-0">
-              <FileText className="h-4 w-4 text-yellow-600" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0 pb-2 flex-shrink-0">
-            <p className="text-xs text-muted-foreground truncate">ASINs without title</p>
-          </CardContent>
-        </Card>
+          {/* Out of Stock - Hide when filtering by in stock */}
+          {activeStatusFilter !== 'instock' && (
+            <AdvancedMetricCard
+              title="Out of Stock"
+              value={stats.outOfStockCount}
+              subtitle="Unavailable ASINs"
+              icon={XCircle}
+              color="red"
+              progress={{ 
+                value: stats.outOfStockCount, 
+                max: stats.inStockCount + stats.outOfStockCount,
+                showPercentage: true 
+              }}
+              onClick={() => handleMetricClick('outofstock')}
+            />
+          )}
 
-        {/* Missing Images */}
-        <Card 
-          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-pink-500"
-          onClick={() => handleMetricClick('missing-images')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
-            <div className="flex flex-col justify-center min-w-0 flex-1">
-              <CardTitle className="text-xs font-medium text-muted-foreground truncate">
-                Missing Images
-              </CardTitle>
-              <div className="text-xl font-bold text-pink-600 mt-1">
-                {stats.missingImages.toLocaleString()}
-              </div>
-            </div>
-            <div className="w-8 h-8 bg-pink-500/10 rounded-full flex items-center justify-center flex-shrink-0">
-              <ImageIcon className="h-4 w-4 text-pink-600" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0 pb-2 flex-shrink-0">
-            <p className="text-xs text-muted-foreground truncate">ASINs without images</p>
-          </CardContent>
-        </Card>
+          {/* Restock Eligible */}
+          <AdvancedMetricCard
+            title="Restock Eligible"
+            value={stats.restockEligible}
+            subtitle="Ready for reorder"
+            icon={Activity}
+            color="cyan"
+            badge={stats.restockEligible > 0 ? "Action" : undefined}
+            onClick={() => handleMetricClick('restock-eligible')}
+          />
+        </div>
+      </div>
 
-        {/* Restock Eligible */}
-        <Card 
-          className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/30 bg-gradient-to-br from-primary/5 to-background h-24 flex flex-col border-l-4 border-l-cyan-500"
-          onClick={() => handleMetricClick('restock-eligible')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 flex-1">
-            <div className="flex flex-col justify-center min-w-0 flex-1">
-              <CardTitle className="text-xs font-medium text-muted-foreground truncate">
-                Restock Eligible
-              </CardTitle>
-              <div className="text-xl font-bold text-cyan-600 mt-1">
-                {stats.restockEligible.toLocaleString()}
-              </div>
-            </div>
-            <div className="w-8 h-8 bg-cyan-500/10 rounded-full flex items-center justify-center flex-shrink-0">
-              <Activity className="h-4 w-4 text-cyan-600" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0 pb-2 flex-shrink-0">
-            <p className="text-xs text-muted-foreground truncate">Ready for reorder</p>
-          </CardContent>
-        </Card>
+      {/* DATA QUALITY SECTION */}
+      <div className="space-y-2">
+        <MetricsSectionHeader icon={AlertTriangle} title="Data Quality" description="Items needing attention" />
+        <div className="grid gap-3 grid-cols-1 lg:grid-cols-2">
+          {/* Data Quality Summary Card */}
+          <DataQualitySummary
+            missingSku={stats.missingSku}
+            missingTitle={stats.missingTitle}
+            missingImages={stats.missingImages}
+            totalAsins={stats.totalAsins}
+            onClickSku={() => handleMetricClick('missing-sku')}
+            onClickTitle={() => handleMetricClick('missing-title')}
+            onClickImages={() => handleMetricClick('missing-images')}
+          />
+
+          {/* Individual Issue Cards (hidden on small screens, visible on lg+) */}
+          <div className="hidden lg:grid grid-cols-3 gap-2">
+            <AdvancedMetricCard
+              title="Missing SKU"
+              value={stats.missingSku}
+              subtitle="ASINs without SKU"
+              icon={FileText}
+              color="orange"
+              onClick={() => handleMetricClick('missing-sku')}
+            />
+            <AdvancedMetricCard
+              title="Missing Title"
+              value={stats.missingTitle}
+              subtitle="ASINs without title"
+              icon={FileText}
+              color="yellow"
+              onClick={() => handleMetricClick('missing-title')}
+            />
+            <AdvancedMetricCard
+              title="Missing Images"
+              value={stats.missingImages}
+              subtitle="ASINs without images"
+              icon={ImageIcon}
+              color="pink"
+              onClick={() => handleMetricClick('missing-images')}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Details Dialog */}
