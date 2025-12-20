@@ -364,6 +364,10 @@ export function AsinInventory() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [isFeaturesOpen, setIsFeaturesOpen] = useState(false);
+  
+  // Toggle states for Metrics and Features sections
+  const [showMetrics, setShowMetrics] = useState(false);
+  const [showFeatures, setShowFeatures] = useState(false);
 
   // Image preview handlers
   const handleImagePreview = (imageUrl: string) => {
@@ -1222,14 +1226,329 @@ export function AsinInventory() {
         item={itemToEnable}
         onConfirm={confirmEnableItem}
       />
-      {/* Header with Stats */}
-      <div className="space-y-6">
-        <InventoryMetrics 
-          showOnlyAsin={true} 
-          activeStatusFilter={statusFilter}
-        />
+      {/* Toggle Buttons Section */}
+      <div className="grid grid-cols-2 gap-4">
+        <Button
+          variant={showMetrics ? "default" : "outline"}
+          onClick={() => setShowMetrics(!showMetrics)}
+          className={cn(
+            "h-20 flex flex-col items-center justify-center gap-2 rounded-xl transition-all duration-300 border-2",
+            showMetrics 
+              ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white border-blue-400 shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30" 
+              : "border-border hover:border-blue-400 hover:bg-blue-500/10 bg-card"
+          )}
+        >
+          <BarChart3 className={cn("w-7 h-7", showMetrics ? "text-white" : "text-blue-500")} />
+          <span className={cn("font-semibold text-base", showMetrics ? "text-white" : "text-foreground")}>
+            Inventory Metrics
+          </span>
+        </Button>
         
+        <Button
+          variant={showFeatures ? "default" : "outline"}
+          onClick={() => setShowFeatures(!showFeatures)}
+          className={cn(
+            "h-20 flex flex-col items-center justify-center gap-2 rounded-xl transition-all duration-300 border-2",
+            showFeatures 
+              ? "bg-gradient-to-br from-purple-500 to-purple-600 text-white border-purple-400 shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/30" 
+              : "border-border hover:border-purple-400 hover:bg-purple-500/10 bg-card"
+          )}
+        >
+          <Layers className={cn("w-7 h-7", showFeatures ? "text-white" : "text-purple-500")} />
+          <span className={cn("font-semibold text-base", showFeatures ? "text-white" : "text-foreground")}>
+            Inventory Features
+          </span>
+        </Button>
       </div>
+
+      {/* Conditional Metrics Section */}
+      {showMetrics && (
+        <div className="animate-fade-in">
+          <InventoryMetrics 
+            showOnlyAsin={true} 
+            activeStatusFilter={statusFilter}
+          />
+        </div>
+      )}
+
+      {/* Conditional Features Section */}
+      {showFeatures && (
+        <Card className="border-2 border-purple-500/30 shadow-lg bg-gradient-to-r from-card to-purple-500/5 animate-fade-in">
+          <CardContent className="p-6 space-y-4">
+            {/* Display Filters Toggle */}
+            <DisplayFiltersToggle
+              showDisabledItems={showDisabledItems}
+              onShowDisabledChange={(checked) => {
+                console.log('🔄 Toggle Show Disabled Items:', checked);
+                setShowDisabledItems(checked);
+              }}
+              disabledCount={showDisabledItems ? totalCount : undefined}
+            />
+
+            {/* Action Sections Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+              
+              {/* Section 1: Data Entry & Import */}
+              <ActionSection
+                title="DATA ENTRY & IMPORT"
+                icon={Plus}
+                color="emerald"
+                badge={missingSerialNumbers.length > 0 ? missingSerialNumbers.length : undefined}
+              >
+                <div className="flex flex-wrap gap-2">
+                  {/* Add New Item */}
+                  <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                    <DialogTrigger asChild>
+                      <EnhancedActionButton
+                        label="Add Item"
+                        icon={Plus}
+                        variant="emerald"
+                        tooltip="Add a new ASIN item to inventory"
+                      />
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                          <Plus className="w-5 h-5" />
+                          Add New ASIN Item
+                        </DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="asin">ASIN <span className="text-destructive">*</span></Label>
+                          <Input id="asin" value={newItem.asin} onChange={e => setNewItem({
+                            ...newItem,
+                            asin: e.target.value
+                          })} placeholder="Enter ASIN..." />
+                        </div>
+                        <div>
+                          <Label htmlFor="serialNumber">Serial Number (Optional)</Label>
+                          <Input 
+                            id="serialNumber" 
+                            value={newItem.serialNumber} 
+                            onChange={e => setNewItem({
+                              ...newItem,
+                              serialNumber: e.target.value
+                            })} 
+                            placeholder="Enter Serial Number (optional)..." 
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="sku">SKU <span className="text-destructive">*</span></Label>
+                          <Input id="sku" value={newItem.sku} onChange={e => setNewItem({
+                            ...newItem,
+                            sku: e.target.value
+                          })} placeholder="Enter SKU..." />
+                        </div>
+                        <div>
+                          <Label htmlFor="title">Title <span className="text-destructive">*</span></Label>
+                          <Input id="title" value={newItem.title} onChange={e => setNewItem({
+                            ...newItem,
+                            title: e.target.value
+                          })} placeholder="Enter title..." />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button onClick={handleAddItem}>Add Item</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+
+                  {/* Bulk Add Items */}
+                  <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
+                    <DialogTrigger asChild>
+                      <EnhancedActionButton
+                        label="Bulk Add"
+                        icon={Upload}
+                        variant="emerald"
+                        tooltip="Add multiple items at once"
+                      />
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle>Bulk Add ASIN Items</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="bulkText">
+                            Paste tab-separated data (Only ASIN is required, other fields are optional)
+                          </Label>
+                          <Textarea 
+                            id="bulkText" 
+                            value={bulkText} 
+                            onChange={e => setBulkText(e.target.value)} 
+                            placeholder="B123456789	SN001	SKU123	in-stock	5	Optional notes&#10;B987654321		SKU456		0	Zero qty item (auto-sold)&#10;B555555555			in-stock	3	Only ASIN and quantity" 
+                            rows={8} 
+                            className="font-mono text-sm"
+                            disabled={bulkAddProgress.isProcessing}
+                          />
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          <p><strong>Format:</strong> Each line should contain tab-separated values</p>
+                          <p><strong>Required:</strong> ASIN (first field only)</p>
+                          <p><strong>Optional:</strong> Serial Number → SKU → Status → Quantity → Notes</p>
+                          <p><strong>Note:</strong> Items with 0 quantity are automatically marked as 'out-of-stock'</p>
+                        </div>
+
+                        {/* Progress Section */}
+                        {bulkAddProgress.isProcessing && (
+                          <div className="space-y-2 p-4 bg-muted/50 rounded-lg border border-border">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="flex items-center gap-2 font-medium">
+                                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                                Adding items...
+                              </span>
+                              <span className="font-semibold tabular-nums">
+                                {bulkAddProgress.current} / {bulkAddProgress.total}
+                              </span>
+                            </div>
+                            <Progress 
+                              value={(bulkAddProgress.current / bulkAddProgress.total) * 100} 
+                              className="h-2"
+                            />
+                          </div>
+                        )}
+
+                        {/* Completion Message */}
+                        {bulkAddProgress.current === bulkAddProgress.total && 
+                          bulkAddProgress.total > 0 && 
+                          !bulkAddProgress.isProcessing && (
+                          <div className="flex items-center gap-2 text-green-600 dark:text-green-400 p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-900">
+                            <CheckCircle className="w-5 h-5" />
+                            <span className="font-medium">Successfully added {bulkAddProgress.total} items!</span>
+                          </div>
+                        )}
+                      </div>
+                      <DialogFooter>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setIsBulkDialogOpen(false)}
+                          disabled={bulkAddProgress.isProcessing}
+                        >
+                          Cancel
+                        </Button>
+                        <Button 
+                          onClick={handleBulkAdd}
+                          disabled={bulkAddProgress.isProcessing}
+                        >
+                          {bulkAddProgress.isProcessing ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Adding...
+                            </>
+                          ) : (
+                            'Add Items'
+                          )}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+
+                  {/* Missing Numbers */}
+                  {missingSerialNumbers.length > 0 && (
+                    <EnhancedActionButton
+                      label="Missing Numbers"
+                      icon={Hash}
+                      variant="orange"
+                      badge={missingSerialNumbers.length}
+                      onClick={() => setIsMissingNumbersDialogOpen(true)}
+                      tooltip="View and use missing serial numbers"
+                    />
+                  )}
+                </div>
+              </ActionSection>
+
+              {/* Section 2: Bulk Data Management */}
+              <ActionSection
+                title="BULK DATA MANAGEMENT"
+                icon={Edit}
+                color="blue"
+              >
+                <div className="flex flex-wrap gap-2">
+                  {/* Bulk SKU Update */}
+                  <BulkSkuUpload inventory={fullInventory} onSkuUpdate={bulkUpdateSkus} />
+
+                  {/* Bulk Title Update */}
+                  <BulkTitleUpload inventory={fullInventory} onTitleUpdate={bulkUpdateTitles} />
+
+                  {/* Fetch Titles from Source - with preview */}
+                  <FetchTitlesPreviewDialog 
+                    inventory={fullInventory}
+                    onFetchTitles={runTitleFetch}
+                    onTitleUpdate={bulkUpdateTitles}
+                  />
+                </div>
+              </ActionSection>
+
+              {/* Section 3: Data Export */}
+              <ActionSection
+                title="DATA EXPORT"
+                icon={Download}
+                color="orange"
+              >
+                <div className="flex flex-wrap gap-2">
+                  <EnhancedActionButton
+                    label="Export CSV"
+                    icon={Download}
+                    variant="orange"
+                    onClick={exportInventory}
+                    tooltip="Download inventory as CSV file"
+                  />
+                  <EnhancedActionButton
+                    label="Email Export"
+                    icon={Mail}
+                    variant="orange"
+                    onClick={emailInventory}
+                    tooltip="Send inventory report to your email"
+                  />
+                </div>
+              </ActionSection>
+
+              {/* Section 4: System & Refresh */}
+              <ActionSection
+                title="SYSTEM & REFRESH"
+                icon={Settings}
+                color="cyan"
+              >
+                <div className="flex flex-wrap gap-2">
+                  {/* Warehouse Settings */}
+                  <SimpleWarehouseManager />
+
+                  <EnhancedActionButton
+                    label="Refresh Images"
+                    icon={Image}
+                    variant="cyan"
+                    onClick={refreshImages}
+                    tooltip="Refresh product images from database"
+                  />
+                  <EnhancedActionButton
+                    label="Refresh All"
+                    icon={RefreshCw}
+                    variant="cyan"
+                    onClick={handleRefresh}
+                    tooltip="Refresh all inventory data"
+                  />
+                </div>
+              </ActionSection>
+            </div>
+
+            {/* Label Printing Card - Full Width */}
+            <LabelPrintingCard
+              availableTemplates={availableTemplates}
+              selectedTemplate={selectedTemplate}
+              onTemplateChange={handleTemplateSelection}
+              printDarkness={printSettings.darkness}
+              onDarknessChange={(value) => setPrintSettings({...printSettings, darkness: value})}
+              selectedItemsCount={selectedItems.size}
+              qzConnected={qzConnected}
+              onPrint={handleBulkPrint}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Prominent Search Bar */}
       <Card className="border-2 border-input border-l-4 border-l-primary shadow-xl bg-gradient-to-r from-card/80 to-card/60 backdrop-blur-md">
@@ -1301,304 +1620,6 @@ export function AsinInventory() {
               </div>
             </div>
 
-            {/* Features Toggle */}
-            <Collapsible open={isFeaturesOpen} onOpenChange={setIsFeaturesOpen}>
-              <CollapsibleTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="w-full mt-4 bg-gradient-to-r from-background to-muted/50 border border-border/60 hover:border-primary/60 hover:bg-gradient-to-r hover:from-primary/10 hover:to-primary/5 hover:shadow-md transition-all duration-300 rounded-lg group"
-                >
-                  {isFeaturesOpen ? (
-                    <>
-                      <ChevronUp className="w-4 h-4 mr-2 transition-transform group-hover:-translate-y-0.5" />
-                      Hide Features
-                      <Badge variant="secondary" className="ml-2 text-xs">5 sections</Badge>
-                    </>
-                  ) : (
-                    <>
-                      <Layers className="w-4 h-4 mr-2" />
-                      Show Features
-                      <Badge variant="secondary" className="ml-2 text-xs">5 sections</Badge>
-                    </>
-                  )}
-                </Button>
-              </CollapsibleTrigger>
-
-              <CollapsibleContent className="mt-6 space-y-4 animate-fade-in">
-                {/* Display Filters Toggle */}
-                <DisplayFiltersToggle
-                  showDisabledItems={showDisabledItems}
-                  onShowDisabledChange={(checked) => {
-                    console.log('🔄 Toggle Show Disabled Items:', checked);
-                    setShowDisabledItems(checked);
-                  }}
-                  disabledCount={showDisabledItems ? totalCount : undefined}
-                />
-
-                {/* Action Sections Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-                  
-                  {/* Section 1: Data Entry & Import */}
-                  <ActionSection
-                    title="DATA ENTRY & IMPORT"
-                    icon={Plus}
-                    color="emerald"
-                    badge={missingSerialNumbers.length > 0 ? missingSerialNumbers.length : undefined}
-                  >
-                    <div className="flex flex-wrap gap-2">
-                      {/* Add New Item */}
-                      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                        <DialogTrigger asChild>
-                          <EnhancedActionButton
-                            label="Add Item"
-                            icon={Plus}
-                            variant="emerald"
-                            tooltip="Add a new ASIN item to inventory"
-                          />
-                        </DialogTrigger>
-                        <DialogContent className="max-w-md">
-                          <DialogHeader>
-                            <DialogTitle className="flex items-center gap-2">
-                              <Plus className="w-5 h-5" />
-                              Add New ASIN Item
-                            </DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <div>
-                              <Label htmlFor="asin">ASIN <span className="text-destructive">*</span></Label>
-                              <Input id="asin" value={newItem.asin} onChange={e => setNewItem({
-                                ...newItem,
-                                asin: e.target.value
-                              })} placeholder="Enter ASIN..." />
-                            </div>
-                            <div>
-                              <Label htmlFor="serialNumber">Serial Number (Optional)</Label>
-                              <Input 
-                                id="serialNumber" 
-                                value={newItem.serialNumber} 
-                                onChange={e => setNewItem({
-                                  ...newItem,
-                                  serialNumber: e.target.value
-                                })} 
-                                placeholder="Enter Serial Number (optional)..." 
-                              />
-                            </div>
-                            <div>
-                              <Label htmlFor="sku">SKU <span className="text-destructive">*</span></Label>
-                              <Input id="sku" value={newItem.sku} onChange={e => setNewItem({
-                                ...newItem,
-                                sku: e.target.value
-                              })} placeholder="Enter SKU..." />
-                            </div>
-                            <div>
-                              <Label htmlFor="title">Title <span className="text-destructive">*</span></Label>
-                              <Input id="title" value={newItem.title} onChange={e => setNewItem({
-                                ...newItem,
-                                title: e.target.value
-                              })} placeholder="Enter title..." />
-                            </div>
-                          </div>
-                          <DialogFooter>
-                            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                              Cancel
-                            </Button>
-                            <Button onClick={handleAddItem}>Add Item</Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-
-                      {/* Bulk Add Items */}
-                      <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
-                        <DialogTrigger asChild>
-                          <EnhancedActionButton
-                            label="Bulk Add"
-                            icon={Upload}
-                            variant="emerald"
-                            tooltip="Add multiple items at once"
-                          />
-                        </DialogTrigger>
-                        <DialogContent className="max-w-2xl">
-                          <DialogHeader>
-                            <DialogTitle>Bulk Add ASIN Items</DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <div>
-                              <Label htmlFor="bulkText">
-                                Paste tab-separated data (Only ASIN is required, other fields are optional)
-                              </Label>
-                              <Textarea 
-                                id="bulkText" 
-                                value={bulkText} 
-                                onChange={e => setBulkText(e.target.value)} 
-                                placeholder="B123456789	SN001	SKU123	in-stock	5	Optional notes&#10;B987654321		SKU456		0	Zero qty item (auto-sold)&#10;B555555555			in-stock	3	Only ASIN and quantity" 
-                                rows={8} 
-                                className="font-mono text-sm"
-                                disabled={bulkAddProgress.isProcessing}
-                              />
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              <p><strong>Format:</strong> Each line should contain tab-separated values</p>
-                              <p><strong>Required:</strong> ASIN (first field only)</p>
-                              <p><strong>Optional:</strong> Serial Number → SKU → Status → Quantity → Notes</p>
-                              <p><strong>Note:</strong> Items with 0 quantity are automatically marked as 'out-of-stock'</p>
-                            </div>
-
-                            {/* Progress Section */}
-                            {bulkAddProgress.isProcessing && (
-                              <div className="space-y-2 p-4 bg-muted/50 rounded-lg border border-border">
-                                <div className="flex items-center justify-between text-sm">
-                                  <span className="flex items-center gap-2 font-medium">
-                                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                                    Adding items...
-                                  </span>
-                                  <span className="font-semibold tabular-nums">
-                                    {bulkAddProgress.current} / {bulkAddProgress.total}
-                                  </span>
-                                </div>
-                                <Progress 
-                                  value={(bulkAddProgress.current / bulkAddProgress.total) * 100} 
-                                  className="h-2"
-                                />
-                              </div>
-                            )}
-
-                            {/* Completion Message */}
-                            {bulkAddProgress.current === bulkAddProgress.total && 
-                              bulkAddProgress.total > 0 && 
-                              !bulkAddProgress.isProcessing && (
-                              <div className="flex items-center gap-2 text-green-600 dark:text-green-400 p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-900">
-                                <CheckCircle className="w-5 h-5" />
-                                <span className="font-medium">Successfully added {bulkAddProgress.total} items!</span>
-                              </div>
-                            )}
-                          </div>
-                          <DialogFooter>
-                            <Button 
-                              variant="outline" 
-                              onClick={() => setIsBulkDialogOpen(false)}
-                              disabled={bulkAddProgress.isProcessing}
-                            >
-                              Cancel
-                            </Button>
-                            <Button 
-                              onClick={handleBulkAdd}
-                              disabled={bulkAddProgress.isProcessing}
-                            >
-                              {bulkAddProgress.isProcessing ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                  Adding...
-                                </>
-                              ) : (
-                                'Add Items'
-                              )}
-                            </Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-
-                      {/* Missing Numbers */}
-                      {missingSerialNumbers.length > 0 && (
-                        <EnhancedActionButton
-                          label="Missing Numbers"
-                          icon={Hash}
-                          variant="orange"
-                          badge={missingSerialNumbers.length}
-                          onClick={() => setIsMissingNumbersDialogOpen(true)}
-                          tooltip="View and use missing serial numbers"
-                        />
-                      )}
-                    </div>
-                  </ActionSection>
-
-                  {/* Section 2: Bulk Data Management */}
-                  <ActionSection
-                    title="BULK DATA MANAGEMENT"
-                    icon={Edit}
-                    color="blue"
-                  >
-                    <div className="flex flex-wrap gap-2">
-                      {/* Bulk SKU Update */}
-                      <BulkSkuUpload inventory={fullInventory} onSkuUpdate={bulkUpdateSkus} />
-
-                      {/* Bulk Title Update */}
-                      <BulkTitleUpload inventory={fullInventory} onTitleUpdate={bulkUpdateTitles} />
-
-                      {/* Fetch Titles from Source - with preview */}
-                      <FetchTitlesPreviewDialog 
-                        inventory={fullInventory}
-                        onFetchTitles={runTitleFetch}
-                        onTitleUpdate={bulkUpdateTitles}
-                      />
-                    </div>
-                  </ActionSection>
-
-                  {/* Section 3: Data Export */}
-                  <ActionSection
-                    title="DATA EXPORT"
-                    icon={Download}
-                    color="orange"
-                  >
-                    <div className="flex flex-wrap gap-2">
-                      <EnhancedActionButton
-                        label="Export CSV"
-                        icon={Download}
-                        variant="orange"
-                        onClick={exportInventory}
-                        tooltip="Download inventory as CSV file"
-                      />
-                      <EnhancedActionButton
-                        label="Email Export"
-                        icon={Mail}
-                        variant="orange"
-                        onClick={emailInventory}
-                        tooltip="Send inventory report to your email"
-                      />
-                    </div>
-                  </ActionSection>
-
-                  {/* Section 4: System & Refresh */}
-                  <ActionSection
-                    title="SYSTEM & REFRESH"
-                    icon={Settings}
-                    color="cyan"
-                  >
-                    <div className="flex flex-wrap gap-2">
-                      {/* Warehouse Settings */}
-                      <SimpleWarehouseManager />
-
-                      <EnhancedActionButton
-                        label="Refresh Images"
-                        icon={Image}
-                        variant="cyan"
-                        onClick={refreshImages}
-                        tooltip="Refresh product images from database"
-                      />
-                      <EnhancedActionButton
-                        label="Refresh All"
-                        icon={RefreshCw}
-                        variant="cyan"
-                        onClick={handleRefresh}
-                        tooltip="Refresh all inventory data"
-                      />
-                    </div>
-                  </ActionSection>
-                </div>
-
-                {/* Label Printing Card - Full Width */}
-                <LabelPrintingCard
-                  availableTemplates={availableTemplates}
-                  selectedTemplate={selectedTemplate}
-                  onTemplateChange={handleTemplateSelection}
-                  printDarkness={printSettings.darkness}
-                  onDarknessChange={(value) => setPrintSettings({...printSettings, darkness: value})}
-                  selectedItemsCount={selectedItems.size}
-                  qzConnected={qzConnected}
-                  onPrint={handleBulkPrint}
-                />
-              </CollapsibleContent>
-            </Collapsible>
 
             {/* Quick Filters Row */}
             
