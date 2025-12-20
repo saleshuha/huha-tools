@@ -449,7 +449,7 @@ export function AsinInventory() {
     serialNumber: '',
     sku: '',
     title: '',
-    quantity: 1,
+    quantity: 0,
     notes: ''
   });
   const [bulkText, setBulkText] = useState('');
@@ -469,10 +469,10 @@ export function AsinInventory() {
 
   // Inventory is already filtered and paginated by the backend hook
   const handleAddItem = async () => {
-    if (!newItem.asin.trim() || !newItem.serialNumber.trim()) {
+    if (!newItem.asin.trim() || !newItem.sku.trim() || !newItem.title.trim()) {
       toast({
         title: "Validation Error",
-        description: "ASIN and Serial Number are required",
+        description: "ASIN, SKU, and Title are required",
         variant: "destructive"
       });
       return;
@@ -519,7 +519,7 @@ export function AsinInventory() {
       serialNumber: nextSerial,
       sku: '',
       title: '',
-      quantity: 1,
+      quantity: 0,
       notes: ''
     });
   };
@@ -1322,14 +1322,14 @@ export function AsinInventory() {
                       </DialogHeader>
                       <div className="space-y-4">
                         <div>
-                          <Label htmlFor="asin">ASIN</Label>
+                          <Label htmlFor="asin">ASIN <span className="text-destructive">*</span></Label>
                           <Input id="asin" value={newItem.asin} onChange={e => setNewItem({
                           ...newItem,
                           asin: e.target.value
                         })} placeholder="Enter ASIN..." />
                         </div>
                          <div>
-                           <Label htmlFor="serialNumber">Serial Number</Label>
+                           <Label htmlFor="serialNumber">Serial Number (Optional)</Label>
                            <div className="flex gap-2">
                              <Input 
                                id="serialNumber" 
@@ -1338,7 +1338,7 @@ export function AsinInventory() {
                                  ...newItem,
                                  serialNumber: e.target.value
                                })} 
-                               placeholder="Enter Serial Number..." 
+                               placeholder="Auto-generated if empty..." 
                                className="flex-1"
                              />
                               <Button
@@ -1356,35 +1356,18 @@ export function AsinInventory() {
                            </div>
                          </div>
                          <div>
-                           <Label htmlFor="sku">SKU (Optional)</Label>
+                           <Label htmlFor="sku">SKU <span className="text-destructive">*</span></Label>
                            <Input id="sku" value={newItem.sku} onChange={e => setNewItem({
                           ...newItem,
                           sku: e.target.value
-                        })} placeholder="Enter SKU (optional)" />
+                        })} placeholder="Enter SKU..." />
                          </div>
                          <div>
-                           <Label htmlFor="title">Title (Optional)</Label>
+                           <Label htmlFor="title">Title <span className="text-destructive">*</span></Label>
                            <Input id="title" value={newItem.title} onChange={e => setNewItem({
                           ...newItem,
                           title: e.target.value
-                        })} placeholder="Enter title (optional)" />
-                         </div>
-                          <div>
-                            <Label htmlFor="quantity">Quantity</Label>
-                            <Input id="quantity" type="number" min="0" value={newItem.quantity} onChange={e => {
-                              const value = parseInt(e.target.value);
-                              setNewItem({
-                                ...newItem,
-                                quantity: value >= 0 ? value : 0
-                              });
-                            }} />
-                          </div>
-                         <div>
-                           <Label htmlFor="notes">Notes (Optional)</Label>
-                           <Textarea id="notes" value={newItem.notes} onChange={e => setNewItem({
-                          ...newItem,
-                          notes: e.target.value
-                        })} placeholder="Add any notes..." rows={2} />
+                        })} placeholder="Enter title..." />
                          </div>
                       </div>
                       <DialogFooter>
