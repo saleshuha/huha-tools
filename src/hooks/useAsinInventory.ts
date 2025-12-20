@@ -32,6 +32,49 @@ export function useAsinInventory() {
   const { profile } = useUserProfile();
   const { selectedCountry } = useCountry();
 
+  // Helper function to fetch a batch with retry logic and exponential backoff
+  const fetchBatchWithRetry = async (
+    userId: string, 
+    country: string, 
+    from: number, 
+    to: number, 
+    retries = 3
+  ): Promise<any[]> => {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        // Create abort controller for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+        const { data, error } = await supabase
+          .from('asin_inventory')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('country', country)
+          .order('date_added', { ascending: true })
+          .range(from, to)
+          .abortSignal(controller.signal);
+        
+        clearTimeout(timeoutId);
+        
+        if (error) throw error;
+        return data || [];
+      } catch (err: any) {
+        console.warn(`⚠️ Batch fetch attempt ${attempt}/${retries} failed for range ${from}-${to}:`, err.message);
+        
+        if (attempt === retries) {
+          throw new Error(`Failed to load batch ${from}-${to} after ${retries} attempts: ${err.message}`);
+        }
+        
+        // Exponential backoff: 1s, 2s, 4s...
+        const delay = 1000 * Math.pow(2, attempt - 1);
+        console.log(`⏳ Retrying in ${delay}ms...`);
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+    return [];
+  };
+
   // Load inventory from Supabase
   const loadInventory = async () => {
     if (!selectedCountry) return;
@@ -42,29 +85,26 @@ export function useAsinInventory() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      const { count, error: countError } = await ((supabase as any)
+      const { count, error: countError } = await supabase
         .from('asin_inventory')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id)
-        .eq('country', selectedCountry));
+        .eq('country', selectedCountry);
 
       console.log(`📊 Total records in database: ${count}`);
 
-      // Load all records without limit using pagination if needed
+      // Load all records using pagination with smaller batch size for reliability
       let allData: any[] = [];
-      const batchSize = 1000;
+      const batchSize = 500; // Reduced from 1000 for better reliability
       let from = 0;
       
       while (true) {
-        const { data: batchData, error: batchError } = await ((supabase as any)
-          .from('asin_inventory')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('country', selectedCountry)
-          .order('date_added', { ascending: true })
-          .range(from, from + batchSize - 1));
-
-        if (batchError) throw batchError;
+        const batchData = await fetchBatchWithRetry(
+          user.id, 
+          selectedCountry, 
+          from, 
+          from + batchSize - 1
+        );
         
         if (!batchData || batchData.length === 0) break;
         
