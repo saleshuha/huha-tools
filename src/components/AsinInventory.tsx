@@ -87,7 +87,13 @@ export function AsinInventory() {
   
   // Get full inventory for exports (loads ALL items)
   const fullInventoryHook = useAsinInventory();
-  const { inventory: fullInventory, loading: fullInventoryLoading } = fullInventoryHook;
+  const { 
+    inventory: fullInventory, 
+    loading: fullInventoryLoading,
+    loadingProgress: fullInventoryProgress,
+    loadError: fullInventoryError,
+    refetch: retryFullInventory 
+  } = fullInventoryHook;
   
   // Use paginated hook with server-side filtering
   const {
@@ -1156,13 +1162,45 @@ export function AsinInventory() {
 
   
   // Handle restock eligibility change
-  if (loading) {
-    return <div className="flex items-center justify-center min-h-[400px]">
-        <div className="flex flex-col items-center gap-4">
+  if (loading || fullInventoryLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-6 w-full max-w-md px-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          <p className="text-muted-foreground animate-pulse">Loading your inventory...</p>
+          <p className="text-muted-foreground animate-pulse text-lg">Loading your inventory...</p>
+          
+          {fullInventoryProgress && fullInventoryProgress.total > 0 && (
+            <div className="w-full space-y-3">
+              <Progress value={fullInventoryProgress.percentage} className="h-3" />
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>
+                  {fullInventoryProgress.current.toLocaleString()} / {fullInventoryProgress.total.toLocaleString()} items
+                </span>
+                <span className="font-medium text-primary">{fullInventoryProgress.percentage}%</span>
+              </div>
+            </div>
+          )}
+          
+          {fullInventoryError && (
+            <div className="w-full space-y-3 text-center">
+              <div className="flex items-center justify-center gap-2 text-destructive">
+                <AlertTriangle className="w-5 h-5" />
+                <span className="font-medium">Loading failed</span>
+              </div>
+              <p className="text-sm text-muted-foreground">{fullInventoryError}</p>
+              <Button 
+                variant="outline" 
+                onClick={() => retryFullInventory()}
+                className="gap-2"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Retry Loading
+              </Button>
+            </div>
+          )}
         </div>
-      </div>;
+      </div>
+    );
   }
   return <div className="space-y-4 max-w-[95vw] mx-auto p-6">
       <DisableItemsDialog
