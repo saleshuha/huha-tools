@@ -1330,30 +1330,15 @@ export function AsinInventory() {
                         </div>
                          <div>
                            <Label htmlFor="serialNumber">Serial Number (Optional)</Label>
-                           <div className="flex gap-2">
-                             <Input 
-                               id="serialNumber" 
-                               value={newItem.serialNumber} 
-                               onChange={e => setNewItem({
-                                 ...newItem,
-                                 serialNumber: e.target.value
-                               })} 
-                               placeholder="Auto-generated if empty..." 
-                               className="flex-1"
-                             />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={async () => {
-                                  const nextSerial = await getNextSerialNumber();
-                                  setNewItem(prev => ({ ...prev, serialNumber: nextSerial }));
-                                }}
-                                title="Use next available serial number"
-                              >
-                                <Hash className="w-4 h-4" />
-                              </Button>
-                           </div>
+                           <Input 
+                             id="serialNumber" 
+                             value={newItem.serialNumber} 
+                             onChange={e => setNewItem({
+                               ...newItem,
+                               serialNumber: e.target.value
+                             })} 
+                             placeholder="Enter Serial Number (optional)..." 
+                           />
                          </div>
                          <div>
                            <Label htmlFor="sku">SKU <span className="text-destructive">*</span></Label>
