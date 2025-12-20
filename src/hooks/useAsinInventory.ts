@@ -25,9 +25,17 @@ export interface AsinInventoryItem {
   first_stock_added_at?: string;
 }
 
+export interface LoadingProgress {
+  current: number;
+  total: number;
+  percentage: number;
+}
+
 export function useAsinInventory() {
   const [inventory, setInventory] = useState<AsinInventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState<LoadingProgress | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const { toast } = useToast();
   const { profile } = useUserProfile();
   const { selectedCountry } = useCountry();
@@ -77,28 +85,60 @@ export function useAsinInventory() {
 
   // Load inventory from Supabase
   const loadInventory = async () => {
-    if (!selectedCountry) return;
+    console.log('🚀 loadInventory called, selectedCountry:', selectedCountry);
+    
+    if (!selectedCountry) {
+      console.warn('⚠️ No country selected, skipping load');
+      setLoading(false);
+      return;
+    }
     
     try {
       setLoading(true);
-      // First get count to check if we need pagination
+      setLoadError(null);
+      setLoadingProgress({ current: 0, total: 0, percentage: 0 });
+      
+      console.log('🔐 Getting authenticated user...');
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      if (!user) {
+        console.error('❌ User not authenticated');
+        throw new Error('User not authenticated');
+      }
+      console.log('✅ User authenticated:', user.id);
 
+      console.log('📊 Fetching total count for country:', selectedCountry);
       const { count, error: countError } = await supabase
         .from('asin_inventory')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id)
         .eq('country', selectedCountry);
 
-      console.log(`📊 Total records in database: ${count}`);
+      if (countError) {
+        console.error('❌ Count query error:', countError);
+        throw countError;
+      }
+
+      const totalCount = count || 0;
+      console.log(`📊 Total records in database: ${totalCount}`);
+      setLoadingProgress({ current: 0, total: totalCount, percentage: 0 });
+
+      if (totalCount === 0) {
+        console.log('📭 No records found, setting empty inventory');
+        setInventory([]);
+        setLoading(false);
+        setLoadingProgress(null);
+        return;
+      }
 
       // Load all records using pagination with smaller batch size for reliability
       let allData: any[] = [];
       const batchSize = 500; // Reduced from 1000 for better reliability
       let from = 0;
       
+      console.log(`🔄 Starting batch load with batch size ${batchSize}...`);
+      
       while (true) {
+        console.log(`📦 Fetching batch: ${from} - ${from + batchSize - 1}`);
         const batchData = await fetchBatchWithRetry(
           user.id, 
           selectedCountry, 
@@ -106,15 +146,24 @@ export function useAsinInventory() {
           from + batchSize - 1
         );
         
-        if (!batchData || batchData.length === 0) break;
+        if (!batchData || batchData.length === 0) {
+          console.log('📭 Empty batch received, ending pagination');
+          break;
+        }
         
         allData = [...allData, ...batchData];
-        console.log(`📦 Loaded batch: ${from + 1}-${from + batchData.length}, Total so far: ${allData.length}`);
+        const percentage = Math.round((allData.length / totalCount) * 100);
+        setLoadingProgress({ current: allData.length, total: totalCount, percentage });
+        console.log(`📦 Loaded batch: ${from + 1}-${from + batchData.length}, Total: ${allData.length}/${totalCount} (${percentage}%)`);
         
-        if (batchData.length < batchSize) break; // Last batch
+        if (batchData.length < batchSize) {
+          console.log('📭 Last batch (smaller than batch size), ending pagination');
+          break;
+        }
         from += batchSize;
       }
 
+      console.log(`✅ Finished loading ${allData.length} records`);
       const data = allData;
       const error = countError;
 
@@ -172,6 +221,8 @@ export function useAsinInventory() {
         calculateAutoRestockEligibility(formattedData);
       }, 100);
     } catch (error: any) {
+      console.error('❌ Error loading inventory:', error);
+      setLoadError(error.message || 'Failed to load inventory');
       toast({
         title: "Error loading inventory",
         description: error.message,
@@ -179,6 +230,7 @@ export function useAsinInventory() {
       });
     } finally {
       setLoading(false);
+      setLoadingProgress(null);
     }
   };
 
@@ -1244,6 +1296,8 @@ export function useAsinInventory() {
   return {
     inventory,
     loading,
+    loadingProgress,
+    loadError,
     addItem,
     updateItemStatus,
     deleteItem,
