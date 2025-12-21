@@ -409,53 +409,38 @@ export const ProductProfitAnalyzer: React.FC = () => {
         }));
 
         try {
-          // Search Sunsky API
+          // Use direct product lookup by itemNo (exact match)
           const { data, error } = await supabase.functions.invoke('sunsky-api', {
             body: {
-              action: 'searchProducts',
-              keyword: modelNumber,
-              page: 1,
-              pageSize: 20
+              action: 'getProductDetails',
+              itemNo: modelNumber
             }
           });
 
           if (error) throw error;
 
-          // The API returns data.data.products (not productList)
-          const products = data?.data?.products || data?.data?.productList || data?.data?.list || [];
+          // getProductDetails returns the exact product if found
+          const product = data?.data;
+          const isFound = data?.result === 'success' && product && product.itemNo;
           
-          console.log('Search results for', modelNumber, ':', products.length, 'products');
-          
-          // Find matching product - improved matching logic
-          const matchingProduct = products.find((p: any) => {
-            const itemNo = (p.itemNo || p.sku || p.productCode || '').toLowerCase();
-            const searchTerm = modelNumber.toLowerCase();
-            
-            // Exact match
-            if (itemNo === searchTerm) return true;
-            
-            // Item number contains search term or vice versa
-            if (itemNo.includes(searchTerm) || searchTerm.includes(itemNo)) return true;
-            
-            // Remove common suffixes/prefixes and compare
-            const cleanItemNo = itemNo.replace(/[^a-z0-9]/gi, '');
-            const cleanSearch = searchTerm.replace(/[^a-z0-9]/gi, '');
-            if (cleanItemNo === cleanSearch) return true;
-            if (cleanItemNo.includes(cleanSearch) || cleanSearch.includes(cleanItemNo)) return true;
-            
-            return false;
-          });
+          console.log('Direct lookup for', modelNumber, ':', isFound ? 'FOUND' : 'NOT FOUND', product?.itemNo);
 
-          if (matchingProduct) {
+          if (isFound) {
+            // Extract price from priceList (first tier) or fallback to price field
+            const price = product.priceList?.[0]?.value 
+              ? parseFloat(product.priceList[0].value) 
+              : (product.price ? parseFloat(product.price) : 0);
+            const weight = product.unitWeight ? parseFloat(product.unitWeight) : 0;
+
             // Import to sunsky_skus
             const skuData = {
               user_id: user.id,
-              sku_code: matchingProduct.itemNo || matchingProduct.sku,
-              title: matchingProduct.title || matchingProduct.itemTitle || matchingProduct.name,
-              cost: matchingProduct.price || matchingProduct.finalPrice || matchingProduct.cost || 0,
-              weight: matchingProduct.weight || 0,
+              sku_code: product.itemNo,
+              title: product.name || product.title,
+              cost: price,
+              weight: weight,
               currency: 'USD',
-              image_url: matchingProduct.imgUrl || matchingProduct.imageUrl || matchingProduct.image
+              image_url: product.imgUrl || product.imageUrl
             };
 
             await supabase
@@ -470,11 +455,11 @@ export const ProductProfitAnalyzer: React.FC = () => {
               updatedItems[itemIndex] = {
                 ...updatedItems[itemIndex],
                 status: 'matched',
-                sunsky_sku_code: matchingProduct.itemNo || matchingProduct.sku,
-                buying_cost: matchingProduct.price || matchingProduct.finalPrice || matchingProduct.cost || 0,
-                weight: matchingProduct.weight || 0,
+                sunsky_sku_code: product.itemNo,
+                buying_cost: price,
+                weight: weight,
                 sunsky_currency: 'USD',
-                title: updatedItems[itemIndex].title || matchingProduct.title || matchingProduct.name
+                title: updatedItems[itemIndex].title || product.name || product.title
               };
             }
 
