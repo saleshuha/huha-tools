@@ -1647,6 +1647,7 @@ export function AsinInventory() {
               setItemsPerPage={setItemsPerPage}
               currentPage={currentPage}
               totalCount={totalCount}
+              onAddItem={() => setIsAddDialogOpen(true)}
             />
           </div>
         </CardContent>
