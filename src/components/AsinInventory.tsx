@@ -529,11 +529,10 @@ export function AsinInventory() {
       dateAdded: new Date().toISOString()
     });
     setIsAddDialogOpen(false);
-    // Reset form with next available serial
-    const nextSerial = await getNextSerialNumber();
+    // Reset form with blank fields
     setNewItem({
       asin: '',
-      serialNumber: nextSerial,
+      serialNumber: '',
       sku: '',
       title: '',
       quantity: 0,
@@ -661,41 +660,8 @@ export function AsinInventory() {
         return;
       }
 
-      // Auto-assign serial numbers for items without serials using ATOMIC batch counter
-      // Count items needing auto-generated serials
-      const itemsNeedingSerials = items.filter(item => !item.serialNumber || item.serialNumber.trim() === '').length;
-
-      // Get ALL needed serials in one atomic batch call to prevent race conditions
-      let batchSerials: string[] = [];
-      if (itemsNeedingSerials > 0) {
-        try {
-          batchSerials = await getNextSerialsBatch(itemsNeedingSerials);
-          if (batchSerials.length !== itemsNeedingSerials) {
-            toast({
-              title: "Error",
-              description: "Failed to generate all required serial numbers",
-              variant: "destructive",
-            });
-            return;
-          }
-        } catch (error: any) {
-          toast({
-            title: "Serial Generation Error",
-            description: error.message || "Failed to generate serial numbers",
-            variant: "destructive",
-          });
-          return;
-        }
-      }
-
-      // Assign serials from the batch
-      let serialIndex = 0;
-      const itemsWithAutoSerial = items.map(item => {
-        if (!item.serialNumber || item.serialNumber.trim() === '') {
-          return { ...item, serialNumber: batchSerials[serialIndex++] };
-        }
-        return item;
-      });
+      // Use items as-is - no auto serial number assignment
+      const itemsWithAutoSerial = items;
 
       // Start bulk add with progress tracking
       setBulkAddProgress({ current: 0, total: itemsWithAutoSerial.length, isProcessing: true });
