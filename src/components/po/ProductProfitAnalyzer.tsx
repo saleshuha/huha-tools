@@ -1,13 +1,18 @@
 import React, { useState, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calculator, TrendingUp, TrendingDown, DollarSign, Package, BarChart3, CheckCircle, AlertTriangle } from 'lucide-react';
-import { ProductProfitUpload } from './ProductProfitUpload';
-import { ProductProfitSettings } from './ProductProfitSettings';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { 
+  Upload, Settings, Database, Download, TrendingUp, TrendingDown, 
+  BarChart3, CheckCircle, AlertTriangle, Package, FileX 
+} from 'lucide-react';
+import { ProductProfitUploadDialog } from './ProductProfitUploadDialog';
+import { ProductProfitSettingsDialog } from './ProductProfitSettingsDialog';
 import { ProductProfitTable } from './ProductProfitTable';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCountry } from '@/contexts/CountryContext';
 import { useCurrencyConverter } from '@/hooks/useCurrencyConverter';
+import * as XLSX from 'xlsx';
 
 export interface ProductProfitItem {
   asin?: string;
@@ -15,16 +20,16 @@ export interface ProductProfitItem {
   title?: string;
   
   // Original values from uploaded file
-  selling_price: number;           // Original selling price
-  currency_code?: string;          // Original currency from Excel
+  selling_price: number;
+  currency_code?: string;
   
   // Converted values (to display currency)
   converted_selling_price?: number;
   converted_buying_cost?: number;
   
   // Sunsky data
-  buying_cost?: number;            // Original from Sunsky
-  sunsky_currency?: string;        // Currency from Sunsky
+  buying_cost?: number;
+  sunsky_currency?: string;
   
   // Calculated fields (all in display currency)
   shipping_cost: number;
@@ -54,6 +59,8 @@ export const ProductProfitAnalyzer: React.FC = () => {
   const { toast } = useToast();
   const { selectedCountry } = useCountry();
   const { convertCurrency, loading: currencyLoading } = useCurrencyConverter();
+  
+  // Data state
   const [uploadedItems, setUploadedItems] = useState<ProductProfitItem[]>([]);
   const [settings, setSettings] = useState<ProfitSettings>({
     shippingRatePerKg: 2.5,
@@ -63,13 +70,17 @@ export const ProductProfitAnalyzer: React.FC = () => {
     additionalFees: 0,
     currency: 'AED'
   });
+  
+  // Dialog states
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Handle file upload and match with Sunsky
   const handleFileUpload = async (data: any[], headers: string[], columnMapping: any) => {
     try {
       console.log('Processing uploaded data:', { data, headers, columnMapping });
       
-      // Map columns to our structure
       const items: Partial<ProductProfitItem>[] = data.map(row => ({
         asin: columnMapping.asin ? row[columnMapping.asin] : undefined,
         model_number: columnMapping.model_number ? row[columnMapping.model_number] : undefined,
@@ -80,9 +91,6 @@ export const ProductProfitAnalyzer: React.FC = () => {
         status: 'unmatched' as const
       }));
 
-      console.log('Mapped items:', items);
-
-      // Get user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         toast({
@@ -93,7 +101,6 @@ export const ProductProfitAnalyzer: React.FC = () => {
         return;
       }
 
-      // Fetch all Sunsky SKUs for matching
       const { data: sunskySKUs, error } = await supabase
         .from('sunsky_skus')
         .select('sku_code, title, cost, weight, currency')
@@ -109,11 +116,7 @@ export const ProductProfitAnalyzer: React.FC = () => {
         return;
       }
 
-      console.log('Fetched Sunsky SKUs:', sunskySKUs?.length);
-
-      // Match items with Sunsky SKUs (store original values, conversion happens in recalculatedItems)
       const matchedItems: ProductProfitItem[] = items.map(item => {
-        // Try to match by Model Number (primary) or ASIN (fallback)
         const matchedSKU = sunskySKUs?.find(sku => 
           (item.model_number && sku.sku_code?.toLowerCase() === item.model_number.toLowerCase()) ||
           (item.asin && sku.sku_code?.toLowerCase() === item.asin.toLowerCase())
@@ -134,7 +137,6 @@ export const ProductProfitAnalyzer: React.FC = () => {
           selling_price: item.selling_price || 0,
           quantity: item.quantity,
           model_number: item.model_number,
-          // These will be calculated in recalculatedItems
           shipping_cost: 0,
           commission: 0,
           additional_fees: 0,
@@ -142,8 +144,6 @@ export const ProductProfitAnalyzer: React.FC = () => {
           margin: 0
         } as ProductProfitItem;
       });
-
-      console.log('Matched items:', matchedItems);
 
       setUploadedItems(matchedItems);
 
@@ -163,40 +163,32 @@ export const ProductProfitAnalyzer: React.FC = () => {
     }
   };
 
-  // Recalculate profit when settings change (with currency conversion)
+  // Recalculate profit when settings change
   const recalculatedItems = useMemo(() => {
     return uploadedItems.map(item => {
       const displayCurrency = settings.currency;
       const originalCurrency = item.currency_code || 'USD';
       const sunskyCurrency = item.sunsky_currency || 'USD';
       
-      // Convert selling price from original currency to display currency
       const convertedSellingPrice = convertCurrency(
         item.selling_price,
         originalCurrency,
         displayCurrency
       );
       
-      // Convert buying cost from Sunsky's currency to display currency
       const convertedBuyingCost = convertCurrency(
         item.buying_cost || 0,
         sunskyCurrency,
         displayCurrency
       );
       
-      // Calculate shipping cost (already in display currency from settings)
       const weight = item.weight || 0;
       const shippingCost = settings.useWeightBasedShipping 
         ? weight * settings.shippingRatePerKg 
         : settings.flatShippingRate;
 
-      // Calculate commission based on converted selling price
       const commission = convertedSellingPrice * (settings.commissionPercentage / 100);
-      
-      // Calculate profit in display currency
       const profit = convertedSellingPrice - convertedBuyingCost - shippingCost - commission - settings.additionalFees;
-      
-      // Calculate margin
       const margin = convertedSellingPrice ? (profit / convertedSellingPrice) * 100 : 0;
 
       return {
@@ -220,41 +212,181 @@ export const ProductProfitAnalyzer: React.FC = () => {
       : 0;
     const profitableItems = recalculatedItems.filter(item => item.profit > 0).length;
     const lossItems = recalculatedItems.filter(item => item.profit < 0).length;
+    const matchedItems = recalculatedItems.filter(item => item.status === 'matched').length;
+    const unmatchedItems = recalculatedItems.filter(item => item.status === 'unmatched').length;
     const matchRate = recalculatedItems.length > 0
-      ? (recalculatedItems.filter(item => item.status === 'matched').length / recalculatedItems.length) * 100
+      ? (matchedItems / recalculatedItems.length) * 100
       : 0;
 
     return {
       totalProfit,
-      averageMargin: averageMargin,
+      averageMargin,
       profitableItems,
       lossItems,
+      matchedItems,
+      unmatchedItems,
       matchRate,
       totalItems: recalculatedItems.length
     };
   }, [recalculatedItems]);
 
+  // Save matched items to sunsky_skus
+  const saveMatchedToSource = async () => {
+    const matchedItems = recalculatedItems.filter(i => i.status === 'matched');
+    if (matchedItems.length === 0) {
+      toast({
+        title: "No matched items",
+        description: "There are no matched items to save",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Update existing SKUs with new selling price data
+      for (const item of matchedItems) {
+        if (!item.sunsky_sku_code) continue;
+        
+        await supabase
+          .from('sunsky_skus')
+          .update({ 
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', user.id)
+          .eq('sku_code', item.sunsky_sku_code);
+      }
+
+      toast({
+        title: "Saved successfully",
+        description: `Updated ${matchedItems.length} items in source`,
+      });
+    } catch (error) {
+      console.error('Error saving to source:', error);
+      toast({
+        title: "Error saving",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Export unmatched items to CSV
+  const exportUnmatched = () => {
+    const unmatchedItems = recalculatedItems.filter(i => i.status === 'unmatched');
+    if (unmatchedItems.length === 0) {
+      toast({
+        title: "No unmatched items",
+        description: "All items are matched with source",
+      });
+      return;
+    }
+
+    try {
+      const exportData = unmatchedItems.map(item => ({
+        'ASIN': item.asin || '',
+        'Model Number': item.model_number || '',
+        'Title': item.title || '',
+        'Selling Price': item.selling_price,
+        'Currency': item.currency_code || 'USD',
+        'Quantity': item.quantity || 1,
+        'Status': 'Unmatched - Needs SKU'
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Unmatched Items');
+      XLSX.writeFile(wb, `unmatched-items-${new Date().toISOString().split('T')[0]}.xlsx`);
+
+      toast({
+        title: "Export successful",
+        description: `${exportData.length} unmatched items exported`,
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: "Export failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive"
+      });
+    }
+  };
+
   const clearData = () => {
     setUploadedItems([]);
   };
 
+  const hasData = uploadedItems.length > 0;
+
   return (
     <div className="space-y-4">
-      {/* Upload and Settings Card */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="space-y-4">
-            <ProductProfitUpload onUpload={handleFileUpload} onClear={clearData} />
-            <ProductProfitSettings 
-              settings={settings}
-              onSettingsChange={setSettings}
-            />
-          </div>
-        </CardContent>
+      {/* Action Bar */}
+      <Card className="p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setIsUploadOpen(true)}
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Upload Data
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setIsSettingsOpen(true)}
+          >
+            <Settings className="h-4 w-4 mr-2" />
+            Settings
+          </Button>
+
+          {hasData && (
+            <>
+              <div className="h-4 w-px bg-border mx-1" />
+              
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={saveMatchedToSource}
+                disabled={isSaving || metrics.matchedItems === 0}
+              >
+                <Database className="h-4 w-4 mr-2" />
+                Save Matched ({metrics.matchedItems})
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={exportUnmatched}
+                disabled={metrics.unmatchedItems === 0}
+              >
+                <FileX className="h-4 w-4 mr-2" />
+                Export Unmatched ({metrics.unmatchedItems})
+              </Button>
+
+              <div className="h-4 w-px bg-border mx-1" />
+
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={clearData}
+                className="text-destructive hover:text-destructive"
+              >
+                Clear All
+              </Button>
+            </>
+          )}
+        </div>
       </Card>
 
       {/* Summary Metrics Bar */}
-      {uploadedItems.length > 0 && (
+      {hasData && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
           <Card className="p-3">
             <div className="flex items-center gap-2">
@@ -311,12 +443,24 @@ export const ProductProfitAnalyzer: React.FC = () => {
       )}
 
       {/* Results Table */}
-      {uploadedItems.length > 0 && (
-        <ProductProfitTable 
-          items={recalculatedItems}
-          settings={settings}
-        />
-      )}
+      <ProductProfitTable 
+        items={recalculatedItems}
+        settings={settings}
+      />
+
+      {/* Dialogs */}
+      <ProductProfitUploadDialog
+        open={isUploadOpen}
+        onOpenChange={setIsUploadOpen}
+        onUpload={handleFileUpload}
+      />
+
+      <ProductProfitSettingsDialog
+        open={isSettingsOpen}
+        onOpenChange={setIsSettingsOpen}
+        settings={settings}
+        onSettingsChange={setSettings}
+      />
     </div>
   );
 };
