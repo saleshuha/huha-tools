@@ -7,7 +7,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
-import { CheckCircle, XCircle, Search, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { CheckCircle, XCircle, Search, Loader2, StopCircle } from 'lucide-react';
 
 interface SearchProgress {
   current: number;
@@ -15,7 +16,7 @@ interface SearchProgress {
   currentItem: string;
   found: number;
   notFound: number;
-  status: 'searching' | 'completed' | 'error';
+  status: 'searching' | 'completed' | 'error' | 'cancelled';
   error?: string;
 }
 
@@ -23,12 +24,14 @@ interface SunskySearchProgressDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   progress: SearchProgress;
+  onCancel?: () => void;
 }
 
 export const SunskySearchProgressDialog: React.FC<SunskySearchProgressDialogProps> = ({
   open,
   onOpenChange,
   progress,
+  onCancel,
 }) => {
   const percentage = progress.total > 0 ? (progress.current / progress.total) * 100 : 0;
 
@@ -49,6 +52,12 @@ export const SunskySearchProgressDialog: React.FC<SunskySearchProgressDialogProp
                 Search Completed
               </>
             )}
+            {progress.status === 'cancelled' && (
+              <>
+                <StopCircle className="h-5 w-5 text-orange-500" />
+                Search Cancelled
+              </>
+            )}
             {progress.status === 'error' && (
               <>
                 <XCircle className="h-5 w-5 text-destructive" />
@@ -59,6 +68,7 @@ export const SunskySearchProgressDialog: React.FC<SunskySearchProgressDialogProp
           <DialogDescription>
             {progress.status === 'searching' && 'Looking up unmatched items in Sunsky catalog...'}
             {progress.status === 'completed' && 'Finished searching all unmatched items.'}
+            {progress.status === 'cancelled' && 'Search was stopped by user.'}
             {progress.status === 'error' && progress.error}
           </DialogDescription>
         </DialogHeader>
@@ -95,6 +105,29 @@ export const SunskySearchProgressDialog: React.FC<SunskySearchProgressDialogProp
               <div className="text-xs text-muted-foreground">Not Found</div>
             </div>
           </div>
+
+          {/* Cancel button */}
+          {progress.status === 'searching' && onCancel && (
+            <Button 
+              variant="outline" 
+              className="w-full" 
+              onClick={onCancel}
+            >
+              <StopCircle className="h-4 w-4 mr-2" />
+              Stop Search
+            </Button>
+          )}
+
+          {/* Close button when done */}
+          {(progress.status === 'completed' || progress.status === 'cancelled' || progress.status === 'error') && (
+            <Button 
+              variant="default" 
+              className="w-full" 
+              onClick={() => onOpenChange(false)}
+            >
+              Close
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>
