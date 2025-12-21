@@ -246,6 +246,7 @@ export function AsinInventory() {
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [isMissingNumbersDialogOpen, setIsMissingNumbersDialogOpen] = useState(false);
+  const [isMatchingToolOpen, setIsMatchingToolOpen] = useState(false);
   
   // Duplicate serial numbers dialog
   const [isDuplicatesDialogOpen, setIsDuplicatesDialogOpen] = useState(false);
@@ -1272,6 +1273,15 @@ export function AsinInventory() {
                     variant="emerald"
                     tooltip="Add a new ASIN item to inventory"
                     onClick={() => setIsAddDialogOpen(true)}
+                  />
+
+                  {/* Inventory Matching Tool */}
+                  <EnhancedActionButton
+                    label="Match Inventory"
+                    icon={ClipboardList}
+                    variant="emerald"
+                    tooltip="Upload a list to match against inventory"
+                    onClick={() => setIsMatchingToolOpen(true)}
                   />
 
                   {/* Bulk Add Items */}
@@ -2341,5 +2351,11 @@ export function AsinInventory() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Inventory Matching Tool */}
+        <InventoryMatchingTool
+          open={isMatchingToolOpen}
+          onOpenChange={setIsMatchingToolOpen}
+        />
     </div>;
 }
