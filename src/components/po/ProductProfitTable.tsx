@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Download, Search, TrendingUp, TrendingDown, CheckCircle, XCircle } from 'lucide-react';
+import { Download, Search, TrendingUp, CheckCircle, XCircle, Filter, X } from 'lucide-react';
 import { ProductProfitItem, ProfitSettings } from './ProductProfitAnalyzer';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
@@ -14,11 +14,40 @@ interface ProductProfitTableProps {
   settings: ProfitSettings;
 }
 
+type StatusFilter = 'matched' | 'unmatched';
+type ProfitFilter = 'profitable' | 'loss';
+type MarginFilter = 'high' | 'medium' | 'low';
+
 export const ProductProfitTable: React.FC<ProductProfitTableProps> = ({ items, settings }) => {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<keyof ProductProfitItem>('profit');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [showFilters, setShowFilters] = useState(false);
+  
+  // Filter states
+  const [statusFilters, setStatusFilters] = useState<StatusFilter[]>([]);
+  const [profitFilters, setProfitFilters] = useState<ProfitFilter[]>([]);
+  const [marginFilters, setMarginFilters] = useState<MarginFilter[]>([]);
+
+  const toggleFilter = <T extends string>(
+    current: T[],
+    setter: React.Dispatch<React.SetStateAction<T[]>>,
+    value: T
+  ) => {
+    setter(current.includes(value) 
+      ? current.filter(f => f !== value) 
+      : [...current, value]
+    );
+  };
+
+  const clearAllFilters = () => {
+    setStatusFilters([]);
+    setProfitFilters([]);
+    setMarginFilters([]);
+  };
+
+  const activeFilterCount = statusFilters.length + profitFilters.length + marginFilters.length;
 
   // Filter and sort items
   const filteredItems = useMemo(() => {
@@ -33,6 +62,30 @@ export const ProductProfitTable: React.FC<ProductProfitTableProps> = ({ items, s
         item.title?.toLowerCase().includes(query) ||
         item.sunsky_sku_code?.toLowerCase().includes(query)
       );
+    }
+
+    // Apply status filter
+    if (statusFilters.length > 0) {
+      filtered = filtered.filter(item => statusFilters.includes(item.status as StatusFilter));
+    }
+
+    // Apply profit filter
+    if (profitFilters.length > 0) {
+      filtered = filtered.filter(item => {
+        if (profitFilters.includes('profitable') && item.profit >= 0) return true;
+        if (profitFilters.includes('loss') && item.profit < 0) return true;
+        return false;
+      });
+    }
+
+    // Apply margin filter
+    if (marginFilters.length > 0) {
+      filtered = filtered.filter(item => {
+        if (marginFilters.includes('high') && item.margin >= 15) return true;
+        if (marginFilters.includes('medium') && item.margin >= 5 && item.margin < 15) return true;
+        if (marginFilters.includes('low') && item.margin < 5) return true;
+        return false;
+      });
     }
 
     // Apply sorting
@@ -50,7 +103,7 @@ export const ProductProfitTable: React.FC<ProductProfitTableProps> = ({ items, s
     });
 
     return filtered;
-  }, [items, searchQuery, sortField, sortDirection]);
+  }, [items, searchQuery, sortField, sortDirection, statusFilters, profitFilters, marginFilters]);
 
   const handleSort = (field: keyof ProductProfitItem) => {
     if (sortField === field) {
@@ -139,17 +192,120 @@ export const ProductProfitTable: React.FC<ProductProfitTableProps> = ({ items, s
         </div>
       </CardHeader>
       <CardContent>
-        {/* Search */}
-        <div className="mb-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by ASIN, SKU, or title..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+        {/* Search and Filter Toggle */}
+        <div className="mb-4 space-y-3">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by ASIN, SKU, or title..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Button
+              variant={showFilters ? "secondary" : "outline"}
+              size="icon"
+              onClick={() => setShowFilters(!showFilters)}
+              className="relative"
+            >
+              <Filter className="h-4 w-4" />
+              {activeFilterCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] text-primary-foreground flex items-center justify-center">
+                  {activeFilterCount}
+                </span>
+              )}
+            </Button>
           </div>
+
+          {/* Filter Panel */}
+          {showFilters && (
+            <div className="bg-muted/50 rounded-lg p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Filters</span>
+                {activeFilterCount > 0 && (
+                  <Button variant="ghost" size="sm" onClick={clearAllFilters} className="h-7 text-xs">
+                    <X className="h-3 w-3 mr-1" />
+                    Clear All
+                  </Button>
+                )}
+              </div>
+
+              {/* Status Filters */}
+              <div className="space-y-1.5">
+                <span className="text-xs text-muted-foreground">Status</span>
+                <div className="flex flex-wrap gap-2">
+                  <Badge
+                    variant={statusFilters.includes('matched') ? 'default' : 'outline'}
+                    className="cursor-pointer hover:bg-primary/80"
+                    onClick={() => toggleFilter(statusFilters, setStatusFilters, 'matched')}
+                  >
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    Matched
+                  </Badge>
+                  <Badge
+                    variant={statusFilters.includes('unmatched') ? 'default' : 'outline'}
+                    className="cursor-pointer hover:bg-primary/80"
+                    onClick={() => toggleFilter(statusFilters, setStatusFilters, 'unmatched')}
+                  >
+                    <XCircle className="h-3 w-3 mr-1" />
+                    Unmatched
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Profit Filters */}
+              <div className="space-y-1.5">
+                <span className="text-xs text-muted-foreground">Profit Status</span>
+                <div className="flex flex-wrap gap-2">
+                  <Badge
+                    variant={profitFilters.includes('profitable') ? 'default' : 'outline'}
+                    className="cursor-pointer hover:bg-primary/80"
+                    onClick={() => toggleFilter(profitFilters, setProfitFilters, 'profitable')}
+                  >
+                    <TrendingUp className="h-3 w-3 mr-1" />
+                    Profitable
+                  </Badge>
+                  <Badge
+                    variant={profitFilters.includes('loss') ? 'default' : 'outline'}
+                    className="cursor-pointer hover:bg-primary/80"
+                    onClick={() => toggleFilter(profitFilters, setProfitFilters, 'loss')}
+                  >
+                    Loss
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Margin Filters */}
+              <div className="space-y-1.5">
+                <span className="text-xs text-muted-foreground">Margin Range</span>
+                <div className="flex flex-wrap gap-2">
+                  <Badge
+                    variant={marginFilters.includes('high') ? 'default' : 'outline'}
+                    className="cursor-pointer hover:bg-primary/80 text-green-600 border-green-500/30"
+                    onClick={() => toggleFilter(marginFilters, setMarginFilters, 'high')}
+                  >
+                    High ≥15%
+                  </Badge>
+                  <Badge
+                    variant={marginFilters.includes('medium') ? 'default' : 'outline'}
+                    className="cursor-pointer hover:bg-primary/80 text-orange-600 border-orange-500/30"
+                    onClick={() => toggleFilter(marginFilters, setMarginFilters, 'medium')}
+                  >
+                    Medium 5-15%
+                  </Badge>
+                  <Badge
+                    variant={marginFilters.includes('low') ? 'default' : 'outline'}
+                    className="cursor-pointer hover:bg-primary/80 text-red-600 border-red-500/30"
+                    onClick={() => toggleFilter(marginFilters, setMarginFilters, 'low')}
+                  >
+                    Low &lt;5%
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Table */}
