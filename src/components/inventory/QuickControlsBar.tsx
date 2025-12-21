@@ -34,18 +34,6 @@ export function QuickControlsBar({
 
   return (
     <div className="flex flex-wrap items-center gap-4 p-3 bg-gradient-to-r from-muted/40 to-muted/20 rounded-xl border border-border/60">
-      {/* Add Item Shortcut */}
-      {onAddItem && (
-        <Button
-          onClick={onAddItem}
-          size="sm"
-          className="h-9 gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
-          <span className="font-medium">Add Item</span>
-        </Button>
-      )}
-
       {/* Status Filter Pill */}
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-2 bg-background rounded-lg px-3 py-1.5 border border-border/60 shadow-sm">
@@ -116,8 +104,9 @@ export function QuickControlsBar({
         </Select>
       </div>
 
-      {/* Results Counter */}
-      <div className="ml-auto flex items-center">
+      {/* Right Side Controls */}
+      <div className="ml-auto flex items-center gap-3">
+        {/* Results Counter */}
         <Badge 
           variant="secondary" 
           className="bg-primary/10 text-primary font-semibold px-3 py-1.5 text-sm"
@@ -130,6 +119,18 @@ export function QuickControlsBar({
             'No results'
           )}
         </Badge>
+
+        {/* Add Item Shortcut */}
+        {onAddItem && (
+          <Button
+            onClick={onAddItem}
+            size="sm"
+            className="h-9 gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="font-medium">Add Item</span>
+          </Button>
+        )}
       </div>
     </div>
   );
