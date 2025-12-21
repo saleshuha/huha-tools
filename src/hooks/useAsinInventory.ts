@@ -255,18 +255,21 @@ export function useAsinInventory() {
         throw new Error(`ASIN "${item.asin}" already exists in inventory (Serial: ${existingAsin.serial_number}). Each ASIN must be unique.`);
       }
 
-      // Check for duplicate serial numbers across all ASINs
-      const { data: existingItems, error: checkError } = await ((supabase as any)
-        .from('asin_inventory')
-        .select('serial_number, asin')
-        .eq('user_id', user.id)
-        .eq('serial_number', item.serialNumber));
+      // Check for duplicate serial numbers across all ASINs (only when provided)
+      const serialNumber = (item.serialNumber ?? '').trim();
+      if (serialNumber) {
+        const { data: existingItems, error: checkError } = await ((supabase as any)
+          .from('asin_inventory')
+          .select('serial_number, asin')
+          .eq('user_id', user.id)
+          .eq('serial_number', serialNumber));
 
-      if (checkError) throw checkError;
+        if (checkError) throw checkError;
 
-      if (existingItems && existingItems.length > 0) {
-        const existingAsin = (existingItems[0] as any).asin;
-        throw new Error(`Serial number "${item.serialNumber}" is already used by ASIN "${existingAsin}". Each serial number must be unique across all ASINs.`);
+        if (existingItems && existingItems.length > 0) {
+          const existingAsin = (existingItems[0] as any).asin;
+          throw new Error(`Serial number "${serialNumber}" is already used by ASIN "${existingAsin}". Each serial number must be unique across all ASINs.`);
+        }
       }
 
       const { data, error } = await supabase
@@ -274,7 +277,7 @@ export function useAsinInventory() {
         .insert({
           user_id: user.id,
           asin: item.asin,
-          serial_number: item.serialNumber,
+          serial_number: serialNumber,
           sku: item.sku || null,
           title: item.title || null,
           status: item.status as any, // Type will be updated after types regenerate
@@ -444,13 +447,13 @@ export function useAsinInventory() {
         const insertData = batch.map(item => ({
           user_id: user.id,
           asin: item.asin,
-          serial_number: item.serialNumber,
+          serial_number: (item.serialNumber ?? '').trim(),
           sku: item.sku || null,
           status: item.status,
           date_added: item.dateAdded,
           date_sold: item.dateSold || null,
           notes: item.notes || null,
-          quantity: item.quantity ?? 1,
+          quantity: item.quantity ?? 0,
           restock_date: item.restockDate || null,
           restock_quantity: item.restockQuantity || null,
           last_restock_date: item.lastRestockDate || null,
@@ -473,7 +476,7 @@ export function useAsinInventory() {
           dateAdded: item.date_added,
           dateSold: item.date_sold || undefined,
           notes: item.notes || undefined,
-          quantity: item.quantity ?? 1,
+          quantity: item.quantity ?? 0,
           restockDate: item.restock_date || undefined,
           restockQuantity: item.restock_quantity || undefined,
           lastRestockDate: item.last_restock_date || undefined,
@@ -481,7 +484,7 @@ export function useAsinInventory() {
 
         // Log initial stock changes for items with quantity > 0
         const stockChanges = (data as any)
-          .filter((item: any) => (item.quantity ?? 1) > 0)
+          .filter((item: any) => (item.quantity ?? 0) > 0)
           .map((item: any) => ({
             user_id: user.id,
             inventory_type: 'asin',
@@ -490,8 +493,8 @@ export function useAsinInventory() {
             serial_number: item.serial_number,
             sku_number: item.sku || null,
             previous_quantity: 0,
-            new_quantity: item.quantity ?? 1,
-            change_amount: item.quantity ?? 1,
+            new_quantity: item.quantity ?? 0,
+            change_amount: item.quantity ?? 0,
             change_reason: 'Initial stock on item creation',
             reference_type: 'initial',
             changed_by: user.id,
