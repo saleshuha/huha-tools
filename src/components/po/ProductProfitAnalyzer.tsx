@@ -62,7 +62,7 @@ interface SearchProgress {
   currentItem: string;
   found: number;
   notFound: number;
-  status: 'searching' | 'completed' | 'error';
+  status: 'searching' | 'completed' | 'error' | 'cancelled';
   error?: string;
 }
 
@@ -88,6 +88,7 @@ export const ProductProfitAnalyzer: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isSearchDialogOpen, setIsSearchDialogOpen] = useState(false);
+  const [searchCancelledRef] = useState({ current: false });
   const [searchProgress, setSearchProgress] = useState<SearchProgress>({
     current: 0,
     total: 0,
@@ -96,6 +97,16 @@ export const ProductProfitAnalyzer: React.FC = () => {
     notFound: 0,
     status: 'searching'
   });
+
+  // Cancel search handler
+  const cancelSearch = () => {
+    searchCancelledRef.current = true;
+    setSearchProgress(prev => ({
+      ...prev,
+      status: 'cancelled'
+    }));
+    setIsSearching(false);
+  };
 
   // Handle file upload and match with Sunsky
   const handleFileUpload = async (data: any[], headers: string[], columnMapping: any) => {
@@ -360,6 +371,9 @@ export const ProductProfitAnalyzer: React.FC = () => {
       return;
     }
 
+    // Reset cancel flag
+    searchCancelledRef.current = false;
+    
     setIsSearchDialogOpen(true);
     setIsSearching(true);
     setSearchProgress({
@@ -380,6 +394,11 @@ export const ProductProfitAnalyzer: React.FC = () => {
       const updatedItems = [...uploadedItems];
 
       for (let i = 0; i < itemsToSearch.length; i++) {
+        // Check if cancelled
+        if (searchCancelledRef.current) {
+          break;
+        }
+        
         const item = itemsToSearch[i];
         const modelNumber = item.model_number!;
         
@@ -396,30 +415,47 @@ export const ProductProfitAnalyzer: React.FC = () => {
               action: 'searchProducts',
               keyword: modelNumber,
               page: 1,
-              pageSize: 10
+              pageSize: 20
             }
           });
 
           if (error) throw error;
 
-          const products = data?.data?.productList || data?.data?.list || [];
+          // The API returns data.data.products (not productList)
+          const products = data?.data?.products || data?.data?.productList || data?.data?.list || [];
           
-          // Find matching product
-          const matchingProduct = products.find((p: any) => 
-            p.itemNo?.toLowerCase().includes(modelNumber.toLowerCase()) ||
-            modelNumber.toLowerCase().includes(p.itemNo?.toLowerCase())
-          );
+          console.log('Search results for', modelNumber, ':', products.length, 'products');
+          
+          // Find matching product - improved matching logic
+          const matchingProduct = products.find((p: any) => {
+            const itemNo = (p.itemNo || p.sku || p.productCode || '').toLowerCase();
+            const searchTerm = modelNumber.toLowerCase();
+            
+            // Exact match
+            if (itemNo === searchTerm) return true;
+            
+            // Item number contains search term or vice versa
+            if (itemNo.includes(searchTerm) || searchTerm.includes(itemNo)) return true;
+            
+            // Remove common suffixes/prefixes and compare
+            const cleanItemNo = itemNo.replace(/[^a-z0-9]/gi, '');
+            const cleanSearch = searchTerm.replace(/[^a-z0-9]/gi, '');
+            if (cleanItemNo === cleanSearch) return true;
+            if (cleanItemNo.includes(cleanSearch) || cleanSearch.includes(cleanItemNo)) return true;
+            
+            return false;
+          });
 
           if (matchingProduct) {
             // Import to sunsky_skus
             const skuData = {
               user_id: user.id,
-              sku_code: matchingProduct.itemNo,
-              title: matchingProduct.title || matchingProduct.itemTitle,
-              cost: matchingProduct.price || matchingProduct.finalPrice || 0,
+              sku_code: matchingProduct.itemNo || matchingProduct.sku,
+              title: matchingProduct.title || matchingProduct.itemTitle || matchingProduct.name,
+              cost: matchingProduct.price || matchingProduct.finalPrice || matchingProduct.cost || 0,
               weight: matchingProduct.weight || 0,
               currency: 'USD',
-              image_url: matchingProduct.imgUrl || matchingProduct.imageUrl
+              image_url: matchingProduct.imgUrl || matchingProduct.imageUrl || matchingProduct.image
             };
 
             await supabase
@@ -434,11 +470,11 @@ export const ProductProfitAnalyzer: React.FC = () => {
               updatedItems[itemIndex] = {
                 ...updatedItems[itemIndex],
                 status: 'matched',
-                sunsky_sku_code: matchingProduct.itemNo,
-                buying_cost: matchingProduct.price || matchingProduct.finalPrice || 0,
+                sunsky_sku_code: matchingProduct.itemNo || matchingProduct.sku,
+                buying_cost: matchingProduct.price || matchingProduct.finalPrice || matchingProduct.cost || 0,
                 weight: matchingProduct.weight || 0,
                 sunsky_currency: 'USD',
-                title: updatedItems[itemIndex].title || matchingProduct.title
+                title: updatedItems[itemIndex].title || matchingProduct.title || matchingProduct.name
               };
             }
 
@@ -454,7 +490,7 @@ export const ProductProfitAnalyzer: React.FC = () => {
           }));
 
           // Small delay to avoid rate limiting
-          await new Promise(resolve => setTimeout(resolve, 300));
+          await new Promise(resolve => setTimeout(resolve, 200));
         } catch (err) {
           console.error('Error searching for:', modelNumber, err);
           notFound++;
@@ -466,15 +502,18 @@ export const ProductProfitAnalyzer: React.FC = () => {
       }
 
       setUploadedItems(updatedItems);
-      setSearchProgress(prev => ({
-        ...prev,
-        status: 'completed'
-      }));
+      
+      if (!searchCancelledRef.current) {
+        setSearchProgress(prev => ({
+          ...prev,
+          status: 'completed'
+        }));
 
-      toast({
-        title: "Search completed",
-        description: `Found ${found} items, ${notFound} not found in Sunsky`,
-      });
+        toast({
+          title: "Search completed",
+          description: `Found ${found} items, ${notFound} not found in Sunsky`,
+        });
+      }
 
     } catch (error) {
       console.error('Search error:', error);
@@ -658,6 +697,7 @@ export const ProductProfitAnalyzer: React.FC = () => {
           if (!isSearching) setIsSearchDialogOpen(open);
         }}
         progress={searchProgress}
+        onCancel={cancelSearch}
       />
     </div>
   );
