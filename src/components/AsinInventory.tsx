@@ -45,6 +45,8 @@ import { EnhancedActionButton } from './inventory/EnhancedActionButton';
 import { QuickControlsBar } from './inventory/QuickControlsBar';
 import { LabelPrintingCard } from './inventory/LabelPrintingCard';
 import { DisplayFiltersToggle } from './inventory/DisplayFiltersToggle';
+import { InventoryMatchingTool } from './inventory/matching/InventoryMatchingTool';
+import { ClipboardList } from 'lucide-react';
 
 import { useWarehouseManager } from '@/hooks/useWarehouseManager';
 import { useBackgroundTasks } from '@/contexts/BackgroundTasksContext';

@@ -790,6 +790,54 @@ export type Database = {
         }
         Relationships: []
       }
+      inventory_match_sessions: {
+        Row: {
+          country: string | null
+          created_at: string
+          file_name: string | null
+          id: string
+          in_stock_count: number | null
+          match_results: Json | null
+          matched_count: number | null
+          out_of_stock_count: number | null
+          partial_stock_count: number | null
+          session_name: string
+          total_items: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          country?: string | null
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          in_stock_count?: number | null
+          match_results?: Json | null
+          matched_count?: number | null
+          out_of_stock_count?: number | null
+          partial_stock_count?: number | null
+          session_name: string
+          total_items?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          country?: string | null
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          in_stock_count?: number | null
+          match_results?: Json | null
+          matched_count?: number | null
+          out_of_stock_count?: number | null
+          partial_stock_count?: number | null
+          session_name?: string
+          total_items?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       label_datasets: {
         Row: {
           created_at: string
