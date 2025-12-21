@@ -1263,65 +1263,14 @@ export function AsinInventory() {
               >
                 <div className="flex flex-wrap gap-2">
                   {/* Add New Item */}
-                  <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                    <DialogTrigger asChild>
-                      <EnhancedActionButton
-                        label="Add Item"
-                        icon={Plus}
-                        variant="emerald"
-                        tooltip="Add a new ASIN item to inventory"
-                      />
-                    </DialogTrigger>
-                    <DialogContent className="max-w-md">
-                      <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                          <Plus className="w-5 h-5" />
-                          Add New ASIN Item
-                        </DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div>
-                          <Label htmlFor="asin">ASIN <span className="text-destructive">*</span></Label>
-                          <Input id="asin" value={newItem.asin} onChange={e => setNewItem({
-                            ...newItem,
-                            asin: e.target.value
-                          })} placeholder="Enter ASIN..." />
-                        </div>
-                        <div>
-                          <Label htmlFor="serialNumber">Serial Number (Optional)</Label>
-                          <Input 
-                            id="serialNumber" 
-                            value={newItem.serialNumber} 
-                            onChange={e => setNewItem({
-                              ...newItem,
-                              serialNumber: e.target.value
-                            })} 
-                            placeholder="Enter Serial Number (optional)..." 
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="sku">SKU <span className="text-destructive">*</span></Label>
-                          <Input id="sku" value={newItem.sku} onChange={e => setNewItem({
-                            ...newItem,
-                            sku: e.target.value
-                          })} placeholder="Enter SKU..." />
-                        </div>
-                        <div>
-                          <Label htmlFor="title">Title <span className="text-destructive">*</span></Label>
-                          <Input id="title" value={newItem.title} onChange={e => setNewItem({
-                            ...newItem,
-                            title: e.target.value
-                          })} placeholder="Enter title..." />
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                          Cancel
-                        </Button>
-                        <Button onClick={handleAddItem}>Add Item</Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
+                  {/* Add New Item - trigger only, dialog rendered outside */}
+                  <EnhancedActionButton
+                    label="Add Item"
+                    icon={Plus}
+                    variant="emerald"
+                    tooltip="Add a new ASIN item to inventory"
+                    onClick={() => setIsAddDialogOpen(true)}
+                  />
 
                   {/* Bulk Add Items */}
                   <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
@@ -2337,5 +2286,58 @@ export function AsinInventory() {
             }
           }}
         />
+
+        {/* Add New Item Dialog - rendered outside conditional section */}
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Plus className="w-5 h-5" />
+                Add New ASIN Item
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="asin">ASIN <span className="text-destructive">*</span></Label>
+                <Input id="asin" value={newItem.asin} onChange={e => setNewItem({
+                  ...newItem,
+                  asin: e.target.value
+                })} placeholder="Enter ASIN..." />
+              </div>
+              <div>
+                <Label htmlFor="serialNumber">Serial Number (Optional)</Label>
+                <Input 
+                  id="serialNumber" 
+                  value={newItem.serialNumber} 
+                  onChange={e => setNewItem({
+                    ...newItem,
+                    serialNumber: e.target.value
+                  })} 
+                  placeholder="Enter Serial Number (optional)..." 
+                />
+              </div>
+              <div>
+                <Label htmlFor="sku">SKU <span className="text-destructive">*</span></Label>
+                <Input id="sku" value={newItem.sku} onChange={e => setNewItem({
+                  ...newItem,
+                  sku: e.target.value
+                })} placeholder="Enter SKU..." />
+              </div>
+              <div>
+                <Label htmlFor="title">Title <span className="text-destructive">*</span></Label>
+                <Input id="title" value={newItem.title} onChange={e => setNewItem({
+                  ...newItem,
+                  title: e.target.value
+                })} placeholder="Enter title..." />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleAddItem}>Add Item</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
     </div>;
 }
