@@ -2,11 +2,12 @@ import React, { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
-  Upload, Settings, Database, Download, TrendingUp, TrendingDown, 
-  BarChart3, CheckCircle, AlertTriangle, Package, FileX 
+  Upload, Settings, Database, TrendingUp, 
+  BarChart3, CheckCircle, AlertTriangle, Package, FileX, Search, Loader2 
 } from 'lucide-react';
 import { ProductProfitUploadDialog } from './ProductProfitUploadDialog';
 import { ProductProfitSettingsDialog } from './ProductProfitSettingsDialog';
+import { SunskySearchProgressDialog } from './SunskySearchProgressDialog';
 import { ProductProfitTable } from './ProductProfitTable';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -55,6 +56,16 @@ export interface ProfitSettings {
   currency: string;
 }
 
+interface SearchProgress {
+  current: number;
+  total: number;
+  currentItem: string;
+  found: number;
+  notFound: number;
+  status: 'searching' | 'completed' | 'error';
+  error?: string;
+}
+
 export const ProductProfitAnalyzer: React.FC = () => {
   const { toast } = useToast();
   const { selectedCountry } = useCountry();
@@ -75,6 +86,16 @@ export const ProductProfitAnalyzer: React.FC = () => {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isSearchDialogOpen, setIsSearchDialogOpen] = useState(false);
+  const [searchProgress, setSearchProgress] = useState<SearchProgress>({
+    current: 0,
+    total: 0,
+    currentItem: '',
+    found: 0,
+    notFound: 0,
+    status: 'searching'
+  });
 
   // Handle file upload and match with Sunsky
   const handleFileUpload = async (data: any[], headers: string[], columnMapping: any) => {
@@ -317,6 +338,161 @@ export const ProductProfitAnalyzer: React.FC = () => {
     }
   };
 
+  // Search unmatched items in Sunsky catalog
+  const searchUnmatchedInSunsky = async () => {
+    const unmatchedItems = uploadedItems.filter(i => i.status === 'unmatched');
+    if (unmatchedItems.length === 0) {
+      toast({
+        title: "No unmatched items",
+        description: "All items are already matched with source",
+      });
+      return;
+    }
+
+    // Filter items with model numbers
+    const itemsToSearch = unmatchedItems.filter(i => i.model_number);
+    if (itemsToSearch.length === 0) {
+      toast({
+        title: "No searchable items",
+        description: "Unmatched items don't have model numbers to search",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSearchDialogOpen(true);
+    setIsSearching(true);
+    setSearchProgress({
+      current: 0,
+      total: itemsToSearch.length,
+      currentItem: '',
+      found: 0,
+      notFound: 0,
+      status: 'searching'
+    });
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      let found = 0;
+      let notFound = 0;
+      const updatedItems = [...uploadedItems];
+
+      for (let i = 0; i < itemsToSearch.length; i++) {
+        const item = itemsToSearch[i];
+        const modelNumber = item.model_number!;
+        
+        setSearchProgress(prev => ({
+          ...prev,
+          current: i + 1,
+          currentItem: modelNumber
+        }));
+
+        try {
+          // Search Sunsky API
+          const { data, error } = await supabase.functions.invoke('sunsky-api', {
+            body: {
+              action: 'searchProducts',
+              keyword: modelNumber,
+              page: 1,
+              pageSize: 10
+            }
+          });
+
+          if (error) throw error;
+
+          const products = data?.data?.productList || data?.data?.list || [];
+          
+          // Find matching product
+          const matchingProduct = products.find((p: any) => 
+            p.itemNo?.toLowerCase().includes(modelNumber.toLowerCase()) ||
+            modelNumber.toLowerCase().includes(p.itemNo?.toLowerCase())
+          );
+
+          if (matchingProduct) {
+            // Import to sunsky_skus
+            const skuData = {
+              user_id: user.id,
+              sku_code: matchingProduct.itemNo,
+              title: matchingProduct.title || matchingProduct.itemTitle,
+              cost: matchingProduct.price || matchingProduct.finalPrice || 0,
+              weight: matchingProduct.weight || 0,
+              currency: 'USD',
+              image_url: matchingProduct.imgUrl || matchingProduct.imageUrl
+            };
+
+            await supabase
+              .from('sunsky_skus')
+              .upsert(skuData, { onConflict: 'user_id,sku_code' });
+
+            // Update item in our list
+            const itemIndex = updatedItems.findIndex(
+              ui => ui.model_number === modelNumber && ui.status === 'unmatched'
+            );
+            if (itemIndex !== -1) {
+              updatedItems[itemIndex] = {
+                ...updatedItems[itemIndex],
+                status: 'matched',
+                sunsky_sku_code: matchingProduct.itemNo,
+                buying_cost: matchingProduct.price || matchingProduct.finalPrice || 0,
+                weight: matchingProduct.weight || 0,
+                sunsky_currency: 'USD',
+                title: updatedItems[itemIndex].title || matchingProduct.title
+              };
+            }
+
+            found++;
+          } else {
+            notFound++;
+          }
+
+          setSearchProgress(prev => ({
+            ...prev,
+            found,
+            notFound
+          }));
+
+          // Small delay to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 300));
+        } catch (err) {
+          console.error('Error searching for:', modelNumber, err);
+          notFound++;
+          setSearchProgress(prev => ({
+            ...prev,
+            notFound
+          }));
+        }
+      }
+
+      setUploadedItems(updatedItems);
+      setSearchProgress(prev => ({
+        ...prev,
+        status: 'completed'
+      }));
+
+      toast({
+        title: "Search completed",
+        description: `Found ${found} items, ${notFound} not found in Sunsky`,
+      });
+
+    } catch (error) {
+      console.error('Search error:', error);
+      setSearchProgress(prev => ({
+        ...prev,
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }));
+      toast({
+        title: "Search failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   const clearData = () => {
     setUploadedItems([]);
   };
@@ -368,6 +544,20 @@ export const ProductProfitAnalyzer: React.FC = () => {
               >
                 <FileX className="h-4 w-4 mr-2" />
                 Export Unmatched ({metrics.unmatchedItems})
+              </Button>
+
+              <Button 
+                variant="default" 
+                size="sm"
+                onClick={searchUnmatchedInSunsky}
+                disabled={isSearching || metrics.unmatchedItems === 0}
+              >
+                {isSearching ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Search className="h-4 w-4 mr-2" />
+                )}
+                Search Sunsky ({metrics.unmatchedItems})
               </Button>
 
               <div className="h-4 w-px bg-border mx-1" />
@@ -460,6 +650,14 @@ export const ProductProfitAnalyzer: React.FC = () => {
         onOpenChange={setIsSettingsOpen}
         settings={settings}
         onSettingsChange={setSettings}
+      />
+
+      <SunskySearchProgressDialog
+        open={isSearchDialogOpen}
+        onOpenChange={(open) => {
+          if (!isSearching) setIsSearchDialogOpen(open);
+        }}
+        progress={searchProgress}
       />
     </div>
   );
