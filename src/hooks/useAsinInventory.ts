@@ -281,7 +281,7 @@ export function useAsinInventory() {
           date_added: item.dateAdded,
           date_sold: item.dateSold || null,
           notes: item.notes || null,
-          quantity: item.quantity || 1,
+          quantity: item.quantity ?? 0,
           restock_date: item.restockDate || null,
           restock_quantity: item.restockQuantity || null,
           last_restock_date: item.lastRestockDate || null,
