@@ -1197,173 +1197,106 @@ export function AsinInventory() {
       />
       {/* Toggle Buttons Section */}
       <div className="grid grid-cols-2 gap-4">
-        <Button
-          variant={showMetrics ? "default" : "outline"}
+        {/* Inventory Metrics Button - 30-Day Background Chart */}
+        <button
           onClick={() => setShowMetrics(!showMetrics)}
           className={cn(
-            "h-28 flex items-stretch gap-0 rounded-xl transition-all duration-300 border-2 p-0 overflow-hidden group relative",
-            showMetrics 
-              ? "bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 text-white border-blue-400 shadow-lg shadow-blue-500/25" 
-              : "border-border hover:border-blue-400 bg-card"
+            "relative w-full h-24 rounded-xl border-2 overflow-hidden transition-all duration-300",
+            "bg-gradient-to-br from-card to-card/80 hover:shadow-lg",
+            showMetrics ? "border-primary/50 shadow-md" : "border-border hover:border-primary/30"
           )}
         >
-          {/* Animated background effects */}
-          <div className={cn(
-            "absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent transition-opacity",
-            isFetching ? "opacity-100 animate-shimmer" : "opacity-0"
-          )} style={{ backgroundSize: '200% 100%' }} />
-          
-          {/* Left section - Live Sparkline Chart */}
-          <div className={cn(
-            "w-24 h-full flex flex-col items-center justify-center relative border-r",
-            showMetrics ? "border-white/20 bg-black/10" : "border-border bg-muted/30"
-          )}>
-            {/* Mini sparkline visualization */}
-            <svg className="w-20 h-12" viewBox="0 0 80 48" preserveAspectRatio="none">
-              {/* Gradient definition */}
+          {/* 30-Day Background Area Chart */}
+          <div className="absolute inset-0 opacity-20">
+            <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 40">
               <defs>
-                <linearGradient id="sparklineGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor={showMetrics ? "rgba(255,255,255,0.4)" : "rgba(59,130,246,0.4)"} />
-                  <stop offset="100%" stopColor={showMetrics ? "rgba(255,255,255,0)" : "rgba(59,130,246,0)"} />
+                <linearGradient id="chartGradient30" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.6" />
+                  <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
                 </linearGradient>
               </defs>
-              {/* Area fill */}
-              <path 
-                d={`M0,40 L10,35 L20,38 L30,28 L40,32 L50,20 L60,24 L70,12 L80,16 L80,48 L0,48 Z`}
-                fill="url(#sparklineGradient)"
+              <path
+                d="M0,35 L3,32 L7,28 L10,30 L13,25 L17,22 L20,26 L23,20 L27,18 L30,22 L33,15 L37,18 L40,12 L43,16 L47,10 L50,14 L53,8 L57,12 L60,6 L63,10 L67,8 L70,5 L73,9 L77,6 L80,10 L83,4 L87,8 L90,5 L93,9 L97,6 L100,8 L100,40 L0,40 Z"
+                fill="url(#chartGradient30)"
+                className={cn(isFetching && "animate-pulse")}
               />
-              {/* Line */}
-              <path 
-                d="M0,40 L10,35 L20,38 L30,28 L40,32 L50,20 L60,24 L70,12 L80,16"
+              <path
+                d="M0,35 L3,32 L7,28 L10,30 L13,25 L17,22 L20,26 L23,20 L27,18 L30,22 L33,15 L37,18 L40,12 L43,16 L47,10 L50,14 L53,8 L57,12 L60,6 L63,10 L67,8 L70,5 L73,9 L77,6 L80,10 L83,4 L87,8 L90,5 L93,9 L97,6 L100,8"
                 fill="none"
-                stroke={showMetrics ? "rgba(255,255,255,0.8)" : "rgba(59,130,246,0.8)"}
-                strokeWidth="2"
+                stroke="hsl(var(--primary))"
+                strokeWidth="0.8"
                 strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              {/* Animated dot at end */}
-              <circle 
-                cx="80" 
-                cy="16" 
-                r="3" 
-                fill={showMetrics ? "#fff" : "#3b82f6"}
-                className={isFetching ? "animate-pulse" : ""}
+                className={cn(isFetching && "animate-pulse")}
               />
             </svg>
-            
-            {/* Live indicator */}
-            <div className="flex items-center gap-1 mt-1">
+          </div>
+
+          {/* Content overlay */}
+          <div className="relative z-10 h-full flex items-center justify-between px-4">
+            <div className="flex items-center gap-3">
               <div className={cn(
-                "w-1.5 h-1.5 rounded-full",
-                isFetching ? "bg-emerald-400 animate-pulse" : showMetrics ? "bg-white/50" : "bg-muted-foreground/50"
+                "p-2.5 rounded-lg bg-primary/10 border border-primary/20",
+                isFetching && "animate-pulse"
+              )}>
+                <BarChart3 className="h-5 w-5 text-primary" />
+              </div>
+              <div className="text-left">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-foreground">Inventory Metrics</span>
+                  {isFetching && (
+                    <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">LIVE</span>
+                    </span>
+                  )}
+                </div>
+                <p className="text-lg font-bold text-primary">
+                  {totalCount.toLocaleString()} ASINs
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded-md">30 days</span>
+              <ChevronDown className={cn(
+                "h-5 w-5 text-muted-foreground transition-transform duration-200",
+                showMetrics && "rotate-180"
               )} />
-              <span className={cn(
-                "text-[9px] font-medium uppercase tracking-wider",
-                showMetrics ? "text-white/70" : "text-muted-foreground"
-              )}>
-                {isFetching ? "Live" : "7d"}
-              </span>
             </div>
           </div>
-          
-          {/* Center section - Metrics Dashboard */}
-          <div className="flex-1 flex flex-col justify-center px-3 py-2 gap-1.5">
-            {/* Header with title and live badge */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <BarChart3 className={cn("w-3.5 h-3.5", showMetrics ? "text-white" : "text-blue-500")} />
-                <span className={cn("font-semibold text-xs", showMetrics ? "text-white" : "text-foreground")}>
-                  Inventory Metrics
-                </span>
-              </div>
-              {isFetching && (
-                <span className={cn(
-                  "text-[9px] px-1.5 py-0.5 rounded-full flex items-center gap-1 font-medium",
-                  showMetrics ? "bg-white/20 text-white" : "bg-emerald-500/20 text-emerald-600"
-                )}>
-                  <span className="w-1 h-1 rounded-full bg-current animate-pulse" />
-                  SYNCING
-                </span>
-              )}
-            </div>
-            
-            {/* Main metric - Total count with animation */}
-            <div className="flex items-baseline gap-1.5">
-              <span className={cn(
-                "text-2xl font-bold tabular-nums tracking-tight",
-                showMetrics ? "text-white" : "text-foreground"
-              )}>
-                {totalCount.toLocaleString()}
-              </span>
-              <span className={cn(
-                "text-xs",
-                showMetrics ? "text-white/70" : "text-muted-foreground"
-              )}>
-                items
-              </span>
-            </div>
-            
-            {/* Stock health bar */}
-            <div className="flex items-center gap-2">
-              <div className={cn(
-                "flex-1 h-1.5 rounded-full overflow-hidden",
-                showMetrics ? "bg-white/20" : "bg-muted"
-              )}>
-                {(() => {
-                  const inStockCount = inventory.filter(i => i.quantity > 0).length;
-                  const healthPercent = totalCount > 0 ? Math.round((inStockCount / totalCount) * 100) : 0;
-                  const getHealthColor = (pct: number) => {
-                    if (pct >= 80) return showMetrics ? "bg-emerald-300" : "bg-emerald-500";
-                    if (pct >= 60) return showMetrics ? "bg-amber-300" : "bg-amber-500";
-                    return showMetrics ? "bg-red-300" : "bg-red-500";
-                  };
-                  return (
-                    <div 
-                      className={cn("h-full rounded-full transition-all duration-700", getHealthColor(healthPercent))}
-                      style={{ width: `${healthPercent}%` }}
-                    />
-                  );
-                })()}
-              </div>
-              <span className={cn(
-                "text-[10px] font-medium tabular-nums",
-                showMetrics ? "text-white/80" : "text-muted-foreground"
-              )}>
-                {(() => {
-                  const inStockCount = inventory.filter(i => i.quantity > 0).length;
-                  return totalCount > 0 ? Math.round((inStockCount / totalCount) * 100) : 0;
-                })()}% in stock
-              </span>
-            </div>
-          </div>
-          
-          {/* Right section - Chevron */}
-          <div className={cn(
-            "w-8 flex items-center justify-center border-l",
-            showMetrics ? "border-white/20 bg-black/10" : "border-border bg-muted/30"
-          )}>
-            <ChevronDown className={cn(
-              "w-4 h-4 transition-transform duration-300",
-              showMetrics ? "rotate-180 text-white/70" : "text-muted-foreground"
-            )} />
-          </div>
-        </Button>
-        
-        <Button
-          variant={showFeatures ? "default" : "outline"}
+        </button>
+
+        {/* Inventory Features Button - Matching Size */}
+        <button
           onClick={() => setShowFeatures(!showFeatures)}
           className={cn(
-            "h-20 flex flex-col items-center justify-center gap-2 rounded-xl transition-all duration-300 border-2",
-            showFeatures 
-              ? "bg-gradient-to-br from-purple-500 to-purple-600 text-white border-purple-400 shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/30" 
-              : "border-border hover:border-purple-400 hover:bg-purple-500/10 bg-card"
+            "relative w-full h-24 rounded-xl border-2 overflow-hidden transition-all duration-300",
+            "bg-gradient-to-br from-card to-card/80 hover:shadow-lg",
+            showFeatures ? "border-purple-500/50 shadow-md" : "border-border hover:border-purple-500/30"
           )}
         >
-          <Layers className={cn("w-7 h-7", showFeatures ? "text-white" : "text-purple-500")} />
-          <span className={cn("font-semibold text-base", showFeatures ? "text-white" : "text-foreground")}>
-            Inventory Features
-          </span>
-        </Button>
+          {/* Subtle background pattern */}
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,hsl(var(--primary))_1px,transparent_1px)] bg-[length:20px_20px]" />
+          </div>
+
+          {/* Content */}
+          <div className="relative z-10 h-full flex items-center justify-between px-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                <Layers className="h-5 w-5 text-purple-500" />
+              </div>
+              <div className="text-left">
+                <span className="font-semibold text-foreground">Inventory Features</span>
+                <p className="text-sm text-muted-foreground">Manage & configure</p>
+              </div>
+            </div>
+            <ChevronDown className={cn(
+              "h-5 w-5 text-muted-foreground transition-transform duration-200",
+              showFeatures && "rotate-180"
+            )} />
+          </div>
+        </button>
       </div>
 
       {/* Conditional Metrics Section */}
