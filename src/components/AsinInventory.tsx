@@ -1201,53 +1201,111 @@ export function AsinInventory() {
           variant={showMetrics ? "default" : "outline"}
           onClick={() => setShowMetrics(!showMetrics)}
           className={cn(
-            "h-20 flex items-center justify-center gap-3 rounded-xl transition-all duration-300 border-2 px-4",
+            "h-24 flex items-center justify-between gap-3 rounded-xl transition-all duration-300 border-2 px-4 overflow-hidden group relative",
             showMetrics 
               ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white border-blue-400 shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30" 
               : "border-border hover:border-blue-400 hover:bg-blue-500/10 bg-card"
           )}
         >
-          {/* Mini Progress Ring */}
-          <div className="relative w-10 h-10 flex-shrink-0">
-            <svg className="w-10 h-10 transform -rotate-90" viewBox="0 0 36 36">
-              <circle 
-                cx="18" cy="18" r="14" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="3" 
-                opacity="0.2" 
-              />
-              <circle 
-                cx="18" cy="18" r="14" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="3" 
-                strokeLinecap="round"
-                strokeDasharray="88"
-                strokeDashoffset={88 - (88 * Math.min(100, totalCount > 0 ? 100 : 0) / 100)}
-                className="transition-all duration-500"
-              />
-            </svg>
-            <div className={cn(
-              "absolute inset-0 flex items-center justify-center text-[10px] font-bold",
-              showMetrics ? "text-white" : "text-blue-500"
-            )}>
-              {totalCount > 999 ? '1k+' : totalCount}
+          {/* Background animated gradient pulse */}
+          {isFetching && (
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer pointer-events-none" 
+                 style={{ backgroundSize: '200% 100%' }} />
+          )}
+          
+          <div className="flex items-center gap-3 z-10">
+            {/* Advanced Multi-ring Progress Indicator */}
+            <div className="relative w-14 h-14 flex-shrink-0">
+              {/* Outer glow ring */}
+              <div className={cn(
+                "absolute inset-0 rounded-full transition-all duration-500",
+                isFetching ? "animate-pulse" : "",
+                showMetrics ? "bg-white/10" : "bg-blue-500/10"
+              )} />
+              
+              {/* Main progress ring */}
+              <svg className="w-14 h-14 transform -rotate-90" viewBox="0 0 48 48">
+                {/* Background track */}
+                <circle 
+                  cx="24" cy="24" r="18" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="3" 
+                  opacity="0.15" 
+                />
+                {/* Animated progress arc */}
+                <circle 
+                  cx="24" cy="24" r="18" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="3" 
+                  strokeLinecap="round"
+                  strokeDasharray="113"
+                  strokeDashoffset={113 - (113 * Math.min(100, totalCount > 0 ? 100 : 0) / 100)}
+                  className="transition-all duration-700 ease-out"
+                />
+                {/* Inner decorative ring */}
+                <circle 
+                  cx="24" cy="24" r="12" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="1.5" 
+                  opacity="0.3"
+                  strokeDasharray="4 4"
+                  className={isFetching ? "animate-spin" : ""}
+                  style={{ animationDuration: '8s' }}
+                />
+              </svg>
+              
+              {/* Center content */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className={cn(
+                  "text-sm font-bold leading-none",
+                  showMetrics ? "text-white" : "text-blue-500"
+                )}>
+                  {totalCount > 9999 ? `${(totalCount / 1000).toFixed(0)}k` : totalCount > 999 ? `${(totalCount / 1000).toFixed(1)}k` : totalCount}
+                </span>
+              </div>
+              
+              {/* Live sync indicator */}
+              {isFetching && (
+                <div className="absolute -top-1 -right-1 flex items-center justify-center">
+                  <span className="absolute w-3 h-3 bg-emerald-400 rounded-full animate-ping opacity-75" />
+                  <span className="relative w-2.5 h-2.5 bg-emerald-400 rounded-full shadow-lg shadow-emerald-400/50" />
+                </div>
+              )}
             </div>
-            {/* Live indicator dot */}
-            {isFetching && (
-              <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 rounded-full animate-pulse shadow-lg shadow-green-400/50" />
-            )}
+            
+            {/* Text content */}
+            <div className="flex flex-col items-start gap-0.5">
+              <div className="flex items-center gap-1.5">
+                <BarChart3 className={cn("w-4 h-4", showMetrics ? "text-white" : "text-blue-500")} />
+                <span className={cn("font-semibold text-sm", showMetrics ? "text-white" : "text-foreground")}>
+                  Inventory Metrics
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={cn("text-xs", showMetrics ? "text-white/80" : "text-muted-foreground")}>
+                  {totalCount.toLocaleString()} items
+                </span>
+                {isFetching && (
+                  <span className={cn(
+                    "text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-1",
+                    showMetrics ? "bg-white/20 text-white" : "bg-blue-500/20 text-blue-600"
+                  )}>
+                    <Activity className="w-2.5 h-2.5" />
+                    syncing
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
           
-          <div className="flex flex-col items-start">
-            <span className={cn("font-semibold text-sm", showMetrics ? "text-white" : "text-foreground")}>
-              Inventory Metrics
-            </span>
-            <span className={cn("text-xs", showMetrics ? "text-white/80" : "text-muted-foreground")}>
-              {totalCount} items total
-            </span>
-          </div>
+          {/* Chevron indicator */}
+          <ChevronDown className={cn(
+            "w-4 h-4 transition-transform duration-300 z-10",
+            showMetrics ? "rotate-180 text-white/70" : "text-muted-foreground"
+          )} />
         </Button>
         
         <Button
