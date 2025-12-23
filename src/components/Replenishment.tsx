@@ -401,6 +401,8 @@ export function Replenishment() {
             is_default: true,
             country: selectedCountry,
             calculation_method: 'simple',
+            include_sales: true,
+            sales_weight: 1.0,
             include_manual_adjustments: true,
             manual_adjustment_weight: 1.0,
             include_po_restocks: true,

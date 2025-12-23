@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Settings, TrendingUp, Clock, PackageCheck, AlertTriangle, Calculator, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,6 +20,8 @@ interface ReplenishmentConfig {
   config_name: string;
   is_default: boolean;
   calculation_method: string;
+  include_sales: boolean;
+  sales_weight: number;
   include_manual_adjustments: boolean;
   manual_adjustment_weight: number;
   include_po_restocks: boolean;
@@ -54,6 +57,8 @@ export function ReplenishmentConfigDialog({
     config_name: 'New Configuration',
     is_default: false,
     calculation_method: 'simple',
+    include_sales: true,
+    sales_weight: 1.0,
     include_manual_adjustments: true,
     manual_adjustment_weight: 1.0,
     include_po_restocks: true,
@@ -166,7 +171,9 @@ export function ReplenishmentConfigDialog({
 
   // Helper functions for preview calculation
   const calculateExampleWeighted = (cfg: ReplenishmentConfig): number => {
-    let weighted = 45; // Base sales
+    let weighted = 0;
+    // Include sales (base 45 units sold in example)
+    if (cfg.include_sales) weighted += 45 * cfg.sales_weight;
     if (cfg.include_manual_adjustments) weighted += 5 * cfg.manual_adjustment_weight;
     if (cfg.include_po_restocks) weighted += 20 * cfg.po_restock_weight;
     if (cfg.include_returns) weighted += 2 * cfg.return_weight;
@@ -309,6 +316,48 @@ export function ReplenishmentConfigDialog({
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  {/* Sales/Outflows - Primary source */}
+                  <div className="flex items-center justify-between bg-primary/5 p-3 rounded-lg border border-primary/20">
+                    <div className="space-y-1">
+                      <Label className="flex items-center gap-2">
+                        Sales & Outflows
+                        <Badge variant="secondary" className="text-[10px]">Primary</Badge>
+                      </Label>
+                      <p className="text-sm text-muted-foreground">
+                        Stock reductions from sales (NULL source in database)
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <Switch
+                        checked={config.include_sales}
+                        onCheckedChange={(checked) =>
+                          setConfig({ ...config, include_sales: checked })
+                        }
+                      />
+                      {config.include_sales && (
+                        <div className="w-32 space-y-1">
+                          <Label className="text-xs">Impact Factor</Label>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            max="2"
+                            value={config.sales_weight}
+                            onChange={(e) =>
+                              setConfig({ ...config, sales_weight: parseFloat(e.target.value) || 1.0 })
+                            }
+                            placeholder="1.0 = full"
+                          />
+                          <p className="text-[10px] text-muted-foreground">
+                            1.0 = full impact, 0.5 = half
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <Separator />
+
                   <div className="flex items-center justify-between">
                     <div className="space-y-1">
                       <Label>Manual Adjustments</Label>

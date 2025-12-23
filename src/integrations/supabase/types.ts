@@ -3132,6 +3132,7 @@ export type Database = {
           include_manual_adjustments: boolean | null
           include_po_restocks: boolean | null
           include_returns: boolean | null
+          include_sales: boolean
           is_default: boolean | null
           lead_time_days: number | null
           lookback_days: number | null
@@ -3144,6 +3145,7 @@ export type Database = {
           return_weight: number | null
           round_to_multiple: number | null
           safety_stock_days: number | null
+          sales_weight: number
           slow_moving_multiplier: number | null
           updated_at: string | null
           use_velocity_multiplier: boolean | null
@@ -3161,6 +3163,7 @@ export type Database = {
           include_manual_adjustments?: boolean | null
           include_po_restocks?: boolean | null
           include_returns?: boolean | null
+          include_sales?: boolean
           is_default?: boolean | null
           lead_time_days?: number | null
           lookback_days?: number | null
@@ -3173,6 +3176,7 @@ export type Database = {
           return_weight?: number | null
           round_to_multiple?: number | null
           safety_stock_days?: number | null
+          sales_weight?: number
           slow_moving_multiplier?: number | null
           updated_at?: string | null
           use_velocity_multiplier?: boolean | null
@@ -3190,6 +3194,7 @@ export type Database = {
           include_manual_adjustments?: boolean | null
           include_po_restocks?: boolean | null
           include_returns?: boolean | null
+          include_sales?: boolean
           is_default?: boolean | null
           lead_time_days?: number | null
           lookback_days?: number | null
@@ -3202,6 +3207,7 @@ export type Database = {
           return_weight?: number | null
           round_to_multiple?: number | null
           safety_stock_days?: number | null
+          sales_weight?: number
           slow_moving_multiplier?: number | null
           updated_at?: string | null
           use_velocity_multiplier?: boolean | null
