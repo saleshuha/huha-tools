@@ -1201,16 +1201,53 @@ export function AsinInventory() {
           variant={showMetrics ? "default" : "outline"}
           onClick={() => setShowMetrics(!showMetrics)}
           className={cn(
-            "h-20 flex flex-col items-center justify-center gap-2 rounded-xl transition-all duration-300 border-2",
+            "h-20 flex items-center justify-center gap-3 rounded-xl transition-all duration-300 border-2 px-4",
             showMetrics 
               ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white border-blue-400 shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30" 
               : "border-border hover:border-blue-400 hover:bg-blue-500/10 bg-card"
           )}
         >
-          <BarChart3 className={cn("w-7 h-7", showMetrics ? "text-white" : "text-blue-500")} />
-          <span className={cn("font-semibold text-base", showMetrics ? "text-white" : "text-foreground")}>
-            Inventory Metrics
-          </span>
+          {/* Mini Progress Ring */}
+          <div className="relative w-10 h-10 flex-shrink-0">
+            <svg className="w-10 h-10 transform -rotate-90" viewBox="0 0 36 36">
+              <circle 
+                cx="18" cy="18" r="14" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="3" 
+                opacity="0.2" 
+              />
+              <circle 
+                cx="18" cy="18" r="14" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="3" 
+                strokeLinecap="round"
+                strokeDasharray="88"
+                strokeDashoffset={88 - (88 * Math.min(100, totalCount > 0 ? 100 : 0) / 100)}
+                className="transition-all duration-500"
+              />
+            </svg>
+            <div className={cn(
+              "absolute inset-0 flex items-center justify-center text-[10px] font-bold",
+              showMetrics ? "text-white" : "text-blue-500"
+            )}>
+              {totalCount > 999 ? '1k+' : totalCount}
+            </div>
+            {/* Live indicator dot */}
+            {isFetching && (
+              <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 rounded-full animate-pulse shadow-lg shadow-green-400/50" />
+            )}
+          </div>
+          
+          <div className="flex flex-col items-start">
+            <span className={cn("font-semibold text-sm", showMetrics ? "text-white" : "text-foreground")}>
+              Inventory Metrics
+            </span>
+            <span className={cn("text-xs", showMetrics ? "text-white/80" : "text-muted-foreground")}>
+              {totalCount} items total
+            </span>
+          </div>
         </Button>
         
         <Button
