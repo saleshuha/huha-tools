@@ -1201,111 +1201,152 @@ export function AsinInventory() {
           variant={showMetrics ? "default" : "outline"}
           onClick={() => setShowMetrics(!showMetrics)}
           className={cn(
-            "h-24 flex items-center justify-between gap-3 rounded-xl transition-all duration-300 border-2 px-4 overflow-hidden group relative",
+            "h-28 flex items-stretch gap-0 rounded-xl transition-all duration-300 border-2 p-0 overflow-hidden group relative",
             showMetrics 
-              ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white border-blue-400 shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30" 
-              : "border-border hover:border-blue-400 hover:bg-blue-500/10 bg-card"
+              ? "bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 text-white border-blue-400 shadow-lg shadow-blue-500/25" 
+              : "border-border hover:border-blue-400 bg-card"
           )}
         >
-          {/* Background animated gradient pulse */}
-          {isFetching && (
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer pointer-events-none" 
-                 style={{ backgroundSize: '200% 100%' }} />
-          )}
+          {/* Animated background effects */}
+          <div className={cn(
+            "absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent transition-opacity",
+            isFetching ? "opacity-100 animate-shimmer" : "opacity-0"
+          )} style={{ backgroundSize: '200% 100%' }} />
           
-          <div className="flex items-center gap-3 z-10">
-            {/* Advanced Multi-ring Progress Indicator */}
-            <div className="relative w-14 h-14 flex-shrink-0">
-              {/* Outer glow ring */}
-              <div className={cn(
-                "absolute inset-0 rounded-full transition-all duration-500",
-                isFetching ? "animate-pulse" : "",
-                showMetrics ? "bg-white/10" : "bg-blue-500/10"
-              )} />
-              
-              {/* Main progress ring */}
-              <svg className="w-14 h-14 transform -rotate-90" viewBox="0 0 48 48">
-                {/* Background track */}
-                <circle 
-                  cx="24" cy="24" r="18" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  strokeWidth="3" 
-                  opacity="0.15" 
-                />
-                {/* Animated progress arc */}
-                <circle 
-                  cx="24" cy="24" r="18" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  strokeWidth="3" 
-                  strokeLinecap="round"
-                  strokeDasharray="113"
-                  strokeDashoffset={113 - (113 * Math.min(100, totalCount > 0 ? 100 : 0) / 100)}
-                  className="transition-all duration-700 ease-out"
-                />
-                {/* Inner decorative ring */}
-                <circle 
-                  cx="24" cy="24" r="12" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  strokeWidth="1.5" 
-                  opacity="0.3"
-                  strokeDasharray="4 4"
-                  className={isFetching ? "animate-spin" : ""}
-                  style={{ animationDuration: '8s' }}
-                />
-              </svg>
-              
-              {/* Center content */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className={cn(
-                  "text-sm font-bold leading-none",
-                  showMetrics ? "text-white" : "text-blue-500"
-                )}>
-                  {totalCount > 9999 ? `${(totalCount / 1000).toFixed(0)}k` : totalCount > 999 ? `${(totalCount / 1000).toFixed(1)}k` : totalCount}
-                </span>
-              </div>
-              
-              {/* Live sync indicator */}
-              {isFetching && (
-                <div className="absolute -top-1 -right-1 flex items-center justify-center">
-                  <span className="absolute w-3 h-3 bg-emerald-400 rounded-full animate-ping opacity-75" />
-                  <span className="relative w-2.5 h-2.5 bg-emerald-400 rounded-full shadow-lg shadow-emerald-400/50" />
-                </div>
-              )}
-            </div>
+          {/* Left section - Live Sparkline Chart */}
+          <div className={cn(
+            "w-24 h-full flex flex-col items-center justify-center relative border-r",
+            showMetrics ? "border-white/20 bg-black/10" : "border-border bg-muted/30"
+          )}>
+            {/* Mini sparkline visualization */}
+            <svg className="w-20 h-12" viewBox="0 0 80 48" preserveAspectRatio="none">
+              {/* Gradient definition */}
+              <defs>
+                <linearGradient id="sparklineGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor={showMetrics ? "rgba(255,255,255,0.4)" : "rgba(59,130,246,0.4)"} />
+                  <stop offset="100%" stopColor={showMetrics ? "rgba(255,255,255,0)" : "rgba(59,130,246,0)"} />
+                </linearGradient>
+              </defs>
+              {/* Area fill */}
+              <path 
+                d={`M0,40 L10,35 L20,38 L30,28 L40,32 L50,20 L60,24 L70,12 L80,16 L80,48 L0,48 Z`}
+                fill="url(#sparklineGradient)"
+              />
+              {/* Line */}
+              <path 
+                d="M0,40 L10,35 L20,38 L30,28 L40,32 L50,20 L60,24 L70,12 L80,16"
+                fill="none"
+                stroke={showMetrics ? "rgba(255,255,255,0.8)" : "rgba(59,130,246,0.8)"}
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              {/* Animated dot at end */}
+              <circle 
+                cx="80" 
+                cy="16" 
+                r="3" 
+                fill={showMetrics ? "#fff" : "#3b82f6"}
+                className={isFetching ? "animate-pulse" : ""}
+              />
+            </svg>
             
-            {/* Text content */}
-            <div className="flex flex-col items-start gap-0.5">
-              <div className="flex items-center gap-1.5">
-                <BarChart3 className={cn("w-4 h-4", showMetrics ? "text-white" : "text-blue-500")} />
-                <span className={cn("font-semibold text-sm", showMetrics ? "text-white" : "text-foreground")}>
-                  Inventory Metrics
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className={cn("text-xs", showMetrics ? "text-white/80" : "text-muted-foreground")}>
-                  {totalCount.toLocaleString()} items
-                </span>
-                {isFetching && (
-                  <span className={cn(
-                    "text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-1",
-                    showMetrics ? "bg-white/20 text-white" : "bg-blue-500/20 text-blue-600"
-                  )}>
-                    <Activity className="w-2.5 h-2.5" />
-                    syncing
-                  </span>
-                )}
-              </div>
+            {/* Live indicator */}
+            <div className="flex items-center gap-1 mt-1">
+              <div className={cn(
+                "w-1.5 h-1.5 rounded-full",
+                isFetching ? "bg-emerald-400 animate-pulse" : showMetrics ? "bg-white/50" : "bg-muted-foreground/50"
+              )} />
+              <span className={cn(
+                "text-[9px] font-medium uppercase tracking-wider",
+                showMetrics ? "text-white/70" : "text-muted-foreground"
+              )}>
+                {isFetching ? "Live" : "7d"}
+              </span>
             </div>
           </div>
           
-          {/* Chevron indicator */}
-          <ChevronDown className={cn(
-            "w-4 h-4 transition-transform duration-300 z-10",
-            showMetrics ? "rotate-180 text-white/70" : "text-muted-foreground"
-          )} />
+          {/* Center section - Metrics Dashboard */}
+          <div className="flex-1 flex flex-col justify-center px-3 py-2 gap-1.5">
+            {/* Header with title and live badge */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <BarChart3 className={cn("w-3.5 h-3.5", showMetrics ? "text-white" : "text-blue-500")} />
+                <span className={cn("font-semibold text-xs", showMetrics ? "text-white" : "text-foreground")}>
+                  Inventory Metrics
+                </span>
+              </div>
+              {isFetching && (
+                <span className={cn(
+                  "text-[9px] px-1.5 py-0.5 rounded-full flex items-center gap-1 font-medium",
+                  showMetrics ? "bg-white/20 text-white" : "bg-emerald-500/20 text-emerald-600"
+                )}>
+                  <span className="w-1 h-1 rounded-full bg-current animate-pulse" />
+                  SYNCING
+                </span>
+              )}
+            </div>
+            
+            {/* Main metric - Total count with animation */}
+            <div className="flex items-baseline gap-1.5">
+              <span className={cn(
+                "text-2xl font-bold tabular-nums tracking-tight",
+                showMetrics ? "text-white" : "text-foreground"
+              )}>
+                {totalCount.toLocaleString()}
+              </span>
+              <span className={cn(
+                "text-xs",
+                showMetrics ? "text-white/70" : "text-muted-foreground"
+              )}>
+                items
+              </span>
+            </div>
+            
+            {/* Stock health bar */}
+            <div className="flex items-center gap-2">
+              <div className={cn(
+                "flex-1 h-1.5 rounded-full overflow-hidden",
+                showMetrics ? "bg-white/20" : "bg-muted"
+              )}>
+                {(() => {
+                  const inStockCount = inventory.filter(i => i.quantity > 0).length;
+                  const healthPercent = totalCount > 0 ? Math.round((inStockCount / totalCount) * 100) : 0;
+                  const getHealthColor = (pct: number) => {
+                    if (pct >= 80) return showMetrics ? "bg-emerald-300" : "bg-emerald-500";
+                    if (pct >= 60) return showMetrics ? "bg-amber-300" : "bg-amber-500";
+                    return showMetrics ? "bg-red-300" : "bg-red-500";
+                  };
+                  return (
+                    <div 
+                      className={cn("h-full rounded-full transition-all duration-700", getHealthColor(healthPercent))}
+                      style={{ width: `${healthPercent}%` }}
+                    />
+                  );
+                })()}
+              </div>
+              <span className={cn(
+                "text-[10px] font-medium tabular-nums",
+                showMetrics ? "text-white/80" : "text-muted-foreground"
+              )}>
+                {(() => {
+                  const inStockCount = inventory.filter(i => i.quantity > 0).length;
+                  return totalCount > 0 ? Math.round((inStockCount / totalCount) * 100) : 0;
+                })()}% in stock
+              </span>
+            </div>
+          </div>
+          
+          {/* Right section - Chevron */}
+          <div className={cn(
+            "w-8 flex items-center justify-center border-l",
+            showMetrics ? "border-white/20 bg-black/10" : "border-border bg-muted/30"
+          )}>
+            <ChevronDown className={cn(
+              "w-4 h-4 transition-transform duration-300",
+              showMetrics ? "rotate-180 text-white/70" : "text-muted-foreground"
+            )} />
+          </div>
         </Button>
         
         <Button
