@@ -54,7 +54,7 @@ export const POQuantityMatchingDialog: React.FC<POQuantityMatchingDialogProps> =
   // Results state
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'partial' | 'fulfilled' | 'not_ordered'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [sunskyFilter, setSunskyFilter] = useState<'all' | 'matched' | 'not_matched'>('all');
+  const [sunskyFilter, setSunskyFilter] = useState<'all' | 'matched' | 'not_matched'>('matched');
 
   const { matchedItems, summary, isLoading, hasUploadedData } = usePOQuantityMatching({
     selectedPOs: preSelectedPOs,
