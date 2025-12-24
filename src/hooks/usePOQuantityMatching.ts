@@ -231,9 +231,9 @@ export const usePOQuantityMatching = (options: UsePOQuantityMatchingOptions = {}
       }
     }
 
-    // Apply Sunsky filter
+    // Apply Sunsky filter - check both image sources
     if (sunskyFilter === 'matched') {
-      items = items.filter(i => i.sunsky_thumbnail !== null);
+      items = items.filter(i => i.sunsky_thumbnail !== null || i.image_url !== null);
     } else if (sunskyFilter === 'not_matched') {
       items = items.filter(i => i.sunsky_thumbnail === null && i.image_url === null);
     }
