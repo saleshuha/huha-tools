@@ -56,7 +56,7 @@ export const POQuantityMatchingDialog: React.FC<POQuantityMatchingDialogProps> =
   const [searchQuery, setSearchQuery] = useState('');
   const [sunskyFilter, setSunskyFilter] = useState<'all' | 'matched' | 'not_matched'>('matched');
 
-  const { matchedItems, summary, isLoading, hasUploadedData } = usePOQuantityMatching({
+  const { matchedItems, summary, poTotals, isLoading, hasUploadedData } = usePOQuantityMatching({
     selectedPOs: preSelectedPOs,
     statusFilter,
     searchQuery,
@@ -388,6 +388,18 @@ export const POQuantityMatchingDialog: React.FC<POQuantityMatchingDialogProps> =
   // Render results step
   const renderResultsStep = () => (
     <>
+      {/* PO Totals Header */}
+      <div className="flex-shrink-0 py-2 px-3 bg-muted/30 rounded-lg mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-4 text-sm">
+          <span className="text-muted-foreground">Selected POs:</span>
+          <span className="font-medium">{poTotals.po_count} POs</span>
+          <span className="text-muted-foreground">•</span>
+          <span className="font-medium">{poTotals.line_items.toLocaleString()} line items</span>
+          <span className="text-muted-foreground">•</span>
+          <span className="font-medium">{poTotals.total_units.toLocaleString()} units</span>
+        </div>
+      </div>
+
       {/* Summary Cards */}
       <div className="flex-shrink-0 grid grid-cols-4 gap-3 py-3">
         <Card className="bg-muted/20 border-border/20">
