@@ -54,12 +54,14 @@ export const POQuantityMatchingDialog: React.FC<POQuantityMatchingDialogProps> =
   // Results state
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'partial' | 'fulfilled' | 'not_ordered'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [sunskyFilter, setSunskyFilter] = useState<'all' | 'matched' | 'not_matched'>('all');
 
   const { matchedItems, summary, isLoading, hasUploadedData } = usePOQuantityMatching({
     selectedPOs: preSelectedPOs,
     statusFilter,
     searchQuery,
     uploadedOrders,
+    sunskyFilter,
   });
 
   // Auto-detect columns
@@ -168,6 +170,7 @@ export const POQuantityMatchingDialog: React.FC<POQuantityMatchingDialogProps> =
     setUploadedOrders([]);
     setSearchQuery('');
     setStatusFilter('all');
+    setSunskyFilter('all');
   }, []);
 
   // Export to CSV
@@ -441,6 +444,34 @@ export const POQuantityMatchingDialog: React.FC<POQuantityMatchingDialogProps> =
               <SelectItem value="not_ordered">Not Ordered</SelectItem>
             </SelectContent>
           </Select>
+          
+          {/* Sunsky Match Filter */}
+          <div className="flex items-center gap-0.5 border border-border/40 rounded-lg p-0.5">
+            <Button 
+              variant={sunskyFilter === 'all' ? 'default' : 'ghost'} 
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => setSunskyFilter('all')}
+            >
+              All
+            </Button>
+            <Button 
+              variant={sunskyFilter === 'matched' ? 'default' : 'ghost'} 
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => setSunskyFilter('matched')}
+            >
+              Sunsky
+            </Button>
+            <Button 
+              variant={sunskyFilter === 'not_matched' ? 'default' : 'ghost'} 
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => setSunskyFilter('not_matched')}
+            >
+              No Image
+            </Button>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={handleCopyPending}>
@@ -455,8 +486,8 @@ export const POQuantityMatchingDialog: React.FC<POQuantityMatchingDialogProps> =
       </div>
 
       {/* Table */}
-      <div className="flex-1 overflow-hidden">
-        <ScrollArea className="h-full">
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <ScrollArea className="h-[calc(90vh-320px)]">
           {isLoading ? (
             <div className="flex items-center justify-center h-64">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
