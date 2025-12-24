@@ -30,16 +30,22 @@ export interface QuantityMatchingSummary {
   not_ordered_count: number;
 }
 
+export interface UploadedOrderItem {
+  sku: string;
+  quantity: number;
+}
+
 interface UsePOQuantityMatchingOptions {
   selectedPOs?: string[];
   statusFilter?: 'all' | 'pending' | 'partial' | 'fulfilled' | 'not_ordered';
   searchQuery?: string;
+  uploadedOrders?: UploadedOrderItem[];
 }
 
 export const usePOQuantityMatching = (options: UsePOQuantityMatchingOptions = {}) => {
-  const { selectedPOs = [], statusFilter = 'all', searchQuery = '' } = options;
+  const { selectedPOs = [], statusFilter = 'all', searchQuery = '', uploadedOrders = [] } = options;
   const { selectedCountry } = useCountry();
-  const { getImageByAsin, productImages, isLoading: imagesLoading } = useProductImages();
+  const { getImageByAsin, isLoading: imagesLoading } = useProductImages();
 
   // Fetch PO demands (what's requested in POs)
   const { data: poDemandsData, isLoading: poDemandsLoading, refetch: refetchPO } = useQuery({
@@ -54,24 +60,6 @@ export const usePOQuantityMatching = (options: UsePOQuantityMatchingOptions = {}
         .eq('user_id', session.session.user.id)
         .eq('country', selectedCountry)
         .not('status', 'in', '("cancelled","closed")');
-
-      if (error) throw error;
-      return data || [];
-    },
-    staleTime: 2 * 60 * 1000,
-  });
-
-  // Fetch supplier orders (what's been ordered from Sunsky)
-  const { data: supplierOrdersData, isLoading: supplierLoading, refetch: refetchSupplier } = useQuery({
-    queryKey: ['sunsky-order-items'],
-    queryFn: async () => {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session?.session?.user?.id) throw new Error('Not authenticated');
-
-      const { data, error } = await supabase
-        .from('sunsky_order_items')
-        .select('id, sku_code, model_number, asin, title, quantity, order_number, item_status')
-        .eq('user_id', session.session.user.id);
 
       if (error) throw error;
       return data || [];
@@ -103,18 +91,30 @@ export const usePOQuantityMatching = (options: UsePOQuantityMatchingOptions = {}
     const map = new Map<string, string>();
     sunskySkusData?.forEach(sku => {
       if (sku.sku_code && sku.thumbnail_url) {
-        map.set(sku.sku_code, sku.thumbnail_url);
+        map.set(sku.sku_code.toLowerCase(), sku.thumbnail_url);
       }
       if (sku.model_number && sku.thumbnail_url) {
-        map.set(sku.model_number, sku.thumbnail_url);
+        map.set(sku.model_number.toLowerCase(), sku.thumbnail_url);
       }
     });
     return map;
   }, [sunskySkusData]);
 
+  // Build supplier order quantity map from uploaded data
+  const supplierMap = useMemo(() => {
+    const map = new Map<string, number>();
+    uploadedOrders.forEach(order => {
+      const key = order.sku.toLowerCase().trim();
+      if (key) {
+        map.set(key, (map.get(key) || 0) + order.quantity);
+      }
+    });
+    return map;
+  }, [uploadedOrders]);
+
   // Compute matched items
   const matchedItems = useMemo((): MatchedItem[] => {
-    if (!poDemandsData) return [];
+    if (!poDemandsData || uploadedOrders.length === 0) return [];
 
     // Filter by selected POs if any
     const filteredPO = selectedPOs.length > 0
@@ -133,7 +133,7 @@ export const usePOQuantityMatching = (options: UsePOQuantityMatchingOptions = {}
 
     filteredPO.forEach(po => {
       // Create a key based on SKU or model number
-      const key = po.sku_code || po.model_number || po.asin || po.id;
+      const key = (po.sku_code || po.model_number || po.asin || po.id).toLowerCase();
       
       if (demandMap.has(key)) {
         const existing = demandMap.get(key)!;
@@ -151,30 +151,20 @@ export const usePOQuantityMatching = (options: UsePOQuantityMatchingOptions = {}
       }
     });
 
-    // Build supplier order quantity map
-    const supplierMap = new Map<string, number>();
-    supplierOrdersData?.forEach(order => {
-      // Add quantities by SKU code
-      if (order.sku_code) {
-        supplierMap.set(order.sku_code, (supplierMap.get(order.sku_code) || 0) + (order.quantity || 0));
-      }
-      // Also index by model number for fallback matching
-      if (order.model_number) {
-        supplierMap.set(order.model_number, (supplierMap.get(order.model_number) || 0) + (order.quantity || 0));
-      }
-    });
-
-    // Match demands with supplier orders
+    // Match demands with uploaded supplier orders
     const items: MatchedItem[] = [];
     let idCounter = 0;
 
     demandMap.forEach((demand, key) => {
       // Try to find ordered quantity by SKU code first, then model number
       let ordered_qty = 0;
-      if (demand.sku_code && supplierMap.has(demand.sku_code)) {
-        ordered_qty = supplierMap.get(demand.sku_code) || 0;
-      } else if (demand.model_number && supplierMap.has(demand.model_number)) {
-        ordered_qty = supplierMap.get(demand.model_number) || 0;
+      
+      if (demand.sku_code && supplierMap.has(demand.sku_code.toLowerCase())) {
+        ordered_qty = supplierMap.get(demand.sku_code.toLowerCase()) || 0;
+      } else if (demand.model_number && supplierMap.has(demand.model_number.toLowerCase())) {
+        ordered_qty = supplierMap.get(demand.model_number.toLowerCase()) || 0;
+      } else if (supplierMap.has(key)) {
+        ordered_qty = supplierMap.get(key) || 0;
       }
 
       const pending_qty = Math.max(0, demand.requested_qty - ordered_qty);
@@ -203,10 +193,10 @@ export const usePOQuantityMatching = (options: UsePOQuantityMatchingOptions = {}
       // Fallback to Sunsky thumbnail
       if (!image_url) {
         if (demand.sku_code) {
-          sunsky_thumbnail = skuThumbnailMap.get(demand.sku_code) || null;
+          sunsky_thumbnail = skuThumbnailMap.get(demand.sku_code.toLowerCase()) || null;
         }
         if (!sunsky_thumbnail && demand.model_number) {
-          sunsky_thumbnail = skuThumbnailMap.get(demand.model_number) || null;
+          sunsky_thumbnail = skuThumbnailMap.get(demand.model_number.toLowerCase()) || null;
         }
       }
 
@@ -227,7 +217,7 @@ export const usePOQuantityMatching = (options: UsePOQuantityMatchingOptions = {}
     });
 
     return items;
-  }, [poDemandsData, supplierOrdersData, selectedPOs, getImageByAsin, skuThumbnailMap]);
+  }, [poDemandsData, uploadedOrders, selectedPOs, getImageByAsin, skuThumbnailMap, supplierMap]);
 
   // Apply filters
   const filteredItems = useMemo(() => {
@@ -284,15 +274,16 @@ export const usePOQuantityMatching = (options: UsePOQuantityMatchingOptions = {}
   }, [poDemandsData]);
 
   const refetch = useCallback(async () => {
-    await Promise.all([refetchPO(), refetchSupplier()]);
-  }, [refetchPO, refetchSupplier]);
+    await refetchPO();
+  }, [refetchPO]);
 
   return {
     matchedItems: filteredItems,
     allItems: matchedItems,
     summary,
     availablePOs,
-    isLoading: poDemandsLoading || supplierLoading || imagesLoading,
+    isLoading: poDemandsLoading || imagesLoading,
+    hasUploadedData: uploadedOrders.length > 0,
     refetch,
   };
 };
