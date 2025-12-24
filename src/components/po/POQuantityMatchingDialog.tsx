@@ -355,6 +355,7 @@ export const POQuantityMatchingDialog: React.FC<POQuantityMatchingDialogProps> =
       {/* PO Selection */}
       <div className="space-y-4 mb-8">
         <h3 className="text-lg font-medium">Select POs to Match (Optional)</h3>
+        <p className="text-sm text-muted-foreground">Only open POs are shown</p>
         <div className="flex items-center gap-3">
           <Popover open={showPOSelector} onOpenChange={setShowPOSelector}>
             <PopoverTrigger asChild>
@@ -363,7 +364,7 @@ export const POQuantityMatchingDialog: React.FC<POQuantityMatchingDialogProps> =
                 <Filter className="h-4 w-4 ml-2" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-64 p-2" align="start">
+            <PopoverContent className="w-80 p-2" align="start">
               <ScrollArea className="h-64">
                 <div className="space-y-1">
                   <Button variant="ghost" size="sm" className="w-full justify-start text-xs" onClick={() => setSelectedPOs([])}>
@@ -371,20 +372,28 @@ export const POQuantityMatchingDialog: React.FC<POQuantityMatchingDialogProps> =
                   </Button>
                   <div className="border-t border-border/20 my-2" />
                   {availablePOs.map(po => (
-                    <div key={po} className="flex items-center gap-2 px-2 py-1 hover:bg-muted/50 rounded">
+                    <div key={po.po_number} className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted/50 rounded">
                       <Checkbox
-                        checked={selectedPOs.includes(po)}
+                        checked={selectedPOs.includes(po.po_number)}
                         onCheckedChange={(checked) => {
                           if (checked) {
-                            setSelectedPOs(prev => [...prev, po]);
+                            setSelectedPOs(prev => [...prev, po.po_number]);
                           } else {
-                            setSelectedPOs(prev => prev.filter(p => p !== po));
+                            setSelectedPOs(prev => prev.filter(p => p !== po.po_number));
                           }
                         }}
                       />
-                      <span className="text-xs font-mono">{po}</span>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-mono">{po.po_number}</span>
+                        {po.destination && (
+                          <span className="text-xs text-muted-foreground ml-2">• {po.destination}</span>
+                        )}
+                      </div>
                     </div>
                   ))}
+                  {availablePOs.length === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-4">No open POs found</p>
+                  )}
                 </div>
               </ScrollArea>
             </PopoverContent>

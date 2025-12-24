@@ -47,7 +47,7 @@ export const usePOQuantityMatching = (options: UsePOQuantityMatchingOptions = {}
   const { selectedCountry } = useCountry();
   const { getImageByAsin, isLoading: imagesLoading } = useProductImages();
 
-  // Fetch PO demands (what's requested in POs)
+  // Fetch PO demands (what's requested in POs) - only open status
   const { data: poDemandsData, isLoading: poDemandsLoading, refetch: refetchPO } = useQuery({
     queryKey: ['po-quantity-demands', selectedCountry],
     queryFn: async () => {
@@ -56,10 +56,10 @@ export const usePOQuantityMatching = (options: UsePOQuantityMatchingOptions = {}
 
       const { data, error } = await supabase
         .from('po_orders')
-        .select('id, po_number, sku_code, model_number, asin, title, quantity, status')
+        .select('id, po_number, sku_code, model_number, asin, title, quantity, status, ship_to_location')
         .eq('user_id', session.session.user.id)
         .eq('country', selectedCountry)
-        .not('status', 'in', '("cancelled","closed")');
+        .eq('status', 'open');
 
       if (error) throw error;
       return data || [];
@@ -266,11 +266,17 @@ export const usePOQuantityMatching = (options: UsePOQuantityMatchingOptions = {}
     };
   }, [matchedItems]);
 
-  // Get unique PO numbers for selection
+  // Get unique PO numbers with destination for selection
   const availablePOs = useMemo(() => {
-    const poSet = new Set<string>();
-    poDemandsData?.forEach(po => poSet.add(po.po_number));
-    return Array.from(poSet).sort();
+    const poMap = new Map<string, string | null>();
+    poDemandsData?.forEach(po => {
+      if (!poMap.has(po.po_number)) {
+        poMap.set(po.po_number, po.ship_to_location);
+      }
+    });
+    return Array.from(poMap.entries())
+      .map(([po_number, destination]) => ({ po_number, destination }))
+      .sort((a, b) => a.po_number.localeCompare(b.po_number));
   }, [poDemandsData]);
 
   const refetch = useCallback(async () => {
