@@ -1,8 +1,7 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useProductImages } from './useProductImages';
-import { useCountry } from '@/contexts/CountryContext';
 
 export interface MatchedItem {
   id: string;
@@ -44,12 +43,12 @@ interface UsePOQuantityMatchingOptions {
 
 export const usePOQuantityMatching = (options: UsePOQuantityMatchingOptions = {}) => {
   const { selectedPOs = [], statusFilter = 'all', searchQuery = '', uploadedOrders = [] } = options;
-  const { selectedCountry } = useCountry();
   const { getImageByAsin, isLoading: imagesLoading } = useProductImages();
 
-  // Fetch PO demands (what's requested in POs) - only pending (open) status
+  // Fetch PO demands (what's requested in POs) - only pending (open) status, no country filter
+  // Country filtering is not needed since user selects specific POs
   const { data: poDemandsData, isLoading: poDemandsLoading, refetch: refetchPO } = useQuery({
-    queryKey: ['po-quantity-demands', selectedCountry],
+    queryKey: ['po-quantity-demands-all'],
     queryFn: async () => {
       const { data: session } = await supabase.auth.getSession();
       if (!session?.session?.user?.id) throw new Error('Not authenticated');
@@ -58,7 +57,6 @@ export const usePOQuantityMatching = (options: UsePOQuantityMatchingOptions = {}
         .from('po_orders')
         .select('id, po_number, sku_code, model_number, asin, title, quantity, status, ship_to_location')
         .eq('user_id', session.session.user.id)
-        .eq('country', selectedCountry)
         .eq('status', 'pending');
 
       if (error) throw error;
