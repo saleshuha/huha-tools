@@ -352,25 +352,29 @@ export const POQuantityMatchingDialog: React.FC<POQuantityMatchingDialogProps> =
         </div>
       </div>
       
-      {/* PO Selection */}
+      {/* PO Selection - Required */}
       <div className="space-y-4 mb-8">
-        <h3 className="text-lg font-medium">Select POs to Match (Optional)</h3>
-        <p className="text-sm text-muted-foreground">Only open POs are shown</p>
+        <h3 className="text-lg font-medium">Select POs to Match</h3>
+        <p className="text-sm text-muted-foreground">Only pending POs are shown. Select at least one PO.</p>
         <div className="flex items-center gap-3">
           <Popover open={showPOSelector} onOpenChange={setShowPOSelector}>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="min-w-[200px] justify-between">
-                {selectedPOs.length === 0 ? 'All POs' : `${selectedPOs.length} PO${selectedPOs.length > 1 ? 's' : ''} selected`}
+              <Button variant="outline" className={cn("min-w-[200px] justify-between", selectedPOs.length === 0 && "border-destructive/50 text-destructive")}>
+                {selectedPOs.length === 0 ? 'Select PO(s)' : `${selectedPOs.length} PO${selectedPOs.length > 1 ? 's' : ''} selected`}
                 <Filter className="h-4 w-4 ml-2" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-80 p-2" align="start">
               <ScrollArea className="h-64">
                 <div className="space-y-1">
-                  <Button variant="ghost" size="sm" className="w-full justify-start text-xs" onClick={() => setSelectedPOs([])}>
-                    Clear Selection (All POs)
-                  </Button>
-                  <div className="border-t border-border/20 my-2" />
+                  {selectedPOs.length > 0 && (
+                    <>
+                      <Button variant="ghost" size="sm" className="w-full justify-start text-xs" onClick={() => setSelectedPOs([])}>
+                        Clear Selection
+                      </Button>
+                      <div className="border-t border-border/20 my-2" />
+                    </>
+                  )}
                   {availablePOs.map(po => (
                     <div key={po.po_number} className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted/50 rounded">
                       <Checkbox
@@ -392,7 +396,7 @@ export const POQuantityMatchingDialog: React.FC<POQuantityMatchingDialogProps> =
                     </div>
                   ))}
                   {availablePOs.length === 0 && (
-                    <p className="text-xs text-muted-foreground text-center py-4">No open POs found</p>
+                    <p className="text-xs text-muted-foreground text-center py-4">No pending POs found</p>
                   )}
                 </div>
               </ScrollArea>
@@ -408,12 +412,15 @@ export const POQuantityMatchingDialog: React.FC<POQuantityMatchingDialogProps> =
       <div className="mt-auto flex justify-end">
         <Button 
           onClick={handleRunMatch}
-          disabled={!skuColumn || !quantityColumn}
+          disabled={!skuColumn || !quantityColumn || selectedPOs.length === 0}
           className="min-w-[200px]"
         >
           Run Match
           <ArrowRight className="h-4 w-4 ml-2" />
         </Button>
+        {selectedPOs.length === 0 && (
+          <p className="text-xs text-destructive ml-3 self-center">Please select at least one PO</p>
+        )}
       </div>
     </div>
   );
