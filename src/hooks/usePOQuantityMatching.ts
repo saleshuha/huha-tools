@@ -46,25 +46,32 @@ export const usePOQuantityMatching = (options: UsePOQuantityMatchingOptions = {}
   const { selectedPOs = [], statusFilter = 'all', searchQuery = '', uploadedOrders = [], sunskyFilter = 'all' } = options;
   const { getImageByAsin, isLoading: imagesLoading } = useProductImages();
 
-  // Fetch PO demands (what's requested in POs) - only pending (open) status, no country filter
-  // Country filtering is not needed since user selects specific POs
+  // Create stable key for selectedPOs
+  const selectedPOsKey = useMemo(() => [...selectedPOs].sort().join(','), [selectedPOs]);
+
+  // Fetch PO demands - filter by selectedPOs at DB level for efficiency
   const { data: poDemandsData, isLoading: poDemandsLoading, refetch: refetchPO } = useQuery({
-    queryKey: ['po-quantity-demands-all'],
+    queryKey: ['po-quantity-demands', selectedPOsKey],
     queryFn: async () => {
       const { data: session } = await supabase.auth.getSession();
       if (!session?.session?.user?.id) throw new Error('Not authenticated');
+
+      // If no POs selected, return empty
+      if (selectedPOs.length === 0) return [];
 
       const { data, error } = await supabase
         .from('po_orders')
         .select('id, po_number, sku_code, model_number, asin, title, quantity, status, ship_to_location')
         .eq('user_id', session.session.user.id)
         .eq('status', 'pending')
+        .in('po_number', selectedPOs)
         .range(0, 9999);
 
       if (error) throw error;
       return data || [];
     },
     staleTime: 2 * 60 * 1000,
+    enabled: selectedPOs.length > 0,
   });
 
   // Fetch Sunsky SKU thumbnails for fallback images
@@ -112,14 +119,22 @@ export const usePOQuantityMatching = (options: UsePOQuantityMatchingOptions = {}
     return map;
   }, [uploadedOrders]);
 
+  // Compute raw PO totals (before grouping) - this gives accurate line-item and unit counts
+  const poTotals = useMemo(() => {
+    const data = poDemandsData || [];
+    return {
+      po_count: new Set(data.map(po => po.po_number)).size,
+      line_items: data.length,
+      total_units: data.reduce((sum, po) => sum + (po.quantity || 0), 0),
+    };
+  }, [poDemandsData]);
+
   // Compute matched items
   const matchedItems = useMemo((): MatchedItem[] => {
     if (!poDemandsData || uploadedOrders.length === 0) return [];
 
-    // Filter by selected POs if any
-    const filteredPO = selectedPOs.length > 0
-      ? poDemandsData.filter(po => selectedPOs.includes(po.po_number))
-      : poDemandsData;
+    // Data is already filtered by selectedPOs at DB level
+    const filteredPO = poDemandsData;
 
     // Group PO demands by SKU/Model
     const demandMap = new Map<string, {
@@ -294,6 +309,7 @@ export const usePOQuantityMatching = (options: UsePOQuantityMatchingOptions = {}
     matchedItems: filteredItems,
     allItems: matchedItems,
     summary,
+    poTotals,
     availablePOs,
     isLoading: poDemandsLoading || imagesLoading,
     hasUploadedData: uploadedOrders.length > 0,
