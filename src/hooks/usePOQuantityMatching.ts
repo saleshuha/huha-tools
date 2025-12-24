@@ -39,10 +39,11 @@ interface UsePOQuantityMatchingOptions {
   statusFilter?: 'all' | 'pending' | 'partial' | 'fulfilled' | 'not_ordered';
   searchQuery?: string;
   uploadedOrders?: UploadedOrderItem[];
+  sunskyFilter?: 'all' | 'matched' | 'not_matched';
 }
 
 export const usePOQuantityMatching = (options: UsePOQuantityMatchingOptions = {}) => {
-  const { selectedPOs = [], statusFilter = 'all', searchQuery = '', uploadedOrders = [] } = options;
+  const { selectedPOs = [], statusFilter = 'all', searchQuery = '', uploadedOrders = [], sunskyFilter = 'all' } = options;
   const { getImageByAsin, isLoading: imagesLoading } = useProductImages();
 
   // Fetch PO demands (what's requested in POs) - only pending (open) status, no country filter
@@ -230,6 +231,13 @@ export const usePOQuantityMatching = (options: UsePOQuantityMatchingOptions = {}
       }
     }
 
+    // Apply Sunsky filter
+    if (sunskyFilter === 'matched') {
+      items = items.filter(i => i.sunsky_thumbnail !== null);
+    } else if (sunskyFilter === 'not_matched') {
+      items = items.filter(i => i.sunsky_thumbnail === null && i.image_url === null);
+    }
+
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
@@ -243,7 +251,7 @@ export const usePOQuantityMatching = (options: UsePOQuantityMatchingOptions = {}
     }
 
     return items;
-  }, [matchedItems, statusFilter, searchQuery]);
+  }, [matchedItems, statusFilter, searchQuery, sunskyFilter]);
 
   // Calculate summary
   const summary = useMemo((): QuantityMatchingSummary => {
