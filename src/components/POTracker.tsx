@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
-import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, FileText, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, Copy, CheckCircle2, Info, TrendingDown, Check, XCircle, Calculator } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, FileText, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, Copy, CheckCircle2, Info, TrendingDown, Check, XCircle, Calculator, ClipboardList } from 'lucide-react';
 import { SortableTableHeader } from '@/components/order-processing/SortableTableHeader';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -32,6 +32,7 @@ import { SmartMatchingPanel } from '@/components/po/matching/SmartMatchingPanel'
 import { FulfillFromStockDialog } from '@/components/po/FulfillFromStockDialog';
 import { PrintHistoryDialog } from '@/components/po/PrintHistoryDialog';
 import { ProductProfitAnalyzer } from '@/components/po/ProductProfitAnalyzer';
+import { POQuantityMatchingDialog } from '@/components/po/POQuantityMatchingDialog';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { usePOOrders } from '@/hooks/usePOOrders';
 import { useSKUManager } from '@/hooks/useSKUManager';
@@ -147,6 +148,9 @@ export const POTracker = () => {
   // Bulk delete state
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
   const [bulkDeleteInput, setBulkDeleteInput] = useState('');
+  
+  // Quantity matching report state
+  const [showQuantityMatchingDialog, setShowQuantityMatchingDialog] = useState(false);
   const [bulkDeleteMatches, setBulkDeleteMatches] = useState<{
     matched: string[];
     notFound: string[];
@@ -4940,6 +4944,16 @@ export const POTracker = () => {
                     })()}
                         </Button>
                         
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => setShowQuantityMatchingDialog(true)}
+                          className="border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200"
+                        >
+                          <ClipboardList className="h-3 w-3 mr-1" />
+                          Qty Report
+                        </Button>
+                        
                         <Badge variant={selectedForPrint.size > 0 ? "default" : "outline"} className={`font-medium transition-colors ${selectedForPrint.size > 0 ? 'bg-primary/10 text-primary border-primary/20' : ''}`}>
                           <div className="flex items-center gap-1">
                             <div className={`w-2 h-2 rounded-full ${selectedForPrint.size > 0 ? 'bg-primary' : 'bg-muted-foreground'}`}></div>
@@ -6632,5 +6646,12 @@ export const POTracker = () => {
 
       {/* Print History Dialog */}
       {printHistoryOrder && <PrintHistoryDialog open={printHistoryDialogOpen} onOpenChange={setPrintHistoryDialogOpen} order={printHistoryOrder} />}
+      
+      {/* Quantity Matching Report Dialog */}
+      <POQuantityMatchingDialog 
+        open={showQuantityMatchingDialog} 
+        onOpenChange={setShowQuantityMatchingDialog}
+        preSelectedPOs={selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : selectedPOForLabels ? [selectedPOForLabels] : []}
+      />
     </div>;
 };
