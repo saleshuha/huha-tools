@@ -58,7 +58,8 @@ export const usePOQuantityMatching = (options: UsePOQuantityMatchingOptions = {}
         .from('po_orders')
         .select('id, po_number, sku_code, model_number, asin, title, quantity, status, ship_to_location')
         .eq('user_id', session.session.user.id)
-        .eq('status', 'pending');
+        .eq('status', 'pending')
+        .range(0, 9999);
 
       if (error) throw error;
       return data || [];
