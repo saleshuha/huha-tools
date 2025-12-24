@@ -7,14 +7,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useDropzone } from 'react-dropzone';
 import { parseFileSimply } from '@/components/SimpleFileParser';
 import { 
   Search, Package, AlertTriangle, CheckCircle2, 
   XCircle, Download, Loader2, Image as ImageIcon,
-  Copy, ClipboardList, Filter, Upload, FileSpreadsheet,
+  Copy, ClipboardList, Upload, FileSpreadsheet,
   ArrowRight, RotateCcw
 } from 'lucide-react';
 import { usePOQuantityMatching, MatchedItem, UploadedOrderItem } from '@/hooks/usePOQuantityMatching';
@@ -53,13 +52,11 @@ export const POQuantityMatchingDialog: React.FC<POQuantityMatchingDialogProps> =
   const [uploadedOrders, setUploadedOrders] = useState<UploadedOrderItem[]>([]);
   
   // Results state
-  const [selectedPOs, setSelectedPOs] = useState<string[]>(preSelectedPOs);
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'partial' | 'fulfilled' | 'not_ordered'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showPOSelector, setShowPOSelector] = useState(false);
 
-  const { matchedItems, summary, availablePOs, isLoading, hasUploadedData } = usePOQuantityMatching({
-    selectedPOs,
+  const { matchedItems, summary, isLoading, hasUploadedData } = usePOQuantityMatching({
+    selectedPOs: preSelectedPOs,
     statusFilter,
     searchQuery,
     uploadedOrders,
@@ -352,75 +349,35 @@ export const POQuantityMatchingDialog: React.FC<POQuantityMatchingDialogProps> =
         </div>
       </div>
       
-      {/* PO Selection - Required */}
-      <div className="space-y-4 mb-8">
-        <h3 className="text-lg font-medium">Select POs to Match</h3>
-        <p className="text-sm text-muted-foreground">Only pending POs are shown. Select at least one PO.</p>
-        <div className="flex items-center gap-3">
-          <Popover open={showPOSelector} onOpenChange={setShowPOSelector}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className={cn("min-w-[200px] justify-between", selectedPOs.length === 0 && "border-destructive/50 text-destructive")}>
-                {selectedPOs.length === 0 ? 'Select PO(s)' : `${selectedPOs.length} PO${selectedPOs.length > 1 ? 's' : ''} selected`}
-                <Filter className="h-4 w-4 ml-2" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80 p-2" align="start">
-              <ScrollArea className="h-64">
-                <div className="space-y-1">
-                  {selectedPOs.length > 0 && (
-                    <>
-                      <Button variant="ghost" size="sm" className="w-full justify-start text-xs" onClick={() => setSelectedPOs([])}>
-                        Clear Selection
-                      </Button>
-                      <div className="border-t border-border/20 my-2" />
-                    </>
-                  )}
-                  {availablePOs.map(po => (
-                    <div key={po.po_number} className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted/50 rounded">
-                      <Checkbox
-                        checked={selectedPOs.includes(po.po_number)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setSelectedPOs(prev => [...prev, po.po_number]);
-                          } else {
-                            setSelectedPOs(prev => prev.filter(p => p !== po.po_number));
-                          }
-                        }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <span className="text-xs font-mono">{po.po_number}</span>
-                        {po.destination && (
-                          <span className="text-xs text-muted-foreground ml-2">• {po.destination}</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {availablePOs.length === 0 && (
-                    <p className="text-xs text-muted-foreground text-center py-4">No pending POs found</p>
-                  )}
-                </div>
-              </ScrollArea>
-            </PopoverContent>
-          </Popover>
-          {selectedPOs.length > 0 && (
-            <Button variant="ghost" size="sm" onClick={() => setSelectedPOs([])}>Clear</Button>
-          )}
+      {/* PO Info - Read-only display of pre-selected POs */}
+      {preSelectedPOs.length > 0 && (
+        <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg mb-8">
+          <div className="flex items-center gap-2 mb-2">
+            <ClipboardList className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium">Matching against {preSelectedPOs.length} PO{preSelectedPOs.length > 1 ? 's' : ''}</span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {preSelectedPOs.slice(0, 5).join(', ')}{preSelectedPOs.length > 5 ? `, +${preSelectedPOs.length - 5} more` : ''}
+          </p>
         </div>
-      </div>
+      )}
+      
+      {preSelectedPOs.length === 0 && (
+        <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg mb-8">
+          <p className="text-sm text-destructive">No POs selected. Please close this dialog and select POs first.</p>
+        </div>
+      )}
       
       {/* Action button */}
       <div className="mt-auto flex justify-end">
         <Button 
           onClick={handleRunMatch}
-          disabled={!skuColumn || !quantityColumn || selectedPOs.length === 0}
+          disabled={!skuColumn || !quantityColumn || preSelectedPOs.length === 0}
           className="min-w-[200px]"
         >
           Run Match
           <ArrowRight className="h-4 w-4 ml-2" />
         </Button>
-        {selectedPOs.length === 0 && (
-          <p className="text-xs text-destructive ml-3 self-center">Please select at least one PO</p>
-        )}
       </div>
     </div>
   );
