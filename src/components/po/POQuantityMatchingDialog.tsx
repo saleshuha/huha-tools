@@ -14,7 +14,7 @@ import {
   Search, Package, AlertTriangle, CheckCircle2, 
   XCircle, Download, Loader2, Image as ImageIcon,
   Copy, ClipboardList, Upload, FileSpreadsheet,
-  ArrowRight, RotateCcw
+  ArrowRight, RotateCcw, X, Plus
 } from 'lucide-react';
 import { usePOQuantityMatching, MatchedItem, UploadedOrderItem } from '@/hooks/usePOQuantityMatching';
 import { useToast } from '@/hooks/use-toast';
@@ -24,6 +24,15 @@ interface POQuantityMatchingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   preSelectedPOs?: string[];
+}
+
+interface ParsedFileData {
+  id: string;
+  file: File;
+  data: any[];
+  headers: string[];
+  skuColumn: string;
+  quantityColumn: string;
 }
 
 type Step = 'upload' | 'mapping' | 'results';
@@ -38,15 +47,9 @@ export const POQuantityMatchingDialog: React.FC<POQuantityMatchingDialogProps> =
   // Step management
   const [currentStep, setCurrentStep] = useState<Step>('upload');
   
-  // File upload state
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [parsedData, setParsedData] = useState<any[]>([]);
-  const [fileHeaders, setFileHeaders] = useState<string[]>([]);
+  // Multi-file upload state
+  const [uploadedFiles, setUploadedFiles] = useState<ParsedFileData[]>([]);
   const [isParsingFile, setIsParsingFile] = useState(false);
-  
-  // Column mapping state
-  const [skuColumn, setSkuColumn] = useState<string>('');
-  const [quantityColumn, setQuantityColumn] = useState<string>('');
   
   // Processed uploaded orders
   const [uploadedOrders, setUploadedOrders] = useState<UploadedOrderItem[]>([]);
@@ -87,30 +90,47 @@ export const POQuantityMatchingDialog: React.FC<POQuantityMatchingDialogProps> =
     return { detectedSku, detectedQty };
   }, []);
 
-  // Handle file drop
+  // Handle file drop - supports multiple files
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
     
-    const file = acceptedFiles[0];
-    setUploadedFile(file);
     setIsParsingFile(true);
     
     try {
-      const data = await parseFileSimply(file);
-      if (data.length > 0) {
-        const headers = Object.keys(data[0]);
-        setFileHeaders(headers);
-        setParsedData(data);
+      const newFiles: ParsedFileData[] = [];
+      
+      for (const file of acceptedFiles) {
+        // Check if file already uploaded
+        if (uploadedFiles.some(f => f.file.name === file.name)) {
+          toast({ title: 'Duplicate file', description: `${file.name} is already uploaded`, variant: 'destructive' });
+          continue;
+        }
         
-        // Auto-detect columns
-        const { detectedSku, detectedQty } = autoDetectColumns(headers);
-        setSkuColumn(detectedSku);
-        setQuantityColumn(detectedQty);
-        
+        const data = await parseFileSimply(file);
+        if (data.length > 0) {
+          const headers = Object.keys(data[0]);
+          const { detectedSku, detectedQty } = autoDetectColumns(headers);
+          
+          newFiles.push({
+            id: `${file.name}-${Date.now()}`,
+            file,
+            data,
+            headers,
+            skuColumn: detectedSku,
+            quantityColumn: detectedQty,
+          });
+        } else {
+          toast({ title: 'Empty file', description: `No data found in ${file.name}`, variant: 'destructive' });
+        }
+      }
+      
+      if (newFiles.length > 0) {
+        setUploadedFiles(prev => [...prev, ...newFiles]);
         setCurrentStep('mapping');
-        toast({ title: 'File parsed', description: `Found ${data.length} rows with ${headers.length} columns` });
-      } else {
-        toast({ title: 'Empty file', description: 'No data found in the uploaded file', variant: 'destructive' });
+        toast({ 
+          title: 'Files parsed', 
+          description: `Added ${newFiles.length} file${newFiles.length > 1 ? 's' : ''} with ${newFiles.reduce((sum, f) => sum + f.data.length, 0)} total rows` 
+        });
       }
     } catch (error) {
       console.error('File parsing error:', error);
@@ -118,7 +138,7 @@ export const POQuantityMatchingDialog: React.FC<POQuantityMatchingDialogProps> =
     } finally {
       setIsParsingFile(false);
     }
-  }, [autoDetectColumns, toast]);
+  }, [autoDetectColumns, toast, uploadedFiles]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -127,46 +147,72 @@ export const POQuantityMatchingDialog: React.FC<POQuantityMatchingDialogProps> =
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
       'application/vnd.ms-excel': ['.xls'],
     },
-    maxFiles: 1,
+    maxFiles: 10,
     disabled: isParsingFile,
   });
 
+  // Update column mapping for a specific file
+  const updateFileMapping = useCallback((fileId: string, field: 'skuColumn' | 'quantityColumn', value: string) => {
+    setUploadedFiles(prev => prev.map(f => 
+      f.id === fileId ? { ...f, [field]: value } : f
+    ));
+  }, []);
+
+  // Remove a file
+  const removeFile = useCallback((fileId: string) => {
+    setUploadedFiles(prev => prev.filter(f => f.id !== fileId));
+  }, []);
+
+  // Get total stats across all files
+  const totalStats = useMemo(() => {
+    return {
+      fileCount: uploadedFiles.length,
+      totalRows: uploadedFiles.reduce((sum, f) => sum + f.data.length, 0),
+      allMapped: uploadedFiles.every(f => f.skuColumn && f.quantityColumn),
+    };
+  }, [uploadedFiles]);
+
   // Process mapping and run match
   const handleRunMatch = useCallback(() => {
-    if (!skuColumn || !quantityColumn) {
-      toast({ title: 'Missing columns', description: 'Please select both SKU and Quantity columns', variant: 'destructive' });
+    // Validate all files have mappings
+    const unmappedFiles = uploadedFiles.filter(f => !f.skuColumn || !f.quantityColumn);
+    if (unmappedFiles.length > 0) {
+      toast({ 
+        title: 'Missing column mappings', 
+        description: `Please map both SKU and Quantity columns for: ${unmappedFiles.map(f => f.file.name).join(', ')}`, 
+        variant: 'destructive' 
+      });
       return;
     }
     
     const orders: UploadedOrderItem[] = [];
     
-    parsedData.forEach(row => {
-      const sku = String(row[skuColumn] || '').trim();
-      const qty = parseInt(String(row[quantityColumn] || '0').replace(/[^0-9.-]/g, '')) || 0;
-      
-      if (sku && qty > 0) {
-        orders.push({ sku, quantity: qty });
-      }
+    // Combine all files' data
+    uploadedFiles.forEach(fileData => {
+      fileData.data.forEach(row => {
+        const sku = String(row[fileData.skuColumn] || '').trim();
+        const qty = parseInt(String(row[fileData.quantityColumn] || '0').replace(/[^0-9.-]/g, '')) || 0;
+        
+        if (sku && qty > 0) {
+          orders.push({ sku, quantity: qty });
+        }
+      });
     });
     
     if (orders.length === 0) {
-      toast({ title: 'No valid data', description: 'No valid SKU/Quantity pairs found in the file', variant: 'destructive' });
+      toast({ title: 'No valid data', description: 'No valid SKU/Quantity pairs found in the files', variant: 'destructive' });
       return;
     }
     
     setUploadedOrders(orders);
     setCurrentStep('results');
-    toast({ title: 'Matching complete', description: `Processed ${orders.length} order items` });
-  }, [skuColumn, quantityColumn, parsedData, toast]);
+    toast({ title: 'Matching complete', description: `Processed ${orders.length} order items from ${uploadedFiles.length} file${uploadedFiles.length > 1 ? 's' : ''}` });
+  }, [uploadedFiles, toast]);
 
   // Reset to start over
   const handleReset = useCallback(() => {
     setCurrentStep('upload');
-    setUploadedFile(null);
-    setParsedData([]);
-    setFileHeaders([]);
-    setSkuColumn('');
-    setQuantityColumn('');
+    setUploadedFiles([]);
     setUploadedOrders([]);
     setSearchQuery('');
     setStatusFilter('all');
@@ -267,16 +313,16 @@ export const POQuantityMatchingDialog: React.FC<POQuantityMatchingDialogProps> =
         {isParsingFile ? (
           <div className="flex flex-col items-center gap-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="text-muted-foreground">Parsing file...</p>
+            <p className="text-muted-foreground">Parsing files...</p>
           </div>
         ) : (
           <>
             <div className="p-4 bg-primary/10 rounded-full w-fit mx-auto mb-4">
               <Upload className="h-8 w-8 text-primary" />
             </div>
-            <h3 className="text-lg font-medium mb-2">Upload Supplier Order File</h3>
+            <h3 className="text-lg font-medium mb-2">Upload Supplier Order Files</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Drag & drop or click to select a file
+              Drag & drop or click to select files (up to 10)
             </p>
             <p className="text-xs text-muted-foreground">
               Supports: CSV, XLSX, XLS
@@ -286,99 +332,167 @@ export const POQuantityMatchingDialog: React.FC<POQuantityMatchingDialogProps> =
       </div>
       
       <div className="mt-6 text-center text-sm text-muted-foreground max-w-md">
-        <p>Upload your supplier order file containing SKU/Model numbers and ordered quantities. The system will match them with your PO demands.</p>
+        <p>Upload your supplier order files containing SKU/Model numbers and ordered quantities. You can upload multiple files from different suppliers.</p>
       </div>
     </div>
   );
 
   // Render mapping step
   const renderMappingStep = () => (
-    <div className="flex-1 flex flex-col p-6">
-      {/* File info */}
-      <div className="flex items-center gap-3 p-4 bg-muted/30 rounded-lg mb-6">
-        <FileSpreadsheet className="h-8 w-8 text-primary" />
-        <div>
-          <p className="font-medium">{uploadedFile?.name}</p>
-          <p className="text-sm text-muted-foreground">{parsedData.length} rows • {fileHeaders.length} columns</p>
+    <div className="flex-1 flex flex-col p-6 overflow-hidden">
+      {/* Summary header */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-primary/10 rounded-lg">
+            <FileSpreadsheet className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <p className="font-medium">{totalStats.fileCount} file{totalStats.fileCount > 1 ? 's' : ''} uploaded</p>
+            <p className="text-sm text-muted-foreground">{totalStats.totalRows.toLocaleString()} total rows</p>
+          </div>
         </div>
-        <Button variant="ghost" size="sm" className="ml-auto" onClick={handleReset}>
+        <Button variant="ghost" size="sm" onClick={handleReset}>
           <RotateCcw className="h-4 w-4 mr-2" />
-          Change File
+          Clear All
         </Button>
       </div>
       
-      {/* Column mapping */}
-      <div className="space-y-6 mb-8">
-        <h3 className="text-lg font-medium">Map Columns</h3>
-        
-        <div className="grid grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">SKU / Model Number Column</label>
-            <Select value={skuColumn} onValueChange={setSkuColumn}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select column" />
-              </SelectTrigger>
-              <SelectContent>
-                {fileHeaders.map(header => (
-                  <SelectItem key={header} value={header}>{header}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {skuColumn && (
-              <p className="text-xs text-muted-foreground">
-                Preview: {parsedData.slice(0, 3).map(r => r[skuColumn]).filter(Boolean).join(', ')}
-              </p>
-            )}
-          </div>
+      {/* Files list with individual column mapping */}
+      <ScrollArea className="flex-1 -mx-6 px-6">
+        <div className="space-y-4">
+          {uploadedFiles.map((fileData, index) => (
+            <div 
+              key={fileData.id} 
+              className="p-4 bg-muted/30 rounded-lg border border-border/30"
+            >
+              {/* File header */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/20 text-primary text-xs font-medium">
+                    {index + 1}
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">{fileData.file.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {fileData.data.length} rows • {fileData.headers.length} columns
+                    </p>
+                  </div>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                  onClick={() => removeFile(fileData.id)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              {/* Column mapping */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-muted-foreground">SKU / Model Number Column</label>
+                  <Select 
+                    value={fileData.skuColumn} 
+                    onValueChange={(v) => updateFileMapping(fileData.id, 'skuColumn', v)}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Select column" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {fileData.headers.map(header => (
+                        <SelectItem key={header} value={header}>{header}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {fileData.skuColumn && (
+                    <p className="text-xs text-muted-foreground truncate">
+                      Preview: {fileData.data.slice(0, 3).map(r => r[fileData.skuColumn]).filter(Boolean).join(', ')}
+                    </p>
+                  )}
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-muted-foreground">Quantity Column</label>
+                  <Select 
+                    value={fileData.quantityColumn} 
+                    onValueChange={(v) => updateFileMapping(fileData.id, 'quantityColumn', v)}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Select column" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {fileData.headers.map(header => (
+                        <SelectItem key={header} value={header}>{header}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {fileData.quantityColumn && (
+                    <p className="text-xs text-muted-foreground">
+                      Preview: {fileData.data.slice(0, 3).map(r => r[fileData.quantityColumn]).filter(Boolean).join(', ')}
+                    </p>
+                  )}
+                </div>
+              </div>
+              
+              {/* Validation indicator */}
+              {(!fileData.skuColumn || !fileData.quantityColumn) && (
+                <div className="mt-3 flex items-center gap-2 text-amber-600 text-xs">
+                  <AlertTriangle className="h-3 w-3" />
+                  <span>Please map both columns</span>
+                </div>
+              )}
+            </div>
+          ))}
           
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Quantity Column</label>
-            <Select value={quantityColumn} onValueChange={setQuantityColumn}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select column" />
-              </SelectTrigger>
-              <SelectContent>
-                {fileHeaders.map(header => (
-                  <SelectItem key={header} value={header}>{header}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {quantityColumn && (
-              <p className="text-xs text-muted-foreground">
-                Preview: {parsedData.slice(0, 3).map(r => r[quantityColumn]).filter(Boolean).join(', ')}
-              </p>
+          {/* Add another file button */}
+          <div
+            {...getRootProps()}
+            className={cn(
+              "p-4 border-2 border-dashed rounded-lg text-center cursor-pointer transition-all",
+              isDragActive ? "border-primary bg-primary/5" : "border-border/40 hover:border-primary/50 hover:bg-muted/20",
+              isParsingFile && "opacity-50 cursor-not-allowed"
             )}
+          >
+            <input {...getInputProps()} />
+            <div className="flex items-center justify-center gap-2 text-muted-foreground">
+              <Plus className="h-4 w-4" />
+              <span className="text-sm">Add Another File</span>
+            </div>
           </div>
         </div>
-      </div>
+      </ScrollArea>
       
       {/* PO Info - Read-only display of pre-selected POs */}
-      {preSelectedPOs.length > 0 && (
-        <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg mb-8">
-          <div className="flex items-center gap-2 mb-2">
-            <ClipboardList className="h-4 w-4 text-primary" />
-            <span className="text-sm font-medium">Matching against {preSelectedPOs.length} PO{preSelectedPOs.length > 1 ? 's' : ''}</span>
+      <div className="mt-4 pt-4 border-t border-border/20">
+        {preSelectedPOs.length > 0 ? (
+          <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <ClipboardList className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium">Matching against {preSelectedPOs.length} PO{preSelectedPOs.length > 1 ? 's' : ''}</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {preSelectedPOs.slice(0, 5).join(', ')}{preSelectedPOs.length > 5 ? `, +${preSelectedPOs.length - 5} more` : ''}
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground">
-            {preSelectedPOs.slice(0, 5).join(', ')}{preSelectedPOs.length > 5 ? `, +${preSelectedPOs.length - 5} more` : ''}
-          </p>
-        </div>
-      )}
-      
-      {preSelectedPOs.length === 0 && (
-        <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg mb-8">
-          <p className="text-sm text-destructive">No POs selected. Please close this dialog and select POs first.</p>
-        </div>
-      )}
+        ) : (
+          <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+            <p className="text-sm text-destructive">No POs selected. Please close this dialog and select POs first.</p>
+          </div>
+        )}
+      </div>
       
       {/* Action button */}
-      <div className="mt-auto flex justify-end">
+      <div className="mt-4 flex justify-end gap-3">
+        <Button variant="outline" onClick={handleReset}>
+          Cancel
+        </Button>
         <Button 
           onClick={handleRunMatch}
-          disabled={!skuColumn || !quantityColumn || preSelectedPOs.length === 0}
+          disabled={!totalStats.allMapped || uploadedFiles.length === 0 || preSelectedPOs.length === 0}
           className="min-w-[200px]"
         >
-          Run Match
+          Run Match ({totalStats.totalRows.toLocaleString()} rows)
           <ArrowRight className="h-4 w-4 ml-2" />
         </Button>
       </div>
@@ -397,6 +511,9 @@ export const POQuantityMatchingDialog: React.FC<POQuantityMatchingDialogProps> =
           <span className="font-medium">{poTotals.line_items.toLocaleString()} line items</span>
           <span className="text-muted-foreground">•</span>
           <span className="font-medium">{poTotals.total_units.toLocaleString()} units</span>
+        </div>
+        <div className="text-xs text-muted-foreground">
+          From {uploadedFiles.length} file{uploadedFiles.length > 1 ? 's' : ''}
         </div>
       </div>
 
@@ -625,8 +742,8 @@ export const POQuantityMatchingDialog: React.FC<POQuantityMatchingDialogProps> =
               <div>
                 <DialogTitle className="text-lg font-semibold">Quantity Matching Report</DialogTitle>
                 <p className="text-sm text-muted-foreground">
-                  {currentStep === 'upload' && 'Upload your supplier order file'}
-                  {currentStep === 'mapping' && 'Map columns and select POs'}
+                  {currentStep === 'upload' && 'Upload your supplier order files'}
+                  {currentStep === 'mapping' && 'Map columns for each file'}
                   {currentStep === 'results' && 'Compare requested vs ordered quantities'}
                 </p>
               </div>
