@@ -49,7 +49,7 @@ export const usePOQuantityMatching = (options: UsePOQuantityMatchingOptions = {}
   // Create stable key for selectedPOs
   const selectedPOsKey = useMemo(() => [...selectedPOs].sort().join(','), [selectedPOs]);
 
-  // Fetch PO demands - filter by selectedPOs at DB level for efficiency
+  // Fetch PO demands - use pagination to bypass 1000 row API limit
   const { data: poDemandsData, isLoading: poDemandsLoading, refetch: refetchPO } = useQuery({
     queryKey: ['po-quantity-demands', selectedPOsKey],
     queryFn: async () => {
@@ -59,16 +59,49 @@ export const usePOQuantityMatching = (options: UsePOQuantityMatchingOptions = {}
       // If no POs selected, return empty
       if (selectedPOs.length === 0) return [];
 
-      const { data, error } = await supabase
-        .from('po_orders')
-        .select('id, po_number, sku_code, model_number, asin, title, quantity, status, ship_to_location')
-        .eq('user_id', session.session.user.id)
-        .eq('status', 'pending')
-        .in('po_number', selectedPOs)
-        .range(0, 9999);
+      const PAGE_SIZE = 1000;
+      const MAX_PAGES = 20; // Safety cap: 20,000 rows max
+      let allRows: Array<{
+        id: string;
+        po_number: string;
+        sku_code: string | null;
+        model_number: string | null;
+        asin: string | null;
+        title: string | null;
+        quantity: number | null;
+        status: string | null;
+        ship_to_location: string | null;
+      }> = [];
+      let page = 0;
+      let hasMore = true;
 
-      if (error) throw error;
-      return data || [];
+      while (hasMore && page < MAX_PAGES) {
+        const from = page * PAGE_SIZE;
+        const to = from + PAGE_SIZE - 1;
+
+        const { data, error } = await supabase
+          .from('po_orders')
+          .select('id, po_number, sku_code, model_number, asin, title, quantity, status, ship_to_location')
+          .eq('user_id', session.session.user.id)
+          .eq('status', 'pending')
+          .in('po_number', selectedPOs)
+          .order('id')
+          .range(from, to);
+
+        if (error) throw error;
+
+        const rows = data || [];
+        allRows = [...allRows, ...rows];
+        
+        console.log(`[PO Fetch] Page ${page + 1}: ${rows.length} rows, total: ${allRows.length}`);
+
+        // Stop if we got less than a full page
+        hasMore = rows.length === PAGE_SIZE;
+        page++;
+      }
+
+      console.log(`[PO Fetch] Complete: ${allRows.length} total rows from ${page} pages`);
+      return allRows;
     },
     staleTime: 2 * 60 * 1000,
     enabled: selectedPOs.length > 0,
