@@ -4338,33 +4338,94 @@ export const POTracker = () => {
               </CardContent>
             </Card> :
         // Step 2: Label Printing Interface
-        <div className="space-y-6">
-              {/* Header with Back Button */}
-              <Card className="bg-card/50 backdrop-blur-sm border border-border/20 shadow-sm rounded-xl">
-                <CardHeader>
-                  <div className="flex items-center gap-4">
-                     <Button variant="outline" size="lg" onClick={() => {
-                  setLabelsStep('list');
-                  setSelectedPOForLabels(null);
-                  setSelectedPOsForLabels(new Set());
-                  setSelectedForPrint(new Map());
-                  setOriginalOrderPreserved(false); // Reset order preservation when going back
-                }} className="font-semibold border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200">
-                       <ArrowLeft className="h-5 w-5 mr-2" />
-                       Back to PO List
-                     </Button>
-                     <div>
-                       <CardTitle className="flex items-center gap-2">
-                         <Printer className="h-5 w-5" />
-                         Print Labels - {selectedPOsForLabels.size > 1 ? `${selectedPOsForLabels.size} POs` : selectedPOForLabels || Array.from(selectedPOsForLabels)[0]}
-                       </CardTitle>
-                       <p className="text-muted-foreground text-sm mt-1">
-                         Select items and configure print settings
-                      </p>
+        <div className="space-y-4">
+              {/* Modern Header with Gradient */}
+              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/5 via-accent/5 to-background border border-border/30 shadow-lg">
+                {/* Decorative Elements */}
+                <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-primary/10 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-accent/10 to-transparent rounded-full blur-2xl translate-y-1/2 -translate-x-1/4" />
+                
+                <div className="relative p-6">
+                  <div className="flex items-center justify-between gap-6">
+                    <div className="flex items-center gap-5">
+                      {/* Back Button */}
+                      <Button 
+                        variant="outline" 
+                        size="lg" 
+                        onClick={() => {
+                          setLabelsStep('list');
+                          setSelectedPOForLabels(null);
+                          setSelectedPOsForLabels(new Set());
+                          setSelectedForPrint(new Map());
+                          setOriginalOrderPreserved(false);
+                        }} 
+                        className="group relative h-12 px-5 font-semibold border-2 border-border/40 hover:border-primary/50 bg-background/80 backdrop-blur-sm hover:bg-primary/5 rounded-xl transition-all duration-300 shadow-sm hover:shadow-md"
+                      >
+                        <ArrowLeft className="h-5 w-5 mr-2 group-hover:-translate-x-1 transition-transform duration-200" />
+                        <span>Back to PO List</span>
+                      </Button>
+                      
+                      {/* Separator */}
+                      <div className="h-10 w-px bg-gradient-to-b from-transparent via-border/50 to-transparent" />
+                      
+                      {/* Title Section */}
+                      <div className="flex items-center gap-4">
+                        <div className="relative">
+                          <div className="absolute inset-0 bg-primary/20 rounded-xl blur-lg" />
+                          <div className="relative p-3 bg-gradient-to-br from-primary to-primary/80 rounded-xl shadow-lg">
+                            <Printer className="h-6 w-6 text-primary-foreground" />
+                          </div>
+                        </div>
+                        <div>
+                          <h1 className="text-2xl font-bold text-foreground tracking-tight">
+                            Print Labels
+                          </h1>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 font-medium">
+                              {selectedPOsForLabels.size > 1 
+                                ? `${selectedPOsForLabels.size} Purchase Orders` 
+                                : selectedPOForLabels || Array.from(selectedPOsForLabels)[0]}
+                            </Badge>
+                            <span className="text-sm text-muted-foreground">
+                              • Select items and configure print settings
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Quick Stats in Header */}
+                    <div className="hidden lg:flex items-center gap-3">
+                      {(() => {
+                        const selectedPOsList = selectedPOsForLabels.size > 0 
+                          ? Array.from(selectedPOsForLabels) 
+                          : selectedPOForLabels 
+                            ? [selectedPOForLabels] 
+                            : [];
+                        const ordersCount = poOrders.filter(order => 
+                          selectedPOsList.includes(order.po_number) && order.status !== 'cancelled'
+                        ).length;
+                        const unitsCount = poOrders
+                          .filter(order => selectedPOsList.includes(order.po_number) && order.status !== 'cancelled')
+                          .reduce((sum, o) => sum + (o.quantity || 0), 0);
+                        
+                        return (
+                          <>
+                            <div className="flex items-center gap-2 px-4 py-2 bg-background/60 backdrop-blur-sm rounded-lg border border-border/30">
+                              <Package className="h-4 w-4 text-primary" />
+                              <span className="text-sm font-medium">{ordersCount} items</span>
+                            </div>
+                            <div className="flex items-center gap-2 px-4 py-2 bg-background/60 backdrop-blur-sm rounded-lg border border-border/30">
+                              <ShoppingCart className="h-4 w-4 text-accent" />
+                              <span className="text-sm font-medium">{unitsCount} units</span>
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
-                </CardHeader>
-              </Card>
+                </div>
+              </div>
 
               {/* Enhanced Print Settings Panel with Collapsible Tabbed Interface */}
               <Card className="bg-card/50 backdrop-blur-sm border border-border/20 shadow-sm rounded-xl">
@@ -4964,8 +5025,8 @@ export const POTracker = () => {
                     </div>
                 </CardHeader>
 
-                {/* PO Details Metrics Summary Banner */}
-                <div className="px-4 py-3 bg-muted/10 backdrop-blur-sm border-b border-border/20">
+                {/* Modern Metrics Dashboard */}
+                <div className="px-4 py-4 bg-gradient-to-r from-muted/5 via-muted/10 to-muted/5 border-b border-border/20">
                   {(() => {
                 const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : selectedPOForLabels ? [selectedPOForLabels] : [];
                 const ordersForMetrics = poOrders.filter(order => selectedPOsList.includes(order.po_number) && order.status !== 'cancelled');
@@ -4981,172 +5042,255 @@ export const POTracker = () => {
                   const total = o.quantity || 0;
                   return printed > 0 && printed < total;
                 }).length;
+                const pendingItems = totalItems - printedItems;
+                const pendingUnits = totalUnits - printedUnits;
 
                 // Sunsky matching metrics
                 const sunskyMatchedItems = ordersForMetrics.filter(o => o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id)).length;
-                const sunskyMatchedUnits = ordersForMetrics.filter(o => o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id)).reduce((sum, o) => sum + (o.quantity || 0), 0);
-
-                // Sunsky Printed metrics
                 const sunskyPrintedItems = ordersForMetrics.filter(o => o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id) && (o.printed_quantity || 0) > 0).length;
                 const sunskyPrintedUnits = ordersForMetrics.filter(o => o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id) && (o.printed_quantity || 0) > 0).reduce((sum, o) => sum + (o.printed_quantity || 0), 0);
-
-                // Sunsky Pending metrics (units that haven't been printed yet)
                 const sunskyPendingItems = ordersForMetrics.filter(o => o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id) && (o.quantity || 0) - (o.printed_quantity || 0) > 0).length;
                 const sunskyPendingUnits = ordersForMetrics.filter(o => o.sunsky_sku && (o.sunsky_sku.sku_code || o.sunsky_sku.id)).reduce((sum, o) => sum + Math.max(0, (o.quantity || 0) - (o.printed_quantity || 0)), 0);
-                const isPluralPOs = selectedPOsList.length > 1;
-                const poTitle = isPluralPOs ? `${selectedPOsList.length} Purchase Orders` : `PO: ${selectedPOsList[0] || 'N/A'}`;
-                return <div className="space-y-2">
-                        {/* PO Title */}
-                        <div className="flex items-center gap-2 mb-3">
-                          <ShoppingCart className="h-4 w-4 text-primary" />
-                          <h3 className="text-sm font-semibold text-foreground">
-                            {poTitle}
-                          </h3>
-                          {isPluralPOs && <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
-                              Multiple POs
-                            </Badge>}
-                        </div>
-                        
-                        {/* Metrics Grid */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-2 text-xs">
-                          {/* Total Items/Units */}
-                          <div className="flex items-center gap-2">
-                            <Package className="h-3.5 w-3.5 text-primary" />
-                            <span className="text-muted-foreground">Total:</span>
-                            <span className="font-semibold text-foreground">
-                              {totalItems} items ({totalUnits} units)
-                            </span>
+                
+                const printProgress = totalUnits > 0 ? Math.round((printedUnits / totalUnits) * 100) : 0;
+                
+                return <div className="space-y-3">
+                        {/* Metrics Cards Grid */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                          {/* Total Items Card */}
+                          <div className="group relative overflow-hidden p-4 bg-gradient-to-br from-background to-muted/30 rounded-xl border border-border/30 shadow-sm hover:shadow-md hover:border-primary/30 transition-all duration-300">
+                            <div className="absolute top-0 right-0 w-16 h-16 bg-primary/5 rounded-full blur-xl -translate-y-1/2 translate-x-1/2" />
+                            <div className="relative">
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="p-1.5 bg-primary/10 rounded-lg">
+                                  <Package className="h-4 w-4 text-primary" />
+                                </div>
+                                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total</span>
+                              </div>
+                              <div className="text-2xl font-bold text-foreground">{totalItems}</div>
+                              <div className="text-xs text-muted-foreground mt-0.5">{totalUnits} units</div>
+                            </div>
                           </div>
                           
-                          {/* Printed Items/Units */}
-                          <div className="flex items-center gap-2">
-                            <Printer className="h-3.5 w-3.5 text-green-600" />
-                            <span className="text-muted-foreground">Printed:</span>
-                            <span className="font-semibold text-green-700 dark:text-green-400">
-                              {printedItems} items ({printedUnits} units)
-                            </span>
+                          {/* Printed Card */}
+                          <div className="group relative overflow-hidden p-4 bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/30 dark:to-green-900/20 rounded-xl border border-green-200/50 dark:border-green-800/30 shadow-sm hover:shadow-md transition-all duration-300">
+                            <div className="absolute top-0 right-0 w-16 h-16 bg-green-500/10 rounded-full blur-xl -translate-y-1/2 translate-x-1/2" />
+                            <div className="relative">
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="p-1.5 bg-green-500/10 rounded-lg">
+                                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                </div>
+                                <span className="text-xs font-medium text-green-700 dark:text-green-400 uppercase tracking-wide">Printed</span>
+                              </div>
+                              <div className="text-2xl font-bold text-green-700 dark:text-green-400">{printedItems}</div>
+                              <div className="text-xs text-green-600/80 dark:text-green-400/80 mt-0.5">{printedUnits} units</div>
+                            </div>
                           </div>
                           
-                          {/* Print Breakdown */}
-                          <div className="flex items-center gap-2">
-                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                            <span className="text-muted-foreground">Full:</span>
-                            <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                              {fullyPrintedItems}
-                            </span>
-                            <span className="text-muted-foreground mx-1">|</span>
-                            <AlertTriangle className="h-3.5 w-3.5 text-yellow-600" />
-                            <span className="text-muted-foreground">Partial:</span>
-                            <span className="font-semibold text-yellow-700 dark:text-yellow-400">
-                              {partiallyPrintedItems}
-                            </span>
+                          {/* Pending Card */}
+                          <div className="group relative overflow-hidden p-4 bg-gradient-to-br from-orange-50 to-orange-100/50 dark:from-orange-950/30 dark:to-orange-900/20 rounded-xl border border-orange-200/50 dark:border-orange-800/30 shadow-sm hover:shadow-md transition-all duration-300">
+                            <div className="absolute top-0 right-0 w-16 h-16 bg-orange-500/10 rounded-full blur-xl -translate-y-1/2 translate-x-1/2" />
+                            <div className="relative">
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="p-1.5 bg-orange-500/10 rounded-lg">
+                                  <Clock className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                                </div>
+                                <span className="text-xs font-medium text-orange-700 dark:text-orange-400 uppercase tracking-wide">Pending</span>
+                              </div>
+                              <div className="text-2xl font-bold text-orange-700 dark:text-orange-400">{pendingItems}</div>
+                              <div className="text-xs text-orange-600/80 dark:text-orange-400/80 mt-0.5">{pendingUnits} units</div>
+                            </div>
                           </div>
                           
-              {/* Sunsky Breakdown */}
-              <div className="flex items-center gap-2">
-                <Package className="h-3.5 w-3.5 text-blue-600" />
-                <span className="text-muted-foreground">Sunsky:</span>
-                <CheckCircle2 className="h-3 w-3 text-green-600" />
-                <span className="font-semibold text-green-700 dark:text-green-400">
-                  {sunskyPrintedItems}({sunskyPrintedUnits})
-                </span>
-                <span className="text-muted-foreground mx-1">|</span>
-                <Clock className="h-3 w-3 text-orange-600" />
-                <span className="font-semibold text-orange-700 dark:text-orange-400">
-                  {sunskyPendingItems}({sunskyPendingUnits})
-                </span>
-              </div>
+                          {/* Partial Card */}
+                          <div className="group relative overflow-hidden p-4 bg-gradient-to-br from-yellow-50 to-yellow-100/50 dark:from-yellow-950/30 dark:to-yellow-900/20 rounded-xl border border-yellow-200/50 dark:border-yellow-800/30 shadow-sm hover:shadow-md transition-all duration-300">
+                            <div className="absolute top-0 right-0 w-16 h-16 bg-yellow-500/10 rounded-full blur-xl -translate-y-1/2 translate-x-1/2" />
+                            <div className="relative">
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="p-1.5 bg-yellow-500/10 rounded-lg">
+                                  <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                                </div>
+                                <span className="text-xs font-medium text-yellow-700 dark:text-yellow-400 uppercase tracking-wide">Partial</span>
+                              </div>
+                              <div className="text-2xl font-bold text-yellow-700 dark:text-yellow-400">{partiallyPrintedItems}</div>
+                              <div className="text-xs text-yellow-600/80 dark:text-yellow-400/80 mt-0.5">items</div>
+                            </div>
+                          </div>
+                          
+                          {/* Sunsky Matched Card */}
+                          <div className="group relative overflow-hidden p-4 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/20 rounded-xl border border-blue-200/50 dark:border-blue-800/30 shadow-sm hover:shadow-md transition-all duration-300">
+                            <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500/10 rounded-full blur-xl -translate-y-1/2 translate-x-1/2" />
+                            <div className="relative">
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="p-1.5 bg-blue-500/10 rounded-lg">
+                                  <Package className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                </div>
+                                <span className="text-xs font-medium text-blue-700 dark:text-blue-400 uppercase tracking-wide">Sunsky</span>
+                              </div>
+                              <div className="flex items-baseline gap-2">
+                                <span className="text-2xl font-bold text-blue-700 dark:text-blue-400">{sunskyMatchedItems}</span>
+                                <span className="text-sm text-blue-600/70">matched</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs mt-1">
+                                <span className="text-green-600">✓ {sunskyPrintedItems}</span>
+                                <span className="text-muted-foreground">|</span>
+                                <span className="text-orange-600">⏳ {sunskyPendingItems}</span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Progress Card */}
+                          <div className="group relative overflow-hidden p-4 bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-950/30 dark:to-purple-900/20 rounded-xl border border-purple-200/50 dark:border-purple-800/30 shadow-sm hover:shadow-md transition-all duration-300">
+                            <div className="absolute top-0 right-0 w-16 h-16 bg-purple-500/10 rounded-full blur-xl -translate-y-1/2 translate-x-1/2" />
+                            <div className="relative">
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="p-1.5 bg-purple-500/10 rounded-lg">
+                                  <Printer className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                                </div>
+                                <span className="text-xs font-medium text-purple-700 dark:text-purple-400 uppercase tracking-wide">Progress</span>
+                              </div>
+                              <div className="text-2xl font-bold text-purple-700 dark:text-purple-400">{printProgress}%</div>
+                              <div className="w-full h-1.5 bg-purple-200 dark:bg-purple-900/50 rounded-full mt-2 overflow-hidden">
+                                <div 
+                                  className="h-full bg-gradient-to-r from-purple-500 to-purple-600 rounded-full transition-all duration-500"
+                                  style={{ width: `${printProgress}%` }}
+                                />
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>;
               })()}
                 </div>
 
-                <CardContent className="px-3 py-4 lg:px-4">
-                  {/* Enhanced Search Bar with Printed Filter */}
+                <CardContent className="px-4 py-5">
+                  {/* Modern Search & Filter Section */}
                   <div className="mb-6 space-y-4">
-                    <div className="flex gap-2">
-                      {/* Unified Search Controls */}
-                      <div className="flex items-center gap-2 border border-border/30 bg-background/80 backdrop-blur-sm rounded-xl h-12 px-3 shadow-sm">
-                        {/* Search Type Selector */}
-                        <Select value={searchType} onValueChange={(value: any) => setSearchType(value)}>
-                          <SelectTrigger className="w-[140px] h-8 border-none bg-transparent focus:ring-0">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-popover border shadow-lg z-[100]">
-                            <SelectItem value="all">All Fields</SelectItem>
-                            <SelectItem value="asin">ASIN Only</SelectItem>
-                            <SelectItem value="sku">SKU Only</SelectItem>
-                            <SelectItem value="serial">Serial Number</SelectItem>
-                            <SelectItem value="title">Title Only</SelectItem>
-                            <SelectItem value="po_number">PO Number</SelectItem>
-                          </SelectContent>
-                        </Select>
+                    {/* Search Bar Row */}
+                    <div className="flex gap-3">
+                      {/* Search Options Panel */}
+                      <div className="flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-muted/30 to-muted/10 backdrop-blur-sm rounded-xl border border-border/30 shadow-sm">
+                        {/* Search Type */}
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 bg-primary/10 rounded-lg">
+                            <Search className="h-3.5 w-3.5 text-primary" />
+                          </div>
+                          <Select value={searchType} onValueChange={(value: any) => setSearchType(value)}>
+                            <SelectTrigger className="w-[120px] h-8 border-none bg-transparent focus:ring-0 text-sm font-medium">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-popover border shadow-lg z-[100]">
+                              <SelectItem value="all">All Fields</SelectItem>
+                              <SelectItem value="asin">ASIN Only</SelectItem>
+                              <SelectItem value="sku">SKU Only</SelectItem>
+                              <SelectItem value="serial">Serial Number</SelectItem>
+                              <SelectItem value="title">Title Only</SelectItem>
+                              <SelectItem value="po_number">PO Number</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                         
-                        <div className="h-6 w-px bg-border" />
+                        <div className="h-6 w-px bg-border/50" />
                         
-                        {/* Chip Mode Selector */}
-                        <Select value={chipMode} onValueChange={(value: 'auto' | 'manual') => setChipMode(value)}>
-                          <SelectTrigger className="w-[110px] h-8 border-none bg-transparent focus:ring-0">
-                            <SelectValue placeholder="Chip Mode" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-popover border shadow-lg z-[100]">
-                            <SelectItem value="auto">Auto Chip</SelectItem>
-                            <SelectItem value="manual">Manual Chip</SelectItem>
-                          </SelectContent>
-                        </Select>
-
-                        {/* Chip Delay Input (only visible in auto mode) */}
-                        {chipMode === 'auto' && <>
-                            <div className="h-6 w-px bg-border" />
-                            <div className="flex items-center gap-1.5">
+                        {/* Chip Mode */}
+                        <div className="flex items-center gap-2">
+                          <Select value={chipMode} onValueChange={(value: 'auto' | 'manual') => setChipMode(value)}>
+                            <SelectTrigger className="w-[100px] h-8 border-none bg-transparent focus:ring-0 text-sm">
+                              <SelectValue placeholder="Chip Mode" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-popover border shadow-lg z-[100]">
+                              <SelectItem value="auto">Auto</SelectItem>
+                              <SelectItem value="manual">Manual</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          
+                          {chipMode === 'auto' && (
+                            <div className="flex items-center gap-1.5 px-2 py-1 bg-background/60 rounded-lg">
                               <Clock className="h-3.5 w-3.5 text-primary" />
-                              <Input type="number" min="1" max="10" value={chipDelay} onChange={e => setChipDelay(Math.max(1, Math.min(10, parseInt(e.target.value) || 2)))} className="w-12 h-7 border-none bg-transparent text-center p-0 focus-visible:ring-0" />
-                              <span className="text-xs text-muted-foreground">s</span>
+                              <Input 
+                                type="number" 
+                                min="1" 
+                                max="10" 
+                                value={chipDelay} 
+                                onChange={e => setChipDelay(Math.max(1, Math.min(10, parseInt(e.target.value) || 2)))} 
+                                className="w-10 h-6 border-none bg-transparent text-center p-0 focus-visible:ring-0 text-sm font-medium" 
+                              />
+                              <span className="text-xs text-muted-foreground">sec</span>
                             </div>
-                          </>}
+                          )}
+                        </div>
                       </div>
                       
-                      {/* Search Input with Tags */}
+                      {/* Main Search Input */}
                       <div className="relative group flex-1">
-                        <Search className="absolute left-4 top-3 text-primary h-4 w-4 transition-colors z-10" />
-                        <div className="relative">
-                          <div className="flex flex-wrap items-center gap-1.5 pl-12 pr-12 py-2 min-h-[48px] bg-background/80 backdrop-blur-sm border border-border/30 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 hover:border-primary/30 transition-all duration-200 shadow-sm rounded-xl">
-                            {searchTags.map((tag, index) => <Badge key={index} variant="secondary" className="bg-primary text-primary-foreground px-2 py-1 text-sm flex items-center gap-1 border border-primary/20 shadow-sm hover:bg-primary/80 transition-colors">
-                                {tag}
-                                <button onClick={() => {
-                            setSearchTags(prev => prev.filter((_, i) => i !== index));
-                          }} className="ml-1 hover:bg-primary-foreground/20 rounded-full p-0.5 transition-colors">
-                                  <X className="h-3 w-3" />
-                                </button>
-                              </Badge>)}
-                            <input type="text" placeholder={searchTags.length === 0 ? searchType === 'all' ? "Search by SKU, title, ASIN, serial number..." : searchType === 'asin' ? "Search by ASIN..." : searchType === 'sku' ? "Search by SKU..." : searchType === 'serial' ? "Search by Serial Number..." : searchType === 'title' ? "Search by Title..." : "Search by PO Number..." : "Add another search term..."} value={labelSearchQuery} onChange={e => setLabelSearchQuery(e.target.value)} onKeyDown={e => {
-                          // Handle Enter key to create chip manually
-                          if (e.key === 'Enter' && labelSearchQuery.trim()) {
-                            e.preventDefault();
-                            const trimmedQuery = labelSearchQuery.trim();
-                            if (!searchTags.includes(trimmedQuery)) {
-                              setSearchTags(prev => [...prev, trimmedQuery]);
-                              setLabelSearchQuery('');
-                            }
-                          }
-                          // Handle backspace for deleting tags
-                          if (e.key === 'Backspace' && !labelSearchQuery && searchTags.length > 0) {
-                            setSearchTags(prev => prev.slice(0, -1));
-                          }
-                        }} className="flex-1 min-w-[120px] bg-transparent border-none outline-none text-sm placeholder:text-muted-foreground" />
+                        <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10">
+                          <div className="p-1.5 bg-primary/10 rounded-lg group-focus-within:bg-primary/20 transition-colors">
+                            <Search className="h-4 w-4 text-primary" />
                           </div>
                         </div>
-                        {(labelSearchQuery || searchTags.length > 0) && <Button variant="ghost" size="sm" className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive transition-colors z-10" onClick={() => {
-                      setLabelSearchQuery('');
-                      setSearchTags([]);
-                    }}>
+                        <div className="flex flex-wrap items-center gap-2 pl-14 pr-12 py-3 min-h-[52px] bg-gradient-to-r from-background to-muted/10 backdrop-blur-sm border-2 border-border/30 focus-within:border-primary/50 focus-within:shadow-lg focus-within:shadow-primary/5 hover:border-primary/30 transition-all duration-300 rounded-xl">
+                          {searchTags.map((tag, index) => (
+                            <Badge 
+                              key={index} 
+                              variant="secondary" 
+                              className="bg-gradient-to-r from-primary to-primary/90 text-primary-foreground px-3 py-1.5 text-sm flex items-center gap-1.5 border-0 shadow-md hover:shadow-lg transition-shadow animate-scale-in"
+                            >
+                              {tag}
+                              <button 
+                                onClick={() => setSearchTags(prev => prev.filter((_, i) => i !== index))} 
+                                className="ml-1 hover:bg-primary-foreground/20 rounded-full p-0.5 transition-colors"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </Badge>
+                          ))}
+                          <input 
+                            type="text" 
+                            placeholder={searchTags.length === 0 
+                              ? searchType === 'all' ? "Search by SKU, title, ASIN, serial number..." 
+                              : searchType === 'asin' ? "Search by ASIN..." 
+                              : searchType === 'sku' ? "Search by SKU..." 
+                              : searchType === 'serial' ? "Search by Serial Number..." 
+                              : searchType === 'title' ? "Search by Title..." 
+                              : "Search by PO Number..." 
+                              : "Add another search term..."
+                            } 
+                            value={labelSearchQuery} 
+                            onChange={e => setLabelSearchQuery(e.target.value)} 
+                            onKeyDown={e => {
+                              if (e.key === 'Enter' && labelSearchQuery.trim()) {
+                                e.preventDefault();
+                                const trimmedQuery = labelSearchQuery.trim();
+                                if (!searchTags.includes(trimmedQuery)) {
+                                  setSearchTags(prev => [...prev, trimmedQuery]);
+                                  setLabelSearchQuery('');
+                                }
+                              }
+                              if (e.key === 'Backspace' && !labelSearchQuery && searchTags.length > 0) {
+                                setSearchTags(prev => prev.slice(0, -1));
+                              }
+                            }} 
+                            className="flex-1 min-w-[150px] bg-transparent border-none outline-none text-sm placeholder:text-muted-foreground/70" 
+                          />
+                        </div>
+                        {(labelSearchQuery || searchTags.length > 0) && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="absolute right-3 top-1/2 -translate-y-1/2 h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive transition-colors z-10 rounded-lg" 
+                            onClick={() => {
+                              setLabelSearchQuery('');
+                              setSearchTags([]);
+                            }}
+                          >
                             <X className="h-4 w-4" />
-                          </Button>}
+                          </Button>
+                        )}
                       </div>
                     </div>
                     
-                    {/* Combined Filters Row - Print Status & Source */}
-                    <div className="flex items-center gap-6 flex-wrap">
+                    {/* Filter Pills Row */}
+                    <div className="flex items-center gap-3 flex-wrap p-3 bg-gradient-to-r from-muted/20 via-transparent to-muted/20 rounded-xl border border-border/20">
                       {/* Print Status Filter */}
                       <div className="flex items-center gap-2">
                         <Filter className="h-4 w-4 text-muted-foreground" />
@@ -5320,89 +5464,98 @@ export const POTracker = () => {
                     </div>
                   </div>
                   
-                  {/* Enhanced Table Container with Borders and Grid */}
-                  <div className="rounded-xl border border-border/20 overflow-x-auto shadow-sm bg-card/30 backdrop-blur-sm">
+                  {/* Modern Table Container */}
+                  <div className="rounded-2xl border border-border/30 overflow-hidden shadow-lg bg-gradient-to-b from-card to-card/50 backdrop-blur-sm">
                     <Table className="w-full table-fixed">
-                      <TableHeader className="bg-muted/20 backdrop-blur-md border-b border-border/20">
-                        <TableRow className="hover:bg-muted/50 border-b border-border">
-                          <TableHead className="w-12 font-semibold border-r border-border/10 bg-transparent">
+                      <TableHeader className="bg-gradient-to-r from-muted/40 via-muted/30 to-muted/40 backdrop-blur-md sticky top-0 z-10">
+                        <TableRow className="border-b-2 border-border/30">
+                          <TableHead className="w-12 font-bold border-r border-border/10 bg-transparent py-4">
                             <div className="flex items-center justify-center">
-                              <CheckSquare className="h-4 w-4 text-foreground" />
+                              <div className="p-1.5 bg-primary/10 rounded-lg">
+                                <CheckSquare className="h-4 w-4 text-primary" />
+                              </div>
                             </div>
                           </TableHead>
-                          <TableHead className="w-20 font-semibold border-r border-border/10 bg-transparent">
+                          <TableHead className="w-20 font-bold border-r border-border/10 bg-transparent py-4">
                             <div className="flex items-center gap-2">
-                              <ImageIcon className="h-4 w-4 text-foreground" />
-                              <span className="text-foreground">Image</span>
+                              <div className="p-1 bg-muted/50 rounded">
+                                <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                              <span className="text-foreground text-xs uppercase tracking-wider">Image</span>
                             </div>
                           </TableHead>
-                          <TableHead className={`cursor-pointer hover:bg-muted/50 select-none min-w-[140px] max-w-[180px] font-semibold transition-colors border-r border-border/10 bg-transparent ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('sku_code')}>
+                          <TableHead className={`cursor-pointer hover:bg-primary/5 select-none min-w-[140px] max-w-[180px] font-bold transition-all duration-200 border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('sku_code')}>
                             <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 bg-primary rounded-full"></div>
-                              <span className="text-foreground">SKU/Model</span>
-                              {sortField === 'sku_code' && !originalOrderPreserved && <div className={`text-xs p-1 rounded bg-primary/10 text-primary ${sortDirection === 'asc' ? 'rotate-0' : 'rotate-180'} transition-transform`}>
-                                  ↑
-                                </div>}
-                              {originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' && <Badge variant="outline" className="text-xs ml-auto">Original Order</Badge>}
+                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-primary to-primary/70 rounded-full shadow-sm"></div>
+                              <span className="text-foreground text-xs uppercase tracking-wider">SKU/Model</span>
+                              {sortField === 'sku_code' && !originalOrderPreserved && (
+                                <div className={`p-1 rounded-md bg-primary/10 ${sortDirection === 'asc' ? 'rotate-0' : 'rotate-180'} transition-transform duration-200`}>
+                                  <ChevronUp className="h-3 w-3 text-primary" />
+                                </div>
+                              )}
+                              {originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' && (
+                                <Badge variant="outline" className="text-[10px] ml-auto bg-muted/50">Original</Badge>
+                              )}
                             </div>
                           </TableHead>
-                          <TableHead className="min-w-[120px] font-semibold border-r border-border/10 bg-transparent">
+                          <TableHead className="min-w-[120px] font-bold border-r border-border/10 bg-transparent py-4">
                             <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                              <span className="text-foreground">In-Stock Qty</span>
+                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-green-500 to-green-600 rounded-full shadow-sm"></div>
+                              <span className="text-foreground text-xs uppercase tracking-wider">Stock Qty</span>
                             </div>
                           </TableHead>
-                          <TableHead className={`cursor-pointer hover:bg-muted/50 select-none min-w-[300px] max-w-[400px] font-semibold transition-colors border-r border-border/10 bg-transparent ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('combined_title')}>
+                          <TableHead className={`cursor-pointer hover:bg-primary/5 select-none min-w-[300px] max-w-[400px] font-bold transition-all duration-200 border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('combined_title')}>
                             <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 bg-accent rounded-full"></div>
-                              <span className="text-foreground">Title & ASIN</span>
-                              {sortField === 'combined_title' && !originalOrderPreserved && <div className={`text-xs p-1 rounded bg-accent/10 text-accent ${sortDirection === 'asc' ? 'rotate-0' : 'rotate-180'} transition-transform`}>
-                                  ↑
-                                </div>}
+                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-accent to-accent/70 rounded-full shadow-sm"></div>
+                              <span className="text-foreground text-xs uppercase tracking-wider">Title & ASIN</span>
+                              {sortField === 'combined_title' && !originalOrderPreserved && (
+                                <div className={`p-1 rounded-md bg-accent/10 ${sortDirection === 'asc' ? 'rotate-0' : 'rotate-180'} transition-transform duration-200`}>
+                                  <ChevronUp className="h-3 w-3 text-accent" />
+                                </div>
+                              )}
                             </div>
                           </TableHead>
-                          <TableHead className="min-w-[120px] max-w-[180px] font-semibold border-r border-border/10 bg-transparent">
+                          <TableHead className="min-w-[120px] max-w-[180px] font-bold border-r border-border/10 bg-transparent py-4">
                             <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                              <span className="text-foreground">Ship To</span>
+                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full shadow-sm"></div>
+                              <span className="text-foreground text-xs uppercase tracking-wider">Ship To</span>
                             </div>
                           </TableHead>
-                          <TableHead className={`cursor-pointer hover:bg-muted/50 select-none font-semibold transition-colors border-r border-border/10 bg-transparent ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('quantity')}>
+                          <TableHead className={`cursor-pointer hover:bg-primary/5 select-none font-bold transition-all duration-200 border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('quantity')}>
                             <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 bg-emerald rounded-full"></div>
-                              <span className="text-foreground">Quantity</span>
-                              {sortField === 'quantity' && !originalOrderPreserved && <div className={`text-xs p-1 rounded bg-emerald/10 text-emerald-700 dark:text-emerald-300 ${sortDirection === 'asc' ? 'rotate-0' : 'rotate-180'} transition-transform`}>
-                                  ↑
-                                </div>}
+                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full shadow-sm"></div>
+                              <span className="text-foreground text-xs uppercase tracking-wider">Qty</span>
+                              {sortField === 'quantity' && !originalOrderPreserved && (
+                                <div className={`p-1 rounded-md bg-emerald-500/10 ${sortDirection === 'asc' ? 'rotate-0' : 'rotate-180'} transition-transform duration-200`}>
+                                  <ChevronUp className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                                </div>
+                              )}
                             </div>
                           </TableHead>
-                           <TableHead className="min-w-[120px] font-semibold border-r border-border/10 bg-transparent">
-                             <div className="flex items-center gap-2">
-                               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                               <span className="text-foreground">Print Status</span>
-                             </div>
-                           </TableHead>
-                           <TableHead className="min-w-[100px] font-semibold border-r border-border/10 bg-transparent">
-                             <div className="flex items-center gap-2">
-                               <div className="w-2 h-2 bg-sky rounded-full"></div>
-                               <span className="text-foreground">Print Qty</span>
-                             </div>
-                           </TableHead>
-                           <TableHead className="min-w-[120px] font-semibold border-r border-border/10 bg-transparent">
-                             <div className="flex items-center gap-2">
-                               <div className="w-2 h-2 bg-cyan rounded-full"></div>
-                               <span className="text-foreground">Status</span>
-                               <Badge variant="outline" className="text-xs ml-2">
-                                 Filtered
-                               </Badge>
-                             </div>
-                           </TableHead>
-                           <TableHead className="min-w-[100px] font-semibold bg-transparent">
-                             <div className="flex items-center gap-2">
-                               <div className="w-2 h-2 bg-secondary rounded-full"></div>
-                               <span className="text-foreground">Actions</span>
-                             </div>
-                           </TableHead>
+                          <TableHead className="min-w-[120px] font-bold border-r border-border/10 bg-transparent py-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full shadow-sm"></div>
+                              <span className="text-foreground text-xs uppercase tracking-wider">Print</span>
+                            </div>
+                          </TableHead>
+                          <TableHead className="min-w-[100px] font-bold border-r border-border/10 bg-transparent py-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-sky-500 to-sky-600 rounded-full shadow-sm"></div>
+                              <span className="text-foreground text-xs uppercase tracking-wider">Print Qty</span>
+                            </div>
+                          </TableHead>
+                          <TableHead className="min-w-[120px] font-bold border-r border-border/10 bg-transparent py-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-full shadow-sm"></div>
+                              <span className="text-foreground text-xs uppercase tracking-wider">Status</span>
+                            </div>
+                          </TableHead>
+                          <TableHead className="min-w-[100px] font-bold bg-transparent py-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-gray-400 to-gray-500 rounded-full shadow-sm"></div>
+                              <span className="text-foreground text-xs uppercase tracking-wider">Actions</span>
+                            </div>
+                          </TableHead>
                         </TableRow>
                       </TableHeader>
                         <TableBody className="divide-y divide-border/10">
