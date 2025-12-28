@@ -213,15 +213,23 @@ export function CarrefourSalesOrdersTable({ refresh, filteredData, onRefresh, st
 
   useEffect(() => {
     fetchSalesOrders();
-  }, [selectedCountry, refresh]);
+  }, [storeId, refresh]);
 
   const fetchSalesOrders = async () => {
     try {
-      const { data, error } = await supabase
+      // Build query - if storeId is provided, filter by store_id; otherwise fall back to country filter
+      let query = supabase
         .from("carrefour_payments")
         .select("*")
-        .eq("country", selectedCountry)
         .order("created_at", { ascending: false });
+      
+      if (storeId) {
+        query = query.eq("store_id", storeId);
+      } else {
+        query = query.eq("country", selectedCountry);
+      }
+      
+      const { data, error } = await query;
 
       if (error) throw error;
       setSalesOrders((data as any) || []);
