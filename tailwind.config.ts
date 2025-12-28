@@ -299,21 +299,138 @@ export default {
     				'100%': {
     					backgroundPosition: '200% 0'
     				}
+    			},
+    			'scale-in': {
+    				'0%': {
+    					opacity: '0',
+    					transform: 'scale(0.9)'
+    				},
+    				'100%': {
+    					opacity: '1',
+    					transform: 'scale(1)'
+    				}
+    			},
+    			'slide-in-left': {
+    				'0%': {
+    					opacity: '0',
+    					transform: 'translateX(-20px)'
+    				},
+    				'100%': {
+    					opacity: '1',
+    					transform: 'translateX(0)'
+    				}
+    			},
+    			'slide-in-right': {
+    				'0%': {
+    					opacity: '0',
+    					transform: 'translateX(20px)'
+    				},
+    				'100%': {
+    					opacity: '1',
+    					transform: 'translateX(0)'
+    				}
+    			},
+    			'pulse-soft': {
+    				'0%, 100%': {
+    					opacity: '1'
+    				},
+    				'50%': {
+    					opacity: '0.7'
+    				}
+    			},
+    			'border-glow': {
+    				'0%, 100%': {
+    					borderColor: 'hsl(var(--border))'
+    				},
+    				'50%': {
+    					borderColor: 'hsl(var(--primary) / 0.5)'
+    				}
+    			},
+    			'gradient-shift': {
+    				'0%': {
+    					backgroundPosition: '0% 50%'
+    				},
+    				'50%': {
+    					backgroundPosition: '100% 50%'
+    				},
+    				'100%': {
+    					backgroundPosition: '0% 50%'
+    				}
+    			},
+    			'card-hover': {
+    				'0%': {
+    					transform: 'translateY(0) scale(1)',
+    					boxShadow: 'var(--shadow-soft)'
+    				},
+    				'100%': {
+    					transform: 'translateY(-2px) scale(1.01)',
+    					boxShadow: 'var(--shadow-medium)'
+    				}
+    			},
+    			'icon-bounce': {
+    				'0%, 100%': {
+    					transform: 'translateY(0)'
+    				},
+    				'50%': {
+    					transform: 'translateY(-3px)'
+    				}
+    			},
+    			'count-up': {
+    				'0%': {
+    					opacity: '0',
+    					transform: 'translateY(10px)'
+    				},
+    				'100%': {
+    					opacity: '1',
+    					transform: 'translateY(0)'
+    				}
+    			},
+    			'ring-pulse': {
+    				'0%': {
+    					boxShadow: '0 0 0 0 hsl(var(--primary) / 0.4)'
+    				},
+    				'70%': {
+    					boxShadow: '0 0 0 10px hsl(var(--primary) / 0)'
+    				},
+    				'100%': {
+    					boxShadow: '0 0 0 0 hsl(var(--primary) / 0)'
+    				}
+    			},
+    			'stagger-fade': {
+    				'0%': {
+    					opacity: '0',
+    					transform: 'translateY(15px)'
+    				},
+    				'100%': {
+    					opacity: '1',
+    					transform: 'translateY(0)'
+    				}
     			}
     		},
     		animation: {
     			'accordion-down': 'accordion-down 0.2s ease-out',
     			'accordion-up': 'accordion-up 0.2s ease-out',
-    			'fade-in': 'fade-in 0.3s ease-out',
-    			'fade-in-scale': 'fade-in-scale 0.3s ease-out',
-    			'slide-up': 'slide-up 0.4s ease-out',
-    			'slide-down': 'slide-down 0.4s ease-out',
-    			'bounce-in': 'bounce-in 0.6s ease-out',
+    			'fade-in': 'fade-in 0.3s ease-out forwards',
+    			'fade-in-scale': 'fade-in-scale 0.3s ease-out forwards',
+    			'slide-up': 'slide-up 0.4s ease-out forwards',
+    			'slide-down': 'slide-down 0.4s ease-out forwards',
+    			'bounce-in': 'bounce-in 0.6s ease-out forwards',
     			'glow-pulse': 'glow-pulse 2s ease-in-out infinite',
     			float: 'float 3s ease-in-out infinite',
     			'float-delayed': 'float-delayed 6s ease-in-out infinite',
     			blob: 'blob 7s infinite',
-    			shimmer: 'shimmer 2s linear infinite'
+    			shimmer: 'shimmer 2s linear infinite',
+    			'scale-in': 'scale-in 0.25s ease-out forwards',
+    			'slide-in-left': 'slide-in-left 0.3s ease-out forwards',
+    			'slide-in-right': 'slide-in-right 0.3s ease-out forwards',
+    			'pulse-soft': 'pulse-soft 2s ease-in-out infinite',
+    			'border-glow': 'border-glow 2s ease-in-out infinite',
+    			'gradient-shift': 'gradient-shift 3s ease infinite',
+    			'card-hover': 'card-hover 0.2s ease-out forwards',
+    			'icon-bounce': 'icon-bounce 0.5s ease-in-out',
+    			'count-up': 'count-up 0.4s ease-out forwards',
+    			'ring-pulse': 'ring-pulse 1.5s ease-in-out infinite',
+    			'stagger-fade': 'stagger-fade 0.4s ease-out forwards'
     		}
     	}
     },

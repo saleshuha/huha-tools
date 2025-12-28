@@ -669,6 +669,142 @@
   animation: none !important;
 }
 
+/* Enhanced UI Components for Print Labels */
+@layer components {
+  /* Card with hover lift effect */
+  .card-hover-lift {
+    @apply transition-all duration-300 ease-out;
+  }
+  .card-hover-lift:hover {
+    @apply -translate-y-1 shadow-lg;
+  }
+
+  /* Metric card with animated border */
+  .metric-card-enhanced {
+    @apply relative overflow-hidden rounded-xl border transition-all duration-300;
+    background: linear-gradient(135deg, hsl(var(--background)) 0%, hsl(var(--muted) / 0.3) 100%);
+  }
+  .metric-card-enhanced::before {
+    content: '';
+    @apply absolute inset-0 opacity-0 transition-opacity duration-300;
+    background: linear-gradient(135deg, hsl(var(--primary) / 0.05) 0%, transparent 50%);
+  }
+  .metric-card-enhanced:hover::before {
+    @apply opacity-100;
+  }
+  .metric-card-enhanced:hover {
+    @apply border-primary/30 shadow-md;
+  }
+
+  /* Gradient text effect */
+  .gradient-text {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent-foreground)));
+  }
+
+  /* Frosted glass effect */
+  .glass-frosted {
+    @apply bg-background/80 backdrop-blur-md border border-border/30;
+  }
+
+  /* Animated gradient background */
+  .animated-gradient-bg {
+    background: linear-gradient(-45deg, hsl(var(--primary) / 0.1), hsl(var(--accent) / 0.1), hsl(var(--muted) / 0.1), hsl(var(--background)));
+    background-size: 400% 400%;
+    animation: gradient-shift 8s ease infinite;
+  }
+
+  /* Enhanced shadow on hover */
+  .shadow-hover {
+    @apply transition-shadow duration-300;
+  }
+  .shadow-hover:hover {
+    @apply shadow-lg;
+  }
+
+  /* Icon container with glow */
+  .icon-glow {
+    @apply relative;
+  }
+  .icon-glow::after {
+    content: '';
+    @apply absolute inset-0 rounded-lg opacity-0 transition-opacity duration-300;
+    background: radial-gradient(circle, hsl(var(--primary) / 0.3) 0%, transparent 70%);
+  }
+  .icon-glow:hover::after {
+    @apply opacity-100;
+  }
+
+  /* Table row hover with left accent */
+  .table-row-accent {
+    @apply relative transition-all duration-200;
+  }
+  .table-row-accent::before {
+    content: '';
+    @apply absolute left-0 top-0 bottom-0 w-0 bg-primary transition-all duration-200;
+  }
+  .table-row-accent:hover::before {
+    @apply w-1;
+  }
+  .table-row-accent:hover {
+    @apply bg-muted/40;
+  }
+
+  /* Selected row state */
+  .table-row-selected {
+    @apply bg-primary/5;
+  }
+  .table-row-selected::before {
+    @apply w-1 bg-primary;
+  }
+
+  /* Progress bar with glow */
+  .progress-glow {
+    @apply relative overflow-hidden;
+  }
+  .progress-glow::after {
+    content: '';
+    @apply absolute inset-0;
+    background: linear-gradient(90deg, transparent, hsl(var(--primary-foreground) / 0.3), transparent);
+    animation: shimmer 2s linear infinite;
+  }
+
+  /* Badge with pulse animation */
+  .badge-pulse {
+    @apply relative;
+  }
+  .badge-pulse::before {
+    content: '';
+    @apply absolute inset-0 rounded-full animate-ring-pulse;
+  }
+
+  /* Search input focus glow */
+  .search-focus-glow:focus-within {
+    @apply ring-2 ring-primary/20 shadow-lg shadow-primary/10;
+  }
+
+  /* Button with ripple effect base */
+  .btn-ripple {
+    @apply relative overflow-hidden;
+  }
+  .btn-ripple::after {
+    content: '';
+    @apply absolute inset-0 opacity-0 transition-opacity duration-300;
+    background: radial-gradient(circle at center, hsl(var(--primary-foreground) / 0.2) 0%, transparent 70%);
+  }
+  .btn-ripple:active::after {
+    @apply opacity-100;
+  }
+
+  /* Staggered animation delays for children */
+  .stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+  .stagger-children > *:nth-child(2) { animation-delay: 50ms; }
+  .stagger-children > *:nth-child(3) { animation-delay: 100ms; }
+  .stagger-children > *:nth-child(4) { animation-delay: 150ms; }
+  .stagger-children > *:nth-child(5) { animation-delay: 200ms; }
+  .stagger-children > *:nth-child(6) { animation-delay: 250ms; }
+}
+
 @layer base {
   * {
     @apply border-border;
