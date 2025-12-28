@@ -4339,16 +4339,17 @@ export const POTracker = () => {
             </Card> :
         // Step 2: Label Printing Interface
         <div className="space-y-4">
-              {/* Modern Header with Gradient */}
-              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/5 via-accent/5 to-background border border-border/30 shadow-lg">
-                {/* Decorative Elements */}
-                <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-primary/10 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-                <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-accent/10 to-transparent rounded-full blur-2xl translate-y-1/2 -translate-x-1/4" />
+              {/* Enhanced Modern Header with Animated Gradient */}
+              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/5 via-accent/5 to-background border border-border/30 shadow-lg animate-fade-in">
+                {/* Animated Decorative Elements */}
+                <div className="absolute top-0 right-0 w-72 h-72 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 animate-float" />
+                <div className="absolute bottom-0 left-0 w-56 h-56 bg-gradient-to-tr from-accent/15 via-accent/5 to-transparent rounded-full blur-2xl translate-y-1/2 -translate-x-1/4 animate-float-delayed" />
+                <div className="absolute top-1/2 left-1/2 w-32 h-32 bg-primary/5 rounded-full blur-2xl -translate-x-1/2 -translate-y-1/2 animate-pulse-soft" />
                 
                 <div className="relative p-6">
                   <div className="flex items-center justify-between gap-6">
                     <div className="flex items-center gap-5">
-                      {/* Back Button */}
+                      {/* Back Button with Enhanced Hover */}
                       <Button 
                         variant="outline" 
                         size="lg" 
@@ -4359,34 +4360,34 @@ export const POTracker = () => {
                           setSelectedForPrint(new Map());
                           setOriginalOrderPreserved(false);
                         }} 
-                        className="group relative h-12 px-5 font-semibold border-2 border-border/40 hover:border-primary/50 bg-background/80 backdrop-blur-sm hover:bg-primary/5 rounded-xl transition-all duration-300 shadow-sm hover:shadow-md"
+                        className="group relative h-12 px-5 font-semibold border-2 border-border/40 hover:border-primary/50 bg-background/80 backdrop-blur-sm hover:bg-primary/5 rounded-xl transition-all duration-300 shadow-sm hover:shadow-lg hover:shadow-primary/5"
                       >
                         <ArrowLeft className="h-5 w-5 mr-2 group-hover:-translate-x-1 transition-transform duration-200" />
                         <span>Back to PO List</span>
                       </Button>
                       
-                      {/* Separator */}
-                      <div className="h-10 w-px bg-gradient-to-b from-transparent via-border/50 to-transparent" />
+                      {/* Animated Separator */}
+                      <div className="h-10 w-px bg-gradient-to-b from-transparent via-border/60 to-transparent" />
                       
-                      {/* Title Section */}
-                      <div className="flex items-center gap-4">
-                        <div className="relative">
-                          <div className="absolute inset-0 bg-primary/20 rounded-xl blur-lg" />
-                          <div className="relative p-3 bg-gradient-to-br from-primary to-primary/80 rounded-xl shadow-lg">
-                            <Printer className="h-6 w-6 text-primary-foreground" />
+                      {/* Title Section with Enhanced Typography */}
+                      <div className="flex items-center gap-4 animate-slide-in-left">
+                        <div className="relative group">
+                          <div className="absolute inset-0 bg-primary/30 rounded-xl blur-xl group-hover:blur-2xl transition-all duration-300" />
+                          <div className="relative p-3.5 bg-gradient-to-br from-primary via-primary to-primary/80 rounded-xl shadow-lg shadow-primary/20 group-hover:shadow-primary/30 transition-shadow duration-300">
+                            <Printer className="h-6 w-6 text-primary-foreground animate-icon-bounce" />
                           </div>
                         </div>
                         <div>
-                          <h1 className="text-2xl font-bold text-foreground tracking-tight">
+                          <h1 className="text-2xl font-bold bg-gradient-to-r from-foreground via-foreground to-foreground/80 bg-clip-text tracking-tight">
                             Print Labels
                           </h1>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 font-medium">
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 font-medium shadow-sm hover:shadow-md transition-shadow">
                               {selectedPOsForLabels.size > 1 
                                 ? `${selectedPOsForLabels.size} Purchase Orders` 
                                 : selectedPOForLabels || Array.from(selectedPOsForLabels)[0]}
                             </Badge>
-                            <span className="text-sm text-muted-foreground">
+                            <span className="text-sm text-muted-foreground/80">
                               • Select items and configure print settings
                             </span>
                           </div>
@@ -4394,8 +4395,8 @@ export const POTracker = () => {
                       </div>
                     </div>
                     
-                    {/* Quick Stats in Header */}
-                    <div className="hidden lg:flex items-center gap-3">
+                    {/* Enhanced Quick Stats in Header */}
+                    <div className="hidden lg:flex items-center gap-3 animate-slide-in-right">
                       {(() => {
                         const selectedPOsList = selectedPOsForLabels.size > 0 
                           ? Array.from(selectedPOsForLabels) 
@@ -4411,13 +4412,19 @@ export const POTracker = () => {
                         
                         return (
                           <>
-                            <div className="flex items-center gap-2 px-4 py-2 bg-background/60 backdrop-blur-sm rounded-lg border border-border/30">
-                              <Package className="h-4 w-4 text-primary" />
-                              <span className="text-sm font-medium">{ordersCount} items</span>
+                            <div className="group flex items-center gap-2.5 px-4 py-2.5 bg-background/70 backdrop-blur-md rounded-xl border border-border/40 hover:border-primary/40 hover:bg-primary/5 transition-all duration-300 shadow-sm hover:shadow-md cursor-default">
+                              <div className="p-1.5 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
+                                <Package className="h-4 w-4 text-primary" />
+                              </div>
+                              <span className="text-sm font-semibold">{ordersCount}</span>
+                              <span className="text-xs text-muted-foreground">items</span>
                             </div>
-                            <div className="flex items-center gap-2 px-4 py-2 bg-background/60 backdrop-blur-sm rounded-lg border border-border/30">
-                              <ShoppingCart className="h-4 w-4 text-accent" />
-                              <span className="text-sm font-medium">{unitsCount} units</span>
+                            <div className="group flex items-center gap-2.5 px-4 py-2.5 bg-background/70 backdrop-blur-md rounded-xl border border-border/40 hover:border-accent-foreground/40 hover:bg-accent/50 transition-all duration-300 shadow-sm hover:shadow-md cursor-default">
+                              <div className="p-1.5 bg-accent/50 rounded-lg group-hover:bg-accent transition-colors">
+                                <ShoppingCart className="h-4 w-4 text-accent-foreground" />
+                              </div>
+                              <span className="text-sm font-semibold">{unitsCount}</span>
+                              <span className="text-xs text-muted-foreground">units</span>
                             </div>
                           </>
                         );
@@ -4947,19 +4954,22 @@ export const POTracker = () => {
                   </CardContent>}
               </Card>
 
-              {/* Enhanced Items Selection Table */}
-              <Card className="bg-card/50 backdrop-blur-sm border border-border/20 shadow-sm rounded-xl">
-                <CardHeader className="bg-muted/10 backdrop-blur-sm border-b border-border/20 pb-4">
+              {/* Enhanced Items Selection Table with Refined Styling */}
+              <Card className="bg-card/50 backdrop-blur-sm border border-border/20 shadow-md hover:shadow-lg transition-shadow duration-300 rounded-2xl overflow-hidden animate-fade-in">
+                <CardHeader className="bg-gradient-to-r from-muted/20 via-muted/10 to-transparent backdrop-blur-sm border-b border-border/20 pb-4">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-primary/10 rounded-lg">
-                          <Package className="h-5 w-5 text-primary" />
+                      <div className="flex items-center gap-4">
+                        <div className="relative group">
+                          <div className="absolute inset-0 bg-primary/20 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                          <div className="relative p-2.5 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl border border-primary/20 group-hover:border-primary/30 transition-colors">
+                            <Package className="h-5 w-5 text-primary" />
+                          </div>
                         </div>
                         <div>
-                          <CardTitle className="text-lg font-semibold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                          <CardTitle className="text-lg font-bold bg-gradient-to-r from-foreground via-foreground to-foreground/70 bg-clip-text">
                             Select Items to Print
                           </CardTitle>
-                          <p className="text-sm text-muted-foreground mt-1">
+                          <p className="text-sm text-muted-foreground/80 mt-1">
                             Choose which items to include in your print job
                           </p>
                         </div>
@@ -5025,8 +5035,8 @@ export const POTracker = () => {
                     </div>
                 </CardHeader>
 
-                {/* Modern Metrics Dashboard */}
-                <div className="px-4 py-4 bg-gradient-to-r from-muted/5 via-muted/10 to-muted/5 border-b border-border/20">
+                {/* Enhanced Modern Metrics Dashboard with Animations */}
+                <div className="px-5 py-5 bg-gradient-to-r from-muted/10 via-background to-muted/10 border-b border-border/20">
                   {(() => {
                 const selectedPOsList = selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : selectedPOForLabels ? [selectedPOForLabels] : [];
                 const ordersForMetrics = poOrders.filter(order => selectedPOsList.includes(order.po_number) && order.status !== 'cancelled');
@@ -5054,107 +5064,115 @@ export const POTracker = () => {
                 
                 const printProgress = totalUnits > 0 ? Math.round((printedUnits / totalUnits) * 100) : 0;
                 
-                return <div className="space-y-3">
-                        {/* Metrics Cards Grid */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                return <div className="space-y-4">
+                        {/* Enhanced Metrics Cards Grid with Staggered Animation */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 stagger-children">
                           {/* Total Items Card */}
-                          <div className="group relative overflow-hidden p-4 bg-gradient-to-br from-background to-muted/30 rounded-xl border border-border/30 shadow-sm hover:shadow-md hover:border-primary/30 transition-all duration-300">
-                            <div className="absolute top-0 right-0 w-16 h-16 bg-primary/5 rounded-full blur-xl -translate-y-1/2 translate-x-1/2" />
+                          <div className="group relative overflow-hidden p-4 bg-gradient-to-br from-background via-background to-muted/30 rounded-xl border border-border/40 shadow-sm hover:shadow-lg hover:shadow-primary/5 hover:border-primary/40 hover:-translate-y-0.5 transition-all duration-300 animate-stagger-fade">
+                            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-primary/10 to-transparent rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                            <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                             <div className="relative">
-                              <div className="flex items-center gap-2 mb-2">
-                                <div className="p-1.5 bg-primary/10 rounded-lg">
+                              <div className="flex items-center gap-2 mb-2.5">
+                                <div className="p-1.5 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors duration-300">
                                   <Package className="h-4 w-4 text-primary" />
                                 </div>
-                                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total</span>
+                                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Total</span>
                               </div>
-                              <div className="text-2xl font-bold text-foreground">{totalItems}</div>
-                              <div className="text-xs text-muted-foreground mt-0.5">{totalUnits} units</div>
+                              <div className="text-2xl font-bold text-foreground tracking-tight">{totalItems}</div>
+                              <div className="text-xs text-muted-foreground/80 mt-1 font-medium">{totalUnits} units</div>
                             </div>
                           </div>
                           
                           {/* Printed Card */}
-                          <div className="group relative overflow-hidden p-4 bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/30 dark:to-green-900/20 rounded-xl border border-green-200/50 dark:border-green-800/30 shadow-sm hover:shadow-md transition-all duration-300">
-                            <div className="absolute top-0 right-0 w-16 h-16 bg-green-500/10 rounded-full blur-xl -translate-y-1/2 translate-x-1/2" />
+                          <div className="group relative overflow-hidden p-4 bg-gradient-to-br from-emerald-50/80 via-green-50/50 to-green-100/40 dark:from-green-950/40 dark:via-green-900/30 dark:to-green-950/20 rounded-xl border border-green-200/60 dark:border-green-800/40 shadow-sm hover:shadow-lg hover:shadow-green-500/5 hover:border-green-400/50 dark:hover:border-green-600/50 hover:-translate-y-0.5 transition-all duration-300 animate-stagger-fade">
+                            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-green-500/15 to-transparent rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                            <div className="absolute inset-0 bg-gradient-to-br from-green-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                             <div className="relative">
-                              <div className="flex items-center gap-2 mb-2">
-                                <div className="p-1.5 bg-green-500/10 rounded-lg">
+                              <div className="flex items-center gap-2 mb-2.5">
+                                <div className="p-1.5 bg-green-500/15 rounded-lg group-hover:bg-green-500/25 transition-colors duration-300">
                                   <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
                                 </div>
-                                <span className="text-xs font-medium text-green-700 dark:text-green-400 uppercase tracking-wide">Printed</span>
+                                <span className="text-[10px] font-semibold text-green-700 dark:text-green-400 uppercase tracking-wider">Printed</span>
                               </div>
-                              <div className="text-2xl font-bold text-green-700 dark:text-green-400">{printedItems}</div>
-                              <div className="text-xs text-green-600/80 dark:text-green-400/80 mt-0.5">{printedUnits} units</div>
+                              <div className="text-2xl font-bold text-green-700 dark:text-green-400 tracking-tight">{printedItems}</div>
+                              <div className="text-xs text-green-600/70 dark:text-green-400/70 mt-1 font-medium">{printedUnits} units</div>
                             </div>
                           </div>
                           
                           {/* Pending Card */}
-                          <div className="group relative overflow-hidden p-4 bg-gradient-to-br from-orange-50 to-orange-100/50 dark:from-orange-950/30 dark:to-orange-900/20 rounded-xl border border-orange-200/50 dark:border-orange-800/30 shadow-sm hover:shadow-md transition-all duration-300">
-                            <div className="absolute top-0 right-0 w-16 h-16 bg-orange-500/10 rounded-full blur-xl -translate-y-1/2 translate-x-1/2" />
+                          <div className="group relative overflow-hidden p-4 bg-gradient-to-br from-amber-50/80 via-orange-50/50 to-orange-100/40 dark:from-orange-950/40 dark:via-orange-900/30 dark:to-orange-950/20 rounded-xl border border-orange-200/60 dark:border-orange-800/40 shadow-sm hover:shadow-lg hover:shadow-orange-500/5 hover:border-orange-400/50 dark:hover:border-orange-600/50 hover:-translate-y-0.5 transition-all duration-300 animate-stagger-fade">
+                            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-orange-500/15 to-transparent rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                            <div className="absolute inset-0 bg-gradient-to-br from-orange-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                             <div className="relative">
-                              <div className="flex items-center gap-2 mb-2">
-                                <div className="p-1.5 bg-orange-500/10 rounded-lg">
+                              <div className="flex items-center gap-2 mb-2.5">
+                                <div className="p-1.5 bg-orange-500/15 rounded-lg group-hover:bg-orange-500/25 transition-colors duration-300">
                                   <Clock className="h-4 w-4 text-orange-600 dark:text-orange-400" />
                                 </div>
-                                <span className="text-xs font-medium text-orange-700 dark:text-orange-400 uppercase tracking-wide">Pending</span>
+                                <span className="text-[10px] font-semibold text-orange-700 dark:text-orange-400 uppercase tracking-wider">Pending</span>
                               </div>
-                              <div className="text-2xl font-bold text-orange-700 dark:text-orange-400">{pendingItems}</div>
-                              <div className="text-xs text-orange-600/80 dark:text-orange-400/80 mt-0.5">{pendingUnits} units</div>
+                              <div className="text-2xl font-bold text-orange-700 dark:text-orange-400 tracking-tight">{pendingItems}</div>
+                              <div className="text-xs text-orange-600/70 dark:text-orange-400/70 mt-1 font-medium">{pendingUnits} units</div>
                             </div>
                           </div>
                           
                           {/* Partial Card */}
-                          <div className="group relative overflow-hidden p-4 bg-gradient-to-br from-yellow-50 to-yellow-100/50 dark:from-yellow-950/30 dark:to-yellow-900/20 rounded-xl border border-yellow-200/50 dark:border-yellow-800/30 shadow-sm hover:shadow-md transition-all duration-300">
-                            <div className="absolute top-0 right-0 w-16 h-16 bg-yellow-500/10 rounded-full blur-xl -translate-y-1/2 translate-x-1/2" />
+                          <div className="group relative overflow-hidden p-4 bg-gradient-to-br from-yellow-50/80 via-amber-50/50 to-yellow-100/40 dark:from-yellow-950/40 dark:via-yellow-900/30 dark:to-yellow-950/20 rounded-xl border border-yellow-200/60 dark:border-yellow-800/40 shadow-sm hover:shadow-lg hover:shadow-yellow-500/5 hover:border-yellow-400/50 dark:hover:border-yellow-600/50 hover:-translate-y-0.5 transition-all duration-300 animate-stagger-fade">
+                            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-yellow-500/15 to-transparent rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                            <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                             <div className="relative">
-                              <div className="flex items-center gap-2 mb-2">
-                                <div className="p-1.5 bg-yellow-500/10 rounded-lg">
+                              <div className="flex items-center gap-2 mb-2.5">
+                                <div className="p-1.5 bg-yellow-500/15 rounded-lg group-hover:bg-yellow-500/25 transition-colors duration-300">
                                   <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
                                 </div>
-                                <span className="text-xs font-medium text-yellow-700 dark:text-yellow-400 uppercase tracking-wide">Partial</span>
+                                <span className="text-[10px] font-semibold text-yellow-700 dark:text-yellow-400 uppercase tracking-wider">Partial</span>
                               </div>
-                              <div className="text-2xl font-bold text-yellow-700 dark:text-yellow-400">{partiallyPrintedItems}</div>
-                              <div className="text-xs text-yellow-600/80 dark:text-yellow-400/80 mt-0.5">items</div>
+                              <div className="text-2xl font-bold text-yellow-700 dark:text-yellow-400 tracking-tight">{partiallyPrintedItems}</div>
+                              <div className="text-xs text-yellow-600/70 dark:text-yellow-400/70 mt-1 font-medium">items</div>
                             </div>
                           </div>
                           
                           {/* Sunsky Matched Card */}
-                          <div className="group relative overflow-hidden p-4 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/20 rounded-xl border border-blue-200/50 dark:border-blue-800/30 shadow-sm hover:shadow-md transition-all duration-300">
-                            <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500/10 rounded-full blur-xl -translate-y-1/2 translate-x-1/2" />
+                          <div className="group relative overflow-hidden p-4 bg-gradient-to-br from-sky-50/80 via-blue-50/50 to-blue-100/40 dark:from-blue-950/40 dark:via-blue-900/30 dark:to-blue-950/20 rounded-xl border border-blue-200/60 dark:border-blue-800/40 shadow-sm hover:shadow-lg hover:shadow-blue-500/5 hover:border-blue-400/50 dark:hover:border-blue-600/50 hover:-translate-y-0.5 transition-all duration-300 animate-stagger-fade">
+                            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-blue-500/15 to-transparent rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                             <div className="relative">
-                              <div className="flex items-center gap-2 mb-2">
-                                <div className="p-1.5 bg-blue-500/10 rounded-lg">
+                              <div className="flex items-center gap-2 mb-2.5">
+                                <div className="p-1.5 bg-blue-500/15 rounded-lg group-hover:bg-blue-500/25 transition-colors duration-300">
                                   <Package className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                                 </div>
-                                <span className="text-xs font-medium text-blue-700 dark:text-blue-400 uppercase tracking-wide">Sunsky</span>
+                                <span className="text-[10px] font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wider">Sunsky</span>
                               </div>
-                              <div className="flex items-baseline gap-2">
-                                <span className="text-2xl font-bold text-blue-700 dark:text-blue-400">{sunskyMatchedItems}</span>
-                                <span className="text-sm text-blue-600/70">matched</span>
+                              <div className="flex items-baseline gap-1.5">
+                                <span className="text-2xl font-bold text-blue-700 dark:text-blue-400 tracking-tight">{sunskyMatchedItems}</span>
+                                <span className="text-xs text-blue-600/60 font-medium">matched</span>
                               </div>
-                              <div className="flex items-center gap-2 text-xs mt-1">
-                                <span className="text-green-600">✓ {sunskyPrintedItems}</span>
-                                <span className="text-muted-foreground">|</span>
-                                <span className="text-orange-600">⏳ {sunskyPendingItems}</span>
+                              <div className="flex items-center gap-2 text-xs mt-1.5 font-medium">
+                                <span className="text-green-600 dark:text-green-400">✓ {sunskyPrintedItems}</span>
+                                <span className="text-muted-foreground/50">|</span>
+                                <span className="text-orange-600 dark:text-orange-400">⏳ {sunskyPendingItems}</span>
                               </div>
                             </div>
                           </div>
                           
                           {/* Progress Card */}
-                          <div className="group relative overflow-hidden p-4 bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-950/30 dark:to-purple-900/20 rounded-xl border border-purple-200/50 dark:border-purple-800/30 shadow-sm hover:shadow-md transition-all duration-300">
-                            <div className="absolute top-0 right-0 w-16 h-16 bg-purple-500/10 rounded-full blur-xl -translate-y-1/2 translate-x-1/2" />
+                          <div className="group relative overflow-hidden p-4 bg-gradient-to-br from-violet-50/80 via-purple-50/50 to-purple-100/40 dark:from-purple-950/40 dark:via-purple-900/30 dark:to-purple-950/20 rounded-xl border border-purple-200/60 dark:border-purple-800/40 shadow-sm hover:shadow-lg hover:shadow-purple-500/5 hover:border-purple-400/50 dark:hover:border-purple-600/50 hover:-translate-y-0.5 transition-all duration-300 animate-stagger-fade">
+                            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-purple-500/15 to-transparent rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                             <div className="relative">
-                              <div className="flex items-center gap-2 mb-2">
-                                <div className="p-1.5 bg-purple-500/10 rounded-lg">
+                              <div className="flex items-center gap-2 mb-2.5">
+                                <div className="p-1.5 bg-purple-500/15 rounded-lg group-hover:bg-purple-500/25 transition-colors duration-300">
                                   <Printer className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                                 </div>
-                                <span className="text-xs font-medium text-purple-700 dark:text-purple-400 uppercase tracking-wide">Progress</span>
+                                <span className="text-[10px] font-semibold text-purple-700 dark:text-purple-400 uppercase tracking-wider">Progress</span>
                               </div>
-                              <div className="text-2xl font-bold text-purple-700 dark:text-purple-400">{printProgress}%</div>
-                              <div className="w-full h-1.5 bg-purple-200 dark:bg-purple-900/50 rounded-full mt-2 overflow-hidden">
+                              <div className="text-2xl font-bold text-purple-700 dark:text-purple-400 tracking-tight">{printProgress}%</div>
+                              <div className="w-full h-2 bg-purple-200/60 dark:bg-purple-900/50 rounded-full mt-2.5 overflow-hidden shadow-inner">
                                 <div 
-                                  className="h-full bg-gradient-to-r from-purple-500 to-purple-600 rounded-full transition-all duration-500"
+                                  className="h-full bg-gradient-to-r from-purple-500 via-purple-500 to-violet-500 rounded-full transition-all duration-700 ease-out relative"
                                   style={{ width: `${printProgress}%` }}
-                                />
+                                >
+                                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+                                </div>
                               </div>
                             </div>
                           </div>
