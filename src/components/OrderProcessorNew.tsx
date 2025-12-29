@@ -552,7 +552,7 @@ export function OrderProcessorNew() {
         {/* Live Check Dialog */}
         <LiveSunskyCheckDialog
           open={showLiveCheckDialog}
-          onClose={() => setShowLiveCheckDialog(false)}
+          onOpenChange={setShowLiveCheckDialog}
           results={liveApiCheckResults}
         />
       </div>
