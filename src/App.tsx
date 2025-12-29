@@ -13,6 +13,7 @@ import { CountryProvider } from "@/contexts/CountryContext";
 import { BackgroundTasksProvider } from "@/contexts/BackgroundTasksContext";
 import { ThemeConfigProvider } from "@/contexts/ThemeConfigContext";
 import { TaxonomyProvider } from "@/contexts/TaxonomyContext";
+import { BarcodeProvider } from "@/contexts/BarcodeContext";
 import { FloatingProgressIndicator } from "@/components/FloatingProgressIndicator";
 import { AppSidebar } from "@/components/AppSidebar";
 import { CountrySwitcher } from "@/components/CountrySwitcher";
@@ -214,6 +215,7 @@ const App = () => {
               <ThemeConfigProvider>
                 <CountryProvider>
                   <BackgroundTasksProvider>
+                    <BarcodeProvider>
             <Toaster />
             <Sonner />
             <BrowserRouter>
@@ -342,6 +344,7 @@ const App = () => {
               </SidebarProvider>
                     </TaxonomyProvider>
             </BrowserRouter>
+                    </BarcodeProvider>
                   </BackgroundTasksProvider>
                 </CountryProvider>
               </ThemeConfigProvider>
