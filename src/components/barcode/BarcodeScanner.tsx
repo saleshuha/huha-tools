@@ -87,11 +87,12 @@ export function BarcodeScanner({ onScan, onError, className, active = true }: Ba
 
       console.log('[BarcodeScanner] Starting scanner with camera:', devices[cameraIndex].label);
 
+      // Use facingMode for better mobile compatibility instead of camera ID
       await scannerRef.current.start(
-        devices[cameraIndex].id,
+        { facingMode: "environment" },
         {
           fps: 5, // Lower FPS for better processing on mobile
-          qrbox: { width: 280, height: 180 }, // Larger scanning area
+          qrbox: { width: 300, height: 150 }, // Wider for 1D barcodes
           aspectRatio: 1.5,
         },
         (decodedText, decodedResult) => {
@@ -127,30 +128,55 @@ export function BarcodeScanner({ onScan, onError, className, active = true }: Ba
       setIsScanning(true);
       setError(null);
 
-      // Apply iOS Safari workaround - reset video constraints to trigger proper focus
+      // Wait for scanner to fully initialize before applying constraints
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Apply video constraints with zoom and focus for better mobile scanning
       try {
-        const capabilities = scannerRef.current.getRunningTrackCameraCapabilities?.();
-        if (capabilities) {
-          console.log('[BarcodeScanner] Camera capabilities:', capabilities);
-          
-          // Apply optimized video constraints for mobile
-          const videoConstraints: MediaTrackConstraints = {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          };
-          
-          await scannerRef.current.applyVideoConstraints(videoConstraints);
-          console.log('[BarcodeScanner] Applied video constraints');
+        // Use the correct method name: getRunningTrackCapabilities
+        const capabilities = scannerRef.current.getRunningTrackCapabilities();
+        console.log('[BarcodeScanner] Camera capabilities:', capabilities);
+        
+        // Build advanced constraints for zoom and focus
+        const advancedConstraints: any[] = [];
+        
+        // Add zoom if supported (helps with small barcodes)
+        if (capabilities && (capabilities as any).zoom) {
+          const zoomRange = (capabilities as any).zoom;
+          const optimalZoom = Math.min(2.0, zoomRange.max || 2.0);
+          advancedConstraints.push({ zoom: optimalZoom });
+          console.log('[BarcodeScanner] Setting zoom to:', optimalZoom);
         }
+        
+        // Add focus distance if supported
+        if (capabilities && (capabilities as any).focusDistance) {
+          advancedConstraints.push({ focusDistance: 1 });
+        }
+        
+        // Add continuous auto-focus if supported
+        if (capabilities && (capabilities as any).focusMode) {
+          advancedConstraints.push({ focusMode: "continuous" });
+        }
+        
+        // Apply optimized video constraints for mobile
+        const videoConstraints: MediaTrackConstraints = {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          ...(advancedConstraints.length > 0 && { advanced: advancedConstraints })
+        };
+        
+        await scannerRef.current.applyVideoConstraints(videoConstraints);
+        console.log('[BarcodeScanner] Applied video constraints with zoom/focus:', videoConstraints);
       } catch (constraintErr) {
         console.log('[BarcodeScanner] Could not apply video constraints:', constraintErr);
       }
 
-      // Check for flash capability
+      // Check for flash capability using the correct method
       try {
-        const capabilities = (scannerRef.current as any).getRunningTrackCameraCapabilities?.();
-        if (capabilities?.torchFeature?.isSupported?.()) {
+        const trackCapabilities = scannerRef.current.getRunningTrackCapabilities();
+        if (trackCapabilities && (trackCapabilities as any).torch) {
           setHasFlash(true);
+          console.log('[BarcodeScanner] Flash is available');
         }
       } catch {
         setHasFlash(false);
@@ -167,14 +193,22 @@ export function BarcodeScanner({ onScan, onError, className, active = true }: Ba
     if (!scannerRef.current || !hasFlash) return;
     
     try {
-      const capabilities = await (scannerRef.current as any).getRunningTrackCameraCapabilities?.();
-      if (capabilities?.torchFeature) {
-        if (flashOn) {
-          await capabilities.torchFeature.disable();
-        } else {
-          await capabilities.torchFeature.enable();
+      // Get the video track and apply torch constraint directly
+      const track = scannerRef.current.getRunningTrackCapabilities();
+      if (track) {
+        // Access the actual video track for torch control
+        const videoElement = document.querySelector('#barcode-scanner-container video') as HTMLVideoElement;
+        if (videoElement && videoElement.srcObject) {
+          const stream = videoElement.srcObject as MediaStream;
+          const videoTrack = stream.getVideoTracks()[0];
+          if (videoTrack) {
+            await videoTrack.applyConstraints({
+              advanced: [{ torch: !flashOn } as any]
+            });
+            setFlashOn(!flashOn);
+            console.log('[BarcodeScanner] Flash toggled:', !flashOn);
+          }
         }
-        setFlashOn(!flashOn);
       }
     } catch (err) {
       console.error('Error toggling flash:', err);
