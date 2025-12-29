@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -30,6 +30,51 @@ interface LinkBarcodeParams {
 export function useProductBarcodes() {
   const [loading, setLoading] = useState(false);
   const [barcodes, setBarcodes] = useState<ProductBarcode[]>([]);
+  const [isSubscribed, setIsSubscribed] = useState(false);
+
+  // Subscribe to real-time changes for product_barcodes
+  useEffect(() => {
+    if (isSubscribed) return;
+    
+    const channel = supabase
+      .channel('product_barcodes_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'product_barcodes',
+        },
+        (payload) => {
+          console.log('📦 Barcode real-time update:', payload.eventType);
+          
+          if (payload.eventType === 'DELETE') {
+            // Remove deleted barcode from state
+            setBarcodes(prev => prev.filter(b => b.id !== (payload.old as any).id));
+          } else if (payload.eventType === 'INSERT') {
+            // Add new barcode to state
+            setBarcodes(prev => [payload.new as ProductBarcode, ...prev]);
+          } else if (payload.eventType === 'UPDATE') {
+            // Update existing barcode
+            setBarcodes(prev => prev.map(b => 
+              b.id === (payload.new as ProductBarcode).id ? (payload.new as ProductBarcode) : b
+            ));
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('📦 Subscribed to product_barcodes real-time updates');
+          setIsSubscribed(true);
+        }
+      });
+
+    return () => {
+      console.log('📦 Unsubscribing from product_barcodes real-time updates');
+      supabase.removeChannel(channel);
+      setIsSubscribed(false);
+    };
+  }, [isSubscribed]);
 
   // Fetch barcodes for a specific product (by ASIN, SKU, or PO order ID)
   const fetchBarcodesForProduct = useCallback(async (params: {
