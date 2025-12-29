@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Html5Qrcode, Html5QrcodeScannerState } from 'html5-qrcode';
+import { Html5Qrcode, Html5QrcodeScannerState, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { Camera, CameraOff, FlashlightOff, Flashlight, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -10,6 +10,21 @@ interface BarcodeScannerProps {
   className?: string;
   active?: boolean;
 }
+
+// Supported barcode formats for better detection
+const SUPPORTED_FORMATS = [
+  Html5QrcodeSupportedFormats.EAN_13,
+  Html5QrcodeSupportedFormats.EAN_8,
+  Html5QrcodeSupportedFormats.UPC_A,
+  Html5QrcodeSupportedFormats.UPC_E,
+  Html5QrcodeSupportedFormats.CODE_128,
+  Html5QrcodeSupportedFormats.CODE_39,
+  Html5QrcodeSupportedFormats.CODE_93,
+  Html5QrcodeSupportedFormats.CODABAR,
+  Html5QrcodeSupportedFormats.ITF,
+  Html5QrcodeSupportedFormats.QR_CODE,
+  Html5QrcodeSupportedFormats.DATA_MATRIX,
+];
 
 export function BarcodeScanner({ onScan, onError, className, active = true }: BarcodeScannerProps) {
   const scannerRef = useRef<Html5Qrcode | null>(null);
@@ -48,43 +63,59 @@ export function BarcodeScanner({ onScan, onError, className, active = true }: Ba
       }
       
       setCameras(devices);
+      console.log('[BarcodeScanner] Available cameras:', devices);
       
       // Prefer back camera
       let cameraIndex = devices.findIndex(d => 
         d.label.toLowerCase().includes('back') || 
-        d.label.toLowerCase().includes('rear')
+        d.label.toLowerCase().includes('rear') ||
+        d.label.toLowerCase().includes('environment')
       );
       if (cameraIndex === -1) cameraIndex = 0;
       setCurrentCameraIndex(cameraIndex);
 
-      // Initialize scanner
+      // Initialize scanner with supported formats (disable experimental BarcodeDetector)
       if (!scannerRef.current) {
-        scannerRef.current = new Html5Qrcode('barcode-scanner-container');
+        scannerRef.current = new Html5Qrcode('barcode-scanner-container', {
+          formatsToSupport: SUPPORTED_FORMATS,
+          experimentalFeatures: {
+            useBarCodeDetectorIfSupported: false // Disable native API - more reliable with WASM
+          },
+          verbose: false
+        });
       }
+
+      console.log('[BarcodeScanner] Starting scanner with camera:', devices[cameraIndex].label);
 
       await scannerRef.current.start(
         devices[cameraIndex].id,
         {
-          fps: 10,
-          qrbox: { width: 250, height: 150 },
+          fps: 5, // Lower FPS for better processing on mobile
+          qrbox: { width: 280, height: 180 }, // Larger scanning area
           aspectRatio: 1.5,
         },
         (decodedText, decodedResult) => {
+          console.log('[BarcodeScanner] Scanned:', decodedText, decodedResult.result.format?.formatName);
+          
           // Vibrate on scan if supported
           if (navigator.vibrate) {
             navigator.vibrate(100);
           }
           
           // Play a beep sound
-          const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-          const oscillator = audioContext.createOscillator();
-          const gainNode = audioContext.createGain();
-          oscillator.connect(gainNode);
-          gainNode.connect(audioContext.destination);
-          oscillator.frequency.value = 1000;
-          gainNode.gain.value = 0.1;
-          oscillator.start();
-          oscillator.stop(audioContext.currentTime + 0.1);
+          try {
+            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            oscillator.frequency.value = 1000;
+            gainNode.gain.value = 0.1;
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.1);
+          } catch (audioErr) {
+            // Ignore audio errors
+          }
           
           onScan(decodedText, decodedResult.result.format?.formatName || 'unknown');
         },
@@ -96,9 +127,28 @@ export function BarcodeScanner({ onScan, onError, className, active = true }: Ba
       setIsScanning(true);
       setError(null);
 
+      // Apply iOS Safari workaround - reset video constraints to trigger proper focus
+      try {
+        const capabilities = scannerRef.current.getRunningTrackCameraCapabilities?.();
+        if (capabilities) {
+          console.log('[BarcodeScanner] Camera capabilities:', capabilities);
+          
+          // Apply optimized video constraints for mobile
+          const videoConstraints: MediaTrackConstraints = {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          };
+          
+          await scannerRef.current.applyVideoConstraints(videoConstraints);
+          console.log('[BarcodeScanner] Applied video constraints');
+        }
+      } catch (constraintErr) {
+        console.log('[BarcodeScanner] Could not apply video constraints:', constraintErr);
+      }
+
       // Check for flash capability
       try {
-        const capabilities = await (scannerRef.current as any).getRunningTrackCameraCapabilities?.();
+        const capabilities = (scannerRef.current as any).getRunningTrackCameraCapabilities?.();
         if (capabilities?.torchFeature?.isSupported?.()) {
           setHasFlash(true);
         }
@@ -107,7 +157,7 @@ export function BarcodeScanner({ onScan, onError, className, active = true }: Ba
       }
 
     } catch (err: any) {
-      console.error('Error starting scanner:', err);
+      console.error('[BarcodeScanner] Error starting scanner:', err);
       setError(err.message || 'Failed to start camera');
       onError?.(err.message || 'Failed to start camera');
     }
@@ -138,8 +188,11 @@ export function BarcodeScanner({ onScan, onError, className, active = true }: Ba
     const nextIndex = (currentCameraIndex + 1) % cameras.length;
     setCurrentCameraIndex(nextIndex);
     
+    // Clear the scanner ref to reinitialize with new settings
+    scannerRef.current = null;
+    
     // Restart with new camera
-    setTimeout(startScanner, 100);
+    setTimeout(startScanner, 200);
   }, [cameras, currentCameraIndex, stopScanner, startScanner]);
 
   useEffect(() => {
@@ -180,12 +233,12 @@ export function BarcodeScanner({ onScan, onError, className, active = true }: Ba
       {isScanning && (
         <div className="absolute inset-0 pointer-events-none">
           {/* Scan line animation */}
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-40 border-2 border-primary/50 rounded-lg">
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-44 border-2 border-primary/50 rounded-lg">
             <div className="absolute inset-x-0 h-0.5 bg-primary animate-scan-line" />
           </div>
           
           {/* Corner markers */}
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-40">
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-44">
             <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-primary" />
             <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-primary" />
             <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-primary" />
