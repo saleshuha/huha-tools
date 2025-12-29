@@ -24,6 +24,7 @@ interface LinkBarcodeParams {
   modelNumber?: string;
   title?: string;
   poOrderId?: string;
+  userId?: string; // Optional: for token-based access where user is not authenticated
 }
 
 export function useProductBarcodes() {
@@ -86,10 +87,15 @@ export function useProductBarcodes() {
     try {
       setLoading(true);
       
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast.error('You must be logged in to link barcodes');
+      // Use provided userId (from token) or get from auth session
+      let userId = params.userId;
+      if (!userId) {
+        const { data: { user } } = await supabase.auth.getUser();
+        userId = user?.id;
+      }
+      
+      if (!userId) {
+        toast.error('Unable to link barcode - user not identified');
         return null;
       }
 
@@ -103,7 +109,7 @@ export function useProductBarcodes() {
           model_number: params.modelNumber || null,
           title: params.title || null,
           po_order_id: params.poOrderId || null,
-          user_id: user.id,
+          user_id: userId,
         }, {
           onConflict: 'barcode,user_id',
         })

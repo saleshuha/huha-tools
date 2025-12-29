@@ -218,7 +218,7 @@ export default function PurchaseLink() {
     const order = data.poOrders.find(o => o.id === scanningOrderId);
     if (!order) return;
     
-    // Link the barcode to this product
+    // Link the barcode to this product (use link owner's userId for token-based access)
     const result = await linkBarcode({
       barcode,
       barcodeType: format,
@@ -227,6 +227,7 @@ export default function PurchaseLink() {
       modelNumber: order.model_number || undefined,
       title: order.title || undefined,
       poOrderId: order.id,
+      userId: data.link.user_id, // Use link owner's ID for public token access
     });
     
     if (result) {
