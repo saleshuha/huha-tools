@@ -1,7 +1,8 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { usePurchaseLink } from '@/hooks/usePurchaseLink';
+import { useProductBarcodes } from '@/hooks/useProductBarcodes';
 import { PurchaseProgressBar } from '@/components/po/PurchaseProgressBar';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,13 +11,16 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Loader2, Package, Search, CheckCircle2, Circle, AlertCircle, Image, XCircle, Check, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Loader2, Package, Search, CheckCircle2, Circle, AlertCircle, Image, XCircle, Check, ArrowUpDown, ArrowUp, ArrowDown, Barcode, ScanLine } from 'lucide-react';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { format } from 'date-fns';
+import { BarcodeScannerDialog } from '@/components/barcode/BarcodeScannerDialog';
+import { LinkedBarcodesBadge } from '@/components/barcode/LinkedBarcodesBadge';
 
 export default function PurchaseLink() {
   const { token } = useParams<{ token: string }>();
   const { data: hookData, loading, error, savePurchaseUpdate, fetchLinkData } = usePurchaseLink(token);
+  const { linkBarcode, searchByBarcode, loading: barcodeLoading } = useProductBarcodes();
   const [data, setData] = useState(hookData);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'purchased' | 'partial' | 'pending' | 'not_available'>('pending');
@@ -24,6 +28,11 @@ export default function PurchaseLink() {
   const [localUpdates, setLocalUpdates] = useState<Record<string, any>>({});
   const [savingItems, setSavingItems] = useState<Set<string>>(new Set());
   const cardRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  
+  // Barcode scanning state
+  const [scanDialogOpen, setScanDialogOpen] = useState(false);
+  const [scanningOrderId, setScanningOrderId] = useState<string | null>(null);
+  const [barcodeRefreshKey, setBarcodeRefreshKey] = useState(0);
 
   // Sync hook data with local state
   useEffect(() => {
@@ -195,6 +204,42 @@ export default function PurchaseLink() {
       }
     }, 300);
   };
+
+  // Handle opening barcode scanner for a specific order
+  const handleOpenBarcodeScanner = useCallback((orderId: string) => {
+    setScanningOrderId(orderId);
+    setScanDialogOpen(true);
+  }, []);
+
+  // Handle barcode scanned
+  const handleBarcodeScanned = useCallback(async (barcode: string, format: string) => {
+    if (!scanningOrderId || !data) return;
+    
+    const order = data.poOrders.find(o => o.id === scanningOrderId);
+    if (!order) return;
+    
+    // Link the barcode to this product
+    const result = await linkBarcode({
+      barcode,
+      barcodeType: format,
+      asin: order.asin || undefined,
+      skuCode: order.sku_code || undefined,
+      modelNumber: order.model_number || undefined,
+      title: order.title || undefined,
+      poOrderId: order.id,
+    });
+    
+    if (result) {
+      // Trigger refresh of linked barcodes badges
+      setBarcodeRefreshKey(prev => prev + 1);
+    }
+    
+    setScanDialogOpen(false);
+    setScanningOrderId(null);
+  }, [scanningOrderId, data, linkBarcode]);
+
+  // Get current scanning order info for dialog
+  const scanningOrder = scanningOrderId ? data?.poOrders.find(o => o.id === scanningOrderId) : null;
 
   // Subscribe to realtime updates
   useEffect(() => {
@@ -505,9 +550,15 @@ export default function PurchaseLink() {
                         )}
                       </div>
                       <p className="font-medium text-sm">{order.title}</p>
-                      <div className="flex gap-2 text-xs text-muted-foreground">
+                      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                         {order.asin && <span>ASIN: {order.asin}</span>}
                         {order.sku_code && <span>SKU: {order.sku_code}</span>}
+                        <LinkedBarcodesBadge 
+                          key={barcodeRefreshKey}
+                          asin={order.asin} 
+                          skuCode={order.sku_code}
+                          poOrderId={order.id}
+                        />
                       </div>
                       {(() => {
                         const consolidated = getConsolidatedQuantity(order);
@@ -533,46 +584,59 @@ export default function PurchaseLink() {
                   </div>
 
                   {/* Purchase Actions - improved mobile layout */}
-                  <div className="flex gap-2 w-full md:w-auto md:items-end">
-                    <div className="space-y-1 flex-1 md:flex-initial md:w-32">
-                      <Label className="text-xs">Purchased Qty</Label>
-                      <Input
-                        type="number"
-                        placeholder="0"
-                        value={localUpdate?.purchasedQuantity ?? update?.purchased_quantity ?? ''}
-                        onChange={(e) => handleUpdateField(order.id, 'purchasedQuantity', parseInt(e.target.value) || 0)}
-                        onFocus={() => handleInputFocus(order.id)}
-                        className="h-9 text-[16px]"
-                        disabled={status === 'not_available' || savingItems.has(order.id)}
-                      />
+                  <div className="flex flex-col gap-2 w-full md:w-auto">
+                    <div className="flex gap-2 md:items-end">
+                      <div className="space-y-1 flex-1 md:flex-initial md:w-32">
+                        <Label className="text-xs">Purchased Qty</Label>
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          value={localUpdate?.purchasedQuantity ?? update?.purchased_quantity ?? ''}
+                          onChange={(e) => handleUpdateField(order.id, 'purchasedQuantity', parseInt(e.target.value) || 0)}
+                          onFocus={() => handleInputFocus(order.id)}
+                          className="h-9 text-[16px]"
+                          disabled={status === 'not_available' || savingItems.has(order.id)}
+                        />
+                      </div>
+                      
+                      {/* Save tick button - icon only, fixed width */}
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => handleSaveItem(order.id)}
+                        disabled={!localUpdate?.purchasedQuantity || savingItems.has(order.id)}
+                        className="h-9 w-9 p-0 self-end"
+                        title="Save"
+                      >
+                        {savingItems.has(order.id) ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Check className="h-4 w-4" />
+                        )}
+                      </Button>
+                      
+                      {/* Not Available button */}
+                      <Button
+                        variant={status === 'not_available' ? 'destructive' : 'outline'}
+                        size="sm"
+                        onClick={() => handleMarkNotAvailable(order.id)}
+                        disabled={savingItems.has(order.id)}
+                        className="h-9 px-3 self-end"
+                      >
+                        <XCircle className="h-4 w-4 mr-1" />
+                        <span className="hidden sm:inline">Not Available</span>
+                      </Button>
                     </div>
                     
-                    {/* Save tick button - icon only, fixed width */}
+                    {/* Scan Barcode Button */}
                     <Button
-                      variant="default"
+                      variant="outline"
                       size="sm"
-                      onClick={() => handleSaveItem(order.id)}
-                      disabled={!localUpdate?.purchasedQuantity || savingItems.has(order.id)}
-                      className="h-9 w-9 p-0 self-end"
-                      title="Save"
+                      onClick={() => handleOpenBarcodeScanner(order.id)}
+                      className="h-8 w-full md:w-auto"
                     >
-                      {savingItems.has(order.id) ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Check className="h-4 w-4" />
-                      )}
-                    </Button>
-                    
-                    {/* Not Available button */}
-                    <Button
-                      variant={status === 'not_available' ? 'destructive' : 'outline'}
-                      size="sm"
-                      onClick={() => handleMarkNotAvailable(order.id)}
-                      disabled={savingItems.has(order.id)}
-                      className="h-9 px-3 self-end"
-                    >
-                      <XCircle className="h-4 w-4 mr-1" />
-                      <span className="hidden sm:inline">Not Available</span>
+                      <ScanLine className="h-4 w-4 mr-2" />
+                      Scan & Link Barcode
                     </Button>
                   </div>
                 </div>
@@ -588,6 +652,20 @@ export default function PurchaseLink() {
           </Card>
         )}
       </div>
+      
+      {/* Barcode Scanner Dialog */}
+      <BarcodeScannerDialog
+        open={scanDialogOpen}
+        onOpenChange={setScanDialogOpen}
+        onBarcodeScanned={handleBarcodeScanned}
+        title="Link Barcode to Product"
+        productInfo={scanningOrder ? {
+          title: scanningOrder.title || undefined,
+          asin: scanningOrder.asin || undefined,
+          sku: scanningOrder.sku_code || undefined,
+        } : undefined}
+        isLinking={barcodeLoading}
+      />
     </div>
   );
 }

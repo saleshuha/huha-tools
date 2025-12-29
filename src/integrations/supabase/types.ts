@@ -2802,6 +2802,56 @@ export type Database = {
         }
         Relationships: []
       }
+      product_barcodes: {
+        Row: {
+          asin: string | null
+          barcode: string
+          barcode_type: string | null
+          created_at: string
+          id: string
+          model_number: string | null
+          po_order_id: string | null
+          sku_code: string | null
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          asin?: string | null
+          barcode: string
+          barcode_type?: string | null
+          created_at?: string
+          id?: string
+          model_number?: string | null
+          po_order_id?: string | null
+          sku_code?: string | null
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          asin?: string | null
+          barcode?: string
+          barcode_type?: string | null
+          created_at?: string
+          id?: string
+          model_number?: string | null
+          po_order_id?: string | null
+          sku_code?: string | null
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_barcodes_po_order_id_fkey"
+            columns: ["po_order_id"]
+            isOneToOne: false
+            referencedRelation: "po_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_images: {
         Row: {
           asin: string
