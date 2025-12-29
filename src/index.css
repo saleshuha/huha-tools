@@ -803,6 +803,23 @@
   .stagger-children > *:nth-child(4) { animation-delay: 150ms; }
   .stagger-children > *:nth-child(5) { animation-delay: 200ms; }
   .stagger-children > *:nth-child(6) { animation-delay: 250ms; }
+
+  /* Barcode scanner scan line animation */
+  @keyframes scan-line {
+    0% {
+      top: 0;
+    }
+    50% {
+      top: calc(100% - 2px);
+    }
+    100% {
+      top: 0;
+    }
+  }
+
+  .animate-scan-line {
+    animation: scan-line 2s ease-in-out infinite;
+  }
 }
 
 @layer base {
