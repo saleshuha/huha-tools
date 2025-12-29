@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
@@ -108,6 +109,7 @@ export const POTracker = () => {
   const [printedFilter, setPrintedFilter] = useState<string[]>([]);
   const [sourceFilter, setSourceFilter] = useState<'all' | 'sunsky-matched' | 'not-matched'>('all');
   const [fulfillmentFilter, setFulfillmentFilter] = useState<string[]>([]);
+  const [barcodeFilter, setBarcodeFilter] = useState<'all' | 'has-barcode' | 'no-barcode'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const [viewMode, setViewMode] = useState<'grouped' | 'detailed'>('grouped');
@@ -119,7 +121,7 @@ export const POTracker = () => {
   const [exportingMetric, setExportingMetric] = useState<string | null>(null);
 
   // Sorting state
-  const [sortField, setSortField] = useState<keyof POOrder | 'combined_title' | 'instock_qty'>('po_number');
+  const [sortField, setSortField] = useState<keyof POOrder | 'combined_title' | 'instock_qty' | 'scanned_barcode'>('po_number');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [originalOrderPreserved, setOriginalOrderPreserved] = useState(false);
 
@@ -5594,10 +5596,31 @@ export const POTracker = () => {
                               <span className="text-foreground text-xs uppercase tracking-wider">Status</span>
                             </div>
                           </TableHead>
-                          <TableHead className="min-w-[140px] font-bold border-r border-border/10 bg-transparent py-4">
+                          <TableHead className="min-w-[140px] font-bold border-r border-border/10 bg-transparent py-4 cursor-pointer hover:bg-primary/5" onClick={() => handleSort('scanned_barcode' as any)}>
                             <div className="flex items-center gap-2">
                               <div className="w-2.5 h-2.5 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full shadow-sm"></div>
                               <span className="text-foreground text-xs uppercase tracking-wider">Scanned Barcode</span>
+                              {sortField === 'scanned_barcode' && (
+                                <ChevronUp className={`h-3 w-3 text-primary transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                              )}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                  <Button variant="ghost" size="sm" className={`h-5 w-5 p-0 ml-1 ${barcodeFilter !== 'all' ? 'text-primary' : 'text-muted-foreground'}`}>
+                                    <Filter className="h-3 w-3" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start" className="w-40">
+                                  <DropdownMenuItem onClick={() => setBarcodeFilter('all')} className={barcodeFilter === 'all' ? 'bg-primary/10' : ''}>
+                                    All
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => setBarcodeFilter('has-barcode')} className={barcodeFilter === 'has-barcode' ? 'bg-primary/10' : ''}>
+                                    Has Barcode
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => setBarcodeFilter('no-barcode')} className={barcodeFilter === 'no-barcode' ? 'bg-primary/10' : ''}>
+                                    No Barcode
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </TableHead>
                           <TableHead className="min-w-[100px] font-bold bg-transparent py-4">
@@ -5701,6 +5724,22 @@ export const POTracker = () => {
                           }
                           return false;
                         });
+                      }).filter(order => {
+                        // Apply barcode filter
+                        if (barcodeFilter === 'all') return true;
+                        const orderBarcodes = barcodesByOrderId.get(order.id) || [];
+                        // For consolidated orders, check all sub-orders
+                        const consolidatedBarcodes = (order as any)._consolidatedOrders 
+                          ? (order as any)._consolidatedOrders.flatMap((o: any) => barcodesByOrderId.get(o.id) || [])
+                          : [];
+                        const allBarcodes = [...orderBarcodes, ...consolidatedBarcodes];
+                        const hasBarcode = allBarcodes.length > 0;
+                        if (barcodeFilter === 'has-barcode') {
+                          return hasBarcode;
+                        } else if (barcodeFilter === 'no-barcode') {
+                          return !hasBarcode;
+                        }
+                        return true;
                       });
 
                       // NEW: Consolidate orders by ASIN when multiple POs are selected
@@ -5812,6 +5851,18 @@ export const POTracker = () => {
                           if (sortField === 'combined_title') {
                             aValue = `${a.title || ''} ${a.asin || ''}`.toLowerCase();
                             bValue = `${b.title || ''} ${b.asin || ''}`.toLowerCase();
+                          } else if (sortField === 'scanned_barcode') {
+                            // Sort by barcode: get first barcode or empty string
+                            const aOrderBarcodes = barcodesByOrderId.get(a.id) || [];
+                            const aConsolidatedBarcodes = a._consolidatedOrders 
+                              ? a._consolidatedOrders.flatMap((o: any) => barcodesByOrderId.get(o.id) || [])
+                              : [];
+                            const bOrderBarcodes = barcodesByOrderId.get(b.id) || [];
+                            const bConsolidatedBarcodes = b._consolidatedOrders 
+                              ? b._consolidatedOrders.flatMap((o: any) => barcodesByOrderId.get(o.id) || [])
+                              : [];
+                            aValue = [...aOrderBarcodes, ...aConsolidatedBarcodes][0]?.barcode || '';
+                            bValue = [...bOrderBarcodes, ...bConsolidatedBarcodes][0]?.barcode || '';
                           } else {
                             aValue = a[sortField];
                             bValue = b[sortField];
