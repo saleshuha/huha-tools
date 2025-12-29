@@ -47,6 +47,7 @@ import { LabelDoc, LabelDataset, LabelElement, LabelSize } from '@/types/label';
 import { exportMetricToCSV, exportAllMetrics, calculateMetricPercentage } from '@/utils/po-metrics-export';
 import { useTaxonomy } from '@/hooks/useTaxonomy';
 import { cn } from '@/lib/utils';
+import { useProductBarcodes, ProductBarcode } from '@/hooks/useProductBarcodes';
 export interface POOrder {
   id: string;
   user_id: string;
@@ -132,7 +133,7 @@ export const POTracker = () => {
   const [selectedPOsForLabels, setSelectedPOsForLabels] = useState<Set<string>>(new Set()); // Multi-select
   const [labelSearchQuery, setLabelSearchQuery] = useState('');
   const [debouncedLabelSearch, setDebouncedLabelSearch] = useState('');
-  const [searchType, setSearchType] = useState<'all' | 'asin' | 'sku' | 'serial' | 'title' | 'po_number'>('all');
+  const [searchType, setSearchType] = useState<'all' | 'asin' | 'sku' | 'serial' | 'title' | 'po_number' | 'barcode'>('all');
   const [selectedForPrint, setSelectedForPrint] = useState<Map<string, number>>(new Map());
   const [customPrintQuantities, setCustomPrintQuantities] = useState<Map<string, number>>(new Map());
   const [labelCurrentPage, setLabelCurrentPage] = useState(1);
@@ -674,8 +675,31 @@ export const POTracker = () => {
     trackPageView
   } = useTaxonomy();
   const queryClient = useQueryClient();
+  
+  // Scanned barcodes from purchase links
+  const { fetchAllBarcodes, barcodes: allBarcodes } = useProductBarcodes();
+  
+  // Fetch barcodes when on Labels tab
+  useEffect(() => {
+    if (activeTab === 'labels') {
+      console.log('📦 Fetching scanned barcodes for Labels tab...');
+      fetchAllBarcodes();
+    }
+  }, [activeTab, fetchAllBarcodes]);
+  
+  // Create barcode lookup map by po_order_id for O(1) access
+  const barcodesByOrderId = useMemo(() => {
+    const map = new Map<string, ProductBarcode[]>();
+    allBarcodes.forEach(b => {
+      if (b.po_order_id) {
+        const existing = map.get(b.po_order_id) || [];
+        map.set(b.po_order_id, [...existing, b]);
+      }
+    });
+    console.log('📦 Barcode lookup map built:', { mapSize: map.size, totalBarcodes: allBarcodes.length });
+    return map;
+  }, [allBarcodes]);
 
-  // Debug: Log selectedForPrint changes
   useEffect(() => {
     console.log('🖨️ PRINT SELECTION STATE CHANGED:', {
       size: selectedForPrint.size,
@@ -5204,6 +5228,7 @@ export const POTracker = () => {
                               <SelectItem value="serial">Serial Number</SelectItem>
                               <SelectItem value="title">Title Only</SelectItem>
                               <SelectItem value="po_number">PO Number</SelectItem>
+                              <SelectItem value="barcode">Scanned Barcode</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -5265,14 +5290,15 @@ export const POTracker = () => {
                           <input 
                             type="text" 
                             placeholder={searchTags.length === 0 
-                              ? searchType === 'all' ? "Search by SKU, title, ASIN, serial number..." 
+                              ? searchType === 'all' ? "Search by SKU, title, ASIN, serial, barcode..." 
                               : searchType === 'asin' ? "Search by ASIN..." 
                               : searchType === 'sku' ? "Search by SKU..." 
                               : searchType === 'serial' ? "Search by Serial Number..." 
                               : searchType === 'title' ? "Search by Title..." 
-                              : "Search by PO Number..." 
+                              : searchType === 'po_number' ? "Search by PO Number..." 
+                              : "Search by Scanned Barcode..." 
                               : "Add another search term..."
-                            } 
+                            }
                             value={labelSearchQuery} 
                             onChange={e => setLabelSearchQuery(e.target.value)} 
                             onKeyDown={e => {
@@ -5568,6 +5594,12 @@ export const POTracker = () => {
                               <span className="text-foreground text-xs uppercase tracking-wider">Status</span>
                             </div>
                           </TableHead>
+                          <TableHead className="min-w-[140px] font-bold border-r border-border/10 bg-transparent py-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full shadow-sm"></div>
+                              <span className="text-foreground text-xs uppercase tracking-wider">Scanned Barcode</span>
+                            </div>
+                          </TableHead>
                           <TableHead className="min-w-[100px] font-bold bg-transparent py-4">
                             <div className="flex items-center gap-2">
                               <div className="w-2.5 h-2.5 bg-gradient-to-br from-gray-400 to-gray-500 rounded-full shadow-sm"></div>
@@ -5604,7 +5636,22 @@ export const POTracker = () => {
                         // Check if order matches ANY of the search terms
                         return allSearchTerms.some(term => {
                           const lowerTerm = term.toLowerCase();
-                          return order.po_number?.toLowerCase().includes(lowerTerm) || order.sku_code?.toLowerCase().includes(lowerTerm) || order.asin?.toLowerCase().includes(lowerTerm) || order.model_number?.toLowerCase().includes(lowerTerm) || order.title?.toLowerCase().includes(lowerTerm) || order.serial_number?.toLowerCase().includes(lowerTerm);
+                          
+                          // Check standard fields
+                          const standardMatch = order.po_number?.toLowerCase().includes(lowerTerm) || 
+                            order.sku_code?.toLowerCase().includes(lowerTerm) || 
+                            order.asin?.toLowerCase().includes(lowerTerm) || 
+                            order.model_number?.toLowerCase().includes(lowerTerm) || 
+                            order.title?.toLowerCase().includes(lowerTerm) || 
+                            order.serial_number?.toLowerCase().includes(lowerTerm);
+                          
+                          // Check scanned barcodes for this order
+                          const orderBarcodes = barcodesByOrderId.get(order.id) || [];
+                          const barcodeMatch = orderBarcodes.some(bc => 
+                            bc.barcode?.toLowerCase().includes(lowerTerm)
+                          );
+                          
+                          return standardMatch || barcodeMatch;
                         });
                       }).filter(order => {
                         // Apply printed status filter
@@ -6396,7 +6443,36 @@ export const POTracker = () => {
                                    </div>
                                  </TableCell>
 
-                                  {/* Enhanced Actions Cell */}
+                                 {/* Scanned Barcode Cell */}
+                                 <TableCell className="border-r border-border/50 p-3">
+                                   <div className="flex flex-wrap gap-1">
+                                     {(() => {
+                                       // Get barcodes for this order (handle consolidated orders)
+                                       const orderIds = order._isConsolidated 
+                                         ? order._consolidatedOrders.map((o: any) => o.id) 
+                                         : [order.id];
+                                       
+                                       const orderBarcodes = orderIds.flatMap(id => barcodesByOrderId.get(id) || []);
+                                       
+                                       if (orderBarcodes.length === 0) {
+                                         return (
+                                           <span className="text-xs text-muted-foreground italic">No barcode</span>
+                                         );
+                                       }
+                                       
+                                       return orderBarcodes.map((bc, idx) => (
+                                         <Badge 
+                                           key={bc.id || idx}
+                                           variant="outline" 
+                                           className="text-xs px-2 py-1 font-mono bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30"
+                                         >
+                                           {bc.barcode}
+                                         </Badge>
+                                       ));
+                                     })()}
+                                   </div>
+                                 </TableCell>
+
                                   <TableCell className="p-3">
                                     <div className="flex flex-col gap-2">
                                       {/* Main Print Button */}
