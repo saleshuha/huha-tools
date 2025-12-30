@@ -5556,11 +5556,11 @@ export const POTracker = () => {
                               <span className="text-foreground text-xs uppercase tracking-wider">Image</span>
                             </div>
                           </TableHead>
-                          <TableHead className={`cursor-pointer hover:bg-primary/5 select-none min-w-[140px] max-w-[180px] font-bold transition-all duration-200 border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('sku_code')}>
+                          <TableHead className={`cursor-pointer hover:bg-primary/5 select-none min-w-[350px] max-w-[450px] font-bold transition-all duration-200 border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('combined_title')}>
                             <div className="flex items-center gap-2">
                               <div className="w-2.5 h-2.5 bg-gradient-to-br from-primary to-primary/70 rounded-full shadow-sm"></div>
-                              <span className="text-foreground text-xs uppercase tracking-wider">SKU/Model</span>
-                              {sortField === 'sku_code' && !originalOrderPreserved && (
+                              <span className="text-foreground text-xs uppercase tracking-wider">Product Info</span>
+                              {sortField === 'combined_title' && !originalOrderPreserved && (
                                 <div className={`p-1 rounded-md bg-primary/10 ${sortDirection === 'asc' ? 'rotate-0' : 'rotate-180'} transition-transform duration-200`}>
                                   <ChevronUp className="h-3 w-3 text-primary" />
                                 </div>
@@ -5574,17 +5574,6 @@ export const POTracker = () => {
                             <div className="flex items-center gap-2">
                               <div className="w-2.5 h-2.5 bg-gradient-to-br from-green-500 to-green-600 rounded-full shadow-sm"></div>
                               <span className="text-foreground text-xs uppercase tracking-wider">Stock Qty</span>
-                            </div>
-                          </TableHead>
-                          <TableHead className={`cursor-pointer hover:bg-primary/5 select-none min-w-[250px] max-w-[350px] font-bold transition-all duration-200 border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('combined_title')}>
-                            <div className="flex items-center gap-2">
-                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-accent to-accent/70 rounded-full shadow-sm"></div>
-                              <span className="text-foreground text-xs uppercase tracking-wider">Title & ASIN</span>
-                              {sortField === 'combined_title' && !originalOrderPreserved && (
-                                <div className={`p-1 rounded-md bg-accent/10 ${sortDirection === 'asc' ? 'rotate-0' : 'rotate-180'} transition-transform duration-200`}>
-                                  <ChevronUp className="h-3 w-3 text-accent" />
-                                </div>
-                              )}
                             </div>
                           </TableHead>
                           {/* Shipped Qty Header - NEW */}
@@ -6068,39 +6057,59 @@ export const POTracker = () => {
                               })()}
                                 </TableCell>
 
-                                 {/* Enhanced SKU/Model Cell with Matching System */}
-                                 <TableCell className="min-w-[180px] max-w-[220px] border-r border-border/50 p-3">
-                                   <div className="flex flex-col gap-2 overflow-hidden">
-                                     {order.sku_code && <div className="flex items-start gap-2">
-                                         <div className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-1"></div>
-                                         <Badge variant="outline" className="text-xs px-2 py-1 font-medium font-mono break-all bg-primary/10 text-primary border-primary/20 flex-1 min-w-0">
-                                           {order.sku_code}
-                                         </Badge>
-                                       </div>}
-                                     {order.model_number && order.model_number !== order.sku_code && <div className="flex items-start gap-2">
-                                         <div className="w-2 h-2 bg-accent rounded-full flex-shrink-0 mt-1"></div>
-                                         <Badge variant="outline" className="text-xs px-2 py-1 font-medium font-mono break-all bg-accent/10 text-accent border-accent/20 flex-1 min-w-0">
-                                           {order.model_number}
-                                         </Badge>
-                                       </div>}
+                                 {/* Product Info Cell - Merged Title, ASIN, SKU/Model, Match Status */}
+                                 <TableCell className="min-w-[350px] max-w-[450px] border-r border-border/50 p-3">
+                                   <div className="flex flex-col gap-2">
+                                     {/* Title - Full width, prominent */}
+                                     <div className="text-sm font-medium break-words text-foreground group-hover:text-primary/80 transition-colors line-clamp-2" title={order.title}>
+                                       {order.title || 'No title available'}
+                                     </div>
                                      
-                                     {/* Sunsky Matching Indicator */}
-                                     {order.sunsky_sku && (order.sunsky_sku.sku_code || order.sunsky_sku.id) ? <div className="flex items-center gap-2">
-                                         <Check className="h-3 w-3 text-blue-600 flex-shrink-0" />
-                                         <Badge variant="outline" className="text-xs px-2 py-1 font-medium bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30">
-                                           Source Matched
+                                     {/* Second row: ASIN, SKU/Model, Match Status */}
+                                     <div className="flex flex-wrap items-center gap-1.5">
+                                       {/* ASIN Badge */}
+                                       {order.asin && (
+                                         <Badge variant="outline" className="text-xs px-2 py-0.5 font-medium font-mono bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30">
+                                           <div className="w-1.5 h-1.5 bg-cyan-500 rounded-full mr-1.5"></div>
+                                           {order.asin}
                                          </Badge>
-                                       </div> : <div className="flex items-center gap-2">
-                                         <Info className="h-3 w-3 text-gray-500 flex-shrink-0" />
-                                         <Badge variant="outline" className="text-xs px-2 py-1 font-medium bg-gray-500/15 text-gray-700 dark:text-gray-300 border-gray-500/30">
+                                       )}
+                                       
+                                       {/* SKU Badge */}
+                                       {order.sku_code && (
+                                         <Badge variant="outline" className="text-xs px-2 py-0.5 font-medium font-mono bg-primary/10 text-primary border-primary/20">
+                                           SKU: {order.sku_code}
+                                         </Badge>
+                                       )}
+                                       
+                                       {/* Model Badge (if different from SKU) */}
+                                       {order.model_number && order.model_number !== order.sku_code && (
+                                         <Badge variant="outline" className="text-xs px-2 py-0.5 font-medium font-mono bg-accent/10 text-accent border-accent/20">
+                                           Model: {order.model_number}
+                                         </Badge>
+                                       )}
+                                       
+                                       {/* Match Status Badge */}
+                                       {order.sunsky_sku && (order.sunsky_sku.sku_code || order.sunsky_sku.id) ? (
+                                         <Badge variant="outline" className="text-xs px-2 py-0.5 font-medium bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30">
+                                           <Check className="h-3 w-3 mr-1" />
+                                           Matched
+                                         </Badge>
+                                       ) : (
+                                         <Badge variant="outline" className="text-xs px-2 py-0.5 font-medium bg-gray-500/15 text-gray-700 dark:text-gray-300 border-gray-500/30">
+                                           <Info className="h-3 w-3 mr-1" />
                                            No Match
                                          </Badge>
-                                       </div>}
-                                     
-                                     {!order.sku_code && !order.model_number && <div className="flex items-center gap-2">
-                                         <div className="w-2 h-2 bg-muted-foreground rounded-full flex-shrink-0"></div>
-                                         <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded border border-muted">N/A</span>
-                                       </div>}
+                                       )}
+                                       
+                                       {/* Consolidation Badge (if applicable) */}
+                                       {order._isConsolidated && (
+                                         <Badge variant="secondary" className="text-xs px-2 py-0.5 font-medium bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30">
+                                           <Package className="w-3 h-3 mr-1" />
+                                           {order._consolidatedOrders.length} SKUs
+                                         </Badge>
+                                       )}
+                                     </div>
                                    </div>
                                  </TableCell>
 
@@ -6284,28 +6293,6 @@ export const POTracker = () => {
                               })()}
                                   </TableCell>
 
-                                 {/* Enhanced Title & ASIN Cell */}
-                                 <TableCell className="border-r border-border/50 p-3">
-                                  <div className="flex flex-col gap-2">
-                                    <div className="text-sm font-medium break-words text-foreground group-hover:text-primary/80 transition-colors" title={order.title}>
-                                      {order.title || 'No title available'}
-                                    </div>
-                                    
-                                    {/* Show consolidation badge if this is a merged item */}
-                                    {order._isConsolidated && <Badge variant="secondary" className="text-xs px-2 py-1 font-medium bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 w-fit">
-                                        <Package className="w-3 h-3 mr-1" />
-                                        {order._consolidatedOrders.length} SKUs
-                                      </Badge>}
-                                    
-                                    {/* ASIN display only */}
-                                    {order.asin && <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 bg-cyan-500 rounded-full flex-shrink-0"></div>
-                                        <Badge variant="outline" className="text-xs px-2 py-1 font-medium font-mono bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30">
-                                          {order.asin}
-                                        </Badge>
-                                      </div>}
-                                  </div>
-                                 </TableCell>
 
                                  {/* Shipped Qty Cell - NEW */}
                                  <TableCell className="min-w-[100px] border-r border-border/50 p-3">
