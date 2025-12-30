@@ -399,12 +399,12 @@ const ShippedOrdersUpload: React.FC = () => {
             </div>
             <div className="space-y-2">
               <Label>SKU Column (optional)</Label>
-              <Select value={columnMapping.sku} onValueChange={(v) => setColumnMapping(prev => ({ ...prev, sku: v }))}>
+              <Select value={columnMapping.sku || '__none__'} onValueChange={(v) => setColumnMapping(prev => ({ ...prev, sku: v === '__none__' ? '' : v }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select SKU column" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="__none__">None</SelectItem>
                   {pendingHeaders.map(h => (
                     <SelectItem key={h} value={h}>{h}</SelectItem>
                   ))}
@@ -413,12 +413,12 @@ const ShippedOrdersUpload: React.FC = () => {
             </div>
             <div className="space-y-2">
               <Label>Title Column (optional)</Label>
-              <Select value={columnMapping.title} onValueChange={(v) => setColumnMapping(prev => ({ ...prev, title: v }))}>
+              <Select value={columnMapping.title || '__none__'} onValueChange={(v) => setColumnMapping(prev => ({ ...prev, title: v === '__none__' ? '' : v }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select Title column" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="__none__">None</SelectItem>
                   {pendingHeaders.map(h => (
                     <SelectItem key={h} value={h}>{h}</SelectItem>
                   ))}

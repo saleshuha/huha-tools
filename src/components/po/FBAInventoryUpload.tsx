@@ -414,12 +414,12 @@ const FBAInventoryUpload: React.FC = () => {
             </div>
             <div className="space-y-2">
               <Label>SKU Column (optional)</Label>
-              <Select value={columnMapping.sku} onValueChange={(v) => setColumnMapping(prev => ({ ...prev, sku: v }))}>
+              <Select value={columnMapping.sku || '__none__'} onValueChange={(v) => setColumnMapping(prev => ({ ...prev, sku: v === '__none__' ? '' : v }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select SKU column" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="__none__">None</SelectItem>
                   {pendingHeaders.map(h => (
                     <SelectItem key={h} value={h}>{h}</SelectItem>
                   ))}
@@ -428,12 +428,12 @@ const FBAInventoryUpload: React.FC = () => {
             </div>
             <div className="space-y-2">
               <Label>FNSKU Column (optional)</Label>
-              <Select value={columnMapping.fnsku} onValueChange={(v) => setColumnMapping(prev => ({ ...prev, fnsku: v }))}>
+              <Select value={columnMapping.fnsku || '__none__'} onValueChange={(v) => setColumnMapping(prev => ({ ...prev, fnsku: v === '__none__' ? '' : v }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select FNSKU column" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="__none__">None</SelectItem>
                   {pendingHeaders.map(h => (
                     <SelectItem key={h} value={h}>{h}</SelectItem>
                   ))}
@@ -442,12 +442,12 @@ const FBAInventoryUpload: React.FC = () => {
             </div>
             <div className="space-y-2">
               <Label>Title Column (optional)</Label>
-              <Select value={columnMapping.title} onValueChange={(v) => setColumnMapping(prev => ({ ...prev, title: v }))}>
+              <Select value={columnMapping.title || '__none__'} onValueChange={(v) => setColumnMapping(prev => ({ ...prev, title: v === '__none__' ? '' : v }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select Title column" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="__none__">None</SelectItem>
                   {pendingHeaders.map(h => (
                     <SelectItem key={h} value={h}>{h}</SelectItem>
                   ))}
@@ -456,12 +456,12 @@ const FBAInventoryUpload: React.FC = () => {
             </div>
             <div className="space-y-2">
               <Label>Condition Column (optional)</Label>
-              <Select value={columnMapping.condition} onValueChange={(v) => setColumnMapping(prev => ({ ...prev, condition: v }))}>
+              <Select value={columnMapping.condition || '__none__'} onValueChange={(v) => setColumnMapping(prev => ({ ...prev, condition: v === '__none__' ? '' : v }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select Condition column" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="__none__">None</SelectItem>
                   {pendingHeaders.map(h => (
                     <SelectItem key={h} value={h}>{h}</SelectItem>
                   ))}
