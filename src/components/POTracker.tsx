@@ -5625,7 +5625,7 @@ export const POTracker = () => {
                             </div>
                             <ColumnResizeHandle columnId="image" currentWidth={columnWidths.image} onResize={setColumnWidth} />
                           </TableHead>
-                          <TableHead className={`relative cursor-pointer hover:bg-primary/5 select-none font-bold transition-all duration-200 border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} style={getColumnStyle('productInfo')} onClick={() => !originalOrderPreserved && handleSort('combined_title')}>
+                          <TableHead className={`relative select-none font-bold transition-all duration-200 border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'cursor-default opacity-50' : 'cursor-pointer hover:bg-primary/5'}`} style={getColumnStyle('productInfo')} onClick={originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? undefined : () => handleSort('combined_title')}>
                             <div className="flex items-center gap-2">
                               <div className="w-2.5 h-2.5 bg-gradient-to-br from-primary to-primary/70 rounded-full shadow-sm"></div>
                               <span className="text-foreground text-xs uppercase tracking-wider">Product Info</span>
@@ -5663,7 +5663,7 @@ export const POTracker = () => {
                             </div>
                             <ColumnResizeHandle columnId="fbaInvQty" currentWidth={columnWidths.fbaInvQty} onResize={setColumnWidth} />
                           </TableHead>
-                          <TableHead className={`relative cursor-pointer hover:bg-primary/5 select-none font-bold transition-all duration-200 border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} style={getColumnStyle('poQty')} onClick={() => !originalOrderPreserved && handleSort('quantity')}>
+                          <TableHead className={`relative select-none font-bold transition-all duration-200 border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'cursor-default opacity-50' : 'cursor-pointer hover:bg-primary/5'}`} style={getColumnStyle('poQty')} onClick={originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? undefined : () => handleSort('quantity')}>
                             <div className="flex items-center gap-2">
                               <div className="w-2.5 h-2.5 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full shadow-sm"></div>
                               <span className="text-foreground text-xs uppercase tracking-wider">PO Qty</span>
