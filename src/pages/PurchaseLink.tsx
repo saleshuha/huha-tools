@@ -3,36 +3,41 @@ import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { usePurchaseLink } from '@/hooks/usePurchaseLink';
 import { useProductBarcodes } from '@/hooks/useProductBarcodes';
-import { PurchaseProgressBar } from '@/components/po/PurchaseProgressBar';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Loader2, Package, Search, CheckCircle2, Circle, AlertCircle, Image, XCircle, Check, ArrowUpDown, ArrowUp, ArrowDown, Barcode, ScanLine } from 'lucide-react';
+import { Loader2, Package, Search, CheckCircle2, Circle, AlertCircle, Image, XCircle, Check, ArrowUp, ArrowDown, ScanLine, RotateCcw } from 'lucide-react';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 import { BarcodeScannerDialog } from '@/components/barcode/BarcodeScannerDialog';
 import { LinkedBarcodesBadge } from '@/components/barcode/LinkedBarcodesBadge';
+import { VendorInfoForm, getStoredVendorInfo } from '@/components/purchase-link/VendorInfoForm';
+import { SupplierDetailsForm, SupplierDetails } from '@/components/purchase-link/SupplierDetailsForm';
+import { BulkActionsBar } from '@/components/purchase-link/BulkActionsBar';
+import { ExportButton } from '@/components/purchase-link/ExportButton';
+import { PurchaseSummaryHeader } from '@/components/purchase-link/PurchaseSummaryHeader';
 
 export default function PurchaseLink() {
   const { token } = useParams<{ token: string }>();
   const { data: hookData, loading, error, savePurchaseUpdate, fetchLinkData } = usePurchaseLink(token);
-  const { linkBarcode, searchByBarcode, loading: barcodeLoading } = useProductBarcodes();
+  const { linkBarcode, loading: barcodeLoading } = useProductBarcodes();
   const [data, setData] = useState(hookData);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'purchased' | 'partial' | 'pending' | 'not_available'>('pending');
   const [sortBy, setSortBy] = useState<'qty-high-low' | 'qty-low-high' | null>(null);
   const [localUpdates, setLocalUpdates] = useState<Record<string, any>>({});
+  const [supplierDetails, setSupplierDetails] = useState<Record<string, SupplierDetails>>({});
   const [savingItems, setSavingItems] = useState<Set<string>>(new Set());
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const cardRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   
   // Barcode scanning state
   const [scanDialogOpen, setScanDialogOpen] = useState(false);
   const [scanningOrderId, setScanningOrderId] = useState<string | null>(null);
-  const [barcodeRefreshKey, setBarcodeRefreshKey] = useState(0);
 
   // Sync hook data with local state
   useEffect(() => {
@@ -41,14 +46,21 @@ export default function PurchaseLink() {
     }
   }, [hookData]);
 
+  const getVendorInfo = () => {
+    if (!token) return null;
+    return getStoredVendorInfo(token);
+  };
+
   const handleSaveItem = async (orderId: string) => {
     const order = data?.poOrders.find(o => o.id === orderId);
     if (!order || !token || !data) return;
 
     const existingUpdate = data.updates.find(u => u.po_order_id === orderId);
     const localUpdate = localUpdates[orderId];
+    const itemSupplierDetails = supplierDetails[orderId];
+    const vendorInfo = getVendorInfo();
     
-    if (!localUpdate) {
+    if (!localUpdate && !itemSupplierDetails) {
       toast.info('No changes to save');
       return;
     }
@@ -63,13 +75,21 @@ export default function PurchaseLink() {
         skuCode: order.sku_code,
         modelNumber: order.model_number,
         title: order.title,
-        purchasedQuantity: localUpdate.purchasedQuantity ?? existingUpdate?.purchased_quantity ?? 0,
+        purchasedQuantity: localUpdate?.purchasedQuantity ?? existingUpdate?.purchased_quantity ?? 0,
+        vendorName: vendorInfo?.name,
+        vendorEmail: vendorInfo?.email,
+        supplierName: itemSupplierDetails?.supplierName,
+        supplierOrderNumber: itemSupplierDetails?.supplierOrderNumber,
+        estimatedDeliveryDate: itemSupplierDetails?.estimatedDeliveryDate,
+        unitCost: itemSupplierDetails?.unitCost,
+        totalCost: itemSupplierDetails?.totalCost,
+        notes: itemSupplierDetails?.notes,
         ...existingUpdate
       };
 
-      const result = await savePurchaseUpdate(token, updatedData);
+      await savePurchaseUpdate(token, updatedData);
       
-      // Update local state instead of refetching
+      // Update local state
       setData(prevData => {
         if (!prevData) return prevData;
         
@@ -79,12 +99,12 @@ export default function PurchaseLink() {
         if (existingIndex >= 0) {
           updatedUpdates[existingIndex] = {
             ...updatedUpdates[existingIndex],
-            purchased_quantity: localUpdate.purchasedQuantity
+            purchased_quantity: localUpdate?.purchasedQuantity ?? updatedUpdates[existingIndex].purchased_quantity
           };
         } else {
           updatedUpdates.push({
             po_order_id: orderId,
-            purchased_quantity: localUpdate.purchasedQuantity,
+            purchased_quantity: localUpdate?.purchasedQuantity ?? 0,
             link_id: prevData.link.id,
             metadata: {}
           } as any);
@@ -130,6 +150,7 @@ export default function PurchaseLink() {
     if (!order || !token || !data) return;
 
     const existingUpdate = data.updates.find(u => u.po_order_id === orderId);
+    const vendorInfo = getVendorInfo();
     
     setSavingItems(prev => new Set(prev).add(orderId));
 
@@ -142,12 +163,14 @@ export default function PurchaseLink() {
         modelNumber: order.model_number,
         title: order.title,
         metadata: { not_available: true },
+        vendorName: vendorInfo?.name,
+        vendorEmail: vendorInfo?.email,
         ...existingUpdate
       };
 
       await savePurchaseUpdate(token, updatedData);
       
-      // Update local state instead of refetching
+      // Update local state
       setData(prevData => {
         if (!prevData) return prevData;
         
@@ -191,8 +214,66 @@ export default function PurchaseLink() {
     }
   };
 
+  const handleUndoNotAvailable = async (orderId: string) => {
+    const order = data?.poOrders.find(o => o.id === orderId);
+    if (!order || !token || !data) return;
+
+    const existingUpdate = data.updates.find(u => u.po_order_id === orderId);
+    const vendorInfo = getVendorInfo();
+    
+    setSavingItems(prev => new Set(prev).add(orderId));
+
+    try {
+      const updatedData = {
+        poOrderId: orderId,
+        poNumber: order.po_number,
+        asin: order.asin,
+        skuCode: order.sku_code,
+        modelNumber: order.model_number,
+        title: order.title,
+        metadata: { not_available: false },
+        purchasedQuantity: 0,
+        vendorName: vendorInfo?.name,
+        vendorEmail: vendorInfo?.email,
+        ...existingUpdate
+      };
+
+      await savePurchaseUpdate(token, updatedData);
+      
+      // Update local state
+      setData(prevData => {
+        if (!prevData) return prevData;
+        
+        const updatedUpdates = [...prevData.updates];
+        const existingIndex = updatedUpdates.findIndex(u => u.po_order_id === orderId);
+        
+        if (existingIndex >= 0) {
+          updatedUpdates[existingIndex] = {
+            ...updatedUpdates[existingIndex],
+            metadata: { not_available: false },
+            purchased_quantity: 0
+          };
+        }
+        
+        return {
+          ...prevData,
+          updates: updatedUpdates
+        };
+      });
+      
+      toast.success('Status reset to pending');
+    } catch (error) {
+      toast.error('Failed to update');
+    } finally {
+      setSavingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(orderId);
+        return newSet;
+      });
+    }
+  };
+
   const handleInputFocus = (orderId: string) => {
-    // Small delay to allow keyboard to start opening
     setTimeout(() => {
       const cardElement = cardRefs.current[orderId];
       if (cardElement) {
@@ -218,8 +299,7 @@ export default function PurchaseLink() {
     const order = data.poOrders.find(o => o.id === scanningOrderId);
     if (!order) return;
     
-    // Link the barcode to this product (use link owner's userId for token-based access)
-    const result = await linkBarcode({
+    await linkBarcode({
       barcode,
       barcodeType: format,
       asin: order.asin || undefined,
@@ -227,13 +307,8 @@ export default function PurchaseLink() {
       modelNumber: order.model_number || undefined,
       title: order.title || undefined,
       poOrderId: order.id,
-      userId: data.link.user_id, // Use link owner's ID for public token access
+      userId: data.link.user_id,
     });
-    
-    if (result) {
-      // Trigger refresh of linked barcodes badges
-      setBarcodeRefreshKey(prev => prev + 1);
-    }
     
     setScanDialogOpen(false);
     setScanningOrderId(null);
@@ -241,6 +316,77 @@ export default function PurchaseLink() {
 
   // Get current scanning order info for dialog
   const scanningOrder = scanningOrderId ? data?.poOrders.find(o => o.id === scanningOrderId) : null;
+
+  // Selection handlers
+  const handleSelectItem = (orderId: string, checked: boolean) => {
+    setSelectedItems(prev => {
+      const newSet = new Set(prev);
+      if (checked) {
+        newSet.add(orderId);
+      } else {
+        newSet.delete(orderId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleBulkMarkPurchased = async (quantity: number) => {
+    if (!token || !data) return;
+    const vendorInfo = getVendorInfo();
+    
+    const promises = Array.from(selectedItems).map(async orderId => {
+      const order = data.poOrders.find(o => o.id === orderId);
+      if (!order) return;
+      
+      const updatedData = {
+        poOrderId: orderId,
+        poNumber: order.po_number,
+        asin: order.asin,
+        skuCode: order.sku_code,
+        modelNumber: order.model_number,
+        title: order.title,
+        purchasedQuantity: quantity,
+        vendorName: vendorInfo?.name,
+        vendorEmail: vendorInfo?.email,
+      };
+      
+      return savePurchaseUpdate(token, updatedData);
+    });
+    
+    await Promise.all(promises);
+    setSelectedItems(new Set());
+    if (token) await fetchLinkData(token);
+    toast.success(`${selectedItems.size} items marked as purchased`);
+  };
+
+  const handleBulkMarkNotAvailable = async () => {
+    if (!token || !data) return;
+    const vendorInfo = getVendorInfo();
+    
+    const promises = Array.from(selectedItems).map(async orderId => {
+      const order = data.poOrders.find(o => o.id === orderId);
+      if (!order) return;
+      
+      const updatedData = {
+        poOrderId: orderId,
+        poNumber: order.po_number,
+        asin: order.asin,
+        skuCode: order.sku_code,
+        modelNumber: order.model_number,
+        title: order.title,
+        metadata: { not_available: true },
+        vendorName: vendorInfo?.name,
+        vendorEmail: vendorInfo?.email,
+      };
+      
+      return savePurchaseUpdate(token, updatedData);
+    });
+    
+    await Promise.all(promises);
+    setSelectedItems(new Set());
+    if (token) await fetchLinkData(token);
+    toast.success(`${selectedItems.size} items marked as not available`);
+  };
 
   // Subscribe to realtime updates
   useEffect(() => {
@@ -259,7 +405,6 @@ export default function PurchaseLink() {
         (payload) => {
           console.log('Realtime update received:', payload);
           
-          // Update local state instead of full refetch
           if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
             const newRecord = payload.new as any;
             
@@ -293,7 +438,6 @@ export default function PurchaseLink() {
   }, [token, data?.link?.id]);
 
   const getItemStatus = (order: any, update: any) => {
-    // Check if marked as not available
     if (update?.metadata?.not_available) return 'not_available';
     
     const purchased = update?.purchased_quantity || 0;
@@ -308,13 +452,11 @@ export default function PurchaseLink() {
   const getConsolidatedQuantity = (order: any) => {
     if (!data?.poOrders) return null;
     
-    // Find all orders with the same ASIN or SKU
     const relatedOrders = data.poOrders.filter(o => 
       (order.asin && o.asin === order.asin) || 
       (order.sku_code && o.sku_code === order.sku_code)
     );
     
-    // If multiple orders exist, return total quantity
     if (relatedOrders.length > 1) {
       const totalQty = relatedOrders.reduce((sum, o) => sum + o.quantity, 0);
       return {
@@ -324,7 +466,7 @@ export default function PurchaseLink() {
       };
     }
     
-    return null; // No consolidation needed
+    return null;
   };
 
   const filteredOrders = (() => {
@@ -343,7 +485,6 @@ export default function PurchaseLink() {
       return matchesSearch && matchesFilter;
     }) || [];
 
-    // Apply sorting
     if (sortBy === 'qty-high-low') {
       orders = [...orders].sort((a, b) => b.quantity - a.quantity);
     } else if (sortBy === 'qty-low-high') {
@@ -367,8 +508,36 @@ export default function PurchaseLink() {
     notAvailable: data?.poOrders.filter(o => {
       const u = data?.updates.find(up => up.po_order_id === o.id);
       return u?.metadata?.not_available === true;
-    }).length || 0
+    }).length || 0,
+    pending: 0
   };
+  stats.pending = stats.total - stats.purchased - stats.partial - stats.notAvailable;
+
+  // Calculate selected items total required qty
+  const selectedTotalRequired = Array.from(selectedItems).reduce((sum, id) => {
+    const order = data?.poOrders.find(o => o.id === id);
+    return sum + (order?.quantity || 0);
+  }, 0);
+
+  // Prepare export data
+  const exportData = data?.poOrders.map(order => {
+    const update = data.updates.find(u => u.po_order_id === order.id);
+    const status = getItemStatus(order, update);
+    const details = supplierDetails[order.id] || {};
+    
+    return {
+      poNumber: order.po_number,
+      asin: order.asin,
+      skuCode: order.sku_code,
+      title: order.title,
+      requiredQty: order.quantity,
+      purchasedQty: update?.purchased_quantity || 0,
+      status,
+      supplierName: details.supplierName,
+      supplierOrderNumber: details.supplierOrderNumber,
+      notes: details.notes,
+    };
+  }) || [];
 
   if (loading) {
     return (
@@ -394,33 +563,20 @@ export default function PurchaseLink() {
 
   return (
     <div className="min-h-screen bg-gradient-surface">
-      <div className="container max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-[300px] md:pb-6">
-        {/* Header */}
-        <Card className="p-6">
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <h1 className="text-2xl font-bold mb-2">
-                {data.link.title || 'Purchase Tracking'}
-              </h1>
-              {data.link.description && (
-                <p className="text-muted-foreground">{data.link.description}</p>
-              )}
-            </div>
-            {data.link.expires_at && (
-              <Badge variant="outline">
-                Expires {format(new Date(data.link.expires_at), 'MMM d, yyyy')}
-              </Badge>
-            )}
-          </div>
-          
-          <PurchaseProgressBar
-            totalItems={stats.total}
-            purchasedItems={stats.purchased}
-            partialItems={stats.partial}
-          />
-        </Card>
+      <div className="container max-w-7xl mx-auto p-4 md:p-6 space-y-4 pb-[300px] md:pb-6">
+        {/* Enhanced Summary Header */}
+        <PurchaseSummaryHeader
+          title={data.link.title}
+          description={data.link.description}
+          expiresAt={data.link.expires_at}
+          stats={stats}
+          lastUpdated={data.updates[0]?.updated_at}
+        />
 
-        {/* Filters */}
+        {/* Vendor Info Form */}
+        {token && <VendorInfoForm linkToken={token} />}
+
+        {/* Filters and Export */}
         <Card className="p-4">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1 relative">
@@ -432,40 +588,42 @@ export default function PurchaseLink() {
                 className="pl-9"
               />
             </div>
-            <div className="flex gap-2 flex-wrap">
-              <Button
-                variant={filterStatus === 'pending' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setFilterStatus('pending')}
-              >
-                <Circle className="h-4 w-4 mr-1" />
-                Pending ({stats.total - stats.purchased - stats.partial - stats.notAvailable})
-              </Button>
-              <Button
-                variant={filterStatus === 'partial' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setFilterStatus('partial')}
-              >
-                <AlertCircle className="h-4 w-4 mr-1" />
-                Partial ({stats.partial})
-              </Button>
-              <Button
-                variant={filterStatus === 'purchased' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setFilterStatus('purchased')}
-              >
-                <CheckCircle2 className="h-4 w-4 mr-1" />
-                Complete ({stats.purchased})
-              </Button>
-              <Button
-                variant={filterStatus === 'not_available' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setFilterStatus('not_available')}
-              >
-                <XCircle className="h-4 w-4 mr-1" />
-                Not Available ({stats.notAvailable})
-              </Button>
-            </div>
+            <ExportButton data={exportData} linkTitle={data.link.title} />
+          </div>
+          
+          <div className="flex gap-2 flex-wrap mt-4">
+            <Button
+              variant={filterStatus === 'pending' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilterStatus('pending')}
+            >
+              <Circle className="h-4 w-4 mr-1" />
+              Pending ({stats.pending})
+            </Button>
+            <Button
+              variant={filterStatus === 'partial' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilterStatus('partial')}
+            >
+              <AlertCircle className="h-4 w-4 mr-1" />
+              Partial ({stats.partial})
+            </Button>
+            <Button
+              variant={filterStatus === 'purchased' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilterStatus('purchased')}
+            >
+              <CheckCircle2 className="h-4 w-4 mr-1" />
+              Complete ({stats.purchased})
+            </Button>
+            <Button
+              variant={filterStatus === 'not_available' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilterStatus('not_available')}
+            >
+              <XCircle className="h-4 w-4 mr-1" />
+              Not Available ({stats.notAvailable})
+            </Button>
           </div>
           
           {/* Sort Options */}
@@ -498,20 +656,30 @@ export default function PurchaseLink() {
             const update = data.updates.find(u => u.po_order_id === order.id);
             const localUpdate = localUpdates[order.id];
             const status = getItemStatus(order, update);
+            const isSelected = selectedItems.has(order.id);
             
             return (
               <Card 
                 key={order.id} 
-                className="p-4"
+                className={`p-4 transition-all ${isSelected ? 'ring-2 ring-primary' : ''}`}
                 ref={(el) => cardRefs.current[order.id] = el}
               >
-                <div className="flex flex-col md:flex-row gap-4 md:items-start">
-                  {/* Top section on mobile: Image + Info */}
-                  <div className="flex gap-4 items-start flex-1">
+                <div className="flex flex-col gap-4">
+                  {/* Top section */}
+                  <div className="flex gap-4 items-start">
+                    {/* Checkbox for bulk selection */}
+                    <div className="flex items-center pt-1">
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={(checked) => handleSelectItem(order.id, !!checked)}
+                        disabled={status === 'purchased' || status === 'not_available'}
+                      />
+                    </div>
+                    
                     {/* Product Image */}
                     <Dialog>
                       <DialogTrigger asChild>
-                        <div className="flex-shrink-0 w-20 h-20 rounded-md overflow-hidden bg-muted flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity">
+                        <div className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden bg-muted flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity">
                           {order.product_image?.image_url ? (
                             <img 
                               src={order.product_image.image_url} 
@@ -519,7 +687,7 @@ export default function PurchaseLink() {
                               className="w-full h-full object-contain p-1"
                             />
                           ) : (
-                            <Image className="h-8 w-8 text-muted-foreground" />
+                            <Image className="h-6 w-6 text-muted-foreground" />
                           )}
                         </div>
                       </DialogTrigger>
@@ -535,8 +703,8 @@ export default function PurchaseLink() {
                     </Dialog>
 
                     {/* Item Info */}
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center gap-2">
+                    <div className="flex-1 space-y-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <Badge variant="outline" className="text-xs">
                           {order.po_number}
                         </Badge>
@@ -550,12 +718,11 @@ export default function PurchaseLink() {
                           <XCircle className="h-4 w-4 text-red-500" />
                         )}
                       </div>
-                      <p className="font-medium text-sm">{order.title}</p>
+                      <p className="font-medium text-sm truncate">{order.title}</p>
                       <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                         {order.asin && <span>ASIN: {order.asin}</span>}
                         {order.sku_code && <span>SKU: {order.sku_code}</span>}
                         <LinkedBarcodesBadge 
-                          key={barcodeRefreshKey}
                           asin={order.asin} 
                           skuCode={order.sku_code}
                           poOrderId={order.id}
@@ -582,64 +749,89 @@ export default function PurchaseLink() {
                         );
                       })()}
                     </div>
+
+                    {/* Purchase Actions */}
+                    <div className="flex flex-col gap-2 w-full md:w-auto">
+                      {status !== 'not_available' ? (
+                        <>
+                          <div className="flex gap-2 md:items-end">
+                            <div className="space-y-1 flex-1 md:flex-initial md:w-28">
+                              <Label className="text-xs">Purchased Qty</Label>
+                              <Input
+                                type="number"
+                                placeholder="0"
+                                value={localUpdate?.purchasedQuantity ?? update?.purchased_quantity ?? ''}
+                                onChange={(e) => handleUpdateField(order.id, 'purchasedQuantity', parseInt(e.target.value) || 0)}
+                                onFocus={() => handleInputFocus(order.id)}
+                                className="h-9 text-[16px]"
+                                disabled={savingItems.has(order.id)}
+                              />
+                            </div>
+                            
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => handleSaveItem(order.id)}
+                              disabled={(!localUpdate?.purchasedQuantity && !supplierDetails[order.id]) || savingItems.has(order.id)}
+                              className="h-9 w-9 p-0 self-end"
+                              title="Save"
+                            >
+                              {savingItems.has(order.id) ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Check className="h-4 w-4" />
+                              )}
+                            </Button>
+                            
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleMarkNotAvailable(order.id)}
+                              disabled={savingItems.has(order.id)}
+                              className="h-9 px-3 self-end"
+                            >
+                              <XCircle className="h-4 w-4 mr-1" />
+                              <span className="hidden sm:inline">N/A</span>
+                            </Button>
+                          </div>
+                          
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenBarcodeScanner(order.id)}
+                            className="h-8 w-full md:w-auto"
+                          >
+                            <ScanLine className="h-4 w-4 mr-2" />
+                            Scan Barcode
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleUndoNotAvailable(order.id)}
+                          disabled={savingItems.has(order.id)}
+                          className="h-9"
+                        >
+                          {savingItems.has(order.id) ? (
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          ) : (
+                            <RotateCcw className="h-4 w-4 mr-2" />
+                          )}
+                          Undo Not Available
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Purchase Actions - improved mobile layout */}
-                  <div className="flex flex-col gap-2 w-full md:w-auto">
-                    <div className="flex gap-2 md:items-end">
-                      <div className="space-y-1 flex-1 md:flex-initial md:w-32">
-                        <Label className="text-xs">Purchased Qty</Label>
-                        <Input
-                          type="number"
-                          placeholder="0"
-                          value={localUpdate?.purchasedQuantity ?? update?.purchased_quantity ?? ''}
-                          onChange={(e) => handleUpdateField(order.id, 'purchasedQuantity', parseInt(e.target.value) || 0)}
-                          onFocus={() => handleInputFocus(order.id)}
-                          className="h-9 text-[16px]"
-                          disabled={status === 'not_available' || savingItems.has(order.id)}
-                        />
-                      </div>
-                      
-                      {/* Save tick button - icon only, fixed width */}
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => handleSaveItem(order.id)}
-                        disabled={!localUpdate?.purchasedQuantity || savingItems.has(order.id)}
-                        className="h-9 w-9 p-0 self-end"
-                        title="Save"
-                      >
-                        {savingItems.has(order.id) ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Check className="h-4 w-4" />
-                        )}
-                      </Button>
-                      
-                      {/* Not Available button */}
-                      <Button
-                        variant={status === 'not_available' ? 'destructive' : 'outline'}
-                        size="sm"
-                        onClick={() => handleMarkNotAvailable(order.id)}
-                        disabled={savingItems.has(order.id)}
-                        className="h-9 px-3 self-end"
-                      >
-                        <XCircle className="h-4 w-4 mr-1" />
-                        <span className="hidden sm:inline">Not Available</span>
-                      </Button>
-                    </div>
-                    
-                    {/* Scan Barcode Button */}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleOpenBarcodeScanner(order.id)}
-                      className="h-8 w-full md:w-auto"
-                    >
-                      <ScanLine className="h-4 w-4 mr-2" />
-                      Scan & Link Barcode
-                    </Button>
-                  </div>
+                  {/* Supplier Details Form */}
+                  {status !== 'not_available' && (
+                    <SupplierDetailsForm
+                      details={supplierDetails[order.id] || {}}
+                      onChange={(details) => setSupplierDetails(prev => ({ ...prev, [order.id]: details }))}
+                      disabled={savingItems.has(order.id)}
+                    />
+                  )}
                 </div>
               </Card>
             );
@@ -653,6 +845,15 @@ export default function PurchaseLink() {
           </Card>
         )}
       </div>
+
+      {/* Bulk Actions Bar */}
+      <BulkActionsBar
+        selectedCount={selectedItems.size}
+        totalRequired={selectedTotalRequired}
+        onMarkAllPurchased={handleBulkMarkPurchased}
+        onMarkNotAvailable={handleBulkMarkNotAvailable}
+        onClearSelection={() => setSelectedItems(new Set())}
+      />
       
       {/* Barcode Scanner Dialog */}
       <BarcodeScannerDialog
