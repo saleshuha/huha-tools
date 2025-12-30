@@ -325,8 +325,6 @@ const ShippedOrdersUpload: React.FC = () => {
                 <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm">
                   <TableRow>
                     <TableHead className="font-semibold">ASIN</TableHead>
-                    <TableHead className="font-semibold">SKU</TableHead>
-                    <TableHead className="font-semibold">Title</TableHead>
                     <TableHead className="font-semibold text-right">Quantity</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -334,8 +332,6 @@ const ShippedOrdersUpload: React.FC = () => {
                   {filteredItems.slice(0, 100).map((item, idx) => (
                     <TableRow key={`${item.asin}-${idx}`}>
                       <TableCell className="font-mono text-sm">{item.asin}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{item.sku || '-'}</TableCell>
-                      <TableCell className="text-sm max-w-[300px] truncate" title={item.title}>{item.title || '-'}</TableCell>
                       <TableCell className="text-right">
                         <Badge variant="secondary" className="font-mono">{item.quantity.toLocaleString()}</Badge>
                       </TableCell>
