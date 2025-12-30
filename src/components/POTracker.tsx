@@ -5561,12 +5561,6 @@ export const POTracker = () => {
                               )}
                             </div>
                           </TableHead>
-                          <TableHead className="min-w-[120px] max-w-[180px] font-bold border-r border-border/10 bg-transparent py-4">
-                            <div className="flex items-center gap-2">
-                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full shadow-sm"></div>
-                              <span className="text-foreground text-xs uppercase tracking-wider">Ship To</span>
-                            </div>
-                          </TableHead>
                           <TableHead className={`cursor-pointer hover:bg-primary/5 select-none font-bold transition-all duration-200 border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('quantity')}>
                             <div className="flex items-center gap-2">
                               <div className="w-2.5 h-2.5 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full shadow-sm"></div>
@@ -5578,22 +5572,16 @@ export const POTracker = () => {
                               )}
                             </div>
                           </TableHead>
-                          <TableHead className="min-w-[120px] font-bold border-r border-border/10 bg-transparent py-4">
+                          <TableHead className="min-w-[160px] font-bold border-r border-border/10 bg-transparent py-4">
                             <div className="flex items-center gap-2">
                               <div className="w-2.5 h-2.5 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full shadow-sm"></div>
-                              <span className="text-foreground text-xs uppercase tracking-wider">Print</span>
+                              <span className="text-foreground text-xs uppercase tracking-wider">Print Status</span>
                             </div>
                           </TableHead>
                           <TableHead className="min-w-[100px] font-bold border-r border-border/10 bg-transparent py-4">
                             <div className="flex items-center gap-2">
                               <div className="w-2.5 h-2.5 bg-gradient-to-br from-sky-500 to-sky-600 rounded-full shadow-sm"></div>
                               <span className="text-foreground text-xs uppercase tracking-wider">Print Qty</span>
-                            </div>
-                          </TableHead>
-                          <TableHead className="min-w-[120px] font-bold border-r border-border/10 bg-transparent py-4">
-                            <div className="flex items-center gap-2">
-                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-full shadow-sm"></div>
-                              <span className="text-foreground text-xs uppercase tracking-wider">Status</span>
                             </div>
                           </TableHead>
                           <TableHead className="min-w-[140px] font-bold border-r border-border/10 bg-transparent py-4 cursor-pointer hover:bg-primary/5" onClick={() => handleSort('scanned_barcode' as any)}>
@@ -6279,12 +6267,6 @@ export const POTracker = () => {
                                   </div>
                                  </TableCell>
 
-                                  {/* Ship To Location Cell */}
-                                  <TableCell className="border-r border-border/50 p-3">
-                                    <span className="text-sm text-foreground">
-                                      {order.ship_to_location || '-'}
-                                    </span>
-                                  </TableCell>
 
                                     {/* Enhanced Quantity Cell with PO Numbers */}
                                     <TableCell className="border-r border-border/50 p-3">
@@ -6405,33 +6387,49 @@ export const POTracker = () => {
                                      </div>
                                    </TableCell>
 
-                                   {/* Print Status Cell */}
-                                   <TableCell className="w-32 border-r border-border/50 p-3">
-                                     <div className="flex items-center justify-center">
-                                       {order.printed_quantity > 0 ? order.printed_quantity >= order.quantity ? <div className="flex items-center gap-2">
-                                             <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                             <Badge variant="default" className="text-xs px-2 py-1 font-medium bg-green-500/15 text-green-700 dark:text-green-300 border border-green-500/30 cursor-pointer hover:bg-green-500/25 transition-colors" onClick={() => {
-                                    setPrintHistoryOrder(order);
-                                    setPrintHistoryDialogOpen(true);
-                                  }}>
-                                               <Printer className="h-3 w-3 mr-1" />
-                                               Fully Printed
-                                             </Badge>
-                                           </div> : <div className="flex items-center gap-2">
-                                             <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                                             <Badge variant="default" className="text-xs px-2 py-1 font-medium bg-yellow-500/15 text-yellow-700 dark:text-yellow-300 border border-yellow-500/30 cursor-pointer hover:bg-yellow-500/25 transition-colors" onClick={() => {
-                                    setPrintHistoryOrder(order);
-                                    setPrintHistoryDialogOpen(true);
-                                  }}>
-                                               <AlertCircle className="h-3 w-3 mr-1" />
-                                               Partial ({order.printed_quantity}/{order.quantity})
-                                             </Badge>
-                                           </div> : <div className="flex items-center gap-2">
-                                           <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
-                                           <Badge variant="outline" className="text-xs px-2 py-1 font-medium bg-gray-500/15 text-gray-700 dark:text-gray-300 border-gray-500/30">
-                                             Not Printed
+                                   {/* Merged Print Status Cell */}
+                                   <TableCell className="min-w-[160px] border-r border-border/50 p-3">
+                                     <div className="flex flex-col gap-2">
+                                       {order.printed_quantity > 0 ? order.printed_quantity >= order.quantity ? (
+                                         <div className="flex flex-col gap-1.5">
+                                           <Badge variant="default" className="text-xs px-2 py-1 font-medium bg-green-500/15 text-green-700 dark:text-green-300 border border-green-500/30 cursor-pointer hover:bg-green-500/25 transition-colors w-fit" onClick={() => {
+                                             setPrintHistoryOrder(order);
+                                             setPrintHistoryDialogOpen(true);
+                                           }}>
+                                             <div className="w-2 h-2 bg-green-500 rounded-full mr-1.5"></div>
+                                             <Printer className="h-3 w-3 mr-1" />
+                                             Fully Printed
                                            </Badge>
-                                         </div>}
+                                           <Badge variant="outline" className="text-xs px-1.5 py-0.5 font-medium bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20 w-fit">
+                                             <Check className="w-3 h-3 mr-1" />
+                                             Printed: {order.printed_quantity}
+                                           </Badge>
+                                         </div>
+                                       ) : (
+                                         <div className="flex flex-col gap-1.5">
+                                           <Badge variant="default" className="text-xs px-2 py-1 font-medium bg-yellow-500/15 text-yellow-700 dark:text-yellow-300 border border-yellow-500/30 cursor-pointer hover:bg-yellow-500/25 transition-colors w-fit" onClick={() => {
+                                             setPrintHistoryOrder(order);
+                                             setPrintHistoryDialogOpen(true);
+                                           }}>
+                                             <div className="w-2 h-2 bg-yellow-500 rounded-full mr-1.5"></div>
+                                             <AlertCircle className="h-3 w-3 mr-1" />
+                                             Partial ({order.printed_quantity}/{order.quantity})
+                                           </Badge>
+                                           <div className="flex flex-wrap gap-1">
+                                             <Badge variant="outline" className="text-xs px-1.5 py-0.5 font-medium bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20 w-fit">
+                                               Printed: {order.printed_quantity}
+                                             </Badge>
+                                             <Badge variant="outline" className="text-xs px-1.5 py-0.5 font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 w-fit">
+                                               Remaining: {order.quantity - order.printed_quantity}
+                                             </Badge>
+                                           </div>
+                                         </div>
+                                       ) : (
+                                         <Badge variant="outline" className="text-xs px-2 py-1 font-medium bg-gray-500/15 text-gray-700 dark:text-gray-300 border-gray-500/30 w-fit">
+                                           <div className="w-2 h-2 bg-gray-500 rounded-full mr-1.5"></div>
+                                           Not Printed
+                                         </Badge>
+                                       )}
                                      </div>
                                    </TableCell>
 
@@ -6472,27 +6470,6 @@ export const POTracker = () => {
                                 })()}
                                       </div>
                                     </TableCell>
-
-                                 {/* Enhanced Status Cell */}
-                                 <TableCell className="border-r border-border/50 p-3">
-                                   <div className="flex flex-col gap-2">
-                                     {order.printed_quantity > 0 && <>
-                                         <div className="flex items-center gap-2">
-                                           <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                           <Badge variant="outline" className="text-xs px-2 py-1 font-medium bg-green-500/15 text-green-700 dark:text-green-300 border-green-500/30 w-fit">
-                                             <Check className="w-3 h-3 mr-1" />
-                                             Printed: {order.printed_quantity}
-                                           </Badge>
-                                         </div>
-                                         {order.quantity > order.printed_quantity && <div className="flex items-center gap-2">
-                                             <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
-                                             <Badge variant="outline" className="text-xs px-2 py-1 font-medium bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 w-fit">
-                                               Remaining: {order.quantity - order.printed_quantity}
-                                             </Badge>
-                                           </div>}
-                                       </>}
-                                   </div>
-                                 </TableCell>
 
                                  {/* Scanned Barcode Cell */}
                                  <TableCell className="border-r border-border/50 p-3">
