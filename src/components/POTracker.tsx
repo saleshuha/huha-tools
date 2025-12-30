@@ -3343,24 +3343,19 @@ export const POTracker = () => {
       setActiveTab(newTab);
     }} className="w-full">
         <TabsList className="grid w-full grid-cols-7 h-14 bg-background/60 backdrop-blur-md rounded-xl p-1.5 border border-border/20 shadow-sm">
+          <TabsTrigger value="upload" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
+            <FileUp className="h-4 w-4" />
+            Uploads
+          </TabsTrigger>
           <TabsTrigger value="overview" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
             <Package className="h-4 w-4" />
             <span className="hidden lg:inline">PO Overview</span>
             <span className="lg:hidden">Overview</span>
           </TabsTrigger>
-          <TabsTrigger value="upload" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
-            <FileUp className="h-4 w-4" />
-            Uploads
-          </TabsTrigger>
           <TabsTrigger value="labels" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
             <Printer className="h-4 w-4" />
             <span className="hidden lg:inline">Print Labels</span>
             <span className="lg:hidden">Labels</span>
-          </TabsTrigger>
-          <TabsTrigger value="purchase-links" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
-            <ExternalLink className="h-4 w-4" />
-            <span className="hidden lg:inline">Purchase Links</span>
-            <span className="lg:hidden">Links</span>
           </TabsTrigger>
           <TabsTrigger value="profit-analyzer" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
             <Calculator className="h-4 w-4" />
@@ -3376,6 +3371,11 @@ export const POTracker = () => {
             <Package className="h-4 w-4" />
             <span className="hidden lg:inline">FBA Inventory</span>
             <span className="lg:hidden">FBA</span>
+          </TabsTrigger>
+          <TabsTrigger value="purchase-links" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
+            <ExternalLink className="h-4 w-4" />
+            <span className="hidden lg:inline">Purchase Links</span>
+            <span className="lg:hidden">Links</span>
           </TabsTrigger>
         </TabsList>
 
