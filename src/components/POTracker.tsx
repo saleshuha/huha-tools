@@ -51,6 +51,8 @@ import { exportMetricToCSV, exportAllMetrics, calculateMetricPercentage } from '
 import { useTaxonomy } from '@/hooks/useTaxonomy';
 import { cn } from '@/lib/utils';
 import { useProductBarcodes, ProductBarcode } from '@/hooks/useProductBarcodes';
+import { useShippedOrders } from '@/hooks/useShippedOrders';
+import { useFBAInventory } from '@/hooks/useFBAInventory';
 export interface POOrder {
   id: string;
   user_id: string;
@@ -682,6 +684,10 @@ export const POTracker = () => {
   
   // Scanned barcodes from purchase links
   const { fetchAllBarcodes, barcodes: allBarcodes } = useProductBarcodes();
+  
+  // Shipped orders and FBA inventory lookup hooks
+  const { getShippedQty } = useShippedOrders();
+  const { getFBAQty } = useFBAInventory();
   
   // Fetch barcodes when on Labels tab
   useEffect(() => {
@@ -5570,7 +5576,7 @@ export const POTracker = () => {
                               <span className="text-foreground text-xs uppercase tracking-wider">Stock Qty</span>
                             </div>
                           </TableHead>
-                          <TableHead className={`cursor-pointer hover:bg-primary/5 select-none min-w-[300px] max-w-[400px] font-bold transition-all duration-200 border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('combined_title')}>
+                          <TableHead className={`cursor-pointer hover:bg-primary/5 select-none min-w-[250px] max-w-[350px] font-bold transition-all duration-200 border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('combined_title')}>
                             <div className="flex items-center gap-2">
                               <div className="w-2.5 h-2.5 bg-gradient-to-br from-accent to-accent/70 rounded-full shadow-sm"></div>
                               <span className="text-foreground text-xs uppercase tracking-wider">Title & ASIN</span>
@@ -5581,10 +5587,24 @@ export const POTracker = () => {
                               )}
                             </div>
                           </TableHead>
+                          {/* Shipped Qty Header - NEW */}
+                          <TableHead className="min-w-[100px] font-bold border-r border-border/10 bg-transparent py-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-violet-500 to-violet-600 rounded-full shadow-sm"></div>
+                              <span className="text-foreground text-xs uppercase tracking-wider">Shipped Qty</span>
+                            </div>
+                          </TableHead>
+                          {/* FBA Inventory Qty Header - NEW */}
+                          <TableHead className="min-w-[100px] font-bold border-r border-border/10 bg-transparent py-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-teal-500 to-teal-600 rounded-full shadow-sm"></div>
+                              <span className="text-foreground text-xs uppercase tracking-wider">FBA Inv Qty</span>
+                            </div>
+                          </TableHead>
                           <TableHead className={`cursor-pointer hover:bg-primary/5 select-none font-bold transition-all duration-200 border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('quantity')}>
                             <div className="flex items-center gap-2">
                               <div className="w-2.5 h-2.5 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full shadow-sm"></div>
-                              <span className="text-foreground text-xs uppercase tracking-wider">Qty</span>
+                              <span className="text-foreground text-xs uppercase tracking-wider">PO Qty</span>
                               {sortField === 'quantity' && !originalOrderPreserved && (
                                 <div className={`p-1 rounded-md bg-emerald-500/10 ${sortDirection === 'asc' ? 'rotate-0' : 'rotate-180'} transition-transform duration-200`}>
                                   <ChevronUp className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
@@ -5592,16 +5612,16 @@ export const POTracker = () => {
                               )}
                             </div>
                           </TableHead>
-                          <TableHead className="min-w-[160px] font-bold border-r border-border/10 bg-transparent py-4">
-                            <div className="flex items-center gap-2">
-                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full shadow-sm"></div>
-                              <span className="text-foreground text-xs uppercase tracking-wider">Print Status</span>
-                            </div>
-                          </TableHead>
                           <TableHead className="min-w-[100px] font-bold border-r border-border/10 bg-transparent py-4">
                             <div className="flex items-center gap-2">
                               <div className="w-2.5 h-2.5 bg-gradient-to-br from-sky-500 to-sky-600 rounded-full shadow-sm"></div>
                               <span className="text-foreground text-xs uppercase tracking-wider">Print Qty</span>
+                            </div>
+                          </TableHead>
+                          <TableHead className="min-w-[160px] font-bold border-r border-border/10 bg-transparent py-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2.5 h-2.5 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full shadow-sm"></div>
+                              <span className="text-foreground text-xs uppercase tracking-wider">Print Status</span>
                             </div>
                           </TableHead>
                           <TableHead className="min-w-[140px] font-bold border-r border-border/10 bg-transparent py-4 cursor-pointer hover:bg-primary/5" onClick={() => handleSort('scanned_barcode' as any)}>
@@ -6287,6 +6307,40 @@ export const POTracker = () => {
                                   </div>
                                  </TableCell>
 
+                                 {/* Shipped Qty Cell - NEW */}
+                                 <TableCell className="min-w-[100px] border-r border-border/50 p-3">
+                                   {(() => {
+                                     const shippedQty = getShippedQty(order.asin);
+                                     if (shippedQty > 0) {
+                                       return (
+                                         <Badge variant="default" className="text-xs px-2 py-1 font-medium font-mono bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30">
+                                           {shippedQty.toLocaleString()}
+                                         </Badge>
+                                       );
+                                     }
+                                     return (
+                                       <span className="text-xs text-muted-foreground">-</span>
+                                     );
+                                   })()}
+                                 </TableCell>
+
+                                 {/* FBA Inventory Qty Cell - NEW */}
+                                 <TableCell className="min-w-[100px] border-r border-border/50 p-3">
+                                   {(() => {
+                                     const fbaQty = getFBAQty(order.asin);
+                                     if (fbaQty > 0) {
+                                       return (
+                                         <Badge variant="default" className="text-xs px-2 py-1 font-medium font-mono bg-teal-500/15 text-teal-700 dark:text-teal-300 border border-teal-500/30">
+                                           {fbaQty.toLocaleString()}
+                                         </Badge>
+                                       );
+                                     }
+                                     return (
+                                       <span className="text-xs text-muted-foreground">-</span>
+                                     );
+                                   })()}
+                                 </TableCell>
+
 
                                     {/* Enhanced Quantity Cell with PO Numbers */}
                                     <TableCell className="border-r border-border/50 p-3">
@@ -6407,7 +6461,45 @@ export const POTracker = () => {
                                      </div>
                                    </TableCell>
 
-                                   {/* Merged Print Status Cell */}
+                                     {/* Enhanced Print Qty Cell - MOVED BEFORE Print Status */}
+                                     <TableCell className="w-24 border-r border-border/50 p-3">
+                                      <div className="flex items-center gap-2">
+                                        {(() => {
+                                  // Check if this item (or its consolidated items) are selected
+                                  const isSelected = order._isConsolidated ? order._consolidatedOrders.some((o: any) => selectedForPrint.has(o.id)) : selectedForPrint.has(order.id);
+
+                                  // Calculate available quantity (total - already printed)
+                                  const availableQty = order.quantity - (order.printed_quantity || 0);
+                                  const maxQty = Math.max(1, availableQty);
+
+                                  // Get custom quantity or default to 1 when selected
+                                  const qtyValue = customPrintQuantities.get(order.id) || (isSelected ? 1 : '');
+                                  return <>
+                                              <Input type="number" min="1" max={maxQty} placeholder="Qty" className="w-16 h-8 text-center bg-background border-2 border-border focus:border-primary group-hover:border-primary/50 transition-colors font-mono text-foreground" value={isSelected ? qtyValue : ''} onChange={e => {
+                                      const value = parseInt(e.target.value) || 1;
+                                      const clampedValue = Math.min(Math.max(1, value), maxQty);
+                                      console.log('📝 Custom qty changed:', {
+                                        value,
+                                        clampedValue,
+                                        maxQty,
+                                        availableQty
+                                      });
+                                      if (isSelected) {
+                                        setCustomPrintQuantities(prev => {
+                                          const newMap = new Map(prev);
+                                          newMap.set(order.id, clampedValue);
+                                          return newMap;
+                                        });
+                                      }
+                                    }} disabled={!isSelected || printingItems.has(order.id) || availableQty <= 0} />
+                                              {!isSelected && <span className="text-xs text-muted-foreground whitespace-nowrap">Select first</span>}
+                                              {isSelected && availableQty <= 0 && <span className="text-xs text-orange-500 whitespace-nowrap">All printed</span>}
+                                            </>;
+                                })()}
+                                      </div>
+                                    </TableCell>
+
+                                   {/* Merged Print Status Cell - MOVED AFTER Print Qty */}
                                    <TableCell className="min-w-[160px] border-r border-border/50 p-3">
                                      <div className="flex flex-col gap-2">
                                        {order.printed_quantity > 0 ? order.printed_quantity >= order.quantity ? (
@@ -6452,44 +6544,6 @@ export const POTracker = () => {
                                        )}
                                      </div>
                                    </TableCell>
-
-                                     {/* Enhanced Print Qty Cell */}
-                                     <TableCell className="w-24 border-r border-border/50 p-3">
-                                      <div className="flex items-center gap-2">
-                                        {(() => {
-                                  // Check if this item (or its consolidated items) are selected
-                                  const isSelected = order._isConsolidated ? order._consolidatedOrders.some((o: any) => selectedForPrint.has(o.id)) : selectedForPrint.has(order.id);
-
-                                  // Calculate available quantity (total - already printed)
-                                  const availableQty = order.quantity - (order.printed_quantity || 0);
-                                  const maxQty = Math.max(1, availableQty);
-
-                                  // Get custom quantity or default to 1 when selected
-                                  const qtyValue = customPrintQuantities.get(order.id) || (isSelected ? 1 : '');
-                                  return <>
-                                              <Input type="number" min="1" max={maxQty} placeholder="Qty" className="w-16 h-8 text-center bg-background border-2 border-border focus:border-primary group-hover:border-primary/50 transition-colors font-mono text-foreground" value={isSelected ? qtyValue : ''} onChange={e => {
-                                      const value = parseInt(e.target.value) || 1;
-                                      const clampedValue = Math.min(Math.max(1, value), maxQty);
-                                      console.log('📝 Custom qty changed:', {
-                                        value,
-                                        clampedValue,
-                                        maxQty,
-                                        availableQty
-                                      });
-                                      if (isSelected) {
-                                        setCustomPrintQuantities(prev => {
-                                          const newMap = new Map(prev);
-                                          newMap.set(order.id, clampedValue);
-                                          return newMap;
-                                        });
-                                      }
-                                    }} disabled={!isSelected || printingItems.has(order.id) || availableQty <= 0} />
-                                              {!isSelected && <span className="text-xs text-muted-foreground whitespace-nowrap">Select first</span>}
-                                              {isSelected && availableQty <= 0 && <span className="text-xs text-orange-500 whitespace-nowrap">All printed</span>}
-                                            </>;
-                                })()}
-                                      </div>
-                                    </TableCell>
 
                                  {/* Scanned Barcode Cell */}
                                  <TableCell className="border-r border-border/50 p-3">
