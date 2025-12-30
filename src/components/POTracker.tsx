@@ -150,7 +150,8 @@ export const POTracker = () => {
   const [filterPrintStatus, setFilterPrintStatus] = useState<'all' | 'pending' | 'printed'>('all');
 
   // Column resize hook for persistent column widths
-  const { columnWidths, setColumnWidth, resetToDefaults, getColumnStyle } = useResizableColumns();
+  const { columnWidths, setColumnWidth, resetToDefaults, getColumnStyle } = useResizableColumns('labels');
+  const { columnWidths: overviewColumnWidths, setColumnWidth: setOverviewColumnWidth, resetToDefaults: resetOverviewToDefaults, getColumnStyle: getOverviewColumnStyle } = useResizableColumns('overview');
 
   // Multi-tag search state
   const [searchTags, setSearchTags] = useState<string[]>([]);
@@ -3836,22 +3837,61 @@ export const POTracker = () => {
                         </TableBody>
                       </Table>
                     </div> : <div className="overflow-x-auto">
-                      <Table>
+                      <Table className="table-fixed">
                         <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm z-10">
                           <TableRow className="hover:bg-transparent border-b-2">
-                            <TableHead className="w-[80px]">Image</TableHead>
-                            <SortableTableHeader label="PO Number" sortKey="po_number" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
-                            <SortableTableHeader label="Ship To" sortKey="ship_to_location" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
-                            <SortableTableHeader label="ASIN" sortKey="asin" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
-                            <SortableTableHeader label="Model/SKU" sortKey="sku_code" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
-                            <SortableTableHeader label="Title" sortKey="title" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
-                            <SortableTableHeader label="Quantity" sortKey="quantity" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
-                            <SortableTableHeader label="Status" sortKey="status" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
-                            <TableHead>Match Details</TableHead>
-                            <TableHead>Placement Ready</TableHead>
-                            <SortableTableHeader label="In-Stock Qty" sortKey="instock_qty" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
-                            <SortableTableHeader label="Cost" sortKey="unit_cost" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
-                            <TableHead>Actions</TableHead>
+                            <TableHead className="relative" style={getOverviewColumnStyle('image')}>
+                              Image
+                              <ColumnResizeHandle columnId="image" currentWidth={overviewColumnWidths.image} onResize={setOverviewColumnWidth} />
+                            </TableHead>
+                            <TableHead className="relative" style={getOverviewColumnStyle('poNumber')}>
+                              <SortableTableHeader label="PO Number" sortKey="po_number" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
+                              <ColumnResizeHandle columnId="poNumber" currentWidth={overviewColumnWidths.poNumber} onResize={setOverviewColumnWidth} />
+                            </TableHead>
+                            <TableHead className="relative" style={getOverviewColumnStyle('shipTo')}>
+                              <SortableTableHeader label="Ship To" sortKey="ship_to_location" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
+                              <ColumnResizeHandle columnId="shipTo" currentWidth={overviewColumnWidths.shipTo} onResize={setOverviewColumnWidth} />
+                            </TableHead>
+                            <TableHead className="relative" style={getOverviewColumnStyle('asin')}>
+                              <SortableTableHeader label="ASIN" sortKey="asin" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
+                              <ColumnResizeHandle columnId="asin" currentWidth={overviewColumnWidths.asin} onResize={setOverviewColumnWidth} />
+                            </TableHead>
+                            <TableHead className="relative" style={getOverviewColumnStyle('modelSku')}>
+                              <SortableTableHeader label="Model/SKU" sortKey="sku_code" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
+                              <ColumnResizeHandle columnId="modelSku" currentWidth={overviewColumnWidths.modelSku} onResize={setOverviewColumnWidth} />
+                            </TableHead>
+                            <TableHead className="relative" style={getOverviewColumnStyle('title')}>
+                              <SortableTableHeader label="Title" sortKey="title" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
+                              <ColumnResizeHandle columnId="title" currentWidth={overviewColumnWidths.title} onResize={setOverviewColumnWidth} />
+                            </TableHead>
+                            <TableHead className="relative" style={getOverviewColumnStyle('quantity')}>
+                              <SortableTableHeader label="Quantity" sortKey="quantity" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
+                              <ColumnResizeHandle columnId="quantity" currentWidth={overviewColumnWidths.quantity} onResize={setOverviewColumnWidth} />
+                            </TableHead>
+                            <TableHead className="relative" style={getOverviewColumnStyle('status')}>
+                              <SortableTableHeader label="Status" sortKey="status" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
+                              <ColumnResizeHandle columnId="status" currentWidth={overviewColumnWidths.status} onResize={setOverviewColumnWidth} />
+                            </TableHead>
+                            <TableHead className="relative" style={getOverviewColumnStyle('matchDetails')}>
+                              Match Details
+                              <ColumnResizeHandle columnId="matchDetails" currentWidth={overviewColumnWidths.matchDetails} onResize={setOverviewColumnWidth} />
+                            </TableHead>
+                            <TableHead className="relative" style={getOverviewColumnStyle('placementReady')}>
+                              Placement Ready
+                              <ColumnResizeHandle columnId="placementReady" currentWidth={overviewColumnWidths.placementReady} onResize={setOverviewColumnWidth} />
+                            </TableHead>
+                            <TableHead className="relative" style={getOverviewColumnStyle('instockQty')}>
+                              <SortableTableHeader label="In-Stock Qty" sortKey="instock_qty" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
+                              <ColumnResizeHandle columnId="instockQty" currentWidth={overviewColumnWidths.instockQty} onResize={setOverviewColumnWidth} />
+                            </TableHead>
+                            <TableHead className="relative" style={getOverviewColumnStyle('cost')}>
+                              <SortableTableHeader label="Cost" sortKey="unit_cost" currentSort={sortField} currentDirection={sortDirection} onSort={handleSort} />
+                              <ColumnResizeHandle columnId="cost" currentWidth={overviewColumnWidths.cost} onResize={setOverviewColumnWidth} />
+                            </TableHead>
+                            <TableHead className="relative" style={getOverviewColumnStyle('actions')}>
+                              Actions
+                              <ColumnResizeHandle columnId="actions" currentWidth={overviewColumnWidths.actions} onResize={setOverviewColumnWidth} />
+                            </TableHead>
                           </TableRow>
                         </TableHeader>
                        <TableBody>
@@ -3864,14 +3904,14 @@ export const POTracker = () => {
                         return <TableRow key={order.id} className={`
                                   ${isClosedOrder ? 'opacity-50 bg-muted/40 pointer-events-none cursor-not-allowed' : 'hover:bg-muted/10 transition-colors'}
                                 `}>
-                             <TableCell>
+                             <TableCell style={getOverviewColumnStyle('image')}>
                                <div className={`w-10 h-10 bg-muted rounded border flex items-center justify-center ${isClosedOrder ? 'opacity-50' : ''}`}>
                                  <svg className="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                  </svg>
                                </div>
                              </TableCell>
-                             <TableCell className="font-medium">
+                             <TableCell className="font-medium" style={getOverviewColumnStyle('poNumber')}>
                                   <div className="flex items-center gap-2">
                                     <span className="text-xs opacity-60">{countryPrefix}</span>
                                     <Button variant="link" className={`p-0 h-auto font-medium text-left justify-start ${isClosedOrder ? 'cursor-not-allowed' : ''}`} onClick={isClosedOrder ? undefined : () => navigate(`/po-details/${order.po_number}`)} disabled={isClosedOrder}>
@@ -3883,36 +3923,36 @@ export const POTracker = () => {
                                        </Badge>}
                                   </div>
                              </TableCell>
-                             <TableCell>
-                               <div className="text-sm text-muted-foreground">
+                             <TableCell style={getOverviewColumnStyle('shipTo')}>
+                               <div className="text-sm text-muted-foreground truncate">
                                  {order.ship_to_location || '-'}
                                </div>
                              </TableCell>
-                             <TableCell>
-                               <span className="text-sm">{order.asin || '-'}</span>
+                             <TableCell style={getOverviewColumnStyle('asin')}>
+                               <span className="text-sm truncate">{order.asin || '-'}</span>
                              </TableCell>
-                             <TableCell>
+                             <TableCell style={getOverviewColumnStyle('modelSku')}>
                                <div className="space-y-1">
-                                 {order.model_number && <div className="text-sm font-medium">{order.model_number}</div>}
-                                 {order.sku_code && order.sku_code !== order.model_number && <div className="text-xs text-muted-foreground">{order.sku_code}</div>}
+                                 {order.model_number && <div className="text-sm font-medium truncate">{order.model_number}</div>}
+                                 {order.sku_code && order.sku_code !== order.model_number && <div className="text-xs text-muted-foreground truncate">{order.sku_code}</div>}
                                </div>
                              </TableCell>
-                             <TableCell>
-                               <div className="max-w-[200px] truncate text-sm" title={order.title}>
+                             <TableCell style={getOverviewColumnStyle('title')}>
+                               <div className="truncate text-sm" title={order.title}>
                                  {order.title || '-'}
                                </div>
                              </TableCell>
-                            <TableCell>
+                            <TableCell style={getOverviewColumnStyle('quantity')}>
                               <Badge variant="secondary" className="font-mono">
                                 {order.quantity}
                               </Badge>
                             </TableCell>
-                               <TableCell>
+                               <TableCell style={getOverviewColumnStyle('status')}>
                                   <Badge variant={order.status === 'received' ? 'default' : order.status === 'placed' ? 'secondary' : order.status === 'pending' ? 'destructive' : order.status === 'closed' ? 'secondary' : 'outline'}>
                                    {order.status}
                                  </Badge>
                                </TableCell>
-                            <TableCell>
+                            <TableCell style={getOverviewColumnStyle('matchDetails')}>
                               {inventoryMatch && inventoryMatch.type === 'SUNSKY' ? <div className="flex flex-col gap-1">
                                   <Badge variant="outline" className="bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/50">
                                     Source
@@ -3927,7 +3967,7 @@ export const POTracker = () => {
                                   No Source match
                                 </Badge>}
                             </TableCell>
-                            <TableCell>
+                            <TableCell style={getOverviewColumnStyle('placementReady')}>
                               {canPlaceOrder ? <div className="flex items-center gap-1">
                                   <Badge variant="default" className="bg-green-500 hover:bg-green-600">
                                     Ready
@@ -3937,7 +3977,7 @@ export const POTracker = () => {
                                   Placed
                                 </Badge> : !inventoryMatch ? <Badge variant="destructive">No Source</Badge> : <Badge variant="outline" className="text-muted-foreground">Not Pending</Badge>}
                             </TableCell>
-                            <TableCell>
+                            <TableCell style={getOverviewColumnStyle('instockQty')}>
                               {(() => {
                               const inventoryMatch = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku);
                               if (inventoryMatch && inventoryMatch.status === 'in-stock') {
@@ -3955,7 +3995,7 @@ export const POTracker = () => {
                               }
                             })()}
                             </TableCell>
-                            <TableCell>
+                            <TableCell style={getOverviewColumnStyle('cost')}>
                               <div className="space-y-1">
                                 {order.unit_cost && <div className="text-sm font-medium">
                                     {order.currency} {order.unit_cost}
@@ -3965,7 +4005,7 @@ export const POTracker = () => {
                                   </div>}
                               </div>
                             </TableCell>
-                                <TableCell>
+                                <TableCell style={getOverviewColumnStyle('actions')}>
                                   <div className="flex items-center gap-1">
                                     <Button variant="ghost" size="sm" onClick={() => {
                                 setPrintMode('single');
