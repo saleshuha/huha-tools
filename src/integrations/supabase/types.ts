@@ -2977,6 +2977,53 @@ export type Database = {
         }
         Relationships: []
       }
+      purchase_link_activity: {
+        Row: {
+          activity_type: string
+          created_at: string | null
+          details: Json | null
+          id: string
+          ip_address: string | null
+          link_id: string | null
+          user_agent: string | null
+          user_id: string | null
+          vendor_email: string | null
+          vendor_name: string | null
+        }
+        Insert: {
+          activity_type: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          ip_address?: string | null
+          link_id?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+          vendor_email?: string | null
+          vendor_name?: string | null
+        }
+        Update: {
+          activity_type?: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          ip_address?: string | null
+          link_id?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+          vendor_email?: string | null
+          vendor_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_link_activity_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       purchase_links: {
         Row: {
           access_count: number | null
@@ -2988,8 +3035,10 @@ export type Database = {
           last_accessed_at: string | null
           link_token: string
           metadata: Json | null
+          password_hash: string | null
           po_numbers: string[]
           title: string | null
+          total_updates_count: number | null
           updated_at: string
           user_id: string
         }
@@ -3003,8 +3052,10 @@ export type Database = {
           last_accessed_at?: string | null
           link_token: string
           metadata?: Json | null
+          password_hash?: string | null
           po_numbers: string[]
           title?: string | null
+          total_updates_count?: number | null
           updated_at?: string
           user_id: string
         }
@@ -3018,8 +3069,10 @@ export type Database = {
           last_accessed_at?: string | null
           link_token?: string
           metadata?: Json | null
+          password_hash?: string | null
           po_numbers?: string[]
           title?: string | null
+          total_updates_count?: number | null
           updated_at?: string
           user_id?: string
         }
@@ -3030,6 +3083,7 @@ export type Database = {
           asin: string | null
           created_at: string
           estimated_delivery: string | null
+          estimated_delivery_date: string | null
           id: string
           link_id: string
           metadata: Json | null
@@ -3047,11 +3101,14 @@ export type Database = {
           updated_at: string
           updated_by_email: string | null
           updated_by_name: string | null
+          vendor_email: string | null
+          vendor_name: string | null
         }
         Insert: {
           asin?: string | null
           created_at?: string
           estimated_delivery?: string | null
+          estimated_delivery_date?: string | null
           id?: string
           link_id: string
           metadata?: Json | null
@@ -3069,11 +3126,14 @@ export type Database = {
           updated_at?: string
           updated_by_email?: string | null
           updated_by_name?: string | null
+          vendor_email?: string | null
+          vendor_name?: string | null
         }
         Update: {
           asin?: string | null
           created_at?: string
           estimated_delivery?: string | null
+          estimated_delivery_date?: string | null
           id?: string
           link_id?: string
           metadata?: Json | null
@@ -3091,6 +3151,8 @@ export type Database = {
           updated_at?: string
           updated_by_email?: string | null
           updated_by_name?: string | null
+          vendor_email?: string | null
+          vendor_name?: string | null
         }
         Relationships: [
           {
