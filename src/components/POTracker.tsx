@@ -5556,7 +5556,7 @@ export const POTracker = () => {
                               <span className="text-foreground text-xs uppercase tracking-wider">Image</span>
                             </div>
                           </TableHead>
-                          <TableHead className={`cursor-pointer hover:bg-primary/5 select-none min-w-[350px] max-w-[450px] font-bold transition-all duration-200 border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('combined_title')}>
+                          <TableHead className={`cursor-pointer hover:bg-primary/5 select-none min-w-[450px] max-w-[600px] font-bold transition-all duration-200 border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('combined_title')}>
                             <div className="flex items-center gap-2">
                               <div className="w-2.5 h-2.5 bg-gradient-to-br from-primary to-primary/70 rounded-full shadow-sm"></div>
                               <span className="text-foreground text-xs uppercase tracking-wider">Product Info</span>
@@ -6058,7 +6058,7 @@ export const POTracker = () => {
                                 </TableCell>
 
                                  {/* Product Info Cell - Merged Title, ASIN, SKU/Model, Match Status */}
-                                 <TableCell className="min-w-[350px] max-w-[450px] border-r border-border/50 p-3">
+                                 <TableCell className="min-w-[450px] max-w-[600px] border-r border-border/50 p-3">
                                    <div className="flex flex-col gap-2">
                                      {/* Title - Full width, prominent */}
                                      <div className="text-sm font-medium break-words text-foreground group-hover:text-primary/80 transition-colors line-clamp-2" title={order.title}>
@@ -6066,10 +6066,10 @@ export const POTracker = () => {
                                      </div>
                                      
                                      {/* Second row: ASIN, SKU/Model, Match Status */}
-                                     <div className="flex flex-wrap items-center gap-1.5">
+                                     <div className="flex items-center gap-1.5 overflow-x-auto">
                                        {/* ASIN Badge */}
                                        {order.asin && (
-                                         <Badge variant="outline" className="text-xs px-2 py-0.5 font-medium font-mono bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30">
+                                         <Badge variant="outline" className="text-xs px-1.5 py-0.5 font-medium font-mono bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30 whitespace-nowrap">
                                            <div className="w-1.5 h-1.5 bg-cyan-500 rounded-full mr-1.5"></div>
                                            {order.asin}
                                          </Badge>
@@ -6077,26 +6077,26 @@ export const POTracker = () => {
                                        
                                        {/* SKU Badge */}
                                        {order.sku_code && (
-                                         <Badge variant="outline" className="text-xs px-2 py-0.5 font-medium font-mono bg-primary/10 text-primary border-primary/20">
+                                         <Badge variant="outline" className="text-xs px-1.5 py-0.5 font-medium font-mono bg-primary/10 text-primary border-primary/20 whitespace-nowrap">
                                            SKU: {order.sku_code}
                                          </Badge>
                                        )}
                                        
                                        {/* Model Badge (if different from SKU) */}
                                        {order.model_number && order.model_number !== order.sku_code && (
-                                         <Badge variant="outline" className="text-xs px-2 py-0.5 font-medium font-mono bg-accent/10 text-accent border-accent/20">
+                                         <Badge variant="outline" className="text-xs px-1.5 py-0.5 font-medium font-mono bg-accent/10 text-accent-foreground border-accent/20 whitespace-nowrap">
                                            Model: {order.model_number}
                                          </Badge>
                                        )}
                                        
                                        {/* Match Status Badge */}
                                        {order.sunsky_sku && (order.sunsky_sku.sku_code || order.sunsky_sku.id) ? (
-                                         <Badge variant="outline" className="text-xs px-2 py-0.5 font-medium bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30">
+                                         <Badge variant="outline" className="text-xs px-1.5 py-0.5 font-medium bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30 whitespace-nowrap">
                                            <Check className="h-3 w-3 mr-1" />
                                            Matched
                                          </Badge>
                                        ) : (
-                                         <Badge variant="outline" className="text-xs px-2 py-0.5 font-medium bg-gray-500/15 text-gray-700 dark:text-gray-300 border-gray-500/30">
+                                         <Badge variant="outline" className="text-xs px-1.5 py-0.5 font-medium bg-gray-500/15 text-gray-700 dark:text-gray-300 border-gray-500/30 whitespace-nowrap">
                                            <Info className="h-3 w-3 mr-1" />
                                            No Match
                                          </Badge>
@@ -6104,7 +6104,7 @@ export const POTracker = () => {
                                        
                                        {/* Consolidation Badge (if applicable) */}
                                        {order._isConsolidated && (
-                                         <Badge variant="secondary" className="text-xs px-2 py-0.5 font-medium bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30">
+                                         <Badge variant="secondary" className="text-xs px-1.5 py-0.5 font-medium bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 whitespace-nowrap">
                                            <Package className="w-3 h-3 mr-1" />
                                            {order._consolidatedOrders.length} SKUs
                                          </Badge>
