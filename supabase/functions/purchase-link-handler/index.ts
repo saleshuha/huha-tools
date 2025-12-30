@@ -180,7 +180,7 @@ serve(async (req) => {
         );
       }
       
-      // Upsert purchase update
+      // Upsert purchase update with vendor and supplier details
       const { data, error } = await supabaseClient
         .from('purchase_updates')
         .upsert({
@@ -194,11 +194,11 @@ serve(async (req) => {
           purchased_quantity: updateData.purchasedQuantity || 0,
           supplier_name: updateData.supplierName,
           supplier_order_number: updateData.supplierOrderNumber,
-          estimated_delivery: updateData.estimatedDelivery,
+          estimated_delivery_date: updateData.estimatedDeliveryDate,
           unit_cost: updateData.unitCost,
           total_cost: updateData.totalCost,
-          updated_by_name: updateData.updatedByName,
-          updated_by_email: updateData.updatedByEmail,
+          vendor_name: updateData.vendorName,
+          vendor_email: updateData.vendorEmail,
           notes: updateData.notes,
           metadata: updateData.metadata || {},
           updated_at: new Date().toISOString()
@@ -207,6 +207,22 @@ serve(async (req) => {
         })
         .select()
         .single();
+      
+      // Log activity
+      await supabaseClient
+        .from('purchase_link_activity')
+        .insert({
+          link_id: link.id,
+          activity_type: 'update',
+          vendor_name: updateData.vendorName,
+          vendor_email: updateData.vendorEmail,
+          details: {
+            po_order_id: updateData.poOrderId,
+            po_number: updateData.poNumber,
+            purchased_quantity: updateData.purchasedQuantity,
+            not_available: updateData.metadata?.not_available
+          }
+        });
       
       if (error) {
         console.error('Error saving update:', error);
