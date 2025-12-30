@@ -16,7 +16,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
-import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, FileText, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, Copy, CheckCircle2, Info, TrendingDown, Check, XCircle, Calculator, ClipboardList } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, FileText, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, Copy, CheckCircle2, Info, TrendingDown, Check, XCircle, Calculator, ClipboardList, RotateCcw, GripVertical } from 'lucide-react';
+import { useResizableColumns } from '@/hooks/useResizableColumns';
+import { ColumnResizeHandle } from '@/components/po/ColumnResizeHandle';
 import { SortableTableHeader } from '@/components/order-processing/SortableTableHeader';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -146,6 +148,9 @@ export const POTracker = () => {
   const [labelItemsPerPage, setLabelItemsPerPage] = useState(20);
   const [consolidatedViewMode, setConsolidatedViewMode] = useState<'merged' | 'detailed'>('merged');
   const [filterPrintStatus, setFilterPrintStatus] = useState<'all' | 'pending' | 'printed'>('all');
+
+  // Column resize hook for persistent column widths
+  const { columnWidths, setColumnWidth, resetToDefaults, getColumnStyle } = useResizableColumns();
 
   // Multi-tag search state
   const [searchTags, setSearchTags] = useState<string[]>([]);
@@ -5533,6 +5538,28 @@ export const POTracker = () => {
                             Clear
                           </Button>}
                       </div>
+
+                      {/* Vertical Divider */}
+                      <div className="h-8 w-px bg-border" />
+
+                      {/* Reset Column Widths Button */}
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={resetToDefaults}
+                              className="h-8 w-8 p-0 hover:bg-muted"
+                            >
+                              <RotateCcw className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Reset column widths to default</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
                   </div>
                   
@@ -5541,22 +5568,24 @@ export const POTracker = () => {
                     <Table className="w-full table-fixed">
                       <TableHeader className="bg-gradient-to-r from-muted/40 via-muted/30 to-muted/40 backdrop-blur-md sticky top-0 z-10">
                         <TableRow className="border-b-2 border-border/30">
-                          <TableHead className="w-12 font-bold border-r border-border/10 bg-transparent py-4">
+                          <TableHead className="relative font-bold border-r border-border/10 bg-transparent py-4" style={getColumnStyle('checkbox')}>
                             <div className="flex items-center justify-center">
                               <div className="p-1.5 bg-primary/10 rounded-lg">
                                 <CheckSquare className="h-4 w-4 text-primary" />
                               </div>
                             </div>
+                            <ColumnResizeHandle columnId="checkbox" currentWidth={columnWidths.checkbox} onResize={setColumnWidth} />
                           </TableHead>
-                          <TableHead className="w-20 font-bold border-r border-border/10 bg-transparent py-4">
+                          <TableHead className="relative font-bold border-r border-border/10 bg-transparent py-4" style={getColumnStyle('image')}>
                             <div className="flex items-center gap-2">
                               <div className="p-1 bg-muted/50 rounded">
                                 <ImageIcon className="h-4 w-4 text-muted-foreground" />
                               </div>
                               <span className="text-foreground text-xs uppercase tracking-wider">Image</span>
                             </div>
+                            <ColumnResizeHandle columnId="image" currentWidth={columnWidths.image} onResize={setColumnWidth} />
                           </TableHead>
-                          <TableHead className={`cursor-pointer hover:bg-primary/5 select-none min-w-[550px] max-w-[750px] font-bold transition-all duration-200 border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('combined_title')}>
+                          <TableHead className={`relative cursor-pointer hover:bg-primary/5 select-none font-bold transition-all duration-200 border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} style={getColumnStyle('productInfo')} onClick={() => !originalOrderPreserved && handleSort('combined_title')}>
                             <div className="flex items-center gap-2">
                               <div className="w-2.5 h-2.5 bg-gradient-to-br from-primary to-primary/70 rounded-full shadow-sm"></div>
                               <span className="text-foreground text-xs uppercase tracking-wider">Product Info</span>
@@ -5569,28 +5598,32 @@ export const POTracker = () => {
                                 <Badge variant="outline" className="text-[10px] ml-auto bg-muted/50">Original</Badge>
                               )}
                             </div>
+                            <ColumnResizeHandle columnId="productInfo" currentWidth={columnWidths.productInfo} onResize={setColumnWidth} />
                           </TableHead>
-                          <TableHead className="min-w-[120px] font-bold border-r border-border/10 bg-transparent py-4">
+                          <TableHead className="relative font-bold border-r border-border/10 bg-transparent py-4" style={getColumnStyle('stockQty')}>
                             <div className="flex items-center gap-2">
                               <div className="w-2.5 h-2.5 bg-gradient-to-br from-green-500 to-green-600 rounded-full shadow-sm"></div>
                               <span className="text-foreground text-xs uppercase tracking-wider">Stock Qty</span>
                             </div>
+                            <ColumnResizeHandle columnId="stockQty" currentWidth={columnWidths.stockQty} onResize={setColumnWidth} />
                           </TableHead>
                           {/* Shipped Qty Header - NEW */}
-                          <TableHead className="min-w-[100px] font-bold border-r border-border/10 bg-transparent py-4">
+                          <TableHead className="relative font-bold border-r border-border/10 bg-transparent py-4" style={getColumnStyle('shippedQty')}>
                             <div className="flex items-center gap-2">
                               <div className="w-2.5 h-2.5 bg-gradient-to-br from-violet-500 to-violet-600 rounded-full shadow-sm"></div>
                               <span className="text-foreground text-xs uppercase tracking-wider">Shipped Qty</span>
                             </div>
+                            <ColumnResizeHandle columnId="shippedQty" currentWidth={columnWidths.shippedQty} onResize={setColumnWidth} />
                           </TableHead>
                           {/* FBA Inventory Qty Header - NEW */}
-                          <TableHead className="min-w-[100px] font-bold border-r border-border/10 bg-transparent py-4">
+                          <TableHead className="relative font-bold border-r border-border/10 bg-transparent py-4" style={getColumnStyle('fbaInvQty')}>
                             <div className="flex items-center gap-2">
                               <div className="w-2.5 h-2.5 bg-gradient-to-br from-teal-500 to-teal-600 rounded-full shadow-sm"></div>
                               <span className="text-foreground text-xs uppercase tracking-wider">FBA Inv Qty</span>
                             </div>
+                            <ColumnResizeHandle columnId="fbaInvQty" currentWidth={columnWidths.fbaInvQty} onResize={setColumnWidth} />
                           </TableHead>
-                          <TableHead className={`cursor-pointer hover:bg-primary/5 select-none font-bold transition-all duration-200 border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('quantity')}>
+                          <TableHead className={`relative cursor-pointer hover:bg-primary/5 select-none font-bold transition-all duration-200 border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} style={getColumnStyle('poQty')} onClick={() => !originalOrderPreserved && handleSort('quantity')}>
                             <div className="flex items-center gap-2">
                               <div className="w-2.5 h-2.5 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full shadow-sm"></div>
                               <span className="text-foreground text-xs uppercase tracking-wider">PO Qty</span>
@@ -5600,20 +5633,23 @@ export const POTracker = () => {
                                 </div>
                               )}
                             </div>
+                            <ColumnResizeHandle columnId="poQty" currentWidth={columnWidths.poQty} onResize={setColumnWidth} />
                           </TableHead>
-                          <TableHead className="min-w-[100px] font-bold border-r border-border/10 bg-transparent py-4">
+                          <TableHead className="relative font-bold border-r border-border/10 bg-transparent py-4" style={getColumnStyle('printQty')}>
                             <div className="flex items-center gap-2">
                               <div className="w-2.5 h-2.5 bg-gradient-to-br from-sky-500 to-sky-600 rounded-full shadow-sm"></div>
                               <span className="text-foreground text-xs uppercase tracking-wider">Print Qty</span>
                             </div>
+                            <ColumnResizeHandle columnId="printQty" currentWidth={columnWidths.printQty} onResize={setColumnWidth} />
                           </TableHead>
-                          <TableHead className="min-w-[160px] font-bold border-r border-border/10 bg-transparent py-4">
+                          <TableHead className="relative font-bold border-r border-border/10 bg-transparent py-4" style={getColumnStyle('printStatus')}>
                             <div className="flex items-center gap-2">
                               <div className="w-2.5 h-2.5 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full shadow-sm"></div>
                               <span className="text-foreground text-xs uppercase tracking-wider">Print Status</span>
                             </div>
+                            <ColumnResizeHandle columnId="printStatus" currentWidth={columnWidths.printStatus} onResize={setColumnWidth} />
                           </TableHead>
-                          <TableHead className="min-w-[140px] font-bold border-r border-border/10 bg-transparent py-4 cursor-pointer hover:bg-primary/5" onClick={() => handleSort('scanned_barcode' as any)}>
+                          <TableHead className="relative font-bold border-r border-border/10 bg-transparent py-4 cursor-pointer hover:bg-primary/5" style={getColumnStyle('scannedBarcode')} onClick={() => handleSort('scanned_barcode' as any)}>
                             <div className="flex items-center gap-2">
                               <div className="w-2.5 h-2.5 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full shadow-sm"></div>
                               <span className="text-foreground text-xs uppercase tracking-wider">Scanned Barcode</span>
@@ -5639,12 +5675,14 @@ export const POTracker = () => {
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </div>
+                            <ColumnResizeHandle columnId="scannedBarcode" currentWidth={columnWidths.scannedBarcode} onResize={setColumnWidth} />
                           </TableHead>
-                          <TableHead className="min-w-[100px] font-bold bg-transparent py-4">
+                          <TableHead className="relative font-bold bg-transparent py-4" style={getColumnStyle('actions')}>
                             <div className="flex items-center gap-2">
                               <div className="w-2.5 h-2.5 bg-gradient-to-br from-gray-400 to-gray-500 rounded-full shadow-sm"></div>
                               <span className="text-foreground text-xs uppercase tracking-wider">Actions</span>
                             </div>
+                            <ColumnResizeHandle columnId="actions" currentWidth={columnWidths.actions} onResize={setColumnWidth} />
                           </TableHead>
                         </TableRow>
                       </TableHeader>
@@ -5924,7 +5962,7 @@ export const POTracker = () => {
                         return <React.Fragment key={order.id}>
                               <TableRow className={`group hover:bg-gradient-to-r hover:from-primary/10 hover:to-accent/10 transition-all duration-300 border-b border-border ${selectedForPrint.has(order.id) ? 'bg-primary/10 border-primary/30' : ''} ${order.printed_quantity >= order.quantity ? 'bg-green-50 dark:bg-green-950/20' : ''} ${order._partiallyPrinted ? 'bg-yellow-50 dark:bg-yellow-950/20' : ''} ${index % 2 === 0 ? 'bg-background' : 'bg-muted/30'}`}>
                                 {/* Enhanced Checkbox Cell */}
-                                <TableCell className="w-12 border-r border-border/50 bg-background/50">
+                                <TableCell className="border-r border-border/50 bg-background/50" style={getColumnStyle('checkbox')}>
                                    <div className="flex items-center justify-center">
                                      <Checkbox checked={order._isConsolidated ? order._consolidatedOrders && order._consolidatedOrders.length > 0 ? order._consolidatedOrders.every((o: any) => selectedForPrint.has(o.id)) : selectedForPrint.has(order.id) : selectedForPrint.has(order.id)} onCheckedChange={checked => {
                                   const newSelected = new Map(selectedForPrint);
@@ -6021,7 +6059,7 @@ export const POTracker = () => {
                                 </TableCell>
 
                                  {/* Enhanced Image Cell */}
-                                 <TableCell className="w-20 border-r border-border/50 p-3">
+                                 <TableCell className="border-r border-border/50 p-3" style={getColumnStyle('image')}>
                                    {(() => {
                                 const productImage = order.asin ? getImageByAsin(order.asin) : null;
                                 console.log('🖼️ Image lookup for ASIN:', order.asin, 'Found:', !!productImage, 'URL:', productImage?.image_url);
@@ -6058,7 +6096,7 @@ export const POTracker = () => {
                                 </TableCell>
 
                                  {/* Product Info Cell - Merged Title, ASIN, SKU/Model, Match Status */}
-                                 <TableCell className="min-w-[550px] max-w-[750px] border-r border-border/50 p-3">
+                                 <TableCell className="border-r border-border/50 p-3" style={getColumnStyle('productInfo')}>
                                    <div className="flex flex-col gap-2">
                                      {/* Title - Full width, prominent */}
                                      <div className="text-sm font-medium break-words text-foreground group-hover:text-primary/80 transition-colors line-clamp-2" title={order.title}>
@@ -6114,7 +6152,7 @@ export const POTracker = () => {
                                  </TableCell>
 
                                  {/* In-Stock Qty Cell */}
-                <TableCell className="min-w-[120px] border-r border-border/50 p-3">
+                <TableCell className="border-r border-border/50 p-3" style={getColumnStyle('stockQty')}>
                   {(() => {
                                 // Check if fully fulfilled from stock
                                 const isFulfilledFromStock = order.notes?.includes('Fulfilled from stock:');
@@ -6295,7 +6333,7 @@ export const POTracker = () => {
 
 
                                  {/* Shipped Qty Cell - NEW */}
-                                 <TableCell className="min-w-[100px] border-r border-border/50 p-3">
+                                 <TableCell className="border-r border-border/50 p-3" style={getColumnStyle('shippedQty')}>
                                    {(() => {
                                      const shippedQty = getShippedQty(order.asin);
                                      if (shippedQty > 0) {
@@ -6312,7 +6350,7 @@ export const POTracker = () => {
                                  </TableCell>
 
                                  {/* FBA Inventory Qty Cell - NEW */}
-                                 <TableCell className="min-w-[100px] border-r border-border/50 p-3">
+                                 <TableCell className="border-r border-border/50 p-3" style={getColumnStyle('fbaInvQty')}>
                                    {(() => {
                                      const fbaQty = getFBAQty(order.asin);
                                      if (fbaQty > 0) {
@@ -6330,7 +6368,7 @@ export const POTracker = () => {
 
 
                                     {/* Enhanced Quantity Cell with PO Numbers */}
-                                    <TableCell className="border-r border-border/50 p-3">
+                                    <TableCell className="border-r border-border/50 p-3" style={getColumnStyle('poQty')}>
                                      <div className="flex flex-col gap-2">
                                         <div className="flex flex-col gap-2">
                                           {order.status === 'closed' && order.notes?.includes('Fulfilled from stock:') ? <div className="flex flex-col gap-2">
@@ -6449,7 +6487,7 @@ export const POTracker = () => {
                                    </TableCell>
 
                                      {/* Enhanced Print Qty Cell - MOVED BEFORE Print Status */}
-                                     <TableCell className="w-24 border-r border-border/50 p-3">
+                                     <TableCell className="border-r border-border/50 p-3" style={getColumnStyle('printQty')}>
                                       <div className="flex items-center gap-2">
                                         {(() => {
                                   // Check if this item (or its consolidated items) are selected
@@ -6487,7 +6525,7 @@ export const POTracker = () => {
                                     </TableCell>
 
                                    {/* Merged Print Status Cell - MOVED AFTER Print Qty */}
-                                   <TableCell className="min-w-[160px] border-r border-border/50 p-3">
+                                   <TableCell className="border-r border-border/50 p-3" style={getColumnStyle('printStatus')}>
                                      <div className="flex flex-col gap-2">
                                        {order.printed_quantity > 0 ? order.printed_quantity >= order.quantity ? (
                                          <div className="flex flex-col gap-1.5">
@@ -6533,7 +6571,7 @@ export const POTracker = () => {
                                    </TableCell>
 
                                  {/* Scanned Barcode Cell */}
-                                 <TableCell className="border-r border-border/50 p-3">
+                                 <TableCell className="border-r border-border/50 p-3" style={getColumnStyle('scannedBarcode')}>
                                    <div className="flex flex-wrap gap-1">
                                      {(() => {
                                        // Get barcodes for this order (handle consolidated orders)
@@ -6562,7 +6600,7 @@ export const POTracker = () => {
                                    </div>
                                  </TableCell>
 
-                                  <TableCell className="p-3">
+                                  <TableCell className="p-3" style={getColumnStyle('actions')}>
                                     <div className="flex flex-col gap-2">
                                       {/* Main Print Button */}
                                        <Button variant="outline" size="sm" className="h-8 w-full" onClick={() => {
