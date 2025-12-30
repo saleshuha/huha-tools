@@ -42,15 +42,15 @@ export function ColumnResizeHandle({ columnId, currentWidth, onResize }: ColumnR
   return (
     <div
       className={`
-        absolute right-0 top-0 bottom-0 w-1 cursor-col-resize
+        absolute right-0 top-0 bottom-0 w-1 cursor-col-resize z-20
         hover:bg-primary/50 transition-colors duration-150
         ${isDragging ? 'bg-primary' : 'bg-transparent hover:bg-primary/30'}
       `}
       onMouseDown={handleMouseDown}
       onClick={(e) => e.stopPropagation()}
     >
-      {/* Wider invisible hit area */}
-      <div className="absolute -left-1 -right-1 top-0 bottom-0" />
+      {/* Wider invisible hit area for easier grabbing */}
+      <div className="absolute -left-2 -right-2 top-0 bottom-0" />
     </div>
   );
 }
