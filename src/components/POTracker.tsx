@@ -34,6 +34,8 @@ import { FulfillFromStockDialog } from '@/components/po/FulfillFromStockDialog';
 import { PrintHistoryDialog } from '@/components/po/PrintHistoryDialog';
 import { ProductProfitAnalyzer } from '@/components/po/ProductProfitAnalyzer';
 import { POQuantityMatchingDialog } from '@/components/po/POQuantityMatchingDialog';
+import ShippedOrdersUpload from '@/components/po/ShippedOrdersUpload';
+import FBAInventoryUpload from '@/components/po/FBAInventoryUpload';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { usePOOrders } from '@/hooks/usePOOrders';
 import { useSKUManager } from '@/hooks/useSKUManager';
@@ -3312,6 +3314,10 @@ export const POTracker = () => {
             return 'PO Purchase Links';
           case 'profit-analyzer':
             return 'Profit Analyzer';
+          case 'shipped-orders':
+            return 'Shipped Orders';
+          case 'fba-inventory':
+            return 'FBA Inventory';
           default:
             return 'PO Tracker';
         }
@@ -3321,7 +3327,7 @@ export const POTracker = () => {
         subcategory: getSubcategoryForTab(newTab),
         fromTab: activeTab,
         toTab: newTab,
-        tabTitle: newTab === 'overview' ? 'PO Overview' : newTab === 'upload' ? 'Uploads' : newTab === 'labels' ? 'Print Labels' : newTab === 'purchase-links' ? 'Purchase Links' : newTab === 'profit-analyzer' ? 'Profit Analyzer' : newTab
+        tabTitle: newTab === 'overview' ? 'PO Overview' : newTab === 'upload' ? 'Uploads' : newTab === 'labels' ? 'Print Labels' : newTab === 'purchase-links' ? 'Purchase Links' : newTab === 'profit-analyzer' ? 'Profit Analyzer' : newTab === 'shipped-orders' ? 'Shipped Orders' : newTab === 'fba-inventory' ? 'FBA Inventory' : newTab
       });
 
       // Update URL with tab parameter
@@ -3330,26 +3336,40 @@ export const POTracker = () => {
       });
       setActiveTab(newTab);
     }} className="w-full">
-        <TabsList className="grid w-full grid-cols-5 h-14 bg-background/60 backdrop-blur-md rounded-xl p-1.5 border border-border/20 shadow-sm">
-          <TabsTrigger value="overview" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
+        <TabsList className="grid w-full grid-cols-7 h-14 bg-background/60 backdrop-blur-md rounded-xl p-1.5 border border-border/20 shadow-sm">
+          <TabsTrigger value="overview" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
             <Package className="h-4 w-4" />
-            PO Overview
+            <span className="hidden lg:inline">PO Overview</span>
+            <span className="lg:hidden">Overview</span>
           </TabsTrigger>
-          <TabsTrigger value="upload" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
+          <TabsTrigger value="upload" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
             <FileUp className="h-4 w-4" />
             Uploads
           </TabsTrigger>
-          <TabsTrigger value="labels" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
+          <TabsTrigger value="labels" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
             <Printer className="h-4 w-4" />
-            Print Labels
+            <span className="hidden lg:inline">Print Labels</span>
+            <span className="lg:hidden">Labels</span>
           </TabsTrigger>
-          <TabsTrigger value="purchase-links" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
+          <TabsTrigger value="purchase-links" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
             <ExternalLink className="h-4 w-4" />
-            Purchase Links
+            <span className="hidden lg:inline">Purchase Links</span>
+            <span className="lg:hidden">Links</span>
           </TabsTrigger>
-          <TabsTrigger value="profit-analyzer" className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
+          <TabsTrigger value="profit-analyzer" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
             <Calculator className="h-4 w-4" />
-            Profit Analyzer
+            <span className="hidden lg:inline">Profit Analyzer</span>
+            <span className="lg:hidden">Profit</span>
+          </TabsTrigger>
+          <TabsTrigger value="shipped-orders" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
+            <Truck className="h-4 w-4" />
+            <span className="hidden lg:inline">Shipped Orders</span>
+            <span className="lg:hidden">Shipped</span>
+          </TabsTrigger>
+          <TabsTrigger value="fba-inventory" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
+            <Package className="h-4 w-4" />
+            <span className="hidden lg:inline">FBA Inventory</span>
+            <span className="lg:hidden">FBA</span>
           </TabsTrigger>
         </TabsList>
 
