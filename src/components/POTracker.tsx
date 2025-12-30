@@ -6687,6 +6687,14 @@ export const POTracker = () => {
           <ProductProfitAnalyzer />
         </TabsContent>
 
+        <TabsContent value="shipped-orders" className="space-y-6">
+          <ShippedOrdersUpload />
+        </TabsContent>
+
+        <TabsContent value="fba-inventory" className="space-y-6">
+          <FBAInventoryUpload />
+        </TabsContent>
+
       </Tabs>
 
       {/* Bulk Delete POs Dialog */}
