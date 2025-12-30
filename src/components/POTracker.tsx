@@ -5556,7 +5556,7 @@ export const POTracker = () => {
                               <span className="text-foreground text-xs uppercase tracking-wider">Image</span>
                             </div>
                           </TableHead>
-                          <TableHead className={`cursor-pointer hover:bg-primary/5 select-none min-w-[450px] max-w-[600px] font-bold transition-all duration-200 border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('combined_title')}>
+                          <TableHead className={`cursor-pointer hover:bg-primary/5 select-none min-w-[550px] max-w-[750px] font-bold transition-all duration-200 border-r border-border/10 bg-transparent py-4 ${originalOrderPreserved && activeTab === 'labels' && labelsStep === 'print' ? 'pointer-events-none opacity-50' : ''}`} onClick={() => !originalOrderPreserved && handleSort('combined_title')}>
                             <div className="flex items-center gap-2">
                               <div className="w-2.5 h-2.5 bg-gradient-to-br from-primary to-primary/70 rounded-full shadow-sm"></div>
                               <span className="text-foreground text-xs uppercase tracking-wider">Product Info</span>
@@ -6058,7 +6058,7 @@ export const POTracker = () => {
                                 </TableCell>
 
                                  {/* Product Info Cell - Merged Title, ASIN, SKU/Model, Match Status */}
-                                 <TableCell className="min-w-[450px] max-w-[600px] border-r border-border/50 p-3">
+                                 <TableCell className="min-w-[550px] max-w-[750px] border-r border-border/50 p-3">
                                    <div className="flex flex-col gap-2">
                                      {/* Title - Full width, prominent */}
                                      <div className="text-sm font-medium break-words text-foreground group-hover:text-primary/80 transition-colors line-clamp-2" title={order.title}>
