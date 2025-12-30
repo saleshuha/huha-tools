@@ -1,9 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
   Upload, Settings, Database, TrendingUp, 
-  BarChart3, CheckCircle, AlertTriangle, Package, FileX, Search, Loader2 
+  BarChart3, CheckCircle, AlertTriangle, Package, FileX, Search, Loader2, Clock 
 } from 'lucide-react';
 import { ProductProfitUploadDialog } from './ProductProfitUploadDialog';
 import { ProductProfitSettingsDialog } from './ProductProfitSettingsDialog';
@@ -13,6 +13,9 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCountry } from '@/contexts/CountryContext';
 import { useCurrencyConverter } from '@/hooks/useCurrencyConverter';
+import { saveProfitAnalyzerData, loadProfitAnalyzerData, clearProfitAnalyzerData } from '@/utils/profitAnalyzerStorage';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
 
 export interface ProductProfitItem {
@@ -81,6 +84,9 @@ export const ProductProfitAnalyzer: React.FC = () => {
     additionalFees: 0,
     currency: 'AED'
   });
+  const [lastModified, setLastModified] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string | undefined>();
+  const [isLoading, setIsLoading] = useState(true);
   
   // Dialog states
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -97,6 +103,41 @@ export const ProductProfitAnalyzer: React.FC = () => {
     notFound: 0,
     status: 'searching'
   });
+
+  // Load persisted data on mount
+  useEffect(() => {
+    const loadPersistedData = async () => {
+      try {
+        const savedData = await loadProfitAnalyzerData();
+        if (savedData) {
+          setUploadedItems(savedData.items);
+          setSettings(savedData.settings);
+          setLastModified(savedData.lastModified);
+          setFileName(savedData.fileName);
+        }
+      } catch (error) {
+        console.error('Failed to load persisted data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadPersistedData();
+  }, []);
+
+  // Save data whenever items or settings change (debounced)
+  const saveData = useCallback(async (items: ProductProfitItem[], currentSettings: ProfitSettings, currentFileName?: string) => {
+    if (items.length > 0) {
+      await saveProfitAnalyzerData(items, currentSettings, currentFileName);
+      setLastModified(new Date().toISOString());
+    }
+  }, []);
+
+  // Save when items change
+  useEffect(() => {
+    if (!isLoading && uploadedItems.length > 0) {
+      saveData(uploadedItems, settings, fileName);
+    }
+  }, [uploadedItems, settings, fileName, isLoading, saveData]);
 
   // Cancel search handler
   const cancelSearch = () => {
@@ -517,11 +558,27 @@ export const ProductProfitAnalyzer: React.FC = () => {
     }
   };
 
-  const clearData = () => {
+  const clearData = async () => {
+    await clearProfitAnalyzerData();
     setUploadedItems([]);
+    setLastModified(null);
+    setFileName(undefined);
   };
 
   const hasData = uploadedItems.length > 0;
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Card className="p-3">
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm text-muted-foreground">Loading saved data...</span>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -586,14 +643,39 @@ export const ProductProfitAnalyzer: React.FC = () => {
 
               <div className="h-4 w-px bg-border mx-1" />
 
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={clearData}
-                className="text-destructive hover:text-destructive"
-              >
-                Clear All
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                  >
+                    Clear All
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Clear all profit analysis data?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete all {metrics.totalItems} items from the analyzer. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={clearData} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      Clear All Data
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
+              {lastModified && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground ml-auto">
+                  <Clock className="h-3 w-3" />
+                  <span>Saved: {format(new Date(lastModified), 'MMM d, HH:mm')}</span>
+                  {fileName && <span className="hidden sm:inline">• {fileName}</span>}
+                </div>
+              )}
             </>
           )}
         </div>
