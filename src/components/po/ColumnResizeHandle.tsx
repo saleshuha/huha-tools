@@ -42,7 +42,7 @@ export function ColumnResizeHandle({ columnId, currentWidth, onResize }: ColumnR
   return (
     <div
       className={`
-        absolute right-0 top-0 bottom-0 w-1 cursor-col-resize z-20
+        absolute right-0 top-0 bottom-0 w-1 cursor-col-resize z-20 pointer-events-auto
         hover:bg-primary/50 transition-colors duration-150
         ${isDragging ? 'bg-primary' : 'bg-transparent hover:bg-primary/30'}
       `}
@@ -50,7 +50,7 @@ export function ColumnResizeHandle({ columnId, currentWidth, onResize }: ColumnR
       onClick={(e) => e.stopPropagation()}
     >
       {/* Wider invisible hit area for easier grabbing */}
-      <div className="absolute -left-2 -right-2 top-0 bottom-0" />
+      <div className="absolute -left-2 -right-2 top-0 bottom-0 pointer-events-auto" />
     </div>
   );
 }
