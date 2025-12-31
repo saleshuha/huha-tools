@@ -686,16 +686,27 @@ export const POTracker = () => {
   const { fetchAllBarcodes, barcodes: allBarcodes } = useProductBarcodes();
   
   // Shipped orders and FBA inventory lookup hooks
-  const { getShippedQty } = useShippedOrders();
-  const { getFBAQty } = useFBAInventory();
+  const { getShippedQty, reload: reloadShippedOrders, shippedQtyMap } = useShippedOrders();
+  const { getFBAQty, reload: reloadFBAInventory, fbaQtyMap } = useFBAInventory();
   
-  // Fetch barcodes when on Labels tab
+  // Fetch barcodes and reload inventory data when on Labels tab
   useEffect(() => {
     if (activeTab === 'labels') {
       console.log('📦 Fetching scanned barcodes for Labels tab...');
       fetchAllBarcodes();
+      console.log('📦 Reloading shipped orders and FBA inventory for Labels tab...');
+      reloadShippedOrders();
+      reloadFBAInventory();
     }
-  }, [activeTab, fetchAllBarcodes]);
+  }, [activeTab, fetchAllBarcodes, reloadShippedOrders, reloadFBAInventory]);
+  
+  // Debug: Log shipped and FBA inventory data state
+  useEffect(() => {
+    if (activeTab === 'labels') {
+      console.log('📊 Shipped Orders Map:', { size: shippedQtyMap.size, entries: Array.from(shippedQtyMap.entries()).slice(0, 5) });
+      console.log('📊 FBA Inventory Map:', { size: fbaQtyMap.size, entries: Array.from(fbaQtyMap.entries()).slice(0, 5) });
+    }
+  }, [activeTab, shippedQtyMap, fbaQtyMap]);
   
   // Create barcode lookup map by po_order_id for O(1) access
   const barcodesByOrderId = useMemo(() => {
