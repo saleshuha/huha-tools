@@ -6321,7 +6321,8 @@ export const POTracker = () => {
                                  {/* Shipped Qty Cell - NEW */}
                                  <TableCell className="min-w-[100px] border-r border-border/50 p-3">
                                    {(() => {
-                                     const shippedQty = getShippedQty(order.asin);
+                                     const asinKey = order.asin?.toUpperCase();
+                                     const shippedQty = asinKey ? (shippedQtyMap.get(asinKey) || 0) : 0;
                                      if (shippedQty > 0) {
                                        return (
                                          <Badge variant="default" className="text-xs px-2 py-1 font-medium font-mono bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30">
@@ -6338,7 +6339,8 @@ export const POTracker = () => {
                                  {/* FBA Inventory Qty Cell - NEW */}
                                  <TableCell className="min-w-[100px] border-r border-border/50 p-3">
                                    {(() => {
-                                     const fbaQty = getFBAQty(order.asin);
+                                     const asinKey = order.asin?.toUpperCase();
+                                     const fbaQty = asinKey ? (fbaQtyMap.get(asinKey) || 0) : 0;
                                      if (fbaQty > 0) {
                                        return (
                                          <Badge variant="default" className="text-xs px-2 py-1 font-medium font-mono bg-teal-500/15 text-teal-700 dark:text-teal-300 border border-teal-500/30">
