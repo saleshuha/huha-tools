@@ -57,7 +57,18 @@ serve(async (req) => {
     const config = requestData.config as CalculationConfig;
     
     console.log(`📊 Replenishment calculation request - Mode: ${isBatch ? 'batch' : 'single'}`);
-    console.log(`⚙️ Config: method=${config.calculation_method}, lookback=${config.lookback_days}d`);
+    console.log(`⚙️ Config received:`, JSON.stringify({
+      id: config?.id,
+      config_name: config?.config_name,
+      calculation_method: config?.calculation_method,
+      lookback_days: config?.lookback_days,
+      safety_stock_days: config?.safety_stock_days,
+      lead_time_days: config?.lead_time_days,
+      min_order_quantity: config?.min_order_quantity,
+      max_order_quantity: config?.max_order_quantity,
+      include_sales: config?.include_sales,
+      sales_weight: config?.sales_weight,
+    }, null, 2));
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -121,9 +132,13 @@ async function calculateForItem(
   inventoryType: 'asin' | 'sku',
   config: CalculationConfig
 ) {
+  console.log(`🔍 calculateForItem called for ${inventoryType}:${inventoryId}`);
+  
   // Fetch stock changes with filtering based on config
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - config.lookback_days);
+  
+  console.log(`📅 Lookback: ${config.lookback_days} days, cutoff: ${cutoffDate.toISOString()}`);
 
   const { data: stockChanges, error } = await supabaseClient
     .from('stock_changes')
@@ -134,10 +149,18 @@ async function calculateForItem(
     .order('created_at', { ascending: true });
 
   if (error) {
+    console.error(`❌ Error fetching stock_changes:`, error);
     throw error;
   }
 
   const changes = (stockChanges || []) as StockChange[];
+  const negativeChanges = changes.filter(c => c.change_amount < 0);
+  
+  console.log(`📦 Stock changes found: ${changes.length} total, ${negativeChanges.length} negative (sales/reductions)`);
+  
+  if (changes.length > 0) {
+    console.log(`📋 Sample changes:`, JSON.stringify(changes.slice(0, 3), null, 2));
+  }
   
   let breakdown: CalculationBreakdown = {
     from_manual_adjustments: 0,
@@ -150,8 +173,11 @@ async function calculateForItem(
 
   // Calculate using unified method
   let recommendedQty = calculateUnified(changes, config, breakdown);
+  
+  console.log(`📊 Raw calculated qty: ${recommendedQty}, breakdown:`, JSON.stringify(breakdown, null, 2));
 
   // Apply constraints
+  const beforeConstraints = recommendedQty;
   recommendedQty = Math.max(config.min_order_quantity, recommendedQty);
   recommendedQty = Math.min(config.max_order_quantity, recommendedQty);
   recommendedQty = Math.ceil(recommendedQty / config.round_to_multiple) * config.round_to_multiple;
@@ -160,11 +186,14 @@ async function calculateForItem(
   if (recommendedQty < config.min_order_quantity) {
     recommendedQty = config.min_order_quantity;
   }
+  
+  console.log(`✅ Final qty: ${recommendedQty} (before constraints: ${beforeConstraints}, min: ${config.min_order_quantity}, max: ${config.max_order_quantity})`);
 
   return {
     recommended_quantity: recommendedQty,
     breakdown: {
       total_recommended: recommendedQty,
+      before_constraints: beforeConstraints,
       breakdown,
       applied_multipliers: {
         velocity_multiplier: 1.0,
@@ -176,6 +205,7 @@ async function calculateForItem(
         },
       },
       stock_changes_count: changes.length,
+      negative_changes_count: negativeChanges.length,
       lookback_days: config.lookback_days,
     },
   };
