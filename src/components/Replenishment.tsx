@@ -491,65 +491,132 @@ export function Replenishment() {
     }
   }, [selectedConfigId]);
 
-  // Calculate recommended order quantity using edge function with advanced config
-  // Returns { quantity, source } to track whether edge function or fallback was used
-  const calculateRecommendedQuantity = async (item: RestockItem): Promise<{ quantity: number; source: 'edge' | 'fallback'; error?: string }> => {
-    try {
-      const config = availableConfigs.find(c => c.id === selectedConfigId);
+  // Batch calculate recommended quantities for multiple items in a SINGLE edge function call
+  // This prevents overwhelming the edge function with many simultaneous requests
+  const calculateBatchRecommendedQuantities = async (
+    items: { id: string; table_name: string }[]
+  ): Promise<Map<string, { quantity: number; source: 'edge' | 'fallback'; error?: string }>> => {
+    const results = new Map<string, { quantity: number; source: 'edge' | 'fallback'; error?: string }>();
+    
+    if (items.length === 0) {
+      return results;
+    }
 
-      if (!config) {
-        console.warn('⚠️ No config found for ID:', selectedConfigId);
-        return { quantity: 1, source: 'fallback', error: 'No config selected' };
-      }
-
-      // Log the config being sent to edge function
-      console.log(`🔧 Calculating for ${item.identifier} with config:`, {
-        id: config.id,
-        name: config.config_name,
-        method: config.calculation_method,
-        lookback_days: config.lookback_days,
-        safety_stock_days: config.safety_stock_days,
-        lead_time_days: config.lead_time_days,
-        min_order_quantity: config.min_order_quantity,
-        max_order_quantity: config.max_order_quantity,
-        include_sales: config.include_sales,
-        sales_weight: config.sales_weight,
+    const config = availableConfigs.find(c => c.id === selectedConfigId);
+    if (!config) {
+      console.warn('⚠️ No config found for ID:', selectedConfigId);
+      items.forEach(item => {
+        results.set(item.id, { quantity: 1, source: 'fallback', error: 'No config selected' });
       });
+      return results;
+    }
 
-      // Call edge function with config
-      const { data, error } = await supabase.functions.invoke('calculate-replenishment-quantity', {
-        body: {
+    console.log(`🚀 Batch calculating ${items.length} items with config:`, {
+      id: config.id,
+      name: config.config_name,
+      method: config.calculation_method,
+    });
+
+    // Retry logic with exponential backoff
+    const maxRetries = 3;
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // Prepare batch request
+        const batchItems = items.map(item => ({
           inventory_id: item.id,
           inventory_type: item.table_name === 'asin_inventory' ? 'asin' : 'sku',
-          config,
-        },
-      });
+        }));
 
-      if (error) {
-        console.error('❌ Edge function error for', item.identifier, ':', error);
-        const fallbackResult = await calculateSimpleQuantity(item);
-        return { quantity: fallbackResult, source: 'fallback', error: error.message || 'Edge function error' };
+        const { data, error } = await supabase.functions.invoke('calculate-replenishment-quantity', {
+          body: {
+            items: batchItems,
+            config,
+          },
+        });
+
+        if (error) {
+          console.error(`❌ Batch edge function error (attempt ${attempt}/${maxRetries}):`, error);
+          lastError = error;
+          
+          if (attempt < maxRetries) {
+            const backoffMs = Math.pow(2, attempt) * 500; // 1s, 2s, 4s
+            console.log(`⏳ Retrying in ${backoffMs}ms...`);
+            await new Promise(resolve => setTimeout(resolve, backoffMs));
+            continue;
+          }
+        } else if (data?.results) {
+          // Process batch results
+          console.log(`✅ Batch calculation successful: ${data.results.length} results`);
+          
+          data.results.forEach((result: any) => {
+            const minQty = config.min_order_quantity || 1;
+            if (result.error) {
+              results.set(result.inventory_id, { 
+                quantity: result.recommended_quantity || minQty, 
+                source: 'fallback', 
+                error: result.error 
+              });
+            } else {
+              results.set(result.inventory_id, { 
+                quantity: result.recommended_quantity || minQty, 
+                source: 'edge' 
+              });
+            }
+          });
+          
+          // Handle any items not in results (shouldn't happen, but safety)
+          items.forEach(item => {
+            if (!results.has(item.id)) {
+              results.set(item.id, { 
+                quantity: config.min_order_quantity || 1, 
+                source: 'fallback', 
+                error: 'Missing from batch results' 
+              });
+            }
+          });
+          
+          return results;
+        }
+      } catch (error: any) {
+        console.error(`❌ Batch calculation error (attempt ${attempt}/${maxRetries}):`, error);
+        lastError = error;
+        
+        if (attempt < maxRetries) {
+          const backoffMs = Math.pow(2, attempt) * 500;
+          console.log(`⏳ Retrying in ${backoffMs}ms...`);
+          await new Promise(resolve => setTimeout(resolve, backoffMs));
+        }
       }
-
-      if (!data) {
-        console.error('❌ Edge function returned no data for', item.identifier);
-        const fallbackResult = await calculateSimpleQuantity(item);
-        return { quantity: fallbackResult, source: 'fallback', error: 'No data returned' };
-      }
-
-      const recommended = data?.recommended_quantity;
-      const breakdown = data?.breakdown;
-      
-      console.log(`✅ Item ${item.identifier}: calculated=${recommended}, breakdown=`, breakdown);
-
-      // Respect the configured minimum order quantity
-      const minQty = config?.min_order_quantity || 1;
-      return { quantity: recommended || minQty, source: 'edge' };
-    } catch (error: any) {
-      console.error('Error calculating recommended quantity for item:', item.id, error);
-      const fallbackResult = await calculateSimpleQuantity(item);
-      return { quantity: fallbackResult, source: 'fallback', error: error.message || 'Calculation error' };
     }
+
+    // All retries failed - fall back to simple calculation for all items
+    console.warn(`⚠️ All ${maxRetries} batch attempts failed, using fallback calculation`);
+    
+    for (const item of items) {
+      const fallbackQty = await calculateSimpleQuantity({
+        id: item.id,
+        table_name: item.table_name,
+        identifier: '',
+        current_quantity: 0,
+        status: '',
+        days_since_last_restock: null,
+      } as RestockItem);
+      results.set(item.id, { 
+        quantity: fallbackQty, 
+        source: 'fallback', 
+        error: lastError?.message || 'Batch calculation failed' 
+      });
+    }
+    
+    return results;
+  };
+
+  // Legacy single-item calculation (kept for backward compatibility)
+  const calculateRecommendedQuantity = async (item: RestockItem): Promise<{ quantity: number; source: 'edge' | 'fallback'; error?: string }> => {
+    const results = await calculateBatchRecommendedQuantities([{ id: item.id, table_name: item.table_name }]);
+    return results.get(item.id) || { quantity: 1, source: 'fallback', error: 'Unknown error' };
   };
 
   // Simple fallback calculation
@@ -583,17 +650,18 @@ export function Replenishment() {
           0
         );
         const calculated = Math.ceil(unitsSold / 2);
-        return Math.max(minQty, calculated); // Use config min
+        return Math.max(minQty, calculated);
       }
 
-      return minQty; // Use config min instead of hardcoded 1
+      return minQty;
     } catch (error) {
       console.error('Error in simple calculation:', error);
-      return minQty; // Use config min
+      return minQty;
     }
   };
 
   // Recalculate recommended quantities for items that need ordering (not already ordered)
+  // Uses BATCH processing - single edge function call for all items
   const recalculateAllRecommendedQuantities = async () => {
     if (!selectedConfigId || allInventoryItems.length === 0) {
       toast({
@@ -609,12 +677,6 @@ export function Replenishment() {
       setCalculationProgress(0);
       setCalculatedItems(0);
       
-      // Reset calculation stats
-      let edgeSuccessCount = 0;
-      let fallbackCount = 0;
-      let errorCount = 0;
-      let lastError: string | null = null;
-      
       // Filter out already ordered items - they don't need recalculation
       const itemsNeedingCalculation = allInventoryItems.filter(
         item => item.status !== 'ordered'
@@ -622,7 +684,7 @@ export function Replenishment() {
       const skippedOrderedCount = allInventoryItems.filter(item => item.status === 'ordered').length;
       
       const config = availableConfigs.find(c => c.id === selectedConfigId);
-      console.log('🔄 Starting recalculation with config:', {
+      console.log('🔄 Starting BATCH recalculation with config:', {
         id: selectedConfigId,
         name: config?.config_name,
         method: config?.calculation_method,
@@ -634,24 +696,34 @@ export function Replenishment() {
       
       const totalItems = itemsNeedingCalculation.length;
       
-      // Recalculate only for items that need ordering
-      const updatedCalculatedItems: AllInventoryItem[] = [];
-      for (let i = 0; i < itemsNeedingCalculation.length; i++) {
-        const item = itemsNeedingCalculation[i];
-        try {
-          const result = await calculateRecommendedQuantity({
-            id: item.id,
-            table_name: 'asin_inventory',
-            identifier: `${item.asin} (${item.serial_number})`,
-            asin: item.asin,
-            sku: item.sku,
-            serial_number: item.serial_number,
-            title: item.title,
-            current_quantity: item.quantity,
-            status: item.status,
-          } as RestockItem);
-          
-          // Track calculation source
+      // Show initial progress
+      setCalculatedItems(0);
+      setCalculationProgress(10); // 10% for starting
+
+      // Prepare items for batch calculation
+      const batchItems = itemsNeedingCalculation.map(item => ({
+        id: item.id,
+        table_name: 'asin_inventory' as const,
+      }));
+
+      // SINGLE batch call instead of 66+ individual calls
+      console.log(`🚀 Sending SINGLE batch request for ${batchItems.length} items`);
+      setCalculationProgress(20);
+      
+      const batchResults = await calculateBatchRecommendedQuantities(batchItems);
+      
+      setCalculationProgress(80);
+      
+      // Process results and track stats
+      let edgeSuccessCount = 0;
+      let fallbackCount = 0;
+      let errorCount = 0;
+      let lastError: string | null = null;
+      
+      const updatedCalculatedItems: AllInventoryItem[] = itemsNeedingCalculation.map(item => {
+        const result = batchResults.get(item.id);
+        
+        if (result) {
           if (result.source === 'edge') {
             edgeSuccessCount++;
           } else {
@@ -660,19 +732,16 @@ export function Replenishment() {
               lastError = result.error;
             }
           }
-          
-          updatedCalculatedItems.push({ ...item, recommended_reorder_quantity: result.quantity });
-        } catch (error: any) {
-          console.error(`❌ Error calculating for ${item.asin}:`, error);
+          return { ...item, recommended_reorder_quantity: result.quantity };
+        } else {
           errorCount++;
-          lastError = error.message || 'Unknown error';
-          updatedCalculatedItems.push(item);
+          lastError = 'Missing from batch results';
+          return item;
         }
-        
-        // Update progress
-        setCalculatedItems(i + 1);
-        setCalculationProgress(Math.round(((i + 1) / totalItems) * 100));
-      }
+      });
+      
+      setCalculatedItems(totalItems);
+      setCalculationProgress(90);
       
       // Merge: keep ordered items unchanged, update the rest
       const orderedItemsUnchanged = allInventoryItems.filter(item => item.status === 'ordered');
@@ -809,13 +878,16 @@ export function Replenishment() {
         };
       });
       
-      // Calculate recommended quantities for all items in parallel
-      const itemsWithRecommendedQty = await Promise.all(
-        asinItems.map(async (item) => {
-          const result = await calculateRecommendedQuantity(item);
-          return { ...item, recommended_reorder_quantity: result.quantity };
-        })
-      );
+      // Calculate recommended quantities using BATCH processing (single edge function call)
+      const batchItems = asinItems.map(item => ({ id: item.id, table_name: item.table_name }));
+      console.log(`🚀 Batch calculating ${batchItems.length} restock items`);
+      
+      const batchResults = await calculateBatchRecommendedQuantities(batchItems);
+      
+      const itemsWithRecommendedQty = asinItems.map(item => {
+        const result = batchResults.get(item.id);
+        return { ...item, recommended_reorder_quantity: result?.quantity || 1 };
+      });
       
       console.log('Processed restock items with recommended quantities:', itemsWithRecommendedQty);
       setRestockItems(itemsWithRecommendedQty);
@@ -852,52 +924,36 @@ export function Replenishment() {
         !nonSourceIdentifiers.has(`${item.asin}-${item.serial_number}`)
       );
 
-      // Calculate recommended quantities for each item in parallel
-      const asinItems: AllInventoryItem[] = await Promise.all(
-        asinItemsRaw.map(async (item: any) => {
-          // Create temporary RestockItem for calculation
-          const tempItem: RestockItem = {
-            id: item.id,
-            identifier: `${item.asin} (${item.serial_number})`,
-            asin: item.asin,
-            sku: item.sku,
-            serial_number: item.serial_number,
-            title: item.title,
-            current_quantity: item.quantity,
-            table_name: 'asin_inventory',
-            status: item.status,
-            date_sold: item.date_sold,
-            last_restock_date: item.last_restock_date,
-            days_since_last_restock: null,
-            date_added: item.date_added,
-            total_sold_units: 0
-          };
+      // Calculate recommended quantities using BATCH processing (single edge function call)
+      const batchItems = asinItemsRaw.map((item: any) => ({ id: item.id, table_name: 'asin_inventory' }));
+      console.log(`🚀 Batch calculating ${batchItems.length} inventory items`);
+      
+      const batchResults = await calculateBatchRecommendedQuantities(batchItems);
 
-          const result = await calculateRecommendedQuantity(tempItem);
-
-          return {
-            id: item.id,
-            item_type: 'ASIN' as const,
-            asin: item.asin,
-            sku: item.sku,
-            serial_number: item.serial_number,
-            title: item.title,
-            quantity: item.quantity,
-            ordered_quantity: item.ordered_quantity,
-            restock_quantity: item.restock_quantity,
-            recommended_reorder_quantity: result.quantity,
-            status: item.status,
-            last_sold_date: item.date_sold,
-            last_order_date: item.last_restock_date,
-            days_since_ordered: item.last_restock_date ? Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null,
-            date_added: item.date_added,
-            notes: item.notes,
-            ordered_at: item.ordered_at,
-            sunsky_order_number: item.sunsky_order_number,
-            velocity_order_ref: item.velocity_order_ref
-          };
-        })
-      );
+      const asinItems: AllInventoryItem[] = asinItemsRaw.map((item: any) => {
+        const result = batchResults.get(item.id);
+        return {
+          id: item.id,
+          item_type: 'ASIN' as const,
+          asin: item.asin,
+          sku: item.sku,
+          serial_number: item.serial_number,
+          title: item.title,
+          quantity: item.quantity,
+          ordered_quantity: item.ordered_quantity,
+          restock_quantity: item.restock_quantity,
+          recommended_reorder_quantity: result?.quantity || 1,
+          status: item.status,
+          last_sold_date: item.date_sold,
+          last_order_date: item.last_restock_date,
+          days_since_ordered: item.last_restock_date ? Math.floor((Date.now() - new Date(item.last_restock_date).getTime()) / (1000 * 60 * 60 * 24)) : null,
+          date_added: item.date_added,
+          notes: item.notes,
+          ordered_at: item.ordered_at,
+          sunsky_order_number: item.sunsky_order_number,
+          velocity_order_ref: item.velocity_order_ref
+        };
+      });
       const allInventoryItems = [...asinItems];
       console.log('Processed inventory items:', allInventoryItems);
       console.log('Total items count:', allInventoryItems.length);
