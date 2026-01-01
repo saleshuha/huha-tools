@@ -476,9 +476,24 @@ export function Replenishment() {
       const config = availableConfigs.find(c => c.id === selectedConfigId);
 
       if (!config) {
-        console.warn('⚠️ No config found, using simple calculation');
+        console.warn('⚠️ No config found for ID:', selectedConfigId);
+        console.warn('⚠️ Available configs:', availableConfigs.map(c => ({ id: c.id, name: c.config_name })));
         return calculateSimpleQuantity(item);
       }
+
+      // Log the config being sent to edge function
+      console.log(`🔧 Calculating for ${item.identifier} with config:`, {
+        id: config.id,
+        name: config.config_name,
+        method: config.calculation_method,
+        lookback_days: config.lookback_days,
+        safety_stock_days: config.safety_stock_days,
+        lead_time_days: config.lead_time_days,
+        min_order_quantity: config.min_order_quantity,
+        max_order_quantity: config.max_order_quantity,
+        include_sales: config.include_sales,
+        sales_weight: config.sales_weight,
+      });
 
       // Call edge function with config
       const { data, error } = await supabase.functions.invoke('calculate-replenishment-quantity', {
@@ -490,12 +505,20 @@ export function Replenishment() {
       });
 
       if (error) {
-        console.error('Edge function error:', error);
+        console.error('❌ Edge function error for', item.identifier, ':', error);
+        console.error('❌ Full error details:', JSON.stringify(error, null, 2));
+        return calculateSimpleQuantity(item);
+      }
+
+      if (!data) {
+        console.error('❌ Edge function returned no data for', item.identifier);
         return calculateSimpleQuantity(item);
       }
 
       const recommended = data?.recommended_quantity;
-      console.log(`📊 Item ${item.identifier}: calculated=${recommended}, min=${config.min_order_quantity}`);
+      const breakdown = data?.breakdown;
+      
+      console.log(`✅ Item ${item.identifier}: calculated=${recommended}, breakdown=`, breakdown);
 
       // Respect the configured minimum order quantity
       const minQty = config?.min_order_quantity || 1;
