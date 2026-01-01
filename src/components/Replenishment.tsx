@@ -315,6 +315,19 @@ export function Replenishment() {
   const [lastCalculatedAt, setLastCalculatedAt] = useState<Date | null>(null);
   const [calculationProgress, setCalculationProgress] = useState(0);
   const [calculatedItems, setCalculatedItems] = useState(0);
+  
+  // Calculation tracking state
+  const [calculationStats, setCalculationStats] = useState<{
+    edgeSuccessCount: number;
+    fallbackCount: number;
+    errorCount: number;
+    lastError: string | null;
+  }>({
+    edgeSuccessCount: 0,
+    fallbackCount: 0,
+    errorCount: 0,
+    lastError: null,
+  });
 
   // Delete configuration
   const handleDeleteConfig = async () => {
@@ -452,10 +465,18 @@ export function Replenishment() {
 
       setAvailableConfigs(data || []);
 
-      // Auto-select default config
-      const defaultConfig = (data || []).find(c => c.is_default);
-      if (defaultConfig) {
-        setSelectedConfigId(defaultConfig.id);
+      // Only auto-select default config if no config is currently selected
+      // OR if the currently selected config no longer exists
+      const currentConfigStillExists = selectedConfigId && (data || []).some(c => c.id === selectedConfigId);
+      
+      if (!currentConfigStillExists) {
+        const defaultConfig = (data || []).find(c => c.is_default);
+        if (defaultConfig) {
+          setSelectedConfigId(defaultConfig.id);
+        } else if (data && data.length > 0) {
+          // If no default, select the first one
+          setSelectedConfigId(data[0].id);
+        }
       }
     } catch (error: any) {
       console.error('Error loading configurations:', error);
@@ -471,14 +492,14 @@ export function Replenishment() {
   }, [selectedConfigId]);
 
   // Calculate recommended order quantity using edge function with advanced config
-  const calculateRecommendedQuantity = async (item: RestockItem): Promise<number> => {
+  // Returns { quantity, source } to track whether edge function or fallback was used
+  const calculateRecommendedQuantity = async (item: RestockItem): Promise<{ quantity: number; source: 'edge' | 'fallback'; error?: string }> => {
     try {
       const config = availableConfigs.find(c => c.id === selectedConfigId);
 
       if (!config) {
         console.warn('⚠️ No config found for ID:', selectedConfigId);
-        console.warn('⚠️ Available configs:', availableConfigs.map(c => ({ id: c.id, name: c.config_name })));
-        return calculateSimpleQuantity(item);
+        return { quantity: 1, source: 'fallback', error: 'No config selected' };
       }
 
       // Log the config being sent to edge function
@@ -506,13 +527,14 @@ export function Replenishment() {
 
       if (error) {
         console.error('❌ Edge function error for', item.identifier, ':', error);
-        console.error('❌ Full error details:', JSON.stringify(error, null, 2));
-        return calculateSimpleQuantity(item);
+        const fallbackResult = await calculateSimpleQuantity(item);
+        return { quantity: fallbackResult, source: 'fallback', error: error.message || 'Edge function error' };
       }
 
       if (!data) {
         console.error('❌ Edge function returned no data for', item.identifier);
-        return calculateSimpleQuantity(item);
+        const fallbackResult = await calculateSimpleQuantity(item);
+        return { quantity: fallbackResult, source: 'fallback', error: 'No data returned' };
       }
 
       const recommended = data?.recommended_quantity;
@@ -522,10 +544,11 @@ export function Replenishment() {
 
       // Respect the configured minimum order quantity
       const minQty = config?.min_order_quantity || 1;
-      return recommended || minQty;
-    } catch (error) {
+      return { quantity: recommended || minQty, source: 'edge' };
+    } catch (error: any) {
       console.error('Error calculating recommended quantity for item:', item.id, error);
-      return calculateSimpleQuantity(item);
+      const fallbackResult = await calculateSimpleQuantity(item);
+      return { quantity: fallbackResult, source: 'fallback', error: error.message || 'Calculation error' };
     }
   };
 
@@ -586,17 +609,29 @@ export function Replenishment() {
       setCalculationProgress(0);
       setCalculatedItems(0);
       
+      // Reset calculation stats
+      let edgeSuccessCount = 0;
+      let fallbackCount = 0;
+      let errorCount = 0;
+      let lastError: string | null = null;
+      
       // Filter out already ordered items - they don't need recalculation
       const itemsNeedingCalculation = allInventoryItems.filter(
         item => item.status !== 'ordered'
       );
       const skippedOrderedCount = allInventoryItems.filter(item => item.status === 'ordered').length;
       
-      console.log('🔄 Starting recalculation with config:', selectedConfigId);
+      const config = availableConfigs.find(c => c.id === selectedConfigId);
+      console.log('🔄 Starting recalculation with config:', {
+        id: selectedConfigId,
+        name: config?.config_name,
+        method: config?.calculation_method,
+        lookback_days: config?.lookback_days,
+        safety_stock_days: config?.safety_stock_days,
+        lead_time_days: config?.lead_time_days,
+      });
       console.log(`📊 Items needing calculation: ${itemsNeedingCalculation.length} (skipping ${skippedOrderedCount} already ordered)`);
       
-      let successCount = 0;
-      let errorCount = 0;
       const totalItems = itemsNeedingCalculation.length;
       
       // Recalculate only for items that need ordering
@@ -604,7 +639,7 @@ export function Replenishment() {
       for (let i = 0; i < itemsNeedingCalculation.length; i++) {
         const item = itemsNeedingCalculation[i];
         try {
-          const recommended_reorder_quantity = await calculateRecommendedQuantity({
+          const result = await calculateRecommendedQuantity({
             id: item.id,
             table_name: 'asin_inventory',
             identifier: `${item.asin} (${item.serial_number})`,
@@ -616,11 +651,21 @@ export function Replenishment() {
             status: item.status,
           } as RestockItem);
           
-          successCount++;
-          updatedCalculatedItems.push({ ...item, recommended_reorder_quantity });
-        } catch (error) {
+          // Track calculation source
+          if (result.source === 'edge') {
+            edgeSuccessCount++;
+          } else {
+            fallbackCount++;
+            if (result.error) {
+              lastError = result.error;
+            }
+          }
+          
+          updatedCalculatedItems.push({ ...item, recommended_reorder_quantity: result.quantity });
+        } catch (error: any) {
           console.error(`❌ Error calculating for ${item.asin}:`, error);
           errorCount++;
+          lastError = error.message || 'Unknown error';
           updatedCalculatedItems.push(item);
         }
         
@@ -633,46 +678,65 @@ export function Replenishment() {
       const orderedItemsUnchanged = allInventoryItems.filter(item => item.status === 'ordered');
       const updatedAllItems = [...updatedCalculatedItems, ...orderedItemsUnchanged];
       
-      // Update restock items (these are ready to order, so calculate them)
-      const updatedRestockItems = await Promise.all(
-        restockItems.map(async (item) => {
-          try {
-            return { ...item, recommended_reorder_quantity: await calculateRecommendedQuantity(item) };
-          } catch (error) {
-            return item;
-          }
-        })
-      );
-      
-      // Update out of stock items
-      const updatedOutOfStockItems = await Promise.all(
-        outOfStockItems.map(async (item) => {
-          try {
-            return { ...item, recommended_reorder_quantity: await calculateRecommendedQuantity(item) };
-          } catch (error) {
-            return item;
-          }
-        })
-      );
-      
-      // Skip ordered items - they already have order placed, no need to recalculate
-      const updatedOrderedItems = orderedItems; // Keep existing values
+      // Update calculation stats
+      setCalculationStats({
+        edgeSuccessCount,
+        fallbackCount,
+        errorCount,
+        lastError,
+      });
       
       // Force state updates
       setAllInventoryItems([...updatedAllItems]);
+      
+      // Update restock and out-of-stock items from the calculated results
+      const updatedRestockItems = restockItems.map(item => {
+        const calculated = updatedCalculatedItems.find(c => c.id === item.id);
+        return calculated 
+          ? { ...item, recommended_reorder_quantity: calculated.recommended_reorder_quantity }
+          : item;
+      });
+      
+      const updatedOutOfStockItems = outOfStockItems.map(item => {
+        const calculated = updatedCalculatedItems.find(c => c.id === item.id);
+        return calculated 
+          ? { ...item, recommended_reorder_quantity: calculated.recommended_reorder_quantity }
+          : item;
+      });
+      
       setRestockItems([...updatedRestockItems]);
       setOutOfStockItems([...updatedOutOfStockItems]);
-      setOrderedItems([...updatedOrderedItems]);
       setLastCalculatedAt(new Date());
       
       const configName = availableConfigs.find(c => c.id === selectedConfigId)?.config_name || 'Unknown';
       const skippedMsg = skippedOrderedCount > 0 ? ` (skipped ${skippedOrderedCount} already ordered)` : '';
+      
+      // Show detailed toast with calculation sources
+      const edgeMsg = edgeSuccessCount > 0 ? `${edgeSuccessCount} via config` : '';
+      const fallbackMsg = fallbackCount > 0 ? `${fallbackCount} fallback` : '';
+      const errorMsg = errorCount > 0 ? `${errorCount} errors` : '';
+      const details = [edgeMsg, fallbackMsg, errorMsg].filter(Boolean).join(', ');
+      
       toast({
-        title: "Quantities Updated",
-        description: `Calculated ${successCount} ready-to-order items${skippedMsg}${errorCount > 0 ? `, ${errorCount} errors` : ''}`,
+        title: fallbackCount > 0 || errorCount > 0 ? "⚠️ Quantities Updated (with issues)" : "✅ Quantities Updated",
+        description: `Calculated ${totalItems} items${skippedMsg}. ${details}`,
+        variant: fallbackCount > 0 || errorCount > 0 ? "default" : "default",
       });
-    } catch (error) {
+      
+      // Show warning if all used fallback
+      if (edgeSuccessCount === 0 && totalItems > 0) {
+        toast({
+          title: "⚠️ Edge Function Not Working",
+          description: `All ${totalItems} items used fallback calculation. Check browser console for errors.`,
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
       console.error('❌ Error recalculating quantities:', error);
+      setCalculationStats(prev => ({
+        ...prev,
+        lastError: error.message || 'Unknown error',
+      }));
       toast({
         title: "Error",
         description: "Failed to recalculate recommended quantities",
@@ -2337,10 +2401,12 @@ export function Replenishment() {
       {/* Calculation Status Card */}
       <CalculationStatusCard
         configName={availableConfigs.find(c => c.id === selectedConfigId)?.config_name || null}
+        activeConfig={availableConfigs.find(c => c.id === selectedConfigId) || null}
+        calculationStats={calculationStats}
         isCalculating={isCalculating}
         lastCalculatedAt={lastCalculatedAt}
         calculationProgress={calculationProgress}
-        totalItems={allInventoryItems.length}
+        totalItems={allInventoryItems.filter(item => item.status !== 'ordered').length}
         calculatedItems={calculatedItems}
         onRecalculate={recalculateAllRecommendedQuantities}
         onOpenConfig={() => {
