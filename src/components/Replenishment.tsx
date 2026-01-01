@@ -400,7 +400,8 @@ export function Replenishment() {
     }
   };
   // Load replenishment configurations
-  const loadConfigs = async () => {
+  // Returns the resolved config so callers can use it immediately without waiting for state
+  const loadConfigs = async (): Promise<{ configs: any[]; resolvedConfig: any | null }> => {
     try {
       const { data, error } = await supabase
         .from('replenishment_calculation_configs')
@@ -451,6 +452,7 @@ export function Replenishment() {
 
           if (createError) {
             console.error('Error creating default config:', createError);
+            return { configs: [], resolvedConfig: null };
           } else {
             setAvailableConfigs([newConfig]);
             setSelectedConfigId(newConfig.id);
@@ -458,28 +460,35 @@ export function Replenishment() {
               title: "Configuration Created",
               description: "Created default replenishment configuration",
             });
-            return;
+            return { configs: [newConfig], resolvedConfig: newConfig };
           }
         }
+        return { configs: [], resolvedConfig: null };
       }
 
       setAvailableConfigs(data || []);
 
-      // Only auto-select default config if no config is currently selected
-      // OR if the currently selected config no longer exists
+      // Determine the resolved config synchronously from the fresh data
+      let resolvedConfig: any = null;
       const currentConfigStillExists = selectedConfigId && (data || []).some(c => c.id === selectedConfigId);
       
-      if (!currentConfigStillExists) {
+      if (currentConfigStillExists) {
+        resolvedConfig = data.find(c => c.id === selectedConfigId);
+      } else {
         const defaultConfig = (data || []).find(c => c.is_default);
         if (defaultConfig) {
           setSelectedConfigId(defaultConfig.id);
+          resolvedConfig = defaultConfig;
         } else if (data && data.length > 0) {
-          // If no default, select the first one
           setSelectedConfigId(data[0].id);
+          resolvedConfig = data[0];
         }
       }
+      
+      return { configs: data || [], resolvedConfig };
     } catch (error: any) {
       console.error('Error loading configurations:', error);
+      return { configs: [], resolvedConfig: null };
     }
   };
 
@@ -493,8 +502,10 @@ export function Replenishment() {
 
   // Batch calculate recommended quantities for multiple items in a SINGLE edge function call
   // This prevents overwhelming the edge function with many simultaneous requests
+  // IMPORTANT: Pass resolvedConfig explicitly to avoid race conditions with React state
   const calculateBatchRecommendedQuantities = async (
-    items: { id: string; table_name: string }[]
+    items: { id: string; table_name: string }[],
+    resolvedConfig?: any // Pass config explicitly to avoid state race conditions
   ): Promise<Map<string, { quantity: number; source: 'edge' | 'fallback'; error?: string }>> => {
     const results = new Map<string, { quantity: number; source: 'edge' | 'fallback'; error?: string }>();
     
@@ -502,11 +513,12 @@ export function Replenishment() {
       return results;
     }
 
-    const config = availableConfigs.find(c => c.id === selectedConfigId);
+    // Use passed config OR fall back to state (for manual recalculation button)
+    const config = resolvedConfig || availableConfigs.find(c => c.id === selectedConfigId);
     if (!config) {
-      console.warn('⚠️ No config found for ID:', selectedConfigId);
+      console.warn('⚠️ No config found for ID:', selectedConfigId, 'and no resolvedConfig passed');
       items.forEach(item => {
-        results.set(item.id, { quantity: 1, source: 'fallback', error: 'No config selected' });
+        results.set(item.id, { quantity: 1, source: 'fallback', error: 'No config available' });
       });
       return results;
     }
@@ -903,7 +915,8 @@ export function Replenishment() {
   };
 
   // Load all inventory items for comprehensive tracking
-  const loadAllInventoryItems = async () => {
+  // Accepts resolvedConfig to avoid race conditions with React state
+  const loadAllInventoryItems = async (resolvedConfig?: any) => {
     try {
       console.log('Starting loadAllInventoryItems for country:', selectedCountry);
       const [asinAll] = await Promise.all([(supabase as any).from('asin_inventory').select('id, asin, serial_number, quantity, ordered_quantity, status, sku, last_restock_date, date_sold, date_added, notes, eligible_for_restock, title, ordered_at, sunsky_order_number, restock_quantity, velocity_order_ref').eq('country', selectedCountry).eq('eligible_for_restock', true).eq('quantity', 0)]);
@@ -925,10 +938,11 @@ export function Replenishment() {
       );
 
       // Calculate recommended quantities using BATCH processing (single edge function call)
+      // Pass resolvedConfig to avoid state race conditions
       const batchItems = asinItemsRaw.map((item: any) => ({ id: item.id, table_name: 'asin_inventory' }));
       console.log(`🚀 Batch calculating ${batchItems.length} inventory items`);
       
-      const batchResults = await calculateBatchRecommendedQuantities(batchItems);
+      const batchResults = await calculateBatchRecommendedQuantities(batchItems, resolvedConfig);
 
       const asinItems: AllInventoryItem[] = asinItemsRaw.map((item: any) => {
         const result = batchResults.get(item.id);
@@ -1520,10 +1534,11 @@ export function Replenishment() {
   };
 
   // Load all data with optimized parallel loading
-  const loadAllData = async () => {
+  // Accepts resolvedConfig to avoid race conditions with React state
+  const loadAllData = async (resolvedConfig?: any) => {
     setLoading(true);
     try {
-      await loadAllInventoryItems();
+      await loadAllInventoryItems(resolvedConfig);
 
       // Load analytics data in parallel without blocking the UI
       Promise.all([calculateSalesData(), loadAnalytics(selectedCountry)]).catch(error => {
@@ -2369,6 +2384,7 @@ export function Replenishment() {
   };
 
   // Optimized real-time subscriptions - only reload specific data that changed
+  // Note: For realtime updates, configs are already loaded so state should be settled
   useEffect(() => {
     if (!selectedCountry) return;
     const channels = [supabase.channel('asin-inventory-realtime').on('postgres_changes', {
@@ -2377,7 +2393,8 @@ export function Replenishment() {
       table: 'asin_inventory',
       filter: `country=eq.${selectedCountry}`
     }, async () => {
-      // Reload all inventory data on changes
+      // For realtime updates, config state should be settled, so no need to pass explicit config
+      // The function will use availableConfigs.find(c => c.id === selectedConfigId)
       loadAllInventoryItems();
       // Check if any ordered items are now back in stock and remove them
       await removeRestockedOrderedItems();
@@ -2387,7 +2404,7 @@ export function Replenishment() {
       table: 'sku_inventory',
       filter: `country=eq.${selectedCountry}`
     }, async () => {
-      // Reload all inventory data on changes
+      // For realtime updates, config state should be settled, so no need to pass explicit config
       loadAllInventoryItems();
       // Check if any ordered items are now back in stock and remove them
       await removeRestockedOrderedItems();
@@ -2401,8 +2418,15 @@ export function Replenishment() {
   // Load data on country change
   useEffect(() => {
     const loadData = async () => {
-      await loadConfigs(); // Load configurations first
-      await loadAllData();
+      // Load configurations first and get the resolved config synchronously
+      const { resolvedConfig } = await loadConfigs();
+      
+      if (!resolvedConfig) {
+        console.warn('⚠️ No config available after loadConfigs - calculations will use fallback');
+      }
+      
+      // Pass resolved config to avoid state race conditions
+      await loadAllData(resolvedConfig);
       const orderedItemsData = await loadOrderedItems();
       setOrderedItems(orderedItemsData);
       await loadNonSourceItems();
@@ -2941,9 +2965,9 @@ export function Replenishment() {
         open={configDialogOpen}
         onOpenChange={setConfigDialogOpen}
         onSave={async () => {
-          await loadConfigs();
+          const { resolvedConfig } = await loadConfigs();
           // Force recalculation when config content changes (not just config selection)
-          if (selectedConfigId && allInventoryItems.length > 0) {
+          if (resolvedConfig && allInventoryItems.length > 0) {
             toast({
               title: "Recalculating recommended quantities...",
             });
