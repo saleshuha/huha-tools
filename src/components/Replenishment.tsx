@@ -547,7 +547,7 @@ export function Replenishment() {
     }
   };
 
-  // Recalculate recommended quantities for all items when config changes
+  // Recalculate recommended quantities for items that need ordering (not already ordered)
   const recalculateAllRecommendedQuantities = async () => {
     if (!selectedConfigId || allInventoryItems.length === 0) {
       toast({
@@ -562,17 +562,24 @@ export function Replenishment() {
       setIsCalculating(true);
       setCalculationProgress(0);
       setCalculatedItems(0);
+      
+      // Filter out already ordered items - they don't need recalculation
+      const itemsNeedingCalculation = allInventoryItems.filter(
+        item => item.status !== 'ordered'
+      );
+      const skippedOrderedCount = allInventoryItems.filter(item => item.status === 'ordered').length;
+      
       console.log('🔄 Starting recalculation with config:', selectedConfigId);
-      console.log('📊 Total items to calculate:', allInventoryItems.length);
+      console.log(`📊 Items needing calculation: ${itemsNeedingCalculation.length} (skipping ${skippedOrderedCount} already ordered)`);
       
       let successCount = 0;
       let errorCount = 0;
-      const totalItems = allInventoryItems.length;
+      const totalItems = itemsNeedingCalculation.length;
       
-      // Recalculate for all inventory items with progress tracking
-      const updatedAllItems: AllInventoryItem[] = [];
-      for (let i = 0; i < allInventoryItems.length; i++) {
-        const item = allInventoryItems[i];
+      // Recalculate only for items that need ordering
+      const updatedCalculatedItems: AllInventoryItem[] = [];
+      for (let i = 0; i < itemsNeedingCalculation.length; i++) {
+        const item = itemsNeedingCalculation[i];
         try {
           const recommended_reorder_quantity = await calculateRecommendedQuantity({
             id: item.id,
@@ -587,11 +594,11 @@ export function Replenishment() {
           } as RestockItem);
           
           successCount++;
-          updatedAllItems.push({ ...item, recommended_reorder_quantity });
+          updatedCalculatedItems.push({ ...item, recommended_reorder_quantity });
         } catch (error) {
           console.error(`❌ Error calculating for ${item.asin}:`, error);
           errorCount++;
-          updatedAllItems.push(item);
+          updatedCalculatedItems.push(item);
         }
         
         // Update progress
@@ -599,7 +606,11 @@ export function Replenishment() {
         setCalculationProgress(Math.round(((i + 1) / totalItems) * 100));
       }
       
-      // Update restock items
+      // Merge: keep ordered items unchanged, update the rest
+      const orderedItemsUnchanged = allInventoryItems.filter(item => item.status === 'ordered');
+      const updatedAllItems = [...updatedCalculatedItems, ...orderedItemsUnchanged];
+      
+      // Update restock items (these are ready to order, so calculate them)
       const updatedRestockItems = await Promise.all(
         restockItems.map(async (item) => {
           try {
@@ -621,16 +632,8 @@ export function Replenishment() {
         })
       );
       
-      // Update ordered items
-      const updatedOrderedItems = await Promise.all(
-        orderedItems.map(async (item) => {
-          try {
-            return { ...item, recommended_reorder_quantity: await calculateRecommendedQuantity(item) };
-          } catch (error) {
-            return item;
-          }
-        })
-      );
+      // Skip ordered items - they already have order placed, no need to recalculate
+      const updatedOrderedItems = orderedItems; // Keep existing values
       
       // Force state updates
       setAllInventoryItems([...updatedAllItems]);
@@ -640,9 +643,10 @@ export function Replenishment() {
       setLastCalculatedAt(new Date());
       
       const configName = availableConfigs.find(c => c.id === selectedConfigId)?.config_name || 'Unknown';
+      const skippedMsg = skippedOrderedCount > 0 ? ` (skipped ${skippedOrderedCount} already ordered)` : '';
       toast({
         title: "Quantities Updated",
-        description: `Recalculated ${successCount} items using "${configName}"${errorCount > 0 ? `, ${errorCount} errors` : ''}`,
+        description: `Calculated ${successCount} ready-to-order items${skippedMsg}${errorCount > 0 ? `, ${errorCount} errors` : ''}`,
       });
     } catch (error) {
       console.error('❌ Error recalculating quantities:', error);
