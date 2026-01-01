@@ -24,6 +24,7 @@ import { ReplenishmentItemCard } from './replenishment/ReplenishmentItemCard';
 import { ReplenishmentSearchBar } from './replenishment/ReplenishmentSearchBar';
 import { ReplenishmentPagination } from './replenishment/ReplenishmentPagination';
 import { ReplenishmentConfigDialog } from './replenishment/ReplenishmentConfigDialog';
+import { CalculationStatusCard } from './replenishment/CalculationStatusCard';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
 import { cn } from '@/lib/utils';
@@ -308,6 +309,12 @@ export function Replenishment() {
   const [selectedConfig, setSelectedConfig] = useState<any>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [configToDelete, setConfigToDelete] = useState<any>(null);
+  
+  // Calculation progress state
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [lastCalculatedAt, setLastCalculatedAt] = useState<Date | null>(null);
+  const [calculationProgress, setCalculationProgress] = useState(0);
+  const [calculatedItems, setCalculatedItems] = useState(0);
 
   // Delete configuration
   const handleDeleteConfig = async () => {
@@ -552,52 +559,52 @@ export function Replenishment() {
     }
     
     try {
-      setLoading(true);
+      setIsCalculating(true);
+      setCalculationProgress(0);
+      setCalculatedItems(0);
       console.log('🔄 Starting recalculation with config:', selectedConfigId);
       console.log('📊 Total items to calculate:', allInventoryItems.length);
       
       let successCount = 0;
       let errorCount = 0;
+      const totalItems = allInventoryItems.length;
       
-      // Recalculate for all inventory items
-      const updatedAllItems = await Promise.all(
-        allInventoryItems.map(async (item) => {
-          try {
-            const recommended_reorder_quantity = await calculateRecommendedQuantity({
-              id: item.id,
-              table_name: 'asin_inventory',
-              identifier: `${item.asin} (${item.serial_number})`,
-              asin: item.asin,
-              sku: item.sku,
-              serial_number: item.serial_number,
-              title: item.title,
-              current_quantity: item.quantity,
-              status: item.status,
-            } as RestockItem);
-            
-            successCount++;
-            return {
-              ...item,
-              recommended_reorder_quantity,
-            };
-          } catch (error) {
-            console.error(`❌ Error calculating for ${item.asin}:`, error);
-            errorCount++;
-            return item; // Keep original if calculation fails
-          }
-        })
-      );
+      // Recalculate for all inventory items with progress tracking
+      const updatedAllItems: AllInventoryItem[] = [];
+      for (let i = 0; i < allInventoryItems.length; i++) {
+        const item = allInventoryItems[i];
+        try {
+          const recommended_reorder_quantity = await calculateRecommendedQuantity({
+            id: item.id,
+            table_name: 'asin_inventory',
+            identifier: `${item.asin} (${item.serial_number})`,
+            asin: item.asin,
+            sku: item.sku,
+            serial_number: item.serial_number,
+            title: item.title,
+            current_quantity: item.quantity,
+            status: item.status,
+          } as RestockItem);
+          
+          successCount++;
+          updatedAllItems.push({ ...item, recommended_reorder_quantity });
+        } catch (error) {
+          console.error(`❌ Error calculating for ${item.asin}:`, error);
+          errorCount++;
+          updatedAllItems.push(item);
+        }
+        
+        // Update progress
+        setCalculatedItems(i + 1);
+        setCalculationProgress(Math.round(((i + 1) / totalItems) * 100));
+      }
       
       // Update restock items
       const updatedRestockItems = await Promise.all(
         restockItems.map(async (item) => {
           try {
-            return {
-              ...item,
-              recommended_reorder_quantity: await calculateRecommendedQuantity(item),
-            };
+            return { ...item, recommended_reorder_quantity: await calculateRecommendedQuantity(item) };
           } catch (error) {
-            console.error(`❌ Error calculating for ${item.identifier}:`, error);
             return item;
           }
         })
@@ -607,12 +614,8 @@ export function Replenishment() {
       const updatedOutOfStockItems = await Promise.all(
         outOfStockItems.map(async (item) => {
           try {
-            return {
-              ...item,
-              recommended_reorder_quantity: await calculateRecommendedQuantity(item),
-            };
+            return { ...item, recommended_reorder_quantity: await calculateRecommendedQuantity(item) };
           } catch (error) {
-            console.error(`❌ Error calculating for ${item.identifier}:`, error);
             return item;
           }
         })
@@ -622,28 +625,19 @@ export function Replenishment() {
       const updatedOrderedItems = await Promise.all(
         orderedItems.map(async (item) => {
           try {
-            return {
-              ...item,
-              recommended_reorder_quantity: await calculateRecommendedQuantity(item),
-            };
+            return { ...item, recommended_reorder_quantity: await calculateRecommendedQuantity(item) };
           } catch (error) {
-            console.error(`❌ Error calculating for ${item.identifier}:`, error);
             return item;
           }
         })
       );
       
-      // Force state updates with new array references
+      // Force state updates
       setAllInventoryItems([...updatedAllItems]);
       setRestockItems([...updatedRestockItems]);
       setOutOfStockItems([...updatedOutOfStockItems]);
       setOrderedItems([...updatedOrderedItems]);
-      
-      console.log('✅ Recalculation complete:');
-      console.log('  - Out of stock items:', updatedOutOfStockItems.length);
-      console.log('  - Restock items:', updatedRestockItems.length);
-      console.log('  - Ordered items:', updatedOrderedItems.length);
-      console.log('  - Success:', successCount, 'Errors:', errorCount);
+      setLastCalculatedAt(new Date());
       
       const configName = availableConfigs.find(c => c.id === selectedConfigId)?.config_name || 'Unknown';
       toast({
@@ -658,7 +652,8 @@ export function Replenishment() {
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setIsCalculating(false);
+      setCalculationProgress(100);
     }
   };
 
@@ -2312,95 +2307,73 @@ export function Replenishment() {
   const totalRestocks30d = salesData.find(d => d.period === '30d')?.total_restocked || 0;
   return <div className="space-y-6 animate-fade-in w-full max-w-none">
       {/* Header with refresh button and config selector */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-2xl font-bold">Replenishment Dashboard</h2>
-          <p className="text-muted-foreground">Track inventory levels and manage restocking</p>
-        </div>
-        <div className="flex items-center gap-3">
-          {availableConfigs.length > 0 ? (
-            <>
-              <Select value={selectedConfigId || ''} onValueChange={setSelectedConfigId}>
-                <SelectTrigger className="w-[250px]">
-                  <SelectValue placeholder="Select calculation method" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableConfigs.map((config) => (
-                    <SelectItem key={config.id} value={config.id}>
-                      {config.config_name}
-                      {config.is_default && ' (Default)'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              
-              {selectedConfigId && (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedConfig(availableConfigs.find(c => c.id === selectedConfigId) || null);
-                      setConfigDialogOpen(true);
-                    }}
-                    className="gap-2"
-                  >
-                    <Edit className="w-4 h-4" />
-                    Edit
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const config = availableConfigs.find(c => c.id === selectedConfigId);
-                      setConfigToDelete(config);
-                      setDeleteDialogOpen(true);
-                    }}
-                    className="gap-2 text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Delete
-                  </Button>
-                </>
-              )}
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setSelectedConfig(null);
-                  setConfigDialogOpen(true);
-                }}
-                className="gap-2"
-              >
-                <Settings className="w-4 h-4" />
-                New Config
-              </Button>
-            </>
-          ) : (
+      {/* Calculation Status Card */}
+      <CalculationStatusCard
+        configName={availableConfigs.find(c => c.id === selectedConfigId)?.config_name || null}
+        isCalculating={isCalculating}
+        lastCalculatedAt={lastCalculatedAt}
+        calculationProgress={calculationProgress}
+        totalItems={allInventoryItems.length}
+        calculatedItems={calculatedItems}
+        onRecalculate={recalculateAllRecommendedQuantities}
+        onOpenConfig={() => {
+          setSelectedConfig(availableConfigs.find(c => c.id === selectedConfigId) || null);
+          setConfigDialogOpen(true);
+        }}
+      />
+
+      {/* Config Selector Row */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Select value={selectedConfigId || ''} onValueChange={setSelectedConfigId}>
+            <SelectTrigger className="w-[250px]">
+              <SelectValue placeholder="Select calculation method" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableConfigs.map((config) => (
+                <SelectItem key={config.id} value={config.id}>
+                  {config.config_name}
+                  {config.is_default && ' (Default)'}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setSelectedConfig(null);
+              setConfigDialogOpen(true);
+            }}
+            className="gap-2"
+          >
+            <Settings className="w-4 h-4" />
+            New
+          </Button>
+          
+          {selectedConfigId && (
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={() => {
-                setSelectedConfig(null);
-                setConfigDialogOpen(true);
+                const config = availableConfigs.find(c => c.id === selectedConfigId);
+                setConfigToDelete(config);
+                setDeleteDialogOpen(true);
               }}
-              className="gap-2"
+              className="gap-2 text-destructive hover:text-destructive"
             >
-              <Settings className="w-4 h-4" />
-              Create Configuration
+              <Trash2 className="w-4 h-4" />
             </Button>
           )}
-          
-          <Button onClick={loadAllData} variant="outline" size="sm" className="gap-2">
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh Data
-          </Button>
         </div>
+        
+        <Button onClick={loadAllData} variant="outline" size="sm" className="gap-2">
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          Refresh Data
+        </Button>
       </div>
 
-      {/* Advanced Metrics Grid */}
       
 
       {/* Main Content Tabs */}
