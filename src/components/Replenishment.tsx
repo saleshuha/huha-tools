@@ -812,8 +812,8 @@ export function Replenishment() {
       // Calculate recommended quantities for all items in parallel
       const itemsWithRecommendedQty = await Promise.all(
         asinItems.map(async (item) => {
-          const recommended_reorder_quantity = await calculateRecommendedQuantity(item);
-          return { ...item, recommended_reorder_quantity };
+          const result = await calculateRecommendedQuantity(item);
+          return { ...item, recommended_reorder_quantity: result.quantity };
         })
       );
       
@@ -873,7 +873,7 @@ export function Replenishment() {
             total_sold_units: 0
           };
 
-          const recommended_reorder_quantity = await calculateRecommendedQuantity(tempItem);
+          const result = await calculateRecommendedQuantity(tempItem);
 
           return {
             id: item.id,
@@ -885,7 +885,7 @@ export function Replenishment() {
             quantity: item.quantity,
             ordered_quantity: item.ordered_quantity,
             restock_quantity: item.restock_quantity,
-            recommended_reorder_quantity,
+            recommended_reorder_quantity: result.quantity,
             status: item.status,
             last_sold_date: item.date_sold,
             last_order_date: item.last_restock_date,
