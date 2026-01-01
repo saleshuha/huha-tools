@@ -56,8 +56,14 @@ export function useAsinInventoryPaginated(
       .eq('user_id', user.id)
       .eq('country', selectedCountry);
 
-    // NOTE: is_active filter removed from DB query for performance
-    // It will be applied client-side after fetching data
+    // Apply is_active filter at database level for correct pagination
+    if (filters.showDisabledItems) {
+      // When toggle is ON: Show ONLY disabled items
+      query = query.eq('is_active', false);
+    } else {
+      // When toggle is OFF: Show only active items (default)
+      query = query.or('is_active.is.null,is_active.eq.true');
+    }
 
     // Apply search filters - always use 'contains' mode for consistency
     if (filters.searchTerm && filters.searchTerm.trim()) {
@@ -178,22 +184,9 @@ export function useAsinInventoryPaginated(
       new Map(formattedData.map(item => [`${item.asin}-${item.serialNumber}`, item])).values()
     );
 
-    // LAYER 1: Apply is_active filter client-side (fast since only 100 items max)
-    let filteredItems = uniqueItems;
-    if (filters.showDisabledItems) {
-      // When toggle is ON: Show ONLY disabled items (is_active = false)
-      filteredItems = uniqueItems.filter(item => item.isActive === false);
-    } else {
-      // When toggle is OFF: Show only active items (default)
-      filteredItems = uniqueItems.filter(item => 
-        item.isActive === undefined || item.isActive === null || item.isActive === true
-      );
-    }
-
-    // Adjust total count proportionally based on client-side filtering
-    const adjustedCount = !filters.showDisabledItems && count && uniqueItems.length > 0
-      ? Math.ceil((filteredItems.length / uniqueItems.length) * count)
-      : count || 0;
+    // is_active filter now applied at database level for correct pagination
+    const filteredItems = uniqueItems;
+    const adjustedCount = count || 0;
 
     const endTime = performance.now();
     console.log(`✅ Inventory fetch complete in ${(endTime - startTime).toFixed(2)}ms`, {
