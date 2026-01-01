@@ -1,19 +1,21 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Settings, TrendingUp, Clock, PackageCheck, AlertTriangle, Calculator, Info } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Settings, Clock, AlertTriangle, Calculator, Info, ChevronRight, ShoppingCart, Package, RotateCcw, Truck, Zap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useCountry } from '@/contexts/CountryContext';
+import { cn } from '@/lib/utils';
+import { MethodCard } from './MethodCard';
+import { SourceWeightSlider } from './SourceWeightSlider';
 
 interface ReplenishmentConfig {
   id?: string;
@@ -40,9 +42,45 @@ interface ReplenishmentConfig {
 interface ReplenishmentConfigDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: () => void;
+  onSave: (savedConfigId?: string) => void;
   currentConfig?: ReplenishmentConfig;
 }
+
+const METHODS = [
+  {
+    method: 'simple',
+    title: 'Simple Average',
+    description: 'Divides total sales by 2 to estimate reorder quantity. Best for stable demand.',
+    formula: 'Total Sold ÷ 2',
+  },
+  {
+    method: 'velocity_based',
+    title: 'Velocity Based',
+    description: 'Uses daily sales rate multiplied by lead time and safety stock. Best for variable demand.',
+    formula: 'Velocity × (Lead + Safety)',
+    recommended: true,
+  },
+  {
+    method: 'days_of_stock',
+    title: 'Days of Stock',
+    description: 'Orders enough to cover a specific number of days. Best for predictable lead times.',
+    formula: 'Velocity × Coverage Days',
+  },
+  {
+    method: 'weighted_average',
+    title: 'Weighted Sources',
+    description: 'Applies different weights to different stock change sources. Most flexible option.',
+    formula: 'Σ(Source × Weight)',
+  },
+];
+
+const STEPS = [
+  { id: 'method', label: 'Method', icon: Calculator },
+  { id: 'sources', label: 'Sources', icon: Package },
+  { id: 'timing', label: 'Timing', icon: Clock },
+  { id: 'constraints', label: 'Constraints', icon: AlertTriangle },
+  { id: 'preview', label: 'Preview', icon: Zap },
+];
 
 export function ReplenishmentConfigDialog({
   open,
@@ -52,19 +90,20 @@ export function ReplenishmentConfigDialog({
 }: ReplenishmentConfigDialogProps) {
   const { toast } = useToast();
   const { selectedCountry } = useCountry();
+  const [currentStep, setCurrentStep] = useState(0);
   
   const [config, setConfig] = useState<ReplenishmentConfig>({
     config_name: 'New Configuration',
     is_default: false,
-    calculation_method: 'simple',
+    calculation_method: 'velocity_based',
     include_sales: true,
     sales_weight: 1.0,
     include_manual_adjustments: true,
     manual_adjustment_weight: 1.0,
-    include_po_restocks: true,
-    po_restock_weight: 1.0,
+    include_po_restocks: false,
+    po_restock_weight: 0.5,
     include_returns: false,
-    return_weight: 0.5,
+    return_weight: 0.3,
     lookback_days: 90,
     safety_stock_days: 7,
     lead_time_days: 14,
@@ -78,10 +117,32 @@ export function ReplenishmentConfigDialog({
   useEffect(() => {
     if (currentConfig) {
       setConfig(currentConfig);
+    } else {
+      // Reset to defaults when creating new config
+      setConfig({
+        config_name: 'New Configuration',
+        is_default: false,
+        calculation_method: 'velocity_based',
+        include_sales: true,
+        sales_weight: 1.0,
+        include_manual_adjustments: true,
+        manual_adjustment_weight: 1.0,
+        include_po_restocks: false,
+        po_restock_weight: 0.5,
+        include_returns: false,
+        return_weight: 0.3,
+        lookback_days: 90,
+        safety_stock_days: 7,
+        lead_time_days: 14,
+        min_order_quantity: 1,
+        max_order_quantity: 100,
+        round_to_multiple: 1,
+      });
     }
-  }, [currentConfig]);
+    setCurrentStep(0);
+  }, [currentConfig, open]);
 
-  const handleSave = async () => {
+  const handleSave = async (saveAndRecalculate: boolean = false) => {
     try {
       setSaving(true);
 
@@ -100,7 +161,7 @@ export function ReplenishmentConfigDialog({
         if (existingConfigs && existingConfigs.length > 0) {
           toast({
             title: 'Duplicate configuration name',
-            description: `A configuration named "${config.config_name}" already exists. Please choose a different name.`,
+            description: `A configuration named "${config.config_name}" already exists.`,
             variant: 'destructive',
           });
           setSaving(false);
@@ -115,8 +176,10 @@ export function ReplenishmentConfigDialog({
         updated_at: new Date().toISOString(),
       };
 
+      let savedId: string | undefined;
+
       if (config.id) {
-        // Update existing config - check if name changed and conflicts
+        // Update existing config
         const { data: existingConfigs } = await supabase
           .from('replenishment_calculation_configs')
           .select('id')
@@ -128,7 +191,7 @@ export function ReplenishmentConfigDialog({
         if (existingConfigs && existingConfigs.length > 0) {
           toast({
             title: 'Duplicate configuration name',
-            description: `A configuration named "${config.config_name}" already exists. Please choose a different name.`,
+            description: `A configuration named "${config.config_name}" already exists.`,
             variant: 'destructive',
           });
           setSaving(false);
@@ -141,21 +204,27 @@ export function ReplenishmentConfigDialog({
           .eq('id', config.id);
 
         if (error) throw error;
+        savedId = config.id;
       } else {
         // Create new config
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('replenishment_calculation_configs')
-          .insert(configData);
+          .insert(configData)
+          .select('id')
+          .single();
 
         if (error) throw error;
+        savedId = data?.id;
       }
 
       toast({
         title: 'Configuration saved',
-        description: 'Your replenishment calculation settings have been updated.',
+        description: saveAndRecalculate 
+          ? 'Settings saved. Recalculating all quantities...' 
+          : 'Your replenishment calculation settings have been updated.',
       });
 
-      onSave();
+      onSave(savedId);
       onOpenChange(false);
     } catch (error: any) {
       console.error('Error saving configuration:', error);
@@ -170,59 +239,390 @@ export function ReplenishmentConfigDialog({
   };
 
   // Helper functions for preview calculation
-  const calculateExampleWeighted = (cfg: ReplenishmentConfig): number => {
+  const calculateExampleWeighted = (): number => {
     let weighted = 0;
-    // Include sales (base 45 units sold in example)
-    if (cfg.include_sales) weighted += 45 * cfg.sales_weight;
-    if (cfg.include_manual_adjustments) weighted += 5 * cfg.manual_adjustment_weight;
-    if (cfg.include_po_restocks) weighted += 20 * cfg.po_restock_weight;
-    if (cfg.include_returns) weighted += 2 * cfg.return_weight;
+    if (config.include_sales) weighted += 45 * config.sales_weight;
+    if (config.include_manual_adjustments) weighted += 5 * config.manual_adjustment_weight;
+    if (config.include_po_restocks) weighted += 20 * config.po_restock_weight;
+    if (config.include_returns) weighted += 2 * config.return_weight;
     return weighted;
   };
 
-  const getMethodFormula = (cfg: ReplenishmentConfig): string => {
-    const dailyVel = (calculateExampleWeighted(cfg) / cfg.lookback_days).toFixed(2);
-    
-    switch (cfg.calculation_method) {
-      case 'simple':
-        return `${calculateExampleWeighted(cfg)} ÷ 2 = ${(calculateExampleWeighted(cfg) / 2).toFixed(0)}`;
-      case 'velocity_based':
-        return `${dailyVel} × (${cfg.lead_time_days} + ${cfg.safety_stock_days}) = ${(parseFloat(dailyVel) * (cfg.lead_time_days + cfg.safety_stock_days)).toFixed(0)}`;
-      case 'days_of_stock':
-        return `${dailyVel} × ${cfg.lead_time_days + cfg.safety_stock_days} days = ${(parseFloat(dailyVel) * (cfg.lead_time_days + cfg.safety_stock_days)).toFixed(0)}`;
-      case 'weighted_average':
-        return `${dailyVel} × ${cfg.lead_time_days} + safety = ${(parseFloat(dailyVel) * cfg.lead_time_days + parseFloat(dailyVel) * cfg.safety_stock_days).toFixed(0)}`;
-      default:
-        return 'N/A';
-    }
+  const calculateDailyVelocity = (): number => {
+    return calculateExampleWeighted() / config.lookback_days;
   };
 
-  const calculateFinalExample = (cfg: ReplenishmentConfig): number => {
-    const dailyVel = calculateExampleWeighted(cfg) / cfg.lookback_days;
+  const calculateFinalExample = (): number => {
+    const dailyVel = calculateDailyVelocity();
     let qty = 0;
     
-    switch (cfg.calculation_method) {
+    switch (config.calculation_method) {
       case 'simple':
-        qty = calculateExampleWeighted(cfg) / 2;
+        qty = calculateExampleWeighted() / 2;
         break;
       case 'velocity_based':
       case 'days_of_stock':
       case 'weighted_average':
-        qty = dailyVel * (cfg.lead_time_days + cfg.safety_stock_days);
+        qty = dailyVel * (config.lead_time_days + config.safety_stock_days);
         break;
     }
     
     // Apply constraints
-    qty = Math.max(cfg.min_order_quantity, qty);
-    qty = Math.min(cfg.max_order_quantity, qty);
-    qty = Math.ceil(qty / cfg.round_to_multiple) * cfg.round_to_multiple;
+    qty = Math.max(config.min_order_quantity, qty);
+    qty = Math.min(config.max_order_quantity, qty);
+    qty = Math.ceil(qty / config.round_to_multiple) * config.round_to_multiple;
     
     return qty;
   };
 
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 0: // Method
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Choose Calculation Method</h3>
+              <p className="text-sm text-muted-foreground">
+                Select how recommended order quantities should be calculated
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              {METHODS.map((m) => (
+                <MethodCard
+                  key={m.method}
+                  method={m.method}
+                  title={m.title}
+                  description={m.description}
+                  formula={m.formula}
+                  isSelected={config.calculation_method === m.method}
+                  onSelect={() => setConfig({ ...config, calculation_method: m.method })}
+                  recommended={m.recommended}
+                />
+              ))}
+            </div>
+          </div>
+        );
+
+      case 1: // Sources
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Configure Data Sources</h3>
+              <p className="text-sm text-muted-foreground">
+                Choose which stock changes to include and their impact weight
+              </p>
+            </div>
+            
+            <div className="space-y-4">
+              <SourceWeightSlider
+                label="Sales & Outflows"
+                description="Stock reductions from sales (most important signal)"
+                enabled={config.include_sales}
+                weight={config.sales_weight}
+                onEnabledChange={(v) => setConfig({ ...config, include_sales: v })}
+                onWeightChange={(v) => setConfig({ ...config, sales_weight: v })}
+                isPrimary
+                icon={<ShoppingCart className="w-5 h-5" />}
+              />
+
+              <SourceWeightSlider
+                label="Manual Adjustments"
+                description="Stock changes made manually by users"
+                enabled={config.include_manual_adjustments}
+                weight={config.manual_adjustment_weight}
+                onEnabledChange={(v) => setConfig({ ...config, include_manual_adjustments: v })}
+                onWeightChange={(v) => setConfig({ ...config, manual_adjustment_weight: v })}
+                icon={<Package className="w-5 h-5" />}
+              />
+
+              <SourceWeightSlider
+                label="PO Fulfillments"
+                description="Stock added from purchase orders"
+                enabled={config.include_po_restocks}
+                weight={config.po_restock_weight}
+                onEnabledChange={(v) => setConfig({ ...config, include_po_restocks: v })}
+                onWeightChange={(v) => setConfig({ ...config, po_restock_weight: v })}
+                icon={<Truck className="w-5 h-5" />}
+              />
+
+              <SourceWeightSlider
+                label="Customer Returns"
+                description="Items returned by customers (reduces demand)"
+                enabled={config.include_returns}
+                weight={config.return_weight}
+                onEnabledChange={(v) => setConfig({ ...config, include_returns: v })}
+                onWeightChange={(v) => setConfig({ ...config, return_weight: v })}
+                icon={<RotateCcw className="w-5 h-5" />}
+              />
+            </div>
+          </div>
+        );
+
+      case 2: // Timing
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Timing & Safety Stock</h3>
+              <p className="text-sm text-muted-foreground">
+                Configure time periods and safety buffers
+              </p>
+            </div>
+
+            <div className="grid gap-6">
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label>Lookback Period</Label>
+                        <Badge variant="secondary">{config.lookback_days} days</Badge>
+                      </div>
+                      <Input
+                        type="range"
+                        min="30"
+                        max="365"
+                        value={config.lookback_days}
+                        onChange={(e) =>
+                          setConfig({ ...config, lookback_days: parseInt(e.target.value) })
+                        }
+                        className="w-full"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        How far back to analyze sales history for demand calculation
+                      </p>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label>Lead Time</Label>
+                        <Badge variant="secondary">{config.lead_time_days} days</Badge>
+                      </div>
+                      <Input
+                        type="range"
+                        min="1"
+                        max="60"
+                        value={config.lead_time_days}
+                        onChange={(e) =>
+                          setConfig({ ...config, lead_time_days: parseInt(e.target.value) })
+                        }
+                        className="w-full"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Expected time from placing an order to receiving stock
+                      </p>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label>Safety Stock Buffer</Label>
+                        <Badge variant="secondary">{config.safety_stock_days} days</Badge>
+                      </div>
+                      <Input
+                        type="range"
+                        min="0"
+                        max="30"
+                        value={config.safety_stock_days}
+                        onChange={(e) =>
+                          setConfig({ ...config, safety_stock_days: parseInt(e.target.value) })
+                        }
+                        className="w-full"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Extra buffer stock to prevent stockouts during unexpected demand
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        );
+
+      case 3: // Constraints
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Quantity Constraints</h3>
+              <p className="text-sm text-muted-foreground">
+                Set minimum, maximum, and rounding rules for order quantities
+              </p>
+            </div>
+
+            <Card>
+              <CardContent className="pt-6 space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Minimum Order Quantity</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={config.min_order_quantity}
+                      onChange={(e) =>
+                        setConfig({ ...config, min_order_quantity: parseInt(e.target.value) || 1 })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Never recommend less than this
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Maximum Order Quantity</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={config.max_order_quantity}
+                      onChange={(e) =>
+                        setConfig({ ...config, max_order_quantity: parseInt(e.target.value) || 100 })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Cap recommendations at this amount
+                    </p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-3">
+                  <Label>Round to Multiple Of</Label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[1, 5, 10, 12].map((n) => (
+                      <Button
+                        key={n}
+                        variant={config.round_to_multiple === n ? "default" : "outline"}
+                        className="h-12"
+                        onClick={() => setConfig({ ...config, round_to_multiple: n })}
+                      >
+                        {n === 1 ? 'No rounding' : `${n} units`}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <Label>Notes (Optional)</Label>
+                  <Input
+                    value={config.notes || ''}
+                    onChange={(e) => setConfig({ ...config, notes: e.target.value })}
+                    placeholder="Add notes about this configuration..."
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+
+      case 4: // Preview
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Calculation Preview</h3>
+              <p className="text-sm text-muted-foreground">
+                See how your settings affect recommended quantities
+              </p>
+            </div>
+
+            <Card className="border-2 border-primary/20 bg-primary/5">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Sample Calculation</CardTitle>
+                <CardDescription>Based on 45 sales, 5 manual adjustments, 20 PO items, 2 returns</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Step 1: Weighted demand */}
+                <div className="flex items-center justify-between p-3 bg-background rounded-lg">
+                  <div>
+                    <span className="text-sm font-medium">1. Weighted Demand</span>
+                    <p className="text-xs text-muted-foreground">Sum of (source × weight)</p>
+                  </div>
+                  <Badge variant="secondary" className="text-lg font-mono">
+                    {calculateExampleWeighted().toFixed(1)} units
+                  </Badge>
+                </div>
+
+                {/* Step 2: Daily velocity */}
+                <div className="flex items-center justify-between p-3 bg-background rounded-lg">
+                  <div>
+                    <span className="text-sm font-medium">2. Daily Velocity</span>
+                    <p className="text-xs text-muted-foreground">{calculateExampleWeighted().toFixed(1)} ÷ {config.lookback_days} days</p>
+                  </div>
+                  <Badge variant="secondary" className="text-lg font-mono">
+                    {calculateDailyVelocity().toFixed(2)}/day
+                  </Badge>
+                </div>
+
+                {/* Step 3: Method calculation */}
+                <div className="flex items-center justify-between p-3 bg-background rounded-lg">
+                  <div>
+                    <span className="text-sm font-medium">3. {METHODS.find(m => m.method === config.calculation_method)?.title}</span>
+                    <p className="text-xs text-muted-foreground">
+                      {config.calculation_method === 'simple' 
+                        ? `${calculateExampleWeighted().toFixed(1)} ÷ 2`
+                        : `${calculateDailyVelocity().toFixed(2)} × (${config.lead_time_days} + ${config.safety_stock_days})`
+                      }
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="text-lg font-mono">
+                    {config.calculation_method === 'simple' 
+                      ? (calculateExampleWeighted() / 2).toFixed(1)
+                      : (calculateDailyVelocity() * (config.lead_time_days + config.safety_stock_days)).toFixed(1)
+                    } units
+                  </Badge>
+                </div>
+
+                {/* Final result */}
+                <div className="flex items-center justify-between p-4 bg-primary/10 rounded-lg border border-primary/30">
+                  <div>
+                    <span className="font-semibold">Final Recommendation</span>
+                    <p className="text-xs text-muted-foreground">After applying min/max/rounding constraints</p>
+                  </div>
+                  <Badge className="text-xl font-mono bg-primary text-primary-foreground px-4 py-2">
+                    {calculateFinalExample()} units
+                  </Badge>
+                </div>
+
+                {/* Active sources summary */}
+                <div className="pt-2">
+                  <Label className="text-xs text-muted-foreground mb-2 block">Active Sources</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {config.include_sales && (
+                      <Badge variant="outline">Sales ×{config.sales_weight}</Badge>
+                    )}
+                    {config.include_manual_adjustments && (
+                      <Badge variant="outline">Manual ×{config.manual_adjustment_weight}</Badge>
+                    )}
+                    {config.include_po_restocks && (
+                      <Badge variant="outline">PO ×{config.po_restock_weight}</Badge>
+                    )}
+                    {config.include_returns && (
+                      <Badge variant="outline">Returns ×{config.return_weight}</Badge>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Alert>
+              <Info className="w-4 h-4" />
+              <AlertDescription>
+                This is a sample calculation. Actual recommendations will vary based on each item's real sales history.
+              </AlertDescription>
+            </Alert>
+          </div>
+        );
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="w-5 h-5" />
@@ -230,487 +630,84 @@ export function ReplenishmentConfigDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div>
-            <Label>Configuration Name</Label>
+        {/* Config Name */}
+        <div className="flex items-center gap-4 py-2 border-b">
+          <div className="flex-1">
+            <Label className="text-xs text-muted-foreground">Configuration Name</Label>
             <Input
               value={config.config_name}
               onChange={(e) => setConfig({ ...config, config_name: e.target.value })}
               placeholder="e.g., Fast Moving Items Config"
+              className="h-9 mt-1"
             />
           </div>
-
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-2">
             <Switch
               checked={config.is_default}
               onCheckedChange={(checked) => setConfig({ ...config, is_default: checked })}
+              id="default-switch"
             />
-            <Label>Set as default configuration</Label>
+            <Label htmlFor="default-switch" className="text-sm cursor-pointer">
+              Set as default
+            </Label>
           </div>
+        </div>
 
-          <Separator />
+        {/* Step Progress */}
+        <div className="py-4">
+          <div className="flex items-center justify-between mb-2">
+            {STEPS.map((step, index) => (
+              <button
+                key={step.id}
+                onClick={() => setCurrentStep(index)}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-2 rounded-lg transition-all",
+                  currentStep === index
+                    ? "bg-primary text-primary-foreground"
+                    : currentStep > index
+                    ? "bg-primary/20 text-primary"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                )}
+              >
+                <step.icon className="w-4 h-4" />
+                <span className="text-sm font-medium hidden sm:inline">{step.label}</span>
+              </button>
+            ))}
+          </div>
+          <Progress value={((currentStep + 1) / STEPS.length) * 100} className="h-1" />
+        </div>
 
-          <Tabs defaultValue="method" className="w-full">
-            <TabsList className="grid grid-cols-5 w-full">
-              <TabsTrigger value="method">Method</TabsTrigger>
-              <TabsTrigger value="sources">Sources</TabsTrigger>
-              <TabsTrigger value="timing">Timing</TabsTrigger>
-              <TabsTrigger value="constraints">Constraints</TabsTrigger>
-              <TabsTrigger value="preview">Preview</TabsTrigger>
-            </TabsList>
+        {/* Step Content */}
+        <div className="flex-1 overflow-y-auto py-4">
+          {renderStepContent()}
+        </div>
 
-            <TabsContent value="method" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4" />
-                    Calculation Method
-                  </CardTitle>
-                  <CardDescription>
-                    Choose how recommended quantities are calculated
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Select
-                    value={config.calculation_method}
-                    onValueChange={(value) => setConfig({ ...config, calculation_method: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="simple">Simple (Total Sold ÷ 2)</SelectItem>
-                      <SelectItem value="velocity_based">Velocity-Based (Daily Sales × Lead Time)</SelectItem>
-                      <SelectItem value="days_of_stock">Days of Stock Coverage</SelectItem>
-                      <SelectItem value="weighted_average">Weighted Average by Source</SelectItem>
-                    </SelectContent>
-                  </Select>
+        {/* Footer Navigation */}
+        <div className="flex items-center justify-between pt-4 border-t">
+          <Button
+            variant="outline"
+            onClick={() => currentStep > 0 ? setCurrentStep(currentStep - 1) : onOpenChange(false)}
+          >
+            {currentStep === 0 ? 'Cancel' : 'Back'}
+          </Button>
 
-                  <div className="mt-4 p-3 bg-muted rounded-lg text-sm">
-                    {config.calculation_method === 'simple' && (
-                      <p>Simple method divides total sales by 2 to estimate reorder quantity.</p>
-                    )}
-                    {config.calculation_method === 'velocity_based' && (
-                      <p>Calculates based on daily sales velocity multiplied by lead time and safety stock days.</p>
-                    )}
-                    {config.calculation_method === 'days_of_stock' && (
-                      <p>Orders enough stock to cover lead time plus safety stock based on recent sales patterns.</p>
-                    )}
-                    {config.calculation_method === 'weighted_average' && (
-                      <p>Applies different weights to different stock change sources for more nuanced calculations.</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="sources" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <PackageCheck className="w-4 h-4" />
-                    Stock Change Sources
-                  </CardTitle>
-                  <CardDescription>
-                    Choose which stock changes to include and set their impact factor. Higher impact = more influence on recommended quantities.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Sales/Outflows - Primary source */}
-                  <div className="flex items-center justify-between bg-primary/5 p-3 rounded-lg border border-primary/20">
-                    <div className="space-y-1">
-                      <Label className="flex items-center gap-2">
-                        Sales & Outflows
-                        <Badge variant="secondary" className="text-[10px]">Primary</Badge>
-                      </Label>
-                      <p className="text-sm text-muted-foreground">
-                        Stock reductions from sales (NULL source in database)
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <Switch
-                        checked={config.include_sales}
-                        onCheckedChange={(checked) =>
-                          setConfig({ ...config, include_sales: checked })
-                        }
-                      />
-                      {config.include_sales && (
-                        <div className="w-32 space-y-1">
-                          <Label className="text-xs">Impact Factor</Label>
-                          <Input
-                            type="number"
-                            step="0.1"
-                            min="0"
-                            max="2"
-                            value={config.sales_weight}
-                            onChange={(e) =>
-                              setConfig({ ...config, sales_weight: parseFloat(e.target.value) || 1.0 })
-                            }
-                            placeholder="1.0 = full"
-                          />
-                          <p className="text-[10px] text-muted-foreground">
-                            1.0 = full impact, 0.5 = half
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <Label>Manual Adjustments</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Stock changes made manually by users
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <Switch
-                        checked={config.include_manual_adjustments}
-                        onCheckedChange={(checked) =>
-                          setConfig({ ...config, include_manual_adjustments: checked })
-                        }
-                      />
-                      {config.include_manual_adjustments && (
-                        <div className="w-32 space-y-1">
-                          <Label className="text-xs">Impact Factor</Label>
-                          <Input
-                            type="number"
-                            step="0.1"
-                            min="0"
-                            max="2"
-                            value={config.manual_adjustment_weight}
-                            onChange={(e) =>
-                              setConfig({ ...config, manual_adjustment_weight: parseFloat(e.target.value) || 1.0 })
-                            }
-                            placeholder="1.0 = full"
-                          />
-                          <p className="text-[10px] text-muted-foreground">
-                            1.0 = full impact, 0.5 = half
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <Label>PO Fulfillments</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Stock added from purchase orders
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <Switch
-                        checked={config.include_po_restocks}
-                        onCheckedChange={(checked) =>
-                          setConfig({ ...config, include_po_restocks: checked })
-                        }
-                      />
-                      {config.include_po_restocks && (
-                        <div className="w-32 space-y-1">
-                          <Label className="text-xs">Impact Factor</Label>
-                          <Input
-                            type="number"
-                            step="0.1"
-                            min="0"
-                            max="2"
-                            value={config.po_restock_weight}
-                            onChange={(e) =>
-                              setConfig({ ...config, po_restock_weight: parseFloat(e.target.value) || 1.0 })
-                            }
-                            placeholder="1.0 = full"
-                          />
-                          <p className="text-[10px] text-muted-foreground">
-                            1.0 = full impact, 0.5 = half
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <Label>Customer Returns</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Items returned by customers
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <Switch
-                        checked={config.include_returns}
-                        onCheckedChange={(checked) =>
-                          setConfig({ ...config, include_returns: checked })
-                        }
-                      />
-                      {config.include_returns && (
-                        <div className="w-32 space-y-1">
-                          <Label className="text-xs">Impact Factor</Label>
-                          <Input
-                            type="number"
-                            step="0.1"
-                            min="0"
-                            max="2"
-                            value={config.return_weight}
-                            onChange={(e) =>
-                              setConfig({ ...config, return_weight: parseFloat(e.target.value) || 0.5 })
-                            }
-                            placeholder="0.5 = half"
-                          />
-                          <p className="text-[10px] text-muted-foreground">
-                            1.0 = full impact, 0.5 = half
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="timing" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    Timing & Safety Stock
-                  </CardTitle>
-                  <CardDescription>
-                    Configure time periods and safety buffers
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label>Lookback Period (days)</Label>
-                    <Input
-                      type="number"
-                      value={config.lookback_days}
-                      onChange={(e) =>
-                        setConfig({ ...config, lookback_days: parseInt(e.target.value) || 90 })
-                      }
-                    />
-                    <p className="text-sm text-muted-foreground mt-1">
-                      How far back to analyze sales history
-                    </p>
-                  </div>
-
-                  <div>
-                    <Label>Lead Time (days)</Label>
-                    <Input
-                      type="number"
-                      value={config.lead_time_days}
-                      onChange={(e) =>
-                        setConfig({ ...config, lead_time_days: parseInt(e.target.value) || 14 })
-                      }
-                    />
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Expected time from order to delivery
-                    </p>
-                  </div>
-
-                  <div>
-                    <Label>Safety Stock (days)</Label>
-                    <Input
-                      type="number"
-                      value={config.safety_stock_days}
-                      onChange={(e) =>
-                        setConfig({ ...config, safety_stock_days: parseInt(e.target.value) || 7 })
-                      }
-                    />
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Buffer stock to prevent stockouts
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="constraints" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4" />
-                    Quantity Constraints
-                  </CardTitle>
-                  <CardDescription>
-                    Set minimum, maximum, and rounding rules
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Minimum Order Quantity</Label>
-                      <Input
-                        type="number"
-                        value={config.min_order_quantity}
-                        onChange={(e) =>
-                          setConfig({ ...config, min_order_quantity: parseInt(e.target.value) || 1 })
-                        }
-                      />
-                    </div>
-
-                    <div>
-                      <Label>Maximum Order Quantity</Label>
-                      <Input
-                        type="number"
-                        value={config.max_order_quantity}
-                        onChange={(e) =>
-                          setConfig({ ...config, max_order_quantity: parseInt(e.target.value) || 100 })
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label>Round to Multiple Of</Label>
-                    <Select
-                      value={config.round_to_multiple.toString()}
-                      onValueChange={(value) =>
-                        setConfig({ ...config, round_to_multiple: parseInt(value) })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">1 (No rounding)</SelectItem>
-                        <SelectItem value="5">5</SelectItem>
-                        <SelectItem value="10">10</SelectItem>
-                        <SelectItem value="12">12</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label>Notes</Label>
-                    <Input
-                      value={config.notes || ''}
-                      onChange={(e) => setConfig({ ...config, notes: e.target.value })}
-                      placeholder="Optional notes about this configuration"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="preview" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calculator className="w-4 h-4" />
-                    Calculation Example
-                  </CardTitle>
-                  <CardDescription>
-                    See how these settings calculate recommended quantities
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="bg-muted p-4 rounded-lg space-y-3">
-                    <h4 className="font-semibold text-sm">Sample Scenario:</h4>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">Total Sales ({config.lookback_days} days):</span>
-                        <span className="ml-2 font-semibold">45 units</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Manual Adjustments:</span>
-                        <span className="ml-2 font-semibold">-5 units</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">PO Restocks:</span>
-                        <span className="ml-2 font-semibold">-20 units</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Returns:</span>
-                        <span className="ml-2 font-semibold">-2 units</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div className="space-y-3">
-                    <h4 className="font-semibold text-sm">Calculation Breakdown:</h4>
-                    
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
-                        <span className="text-muted-foreground">1. Weighted demand from sources:</span>
-                        <span className="font-mono font-semibold">
-                          {calculateExampleWeighted(config).toFixed(1)} units
-                        </span>
-                      </div>
-                      
-                      <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
-                        <span className="text-muted-foreground">2. Daily velocity:</span>
-                        <span className="font-mono">
-                          {calculateExampleWeighted(config).toFixed(1)} ÷ {config.lookback_days} = <span className="font-semibold">{(calculateExampleWeighted(config) / config.lookback_days).toFixed(2)}</span>
-                        </span>
-                      </div>
-                      
-                      <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
-                        <span className="text-muted-foreground">3. Method calculation:</span>
-                        <span className="font-mono text-xs">
-                          {getMethodFormula(config)}
-                        </span>
-                      </div>
-                      
-                      <div className="flex justify-between items-center p-2 bg-primary/10 rounded border border-primary/20">
-                        <span className="font-medium">4. Final recommended qty:</span>
-                        <span className="font-mono font-bold text-primary text-lg">
-                          {calculateFinalExample(config)} units
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div className="space-y-2 text-xs">
-                    <div className="font-semibold text-sm">Applied Sources:</div>
-                    <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                      <li>Customer Sales (weight: 1.0) ✓</li>
-                      {config.include_manual_adjustments && (
-                        <li>Manual Adjustments (weight: {config.manual_adjustment_weight}) ✓</li>
-                      )}
-                      {config.include_po_restocks && (
-                        <li>PO Restocks (weight: {config.po_restock_weight}) ✓</li>
-                      )}
-                      {config.include_returns && (
-                        <li>Returns (weight: {config.return_weight}) ✓</li>
-                      )}
-                    </ul>
-                  </div>
-
-                  <div className="space-y-2 text-xs">
-                    <div className="font-semibold text-sm">Applied Constraints:</div>
-                    <div className="text-muted-foreground">
-                      Min: {config.min_order_quantity}, Max: {config.max_order_quantity}, Round to: {config.round_to_multiple}
-                    </div>
-                  </div>
-
-                  <Alert>
-                    <Info className="w-4 h-4" />
-                    <AlertDescription>
-                      This is a sample calculation. Actual recommendations will vary based on each item's real sales history.
-                    </AlertDescription>
-                  </Alert>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-
-          <div className="flex justify-end gap-2 mt-6">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving...' : 'Save Configuration'}
-            </Button>
+          <div className="flex gap-2">
+            {currentStep < STEPS.length - 1 ? (
+              <Button onClick={() => setCurrentStep(currentStep + 1)} className="gap-2">
+                Next
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => handleSave(false)} disabled={saving}>
+                  {saving ? 'Saving...' : 'Save Only'}
+                </Button>
+                <Button onClick={() => handleSave(true)} disabled={saving} className="gap-2">
+                  <Zap className="w-4 h-4" />
+                  {saving ? 'Saving...' : 'Save & Recalculate'}
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </DialogContent>
