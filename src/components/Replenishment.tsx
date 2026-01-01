@@ -529,6 +529,20 @@ export function Replenishment() {
       method: config.calculation_method,
     });
 
+    const invoke = (supabase as any)?.functions?.invoke;
+    if (typeof invoke !== 'function') {
+      console.error('❌ supabase.functions.invoke is not available; cannot call edge functions');
+      const minQty = config.min_order_quantity || 1;
+      items.forEach(item => {
+        results.set(item.id, {
+          quantity: minQty,
+          source: 'fallback',
+          error: 'Edge functions client unavailable',
+        });
+      });
+      return results;
+    }
+
     // Retry logic with exponential backoff
     const maxRetries = 3;
     let lastError: Error | null = null;
@@ -541,7 +555,7 @@ export function Replenishment() {
           inventory_type: item.table_name === 'asin_inventory' ? 'asin' : 'sku',
         }));
 
-        const { data, error } = await supabase.functions.invoke('calculate-replenishment-quantity', {
+        const { data, error } = await invoke('calculate-replenishment-quantity', {
           body: {
             items: batchItems,
             config,
@@ -551,50 +565,72 @@ export function Replenishment() {
         if (error) {
           console.error(`❌ Batch edge function error (attempt ${attempt}/${maxRetries}):`, error);
           lastError = error;
-          
+
           if (attempt < maxRetries) {
             const backoffMs = Math.pow(2, attempt) * 500; // 1s, 2s, 4s
             console.log(`⏳ Retrying in ${backoffMs}ms...`);
             await new Promise(resolve => setTimeout(resolve, backoffMs));
             continue;
           }
-        } else if (data?.results) {
-          // Process batch results
-          console.log(`✅ Batch calculation successful: ${data.results.length} results`);
-          
-          data.results.forEach((result: any) => {
-            const minQty = config.min_order_quantity || 1;
-            if (result.error) {
-              results.set(result.inventory_id, { 
-                quantity: result.recommended_quantity || minQty, 
-                source: 'fallback', 
-                error: result.error 
-              });
-            } else {
-              results.set(result.inventory_id, { 
-                quantity: result.recommended_quantity || minQty, 
-                source: 'edge' 
-              });
-            }
-          });
-          
-          // Handle any items not in results (shouldn't happen, but safety)
-          items.forEach(item => {
-            if (!results.has(item.id)) {
-              results.set(item.id, { 
-                quantity: config.min_order_quantity || 1, 
-                source: 'fallback', 
-                error: 'Missing from batch results' 
-              });
-            }
-          });
-          
-          return results;
+
+          break;
         }
+
+        const resultsArray = (data as any)?.results;
+        if (!Array.isArray(resultsArray)) {
+          const unexpected = new Error(`Unexpected edge response: ${JSON.stringify(data)}`);
+          console.error(
+            `❌ Batch edge function returned unexpected payload (attempt ${attempt}/${maxRetries}):`,
+            unexpected
+          );
+          lastError = unexpected;
+
+          if (attempt < maxRetries) {
+            const backoffMs = Math.pow(2, attempt) * 500;
+            console.log(`⏳ Retrying in ${backoffMs}ms...`);
+            await new Promise(resolve => setTimeout(resolve, backoffMs));
+            continue;
+          }
+
+          break;
+        }
+
+        // Process batch results
+        console.log(`✅ Batch calculation successful: ${resultsArray.length} results`);
+
+        resultsArray.forEach((result: any) => {
+          const minQty = config.min_order_quantity || 1;
+          if (result.error) {
+            results.set(result.inventory_id, {
+              quantity: result.recommended_quantity || minQty,
+              source: 'fallback',
+              error: result.error,
+            });
+          } else {
+            results.set(result.inventory_id, {
+              quantity: result.recommended_quantity || minQty,
+              source: 'edge',
+            });
+          }
+        });
+
+        // Handle any items not in results (shouldn't happen, but safety)
+        items.forEach(item => {
+          if (!results.has(item.id)) {
+            results.set(item.id, {
+              quantity: config.min_order_quantity || 1,
+              source: 'fallback',
+              error: 'Missing from batch results',
+            });
+          }
+        });
+
+        return results;
       } catch (error: any) {
-        console.error(`❌ Batch calculation error (attempt ${attempt}/${maxRetries}):`, error);
-        lastError = error;
-        
+        const err = error instanceof Error ? error : new Error(String(error));
+        console.error(`❌ Batch calculation error (attempt ${attempt}/${maxRetries}):`, err);
+        lastError = err;
+
         if (attempt < maxRetries) {
           const backoffMs = Math.pow(2, attempt) * 500;
           console.log(`⏳ Retrying in ${backoffMs}ms...`);
@@ -806,9 +842,13 @@ export function Replenishment() {
       
       // Show warning if all used fallback
       if (edgeSuccessCount === 0 && totalItems > 0) {
+        const errorHint = lastError
+          ? `Last error: ${lastError}`
+          : 'Check browser console for errors.';
+
         toast({
           title: "⚠️ Edge Function Not Working",
-          description: `All ${totalItems} items used fallback calculation. Check browser console for errors.`,
+          description: `All ${totalItems} items used fallback calculation. ${errorHint}`,
           variant: "destructive",
         });
       }
