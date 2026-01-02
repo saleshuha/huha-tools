@@ -3,7 +3,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { List, Grid3X3, Filter, Plus } from 'lucide-react';
+import { List, Grid3X3, Filter, Plus, Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface QuickControlsBarProps {
@@ -16,6 +16,8 @@ interface QuickControlsBarProps {
   currentPage: number;
   totalCount: number;
   onAddItem?: () => void;
+  performanceFilter?: string;
+  setPerformanceFilter?: (value: string) => void;
 }
 
 export function QuickControlsBar({
@@ -27,7 +29,9 @@ export function QuickControlsBar({
   setItemsPerPage,
   currentPage,
   totalCount,
-  onAddItem
+  onAddItem,
+  performanceFilter,
+  setPerformanceFilter
 }: QuickControlsBarProps) {
   const startItem = (currentPage - 1) * itemsPerPage + 1;
   const endItem = Math.min(currentPage * itemsPerPage, totalCount);
@@ -55,6 +59,27 @@ export function QuickControlsBar({
           </Select>
         </div>
       </div>
+
+      {/* Performance Filter Pill */}
+      {setPerformanceFilter && (
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 bg-background rounded-lg px-3 py-1.5 border border-border/60 shadow-sm">
+            <Activity className="w-4 h-4 text-muted-foreground" />
+            <Select value={performanceFilter || 'all'} onValueChange={setPerformanceFilter}>
+              <SelectTrigger className="w-36 h-8 border-0 bg-transparent p-0 focus:ring-0 focus:ring-offset-0">
+                <SelectValue placeholder="Performance" />
+              </SelectTrigger>
+              <SelectContent className="bg-background border shadow-lg">
+                <SelectItem value="all">All Performance</SelectItem>
+                <SelectItem value="fast">Fast Moving</SelectItem>
+                <SelectItem value="medium">Medium Moving</SelectItem>
+                <SelectItem value="slow">Slow Moving</SelectItem>
+                <SelectItem value="no-sales">No Sales</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      )}
 
       {/* View Mode Toggle */}
       <div className="flex items-center bg-background rounded-lg p-1 border border-border/60 shadow-sm">

@@ -13,7 +13,7 @@ export interface PaginationFilters {
   dateFilterFrom?: Date;
   dateFilterTo?: Date;
   showDisabledItems?: boolean;
-  sortBy?: 'dateAdded' | 'asin' | 'quantity' | 'status' | 'title' | 'serialNumber';
+  sortBy?: 'dateAdded' | 'asin' | 'quantity' | 'status' | 'title' | 'serialNumber' | 'restock' | 'exportMode' | 'performance';
   sortOrder?: 'asc' | 'desc';
 }
 

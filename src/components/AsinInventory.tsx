@@ -46,9 +46,11 @@ import { QuickControlsBar } from './inventory/QuickControlsBar';
 import { LabelPrintingCard } from './inventory/LabelPrintingCard';
 import { DisplayFiltersToggle } from './inventory/DisplayFiltersToggle';
 import { InventoryMatchingTool } from './inventory/matching/InventoryMatchingTool';
+import { PerformanceIndicator } from './inventory/PerformanceIndicator';
 import { ClipboardList } from 'lucide-react';
 
 import { useWarehouseManager } from '@/hooks/useWarehouseManager';
+import { useVelocityAnalytics, VelocityItem } from '@/hooks/useVelocityAnalytics';
 import { useBackgroundTasks } from '@/contexts/BackgroundTasksContext';
 import { useCountry } from '@/contexts/CountryContext';
 import { useProductImages } from '@/hooks/useProductImages';
@@ -65,7 +67,8 @@ export function AsinInventory() {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [searchMethod, setSearchMethod] = useState<'all' | 'asin' | 'sku' | 'serial' | 'title' | 'notes'>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'dateAdded' | 'asin' | 'quantity' | 'status' | 'title' | 'serialNumber'>('dateAdded');
+  const [sortBy, setSortBy] = useState<'dateAdded' | 'asin' | 'quantity' | 'status' | 'title' | 'serialNumber' | 'restock' | 'exportMode' | 'performance'>('dateAdded');
+  const [performanceFilter, setPerformanceFilter] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [quickFilter, setQuickFilter] = useState<'all' | 'low-stock' | 'out-of-stock' | 'recent'>('all');
   const [dateFilterFrom, setDateFilterFrom] = useState<Date>();
@@ -145,6 +148,18 @@ export function AsinInventory() {
     runTitleFetch
   } = useBackgroundTasks();
   const { getImageByAsin, isLoading: imagesLoading, productImages, refreshImages } = useProductImages();
+  
+  // Velocity analytics for performance column
+  const { velocityItems, loading: velocityLoading } = useVelocityAnalytics();
+  
+  // Create a map for quick velocity data lookup by item ID
+  const velocityMap = useMemo(() => {
+    const map = new Map<string, VelocityItem>();
+    velocityItems.forEach(item => {
+      map.set(item.item_id, item);
+    });
+    return map;
+  }, [velocityItems]);
   
   // Detect duplicate items in raw inventory (before filtering)
   const duplicateWarning = useMemo(() => {
@@ -1678,6 +1693,8 @@ export function AsinInventory() {
               currentPage={currentPage}
               totalCount={totalCount}
               onAddItem={() => setIsAddDialogOpen(true)}
+              performanceFilter={performanceFilter}
+              setPerformanceFilter={setPerformanceFilter}
             />
           </div>
         </CardContent>
@@ -1764,16 +1781,46 @@ export function AsinInventory() {
                         </button>
                       </th>
                        <th className="w-20 p-3 text-center font-medium border-r">
-                         <div className="flex items-center justify-center gap-2">
+                         <button className="flex items-center justify-center gap-2 hover:text-primary transition-colors w-full" onClick={() => {
+                    if (sortBy === 'restock') {
+                      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                    } else {
+                      setSortBy('restock');
+                      setSortOrder('desc');
+                    }
+                  }}>
                            <RefreshCw className="w-4 h-4" />
                            Restock
-                         </div>
+                           {sortBy === 'restock' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
+                         </button>
                        </th>
                        <th className="w-20 p-3 text-center font-medium border-r">
-                         <div className="flex items-center justify-center gap-2">
+                         <button className="flex items-center justify-center gap-2 hover:text-primary transition-colors w-full" onClick={() => {
+                    if (sortBy === 'exportMode') {
+                      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                    } else {
+                      setSortBy('exportMode');
+                      setSortOrder('asc');
+                    }
+                  }}>
                            <Download className="w-4 h-4" />
-                           Export Mode
-                         </div>
+                           Export
+                           {sortBy === 'exportMode' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
+                         </button>
+                       </th>
+                       <th className="w-32 p-3 text-center font-medium border-r">
+                         <button className="flex items-center justify-center gap-2 hover:text-primary transition-colors w-full" onClick={() => {
+                    if (sortBy === 'performance') {
+                      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                    } else {
+                      setSortBy('performance');
+                      setSortOrder('desc');
+                    }
+                  }}>
+                           <Activity className="w-4 h-4" />
+                           Performance
+                           {sortBy === 'performance' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
+                         </button>
                        </th>
                        <th className="w-32 p-3 text-center font-medium">Actions</th>
                   </tr>
@@ -1990,6 +2037,19 @@ export function AsinInventory() {
                                  }
                               </div>
                             </div>
+                          </td>
+                          <td className="p-3 border-r align-middle">
+                            {(() => {
+                              const velocityData = velocityMap.get(item.id);
+                              return (
+                                <PerformanceIndicator
+                                  velocityCategory={velocityData?.velocity_category || null}
+                                  salesVelocity={velocityData?.sales_velocity || 0}
+                                  stockDaysRemaining={velocityData?.stock_days_remaining ?? null}
+                                  urgencyScore={velocityData?.urgency_score || 0}
+                                />
+                              );
+                            })()}
                           </td>
                           <td className="p-3 align-middle">
                             <div className="flex items-center justify-center gap-2">
