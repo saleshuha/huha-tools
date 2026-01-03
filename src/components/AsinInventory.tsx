@@ -2021,12 +2021,12 @@ export function AsinInventory() {
                                    {exportModes[item.id] === 'local' ? 'Local' : 'Global'}
                                  </Label>
                                </div>
-                               <div className="text-xs text-center text-muted-foreground">
-                                 {exportModes[item.id] === 'local' ? 
-                                   'Export mode is Local (qty: 100 if stock > 0, else 0)' : 
-                                   'Export mode is Global (uses stock qty)'
-                                 }
-                              </div>
+                                <div className="text-xs text-center text-muted-foreground">
+                                  {exportModes[item.id] === 'local' ? 
+                                    'Export mode is Local (qty: 100 always)' : 
+                                    'Export mode is Global (uses stock qty)'
+                                  }
+                               </div>
                             </div>
                           </td>
                           <td className="p-3 border-r align-middle">
