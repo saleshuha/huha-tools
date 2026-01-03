@@ -5687,6 +5687,31 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_comprehensive_performance_analysis: {
+        Args: { country_filter?: string }
+        Returns: {
+          asin: string
+          avg_days_to_sellout: number
+          current_quantity: number
+          days_in_inventory: number
+          first_sale_date: string
+          first_stock_date: string
+          item_id: string
+          last_sale_date: string
+          performance_category: string
+          performance_score: number
+          sales_velocity_30d: number
+          sales_velocity_7d: number
+          sales_velocity_90d: number
+          sales_velocity_lifetime: number
+          sku: string
+          stock_days_remaining: number
+          title: string
+          total_units_restocked: number
+          total_units_sold_lifetime: number
+          turnover_ratio: number
+        }[]
+      }
       get_daily_sold_items_needing_orders: {
         Args: { country_filter?: string; target_date?: string }
         Returns: {

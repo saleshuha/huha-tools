@@ -50,7 +50,7 @@ import { PerformanceIndicator } from './inventory/PerformanceIndicator';
 import { ClipboardList } from 'lucide-react';
 
 import { useWarehouseManager } from '@/hooks/useWarehouseManager';
-import { useVelocityAnalytics, VelocityItem } from '@/hooks/useVelocityAnalytics';
+import { useComprehensivePerformance } from '@/hooks/useComprehensivePerformance';
 import { useBackgroundTasks } from '@/contexts/BackgroundTasksContext';
 import { useCountry } from '@/contexts/CountryContext';
 import { useProductImages } from '@/hooks/useProductImages';
@@ -149,17 +149,8 @@ export function AsinInventory() {
   } = useBackgroundTasks();
   const { getImageByAsin, isLoading: imagesLoading, productImages, refreshImages } = useProductImages();
   
-  // Velocity analytics for performance column
-  const { velocityItems, loading: velocityLoading } = useVelocityAnalytics();
-  
-  // Create a map for quick velocity data lookup by item ID
-  const velocityMap = useMemo(() => {
-    const map = new Map<string, VelocityItem>();
-    velocityItems.forEach(item => {
-      map.set(item.item_id, item);
-    });
-    return map;
-  }, [velocityItems]);
+  // Comprehensive performance analytics for performance column
+  const { performanceMap, loading: performanceLoading } = useComprehensivePerformance();
   
   // Detect duplicate items in raw inventory (before filtering)
   const duplicateWarning = useMemo(() => {
@@ -748,9 +739,9 @@ export function AsinInventory() {
         
         // Set quantity based on export mode:
         // Global: use stock quantity
-        // Local: use default quantity (100 if has stock, 0 if no stock)
+        // Local: always use 100 units regardless of actual stock
         const exportQuantity = exportMode === 'local' 
-          ? (item.quantity === 0 ? 0 : 100)
+          ? 100
           : item.quantity;
         
         return [
@@ -2040,13 +2031,23 @@ export function AsinInventory() {
                           </td>
                           <td className="p-3 border-r align-middle">
                             {(() => {
-                              const velocityData = velocityMap.get(item.id);
+                              const perfData = performanceMap.get(item.id);
                               return (
                                 <PerformanceIndicator
-                                  velocityCategory={velocityData?.velocity_category || null}
-                                  salesVelocity={velocityData?.sales_velocity || 0}
-                                  stockDaysRemaining={velocityData?.stock_days_remaining ?? null}
-                                  urgencyScore={velocityData?.urgency_score || 0}
+                                  performanceData={perfData ? {
+                                    total_units_sold_lifetime: perfData.total_units_sold_lifetime,
+                                    total_units_restocked: perfData.total_units_restocked,
+                                    days_in_inventory: perfData.days_in_inventory,
+                                    avg_days_to_sellout: perfData.avg_days_to_sellout,
+                                    sales_velocity_7d: perfData.sales_velocity_7d,
+                                    sales_velocity_30d: perfData.sales_velocity_30d,
+                                    sales_velocity_90d: perfData.sales_velocity_90d,
+                                    sales_velocity_lifetime: perfData.sales_velocity_lifetime,
+                                    performance_score: perfData.performance_score,
+                                    performance_category: perfData.performance_category,
+                                    stock_days_remaining: perfData.stock_days_remaining,
+                                    turnover_ratio: perfData.turnover_ratio
+                                  } : null}
                                 />
                               );
                             })()}

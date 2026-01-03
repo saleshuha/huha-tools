@@ -71,10 +71,11 @@ export function QuickControlsBar({
               </SelectTrigger>
               <SelectContent className="bg-background border shadow-lg">
                 <SelectItem value="all">All Performance</SelectItem>
-                <SelectItem value="fast">Fast Moving</SelectItem>
-                <SelectItem value="medium">Medium Moving</SelectItem>
-                <SelectItem value="slow">Slow Moving</SelectItem>
-                <SelectItem value="no-sales">No Sales</SelectItem>
+                <SelectItem value="excellent">🔥 Excellent</SelectItem>
+                <SelectItem value="good">⚡ Good</SelectItem>
+                <SelectItem value="average">📊 Average</SelectItem>
+                <SelectItem value="poor">🐢 Poor</SelectItem>
+                <SelectItem value="no-sales">⏸️ No Sales</SelectItem>
               </SelectContent>
             </Select>
           </div>
