@@ -529,136 +529,100 @@ export function Replenishment() {
       method: config.calculation_method,
     });
 
-    const invoke = (supabase as any)?.functions?.invoke;
-    if (typeof invoke !== 'function') {
-      console.error('❌ supabase.functions.invoke is not available; cannot call edge functions');
-      const minQty = config.min_order_quantity || 1;
-      items.forEach(item => {
-        results.set(item.id, {
-          quantity: minQty,
-          source: 'fallback',
-          error: 'Edge functions client unavailable',
-        });
+    // Use direct fetch instead of supabase.functions.invoke to avoid client issues
+    const SUPABASE_URL = 'https://vfqqlifvhooefxvvyebm.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmcXFsaWZ2aG9vZWZ4dnZ5ZWJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MzY1OTgsImV4cCI6MjA2ODAxMjU5OH0.u-iIilnOACJTo_3AUCkmhREXdVV84JmbswtM_-NJJBM';
+
+    try {
+      // Get auth token for authenticated request
+      const { data: sessionData } = await supabase.auth.getSession();
+      const authToken = sessionData?.session?.access_token;
+
+      // Prepare batch request
+      const batchItems = items.map(item => ({
+        inventory_id: item.id,
+        inventory_type: item.table_name === 'asin_inventory' ? 'asin' : 'sku',
+      }));
+
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/calculate-replenishment-quantity`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken || SUPABASE_ANON_KEY}`,
+          'apikey': SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({
+          items: batchItems,
+          config,
+        }),
       });
+
+      if (!response.ok) {
+        throw new Error(`Edge function returned ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      const resultsArray = data?.results;
+      if (!Array.isArray(resultsArray)) {
+        throw new Error(`Unexpected edge response: ${JSON.stringify(data)}`);
+      }
+
+      // Process batch results
+      console.log(`✅ Batch calculation successful: ${resultsArray.length} results`);
+
+      resultsArray.forEach((result: any) => {
+        const minQty = config.min_order_quantity || 1;
+        if (result.error) {
+          results.set(result.inventory_id, {
+            quantity: result.recommended_quantity || minQty,
+            source: 'fallback',
+            error: result.error,
+          });
+        } else {
+          results.set(result.inventory_id, {
+            quantity: result.recommended_quantity || minQty,
+            source: 'edge',
+          });
+        }
+      });
+
+      // Handle any items not in results (shouldn't happen, but safety)
+      items.forEach(item => {
+        if (!results.has(item.id)) {
+          results.set(item.id, {
+            quantity: config.min_order_quantity || 1,
+            source: 'fallback',
+            error: 'Missing from batch results',
+          });
+        }
+      });
+
+      return results;
+    } catch (error: any) {
+      console.error('❌ Batch calculation error:', error);
+      
+      // Fall back to simple calculation for all items
+      console.warn('⚠️ Edge function failed, using fallback calculation');
+      
+      for (const item of items) {
+        const fallbackQty = await calculateSimpleQuantity({
+          id: item.id,
+          table_name: item.table_name,
+          identifier: '',
+          current_quantity: 0,
+          status: '',
+          days_since_last_restock: null,
+        } as RestockItem);
+        results.set(item.id, { 
+          quantity: fallbackQty, 
+          source: 'fallback', 
+          error: error?.message || 'Batch calculation failed' 
+        });
+      }
+      
       return results;
     }
-
-    // Retry logic with exponential backoff
-    const maxRetries = 3;
-    let lastError: Error | null = null;
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        // Prepare batch request
-        const batchItems = items.map(item => ({
-          inventory_id: item.id,
-          inventory_type: item.table_name === 'asin_inventory' ? 'asin' : 'sku',
-        }));
-
-        const { data, error } = await invoke('calculate-replenishment-quantity', {
-          body: {
-            items: batchItems,
-            config,
-          },
-        });
-
-        if (error) {
-          console.error(`❌ Batch edge function error (attempt ${attempt}/${maxRetries}):`, error);
-          lastError = error;
-
-          if (attempt < maxRetries) {
-            const backoffMs = Math.pow(2, attempt) * 500; // 1s, 2s, 4s
-            console.log(`⏳ Retrying in ${backoffMs}ms...`);
-            await new Promise(resolve => setTimeout(resolve, backoffMs));
-            continue;
-          }
-
-          break;
-        }
-
-        const resultsArray = (data as any)?.results;
-        if (!Array.isArray(resultsArray)) {
-          const unexpected = new Error(`Unexpected edge response: ${JSON.stringify(data)}`);
-          console.error(
-            `❌ Batch edge function returned unexpected payload (attempt ${attempt}/${maxRetries}):`,
-            unexpected
-          );
-          lastError = unexpected;
-
-          if (attempt < maxRetries) {
-            const backoffMs = Math.pow(2, attempt) * 500;
-            console.log(`⏳ Retrying in ${backoffMs}ms...`);
-            await new Promise(resolve => setTimeout(resolve, backoffMs));
-            continue;
-          }
-
-          break;
-        }
-
-        // Process batch results
-        console.log(`✅ Batch calculation successful: ${resultsArray.length} results`);
-
-        resultsArray.forEach((result: any) => {
-          const minQty = config.min_order_quantity || 1;
-          if (result.error) {
-            results.set(result.inventory_id, {
-              quantity: result.recommended_quantity || minQty,
-              source: 'fallback',
-              error: result.error,
-            });
-          } else {
-            results.set(result.inventory_id, {
-              quantity: result.recommended_quantity || minQty,
-              source: 'edge',
-            });
-          }
-        });
-
-        // Handle any items not in results (shouldn't happen, but safety)
-        items.forEach(item => {
-          if (!results.has(item.id)) {
-            results.set(item.id, {
-              quantity: config.min_order_quantity || 1,
-              source: 'fallback',
-              error: 'Missing from batch results',
-            });
-          }
-        });
-
-        return results;
-      } catch (error: any) {
-        const err = error instanceof Error ? error : new Error(String(error));
-        console.error(`❌ Batch calculation error (attempt ${attempt}/${maxRetries}):`, err);
-        lastError = err;
-
-        if (attempt < maxRetries) {
-          const backoffMs = Math.pow(2, attempt) * 500;
-          console.log(`⏳ Retrying in ${backoffMs}ms...`);
-          await new Promise(resolve => setTimeout(resolve, backoffMs));
-        }
-      }
-    }
-
-    // All retries failed - fall back to simple calculation for all items
-    console.warn(`⚠️ All ${maxRetries} batch attempts failed, using fallback calculation`);
-    
-    for (const item of items) {
-      const fallbackQty = await calculateSimpleQuantity({
-        id: item.id,
-        table_name: item.table_name,
-        identifier: '',
-        current_quantity: 0,
-        status: '',
-        days_since_last_restock: null,
-      } as RestockItem);
-      results.set(item.id, { 
-        quantity: fallbackQty, 
-        source: 'fallback', 
-        error: lastError?.message || 'Batch calculation failed' 
-      });
-    }
-    
-    return results;
   };
 
   // Legacy single-item calculation (kept for backward compatibility)
@@ -2339,17 +2303,31 @@ export function Replenishment() {
     setForecastLoading(true);
     setForecastError(null);
     try {
-      const {
-        data,
-        error
-      } = await supabase.functions.invoke('ai-inventory-forecast', {
-        body: {
+      const SUPABASE_URL = 'https://vfqqlifvhooefxvvyebm.supabase.co';
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmcXFsaWZ2aG9vZWZ4dnZ5ZWJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0MzY1OTgsImV4cCI6MjA2ODAxMjU5OH0.u-iIilnOACJTo_3AUCkmhREXdVV84JmbswtM_-NJJBM';
+      
+      const { data: sessionData } = await supabase.auth.getSession();
+      const authToken = sessionData?.session?.access_token;
+
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/ai-inventory-forecast`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken || SUPABASE_ANON_KEY}`,
+          'apikey': SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({
           country: selectedCountry,
           itemType: 'all',
           analysisDepth: 'standard'
-        }
+        }),
       });
-      if (error) throw error;
+
+      if (!response.ok) {
+        throw new Error(`Edge function returned ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
       if (data?.error) {
         throw new Error(data.error);
       }
