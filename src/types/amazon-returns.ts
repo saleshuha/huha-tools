@@ -44,6 +44,7 @@ export interface ReturnsFilters {
   searchQuery?: string;
   country?: string;
   quickFilter?: 'high' | 'medium' | 'low' | null;
+  fileName?: string;
 }
 
 export interface ColumnMapping {
