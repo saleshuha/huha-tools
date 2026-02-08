@@ -2,13 +2,13 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.5';
 
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 serve(async (req) => {
@@ -26,10 +26,8 @@ serve(async (req) => {
       );
     }
 
-    // Create Supabase client
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get authorization token from request
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(
@@ -38,7 +36,6 @@ serve(async (req) => {
       );
     }
 
-    // Verify user authentication
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
@@ -49,7 +46,6 @@ serve(async (req) => {
       );
     }
 
-    // Fetch top priority items for this user and country
     const { data: topItems, error: fetchError } = await supabase
       .from('amazon_returns_data')
       .select('*')
@@ -79,7 +75,6 @@ serve(async (req) => {
       );
     }
 
-    // Calculate aggregate statistics
     const totalReturned = topItems.reduce((sum, item) => sum + item.returned_units, 0);
     const totalShipped = topItems.reduce((sum, item) => sum + item.shipped_units, 0);
     const avgReturnRatio = topItems.reduce((sum, item) => sum + (item.return_ratio || 0), 0) / topItems.length;
@@ -87,7 +82,6 @@ serve(async (req) => {
       item.return_ratio > 50 && item.confidence_score > 70
     ).length;
 
-    // Prepare data summary for AI
     const dataSummary = `
 Amazon Returns Analysis for ${country}:
 - Total items analyzed: ${topItems.length}
@@ -106,15 +100,14 @@ ${topItems.slice(0, 10).map((item, idx) =>
      Priority Score: ${item.priority_score?.toFixed(1)}`
 ).join('\n\n')}`;
 
-    // Call OpenAI for AI-powered insights
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
+        'Authorization': `Bearer ${lovableApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'google/gemini-3-flash-preview',
         messages: [
           {
             role: 'system',
@@ -151,7 +144,7 @@ Respond in JSON format with this structure:
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenAI API error:', response.status, errorText);
+      console.error('AI Gateway error:', response.status, errorText);
       return new Response(
         JSON.stringify({ error: 'AI analysis failed' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -159,10 +152,22 @@ Respond in JSON format with this structure:
     }
 
     const aiData = await response.json();
-    const aiInsights = JSON.parse(aiData.choices[0].message.content);
+    let aiInsights;
+    try {
+      const content = aiData.choices[0].message.content;
+      // Strip markdown code fences if present
+      const cleaned = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      aiInsights = JSON.parse(cleaned);
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', parseError);
+      console.error('Raw content:', aiData.choices[0].message.content);
+      return new Response(
+        JSON.stringify({ error: 'Failed to parse AI response' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    // Enrich AI insights with actual data
-    const enrichedItems = aiInsights.high_priority_items.map((aiItem: any) => {
+    const enrichedItems = (aiInsights.high_priority_items || []).map((aiItem: any) => {
       const actualItem = topItems.find(item => item.asin === aiItem.asin);
       return {
         ...aiItem,
@@ -175,10 +180,9 @@ Respond in JSON format with this structure:
       };
     });
 
-    // Calculate cost impact
     const estimatedCostPerReturn = aiInsights.estimated_avg_cost_per_return || 15;
     const totalReturnedValue = totalReturned * estimatedCostPerReturn;
-    const estimatedLoss = totalReturnedValue * 0.7; // Assume 70% loss on returns
+    const estimatedLoss = totalReturnedValue * 0.7;
 
     const finalInsights = {
       overall_insights: aiInsights.overall_insights,
