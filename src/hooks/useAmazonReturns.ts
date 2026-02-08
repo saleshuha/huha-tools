@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { AmazonReturn, ReturnsMetrics, ReturnsFilters, UploadedReturnsData, AIInsights } from '@/types/amazon-returns';
 import { useToast } from '@/hooks/use-toast';
@@ -13,10 +13,18 @@ export const useAmazonReturns = (country: string) => {
   const [loadingInsights, setLoadingInsights] = useState(false);
   const { toast } = useToast();
 
+  // Derive distinct file names from returns data
+  const fileNames = useMemo(() => {
+    const names = new Set<string>();
+    returns.forEach(r => {
+      if (r.file_name) names.add(r.file_name);
+    });
+    return Array.from(names).sort();
+  }, [returns]);
+
   const fetchReturns = async () => {
     setLoading(true);
     try {
-      // Fetch all records using pagination
       let allData: AmazonReturn[] = [];
       let from = 0;
       const pageSize = 1000;
@@ -30,7 +38,6 @@ export const useAmazonReturns = (country: string) => {
           .order('priority_score', { ascending: false })
           .range(from, from + pageSize - 1);
 
-        // Apply filters
         if (filters.searchQuery) {
           query = query.or(`asin.ilike.%${filters.searchQuery}%,product_title.ilike.%${filters.searchQuery}%`);
         }
@@ -63,10 +70,14 @@ export const useAmazonReturns = (country: string) => {
           }
         }
 
+        if (filters.fileName) {
+          query = query.eq('file_name', filters.fileName);
+        }
+
         const { data, error } = await query;
 
         if (error) throw error;
-        
+
         if (data && data.length > 0) {
           allData = [...allData, ...(data as any)];
           from += pageSize;
@@ -90,7 +101,6 @@ export const useAmazonReturns = (country: string) => {
 
   const calculateMetrics = async () => {
     try {
-      // Fetch all records for metrics using pagination
       let allData: AmazonReturn[] = [];
       let from = 0;
       const pageSize = 1000;
@@ -130,7 +140,7 @@ export const useAmazonReturns = (country: string) => {
       const averageReturnRatio = allData.reduce((sum, item) => sum + Number(item.return_ratio), 0) / totalAsins;
 
       const sortedByRatio = [...allData].sort((a, b) => Number(b.return_ratio) - Number(a.return_ratio));
-      
+
       setMetrics({
         totalAsins,
         totalShipped,
@@ -335,12 +345,27 @@ export const useAmazonReturns = (country: string) => {
   const fetchAIInsights = async () => {
     setLoadingInsights(true);
     try {
-      const { data, error } = await supabase.functions.invoke('analyze-amazon-returns', {
-        body: { country, topN: 20 }
-      });
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('User not authenticated');
 
-      if (error) throw error;
-      
+      const response = await fetch(
+        `https://vfqqlifvhooefxvvyebm.supabase.co/functions/v1/analyze-amazon-returns`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ country, topN: 20 }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
       setAiInsights(data);
       toast({
         title: 'AI Analysis Complete',
@@ -378,5 +403,6 @@ export const useAmazonReturns = (country: string) => {
     aiInsights,
     loadingInsights,
     fetchAIInsights,
+    fileNames,
   };
 };

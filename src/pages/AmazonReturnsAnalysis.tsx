@@ -39,6 +39,7 @@ const AmazonReturnsAnalysis = () => {
     aiInsights,
     loadingInsights,
     fetchAIInsights,
+    fileNames,
   } = useAmazonReturns(selectedCountry);
 
   const handleDeleteAll = async () => {
@@ -61,13 +62,19 @@ const AmazonReturnsAnalysis = () => {
         subtitle="Track and analyze product return rates"
         actions={[
           {
+            label: 'AI Insights',
+            icon: <Brain className="w-4 h-4" />,
+            onClick: handleAIInsightsClick,
+            variant: 'default',
+          },
+          {
             label: 'Upload Data',
             icon: <Upload className="w-4 h-4" />,
             onClick: () => setUploadDialogOpen(true),
             variant: 'default',
           },
           {
-            label: 'Delete All Data',
+            label: 'Delete All',
             icon: <Trash2 className="w-4 h-4" />,
             onClick: () => setDeleteDialogOpen(true),
             variant: 'secondary',
@@ -81,11 +88,11 @@ const AmazonReturnsAnalysis = () => {
         ]}
       />
 
-      <div className="container mx-auto px-6 py-8 space-y-8">
+      <div className="container mx-auto px-6 py-6 space-y-5">
         {/* Metrics Dashboard */}
-        <ReturnsMetricsDashboard 
-          metrics={metrics} 
-          loading={loading} 
+        <ReturnsMetricsDashboard
+          metrics={metrics}
+          loading={loading}
           returns={returns}
           onAIInsightsClick={handleAIInsightsClick}
         />
@@ -100,7 +107,11 @@ const AmazonReturnsAnalysis = () => {
         )}
 
         {/* Filters Panel */}
-        <ReturnsFilterPanel filters={filters} onFiltersChange={setFilters} />
+        <ReturnsFilterPanel
+          filters={filters}
+          onFiltersChange={setFilters}
+          fileNames={fileNames}
+        />
 
         {/* Data Table */}
         <ReturnsDataTable
@@ -124,7 +135,7 @@ const AmazonReturnsAnalysis = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete All Returns Data?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete all returns data for {selectedCountry}. 
+              This will permanently delete all returns data for {selectedCountry}.
               This action cannot be undone. You can then upload fresh data.
             </AlertDialogDescription>
           </AlertDialogHeader>
