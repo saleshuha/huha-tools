@@ -1,44 +1,80 @@
 
-## Performance Column - Advanced Visual Redesign
 
-### Current State
-The performance column currently shows a simple 5-dot rating + category label + total sold count. While functional, it underutilizes the rich data already available from the `get_comprehensive_performance_analysis` database function (velocities across 7d/30d/90d, turnover ratio, stock days remaining, sellout time, etc.).
+## Inventory Table - Advanced UI Redesign
 
-### New Design: Compact Multi-Signal Performance Cell
+### Goal
+Modernize the inventory table for better visual clarity, density, and professional polish while keeping all existing functionality (sorting, selection, restock/export toggles, performance, actions) intact.
 
-Replace the simple dots with a **stacked micro-dashboard** that fits in the table cell, showing confidence-based performance at a glance.
+### Key Visual Changes
 
-**Cell Layout (vertical stack, ~80px wide):**
+**1. Sticky Glassmorphism Header**
+- Make the table header sticky so it stays visible while scrolling
+- Apply a frosted-glass backdrop-blur effect with subtle border-bottom glow
+- Reduce header text size and use uppercase tracking for a cleaner look
+- Add subtle column separator lines instead of heavy borders
 
-```text
-+---------------------------+
-| [Score Bar ██████░░ 72%]  |  <- Colored progress bar with score
-| ▲ 2.1/day   47d left     |  <- Velocity + stock runway
-| 7d ██ 30d ███ 90d █      |  <- Sparkline-style velocity trend
-+---------------------------+
-```
+**2. Row Redesign - Card-Like Rows**
+- Remove all internal cell borders (`border-r`) for a cleaner horizontal flow
+- Add alternating row backgrounds with very subtle tint (`even:bg-muted/20`)
+- Replace heavy `border-b` with a thin hairline separator
+- Add a left accent color bar on each row based on status (green = in stock, red = out of stock, yellow = low stock, gray = disabled)
+- Smooth hover effect with slight left-shift of the accent bar
 
-**Key visual elements:**
-1. **Score Bar**: A thin colored progress bar (0-100%) with the category color (emerald/blue/amber/red). Shows the score number on hover.
-2. **Velocity + Runway Row**: Current 30d velocity as units/day, plus stock days remaining (or a warning icon if < 7 days).
-3. **Velocity Trend Bars**: Three tiny inline bars comparing 7d vs 30d vs 90d velocity - instantly shows if the product is trending up or down.
-4. **Category Badge**: Small colored pill at the top-right corner (E/G/A/P) for quick scanning.
+**3. Product Info Column - Enhanced Layout**
+- Larger product image thumbnail (40x40 with rounded corners)
+- Title limited to 2 lines with text-ellipsis
+- ASIN and SKU as inline compact pills/badges instead of plain text
+- Disabled badge integrated more subtly (muted red background instead of pulsing)
 
-**Tooltip on hover** remains but gets enhanced:
-- All existing metrics (total sold, velocity, stock days, turnover)
-- Added: Trend direction indicator (7d vs 30d comparison)
-- Added: Avg days to sellout
-- Added: Days in inventory
-- Added: Total restocked units
+**4. Quantity Column - Visual Gauge**
+- Replace plain number with a mini radial/circular indicator or a small colored pill
+- Color gradient: red (0) -> yellow (1-5) -> green (6+)
+- Show the number centered inside the colored pill
 
-### Technical Changes
+**5. Status Column - Refined Badges**
+- Smaller, rounder badges with dot indicator prefix (colored dot + text)
+- Consistent color scheme across all statuses
 
-**File: `src/components/inventory/PerformanceIndicator.tsx`** (full rewrite)
-- Replace `DotRating` with `ScoreBar` - a thin progress bar using the `Progress` component or a custom div
-- Add `VelocityTrend` - three tiny bars showing 7d/30d/90d relative velocity
-- Add trend arrow (up/down/flat) by comparing 7d velocity to 30d velocity
-- Stock runway with color coding: green (30+ days), amber (7-30 days), red (<7 days), infinity symbol if null
-- Category micro-badge in corner: single letter (E/G/A/P) with colored background
-- Enhanced tooltip with all available metrics in organized sections
+**6. Restock & Export Columns - Compact Toggle**
+- Remove verbose description text below each switch
+- Show only the switch + short label ("Eligible" / "Not Eligible")
+- Move the description text into a tooltip on hover instead
+- This saves significant vertical space per row
 
-**No other files need changes** - the data is already passed correctly from `AsinInventory.tsx` via `performanceMap`.
+**7. Performance Column - Already Redesigned**
+- Keep the new multi-signal performance indicator as-is
+
+**8. Actions Column - Icon-Only Compact Bar**
+- Replace text buttons with icon-only buttons in a tight horizontal group
+- Use a `ButtonGroup` style with connected borders
+- Tooltip on each icon for clarity
+- Print button gets a subtle accent if printer is connected
+
+**9. Overall Table Container**
+- Rounded-xl container with subtle shadow
+- Remove the outer Card wrapper padding for tighter fit
+- Add a subtle gradient top-border accent line (2px, primary color fade)
+
+### Technical Details
+
+**Files to modify:**
+- `src/components/AsinInventory.tsx` (lines ~1709-2075) - Table markup, row rendering, header styling
+- No new files needed
+- No data/logic changes - purely visual
+
+**Approach:**
+- All changes are CSS/Tailwind class modifications and minor JSX restructuring
+- Switch description text moved to `TooltipProvider` / `Tooltip` wrappers
+- Row accent bar added as a pseudo-element or a thin `div` at row start
+- Sticky header via `sticky top-0 z-10 backdrop-blur-xl bg-background/80`
+- Quantity pill using inline styled `span` with dynamic background color
+
+**What stays exactly the same:**
+- All sorting logic and handlers
+- Checkbox selection behavior
+- Restock/Export switch functionality and database calls
+- Performance data and indicator
+- DualQuantityEditor, StockHistoryDialog, PrintQuantityDialog
+- Pagination and all filters
+- Grid/card view mode (untouched)
+
