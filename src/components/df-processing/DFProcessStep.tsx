@@ -90,7 +90,7 @@ export function DFProcessStep({ orders, onBack, onProcessed }: DFProcessStepProp
         }
 
         // Record in processed_orders
-        await supabase.from('processed_orders').insert({
+        const { error: insertError } = await supabase.from('processed_orders').insert({
           user_id: user.id,
           order_number: order.orderId,
           asin: order.asin,
@@ -102,10 +102,12 @@ export function DFProcessStep({ orders, onBack, onProcessed }: DFProcessStepProp
           previous_stock: previousQty,
           new_stock: newQty,
           inventory_id: order.inventoryId,
-          serial_number: order.serialNumber,
           source_file: order.sourceFile,
           processed_at: new Date().toISOString(),
         });
+        if (insertError) {
+          console.error('Failed to record processed order:', insertError);
+        }
 
         // Mark order_imports as processed
         await supabase
