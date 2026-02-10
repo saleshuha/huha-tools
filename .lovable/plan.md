@@ -1,103 +1,123 @@
 
 
-## Advanced Amazon Returns Analysis Page - Redesign Plan
+## Rebuild DF Order Processing - Clean 4-Step Workflow
 
-### Current Issues Identified
+### Overview
+Completely rebuild the DF Order Processing page into a clean, guided 4-step wizard flow. Each step is visually distinct with a stepper navigation, and the user progresses naturally through: Upload -> Sunsky Source Match -> Inventory Match -> Process & Deduct.
 
-1. **Bug: Delete button missing from table rows** - The delete action column exists in the component but is not rendered in table rows (no delete button per row despite `handleDeleteClick` being defined)
-2. **Bug: AI Insights uses `supabase.functions.invoke()`** - Same issue as the Replenishment page; will crash with the "region undefined" error
-3. **Fixed 20 items per page** - No option to change page size
-4. **Filter panel takes too much vertical space** - Search, quick filters, date range, slider all stacked vertically
-5. **No summary row** showing filtered totals vs overall totals
-6. **No impact_score column** displayed even though data exists
-7. **Sort indicators are basic** - Uses generic ArrowUpDown buttons instead of the cleaner SortableTableHeader component used elsewhere
-8. **Missing country filter** in filter panel (type supports it but UI doesn't show it)
-9. **No file name filter** - Users upload from different files but can't filter by file
+### Current Problems
+- Everything is crammed into one screen with too many components
+- No clear separation between "Sunsky source matching" and "inventory matching" - they're mixed together
+- The pipeline visual is decorative but doesn't actually guide workflow
+- No "Source Status" column showing if an item comes from Sunsky catalog
+- Processing is buried in a collapsible card
 
 ---
 
-### Changes Overview
-
-#### 1. Compact Inline Filter Bar (ReturnsFilterPanel.tsx)
-Replace the tall stacked card with a single-row horizontal filter bar:
-- Search input on the left
-- Quick filter badges inline
-- Collapsible "Advanced Filters" section for date range and ratio slider
-- Active filter count badge
-- Much less vertical space used by default
-
-#### 2. Enhanced Data Table (ReturnsDataTable.tsx)
-- **Add delete button** to each row (fix the missing action column bug)
-- **Use SortableTableHeader** component for consistent, clean sort indicators
-- **Add items-per-page selector** (20, 50, 100, All) matching the OrdersTable pattern
-- **Add impact score column** - shows the impact_score value with color coding
-- **Add row count summary** - "Showing 1-20 of 1,263 results" at bottom
-- **Add file name display** in a tooltip on hover
-- **Improve table density** - tighter padding for more data visibility
-- **Add alternating row colors** for better readability
-- **Sticky header** so column names stay visible while scrolling
-
-#### 3. Enhanced Metrics Dashboard (ReturnsMetricsDashboard.tsx)
-- Add **Return Rate Distribution** mini chart using recharts (pie chart showing High/Medium/Low split)
-- Add **Estimated Cost Impact** card (already calculated but not shown in cards)
-- Add **High Confidence Issues** count card
-- Better visual hierarchy with gradient card borders for critical metrics
-- Show **filtered vs total** counts when filters are active
-
-#### 4. Fix AI Insights Edge Function Call (useAmazonReturns.ts)
-- Replace `supabase.functions.invoke('analyze-amazon-returns', ...)` with direct `fetch()` pattern
-- Same fix applied to the Replenishment page earlier
-
-#### 5. Add Country & File Name Filters
-- Add a file name dropdown filter to the filter panel
-- Populate from distinct `file_name` values in the data
-- Already supported in types but not in the UI
-
-#### 6. Table Visual Improvements
-- Color-coded row backgrounds based on return ratio severity (subtle tint)
-- Improved badge designs for confidence and priority scores
-- Better responsive behavior for smaller screens
-
----
-
-### Technical Details
-
-#### Files to Modify
-
-| File | Changes |
-|------|---------|
-| `src/components/amazon/ReturnsFilterPanel.tsx` | Redesign to horizontal compact layout with collapsible advanced section, add file name filter |
-| `src/components/amazon/ReturnsDataTable.tsx` | Fix delete button bug, use SortableTableHeader, add items-per-page selector, add impact column, add row summary, improve styling |
-| `src/components/amazon/ReturnsMetricsDashboard.tsx` | Add distribution pie chart, cost impact card, high-confidence issues card, filtered vs total indicator |
-| `src/hooks/useAmazonReturns.ts` | Fix `supabase.functions.invoke()` to use direct `fetch()` for AI insights, add file name to filters |
-| `src/types/amazon-returns.ts` | Add `fileName` to `ReturnsFilters` type |
-| `src/pages/AmazonReturnsAnalysis.tsx` | Minor layout adjustments for new component sizes |
-
-#### Filter Panel - New Layout
+### New Architecture: 4-Step Wizard
 
 ```text
-+------------------------------------------------------------------+
-| [Search ASIN or title...] | High | Medium | Low | [Advanced v]   |
-|                                                                  |
-| (When Advanced expanded:)                                        |
-| [Date Range Picker]  [Ratio Slider 0-100%]  [File: dropdown]    |
-|                                              [Clear All Filters] |
-+------------------------------------------------------------------+
+Step 1: UPLOAD          Step 2: SOURCE MATCH       Step 3: INVENTORY        Step 4: PROCESS
++-----------------+     +--------------------+     +------------------+     +------------------+
+| Upload CSV/XLSX |     | Match SKUs against |     | Match all items  |     | Select & process |
+| Show file info  | --> | Sunsky catalog     | --> | against your     | --> | orders, deduct   |
+| Preview orders  |     | Mark source status |     | ASIN/SKU invent. |     | stock one-by-one |
++-----------------+     +--------------------+     +------------------+     | or in bulk       |
+                                                                           +------------------+
 ```
 
-#### Enhanced Table Columns
+### Step-by-Step Details
 
-```text
-| [ ] | Image | Product | Shipped | Returned | Ratio | Impact | Confidence | Priority | Date | Actions |
-```
+**Step 1 - Upload Orders**
+- Drag-and-drop or click-to-upload area (clean, centered)
+- Accepts CSV/XLSX files
+- Shows upload progress bar
+- After upload: displays summary card (total orders, date range, file name)
+- Table preview of first 10 rows
+- "Continue to Source Matching" button
 
-#### Metrics Dashboard - New Layout (7 cards in 2 rows)
+**Step 2 - Sunsky Source Matching**
+- Automatically checks each order's SKU against the `sunsky_skus` table
+- Shows progress bar during matching
+- Results table with new **Source Status** column:
+  - "Sunsky" badge (green) - SKU found in sunsky_skus catalog
+  - "Other" badge (gray) - SKU not found in catalog
+- Summary: X of Y items sourced from Sunsky
+- Sunsky-matched items show supplier cost from catalog
+- "Continue to Inventory Check" button
 
-Row 1 (5 cards): Total ASINs | Total Shipped | Avg Return Ratio | Highest Return | Missing Images
-Row 2 (3 cards): Return Distribution (pie) | Cost Impact | High Confidence Issues
+**Step 3 - Inventory Matching**
+- Cross-references ALL orders (not just Sunsky) against `asin_inventory` and `sku_inventory`
+- New **Inventory Status** column:
+  - "In Stock" (green) - available qty >= order qty
+  - "Low Stock" (amber) - available qty > 0 but < order qty  
+  - "Out of Stock" (red) - qty = 0 or no match
+  - "Not Tracked" (gray) - item not in inventory system
+- Shows available units next to required quantity
+- Filter tabs: All | In Stock | Low Stock | Out of Stock
+- "Continue to Processing" button
 
-#### Bug Fixes Summary
-1. Add missing delete action button to each table row
-2. Fix AI insights edge function call (region undefined error)
-3. Reset page to 1 when sort changes (currently only resets on filter change)
+**Step 4 - Process & Deduct**
+- Only shows items that have inventory matches (In Stock or Low Stock)
+- Checkboxes for selection
+- **Process One-by-One**: Click a "Process" button on each row
+- **Bulk Process**: Select multiple and click "Process Selected"
+- Before processing, shows confirmation with stock impact:
+  - Current stock -> After deduction
+- On process: deducts from inventory, records in `processed_orders` table
+- Real-time progress bar for bulk operations
+- Processing history log at bottom
+
+### New Component Structure
+
+| Component | Purpose |
+|-----------|---------|
+| `DFProcessingWizard.tsx` | Main wizard container with step navigation |
+| `DFStepIndicator.tsx` | Clean horizontal stepper showing 4 steps |
+| `DFUploadStep.tsx` | Step 1 - file upload with drag-drop and preview |
+| `DFSourceMatchStep.tsx` | Step 2 - Sunsky catalog matching with source status |
+| `DFInventoryMatchStep.tsx` | Step 3 - inventory cross-reference with availability |
+| `DFProcessStep.tsx` | Step 4 - order processing with stock deduction |
+| `DFOrderRow.tsx` | Reusable table row component used across steps |
+| `DFProcessConfirmDialog.tsx` | Confirmation dialog before stock deduction |
+
+### Files to Modify/Create
+
+| File | Action |
+|------|--------|
+| `src/pages/OrderProcessing.tsx` | Simplify to render new wizard |
+| `src/components/df-processing/DFProcessingWizard.tsx` | **New** - Main wizard with state management |
+| `src/components/df-processing/DFStepIndicator.tsx` | **New** - Step progress indicator |
+| `src/components/df-processing/DFUploadStep.tsx` | **New** - Upload step |
+| `src/components/df-processing/DFSourceMatchStep.tsx` | **New** - Sunsky source matching |
+| `src/components/df-processing/DFInventoryMatchStep.tsx` | **New** - Inventory matching |
+| `src/components/df-processing/DFProcessStep.tsx` | **New** - Processing with deduction |
+| `src/components/df-processing/DFProcessConfirmDialog.tsx` | **New** - Confirmation dialog |
+
+### Data Flow
+
+1. Upload parses file -> stores orders in state + `order_imports` table
+2. Source match checks each SKU against `sunsky_skus` table -> adds `sourceStatus` field
+3. Inventory match checks ASIN/SKU against `asin_inventory` + `sku_inventory` -> adds `inventoryStatus`, `availableQty` fields
+4. Processing deducts via existing `updateAsinQuantity`/`updateSkuQuantity` hooks -> records in `processed_orders`
+
+### UI Design Principles
+- Clean white cards with subtle borders
+- Step indicator at the top with numbered circles and connecting lines
+- Each step is a full-width card with clear title, description, and action button
+- Tables are compact with good use of badges for status
+- Only show the active step's content (not all steps at once)
+- Back/Next navigation between steps
+- Summary counts visible in the step indicator
+
+### Database Changes
+- **None required** - all existing tables (`order_imports`, `processed_orders`, `sunsky_skus`, `asin_inventory`, `sku_inventory`) already have the needed columns
+- The `order_imports` table already has `has_inventory_match`, `is_processed` columns that will be utilized properly
+
+### Existing Code Reuse
+- Reuse `useAsinInventory` and `useSkuInventory` hooks for inventory data
+- Reuse `useProductImages` for product thumbnails
+- Reuse `useSKUManager` for Sunsky SKU lookups
+- Reuse existing file parsing logic (Papa.parse for CSV, XLSX for Excel)
+- Keep the `processed_orders` insert logic from current `processSelectedItems`
 
