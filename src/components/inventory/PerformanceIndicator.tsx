@@ -26,11 +26,11 @@ interface PerformanceIndicatorProps {
 }
 
 const categoryConfig = {
-  Excellent: { barColor: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400' },
-  Good: { barColor: 'bg-blue-500', text: 'text-blue-600 dark:text-blue-400' },
-  Average: { barColor: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-500' },
-  Poor: { barColor: 'bg-red-400', text: 'text-red-500 dark:text-red-400' },
-  'No Sales': { barColor: 'bg-muted-foreground/30', text: 'text-muted-foreground' },
+  Excellent: { borderColor: 'border-emerald-500', text: 'text-emerald-600 dark:text-emerald-400' },
+  Good: { borderColor: 'border-blue-500', text: 'text-blue-600 dark:text-blue-400' },
+  Average: { borderColor: 'border-amber-500', text: 'text-amber-600 dark:text-amber-500' },
+  Poor: { borderColor: 'border-red-400', text: 'text-red-500 dark:text-red-400' },
+  'No Sales': { borderColor: 'border-muted-foreground/30', text: 'text-muted-foreground' },
 };
 
 const TrendArrow = ({ v7d, v30d }: { v7d: number; v30d: number }) => {
@@ -41,36 +41,29 @@ const TrendArrow = ({ v7d, v30d }: { v7d: number; v30d: number }) => {
   return <Minus className="w-3 h-3 text-muted-foreground" />;
 };
 
-function PerformanceCell({ category, score, velocity, barColor, textColor }: {
+function MetricRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-[10px] text-muted-foreground leading-none">{label}</span>
+      <span className="text-[11px] font-semibold tabular-nums leading-none">{value}</span>
+    </div>
+  );
+}
+
+function PerformanceMetrics({ performanceData, category, borderColor, textColor }: {
+  performanceData: NonNullable<PerformanceIndicatorProps['performanceData']>;
   category: string;
-  score: number;
-  velocity: number | null;
-  barColor: string;
+  borderColor: string;
   textColor: string;
 }) {
+  const d = performanceData;
   return (
-    <div className="flex flex-col gap-1 min-w-[100px] py-0.5">
-      {/* Row 1: Category + Score */}
-      <div className="flex items-center justify-between">
-        <span className={cn('text-[11px] font-semibold leading-none', textColor)}>
-          {category}
-        </span>
-        <span className="text-[10px] text-muted-foreground tabular-nums leading-none">
-          {score}/100
-        </span>
-      </div>
-      {/* Row 2: Progress bar + velocity */}
-      <div className="flex items-center gap-1.5">
-        <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-          <div
-            className={cn('h-full rounded-full transition-all', barColor)}
-            style={{ width: `${Math.min(score, 100)}%` }}
-          />
-        </div>
-        <span className="text-[10px] text-muted-foreground tabular-nums leading-none whitespace-nowrap">
-          {velocity !== null ? `${velocity.toFixed(1)}/day` : '—'}
-        </span>
-      </div>
+    <div className={cn('border-l-2 pl-2 py-0.5 min-w-[110px] space-y-1', borderColor)}>
+      <span className={cn('text-[10px] font-semibold leading-none', textColor)}>{category}</span>
+      <MetricRow label="Restocked" value={String(d.total_units_restocked)} />
+      <MetricRow label="Sold" value={String(d.total_units_sold_lifetime)} />
+      <MetricRow label="In Stock" value={`${d.days_in_inventory}d`} />
+      <MetricRow label="Avg Sellout" value={d.avg_days_to_sellout > 0 ? `${Math.round(d.avg_days_to_sellout)}d` : '—'} />
     </div>
   );
 }
@@ -85,23 +78,22 @@ export function PerformanceIndicator({ velocityCategory, performanceData }: Perf
   }
 
   if (!performanceData) {
-    // Legacy fallback — same two-row layout
-    const legacyMap: Record<string, { score: number; category: string }> = {
-      'Fast Moving': { score: 80, category: 'Excellent' },
-      'Medium Moving': { score: 60, category: 'Good' },
-      'Slow Moving': { score: 40, category: 'Average' },
-      'No Sales': { score: 10, category: 'No Sales' },
+    const legacyMap: Record<string, string> = {
+      'Fast Moving': 'Excellent',
+      'Medium Moving': 'Good',
+      'Slow Moving': 'Average',
+      'No Sales': 'No Sales',
     };
-    const legacy = legacyMap[velocityCategory || ''] || { score: 0, category: 'No Sales' };
-    const config = categoryConfig[legacy.category as keyof typeof categoryConfig] || categoryConfig['No Sales'];
+    const category = legacyMap[velocityCategory || ''] || 'No Sales';
+    const config = categoryConfig[category as keyof typeof categoryConfig] || categoryConfig['No Sales'];
     return (
-      <PerformanceCell
-        category={legacy.category}
-        score={legacy.score}
-        velocity={null}
-        barColor={config.barColor}
-        textColor={config.text}
-      />
+      <div className={cn('border-l-2 pl-2 py-0.5 min-w-[110px] space-y-1', config.borderColor)}>
+        <span className={cn('text-[10px] font-semibold leading-none', config.text)}>{category}</span>
+        <MetricRow label="Restocked" value="—" />
+        <MetricRow label="Sold" value="—" />
+        <MetricRow label="In Stock" value="—" />
+        <MetricRow label="Avg Sellout" value="—" />
+      </div>
     );
   }
 
@@ -113,11 +105,10 @@ export function PerformanceIndicator({ velocityCategory, performanceData }: Perf
       <Tooltip>
         <TooltipTrigger asChild>
           <div className="cursor-help">
-            <PerformanceCell
+            <PerformanceMetrics
+              performanceData={d}
               category={d.performance_category}
-              score={d.performance_score}
-              velocity={d.sales_velocity_30d}
-              barColor={config.barColor}
+              borderColor={config.borderColor}
               textColor={config.text}
             />
           </div>
