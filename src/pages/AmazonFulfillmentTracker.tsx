@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { HuhaHeader01 } from '@/components/ui/huha-header-01';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Upload, DollarSign } from 'lucide-react';
+import { Upload, DollarSign, Settings } from 'lucide-react';
 import { MetricsDashboard } from '@/components/amazon/MetricsDashboard';
 import { OrdersTable } from '@/components/amazon/OrdersTable';
 import { ImportOrdersDialog } from '@/components/amazon/ImportOrdersDialog';
 import { CurrencyRatesDialog } from '@/components/amazon/CurrencyRatesDialog';
 import { ReAuthDialog } from '@/components/amazon/ReAuthDialog';
+import { PaymentSettingsDialog } from '@/components/amazon/PaymentSettingsDialog';
 import { CurrencyDisplayProvider, CurrencySelector } from '@/components/amazon/CurrencySelector';
 import { useAmazonOrders } from '@/hooks/useAmazonOrders';
 import { useCountry } from '@/contexts/CountryContext';
@@ -21,6 +21,7 @@ const AmazonFulfillmentTracker = () => {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showCurrencyDialog, setShowCurrencyDialog] = useState(false);
   const [showReAuthDialog, setShowReAuthDialog] = useState(false);
+  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
 
   return (
     <CurrencyDisplayProvider>
@@ -36,6 +37,12 @@ const AmazonFulfillmentTracker = () => {
             onClick: () => {},
             variant: 'outline' as const,
             className: 'p-0'
+          },
+          {
+            label: 'Settings',
+            icon: <Settings className="h-4 w-4 mr-2" />,
+            onClick: () => setShowSettingsDialog(true),
+            variant: 'outline' as const
           },
           {
             label: 'Currency Rates',
@@ -100,6 +107,11 @@ const AmazonFulfillmentTracker = () => {
               orders={orders} 
               onUpdateOrder={updateOrder}
               onDeleteOrder={deleteOrder}
+              onBulkUpdateStatus={async (ids: string[], status: string) => {
+                for (const id of ids) {
+                  await updateOrder(id, { payment_status: status, status: status === 'completed' ? 'Paid' : undefined } as any);
+                }
+              }}
             />
           </TabsContent>
         </Tabs>
@@ -115,6 +127,11 @@ const AmazonFulfillmentTracker = () => {
         <CurrencyRatesDialog
           open={showCurrencyDialog}
           onOpenChange={setShowCurrencyDialog}
+        />
+        
+        <PaymentSettingsDialog
+          open={showSettingsDialog}
+          onOpenChange={setShowSettingsDialog}
         />
         
         <ReAuthDialog

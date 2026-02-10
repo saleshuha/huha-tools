@@ -12,6 +12,7 @@ import { useMemo, useState } from 'react';
 import { usePaymentTerms } from '@/hooks/usePaymentTerms';
 import { DatePickerWithRange } from '@/components/ui/date-range-picker';
 import { DateRange } from 'react-day-picker';
+import { PaymentAgingChart } from '@/components/amazon/PaymentAgingChart';
 interface MetricsDashboardProps {
   metrics: DashboardMetrics | null;
   loading: boolean;
@@ -47,7 +48,6 @@ export const MetricsDashboard = ({
     if (!metrics?.totalValue) return 0;
     const totalValue = parseFloat(metrics.totalValue?.toString()) || 0;
     const converted = convertCurrency(totalValue, 'USD', displayCurrency);
-    console.log(`Dashboard Converting Total ${totalValue} USD to ${displayCurrency}: ${converted}`);
     return converted;
   }, [metrics?.totalValue, displayCurrency, convertCurrency]);
 
@@ -56,7 +56,6 @@ export const MetricsDashboard = ({
     if (!metrics?.paidValue) return 0;
     const paidValue = parseFloat(metrics.paidValue?.toString()) || 0;
     const converted = convertCurrency(paidValue, 'USD', displayCurrency);
-    console.log(`Dashboard Converting Paid ${paidValue} USD to ${displayCurrency}: ${converted}`);
     return converted;
   }, [metrics?.paidValue, displayCurrency, convertCurrency]);
 
@@ -65,14 +64,12 @@ export const MetricsDashboard = ({
     if (!metrics?.pendingValue) return 0;
     const pendingValue = parseFloat(metrics.pendingValue?.toString()) || 0;
     const converted = convertCurrency(pendingValue, 'USD', displayCurrency);
-    console.log(`Dashboard Converting Pending ${pendingValue} USD to ${displayCurrency}: ${converted}`);
     return converted;
   }, [metrics?.pendingValue, displayCurrency, convertCurrency]);
   const convertedOverdueValue = useMemo(() => {
     if (!metrics?.overdueValue) return 0;
     const overdueValue = parseFloat(metrics.overdueValue?.toString()) || 0;
     const converted = convertCurrency(overdueValue, 'USD', displayCurrency);
-    console.log(`Dashboard Converting Overdue ${overdueValue} USD to ${displayCurrency}: ${converted}`);
     return converted;
   }, [metrics?.overdueValue, displayCurrency, convertCurrency]);
 
@@ -343,7 +340,7 @@ export const MetricsDashboard = ({
     }
     return weeks;
   }, [orders, convertCurrency, displayCurrency, weekOffset]);
-  console.log('MetricsDashboard render - Country:', selectedCountry, 'Display Currency:', displayCurrency, 'Total Value:', metrics?.totalValue, 'Converted:', convertedTotalValue);
+  // Debug logging removed for cleaner output
   if (loading) {
     return <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {[...Array(8)].map((_, i) => <Card key={i} className="animate-pulse">
@@ -436,7 +433,7 @@ export const MetricsDashboard = ({
               {formatCurrency(convertedOverdueValue, displayCurrency)}
             </div>
             <p className="text-[10px] text-muted-foreground mt-1">
-              Past {selectedCountry === 'UAE' ? '60' : '45'}-day credit period ({selectedCountry})
+              Past {creditDays}-day credit period ({selectedCountry})
             </p>
           </CardContent>
         </Card>
@@ -625,6 +622,9 @@ export const MetricsDashboard = ({
             </ChartContainer>}
         </CardContent>
       </Card>
+
+      {/* Payment Aging & KPIs */}
+      {orders && orders.length > 0 && <PaymentAgingChart orders={orders} />}
 
       {/* Secondary Metrics Row */}
       <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">

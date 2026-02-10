@@ -77,11 +77,7 @@ export const useAmazonOrders = () => {
   };
 
   const calculateMetrics = (ordersData: Order[]) => {
-    console.log('🔍 Overdue Debug - Calculating metrics for orders:', ordersData.length);
-    console.log('🔍 Overdue Debug - Using credit days:', creditDays, 'for country:', selectedCountry);
-    
     const now = new Date();
-    console.log('🔍 Overdue Debug - Current date for overdue calculation:', now.toDateString());
     
     if (!ordersData || ordersData.length === 0) {
       setMetrics({
@@ -128,13 +124,7 @@ export const useAmazonOrders = () => {
       return sum + convertToUSD(orderValue, order.currency || 'USD');
     }, 0);
     
-    console.log('Total value calculated (all converted to USD):', totalValue);
-    console.log('Order breakdown by currency:', ordersData.reduce((acc, order) => {
-      const curr = order.currency || 'USD';
-      acc[curr] = (acc[curr] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>));
-    
+    // Status breakdown
     const statusBreakdown = ordersData.reduce((acc, order) => {
       const status = order.status || 'Unknown';
       acc[status] = (acc[status] || 0) + 1;
@@ -159,12 +149,7 @@ export const useAmazonOrders = () => {
       return sum + convertToUSD(orderValue, order.currency || 'USD');
     }, 0);
     
-    console.log('Pending payments (Approved + Non-submitted):', pendingPayments);
-    console.log('Sample pending orders:', pendingOrders.slice(0, 3).map(o => ({ 
-      status: o.status, 
-      order_id: o.order_id, 
-      invoice_date: o.invoice_date 
-    })));
+    // Overdue calculation
 
     // Overdue payments = pending orders past due date (shipment_date + credit days < today)
     const overdueOrders = pendingOrders.filter(o => {
@@ -177,41 +162,14 @@ export const useAmazonOrders = () => {
         dueDate.setDate(dueDate.getDate() + creditDays);
         const isOverdue = dueDate <= now;
         
-        // Enhanced logging for debugging
-        console.log(`Order ${o.order_id}: Shipment: ${o.shipment_date}, Due: ${dueDate.toDateString()}, Credit Days: ${creditDays}, Is Overdue: ${isOverdue}`);
-        
-        if (isOverdue) {
-          console.log(`✓ OVERDUE: ${o.order_id}, Shipment: ${o.shipment_date}, Due: ${dueDate.toDateString()} (${creditDays} days)`);
-        } else {
-          // Log why it's not overdue for debugging  
-          console.log(`❌ Not overdue: ${o.order_id}, Due: ${dueDate.toDateString()}, Now: ${now.toDateString()}`);
-        }
         
         return isOverdue;
       } catch (error) {
-        console.error('Error parsing shipment date:', o.shipment_date, error);
         return false;
       }
     });
     const overduePayments = overdueOrders.length;
 
-    console.log('🔍 Total overdue orders found:', overdueOrders.length);
-    console.log(`🔍 Expected ~137 overdue orders based on database query (shipment dates before ${new Date(new Date().getTime() - (creditDays * 24 * 60 * 60 * 1000)).toDateString()})`);
-    
-    if (overdueOrders.length > 0) {
-      console.log('🔍 Sample overdue orders:', overdueOrders.slice(0, 5).map(o => ({
-        order_id: o.order_id,
-        shipment_date: o.shipment_date,
-        due_date: new Date(new Date(o.shipment_date).getTime() + (creditDays * 24 * 60 * 60 * 1000)).toDateString()
-      })));
-    } else {
-      console.log('🔍 No overdue orders found. Check if older orders (July 2025) are being processed.');
-      console.log('🔍 First 5 pending orders being checked:', pendingOrders.slice(0, 5).map(o => ({
-        order_id: o.order_id,
-        shipment_date: o.shipment_date,
-        status: o.status
-      })));
-    }
 
     // Calculate overdue orders value (convert to USD)
     const overdueValue = overdueOrders.reduce((sum, order) => {
@@ -223,7 +181,7 @@ export const useAmazonOrders = () => {
       return sum + convertToUSD(orderValue, order.currency || 'USD');
     }, 0);
     
-    console.log('Overdue payments count:', overduePayments);
+    
     
     // Paid payments = orders with payment_status "completed" or status "Paid"
     const paidOrders = ordersData.filter(o => {
@@ -311,10 +269,7 @@ export const useAmazonOrders = () => {
           return dateA.getTime() - dateB.getTime();
         });
       
-      console.log(`📅 Paid Through Calculation - Total orders: ${sortedOrders.length}`);
-      if (sortedOrders.length > 0) {
-        console.log(`📅 Date range: ${sortedOrders[0]?.shipment_date} to ${sortedOrders[sortedOrders.length - 1]?.shipment_date}`);
-      }
+      
       
       // Find the latest date where all orders up to that date are paid
       for (let i = sortedOrders.length - 1; i >= 0; i--) {
@@ -335,11 +290,11 @@ export const useAmazonOrders = () => {
           return paymentStatus === 'completed' || status === 'paid';
         }).length;
         
-        console.log(`📅 Checking date ${currentDate}: ${paidCount}/${ordersUpToThisDate.length} paid, allPaid=${allPaid}`);
+        
         
         if (allPaid) {
           paidThroughDate = currentDate;
-          console.log(`✅ Found paid-through date: ${paidThroughDate}`);
+          
           break;
         } else if (i === 0) {
           // Log first unpaid orders for debugging
@@ -348,12 +303,7 @@ export const useAmazonOrders = () => {
             const status = (order.status || '').toLowerCase().trim();
             return !(paymentStatus === 'completed' || status === 'paid');
           });
-          console.log(`❌ No paid-through date found. First unpaid orders:`, unpaidOrders.slice(0, 5).map(o => ({
-            order_id: o.order_id,
-            date: o.shipment_date,
-            status: o.status,
-            payment_status: o.payment_status
-          })));
+          // No paid-through date found
         }
       }
     }
@@ -374,7 +324,7 @@ export const useAmazonOrders = () => {
       upcomingPayments,
     };
     
-    console.log('Final metrics:', finalMetrics);
+    
     setMetrics(finalMetrics);
   };
 
@@ -465,7 +415,7 @@ export const useAmazonOrders = () => {
       const user = (await supabase.auth.getUser()).data.user;
 
       // First, fetch all existing orders to compare
-      console.log('Fetching existing orders for duplicate detection...');
+      // Fetch existing orders for duplicate detection
       const { data: existingOrders, error: fetchError } = await supabase
         .from('orders')
         .select('order_id, id, status, payment_status, updated_at')
@@ -491,7 +441,7 @@ export const useAmazonOrders = () => {
         if (deleteError) {
           console.warn('Error clearing existing data:', deleteError);
         } else {
-          console.log(`Cleared existing data for ${selectedCountry}`);
+          existingOrdersMap.clear();
           existingOrdersMap.clear(); // Clear the map since we deleted all data
         }
       }
@@ -522,8 +472,7 @@ export const useAmazonOrders = () => {
         };
       });
 
-      console.log(`Processing ${formattedOrders.length} orders...`);
-      console.log(`Found ${existingOrdersMap.size} existing orders in database`);
+      // Upsert orders
 
       // Use upsert to handle duplicates - update if order_id exists, insert if new
       const { data, error } = await supabase
@@ -540,7 +489,7 @@ export const useAmazonOrders = () => {
       const newOrders = formattedOrders.filter(order => !existingOrdersMap.has(order.order_id));
       const updatedOrders = formattedOrders.filter(order => existingOrdersMap.has(order.order_id));
       
-      console.log(`Import results: ${newOrders.length} new orders, ${updatedOrders.length} updated orders`);
+      
 
       toast({
         title: 'Import completed successfully',
