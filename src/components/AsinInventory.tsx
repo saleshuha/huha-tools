@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './ui/tooltip';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
@@ -401,19 +402,16 @@ export function AsinInventory() {
     // Always show loading state when images are still being fetched
     if (imagesLoading) {
       return (
-        <div className="w-20 h-20 min-w-[5rem] min-h-[5rem] bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-border flex-shrink-0 animate-pulse">
-          <div className="w-4 h-4 bg-muted-foreground/50 rounded animate-spin border-2 border-transparent border-t-muted-foreground/50"></div>
+        <div className="w-10 h-10 min-w-[2.5rem] min-h-[2.5rem] bg-muted rounded-md flex items-center justify-center border border-dashed border-border flex-shrink-0 animate-pulse">
+          <div className="w-3 h-3 bg-muted-foreground/50 rounded animate-spin border-2 border-transparent border-t-muted-foreground/50"></div>
         </div>
       );
     }
     
     if (!productImage || imageError) {
       return (
-        <div className="w-20 h-20 min-w-[5rem] min-h-[5rem] bg-muted rounded-lg flex flex-col items-center justify-center border-2 border-dashed border-border flex-shrink-0 gap-1">
-          <Eye className="w-5 h-5 text-muted-foreground" />
-          {retryCount > 0 && (
-            <span className="text-[10px] text-muted-foreground">No image</span>
-          )}
+        <div className="w-10 h-10 min-w-[2.5rem] min-h-[2.5rem] bg-muted rounded-md flex flex-col items-center justify-center border border-dashed border-border flex-shrink-0 gap-0.5">
+          <Eye className="w-3.5 h-3.5 text-muted-foreground" />
         </div>
       );
     }
@@ -422,7 +420,7 @@ export function AsinInventory() {
       <Popover>
         <PopoverTrigger asChild>
           <div 
-            className="w-20 h-20 min-w-[5rem] min-h-[5rem] rounded-lg overflow-hidden border-2 border-border cursor-pointer hover:border-primary transition-colors flex-shrink-0"
+            className="w-10 h-10 min-w-[2.5rem] min-h-[2.5rem] rounded-md overflow-hidden border border-border cursor-pointer hover:border-primary transition-colors flex-shrink-0"
           >
             <img 
               src={productImage.image_url} 
@@ -1704,13 +1702,15 @@ export function AsinInventory() {
                 Add Your First Item
               </Button>}
           </CardContent>
-        </Card> : viewMode === 'table' ? <Card>
+        </Card> : viewMode === 'table' ? <Card className="overflow-hidden border-0 shadow-lg rounded-xl">
+          <div className="h-0.5 bg-gradient-to-r from-primary/80 via-primary/40 to-transparent" />
           <CardContent className="p-0">
-            <div className="overflow-x-auto border rounded-lg">
+            <div className="overflow-x-auto">
+              <TooltipProvider delayDuration={300}>
               <table className="w-full border-collapse">
-                <thead className="bg-muted/50">
-                   <tr className="border-b">
-                     <th className="w-12 p-3 text-left border-r">
+                <thead className="sticky top-0 z-10 backdrop-blur-xl bg-background/80 border-b border-border/40 shadow-sm">
+                   <tr>
+                     <th className="w-10 px-3 py-2.5 text-left">
                         <Checkbox checked={selectedItems.size === inventory.length && inventory.length > 0} onCheckedChange={checked => {
                     if (checked) {
                       setSelectedItems(new Set(inventory.map(item => item.id)));
@@ -1719,8 +1719,8 @@ export function AsinInventory() {
                     }
                   }} />
                       </th>
-                      <th className="min-w-80 p-3 text-left font-medium border-r">
-                        <button className="flex items-center gap-2 hover:text-primary transition-colors" onClick={() => {
+                      <th className="min-w-72 px-3 py-2.5 text-left">
+                        <button className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider font-semibold text-muted-foreground hover:text-primary transition-colors" onClick={() => {
                     if (sortBy === 'title') {
                       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
                     } else {
@@ -1729,11 +1729,11 @@ export function AsinInventory() {
                     }
                   }}>
                           Product Info
-                          {sortBy === 'title' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
+                          {sortBy === 'title' && (sortOrder === 'asc' ? <SortAsc className="w-3.5 h-3.5" /> : <SortDesc className="w-3.5 h-3.5" />)}
                         </button>
                       </th>
-                      <th className="w-28 p-3 text-left font-medium border-r">
-                        <button className="flex items-center gap-2 hover:text-primary transition-colors" onClick={() => {
+                      <th className="w-28 px-3 py-2.5 text-left">
+                        <button className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider font-semibold text-muted-foreground hover:text-primary transition-colors" onClick={() => {
                     if (sortBy === 'serialNumber') {
                       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
                     } else {
@@ -1741,12 +1741,12 @@ export function AsinInventory() {
                       setSortOrder('asc');
                     }
                   }}>
-                          Serial Number
-                          {sortBy === 'serialNumber' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
+                          Serial #
+                          {sortBy === 'serialNumber' && (sortOrder === 'asc' ? <SortAsc className="w-3.5 h-3.5" /> : <SortDesc className="w-3.5 h-3.5" />)}
                         </button>
                       </th>
-                     <th className="w-16 p-3 text-center font-medium border-r">
-                       <button className="flex items-center justify-center gap-2 hover:text-primary transition-colors w-full" onClick={() => {
+                     <th className="w-14 px-3 py-2.5 text-center">
+                       <button className="flex items-center justify-center gap-1.5 text-[11px] uppercase tracking-wider font-semibold text-muted-foreground hover:text-primary transition-colors w-full" onClick={() => {
                     if (sortBy === 'quantity') {
                       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
                     } else {
@@ -1755,11 +1755,11 @@ export function AsinInventory() {
                     }
                   }}>
                          Qty
-                         {sortBy === 'quantity' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
+                         {sortBy === 'quantity' && (sortOrder === 'asc' ? <SortAsc className="w-3.5 h-3.5" /> : <SortDesc className="w-3.5 h-3.5" />)}
                        </button>
                      </th>
-                      <th className="w-20 p-3 text-center font-medium border-r">
-                        <button className="flex items-center justify-center gap-2 hover:text-primary transition-colors w-full" onClick={() => {
+                      <th className="w-20 px-3 py-2.5 text-center">
+                        <button className="flex items-center justify-center gap-1.5 text-[11px] uppercase tracking-wider font-semibold text-muted-foreground hover:text-primary transition-colors w-full" onClick={() => {
                     if (sortBy === 'status') {
                       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
                     } else {
@@ -1768,11 +1768,11 @@ export function AsinInventory() {
                     }
                   }}>
                           Status
-                          {sortBy === 'status' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
+                          {sortBy === 'status' && (sortOrder === 'asc' ? <SortAsc className="w-3.5 h-3.5" /> : <SortDesc className="w-3.5 h-3.5" />)}
                         </button>
                       </th>
-                       <th className="w-20 p-3 text-center font-medium border-r">
-                         <button className="flex items-center justify-center gap-2 hover:text-primary transition-colors w-full" onClick={() => {
+                       <th className="w-20 px-3 py-2.5 text-center">
+                         <button className="flex items-center justify-center gap-1.5 text-[11px] uppercase tracking-wider font-semibold text-muted-foreground hover:text-primary transition-colors w-full" onClick={() => {
                     if (sortBy === 'restock') {
                       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
                     } else {
@@ -1780,13 +1780,12 @@ export function AsinInventory() {
                       setSortOrder('desc');
                     }
                   }}>
-                           <RefreshCw className="w-4 h-4" />
                            Restock
-                           {sortBy === 'restock' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
+                           {sortBy === 'restock' && (sortOrder === 'asc' ? <SortAsc className="w-3.5 h-3.5" /> : <SortDesc className="w-3.5 h-3.5" />)}
                          </button>
                        </th>
-                       <th className="w-20 p-3 text-center font-medium border-r">
-                         <button className="flex items-center justify-center gap-2 hover:text-primary transition-colors w-full" onClick={() => {
+                       <th className="w-20 px-3 py-2.5 text-center">
+                         <button className="flex items-center justify-center gap-1.5 text-[11px] uppercase tracking-wider font-semibold text-muted-foreground hover:text-primary transition-colors w-full" onClick={() => {
                     if (sortBy === 'exportMode') {
                       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
                     } else {
@@ -1794,13 +1793,12 @@ export function AsinInventory() {
                       setSortOrder('asc');
                     }
                   }}>
-                           <Download className="w-4 h-4" />
                            Export
-                           {sortBy === 'exportMode' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
+                           {sortBy === 'exportMode' && (sortOrder === 'asc' ? <SortAsc className="w-3.5 h-3.5" /> : <SortDesc className="w-3.5 h-3.5" />)}
                          </button>
                        </th>
-                       <th className="w-32 p-3 text-center font-medium border-r">
-                         <button className="flex items-center justify-center gap-2 hover:text-primary transition-colors w-full" onClick={() => {
+                       <th className="w-32 px-3 py-2.5 text-center">
+                         <button className="flex items-center justify-center gap-1.5 text-[11px] uppercase tracking-wider font-semibold text-muted-foreground hover:text-primary transition-colors w-full" onClick={() => {
                     if (sortBy === 'performance') {
                       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
                     } else {
@@ -1808,228 +1806,244 @@ export function AsinInventory() {
                       setSortOrder('desc');
                     }
                   }}>
-                           <Activity className="w-4 h-4" />
                            Performance
-                           {sortBy === 'performance' && (sortOrder === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />)}
+                           {sortBy === 'performance' && (sortOrder === 'asc' ? <SortAsc className="w-3.5 h-3.5" /> : <SortDesc className="w-3.5 h-3.5" />)}
                          </button>
                        </th>
-                       <th className="w-32 p-3 text-center font-medium">Actions</th>
+                       <th className="w-28 px-3 py-2.5 text-center text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                   {inventory.map(item => <tr key={item.id} className={cn(
-                     "border-b hover:bg-muted/25 transition-colors",
-                     item.isActive === false && "bg-destructive/10 border-l-4 border-l-destructive"
-                   )}>
-                       <td className="p-3 border-r align-middle">
-                         <div className="flex justify-center">
-                           <Checkbox 
-                             checked={item.isActive === false}
-                             className={cn(
-                               item.isActive === false && "data-[state=checked]:bg-destructive data-[state=checked]:border-destructive"
-                             )}
-                             onCheckedChange={checked => {
-                               if (checked) {
-                                 // User is trying to check (disable the item)
-                                 handleDisableItems([item]);
-                               } else {
-                                 // User is trying to uncheck (enable the item)
-                                 handleEnableItem(item);
-                               }
-                             }} 
-                           />
+                   {inventory.map((item, index) => {
+                     const accentColor = item.isActive === false 
+                       ? 'bg-muted-foreground/40' 
+                       : item.quantity === 0 
+                         ? 'bg-destructive' 
+                         : item.quantity <= 5 
+                           ? 'bg-yellow-500' 
+                           : 'bg-emerald-500';
+                     return (
+                     <tr key={item.id} className={cn(
+                       "border-b border-border/30 transition-all duration-150 hover:bg-muted/40 group relative",
+                       index % 2 === 1 && "bg-muted/15",
+                       item.isActive === false && "opacity-70"
+                     )}>
+                        <td className="px-3 py-2 align-middle relative">
+                          <div className={cn("absolute left-0 top-1 bottom-1 w-[3px] rounded-r-full transition-all", accentColor, "group-hover:w-[4px]")} />
+                          <div className="flex justify-center pl-1">
+                            <Checkbox 
+                              checked={item.isActive === false}
+                              className={cn(
+                                item.isActive === false && "data-[state=checked]:bg-destructive data-[state=checked]:border-destructive"
+                              )}
+                              onCheckedChange={checked => {
+                                if (checked) {
+                                  handleDisableItems([item]);
+                                } else {
+                                  handleEnableItem(item);
+                                }
+                              }} 
+                            />
+                          </div>
+                        </td>
+                           <td className="px-3 py-2 align-middle">
+                             <div className="flex items-center gap-2.5">
+                               <ProductImage asin={item.asin} />
+                               <div className="space-y-0.5 min-w-0 flex-1">
+                                 <div className="flex items-center gap-1.5">
+                                   <div className={cn(
+                                     "font-medium text-sm leading-tight line-clamp-2",
+                                     item.isActive === false && "line-through opacity-60"
+                                   )}>
+                                     {item.title || 'No title'}
+                                   </div>
+                                   {item.isActive === false && (
+                                     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-destructive/15 text-destructive shrink-0">
+                                       DISABLED
+                                     </span>
+                                   )}
+                                 </div>
+                                 <div className="flex items-center gap-1.5 flex-wrap">
+                                   <span className={cn(
+                                     "inline-flex items-center px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono text-muted-foreground",
+                                     item.isActive === false && "opacity-60"
+                                   )}>
+                                     {item.asin}
+                                   </span>
+                                   <SkuEditor currentSku={item.sku} onUpdate={newSku => updateSku(item.id, newSku)} />
+                                 </div>
+                               </div>
+                             </div>
+                           </td>
+                           <td className="px-3 py-2 font-mono text-sm align-middle">
+                             <div className="flex items-center justify-center">
+                               <MultiSerialNumberEditor 
+                                 currentSerialNumber={item.serialNumber}
+                                 additionalSerialNumbers={item.additionalSerialNumbers}
+                                 onUpdatePrimary={newSerialNumber => updateSerialNumber(item.id, newSerialNumber)}
+                                 onDeletePrimary={() => handleDeleteSerial(item.id)}
+                                 onAddAdditional={(serial) => addAdditionalSerial(item.id, serial)}
+                                 onRemoveAdditional={(serial) => removeAdditionalSerial(item.id, serial)}
+                                 hasDuplicates={hasDuplicateSerial(item.serialNumber)}
+                                 onViewDuplicates={() => handleViewDuplicates(item.serialNumber)}
+                                 getNextSerial={fullInventoryLoading ? undefined : getNextSerialNumber}
+                               />
+                             </div>
+                           </td>
+                       <td className="px-3 py-2 align-middle">
+                         <div className="flex items-center justify-center">
+                           <span className={cn(
+                             "inline-flex items-center justify-center min-w-[2rem] h-6 px-2 rounded-full text-xs font-bold text-white",
+                             item.quantity === 0 ? 'bg-destructive' : item.quantity <= 5 ? 'bg-yellow-500' : 'bg-emerald-500'
+                           )}>
+                             {item.quantity}
+                           </span>
                          </div>
                        </td>
-                          <td className="p-3 border-r align-middle">
-                            <div className="flex items-center gap-3">
-                              <ProductImage asin={item.asin} />
-                              <div className="space-y-1 min-w-0 flex-1">
-                                <div className="flex items-center gap-2">
-                                  <div className={cn(
-                                    "font-medium text-sm max-w-xs break-words",
-                                    item.isActive === false && "line-through opacity-60"
-                                  )}>
-                                    {item.title || 'No title'}
-                                  </div>
-                                  {item.isActive === false && (
-                                    <Badge variant="destructive" className="text-xs font-bold animate-pulse">
-                                      DISABLED
-                                    </Badge>
-                                  )}
-                                </div>
-                                <div className={cn(
-                                  "font-mono text-xs text-muted-foreground",
-                                  item.isActive === false && "opacity-60"
-                                )}>
-                                  ASIN: {item.asin}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs text-muted-foreground">SKU:</span>
-                                  <SkuEditor currentSku={item.sku} onUpdate={newSku => updateSku(item.id, newSku)} />
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-3 font-mono text-sm border-r align-middle">
-                            <div className="flex items-center justify-center">
-                              <MultiSerialNumberEditor 
-                                currentSerialNumber={item.serialNumber}
-                                additionalSerialNumbers={item.additionalSerialNumbers}
-                                onUpdatePrimary={newSerialNumber => updateSerialNumber(item.id, newSerialNumber)}
-                                onDeletePrimary={() => handleDeleteSerial(item.id)}
-                                onAddAdditional={(serial) => addAdditionalSerial(item.id, serial)}
-                                onRemoveAdditional={(serial) => removeAdditionalSerial(item.id, serial)}
-                                hasDuplicates={hasDuplicateSerial(item.serialNumber)}
-                                onViewDuplicates={() => handleViewDuplicates(item.serialNumber)}
-                                getNextSerial={fullInventoryLoading ? undefined : getNextSerialNumber}
-                              />
-                            </div>
-                          </td>
-                      <td className="p-3 border-r align-middle">
-                        <div className="flex items-center justify-center gap-1">
-                          <span className={`font-semibold text-sm ${item.quantity === 0 ? 'text-red-500' : item.quantity <= 5 ? 'text-yellow-500' : 'text-green-500'}`}>
-                            {item.quantity}
-                          </span>
-                          {item.quantity <= 5 && <AlertTriangle className="w-3 h-3 text-yellow-500" />}
-                        </div>
-                        </td>
-                          <td className="p-3 border-r align-middle">
+                          <td className="px-3 py-2 align-middle">
                            <div className="flex items-center justify-center">
-                              <Badge 
-                                variant={
+                              <span className={cn(
+                                "inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full",
+                                item.quantity > 0 
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' 
+                                  : item.status === 'no-stock'
+                                    ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
+                                    : (item.status === 'sold' || item.status === 'out-of-stock' || item.status === 'damaged')
+                                      ? 'bg-destructive/10 text-destructive'
+                                      : 'bg-muted text-muted-foreground'
+                              )}>
+                                <span className={cn(
+                                  "w-1.5 h-1.5 rounded-full",
                                   item.quantity > 0 
-                                    ? 'default' 
+                                    ? 'bg-emerald-500' 
                                     : item.status === 'no-stock'
-                                      ? 'secondary'
-                                      : item.status === 'sold' || item.status === 'out-of-stock'
-                                        ? 'destructive' 
-                                        : item.status === 'ordered' 
-                                          ? 'secondary'
-                                          : item.status === 'reserved' 
-                                            ? 'outline'
-                                            : item.status === 'damaged'
-                                              ? 'destructive'
-                                              : 'secondary'
-                                } 
-                                className={`text-xs ${item.quantity === 0 && item.status === 'no-stock' ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20 hover:bg-yellow-500/15' : ''}`}
-                            >
-                              {item.quantity > 0 
-                                ? 'In Stock' 
-                                : item.status === 'no-stock'
-                                  ? 'No Stock'
-                                  : item.status === 'sold' || item.status === 'out-of-stock'
-                                    ? 'Out of Stock (Sold)' 
-                                    : item.status === 'ordered'
-                                      ? 'Ordered'
-                                      : item.status === 'reserved' 
-                                        ? 'Reserved' 
-                                        : item.status === 'damaged'
-                                          ? 'Damaged'
-                                          : 'No Stock'}
-                            </Badge>
+                                      ? 'bg-yellow-500'
+                                      : (item.status === 'sold' || item.status === 'out-of-stock' || item.status === 'damaged')
+                                        ? 'bg-destructive'
+                                        : 'bg-muted-foreground'
+                                )} />
+                                {item.quantity > 0 
+                                  ? 'In Stock' 
+                                  : item.status === 'no-stock'
+                                    ? 'No Stock'
+                                    : item.status === 'sold' || item.status === 'out-of-stock'
+                                      ? 'Sold' 
+                                      : item.status === 'ordered'
+                                        ? 'Ordered'
+                                        : item.status === 'reserved' 
+                                          ? 'Reserved' 
+                                          : item.status === 'damaged'
+                                            ? 'Damaged'
+                                            : 'No Stock'}
+                              </span>
                           </div>
                          </td>
-                          <td className="p-3 border-r align-middle">
-                            <div className="flex flex-col items-center gap-2">
-                                <div className="flex items-center gap-2">
-                                  <Switch
-                                    id={`restock-${item.id}`}
-                                    checked={item.eligible_for_restock}
-                                    onCheckedChange={async (checked) => {
-                                     try {
-                                       const { error } = await supabase
-                                         .from('asin_inventory')
-                                         .update({ 
-                                           eligible_for_restock: !!checked,
-                                           manual_restock_override: true
-                                         } as any)
-                                         .eq('id', item.id as any);
-                                      
-                                      if (error) throw error;
-                                      
-                                      await refetch();
-                                      toast({
-                                        title: checked ? "Enabled for restock" : "Disabled for restock",
-                                        description: `${item.asin} (${item.serialNumber})`,
-                                      });
-                                    } catch (error) {
-                                      console.error('Failed to update restock eligibility:', error);
-                                      toast({
-                                        title: "Update failed",
-                                        description: "Could not update restock eligibility",
-                                        variant: "destructive"
-                                      });
+                          <td className="px-3 py-2 align-middle">
+                            <div className="flex items-center justify-center">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center gap-1.5">
+                                    <Switch
+                                      id={`restock-${item.id}`}
+                                      checked={item.eligible_for_restock}
+                                      onCheckedChange={async (checked) => {
+                                       try {
+                                         const { error } = await supabase
+                                           .from('asin_inventory')
+                                           .update({ 
+                                             eligible_for_restock: !!checked,
+                                             manual_restock_override: true
+                                           } as any)
+                                           .eq('id', item.id as any);
+                                        
+                                        if (error) throw error;
+                                        
+                                        await refetch();
+                                        toast({
+                                          title: checked ? "Enabled for restock" : "Disabled for restock",
+                                          description: `${item.asin} (${item.serialNumber})`,
+                                        });
+                                      } catch (error) {
+                                        console.error('Failed to update restock eligibility:', error);
+                                        toast({
+                                          title: "Update failed",
+                                          description: "Could not update restock eligibility",
+                                          variant: "destructive"
+                                        });
+                                      }
+                                    }}
+                                     className={`border-2 border-muted-foreground/30 hover:border-primary/60 transition-colors ${
+                                       item.eligible_for_restock && item.status !== 'no-stock'
+                                         ? 'data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500' 
+                                         : 'data-[state=unchecked]:bg-red-500 data-[state=unchecked]:border-red-500'
+                                     }`}
+                                   />
+                                   <span className="text-[11px] font-medium text-muted-foreground">
+                                     {item.status === 'no-stock' ? 'N/A' : item.eligible_for_restock ? 'Yes' : 'No'}
+                                   </span>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                  <p className="text-xs">
+                                    {item.status === 'no-stock' 
+                                      ? 'No-stock items excluded from restock' 
+                                      : item.eligible_for_restock 
+                                        ? 'Auto-enabled: sold in last 90 days' 
+                                        : 'No sales in last 90 days'
                                     }
-                                  }}
-                                   className={`border-2 border-muted-foreground/30 hover:border-primary/60 transition-colors ${
-                                     item.eligible_for_restock && item.status !== 'no-stock'
-                                       ? 'data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500' 
-                                       : 'data-[state=unchecked]:bg-red-500 data-[state=unchecked]:border-red-500'
-                                   }`}
-                                 />
-                                 <Label htmlFor={`restock-${item.id}`} className="text-sm font-medium">
-                                   {item.status === 'no-stock' 
-                                     ? 'N/A' 
-                                     : item.eligible_for_restock 
-                                       ? 'Eligible' 
-                                       : 'Not Eligible'
-                                   }
-                                 </Label>
-                               </div>
-                              <div className="text-xs text-center text-muted-foreground">
-                                {item.status === 'no-stock' 
-                                  ? 'No-stock items excluded from restock' 
-                                  : item.eligible_for_restock 
-                                    ? 'Auto-enabled: sold in last 90 days' 
-                                    : 'No sales in last 90 days'
-                                }
-                              </div>
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
                             </div>
                           </td>
-                          <td className="p-3 border-r align-middle">
-                            <div className="flex flex-col items-center gap-2">
-                               <div className="flex items-center gap-2">
-                                 <Switch
-                                   id={`export-mode-${item.id}`}
-                                   checked={exportModes[item.id] === 'local'}
-                                   disabled={!exportModesLoaded}
-                                   onCheckedChange={async (checked) => {
-                                    const newMode = checked ? 'local' : 'global';
-                                    console.log('🔄 Export mode change:', {
-                                      itemId: item.id,
-                                      asin: item.asin,
-                                      currentMode: exportModes[item.id],
-                                      newMode
-                                    });
-                                    
-                                    // Update local state immediately for better UX
-                                    setExportModes(prev => ({
-                                      ...prev,
-                                      [item.id]: newMode
-                                    }));
-                                    
-                                    // Save to database
-                                    await saveExportMode(item.id, newMode);
-                                  }}
-                                   className={`border-2 border-muted-foreground/30 hover:border-primary/60 transition-colors ${
-                                     exportModes[item.id] === 'local' 
-                                       ? 'data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500' 
-                                       : 'data-[state=unchecked]:bg-green-500 data-[state=unchecked]:border-green-500'
-                                   }`}
-                                 />
-                                 <Label htmlFor={`export-mode-${item.id}`} className="text-sm font-medium">
-                                   {exportModes[item.id] === 'local' ? 'Local' : 'Global'}
-                                 </Label>
-                               </div>
-                                <div className="text-xs text-center text-muted-foreground">
-                                  {exportModes[item.id] === 'local' ? 
-                                    'Export mode is Local (qty: 100 always)' : 
-                                    'Export mode is Global (uses stock qty)'
-                                  }
-                               </div>
+                          <td className="px-3 py-2 align-middle">
+                            <div className="flex items-center justify-center">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center gap-1.5">
+                                    <Switch
+                                      id={`export-mode-${item.id}`}
+                                      checked={exportModes[item.id] === 'local'}
+                                      disabled={!exportModesLoaded}
+                                      onCheckedChange={async (checked) => {
+                                      const newMode = checked ? 'local' : 'global';
+                                      console.log('🔄 Export mode change:', {
+                                        itemId: item.id,
+                                        asin: item.asin,
+                                        currentMode: exportModes[item.id],
+                                        newMode
+                                      });
+                                      
+                                      setExportModes(prev => ({
+                                        ...prev,
+                                        [item.id]: newMode
+                                      }));
+                                      
+                                      await saveExportMode(item.id, newMode);
+                                    }}
+                                     className={`border-2 border-muted-foreground/30 hover:border-primary/60 transition-colors ${
+                                       exportModes[item.id] === 'local' 
+                                         ? 'data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500' 
+                                         : 'data-[state=unchecked]:bg-green-500 data-[state=unchecked]:border-green-500'
+                                     }`}
+                                   />
+                                   <span className="text-[11px] font-medium text-muted-foreground">
+                                     {exportModes[item.id] === 'local' ? 'Local' : 'Global'}
+                                   </span>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                  <p className="text-xs">
+                                    {exportModes[item.id] === 'local' ? 
+                                      'Export mode: Local (qty: 100 always)' : 
+                                      'Export mode: Global (uses stock qty)'
+                                    }
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
                             </div>
                           </td>
-                          <td className="p-3 border-r align-middle">
+                          <td className="px-3 py-2 align-middle">
                             {(() => {
                               const perfData = performanceMap.get(item.id);
                               return (
@@ -2052,25 +2066,36 @@ export function AsinInventory() {
                               );
                             })()}
                           </td>
-                          <td className="p-3 align-middle">
-                            <div className="flex items-center justify-center gap-2">
+                          <td className="px-3 py-2 align-middle">
+                            <div className="flex items-center justify-center gap-0.5">
                               <DualQuantityEditor currentQuantity={item.quantity} onUpdate={(newQuantity, reason) => handleQuantityUpdate(item, newQuantity, reason)} />
                               <EnhancedStockHistoryDialog inventoryId={item.id} itemIdentifier={`${item.asin} (${item.serialNumber})`} inventoryType="asin" />
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="w-8 h-8 p-0" 
-                                onClick={() => openPrintDialog(item)} 
-                                title="Print Label"
-                                disabled={!qzConnected || !selectedTemplate}
-                              >
-                                <Printer className="w-4 h-4" />
-                              </Button>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className={cn(
+                                      "w-7 h-7 p-0",
+                                      qzConnected && selectedTemplate && "text-primary"
+                                    )}
+                                    onClick={() => openPrintDialog(item)} 
+                                    disabled={!qzConnected || !selectedTemplate}
+                                  >
+                                    <Printer className="w-3.5 h-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                  <p className="text-xs">Print Label</p>
+                                </TooltipContent>
+                              </Tooltip>
                             </div>
                           </td>
-                    </tr>)}
+                    </tr>);
+                   })}
                 </tbody>
               </table>
+              </TooltipProvider>
             </div>
           </CardContent>
         </Card> : <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
