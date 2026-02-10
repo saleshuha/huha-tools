@@ -25,13 +25,39 @@ export function DFProcessStep({ orders, onBack, onProcessed }: DFProcessStepProp
   const [processedIds, setProcessedIds] = useState<Set<string>>(new Set());
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmItems, setConfirmItems] = useState<DFOrderItem[]>([]);
-  
+  const [loadingHistory, setLoadingHistory] = useState(true);
 
   const { updateQuantity: updateAsinQuantity } = useAsinInventory();
   const { updateQuantity: updateSkuQuantity } = useSkuInventory();
   const { toast } = useToast();
 
-  // Only show items with inventory (in-stock or low-stock)
+  // On mount, load already-processed order IDs from the database
+  useEffect(() => {
+    const loadProcessedIds = async () => {
+      setLoadingHistory(true);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const orderIds = orders.map(o => o.orderId);
+        if (orderIds.length === 0) return;
+
+        const { data } = await supabase
+          .from('processed_orders')
+          .select('order_number')
+          .eq('user_id', user.id)
+          .in('order_number', orderIds);
+
+        if (data && data.length > 0) {
+          setProcessedIds(new Set(data.map(r => r.order_number)));
+        }
+      } finally {
+        setLoadingHistory(false);
+      }
+    };
+    loadProcessedIds();
+  }, [orders]);
+
+  // Only show items with inventory (in-stock or low-stock) and not already processed
   const processableOrders = orders.filter(
     o => (o.inventoryStatus === 'in-stock' || o.inventoryStatus === 'low-stock') && !processedIds.has(o.orderId)
   );
@@ -143,8 +169,9 @@ export function DFProcessStep({ orders, onBack, onProcessed }: DFProcessStepProp
             <div>
               <CardTitle className="text-base">Process Orders</CardTitle>
               <CardDescription>
-                {processableOrders.length} orders ready for processing
-                {processedIds.size > 0 && ` · ${processedIds.size} already processed`}
+                {loadingHistory ? 'Checking previous processing...' :
+                  `${processableOrders.length} orders ready for processing${processedIds.size > 0 ? ` · ${processedIds.size} already processed` : ''}`
+                }
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
