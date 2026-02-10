@@ -16,9 +16,10 @@ interface DFProcessStepProps {
   orders: DFOrderItem[];
   onBack: () => void;
   onProcessed: (count: number) => void;
+  onComplete?: () => void;
 }
 
-export function DFProcessStep({ orders, onBack, onProcessed }: DFProcessStepProps) {
+export function DFProcessStep({ orders, onBack, onProcessed, onComplete }: DFProcessStepProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -147,10 +148,20 @@ export function DFProcessStep({ orders, onBack, onProcessed }: DFProcessStepProp
       setSelected(new Set());
       onProcessed(confirmItems.length);
 
+      // Check if all processable orders are now done
+      const remainingAfter = orders.filter(
+        o => (o.inventoryStatus === 'in-stock' || o.inventoryStatus === 'low-stock') && 
+             !processedIds.has(o.orderId) && !confirmItems.some(ci => ci.orderId === o.orderId)
+      );
+
       toast({
         title: 'Processing Complete',
-        description: `Deducted stock for ${confirmItems.length} orders.`,
+        description: `Deducted stock for ${confirmItems.length} orders.${remainingAfter.length === 0 ? ' All orders processed!' : ''}`,
       });
+
+      if (remainingAfter.length === 0 && onComplete) {
+        setTimeout(() => onComplete(), 2000);
+      }
     } catch (error: any) {
       console.error('Processing error:', error);
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
