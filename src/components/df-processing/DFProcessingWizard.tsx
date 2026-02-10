@@ -69,6 +69,12 @@ export function DFProcessingWizard() {
           orders={orders}
           onBack={() => setCurrentStep(3)}
           onProcessed={(count) => setProcessedCount(prev => prev + count)}
+          onComplete={() => {
+            setCurrentStep(1);
+            setCompletedSteps(new Set());
+            setOrders([]);
+            setProcessedCount(0);
+          }}
         />
       )}
     </div>
