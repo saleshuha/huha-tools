@@ -1,49 +1,39 @@
 
 
-## Performance Column - Show Key Metrics Directly in Cell
+## Add "Last Sold" Date to Performance Column
 
 ### What Changes
 
-Replace the current category + score + bar layout with a **4-row stats layout** showing the metrics you want directly in the column cell:
+Add a 5th metric row to the performance cell showing the date the product last sold a unit:
 
 ```text
 +----------------------------+
+| Excellent                  |
 | Restocked:  120            |
 | Sold:       95             |
 | In Stock:   45d            |
-| Last Sold:  3d ago         |
+| Avg Sellout: 38d           |
+| Last Sold:  Jan 15, 2026   |  <-- NEW
 +----------------------------+
 ```
 
-Each row is a label + value pair, compact and readable. The category color is applied as a left border accent so you still get the visual health signal.
+### Data Source
 
-### Data Mapping
+The `last_sale_date` field already exists in:
+- The database function `get_comprehensive_performance_analysis` (line 14, 44, 97)
+- The hook `useComprehensivePerformance.ts` (line 14)
+- The `performanceMap` data available in `AsinInventory.tsx`
 
-All 4 values come from the existing `performanceData` object:
-
-| Display Label   | Source Field                | Format        |
-|-----------------|----------------------------|---------------|
-| Restocked       | `total_units_restocked`    | number        |
-| Sold            | `total_units_sold_lifetime`| number        |
-| In Stock        | `days_in_inventory`        | Xd            |
-| Last Sold       | `avg_days_to_sellout`      | Xd ago (or --)|
-
-**Note**: The data object doesn't have a literal "days since last sold" field. The closest available metric is `avg_days_to_sellout` (average days it takes to sell out after restock). If you need the actual "last sold date", that would require a database change. For now, I'll use `avg_days_to_sellout` labeled as "Avg Sellout" instead of "Last Sold" to stay accurate.
+It's just not being passed to the `PerformanceIndicator` component yet.
 
 ### Technical Changes
 
-**File: `src/components/inventory/PerformanceIndicator.tsx`**
+**File 1: `src/components/inventory/PerformanceIndicator.tsx`**
+- Add `last_sale_date: string | null` to the `performanceData` interface
+- Add a new `MetricRow` displaying the formatted date (e.g., "Jan 15, 2026") or a dash if null
+- Show in tooltip as well
 
-- Replace `PerformanceCell` with a new 4-row metric grid
-- Add a colored left border (2px) using the category color for quick health signal
-- Keep the category name as a small header above the stats
-- Keep the existing tooltip with full details on hover
-- Legacy fallback shows dashes for missing data
+**File 2: `src/components/AsinInventory.tsx`**
+- Pass `last_sale_date: perfData.last_sale_date` in the `performanceData` prop (line ~2049)
 
-### Visual Design
-
-- Left border accent in category color (emerald/blue/amber/red)
-- Small category label at top in category color
-- 4 rows of label:value pairs in `text-[11px]`, labels muted, values bold
-- Min width ~110px to fit content
-- Tooltip unchanged - still shows the full breakdown on hover
+No database changes needed -- the data is already being returned.
