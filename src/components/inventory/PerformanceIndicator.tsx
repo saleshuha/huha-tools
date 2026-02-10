@@ -22,6 +22,7 @@ interface PerformanceIndicatorProps {
     performance_category: 'Excellent' | 'Good' | 'Average' | 'Poor' | 'No Sales';
     stock_days_remaining: number | null;
     turnover_ratio: number;
+    last_sale_date: string | null;
   } | null;
 }
 
@@ -64,6 +65,7 @@ function PerformanceMetrics({ performanceData, category, borderColor, textColor 
       <MetricRow label="Sold" value={String(d.total_units_sold_lifetime)} />
       <MetricRow label="In Stock" value={`${d.days_in_inventory}d`} />
       <MetricRow label="Avg Sellout" value={d.avg_days_to_sellout > 0 ? `${Math.round(d.avg_days_to_sellout)}d` : '—'} />
+      <MetricRow label="Last Sold" value={d.last_sale_date ? new Date(d.last_sale_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'} />
     </div>
   );
 }
@@ -93,6 +95,7 @@ export function PerformanceIndicator({ velocityCategory, performanceData }: Perf
         <MetricRow label="Sold" value="—" />
         <MetricRow label="In Stock" value="—" />
         <MetricRow label="Avg Sellout" value="—" />
+        <MetricRow label="Last Sold" value="—" />
       </div>
     );
   }
@@ -160,6 +163,11 @@ export function PerformanceIndicator({ velocityCategory, performanceData }: Perf
 
               <span className="text-muted-foreground">Turnover</span>
               <span className="font-medium text-right tabular-nums">{(d.turnover_ratio * 100).toFixed(0)}%</span>
+
+              <span className="text-muted-foreground">Last Sold</span>
+              <span className="font-medium text-right tabular-nums">
+                {d.last_sale_date ? new Date(d.last_sale_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+              </span>
             </div>
 
             {/* Velocity breakdown */}

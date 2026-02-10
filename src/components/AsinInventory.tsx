@@ -2046,7 +2046,8 @@ export function AsinInventory() {
                                     performance_score: perfData.performance_score,
                                     performance_category: perfData.performance_category,
                                     stock_days_remaining: perfData.stock_days_remaining,
-                                    turnover_ratio: perfData.turnover_ratio
+                                    turnover_ratio: perfData.turnover_ratio,
+                                    last_sale_date: perfData.last_sale_date
                                   } : null}
                                 />
                               );
