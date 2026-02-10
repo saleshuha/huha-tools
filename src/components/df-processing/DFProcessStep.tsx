@@ -25,7 +25,7 @@ export function DFProcessStep({ orders, onBack, onProcessed }: DFProcessStepProp
   const [processedIds, setProcessedIds] = useState<Set<string>>(new Set());
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmItems, setConfirmItems] = useState<DFOrderItem[]>([]);
-  const [processedHistory, setProcessedHistory] = useState<any[]>([]);
+  
 
   const { updateQuantity: updateAsinQuantity } = useAsinInventory();
   const { updateQuantity: updateSkuQuantity } = useSkuInventory();
@@ -36,18 +36,6 @@ export function DFProcessStep({ orders, onBack, onProcessed }: DFProcessStepProp
     o => (o.inventoryStatus === 'in-stock' || o.inventoryStatus === 'low-stock') && !processedIds.has(o.orderId)
   );
 
-  useEffect(() => {
-    loadProcessedHistory();
-  }, []);
-
-  const loadProcessedHistory = async () => {
-    const { data } = await supabase
-      .from('processed_orders')
-      .select('*')
-      .order('processed_at', { ascending: false })
-      .limit(20);
-    setProcessedHistory(data || []);
-  };
 
   const toggleSelect = (orderId: string) => {
     setSelected(prev => {
@@ -129,7 +117,6 @@ export function DFProcessStep({ orders, onBack, onProcessed }: DFProcessStepProp
       }
 
       setSelected(new Set());
-      await loadProcessedHistory();
       onProcessed(confirmItems.length);
 
       toast({
@@ -250,44 +237,6 @@ export function DFProcessStep({ orders, onBack, onProcessed }: DFProcessStepProp
         </Card>
       )}
 
-      {/* Processing History */}
-      {processedHistory.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Recent Processing History</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto max-h-[200px] overflow-y-auto">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-card z-10">
-                  <tr className="border-b bg-muted/50">
-                    <th className="text-left p-2 font-medium text-xs">Order</th>
-                    <th className="text-left p-2 font-medium text-xs">ASIN/SKU</th>
-                    <th className="text-center p-2 font-medium text-xs">Qty</th>
-                    <th className="text-center p-2 font-medium text-xs">Stock Change</th>
-                    <th className="text-left p-2 font-medium text-xs">Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {processedHistory.map((item: any) => (
-                    <tr key={item.id} className="border-b last:border-0">
-                      <td className="p-2 font-mono text-xs">{item.order_number}</td>
-                      <td className="p-2 font-mono text-xs">{item.asin || item.sku || '—'}</td>
-                      <td className="p-2 text-center text-xs">{item.quantity_processed}</td>
-                      <td className="p-2 text-center text-xs text-muted-foreground">
-                        {item.previous_stock} → {item.new_stock}
-                      </td>
-                      <td className="p-2 text-xs text-muted-foreground">
-                        {new Date(item.processed_at).toLocaleDateString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       <div className="flex justify-between">
         <Button variant="outline" onClick={onBack} className="gap-2">
