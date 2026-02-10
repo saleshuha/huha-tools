@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { ArrowRight, ArrowLeft, Search } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Search, AlertCircle } from 'lucide-react';
 import { DFOrderItem } from './types';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -17,7 +17,9 @@ export function DFSourceMatchStep({ orders, onComplete, onBack }: DFSourceMatchS
   const [matchedOrders, setMatchedOrders] = useState<DFOrderItem[]>([]);
   const [matching, setMatching] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [statusText, setStatusText] = useState('');
   const [done, setDone] = useState(false);
+  const [noCredentials, setNoCredentials] = useState(false);
 
   useEffect(() => {
     if (!done && matchedOrders.length === 0) {
@@ -28,13 +30,16 @@ export function DFSourceMatchStep({ orders, onComplete, onBack }: DFSourceMatchS
   const runSourceMatch = async () => {
     setMatching(true);
     setProgress(0);
+    setStatusText('Starting source match...');
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Load all sunsky SKUs
-      setProgress(10);
+      // === PASS 1: Local DB match ===
+      setStatusText('Checking local catalog...');
+      setProgress(5);
+
       let allSkus: any[] = [];
       let from = 0;
       const batchSize = 1000;
@@ -52,17 +57,14 @@ export function DFSourceMatchStep({ orders, onComplete, onBack }: DFSourceMatchS
         from += batchSize;
       }
 
-      setProgress(40);
+      setProgress(15);
 
-      // Create lookup map
       const skuMap = new Map<string, { cost?: number; title?: string }>();
       allSkus.forEach(s => {
         skuMap.set(s.sku_code.toLowerCase(), { cost: s.cost, title: s.title });
       });
 
-      setProgress(60);
-
-      // Match each order
+      // First pass - local match
       const updated = orders.map(order => {
         const skuLower = order.sku?.toLowerCase().trim();
         const match = skuLower ? skuMap.get(skuLower) : undefined;
@@ -75,11 +77,95 @@ export function DFSourceMatchStep({ orders, onComplete, onBack }: DFSourceMatchS
         };
       });
 
+      setProgress(25);
+      const localMatched = updated.filter(o => o.sourceStatus === 'sunsky').length;
+      setStatusText(`Local catalog: ${localMatched} matched. Checking Sunsky API...`);
+
+      // === PASS 2: Live Sunsky API match for unmatched items ===
+      const unmatchedItems = updated.filter(o => o.sourceStatus === 'other' && o.sku);
+
+      if (unmatchedItems.length === 0) {
+        setProgress(100);
+        setMatchedOrders(updated);
+        setDone(true);
+        return;
+      }
+
+      // Check for Sunsky credentials
+      const { data: creds } = await supabase
+        .from('sunsky_credentials')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .limit(1);
+
+      if (!creds || creds.length === 0) {
+        setNoCredentials(true);
+        setProgress(100);
+        setMatchedOrders(updated);
+        setDone(true);
+        return;
+      }
+
+      // Deduplicate SKUs to avoid redundant API calls
+      const uniqueSkus = [...new Set(unmatchedItems.map(o => o.sku!.trim()))];
+      const apiResults = new Map<string, { cost?: number; sunskySku?: string }>();
+      const batchSizeApi = 5;
+
+      for (let i = 0; i < uniqueSkus.length; i += batchSizeApi) {
+        const batch = uniqueSkus.slice(i, i + batchSizeApi);
+
+        const batchPromises = batch.map(async (sku) => {
+          try {
+            setStatusText(`Checking ${sku}... (${i + batch.indexOf(sku) + 1}/${uniqueSkus.length})`);
+
+            const { data, error } = await supabase.functions.invoke('sunsky-api', {
+              body: { action: 'getProductDetails', itemNo: sku },
+            });
+
+            if (!error && data?.result === 'success' && data?.data) {
+              const product = data.data;
+              const price = product.price ?? product.wholesalePrice ?? product.cost;
+              apiResults.set(sku.toLowerCase(), {
+                cost: price ? parseFloat(price) : undefined,
+                sunskySku: product.itemNo || sku,
+              });
+            }
+          } catch (err) {
+            // Silently skip failed lookups
+            console.warn(`API lookup failed for ${sku}:`, err);
+          }
+        });
+
+        await Promise.all(batchPromises);
+        const pct = 25 + Math.round(((i + batch.length) / uniqueSkus.length) * 75);
+        setProgress(Math.min(pct, 99));
+      }
+
+      // Apply API results
+      const finalOrders = updated.map(order => {
+        if (order.sourceStatus === 'sunsky') return order;
+        const skuLower = order.sku?.toLowerCase().trim();
+        const apiMatch = skuLower ? apiResults.get(skuLower) : undefined;
+        if (apiMatch) {
+          return {
+            ...order,
+            sourceStatus: 'sunsky' as const,
+            sunskyCost: apiMatch.cost,
+            sunskySku: apiMatch.sunskySku,
+          };
+        }
+        return order;
+      });
+
       setProgress(100);
-      setMatchedOrders(updated);
+      const totalMatched = finalOrders.filter(o => o.sourceStatus === 'sunsky').length;
+      setStatusText(`Done! ${totalMatched} of ${finalOrders.length} matched to Sunsky.`);
+      setMatchedOrders(finalOrders);
       setDone(true);
     } catch (error) {
       console.error('Source matching error:', error);
+      setStatusText('Error during matching. Please try again.');
     } finally {
       setMatching(false);
     }
@@ -97,8 +183,9 @@ export function DFSourceMatchStep({ orders, onComplete, onBack }: DFSourceMatchS
           <CardContent className="py-8">
             <div className="flex flex-col items-center gap-4">
               <Search className="w-8 h-8 text-primary animate-pulse" />
-              <p className="text-sm text-muted-foreground">Checking SKUs against Sunsky catalog...</p>
+              <p className="text-sm font-medium">{statusText}</p>
               <Progress value={progress} className="w-full max-w-xs" />
+              <p className="text-xs text-muted-foreground">{progress}%</p>
             </div>
           </CardContent>
         </Card>
@@ -110,17 +197,28 @@ export function DFSourceMatchStep({ orders, onComplete, onBack }: DFSourceMatchS
               {sunskyCount} of {matchedOrders.length} items sourced from Sunsky
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex gap-4">
-            <div className="flex items-center gap-2">
-              <Badge variant="default" className="bg-emerald-500/10 text-emerald-700 border-emerald-500/20">
-                Sunsky
-              </Badge>
-              <span className="text-sm font-medium">{sunskyCount}</span>
+          <CardContent className="space-y-3">
+            <div className="flex gap-4">
+              <div className="flex items-center gap-2">
+                <Badge variant="default" className="bg-emerald-500/10 text-emerald-700 border-emerald-500/20">
+                  Sunsky
+                </Badge>
+                <span className="text-sm font-medium">{sunskyCount}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary">Other</Badge>
+                <span className="text-sm font-medium">{otherCount}</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary">Other</Badge>
-              <span className="text-sm font-medium">{otherCount}</span>
-            </div>
+            {noCredentials && (
+              <div className="flex items-start gap-2 p-3 bg-amber-500/10 rounded-lg border border-amber-500/20">
+                <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                <p className="text-xs text-amber-700">
+                  No active Sunsky API credentials found. Only local catalog was checked. 
+                  Configure credentials in Settings → Sunsky API for live matching.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
