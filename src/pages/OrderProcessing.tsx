@@ -1,9 +1,14 @@
+import { useState } from 'react';
 import { DFProcessingWizard } from '@/components/df-processing/DFProcessingWizard';
+import { DFProcessingHistoryDialog } from '@/components/df-processing/DFProcessingHistoryDialog';
 import { HuhaHeader01 } from '@/components/ui/huha-header-01';
-import { Package } from 'lucide-react';
+import { Package, History } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { usePageTracking } from '@/hooks/usePageTracking';
 
 export default function OrderProcessingPage() {
+  const [historyOpen, setHistoryOpen] = useState(false);
+
   usePageTracking({
     category: 'Amazon',
     subcategory: 'Order Processing',
@@ -18,13 +23,25 @@ export default function OrderProcessingPage() {
       </div>
       
       <div className="relative z-10 app-container py-8 space-y-6 animate-fade-in">
-        <HuhaHeader01
-          icon={<Package className="w-5 h-5 text-primary-foreground" />}
-          title="DF Order Processing"
-          subtitle="Upload orders, match sources & inventory, process stock deductions"
-        />
+        <div className="flex items-center justify-between">
+          <HuhaHeader01
+            icon={<Package className="w-5 h-5 text-primary-foreground" />}
+            title="DF Order Processing"
+            subtitle="Upload orders, match sources & inventory, process stock deductions"
+          />
+          <Button
+            variant="outline"
+            className="gap-2 shrink-0"
+            onClick={() => setHistoryOpen(true)}
+          >
+            <History className="w-4 h-4" />
+            Processing History
+          </Button>
+        </div>
 
         <DFProcessingWizard />
+
+        <DFProcessingHistoryDialog open={historyOpen} onOpenChange={setHistoryOpen} />
       </div>
     </div>
   );
