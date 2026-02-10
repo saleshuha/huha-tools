@@ -1,36 +1,98 @@
 
 
-## Fix: Source Matching Not Working - Add Live Sunsky API Check
+## Amazon Fulfillment Tracker - Advanced Overhaul
 
-### Root Cause
-The current `DFSourceMatchStep` only checks the local `sunsky_skus` database table (1,209 rows). However, the uploaded DF orders use your internal SKUs (e.g., `BURAQSP0207`, `BURAQRRC0038`), which don't exist in the Sunsky catalog table. 
+### 1. Settings Dialog for Country Configuration
 
-The old system had a **live Sunsky API check** that would call Sunsky's real API with each SKU/ASIN to verify if the product exists in their catalog. This was removed during the rebuild.
+Create a new **Settings dialog** accessible from the header with a gear icon. This dialog will allow editing `payment_terms` for both UAE and KSA directly from the UI:
 
-### Fix Plan
+- **Credit Days**: Editable number input per country (currently hardcoded UAE=60, KSA=45)
+- **VAT Rate**: Editable percentage per country
+- **Currency**: Display currency per country
+- Save changes back to the `payment_terms` table in Supabase
 
-**File: `src/components/df-processing/DFSourceMatchStep.tsx`**
+**File**: New `src/components/amazon/PaymentSettingsDialog.tsx`
+**Edit**: `src/pages/AmazonFulfillmentTracker.tsx` - add Settings button to header actions
 
-Rewrite the matching logic to use a **two-pass approach**:
+---
 
-1. **Pass 1 - Local DB match** (fast): Check SKUs against the `sunsky_skus` table (existing logic, keeps working for Sunsky-format SKUs like `EDA004788101A`)
+### 2. Restructured Page Layout (3 Tabs)
 
-2. **Pass 2 - Live Sunsky API match** (for unmatched items): For any items that didn't match locally, call the `sunsky-api` edge function with the SKU to check Sunsky's live catalog. This reuses the existing `sunsky-api` edge function and the user's stored Sunsky credentials from `sunsky_credentials` table.
+Upgrade from 2 tabs to **3 tabs** for better organization:
 
-**Detailed changes:**
+- **Dashboard** - Metrics cards + charts (existing, cleaned up)
+- **Orders** - Orders table with advanced filters (existing, enhanced)  
+- **Settings** - Inline settings panel for payment terms, currency rates, and preferences
 
-- After the local DB match, collect all items still marked as "other"
-- Fetch the user's active Sunsky API credential from `sunsky_credentials` table
-- If credentials exist, batch-call the `sunsky-api` edge function (5 items at a time) with `action: 'getProductDetails'` for each unmatched SKU
-- If the API returns a match (`code === 200` with `result`), update the item's `sourceStatus` to `'sunsky'` and populate `sunskyCost` from the API response price
-- Show a two-phase progress bar: "Checking local catalog..." then "Checking Sunsky API..."
-- If no Sunsky credentials are configured, skip the API check and show a note suggesting the user configure credentials
+**File**: Edit `src/pages/AmazonFulfillmentTracker.tsx`
 
-**Progress UX updates:**
-- 0-30%: Local DB matching
-- 30-100%: Live API checking (increments per item checked)
-- Show current item being checked (e.g., "Checking BURAQSP0207...")
-- Show running tally: "Found 3 of 17 in Sunsky so far..."
+---
 
-**No other files need changes** - the `sunsky-api` edge function and `sunsky_credentials` table already exist and work correctly from the old implementation.
+### 3. Advanced Filters on Orders Table
+
+Add new filter capabilities to `OrdersTable.tsx`:
+
+- **Date range filter** for shipment dates
+- **Warehouse code filter** dropdown (populated from existing data)
+- **ASIN/SKU quick filter** toggle
+- **Amount range filter** (min/max cost)
+- **Overdue only** toggle button
+- **Collapsible advanced filters** section (show/hide to keep it clean)
+- Reset all filters button
+
+**File**: Edit `src/components/amazon/OrdersTable.tsx`
+
+---
+
+### 4. Dashboard Cleanup and New Widgets
+
+Clean up the 853-line `MetricsDashboard.tsx` and add:
+
+- **Payment Aging Summary**: A horizontal stacked bar showing distribution by age brackets (0-30, 30-60, 60-90, 90+ days overdue)
+- **Collection Rate KPI**: Percentage of total value collected vs. outstanding
+- **Average Days to Payment**: How long on average it takes to get paid
+- **Top ASINs by Unpaid Value**: Quick list of the most expensive unpaid products
+- Remove excessive `console.log` debug statements cluttering the code
+- Extract the inline date-range payment calculation (lines 722-843) into a cleaner sub-component
+
+**Files**: Edit `src/components/amazon/MetricsDashboard.tsx`, new `src/components/amazon/PaymentAgingChart.tsx`
+
+---
+
+### 5. Bulk Actions on Orders Table
+
+Add a selection column and bulk action toolbar:
+
+- **Select All / Select Page** checkbox
+- **Bulk Mark as Paid**: Set selected orders to status "Paid"
+- **Bulk Export Selected**: Export only selected rows
+- Selection count indicator
+
+**File**: Edit `src/components/amazon/OrdersTable.tsx`
+
+---
+
+### 6. Visual Polish
+
+- Remove hardcoded credit days text (line 439: `Past 60-day / 45-day`) and use dynamic `creditDays` value
+- Clean up all `console.log` debug statements from `useAmazonOrders.ts` and `MetricsDashboard.tsx`
+- Add subtle row hover highlighting and alternating row colors to Orders table
+- Consistent card sizing and spacing across the dashboard
+
+**Files**: Edit `src/hooks/useAmazonOrders.ts`, `src/components/amazon/MetricsDashboard.tsx`
+
+---
+
+### Technical Summary
+
+| Change | Files |
+|--------|-------|
+| Payment Settings Dialog | New `PaymentSettingsDialog.tsx`, edit `AmazonFulfillmentTracker.tsx` |
+| 3-Tab Layout + Settings tab | Edit `AmazonFulfillmentTracker.tsx` |
+| Advanced Filters | Edit `OrdersTable.tsx` |
+| Dashboard new widgets | Edit `MetricsDashboard.tsx`, new `PaymentAgingChart.tsx` |
+| Bulk Actions | Edit `OrdersTable.tsx` |
+| Cleanup & Polish | Edit `useAmazonOrders.ts`, `MetricsDashboard.tsx` |
+
+No database schema changes needed - the `payment_terms` table already has all required columns (credit_days, vat_rate, currency) for both countries.
 
