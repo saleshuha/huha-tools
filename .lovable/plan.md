@@ -1,45 +1,49 @@
 
 
-## Performance Column - Simplified Confident Design
+## Performance Column - Show Key Metrics Directly in Cell
 
-### Problem
-The current cell is too noisy — tiny 3-bar sparklines, trend arrows, infinity symbols, and decimal velocities all crammed into ~100px creates visual clutter that's hard to parse at a glance. "210.0/d∞7d30d90dP" is unreadable.
+### What Changes
 
-### New Design: Clean Two-Row Cell
-
-A minimal, scannable layout that communicates confidence clearly:
+Replace the current category + score + bar layout with a **4-row stats layout** showing the metrics you want directly in the column cell:
 
 ```text
 +----------------------------+
-| Excellent         82/100   |  <- Category word + score
-| ██████████░░░  1.2/day     |  <- Score bar + velocity
+| Restocked:  120            |
+| Sold:       95             |
+| In Stock:   45d            |
+| Last Sold:  3d ago         |
 +----------------------------+
 ```
 
-**Row 1**: Full category word (not a letter) in its category color + numeric score as muted text.
-**Row 2**: A thin color-coded progress bar + the 30d velocity as "X.X/day".
+Each row is a label + value pair, compact and readable. The category color is applied as a left border accent so you still get the visual health signal.
 
-That's it. No sparklines, no trend bars, no runway badge, no single-letter badges. All the extra detail (7d/30d/90d breakdown, stock runway, trend direction, turnover, restocks) stays in the **hover tooltip** where it belongs.
+### Data Mapping
 
-### Why This Works
-- One glance tells you: "Good, 68/100, selling 0.8/day" — that's confident and explainable
-- The bar gives a visceral sense of where the product sits on the 0-100 scale
-- Color reinforces meaning without needing to read text
-- No abbreviations or symbols to decode
+All 4 values come from the existing `performanceData` object:
 
-### Tooltip (unchanged)
-The rich tooltip stays exactly as-is — it already has well-organized sections for trend, velocity breakdown, stock metrics, and turnover. That's the detail layer for users who want to dig deeper.
+| Display Label   | Source Field                | Format        |
+|-----------------|----------------------------|---------------|
+| Restocked       | `total_units_restocked`    | number        |
+| Sold            | `total_units_sold_lifetime`| number        |
+| In Stock        | `days_in_inventory`        | Xd            |
+| Last Sold       | `avg_days_to_sellout`      | Xd ago (or --)|
+
+**Note**: The data object doesn't have a literal "days since last sold" field. The closest available metric is `avg_days_to_sellout` (average days it takes to sell out after restock). If you need the actual "last sold date", that would require a database change. For now, I'll use `avg_days_to_sellout` labeled as "Avg Sellout" instead of "Last Sold" to stay accurate.
 
 ### Technical Changes
 
-**File: `src/components/inventory/PerformanceIndicator.tsx`** (simplify)
-- Remove `VelocityTrendBars` component entirely
-- Remove `TrendArrow` component from the cell (keep in tooltip only)
-- Remove `RunwayBadge` component from the cell (keep stock days in tooltip only)
-- Remove the single-letter `CategoryBadge` from the cell
-- Simplify the main cell to just two rows:
-  1. Category name (left-aligned, colored) + score number (right-aligned, muted)
-  2. Thin progress bar (full width, colored by category) + velocity text
-- Keep the full enhanced tooltip exactly as it is now
-- Legacy fallback simplified to match the same two-row layout
+**File: `src/components/inventory/PerformanceIndicator.tsx`**
 
+- Replace `PerformanceCell` with a new 4-row metric grid
+- Add a colored left border (2px) using the category color for quick health signal
+- Keep the category name as a small header above the stats
+- Keep the existing tooltip with full details on hover
+- Legacy fallback shows dashes for missing data
+
+### Visual Design
+
+- Left border accent in category color (emerald/blue/amber/red)
+- Small category label at top in category color
+- 4 rows of label:value pairs in `text-[11px]`, labels muted, values bold
+- Min width ~110px to fit content
+- Tooltip unchanged - still shows the full breakdown on hover
