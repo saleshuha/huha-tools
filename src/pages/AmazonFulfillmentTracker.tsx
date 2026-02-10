@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { HuhaHeader01 } from '@/components/ui/huha-header-01';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Upload, DollarSign, Settings } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Upload, DollarSign, Settings, BarChart3, ShoppingCart, Trash2, ArrowLeftRight } from 'lucide-react';
 import { MetricsDashboard } from '@/components/amazon/MetricsDashboard';
 import { OrdersTable } from '@/components/amazon/OrdersTable';
 import { ImportOrdersDialog } from '@/components/amazon/ImportOrdersDialog';
@@ -25,115 +25,100 @@ const AmazonFulfillmentTracker = () => {
 
   return (
     <CurrencyDisplayProvider>
-      <div className="min-h-screen bg-gradient-surface">
-      <HuhaHeader01
-        icon={<DollarSign className="w-5 h-5 text-primary-foreground" />}
-        title="Amazon Fulfillment Tracker"
-        subtitle={`Direct fulfillment order payment tracking for ${selectedCountry}`}
-        actions={[
-          {
-            label: '',
-            icon: <CurrencySelector />,
-            onClick: () => {},
-            variant: 'outline' as const,
-            className: 'p-0'
-          },
-          {
-            label: 'Settings',
-            icon: <Settings className="h-4 w-4 mr-2" />,
-            onClick: () => setShowSettingsDialog(true),
-            variant: 'outline' as const
-          },
-          {
-            label: 'Currency Rates',
-            icon: <DollarSign className="h-4 w-4 mr-2" />,
-            onClick: () => setShowCurrencyDialog(true),
-            variant: 'outline' as const
-          },
-          {
-            label: 'Import Orders',
-            icon: <Upload className="h-4 w-4 mr-2" />,
-            onClick: () => setShowImportDialog(true),
-            variant: 'outline' as const
-          },
-          ...(user && profile?.role === 'admin' ? [{
-            label: 'Clear All Data',
-            onClick: () => setShowReAuthDialog(true),
-            variant: 'secondary' as const
-          }] : [])
-        ]}
-      />
-      <div className="mx-6 space-y-6">
-
-        {/* Main Content */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 h-12 p-1 bg-muted/50">
-            <TabsTrigger 
-              value="dashboard" 
-              className="h-10 px-6 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200"
-            >
-              Dashboard
-            </TabsTrigger>
-            <TabsTrigger 
-              value="orders" 
-              className="h-10 px-6 text-sm font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-200"
-            >
-              Orders Management
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="dashboard" className="space-y-6">
-            <MetricsDashboard metrics={metrics} loading={loading} orders={orders} />
-            
-            {/* Payment Status Row */}
-            {metrics?.paidThroughDate && (
-              <div className="w-full p-4 bg-success/10 border border-success/20 rounded-lg">
-                <p className="text-sm text-success font-medium text-center">
-                  ✓ Orders paid through: {new Date(metrics.paidThroughDate).toLocaleDateString()}
-                </p>
+      <div className="min-h-screen bg-background">
+        {/* Compact Header */}
+        <div className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-30">
+          <div className="px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="p-2 rounded-lg bg-primary/10 shrink-0">
+                <DollarSign className="w-5 h-5 text-primary" />
               </div>
-            )}
-            {metrics && !metrics.paidThroughDate && metrics.totalOrders > 0 && (
-              <div className="w-full p-4 bg-warning/10 border border-warning/20 rounded-lg">
-                <p className="text-sm text-warning font-medium text-center">
-                  ⚠ No fully paid period found - payments pending from earliest orders
-                </p>
+              <div className="min-w-0">
+                <h1 className="text-base font-bold text-foreground truncate">Amazon Fulfillment Tracker</h1>
+                <p className="text-xs text-muted-foreground truncate">Payment tracking · {selectedCountry}</p>
               </div>
-            )}
-          </TabsContent>
+            </div>
 
-          <TabsContent value="orders" className="space-y-6">
-            <OrdersTable 
-              orders={orders} 
-              onUpdateOrder={updateOrder}
-              onDeleteOrder={deleteOrder}
-              onBulkUpdateStatus={async (ids: string[], status: string) => {
-                for (const id of ids) {
-                  await updateOrder(id, { payment_status: status, status: status === 'completed' ? 'Paid' : undefined } as any);
-                }
-              }}
-            />
-          </TabsContent>
-        </Tabs>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <CurrencySelector />
+              <Button variant="ghost" size="sm" onClick={() => setShowSettingsDialog(true)} className="h-9 px-2.5">
+                <Settings className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setShowCurrencyDialog(true)} className="h-9 px-2.5">
+                <ArrowLeftRight className="h-4 w-4" />
+              </Button>
+              <Button variant="default" size="sm" onClick={() => setShowImportDialog(true)} className="h-9 gap-1.5">
+                <Upload className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Import</span>
+              </Button>
+              {user && profile?.role === 'admin' && (
+                <Button variant="ghost" size="sm" onClick={() => setShowReAuthDialog(true)} className="h-9 px-2.5 text-destructive hover:text-destructive">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="px-4 sm:px-6 py-4">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+            <TabsList className="h-10 p-1 bg-muted/50 w-auto inline-flex">
+              <TabsTrigger
+                value="dashboard"
+                className="h-8 px-4 text-sm gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm"
+              >
+                <BarChart3 className="h-3.5 w-3.5" />
+                Dashboard
+              </TabsTrigger>
+              <TabsTrigger
+                value="orders"
+                className="h-8 px-4 text-sm gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm"
+              >
+                <ShoppingCart className="h-3.5 w-3.5" />
+                Orders
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="dashboard" className="space-y-4 mt-0">
+              <MetricsDashboard metrics={metrics} loading={loading} orders={orders} />
+
+              {/* Payment Status Banner */}
+              {metrics?.paidThroughDate && (
+                <div className="p-3 bg-success/10 border border-success/20 rounded-lg">
+                  <p className="text-sm text-success font-medium text-center">
+                    ✓ Paid through: {new Date(metrics.paidThroughDate).toLocaleDateString()}
+                  </p>
+                </div>
+              )}
+              {metrics && !metrics.paidThroughDate && metrics.totalOrders > 0 && (
+                <div className="p-3 bg-warning/10 border border-warning/20 rounded-lg">
+                  <p className="text-sm text-warning font-medium text-center">
+                    ⚠ No fully paid period — payments pending from earliest orders
+                  </p>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="orders" className="mt-0">
+              <OrdersTable
+                orders={orders}
+                onUpdateOrder={updateOrder}
+                onDeleteOrder={deleteOrder}
+                onBulkUpdateStatus={async (ids: string[], status: string) => {
+                  for (const id of ids) {
+                    await updateOrder(id, { payment_status: status, status: status === 'completed' ? 'Paid' : undefined } as any);
+                  }
+                }}
+              />
+            </TabsContent>
+          </Tabs>
+        </div>
 
         {/* Dialogs */}
-        <ImportOrdersDialog
-          open={showImportDialog}
-          onOpenChange={setShowImportDialog}
-          onImportOrders={bulkImportOrders}
-          loading={loading}
-        />
-        
-        <CurrencyRatesDialog
-          open={showCurrencyDialog}
-          onOpenChange={setShowCurrencyDialog}
-        />
-        
-        <PaymentSettingsDialog
-          open={showSettingsDialog}
-          onOpenChange={setShowSettingsDialog}
-        />
-        
+        <ImportOrdersDialog open={showImportDialog} onOpenChange={setShowImportDialog} onImportOrders={bulkImportOrders} loading={loading} />
+        <CurrencyRatesDialog open={showCurrencyDialog} onOpenChange={setShowCurrencyDialog} />
+        <PaymentSettingsDialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog} />
         <ReAuthDialog
           open={showReAuthDialog}
           onOpenChange={setShowReAuthDialog}
@@ -145,7 +130,6 @@ const AmazonFulfillmentTracker = () => {
           title="Clear All Data - Authentication Required"
           description="This is a destructive action. Please re-enter your credentials to confirm your identity."
         />
-        </div>
       </div>
     </CurrencyDisplayProvider>
   );
