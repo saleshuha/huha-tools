@@ -4161,8 +4161,9 @@ export const POTracker = () => {
                        </div>}
 
                      {/* Search Bar and Controls */}
-                      <div className="flex items-center gap-4">
-                        <div className="relative flex-1">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        {/* Left: Search */}
+                        <div className="relative flex-1 min-w-[280px]">
                           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground z-10" />
                            <Input placeholder="Search PO number, ASIN, model, serial number..." value={labelSearchQuery} onChange={e => {
                     console.log('Label search query changed to:', e.target.value);
@@ -4176,91 +4177,102 @@ export const POTracker = () => {
                             <X className="h-3 w-3" />
                           </Button>}
                       </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant={selectedLocationFilter ? "default" : "outline"} size="sm" className="gap-2 border border-border/30 rounded-lg">
-                            <MapPin className="h-4 w-4" />
-                            {selectedLocationFilter || 'All Locations'}
-                            <ChevronDown className="h-3 w-3 opacity-50" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="max-h-[300px] overflow-y-auto">
-                          <DropdownMenuItem onClick={() => setSelectedLocationFilter(null)} className={!selectedLocationFilter ? 'bg-accent' : ''}>
-                            <MapPin className="h-4 w-4 mr-2" />
-                            All Locations
-                          </DropdownMenuItem>
-                          {(() => {
-                            const allLocations = [...new Set(
-                              poOrders
-                                .filter(o => o.status !== 'cancelled' && o.ship_to_location)
-                                .map(o => {
-                                  const loc = o.ship_to_location!;
-                                  // Extract city name (before the comma)
-                                  const city = loc.split(',')[0]?.trim() || loc;
-                                  return city;
-                                })
-                            )].sort();
-                            return allLocations.map(location => (
-                              <DropdownMenuItem key={location} onClick={() => setSelectedLocationFilter(location)} className={selectedLocationFilter === location ? 'bg-accent' : ''}>
+
+                        {/* Right: Location controls grouped */}
+                        <div className="flex items-center gap-1 p-1 bg-muted/30 backdrop-blur-sm rounded-xl border border-border/20">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant={selectedLocationFilter ? "default" : "ghost"} size="sm" className="gap-2 rounded-lg h-8 text-xs">
+                                <MapPin className="h-3.5 w-3.5" />
+                                {selectedLocationFilter || 'All Locations'}
+                                <ChevronDown className="h-3 w-3 opacity-50" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="max-h-[300px] overflow-y-auto">
+                              <DropdownMenuItem onClick={() => setSelectedLocationFilter(null)} className={!selectedLocationFilter ? 'bg-accent' : ''}>
                                 <MapPin className="h-4 w-4 mr-2" />
-                                {location}
-                                <Badge variant="secondary" className="ml-auto text-xs">
-                                  {poOrders.filter(o => o.status !== 'cancelled' && o.ship_to_location?.includes(location)).length}
-                                </Badge>
+                                All Locations
                               </DropdownMenuItem>
-                            ));
-                          })()}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      <Button
-                        variant={allowMixedLocations ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setAllowMixedLocations(!allowMixedLocations)}
-                        className={cn(
-                          "gap-2 border rounded-lg transition-all duration-200",
-                          allowMixedLocations 
-                            ? "bg-primary text-primary-foreground border-primary shadow-sm" 
-                            : "border-border/30 hover:bg-muted/50"
-                        )}
-                        title={allowMixedLocations ? "Mixed locations enabled — you can select POs from different cities" : "Click to allow selecting POs from different locations"}
-                      >
-                        {allowMixedLocations ? <Check className="h-3.5 w-3.5" /> : <MapPin className="h-3.5 w-3.5" />}
-                        Mix Locations
-                      </Button>
-                      <Badge variant="outline" className="text-xs">
-                        {filteredPOGroups.length} PO{filteredPOGroups.length !== 1 ? 's' : ''}
-                      </Badge>
+                              {(() => {
+                                const allLocations = [...new Set(
+                                  poOrders
+                                    .filter(o => o.status !== 'cancelled' && o.ship_to_location)
+                                    .map(o => {
+                                      const loc = o.ship_to_location!;
+                                      const city = loc.split(',')[0]?.trim() || loc;
+                                      return city;
+                                    })
+                                )].sort();
+                                return allLocations.map(location => (
+                                  <DropdownMenuItem key={location} onClick={() => setSelectedLocationFilter(location)} className={selectedLocationFilter === location ? 'bg-accent' : ''}>
+                                    <MapPin className="h-4 w-4 mr-2" />
+                                    {location}
+                                    <Badge variant="secondary" className="ml-auto text-xs">
+                                      {poOrders.filter(o => o.status !== 'cancelled' && o.ship_to_location?.includes(location)).length}
+                                    </Badge>
+                                  </DropdownMenuItem>
+                                ));
+                              })()}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                          <div className="w-px h-5 bg-border/40" />
+                          <Button
+                            variant={allowMixedLocations ? "default" : "ghost"}
+                            size="sm"
+                            onClick={() => setAllowMixedLocations(!allowMixedLocations)}
+                            className={cn(
+                              "gap-1.5 rounded-lg h-8 text-xs transition-all duration-200",
+                              allowMixedLocations 
+                                ? "bg-primary text-primary-foreground shadow-sm" 
+                                : "hover:bg-muted/50"
+                            )}
+                            title={allowMixedLocations ? "Mixed locations enabled" : "Allow selecting POs from different locations"}
+                          >
+                            {allowMixedLocations ? <Check className="h-3 w-3" /> : <MapPin className="h-3 w-3" />}
+                            Mix
+                          </Button>
+                        </div>
+
+                        <Badge variant="outline" className="text-xs font-medium px-3 py-1">
+                          {filteredPOGroups.length} PO{filteredPOGroups.length !== 1 ? 's' : ''}
+                        </Badge>
                     </div>
 
                      {/* Multi-select Controls */}
-                     {selectedPOsForLabels.size > 0 && <div className="flex items-center justify-between p-4 bg-primary/5 backdrop-blur-sm rounded-xl border border-primary/20 shadow-sm">
+                     {selectedPOsForLabels.size > 0 && <div className="flex items-center justify-between p-4 bg-primary/5 backdrop-blur-sm rounded-xl border border-primary/20 shadow-sm flex-wrap gap-3">
                           <div className="flex items-center gap-2">
-                            <Badge variant="secondary">
+                            <Badge variant="secondary" className="font-semibold">
                               {selectedPOsForLabels.size} PO{selectedPOsForLabels.size !== 1 ? 's' : ''} selected
                             </Badge>
-                            <Button variant="outline" size="sm" onClick={() => setSelectedPOsForLabels(new Set())} className="border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200">
-                              Clear selection
+                            <Button variant="outline" size="sm" onClick={() => setSelectedPOsForLabels(new Set())} className="border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200 h-8 text-xs">
+                              Clear
                             </Button>
                           </div>
-                           <div className="flex items-center gap-2">
+                           <div className="flex items-center gap-1.5 flex-wrap">
+                             {/* Group 1: Selection actions */}
                              <Button variant="outline" size="sm" onClick={() => {
                     setPresetNameInput('');
                     setEditingPresetId(null);
                     setShowPresetsDialog(true);
-                  }} className="border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200">
-                               <Plus className="h-4 w-4 mr-2" />
-                               Save Selection
+                  }} className="border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200 h-8 text-xs">
+                               <Plus className="h-3.5 w-3.5 mr-1.5" />
+                               Save
                              </Button>
+                             <Button variant="outline" size="sm" disabled={selectedPOsForLabels.size === 0} onClick={() => setGenerateLinkDialogOpen(true)} className="border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200 h-8 text-xs">
+                               <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                               Generate Link
+                             </Button>
+
+                             <div className="w-px h-5 bg-border/30 mx-0.5" />
+
+                             {/* Group 2: View/Print actions */}
                              <Button variant="outline" size="sm" disabled={selectedPOsForLabels.size === 0 || Array.from(selectedPOsForLabels).every(poNumber => {
                     const poGroup = filteredPOGroups.find(g => g.poNumber === poNumber);
                     return poGroup?.orders.every(order => order.status === 'closed') || false;
                   })} onClick={() => {
-                    // Get ALL orders for selected POs directly from poOrders (not filtered groups)
                     const selectedPONumbers = Array.from(selectedPOsForLabels);
                     console.log('🖨️ Print Preview: Selected POs:', selectedPONumbers.join(', '));
                     console.log('🖨️ Total poOrders in state:', poOrders.length);
-
-                    // Get ALL orders for these PO numbers - no aggregation, no filtering except by PO number and cancelled status
                     const selectedOrders = poOrders.filter(order => selectedPONumbers.includes(order.po_number) && order.status !== 'cancelled');
                     console.log('🖨️ Orders passed to print dialog:', selectedOrders.length);
                     selectedPONumbers.forEach(po => {
@@ -4271,8 +4283,8 @@ export const POTracker = () => {
                     setPrintMode('bulk');
                     setPrintOrders(selectedOrders);
                     setPrintDialogOpen(true);
-                  }} className="border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200">
-                               <FileText className="h-4 w-4 mr-2" />
+                  }} className="border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200 h-8 text-xs">
+                               <FileText className="h-3.5 w-3.5 mr-1.5" />
                                Print Preview
                              </Button>
                              <Button variant="outline" size="sm" disabled={Array.from(selectedPOsForLabels).every(poNumber => {
@@ -4280,28 +4292,20 @@ export const POTracker = () => {
                     return poGroup?.orders.every(order => order.status === 'closed') || false;
                   })} onClick={() => {
                     console.log('🔍 VIEW ITEMS DEBUG: Selected POs:', Array.from(selectedPOsForLabels));
-
-                    // Go directly to print labels interface with selected POs
-                    setSelectedPOForLabels(Array.from(selectedPOsForLabels)[0]); // Set first PO for compatibility
-                    setLabelsStep('print'); // Go directly to print interface
-                    setActiveTab('labels'); // Switch to labels tab
-
-                    // Preserve original order for printing - disable sorting
+                    setSelectedPOForLabels(Array.from(selectedPOsForLabels)[0]);
+                    setLabelsStep('print');
+                    setActiveTab('labels');
                     setOriginalOrderPreserved(true);
-                    setSortField('po_number'); // Reset to original order
+                    setSortField('po_number');
                     setSortDirection('asc');
                     console.log('🔍 VIEW ITEMS DEBUG: Switched to print labels interface with original order preserved');
-                  }} className="border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200">
-                               <Package className="h-4 w-4 mr-2" />
+                  }} className="border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200 h-8 text-xs">
+                               <Package className="h-3.5 w-3.5 mr-1.5" />
                                View Items
                              </Button>
-                             <Button variant="outline" size="sm" onClick={() => setGenerateLinkDialogOpen(true)} disabled={selectedPOsForLabels.size === 0} className="border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200">
-                               <ExternalLink className="h-4 w-4 mr-2" />
-                               Generate Link
-                             </Button>
-                             <Button variant="outline" size="sm" onClick={() => setActiveTab('purchase-links')} className="border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200">
-                               <ExternalLink className="h-4 w-4 mr-2" />
-                               View All Links
+                             <Button variant="outline" size="sm" onClick={() => setActiveTab('purchase-links')} className="border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200 h-8 text-xs">
+                               <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                               All Links
                              </Button>
                            </div>
                        </div>}
@@ -4321,20 +4325,18 @@ export const POTracker = () => {
                           </Button>
                         </div>
                       </Card> : <Table>
-                        <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm z-10">
-                          <TableRow className="hover:bg-transparent border-b border-border/20">
-                            <TableHead className="w-[50px]">Select</TableHead>
-                            <TableHead className="min-w-[150px]">PO Number</TableHead>
-                            <TableHead className="w-[150px]">Ship To</TableHead>
-                            <TableHead className="w-[120px]">Items</TableHead>
-                            <TableHead className="w-[120px]">Quantity</TableHead>
-                            <TableHead className="min-w-[200px]">Actions</TableHead>
+                        <TableHeader className="sticky top-0 z-10">
+                          <TableRow className="hover:bg-transparent border-b-2 border-border/30 bg-muted/90 backdrop-blur-md">
+                            <TableHead className="w-[44px] text-[11px] uppercase tracking-wider font-semibold text-muted-foreground/80"></TableHead>
+                            <TableHead className="min-w-[150px] text-[11px] uppercase tracking-wider font-semibold text-muted-foreground/80">PO Number</TableHead>
+                            <TableHead className="w-[160px] text-[11px] uppercase tracking-wider font-semibold text-muted-foreground/80">Ship To</TableHead>
+                            <TableHead className="w-[160px] text-[11px] uppercase tracking-wider font-semibold text-muted-foreground/80">Size</TableHead>
+                            <TableHead className="min-w-[220px] text-[11px] uppercase tracking-wider font-semibold text-muted-foreground/80">Print Status</TableHead>
                           </TableRow>
                         </TableHeader>
                         
                         <TableBody>
-                          {filteredPOGroups.map(group => {
-                      // Get the primary ship-to location from first selected PO
+                          {filteredPOGroups.map((group, index) => {
                       const selectedShipToLocation = (() => {
                         if (selectedPOsForLabels.size === 0) return null;
                         const firstSelectedPO = filteredPOGroups.find(g => selectedPOsForLabels.has(g.poNumber));
@@ -4343,22 +4345,31 @@ export const POTracker = () => {
                         return locations.length > 0 ? locations[0] : null;
                       })();
 
-                      // Get this group's primary ship-to location
                       const groupShipToLocation = (() => {
                         const locations = [...new Set(group.orders.map(o => o.ship_to_location).filter(Boolean))];
                         return locations.length > 0 ? locations[0] : null;
                       })();
 
-                      // Check if this PO should be disabled due to different ship-to location
                       const isDisabledByLocation = !allowMixedLocations && selectedShipToLocation && groupShipToLocation && selectedShipToLocation !== groupShipToLocation && !selectedPOsForLabels.has(group.poNumber);
                       const hasClosedItems = group.orders.some(order => order.status === 'closed');
+                      const isSelected = selectedPOsForLabels.has(group.poNumber);
+                      const dbMetrics = poGroupMetrics?.find(m => m.po_number === group.poNumber);
+                      const itemCount = dbMetrics?.total_line_items || group.orders.length;
+                      const totalQty = dbMetrics?.asn_quantity || group.orders.reduce((sum, order) => sum + order.quantity, 0);
+                      const printedCount = group.orders.filter(o => o.is_printed).length;
+                      const totalCount = group.orders.length;
+                      const printPercent = totalCount > 0 ? Math.round((printedCount / totalCount) * 100) : 0;
+                      const printStatus = printedCount === totalCount ? 'complete' : printedCount > 0 ? 'partial' : 'pending';
+
                       return <TableRow 
                         key={group.poNumber} 
                         className={cn(
-                          "border-b border-border/30 hover:bg-muted/30 hover:shadow-sm transition-all duration-150 ease-out cursor-pointer",
+                          "transition-all duration-150 ease-out cursor-pointer border-b border-border/20",
+                          index % 2 === 0 ? "bg-transparent" : "bg-muted/15",
                           isDisabledByLocation && "opacity-40 bg-muted/10 pointer-events-none cursor-not-allowed",
-                          hasClosedItems && "opacity-75 bg-muted/20",
-                          selectedPOsForLabels.has(group.poNumber) && "bg-primary/5 hover:bg-primary/10"
+                          hasClosedItems && !isSelected && "opacity-75",
+                          isSelected && "bg-primary/8 hover:bg-primary/12 border-l-2 border-l-primary",
+                          !isSelected && !isDisabledByLocation && "hover:bg-muted/30 hover:border-l-2 hover:border-l-primary/40"
                         )}
                         onClick={(e) => {
                           if (!(e.target as HTMLElement).closest('button')) {
@@ -4374,79 +4385,103 @@ export const POTracker = () => {
                         }}
                       >
                             {/* Checkbox Column */}
-                            <TableCell className="py-4">
+                            <TableCell className="py-3">
                               <div className="flex items-center justify-center">
-                                {selectedPOsForLabels.has(group.poNumber) ? <CheckSquare className="h-5 w-5 text-primary" /> : <Square className="h-5 w-5 text-muted-foreground" />}
+                                <Checkbox 
+                                  checked={isSelected}
+                                  className={cn(
+                                    "transition-all duration-150",
+                                    isSelected && "border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground shadow-sm shadow-primary/20"
+                                  )}
+                                  onCheckedChange={() => {
+                                    if (isDisabledByLocation) return;
+                                    const newSelected = new Set(selectedPOsForLabels);
+                                    if (newSelected.has(group.poNumber)) {
+                                      newSelected.delete(group.poNumber);
+                                    } else {
+                                      newSelected.add(group.poNumber);
+                                    }
+                                    setSelectedPOsForLabels(newSelected);
+                                  }}
+                                />
                               </div>
                             </TableCell>
                             
                             {/* PO Number Column */}
-                            <TableCell className="py-4">
+                            <TableCell className="py-3">
                               <div className="flex items-center gap-2">
-                              <span className="text-xs opacity-60">
-                                {selectedCountry === 'UAE' ? '🇦🇪' : '🇸🇦'}
-                              </span>
-                              <span className="font-semibold text-primary">{group.poNumber}</span>
-                              {hasClosedItems && <Badge variant="secondary" className="text-xs">HAS FULFILLED</Badge>}
-                              {isDisabledByLocation && <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30">
-                                  Different Location
-                                </Badge>}
+                                <span className="text-xs opacity-60">
+                                  {selectedCountry === 'UAE' ? '🇦🇪' : '🇸🇦'}
+                                </span>
+                                <span className={cn("font-semibold text-primary", isSelected && "text-primary")}>{group.poNumber}</span>
+                                {hasClosedItems && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Fulfilled</Badge>}
+                                {isDisabledByLocation && <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30">
+                                    Diff. Location
+                                  </Badge>}
                               </div>
                             </TableCell>
                             
                             {/* Ship To Column */}
-                            <TableCell className="py-4">
-                              <span className="text-xs text-muted-foreground">
-                              {(() => {
-                            const uniqueLocations = [...new Set(group.orders.map(o => o.ship_to_location).filter(Boolean))];
-                            if (uniqueLocations.length === 0) return '-';
-                            if (uniqueLocations.length === 1) return uniqueLocations[0];
-                            return `${uniqueLocations[0]} +${uniqueLocations.length - 1}`;
-                          })()}
-                              </span>
-                            </TableCell>
-                            
-                            {/* Items Column */}
-                            <TableCell className="py-4">
-                              {(() => {
-                            // Get metrics from database function - same as PO Overview
-                            const dbMetrics = poGroupMetrics?.find(m => m.po_number === group.poNumber);
-                            const itemCount = dbMetrics?.total_line_items || group.orders.length;
-                            return <Badge variant="secondary" className="text-xs">
-                                    {itemCount} item{itemCount !== 1 ? 's' : ''}
-                                  </Badge>;
-                          })()}
-                            </TableCell>
-                            
-                            {/* Quantity Column */}
-                            <TableCell className="py-4">
-                              {(() => {
-                            // Get metrics from database function - same as PO Overview
-                            const dbMetrics = poGroupMetrics?.find(m => m.po_number === group.poNumber);
-                            const totalQty = dbMetrics?.asn_quantity || group.orders.reduce((sum, order) => sum + order.quantity, 0);
-                            return <span className="font-medium">{totalQty}</span>;
-                          })()}
-                            </TableCell>
-                            
-                            {/* Actions Column */}
-                            <TableCell className="py-4">
-                              <div className="flex items-center gap-2">
-                              <div className="text-xs text-muted-foreground">
-                                {group.orders.filter(o => o.is_printed).length}/{group.orders.length} Printed
+                            <TableCell className="py-3">
+                              <div className="flex items-center gap-1.5">
+                                <MapPin className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+                                <span className="text-xs text-muted-foreground truncate">
+                                  {(() => {
+                                    const uniqueLocations = [...new Set(group.orders.map(o => o.ship_to_location).filter(Boolean))];
+                                    if (uniqueLocations.length === 0) return '—';
+                                    if (uniqueLocations.length === 1) return uniqueLocations[0];
+                                    return `${uniqueLocations[0]} +${uniqueLocations.length - 1}`;
+                                  })()}
+                                </span>
                               </div>
-                              <Badge variant={group.orders.every(o => o.is_printed) ? 'default' : group.orders.some(o => o.is_printed) ? 'secondary' : 'outline'} className="text-xs">
-                                {group.orders.every(o => o.is_printed) ? 'Complete' : group.orders.some(o => o.is_printed) ? 'Partial' : 'Pending'}
-                              </Badge>
-                              <Button variant="outline" size="sm" disabled={isDisabledByLocation} onClick={e => {
+                            </TableCell>
+                            
+                            {/* Size Column (merged Items + Quantity) */}
+                            <TableCell className="py-3">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-medium">{itemCount} item{itemCount !== 1 ? 's' : ''}</span>
+                                <span className="text-muted-foreground/40">·</span>
+                                <span className="text-xs text-muted-foreground">{totalQty.toLocaleString()} qty</span>
+                              </div>
+                            </TableCell>
+                            
+                            {/* Print Status Column */}
+                            <TableCell className="py-3">
+                              <div className="flex items-center gap-2.5">
+                                <div className="flex-1 max-w-[80px]">
+                                  <div className="h-1.5 w-full rounded-full bg-muted/50 overflow-hidden">
+                                    <div 
+                                      className={cn(
+                                        "h-full rounded-full transition-all duration-300",
+                                        printStatus === 'complete' ? "bg-green-500" : printStatus === 'partial' ? "bg-amber-500" : "bg-muted-foreground/20"
+                                      )}
+                                      style={{ width: `${printPercent}%` }}
+                                    />
+                                  </div>
+                                </div>
+                                <span className="text-[11px] text-muted-foreground tabular-nums w-[60px]">
+                                  {printedCount}/{totalCount}
+                                </span>
+                                <Badge 
+                                  variant={printStatus === 'complete' ? 'default' : 'outline'} 
+                                  className={cn(
+                                    "text-[10px] px-1.5 py-0",
+                                    printStatus === 'complete' && "bg-green-500/15 text-green-700 dark:text-green-300 border-green-500/30",
+                                    printStatus === 'partial' && "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
+                                    printStatus === 'pending' && "bg-muted/30"
+                                  )}
+                                >
+                                  {printStatus === 'complete' ? 'Done' : printStatus === 'partial' ? 'Partial' : 'Pending'}
+                                </Badge>
+                                <Button variant="ghost" size="sm" disabled={isDisabledByLocation} onClick={e => {
                             e.stopPropagation();
                             if (isDisabledByLocation) return;
                             setSelectedPOForLabels(group.poNumber);
                             setSelectedPOsForLabels(new Set([group.poNumber]));
                             setLabelsStep('print');
-                          }} className="border border-border/30 hover:bg-muted/50 hover:shadow-sm rounded-lg transition-all duration-200">
-                                <Printer className="h-4 w-4 mr-2" />
-                                {isDisabledByLocation ? 'Different Location' : 'Print'}
-                              </Button>
+                          }} className="h-7 px-2.5 rounded-lg hover:bg-primary/10 hover:text-primary transition-all duration-150">
+                                  <Printer className="h-3.5 w-3.5" />
+                                </Button>
                               </div>
                             </TableCell>
                           </TableRow>;
