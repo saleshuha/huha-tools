@@ -2063,9 +2063,8 @@ export const POTracker = () => {
         const isFullyFulfilled = isFulfilledFromStock && fulfilledQty >= order.quantity;
         const isFullyPrinted = (order.printed_quantity || 0) >= order.quantity;
         
-        // If closed (fully fulfilled or printed) or pending, treat as out-of-stock
-        const poStatus = order.status?.toLowerCase();
-        if (isFullyFulfilled || isFullyPrinted || poStatus === 'pending') {
+        // If closed (fully fulfilled or printed), treat as out-of-stock
+        if (isFullyFulfilled || isFullyPrinted) {
           return instockFilter.includes('out-of-stock');
         }
         
@@ -2255,8 +2254,7 @@ export const POTracker = () => {
       const fulfilledQty = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
       const isFullyFulfilled = isFulfilledFromStock && fulfilledQty >= order.quantity;
       const isFullyPrinted = (order.printed_quantity || 0) >= order.quantity;
-      const poStatus = order.status?.toLowerCase();
-      if (isFullyFulfilled || isFullyPrinted || poStatus === 'pending') {
+      if (isFullyFulfilled || isFullyPrinted) {
         return instockFilter.includes('out-of-stock');
       }
       const match = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku);
@@ -6079,8 +6077,7 @@ export const POTracker = () => {
                         const fulfilledQty = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
                         const isFullyFulfilled = isFulfilledFromStock && fulfilledQty >= order.quantity;
                         const isFullyPrinted = (order.printed_quantity || 0) >= order.quantity;
-                        const poStatus = order.status?.toLowerCase();
-                        if (isFullyFulfilled || isFullyPrinted || poStatus === 'pending') {
+                        if (isFullyFulfilled || isFullyPrinted) {
                           return instockFilter.includes('out-of-stock');
                         }
                         const match = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku);
