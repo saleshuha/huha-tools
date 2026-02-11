@@ -1,39 +1,55 @@
 
 
-## Add "Last Sold" Date to Performance Column
+## Enhanced PO Selection Table UI
 
-### What Changes
+### Overview
 
-Add a 5th metric row to the performance cell showing the date the product last sold a unit:
+Reorganize the controls toolbar and upgrade the table design for the Labels tab PO selection view, keeping all existing functionality intact.
 
-```text
-+----------------------------+
-| Excellent                  |
-| Restocked:  120            |
-| Sold:       95             |
-| In Stock:   45d            |
-| Avg Sellout: 38d           |
-| Last Sold:  Jan 15, 2026   |  <-- NEW
-+----------------------------+
-```
+### Changes
 
-### Data Source
+**1. Toolbar Reorganization (lines ~4164-4233)**
 
-The `last_sale_date` field already exists in:
-- The database function `get_comprehensive_performance_analysis` (line 14, 44, 97)
-- The hook `useComprehensivePerformance.ts` (line 14)
-- The `performanceMap` data available in `AsinInventory.tsx`
+Current layout is a single row with search, location dropdown, mix locations button, and PO count badge all inline. This will be restructured into a cleaner grouped layout:
 
-It's just not being passed to the `PerformanceIndicator` component yet.
+- **Left group**: Search input (wider, with refined styling)
+- **Right group**: Location filter + Mix Locations toggle combined into a single segmented control, PO count badge
 
-### Technical Changes
+**2. Selection Action Bar (lines ~4236-4307)**
 
-**File 1: `src/components/inventory/PerformanceIndicator.tsx`**
-- Add `last_sale_date: string | null` to the `performanceData` interface
-- Add a new `MetricRow` displaying the formatted date (e.g., "Jan 15, 2026") or a dash if null
-- Show in tooltip as well
+Currently a flat row of buttons that gets crowded. Will be reorganized:
 
-**File 2: `src/components/AsinInventory.tsx`**
-- Pass `last_sale_date: perfData.last_sale_date` in the `performanceData` prop (line ~2049)
+- Left side: Selection count badge + Clear button (unchanged)
+- Right side: Group action buttons into logical pairs with subtle separators:
+  - Save Selection | Generate Link
+  - Print Preview | View Items | View All Links
 
-No database changes needed -- the data is already being returned.
+**3. Table Visual Enhancement (lines ~4310-4455)**
+
+Upgrade the table with modern styling while keeping all columns and data intact:
+
+- **Header**: Stronger background with uppercase letter-spaced labels, bottom shadow for depth
+- **Rows**: Alternating subtle row backgrounds (zebra striping), improved hover states with left border accent on hover
+- **Checkbox column**: Use actual Checkbox component from radix instead of Square/CheckSquare icons
+- **PO Number column**: Slightly larger font weight, country flag and PO number tighter layout
+- **Ship To column**: Add a small MapPin icon prefix for visual consistency
+- **Items + Quantity columns**: Merge into a single "Size" column showing "605 items / 13,100 qty" to reduce column count
+- **Actions column**: Consolidate print status badge and print button into a cleaner cell with the progress shown as a mini progress bar instead of "0/605 Printed" text
+- **Row selection glow**: Brighter primary accent on selected rows
+
+### Technical Details
+
+**File: `src/components/POTracker.tsx`**
+
+- Lines ~4164-4233: Restructure toolbar div layout, wrap location controls in a bordered group
+- Lines ~4236-4307: Add flex-wrap and gap separators between action button groups
+- Lines ~4310-4455: Update Table styling classes:
+  - TableHeader: stronger bg, uppercase text-[11px] tracking-wider
+  - TableRow: add even/odd striping via `even:bg-muted/20`
+  - Merge Items + Quantity into one cell
+  - Replace Square/CheckSquare icons with Checkbox component
+  - Add mini progress bar (div with width%) for print status
+  - Add MapPin icon to Ship To cell
+
+No new files, no new dependencies -- purely styling and layout reorganization within the existing component.
+
