@@ -16,7 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
-import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, FileText, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, Copy, CheckCircle2, Info, TrendingDown, Check, XCircle, Calculator, ClipboardList } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, FileText, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, Copy, CheckCircle2, Info, TrendingDown, Check, XCircle, Calculator, ClipboardList, MapPin } from 'lucide-react';
 import { SortableTableHeader } from '@/components/order-processing/SortableTableHeader';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -138,6 +138,7 @@ export const POTracker = () => {
   const [selectedPOForLabels, setSelectedPOForLabels] = useState<string | null>(null);
   const [selectedPOsForLabels, setSelectedPOsForLabels] = useState<Set<string>>(new Set()); // Multi-select
   const [labelSearchQuery, setLabelSearchQuery] = useState('');
+  const [selectedLocationFilter, setSelectedLocationFilter] = useState<string | null>(null);
   const [debouncedLabelSearch, setDebouncedLabelSearch] = useState('');
   const [searchType, setSearchType] = useState<'all' | 'asin' | 'sku' | 'serial' | 'title' | 'po_number' | 'barcode'>('all');
   const [selectedForPrint, setSelectedForPrint] = useState<Map<string, number>>(new Map());
@@ -2263,6 +2264,10 @@ export const POTracker = () => {
       const lowerCaseQuery = query.toLowerCase();
       ordersToFilter = ordersToFilter.filter(order => order.po_number.toLowerCase().includes(lowerCaseQuery) || order.asin?.toLowerCase().includes(lowerCaseQuery) || order.model_number?.toLowerCase().includes(lowerCaseQuery) || order.title?.toLowerCase().includes(lowerCaseQuery));
     }
+    // Apply location filter
+    if (selectedLocationFilter) {
+      ordersToFilter = ordersToFilter.filter(order => order.ship_to_location?.includes(selectedLocationFilter));
+    }
     ordersToFilter.forEach(order => {
       if (!groups[order.po_number]) {
         groups[order.po_number] = [];
@@ -2274,7 +2279,7 @@ export const POTracker = () => {
       orders
     }));
     return poGroups;
-  }, [poOrders, labelEligibleOrders, labelSearchQuery, searchQuery, activeTab, selectedCountry]);
+  }, [poOrders, labelEligibleOrders, labelSearchQuery, searchQuery, activeTab, selectedCountry, selectedLocationFilter]);
   const groupedPOOrders = useMemo(() => {
     console.log('📦 GROUPING START:', {
       filteredOrdersCount: filteredOrders.length,
@@ -4170,6 +4175,42 @@ export const POTracker = () => {
                             <X className="h-3 w-3" />
                           </Button>}
                       </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant={selectedLocationFilter ? "default" : "outline"} size="sm" className="gap-2 border border-border/30 rounded-lg">
+                            <MapPin className="h-4 w-4" />
+                            {selectedLocationFilter || 'All Locations'}
+                            <ChevronDown className="h-3 w-3 opacity-50" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="max-h-[300px] overflow-y-auto">
+                          <DropdownMenuItem onClick={() => setSelectedLocationFilter(null)} className={!selectedLocationFilter ? 'bg-accent' : ''}>
+                            <MapPin className="h-4 w-4 mr-2" />
+                            All Locations
+                          </DropdownMenuItem>
+                          {(() => {
+                            const allLocations = [...new Set(
+                              poOrders
+                                .filter(o => o.status !== 'cancelled' && o.ship_to_location)
+                                .map(o => {
+                                  const loc = o.ship_to_location!;
+                                  // Extract city name (before the comma)
+                                  const city = loc.split(',')[0]?.trim() || loc;
+                                  return city;
+                                })
+                            )].sort();
+                            return allLocations.map(location => (
+                              <DropdownMenuItem key={location} onClick={() => setSelectedLocationFilter(location)} className={selectedLocationFilter === location ? 'bg-accent' : ''}>
+                                <MapPin className="h-4 w-4 mr-2" />
+                                {location}
+                                <Badge variant="secondary" className="ml-auto text-xs">
+                                  {poOrders.filter(o => o.status !== 'cancelled' && o.ship_to_location?.includes(location)).length}
+                                </Badge>
+                              </DropdownMenuItem>
+                            ));
+                          })()}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                       <Badge variant="outline" className="text-xs">
                         {filteredPOGroups.length} PO{filteredPOGroups.length !== 1 ? 's' : ''}
                       </Badge>
