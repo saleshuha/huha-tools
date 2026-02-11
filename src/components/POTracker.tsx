@@ -139,6 +139,7 @@ export const POTracker = () => {
   const [selectedPOsForLabels, setSelectedPOsForLabels] = useState<Set<string>>(new Set()); // Multi-select
   const [labelSearchQuery, setLabelSearchQuery] = useState('');
   const [selectedLocationFilter, setSelectedLocationFilter] = useState<string | null>(null);
+  const [allowMixedLocations, setAllowMixedLocations] = useState(false);
   const [debouncedLabelSearch, setDebouncedLabelSearch] = useState('');
   const [searchType, setSearchType] = useState<'all' | 'asin' | 'sku' | 'serial' | 'title' | 'po_number' | 'barcode'>('all');
   const [selectedForPrint, setSelectedForPrint] = useState<Map<string, number>>(new Map());
@@ -4211,6 +4212,21 @@ export const POTracker = () => {
                           })()}
                         </DropdownMenuContent>
                       </DropdownMenu>
+                      <Button
+                        variant={allowMixedLocations ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setAllowMixedLocations(!allowMixedLocations)}
+                        className={cn(
+                          "gap-2 border rounded-lg transition-all duration-200",
+                          allowMixedLocations 
+                            ? "bg-primary text-primary-foreground border-primary shadow-sm" 
+                            : "border-border/30 hover:bg-muted/50"
+                        )}
+                        title={allowMixedLocations ? "Mixed locations enabled — you can select POs from different cities" : "Click to allow selecting POs from different locations"}
+                      >
+                        {allowMixedLocations ? <Check className="h-3.5 w-3.5" /> : <MapPin className="h-3.5 w-3.5" />}
+                        Mix Locations
+                      </Button>
                       <Badge variant="outline" className="text-xs">
                         {filteredPOGroups.length} PO{filteredPOGroups.length !== 1 ? 's' : ''}
                       </Badge>
@@ -4334,7 +4350,7 @@ export const POTracker = () => {
                       })();
 
                       // Check if this PO should be disabled due to different ship-to location
-                      const isDisabledByLocation = selectedShipToLocation && groupShipToLocation && selectedShipToLocation !== groupShipToLocation && !selectedPOsForLabels.has(group.poNumber);
+                      const isDisabledByLocation = !allowMixedLocations && selectedShipToLocation && groupShipToLocation && selectedShipToLocation !== groupShipToLocation && !selectedPOsForLabels.has(group.poNumber);
                       const hasClosedItems = group.orders.some(order => order.status === 'closed');
                       return <TableRow 
                         key={group.poNumber} 
