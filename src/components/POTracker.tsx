@@ -138,7 +138,7 @@ export const POTracker = () => {
   const [selectedPOForLabels, setSelectedPOForLabels] = useState<string | null>(null);
   const [selectedPOsForLabels, setSelectedPOsForLabels] = useState<Set<string>>(new Set()); // Multi-select
   const [labelSearchQuery, setLabelSearchQuery] = useState('');
-  const [selectedLocationFilter, setSelectedLocationFilter] = useState<string | null>(null);
+  const [selectedLocationFilter, setSelectedLocationFilter] = useState<Set<string>>(new Set());
   const [allowMixedLocations, setAllowMixedLocations] = useState(false);
   const [debouncedLabelSearch, setDebouncedLabelSearch] = useState('');
   const [searchType, setSearchType] = useState<'all' | 'asin' | 'sku' | 'serial' | 'title' | 'po_number' | 'barcode'>('all');
@@ -2266,8 +2266,11 @@ export const POTracker = () => {
       ordersToFilter = ordersToFilter.filter(order => order.po_number.toLowerCase().includes(lowerCaseQuery) || order.asin?.toLowerCase().includes(lowerCaseQuery) || order.model_number?.toLowerCase().includes(lowerCaseQuery) || order.title?.toLowerCase().includes(lowerCaseQuery));
     }
     // Apply location filter
-    if (selectedLocationFilter) {
-      ordersToFilter = ordersToFilter.filter(order => order.ship_to_location?.includes(selectedLocationFilter));
+    if (selectedLocationFilter.size > 0) {
+      ordersToFilter = ordersToFilter.filter(order => {
+        if (!order.ship_to_location) return false;
+        return Array.from(selectedLocationFilter).some(loc => order.ship_to_location?.includes(loc));
+      });
     }
     ordersToFilter.forEach(order => {
       if (!groups[order.po_number]) {
@@ -4182,14 +4185,14 @@ export const POTracker = () => {
                         <div className="flex items-center gap-1 p-1 bg-muted/30 backdrop-blur-sm rounded-xl border border-border/20">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant={selectedLocationFilter ? "default" : "ghost"} size="sm" className="gap-2 rounded-lg h-8 text-xs">
+                              <Button variant={selectedLocationFilter.size > 0 ? "default" : "ghost"} size="sm" className="gap-2 rounded-lg h-8 text-xs">
                                 <MapPin className="h-3.5 w-3.5" />
-                                {selectedLocationFilter || 'All Locations'}
+                                {selectedLocationFilter.size === 0 ? 'All Locations' : selectedLocationFilter.size === 1 ? Array.from(selectedLocationFilter)[0] : `${selectedLocationFilter.size} Locations`}
                                 <ChevronDown className="h-3 w-3 opacity-50" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="max-h-[300px] overflow-y-auto">
-                              <DropdownMenuItem onClick={() => setSelectedLocationFilter(null)} className={!selectedLocationFilter ? 'bg-accent' : ''}>
+                            <DropdownMenuContent align="end" className="max-h-[300px] overflow-y-auto bg-popover z-50">
+                              <DropdownMenuItem onClick={() => setSelectedLocationFilter(new Set())} className={selectedLocationFilter.size === 0 ? 'bg-accent' : ''}>
                                 <MapPin className="h-4 w-4 mr-2" />
                                 All Locations
                               </DropdownMenuItem>
@@ -4203,15 +4206,27 @@ export const POTracker = () => {
                                       return city;
                                     })
                                 )].sort();
-                                return allLocations.map(location => (
-                                  <DropdownMenuItem key={location} onClick={() => setSelectedLocationFilter(location)} className={selectedLocationFilter === location ? 'bg-accent' : ''}>
-                                    <MapPin className="h-4 w-4 mr-2" />
-                                    {location}
-                                    <Badge variant="secondary" className="ml-auto text-xs">
-                                      {poOrders.filter(o => o.status !== 'cancelled' && o.ship_to_location?.includes(location)).length}
-                                    </Badge>
-                                  </DropdownMenuItem>
-                                ));
+                                return allLocations.map(location => {
+                                  const isActive = selectedLocationFilter.has(location);
+                                  return (
+                                    <DropdownMenuItem key={location} onClick={(e) => {
+                                      e.preventDefault();
+                                      const next = new Set(selectedLocationFilter);
+                                      if (next.has(location)) {
+                                        next.delete(location);
+                                      } else {
+                                        next.add(location);
+                                      }
+                                      setSelectedLocationFilter(next);
+                                    }} className={cn(isActive && 'bg-accent')}>
+                                      <Checkbox checked={isActive} className="h-3.5 w-3.5 mr-2" />
+                                      {location}
+                                      <Badge variant="secondary" className="ml-auto text-xs">
+                                        {poOrders.filter(o => o.status !== 'cancelled' && o.ship_to_location?.includes(location)).length}
+                                      </Badge>
+                                    </DropdownMenuItem>
+                                  );
+                                });
                               })()}
                             </DropdownMenuContent>
                           </DropdownMenu>
