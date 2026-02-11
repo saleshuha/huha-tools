@@ -18,6 +18,10 @@ export interface POPrintItem {
   inventorySource?: string;        // "ASIN" | "SKU" | "SKU-ASIN"
   serialNumber?: string;           // Serial/bin numbers used
   fulfillmentNotes?: string;       // Notes about fulfillment
+  
+  // Inventory availability
+  inventoryQty?: number;           // Current in-stock inventory quantity
+  inventoryStatus?: string;        // "in-stock" | "ordered" | etc.
 }
 
 /**
