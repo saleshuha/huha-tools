@@ -2053,11 +2053,24 @@ export const POTracker = () => {
       console.log('🔍 FILTERING DEBUG: After fulfillment filter:', filtered.length, 'orders');
     }
 
-    // Apply in-stock filter
+    // Apply in-stock filter (uses same logic as Stock Qty column)
     if (instockFilter.length > 0) {
       filtered = filtered.filter(order => {
+        // Check if fully fulfilled or fully printed (shown as "Closed" in Stock Qty column)
+        const isFulfilledFromStock = order.notes?.includes('Fulfilled from stock:');
+        const fulfilledMatch = order.notes?.match(/Fulfilled from stock:\s*(\d+)/);
+        const fulfilledQty = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
+        const isFullyFulfilled = isFulfilledFromStock && fulfilledQty >= order.quantity;
+        const isFullyPrinted = (order.printed_quantity || 0) >= order.quantity;
+        
+        // If closed (fully fulfilled or printed), treat as not in-stock for filtering
+        if (isFullyFulfilled || isFullyPrinted) {
+          return instockFilter.includes('out-of-stock');
+        }
+        
         const match = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku);
-        const isInStock = match && match.status === 'in-stock' && match.quantity > 0;
+        // Match the Stock Qty column: green badge shown when status === 'in-stock'
+        const isInStock = match && match.status === 'in-stock';
         return instockFilter.some(status => {
           if (status === 'in-stock') return isInStock;
           if (status === 'out-of-stock') return !isInStock;
@@ -2236,8 +2249,16 @@ export const POTracker = () => {
     const baseOrders = poOrders.filter(order => selectedPOsList.includes(order.po_number) && order.status !== 'cancelled');
     if (instockFilter.length === 0) return baseOrders;
     return baseOrders.filter(order => {
+      const isFulfilledFromStock = order.notes?.includes('Fulfilled from stock:');
+      const fulfilledMatch = order.notes?.match(/Fulfilled from stock:\s*(\d+)/);
+      const fulfilledQty = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
+      const isFullyFulfilled = isFulfilledFromStock && fulfilledQty >= order.quantity;
+      const isFullyPrinted = (order.printed_quantity || 0) >= order.quantity;
+      if (isFullyFulfilled || isFullyPrinted) {
+        return instockFilter.includes('out-of-stock');
+      }
       const match = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku);
-      const isInStock = match && match.status === 'in-stock' && match.quantity > 0;
+      const isInStock = match && match.status === 'in-stock';
       return instockFilter.some(status => {
         if (status === 'in-stock') return isInStock;
         if (status === 'out-of-stock') return !isInStock;
