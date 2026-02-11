@@ -1,55 +1,66 @@
 
 
-## Enhanced PO Selection Table UI
+## Add In-Stock Filter + Print Preview for All Filter Groups
 
 ### Overview
 
-Reorganize the controls toolbar and upgrade the table design for the Labels tab PO selection view, keeping all existing functionality intact.
+Add an "In Stock" filter alongside the existing Print Status, Source, and Fulfillment filters in the Labels tab filter pills row. Also add a "Print Preview" button to the Source, Fulfillment, and new In-Stock filter groups (currently only Print Status has one).
 
 ### Changes
 
-**1. Toolbar Reorganization (lines ~4164-4233)**
+**1. New State: `instockFilter`**
 
-Current layout is a single row with search, location dropdown, mix locations button, and PO count badge all inline. This will be restructured into a cleaner grouped layout:
+Add a new state variable similar to the existing filter patterns:
+```
+const [instockFilter, setInstockFilter] = useState<string[]>([]);
+```
+Options will be: `in-stock` (has inventory qty > 0), `out-of-stock` (no inventory match or qty = 0).
 
-- **Left group**: Search input (wider, with refined styling)
-- **Right group**: Location filter + Mix Locations toggle combined into a single segmented control, PO count badge
+**2. Apply In-Stock Filter in the Filtering Memo (~line 2028)**
 
-**2. Selection Action Bar (lines ~4236-4307)**
+After the existing fulfillment filter block, add a new filter block that uses `findInventoryMatch` to check each order's stock status:
+- `in-stock`: order has an inventory match with status `in-stock` and quantity > 0
+- `out-of-stock`: order has no match or zero stock
 
-Currently a flat row of buttons that gets crowded. Will be reorganized:
+Add `instockFilter` to the useMemo dependency array.
 
-- Left side: Selection count badge + Clear button (unchanged)
-- Right side: Group action buttons into logical pairs with subtle separators:
-  - Save Selection | Generate Link
-  - Print Preview | View Items | View All Links
+**3. Helper Functions for Each Filter's Print Preview**
 
-**3. Table Visual Enhancement (lines ~4310-4455)**
+Create helper functions (similar to `getSelectedPOsOrdersByPrintStatus`) for each filter group so the Print Preview button in each section opens labels for only the items matching that specific filter:
+- `getSelectedPOsOrdersBySource()` -- filters by source match
+- `getSelectedPOsOrdersByFulfillment()` -- filters by fulfillment status  
+- `getSelectedPOsOrdersByInstock()` -- filters by in-stock status
 
-Upgrade the table with modern styling while keeping all columns and data intact:
+**4. UI: Add In-Stock Filter Group (~after line 5653)**
 
-- **Header**: Stronger background with uppercase letter-spaced labels, bottom shadow for depth
-- **Rows**: Alternating subtle row backgrounds (zebra striping), improved hover states with left border accent on hover
-- **Checkbox column**: Use actual Checkbox component from radix instead of Square/CheckSquare icons
-- **PO Number column**: Slightly larger font weight, country flag and PO number tighter layout
-- **Ship To column**: Add a small MapPin icon prefix for visual consistency
-- **Items + Quantity columns**: Merge into a single "Size" column showing "605 items / 13,100 qty" to reduce column count
-- **Actions column**: Consolidate print status badge and print button into a cleaner cell with the progress shown as a mini progress bar instead of "0/605 Printed" text
-- **Row selection glow**: Brighter primary accent on selected rows
+Add a new filter section after the Fulfillment filter with the same pattern:
+- Vertical divider
+- Warehouse icon + "In Stock:" label
+- Popover with checkboxes for "In Stock" and "Out of Stock"
+- Clear button when filter is active
+- Print Preview button showing filtered count
+
+**5. UI: Add Print Preview Buttons to Source and Fulfillment Groups**
+
+Add a Print Preview button (same style as the one in Print Status) to:
+- **Source filter group** (~line 5598, after the Clear button): Opens print dialog with only sunsky-matched or not-matched items based on the current `sourceFilter`
+- **Fulfillment filter group** (~line 5649, after the Clear button): Opens print dialog with only fulfilled/partial items based on `fulfillmentFilter`
+
+Each Print Preview button will:
+- Be disabled when no POs are selected
+- Show a badge with the count of matching items when a filter is active
+- Open the same `setPrintDialogOpen` flow with filtered orders
 
 ### Technical Details
 
 **File: `src/components/POTracker.tsx`**
 
-- Lines ~4164-4233: Restructure toolbar div layout, wrap location controls in a bordered group
-- Lines ~4236-4307: Add flex-wrap and gap separators between action button groups
-- Lines ~4310-4455: Update Table styling classes:
-  - TableHeader: stronger bg, uppercase text-[11px] tracking-wider
-  - TableRow: add even/odd striping via `even:bg-muted/20`
-  - Merge Items + Quantity into one cell
-  - Replace Square/CheckSquare icons with Checkbox component
-  - Add mini progress bar (div with width%) for print status
-  - Add MapPin icon to Ship To cell
+- ~Line 115: Add `instockFilter` state
+- ~Line 2029-2050: Add in-stock filtering logic using `findInventoryMatch`
+- ~Line 2125: Add `instockFilter` to useMemo deps
+- ~Line 2150-2180: Add 3 new helper functions for filtered print previews
+- ~Line 5598: Add Print Preview button to Source filter group
+- ~Line 5649: Add Print Preview button to Fulfillment filter group
+- ~Line 5653: Add vertical divider + new In-Stock filter group with Popover, checkboxes, Clear button, and Print Preview button
 
-No new files, no new dependencies -- purely styling and layout reorganization within the existing component.
-
+No new files or dependencies required.
