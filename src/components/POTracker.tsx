@@ -6071,6 +6071,25 @@ export const POTracker = () => {
                           return !hasBarcode;
                         }
                         return true;
+                      }).filter(order => {
+                        // Apply in-stock filter
+                        if (instockFilter.length === 0) return true;
+                        const isFulfilledFromStock = order.notes?.includes('Fulfilled from stock:');
+                        const fulfilledMatch = order.notes?.match(/Fulfilled from stock:\s*(\d+)/);
+                        const fulfilledQty = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
+                        const isFullyFulfilled = isFulfilledFromStock && fulfilledQty >= order.quantity;
+                        const isFullyPrinted = (order.printed_quantity || 0) >= order.quantity;
+                        const poStatus = order.status?.toLowerCase();
+                        if (isFullyFulfilled || isFullyPrinted || poStatus === 'pending') {
+                          return instockFilter.includes('out-of-stock');
+                        }
+                        const match = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku);
+                        const isInStock = match && match.status === 'in-stock';
+                        return instockFilter.some(status => {
+                          if (status === 'in-stock') return isInStock;
+                          if (status === 'out-of-stock') return !isInStock;
+                          return false;
+                        });
                       });
 
                       // NEW: Consolidate orders by ASIN when multiple POs are selected
