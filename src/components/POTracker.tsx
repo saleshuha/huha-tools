@@ -16,7 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
-import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, FileText, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, Copy, CheckCircle2, Info, TrendingDown, Check, XCircle, Calculator, ClipboardList, MapPin } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, FileUp, Search, Filter, Package, TrendingUp, ShoppingCart, Truck, DollarSign, X, Plus, Edit2, ExternalLink, Loader2, BarChart3, Download, RefreshCw, Printer, Zap, Image as ImageIcon, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, FileText, ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2, Copy, CheckCircle2, Info, TrendingDown, Check, XCircle, Calculator, ClipboardList, MapPin, Warehouse } from 'lucide-react';
 import { SortableTableHeader } from '@/components/order-processing/SortableTableHeader';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -113,6 +113,7 @@ export const POTracker = () => {
   const [printedFilter, setPrintedFilter] = useState<string[]>([]);
   const [sourceFilter, setSourceFilter] = useState<'all' | 'sunsky-matched' | 'not-matched'>('all');
   const [fulfillmentFilter, setFulfillmentFilter] = useState<string[]>([]);
+  const [instockFilter, setInstockFilter] = useState<string[]>([]);
   const [barcodeFilter, setBarcodeFilter] = useState<'all' | 'has-barcode' | 'no-barcode'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
@@ -2052,6 +2053,20 @@ export const POTracker = () => {
       console.log('🔍 FILTERING DEBUG: After fulfillment filter:', filtered.length, 'orders');
     }
 
+    // Apply in-stock filter
+    if (instockFilter.length > 0) {
+      filtered = filtered.filter(order => {
+        const match = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku);
+        const isInStock = match && match.status === 'in-stock' && match.quantity > 0;
+        return instockFilter.some(status => {
+          if (status === 'in-stock') return isInStock;
+          if (status === 'out-of-stock') return !isInStock;
+          return false;
+        });
+      });
+      console.log('🔍 FILTERING DEBUG: After in-stock filter:', filtered.length, 'orders');
+    }
+
     // Apply sorting (only if table reordering is not prevented)
     if (!preventTableReorder) {
       console.log('🔄 SORT: Applying sort - Field:', sortField, 'Direction:', sortDirection, 'Items to sort:', filtered.length);
@@ -2122,7 +2137,7 @@ export const POTracker = () => {
       console.warn('⚠️ SLOW FILTER:', `${filterDuration.toFixed(2)}ms - Consider further optimization`);
     }
     return filtered;
-  }, [poOrders, debouncedSearchQuery, debouncedLabelSearch, searchType, statusFilter, shipToFilter, printedFilter, sourceFilter, fulfillmentFilter, sortField, sortDirection, activeTab, viewMode, selectedPOsForLabels, labelEligibleOrders, preventTableReorder, selectedCountry, inventoryMaps, findInventoryMatch, searchTags]);
+  }, [poOrders, debouncedSearchQuery, debouncedLabelSearch, searchType, statusFilter, shipToFilter, printedFilter, sourceFilter, fulfillmentFilter, instockFilter, sortField, sortDirection, activeTab, viewMode, selectedPOsForLabels, labelEligibleOrders, preventTableReorder, selectedCountry, inventoryMaps, findInventoryMatch, searchTags]);
 
   // Helper function to get orders matching current print status filter
   const getOrdersByPrintStatus = useCallback(() => {
@@ -2179,6 +2194,57 @@ export const POTracker = () => {
       });
     });
   }, [poOrders, printedFilter, selectedPOsForLabels]);
+
+  // Helper function to get orders matching source filter AND selected POs
+  const getSelectedPOsOrdersBySource = useCallback(() => {
+    if (selectedPOsForLabels.size === 0) return [];
+    const selectedPOsList = Array.from(selectedPOsForLabels);
+    const baseOrders = poOrders.filter(order => selectedPOsList.includes(order.po_number) && order.status !== 'cancelled');
+    if (sourceFilter === 'all') return baseOrders;
+    return baseOrders.filter(order => {
+      const hasSunskyMatch = order.sunsky_sku && (order.sunsky_sku.sku_code || order.sunsky_sku.id);
+      if (sourceFilter === 'sunsky-matched') return hasSunskyMatch;
+      if (sourceFilter === 'not-matched') return !hasSunskyMatch;
+      return true;
+    });
+  }, [poOrders, sourceFilter, selectedPOsForLabels]);
+
+  // Helper function to get orders matching fulfillment filter AND selected POs
+  const getSelectedPOsOrdersByFulfillment = useCallback(() => {
+    if (selectedPOsForLabels.size === 0) return [];
+    const selectedPOsList = Array.from(selectedPOsForLabels);
+    const baseOrders = poOrders.filter(order => selectedPOsList.includes(order.po_number) && order.status !== 'cancelled');
+    if (fulfillmentFilter.length === 0) return baseOrders;
+    return baseOrders.filter(order => {
+      const isFulfilledFromStock = order.notes?.includes('Fulfilled from stock:');
+      if (!isFulfilledFromStock) return false;
+      const fulfilledMatch = order.notes?.match(/Fulfilled from stock:\s*(\d+)/);
+      const fulfilledQty = fulfilledMatch ? parseInt(fulfilledMatch[1]) : 0;
+      const totalQty = order.quantity || 0;
+      return fulfillmentFilter.some(status => {
+        if (status === 'fully-fulfilled') return fulfilledQty >= totalQty;
+        if (status === 'partial-fulfilled') return fulfilledQty > 0 && fulfilledQty < totalQty;
+        return false;
+      });
+    });
+  }, [poOrders, fulfillmentFilter, selectedPOsForLabels]);
+
+  // Helper function to get orders matching in-stock filter AND selected POs
+  const getSelectedPOsOrdersByInstock = useCallback(() => {
+    if (selectedPOsForLabels.size === 0) return [];
+    const selectedPOsList = Array.from(selectedPOsForLabels);
+    const baseOrders = poOrders.filter(order => selectedPOsList.includes(order.po_number) && order.status !== 'cancelled');
+    if (instockFilter.length === 0) return baseOrders;
+    return baseOrders.filter(order => {
+      const match = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku);
+      const isInStock = match && match.status === 'in-stock' && match.quantity > 0;
+      return instockFilter.some(status => {
+        if (status === 'in-stock') return isInStock;
+        if (status === 'out-of-stock') return !isInStock;
+        return false;
+      });
+    });
+  }, [poOrders, instockFilter, selectedPOsForLabels, findInventoryMatch]);
 
   // Export PO data to CSV
   const exportPOData = useCallback(() => {
@@ -5599,6 +5665,21 @@ export const POTracker = () => {
                             <X className="h-3 w-3 mr-1" />
                             Clear
                           </Button>}
+                        {/* Source Print Preview */}
+                        <Button variant="default" size="sm" disabled={selectedPOsForLabels.size === 0 || poOrders.length === 0} title="Preview labels filtered by source" onClick={() => {
+                          const filtered = getSelectedPOsOrdersBySource();
+                          if (filtered.length === 0) {
+                            toast({ title: "No Items to Preview", description: "No items match the source filter.", variant: "destructive" });
+                            return;
+                          }
+                          setPrintMode('bulk');
+                          setPrintOrders(filtered);
+                          setPrintDialogOpen(true);
+                        }} className="h-8 gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground">
+                          <FileText className="h-3.5 w-3.5" />
+                          Print Preview
+                          {sourceFilter !== 'all' && <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{getSelectedPOsOrdersBySource().length}</Badge>}
+                        </Button>
                       </div>
 
                       {/* Vertical Divider */}
@@ -5650,6 +5731,87 @@ export const POTracker = () => {
                             <X className="h-3 w-3 mr-1" />
                             Clear
                           </Button>}
+                        {/* Fulfillment Print Preview */}
+                        <Button variant="default" size="sm" disabled={selectedPOsForLabels.size === 0 || poOrders.length === 0} title="Preview labels filtered by fulfillment" onClick={() => {
+                          const filtered = getSelectedPOsOrdersByFulfillment();
+                          if (filtered.length === 0) {
+                            toast({ title: "No Items to Preview", description: "No items match the fulfillment filter.", variant: "destructive" });
+                            return;
+                          }
+                          setPrintMode('bulk');
+                          setPrintOrders(filtered);
+                          setPrintDialogOpen(true);
+                        }} className="h-8 gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground">
+                          <FileText className="h-3.5 w-3.5" />
+                          Print Preview
+                          {fulfillmentFilter.length > 0 && <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{getSelectedPOsOrdersByFulfillment().length}</Badge>}
+                        </Button>
+                      </div>
+
+                      {/* Vertical Divider */}
+                      <div className="h-8 w-px bg-border" />
+
+                      {/* In-Stock Filter */}
+                      <div className="flex items-center gap-2">
+                        <Warehouse className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium text-muted-foreground">In Stock:</span>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-[200px] border border-border/30 bg-background/80 backdrop-blur-sm focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-lg shadow-sm transition-all duration-200 justify-between">
+                              <span className="text-sm">{instockFilter.length > 0 ? `${instockFilter.length} selected` : 'All Items'}</span>
+                              <ChevronDown className="h-4 w-4 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-56 p-4 z-50 bg-background/95 backdrop-blur-md border border-border/20 rounded-xl shadow-lg" align="start">
+                            <div className="space-y-3">
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <Checkbox id="instock-yes" checked={instockFilter.includes('in-stock')} onCheckedChange={checked => {
+                                    if (checked) {
+                                      setInstockFilter([...instockFilter, 'in-stock']);
+                                    } else {
+                                      setInstockFilter(instockFilter.filter(f => f !== 'in-stock'));
+                                    }
+                                  }} />
+                                  <Label htmlFor="instock-yes" className="text-sm cursor-pointer">
+                                    ✓ In Stock
+                                  </Label>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Checkbox id="instock-no" checked={instockFilter.includes('out-of-stock')} onCheckedChange={checked => {
+                                    if (checked) {
+                                      setInstockFilter([...instockFilter, 'out-of-stock']);
+                                    } else {
+                                      setInstockFilter(instockFilter.filter(f => f !== 'out-of-stock'));
+                                    }
+                                  }} />
+                                  <Label htmlFor="instock-no" className="text-sm cursor-pointer">
+                                    ○ Out of Stock
+                                  </Label>
+                                </div>
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                        {instockFilter.length > 0 && <Button variant="ghost" size="sm" onClick={() => setInstockFilter([])} className="h-8 px-2 text-xs hover:bg-destructive/10">
+                            <X className="h-3 w-3 mr-1" />
+                            Clear
+                          </Button>}
+                        {/* In-Stock Print Preview */}
+                        <Button variant="default" size="sm" disabled={selectedPOsForLabels.size === 0 || poOrders.length === 0} title="Preview labels filtered by stock status" onClick={() => {
+                          const filtered = getSelectedPOsOrdersByInstock();
+                          if (filtered.length === 0) {
+                            toast({ title: "No Items to Preview", description: "No items match the in-stock filter.", variant: "destructive" });
+                            return;
+                          }
+                          setPrintMode('bulk');
+                          setPrintOrders(filtered);
+                          setPrintDialogOpen(true);
+                        }} className="h-8 gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground">
+                          <FileText className="h-3.5 w-3.5" />
+                          Print Preview
+                          {instockFilter.length > 0 && <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{getSelectedPOsOrdersByInstock().length}</Badge>}
+                        </Button>
                       </div>
                     </div>
                   </div>
