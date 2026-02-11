@@ -185,7 +185,10 @@ export const POPrintDialog: React.FC<POPrintDialogProps> = ({
           supplierQuantity: stockMeta?.supplierQuantity || (stockQty > 0 ? Math.max(0, item.quantity - stockQty) : item.quantity),
           inventorySource: stockMeta?.inventoryMatch?.type,
           serialNumber: stockMeta?.inventoryMatch?.serialNumber,
-          fulfillmentNotes: matchingOrder?.notes
+          fulfillmentNotes: matchingOrder?.notes,
+          // Inventory availability data
+          inventoryQty: matchingOrder?._inventoryQty ?? undefined,
+          inventoryStatus: matchingOrder?._inventoryStatus ?? undefined,
         };
       })
       .sort((a, b) => b.quantity - a.quantity);

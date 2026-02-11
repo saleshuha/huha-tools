@@ -332,7 +332,7 @@ export const POTracker = () => {
   // Print Dialog State
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [printMode, setPrintMode] = useState<'single' | 'bulk'>('single');
-  const [printOrders, setPrintOrders] = useState<POOrder[]>([]);
+  const [printOrders, setPrintOrdersBase] = useState<POOrder[]>([]);
 
   // Generate Purchase Link Dialog State
   const [generateLinkDialogOpen, setGenerateLinkDialogOpen] = useState(false);
@@ -1566,6 +1566,19 @@ export const POTracker = () => {
     }
     return null;
   }, [inventoryMaps]);
+
+  // Wrapper to enrich orders with inventory quantity before passing to print dialog
+  const setPrintOrders = useCallback((orders: POOrder[]) => {
+    const enriched = orders.map(order => {
+      const match = findInventoryMatch(order.asin, order.sunsky_sku?.sku_code, order.sku_code, order.model_number, order.sunsky_sku);
+      return {
+        ...order,
+        _inventoryQty: match && match.status === 'in-stock' ? match.quantity : 0,
+        _inventoryStatus: match?.status || undefined,
+      } as any;
+    });
+    setPrintOrdersBase(enriched);
+  }, [findInventoryMatch]);
 
   // Memoized metrics calculations for all cards (PHASE 1: Performance optimization)
   const calculatedMetrics = useMemo(() => {
