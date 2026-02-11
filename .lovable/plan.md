@@ -1,66 +1,48 @@
 
 
-## Add In-Stock Filter + Print Preview for All Filter Groups
+## Add Inventory Quantity to Print Preview + Enhanced Card Design
 
 ### Overview
 
-Add an "In Stock" filter alongside the existing Print Status, Source, and Fulfillment filters in the Labels tab filter pills row. Also add a "Print Preview" button to the Source, Fulfillment, and new In-Stock filter groups (currently only Print Status has one).
+Show the in-stock inventory quantity for each item in the Print Preview document, and modernize the card design for better readability and visual hierarchy.
 
 ### Changes
 
-**1. New State: `instockFilter`**
+**1. Extend `POPrintItem` interface** (`src/utils/po-print-helpers.ts`)
 
-Add a new state variable similar to the existing filter patterns:
+Add a new optional field:
 ```
-const [instockFilter, setInstockFilter] = useState<string[]>([]);
+inventoryQty?: number;  // Current in-stock inventory quantity
 ```
-Options will be: `in-stock` (has inventory qty > 0), `out-of-stock` (no inventory match or qty = 0).
 
-**2. Apply In-Stock Filter in the Filtering Memo (~line 2028)**
+**2. Pass inventory data in `POPrintDialog`** (`src/components/po/POPrintDialog.tsx`)
 
-After the existing fulfillment filter block, add a new filter block that uses `findInventoryMatch` to check each order's stock status:
-- `in-stock`: order has an inventory match with status `in-stock` and quantity > 0
-- `out-of-stock`: order has no match or zero stock
+In the `enrichedItems` mapping (~line 173), look up the matching order's inventory data. Since the dialog receives raw `POOrder` objects, we need to attach inventory info before passing orders to the dialog.
 
-Add `instockFilter` to the useMemo dependency array.
+**3. Attach inventory quantity to print orders** (`src/components/POTracker.tsx`)
 
-**3. Helper Functions for Each Filter's Print Preview**
+Before setting `setPrintOrders(...)`, enrich each order with an `_inventoryQty` property using `findInventoryMatch`. This applies to all places where `setPrintOrders` is called (approximately 6-7 locations). Then in `POPrintDialog`, extract this property when building `enrichedItems`.
 
-Create helper functions (similar to `getSelectedPOsOrdersByPrintStatus`) for each filter group so the Print Preview button in each section opens labels for only the items matching that specific filter:
-- `getSelectedPOsOrdersBySource()` -- filters by source match
-- `getSelectedPOsOrdersByFulfillment()` -- filters by fulfillment status  
-- `getSelectedPOsOrdersByInstock()` -- filters by in-stock status
+**4. Redesign `POPrintDocument` cards** (`src/components/po/POPrintDocument.tsx`)
 
-**4. UI: Add In-Stock Filter Group (~after line 5653)**
+Enhance the existing card layout while keeping the current structure:
 
-Add a new filter section after the Fulfillment filter with the same pattern:
-- Vertical divider
-- Warehouse icon + "In Stock:" label
-- Popover with checkboxes for "In Stock" and "Out of Stock"
-- Clear button when filter is active
-- Print Preview button showing filtered count
-
-**5. UI: Add Print Preview Buttons to Source and Fulfillment Groups**
-
-Add a Print Preview button (same style as the one in Print Status) to:
-- **Source filter group** (~line 5598, after the Clear button): Opens print dialog with only sunsky-matched or not-matched items based on the current `sourceFilter`
-- **Fulfillment filter group** (~line 5649, after the Clear button): Opens print dialog with only fulfilled/partial items based on `fulfillmentFilter`
-
-Each Print Preview button will:
-- Be disabled when no POs are selected
-- Show a badge with the count of matching items when a filter is active
-- Open the same `setPrintDialogOpen` flow with filtered orders
+- **New "Inventory" metric**: Add an inventory quantity display in the quantity section, styled with a blue/indigo color scheme, showing the available stock units (e.g., "IN STOCK" label with the quantity). Only shown when `inventoryQty > 0`.
+- **Improved card header**: Add a subtle gradient top border strip color-coded by status (green = has stock, orange = pending, gray = no stock).
+- **Better visual hierarchy**: 
+  - Item number badge gets a colored accent matching stock status
+  - ASIN displayed in a monospace font for better readability
+  - SKU shown in a subtle pill/tag style
+  - PO numbers section gets a light background panel
+- **Summary footer enhancement**: Add a breakdown showing total items with stock vs without stock
 
 ### Technical Details
 
-**File: `src/components/POTracker.tsx`**
+**Files to modify:**
 
-- ~Line 115: Add `instockFilter` state
-- ~Line 2029-2050: Add in-stock filtering logic using `findInventoryMatch`
-- ~Line 2125: Add `instockFilter` to useMemo deps
-- ~Line 2150-2180: Add 3 new helper functions for filtered print previews
-- ~Line 5598: Add Print Preview button to Source filter group
-- ~Line 5649: Add Print Preview button to Fulfillment filter group
-- ~Line 5653: Add vertical divider + new In-Stock filter group with Popover, checkboxes, Clear button, and Print Preview button
+1. **`src/utils/po-print-helpers.ts`** -- Add `inventoryQty` to `POPrintItem` interface
+2. **`src/components/POTracker.tsx`** -- At each `setPrintOrders` call, map orders to include `_inventoryQty` from `findInventoryMatch`
+3. **`src/components/po/POPrintDialog.tsx`** -- Extract `_inventoryQty` from matching orders and pass as `inventoryQty` to print items
+4. **`src/components/po/POPrintDocument.tsx`** -- Add inventory quantity display and redesigned CSS styles for the cards
 
-No new files or dependencies required.
+No new dependencies required. All changes use existing CSS-in-JS patterns within the print document.
