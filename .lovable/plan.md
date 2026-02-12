@@ -1,45 +1,66 @@
 
 
-## Fix Product Images + Cleaner UI Design
+## Consolidate Duplicate ASINs into Single Cards
 
-### Problem: Images Not Showing
+### Problem
+When the same ASIN appears across multiple PO numbers, each instance shows as a separate card. The vendor sees many duplicate product cards instead of one card with the total required quantity summed up.
 
-The `product_images` table has 7,447 images and they exist for the ASINs in the purchase link orders. However, the edge function queries `product_images` with `.in('asin', asins)` where `asins` contains **2,500+ unique values**. PostgREST has a URL length limit, and when passing 2,500+ ASINs via the `.in()` filter, the query silently fails or returns empty results.
+### Solution
+Group orders by ASIN on the frontend, display one card per unique ASIN with the summed total required quantity, and distribute the purchased quantity across underlying orders when saving.
 
-### Fix: Batch ASIN Lookups in Edge Function
+### How It Works
 
-**File: `supabase/functions/purchase-link-handler/index.ts`**
+**Grouping Logic** (new `useMemo` in `PurchaseLink.tsx`):
+- Group all `poOrders` by ASIN (fall back to SKU, then order ID for items without ASIN/SKU)
+- Each group becomes one displayed card with:
+  - `totalRequired` = sum of all orders' quantities
+  - `totalPurchased` = sum of all related updates' purchased quantities
+  - `orderIds` = array of all underlying po_order IDs
+  - `poNumbers` = list of all PO numbers (shown as badges)
+  - Image and title from the first order in the group
 
-Split the ASINs array into chunks of 200 and query `product_images` in multiple batches, then merge the results. This avoids exceeding PostgREST URL limits.
+**Status Calculation** (updated for groups):
+- "purchased" if totalPurchased >= totalRequired
+- "partial" if totalPurchased > 0 but < totalRequired
+- "not_available" if ALL underlying orders are marked N/A
+- "pending" otherwise
 
-```text
-// Instead of: .in('asin', allAsins)  // fails with 2500+ ASINs
-// Do: chunk into groups of 200, query each batch, merge results
-```
+**Saving** (updated `handleSaveItem`):
+- When vendor enters a purchased quantity for a grouped item, distribute across the underlying orders sequentially (fill each order up to its required qty before moving to next)
+- All underlying `po_order_id`s get their own `purchase_updates` row
 
-### UI Simplification
+**Bulk Actions / Selection**:
+- Selecting a grouped card selects all its underlying order IDs
+- Bulk mark purchased distributes across all underlying orders
 
-**File: `src/pages/PurchaseLink.tsx`**
+**Stats** remain accurate since they aggregate from the grouped data.
 
-Simplify item cards for a cleaner, more workable layout:
-
-1. **Remove the left checkbox indentation** -- Move the checkbox into the top-right corner of each card to reclaim horizontal space on mobile
-2. **Compact card layout** -- Title on top, ASIN/SKU/PO in a single line below, quantity + actions in a clean row
-3. **Larger product images** -- Increase from 56px to 64px on mobile for better visibility
-4. **Cleaner action row** -- Qty input, Save button, N/A button, and Scan button all in one row with consistent sizing
-5. **Remove nested indentation** (the `ml-8` sections) -- Use full card width for all content
-6. **Simplified filter bar** -- Remove the sort section from the sticky bar, put it inline with filter buttons
-
-**File: `src/components/purchase-link/PurchaseSummaryHeader.tsx`**
-
-Minor cleanup:
-- Reduce ring size slightly on mobile
-- Use number formatting (e.g., "3,945" instead of "3945")
+**Filter/Search** works on the grouped card's title, ASIN, SKU, and all associated PO numbers.
 
 ### Technical Details
 
-Files to modify:
-- `supabase/functions/purchase-link-handler/index.ts` -- Batch ASIN lookups in chunks of 200 to fix image loading
-- `src/pages/PurchaseLink.tsx` -- Simplify card layout, remove excess indentation, improve mobile usability
-- `src/components/purchase-link/PurchaseSummaryHeader.tsx` -- Number formatting
+**File: `src/pages/PurchaseLink.tsx`**
+
+1. Add a `useMemo` that creates `groupedOrders` from `data.poOrders`:
+   - Key by ASIN (or SKU or ID as fallback)
+   - Each group: `{ key, orders: Order[], totalRequired, totalPurchased, image, title, asin, skuCode, poNumbers, orderIds }`
+
+2. Update `filteredOrders` to filter/sort `groupedOrders` instead of raw orders
+
+3. Update `getItemStatus` to work with grouped totals
+
+4. Update `handleSaveItem` to accept a group key, distribute qty across underlying orders
+
+5. Update `handleMarkNotAvailable` / `handleUndoNotAvailable` to apply to all orders in the group
+
+6. Update `handleSelectItem` to toggle all order IDs in the group
+
+7. Update the card rendering to show:
+   - Total required qty (summed)
+   - Multiple PO number badges
+   - Single qty input for the whole group
+
+8. Update `stats` calculation to use grouped data
+
+9. Update `exportData` to reflect grouped view
 
