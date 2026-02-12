@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { usePurchaseLink } from '@/hooks/usePurchaseLink';
@@ -21,6 +21,20 @@ import { BulkActionsBar } from '@/components/purchase-link/BulkActionsBar';
 import { ExportButton } from '@/components/purchase-link/ExportButton';
 import { PurchaseSummaryHeader } from '@/components/purchase-link/PurchaseSummaryHeader';
 
+interface GroupedOrder {
+  key: string;
+  orders: any[];
+  totalRequired: number;
+  totalPurchased: number;
+  image: any;
+  title: string;
+  asin: string | null;
+  skuCode: string | null;
+  modelNumber: string | null;
+  poNumbers: string[];
+  orderIds: string[];
+}
+
 export default function PurchaseLink() {
   const { token } = useParams<{ token: string }>();
   const { data: hookData, loading, error, savePurchaseUpdate, fetchLinkData } = usePurchaseLink(token);
@@ -37,7 +51,7 @@ export default function PurchaseLink() {
   
   // Barcode scanning state
   const [scanDialogOpen, setScanDialogOpen] = useState(false);
-  const [scanningOrderId, setScanningOrderId] = useState<string | null>(null);
+  const [scanningGroupKey, setScanningGroupKey] = useState<string | null>(null);
 
   // Sync hook data with local state
   useEffect(() => {
@@ -46,66 +60,163 @@ export default function PurchaseLink() {
     }
   }, [hookData]);
 
+  // Group orders by ASIN (fall back to SKU, then order ID)
+  const groupedOrders = useMemo((): GroupedOrder[] => {
+    if (!data?.poOrders || !data?.updates) return [];
+    
+    const groups: Record<string, GroupedOrder> = {};
+    
+    for (const order of data.poOrders) {
+      const key = order.asin || order.sku_code || order.id;
+      
+      if (!groups[key]) {
+        groups[key] = {
+          key,
+          orders: [],
+          totalRequired: 0,
+          totalPurchased: 0,
+          image: order.product_image,
+          title: order.title || '',
+          asin: order.asin,
+          skuCode: order.sku_code,
+          modelNumber: order.model_number,
+          poNumbers: [],
+          orderIds: [],
+        };
+      }
+      
+      groups[key].orders.push(order);
+      groups[key].totalRequired += order.quantity || 0;
+      groups[key].orderIds.push(order.id);
+      
+      if (!groups[key].poNumbers.includes(order.po_number)) {
+        groups[key].poNumbers.push(order.po_number);
+      }
+      
+      // Use image from first order that has one
+      if (!groups[key].image && order.product_image) {
+        groups[key].image = order.product_image;
+      }
+      
+      // Sum purchased from updates
+      const update = data.updates.find(u => u.po_order_id === order.id);
+      groups[key].totalPurchased += update?.purchased_quantity || 0;
+    }
+    
+    return Object.values(groups);
+  }, [data?.poOrders, data?.updates]);
+
   const getVendorInfo = () => {
     if (!token) return null;
     return getStoredVendorInfo(token);
   };
 
-  const handleSaveItem = async (orderId: string) => {
-    const order = data?.poOrders.find(o => o.id === orderId);
-    if (!order || !token || !data) return;
-
-    const existingUpdate = data.updates.find(u => u.po_order_id === orderId);
-    const localUpdate = localUpdates[orderId];
-    const itemSupplierDetails = supplierDetails[orderId];
-    const vendorInfo = getVendorInfo();
+  const getGroupStatus = (group: GroupedOrder): string => {
+    // Check if ALL underlying orders are N/A
+    const allNA = group.orders.every(order => {
+      const update = data?.updates.find(u => u.po_order_id === order.id);
+      return update?.metadata?.not_available === true;
+    });
+    if (allNA && group.orders.length > 0) return 'not_available';
     
-    if (!localUpdate && !itemSupplierDetails) {
+    // Check some are N/A
+    const someNA = group.orders.some(order => {
+      const update = data?.updates.find(u => u.po_order_id === order.id);
+      return update?.metadata?.not_available === true;
+    });
+    
+    // Calculate effective purchased (excluding N/A orders)
+    const effectivePurchased = group.orders.reduce((sum, order) => {
+      const update = data?.updates.find(u => u.po_order_id === order.id);
+      if (update?.metadata?.not_available) return sum;
+      return sum + (update?.purchased_quantity || 0);
+    }, 0);
+    
+    const effectiveRequired = group.orders.reduce((sum, order) => {
+      const update = data?.updates.find(u => u.po_order_id === order.id);
+      if (update?.metadata?.not_available) return sum;
+      return sum + (order.quantity || 0);
+    }, 0);
+    
+    if (effectiveRequired === 0) return 'not_available';
+    if (effectivePurchased >= effectiveRequired) return 'purchased';
+    if (effectivePurchased > 0 || someNA) return 'partial';
+    return 'pending';
+  };
+
+  // Save: distribute qty across underlying orders sequentially
+  const handleSaveGroup = async (groupKey: string) => {
+    const group = groupedOrders.find(g => g.key === groupKey);
+    if (!group || !token || !data) return;
+
+    const localUpdate = localUpdates[groupKey];
+    const groupSupplierDetails = supplierDetails[groupKey];
+    
+    if (!localUpdate && !groupSupplierDetails) {
       toast.info('No changes to save');
       return;
     }
 
-    setSavingItems(prev => new Set(prev).add(orderId));
+    setSavingItems(prev => new Set(prev).add(groupKey));
+    const vendorInfo = getVendorInfo();
 
     try {
-      const updatedData = {
-        poOrderId: orderId,
-        poNumber: order.po_number,
-        asin: order.asin,
-        skuCode: order.sku_code,
-        modelNumber: order.model_number,
-        title: order.title,
-        purchasedQuantity: localUpdate?.purchasedQuantity ?? existingUpdate?.purchased_quantity ?? 0,
-        vendorName: vendorInfo?.name,
-        vendorEmail: vendorInfo?.email,
-        supplierName: itemSupplierDetails?.supplierName,
-        supplierOrderNumber: itemSupplierDetails?.supplierOrderNumber,
-        estimatedDeliveryDate: itemSupplierDetails?.estimatedDeliveryDate,
-        unitCost: itemSupplierDetails?.unitCost,
-        totalCost: itemSupplierDetails?.totalCost,
-        notes: itemSupplierDetails?.notes,
-        ...existingUpdate
-      };
+      const totalQty = localUpdate?.purchasedQuantity ?? group.totalPurchased ?? 0;
+      let remaining = totalQty;
 
-      await savePurchaseUpdate(token, updatedData);
+      // Distribute sequentially across non-N/A orders
+      const activeOrders = group.orders.filter(order => {
+        const update = data.updates.find(u => u.po_order_id === order.id);
+        return !update?.metadata?.not_available;
+      });
+
+      for (const order of activeOrders) {
+        const qtyForThis = Math.min(remaining, order.quantity);
+        remaining = Math.max(0, remaining - order.quantity);
+
+        await savePurchaseUpdate(token, {
+          poOrderId: order.id,
+          poNumber: order.po_number,
+          asin: order.asin,
+          skuCode: order.sku_code,
+          modelNumber: order.model_number,
+          title: order.title,
+          purchasedQuantity: qtyForThis,
+          vendorName: vendorInfo?.name,
+          vendorEmail: vendorInfo?.email,
+          supplierName: groupSupplierDetails?.supplierName,
+          supplierOrderNumber: groupSupplierDetails?.supplierOrderNumber,
+          estimatedDeliveryDate: groupSupplierDetails?.estimatedDeliveryDate,
+          unitCost: groupSupplierDetails?.unitCost,
+          totalCost: groupSupplierDetails?.totalCost,
+          notes: groupSupplierDetails?.notes,
+        });
+      }
       
+      // Update local state
       setData(prevData => {
         if (!prevData) return prevData;
         const updatedUpdates = [...prevData.updates];
-        const existingIndex = updatedUpdates.findIndex(u => u.po_order_id === orderId);
+        let rem = totalQty;
         
-        if (existingIndex >= 0) {
-          updatedUpdates[existingIndex] = {
-            ...updatedUpdates[existingIndex],
-            purchased_quantity: localUpdate?.purchasedQuantity ?? updatedUpdates[existingIndex].purchased_quantity
-          };
-        } else {
-          updatedUpdates.push({
-            po_order_id: orderId,
-            purchased_quantity: localUpdate?.purchasedQuantity ?? 0,
-            link_id: prevData.link.id,
-            metadata: {}
-          } as any);
+        for (const order of activeOrders) {
+          const qtyForThis = Math.min(rem, order.quantity);
+          rem = Math.max(0, rem - order.quantity);
+          
+          const existingIndex = updatedUpdates.findIndex(u => u.po_order_id === order.id);
+          if (existingIndex >= 0) {
+            updatedUpdates[existingIndex] = {
+              ...updatedUpdates[existingIndex],
+              purchased_quantity: qtyForThis,
+            };
+          } else {
+            updatedUpdates.push({
+              po_order_id: order.id,
+              purchased_quantity: qtyForThis,
+              link_id: prevData.link.id,
+              metadata: {},
+            } as any);
+          }
         }
         
         return { ...prevData, updates: updatedUpdates };
@@ -113,7 +224,7 @@ export default function PurchaseLink() {
       
       setLocalUpdates(prev => {
         const newUpdates = { ...prev };
-        delete newUpdates[orderId];
+        delete newUpdates[groupKey];
         return newUpdates;
       });
       
@@ -124,61 +235,58 @@ export default function PurchaseLink() {
     } finally {
       setSavingItems(prev => {
         const newSet = new Set(prev);
-        newSet.delete(orderId);
+        newSet.delete(groupKey);
         return newSet;
       });
     }
   };
 
-  const handleUpdateField = (orderId: string, field: string, value: any) => {
+  const handleUpdateField = (groupKey: string, field: string, value: any) => {
     setLocalUpdates(prev => ({
       ...prev,
-      [orderId]: { ...prev[orderId], [field]: value }
+      [groupKey]: { ...prev[groupKey], [field]: value }
     }));
   };
 
-  const handleMarkNotAvailable = async (orderId: string) => {
-    const order = data?.poOrders.find(o => o.id === orderId);
-    if (!order || !token || !data) return;
+  const handleMarkNotAvailable = async (groupKey: string) => {
+    const group = groupedOrders.find(g => g.key === groupKey);
+    if (!group || !token || !data) return;
 
-    const existingUpdate = data.updates.find(u => u.po_order_id === orderId);
+    setSavingItems(prev => new Set(prev).add(groupKey));
     const vendorInfo = getVendorInfo();
-    
-    setSavingItems(prev => new Set(prev).add(orderId));
 
     try {
-      const updatedData = {
-        poOrderId: orderId,
-        poNumber: order.po_number,
-        asin: order.asin,
-        skuCode: order.sku_code,
-        modelNumber: order.model_number,
-        title: order.title,
-        metadata: { not_available: true },
-        vendorName: vendorInfo?.name,
-        vendorEmail: vendorInfo?.email,
-        ...existingUpdate
-      };
-
-      await savePurchaseUpdate(token, updatedData);
+      for (const order of group.orders) {
+        await savePurchaseUpdate(token, {
+          poOrderId: order.id,
+          poNumber: order.po_number,
+          asin: order.asin,
+          skuCode: order.sku_code,
+          modelNumber: order.model_number,
+          title: order.title,
+          metadata: { not_available: true },
+          vendorName: vendorInfo?.name,
+          vendorEmail: vendorInfo?.email,
+        });
+      }
       
       setData(prevData => {
         if (!prevData) return prevData;
         const updatedUpdates = [...prevData.updates];
-        const existingIndex = updatedUpdates.findIndex(u => u.po_order_id === orderId);
-        
-        if (existingIndex >= 0) {
-          updatedUpdates[existingIndex] = { ...updatedUpdates[existingIndex], metadata: { not_available: true } };
-        } else {
-          updatedUpdates.push({ po_order_id: orderId, link_id: prevData.link.id, metadata: { not_available: true } } as any);
+        for (const order of group.orders) {
+          const existingIndex = updatedUpdates.findIndex(u => u.po_order_id === order.id);
+          if (existingIndex >= 0) {
+            updatedUpdates[existingIndex] = { ...updatedUpdates[existingIndex], metadata: { not_available: true } };
+          } else {
+            updatedUpdates.push({ po_order_id: order.id, link_id: prevData.link.id, metadata: { not_available: true } } as any);
+          }
         }
-        
         return { ...prevData, updates: updatedUpdates };
       });
       
       setLocalUpdates(prev => {
         const newUpdates = { ...prev };
-        delete newUpdates[orderId];
+        delete newUpdates[groupKey];
         return newUpdates;
       });
       
@@ -188,51 +296,48 @@ export default function PurchaseLink() {
     } finally {
       setSavingItems(prev => {
         const newSet = new Set(prev);
-        newSet.delete(orderId);
+        newSet.delete(groupKey);
         return newSet;
       });
     }
   };
 
-  const handleUndoNotAvailable = async (orderId: string) => {
-    const order = data?.poOrders.find(o => o.id === orderId);
-    if (!order || !token || !data) return;
+  const handleUndoNotAvailable = async (groupKey: string) => {
+    const group = groupedOrders.find(g => g.key === groupKey);
+    if (!group || !token || !data) return;
 
-    const existingUpdate = data.updates.find(u => u.po_order_id === orderId);
+    setSavingItems(prev => new Set(prev).add(groupKey));
     const vendorInfo = getVendorInfo();
-    
-    setSavingItems(prev => new Set(prev).add(orderId));
 
     try {
-      const updatedData = {
-        poOrderId: orderId,
-        poNumber: order.po_number,
-        asin: order.asin,
-        skuCode: order.sku_code,
-        modelNumber: order.model_number,
-        title: order.title,
-        metadata: { not_available: false },
-        purchasedQuantity: 0,
-        vendorName: vendorInfo?.name,
-        vendorEmail: vendorInfo?.email,
-        ...existingUpdate
-      };
-
-      await savePurchaseUpdate(token, updatedData);
+      for (const order of group.orders) {
+        await savePurchaseUpdate(token, {
+          poOrderId: order.id,
+          poNumber: order.po_number,
+          asin: order.asin,
+          skuCode: order.sku_code,
+          modelNumber: order.model_number,
+          title: order.title,
+          metadata: { not_available: false },
+          purchasedQuantity: 0,
+          vendorName: vendorInfo?.name,
+          vendorEmail: vendorInfo?.email,
+        });
+      }
       
       setData(prevData => {
         if (!prevData) return prevData;
         const updatedUpdates = [...prevData.updates];
-        const existingIndex = updatedUpdates.findIndex(u => u.po_order_id === orderId);
-        
-        if (existingIndex >= 0) {
-          updatedUpdates[existingIndex] = {
-            ...updatedUpdates[existingIndex],
-            metadata: { not_available: false },
-            purchased_quantity: 0
-          };
+        for (const order of group.orders) {
+          const existingIndex = updatedUpdates.findIndex(u => u.po_order_id === order.id);
+          if (existingIndex >= 0) {
+            updatedUpdates[existingIndex] = {
+              ...updatedUpdates[existingIndex],
+              metadata: { not_available: false },
+              purchased_quantity: 0,
+            };
+          }
         }
-        
         return { ...prevData, updates: updatedUpdates };
       });
       
@@ -242,55 +347,66 @@ export default function PurchaseLink() {
     } finally {
       setSavingItems(prev => {
         const newSet = new Set(prev);
-        newSet.delete(orderId);
+        newSet.delete(groupKey);
         return newSet;
       });
     }
   };
 
-  const handleInputFocus = (orderId: string) => {
+  const handleInputFocus = (groupKey: string) => {
     setTimeout(() => {
-      const cardElement = cardRefs.current[orderId];
+      const cardElement = cardRefs.current[groupKey];
       if (cardElement) {
         cardElement.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
       }
     }, 300);
   };
 
-  const handleOpenBarcodeScanner = useCallback((orderId: string) => {
-    setScanningOrderId(orderId);
+  const handleOpenBarcodeScanner = useCallback((groupKey: string) => {
+    setScanningGroupKey(groupKey);
     setScanDialogOpen(true);
   }, []);
 
   const handleBarcodeScanned = useCallback(async (barcode: string, format: string) => {
-    if (!scanningOrderId || !data) return;
-    const order = data.poOrders.find(o => o.id === scanningOrderId);
-    if (!order) return;
+    if (!scanningGroupKey || !data) return;
+    const group = groupedOrders.find(g => g.key === scanningGroupKey);
+    if (!group) return;
+    const firstOrder = group.orders[0];
     
     await linkBarcode({
       barcode,
       barcodeType: format,
-      asin: order.asin || undefined,
-      skuCode: order.sku_code || undefined,
-      modelNumber: order.model_number || undefined,
-      title: order.title || undefined,
-      poOrderId: order.id,
+      asin: firstOrder.asin || undefined,
+      skuCode: firstOrder.sku_code || undefined,
+      modelNumber: firstOrder.model_number || undefined,
+      title: firstOrder.title || undefined,
+      poOrderId: firstOrder.id,
       userId: data.link.user_id,
     });
     
     setScanDialogOpen(false);
-    setScanningOrderId(null);
-  }, [scanningOrderId, data, linkBarcode]);
+    setScanningGroupKey(null);
+  }, [scanningGroupKey, data, groupedOrders, linkBarcode]);
 
-  const scanningOrder = scanningOrderId ? data?.poOrders.find(o => o.id === scanningOrderId) : null;
+  const scanningGroup = scanningGroupKey ? groupedOrders.find(g => g.key === scanningGroupKey) : null;
 
-  const handleSelectItem = (orderId: string, checked: boolean) => {
+  // Select/deselect all order IDs in a group
+  const handleSelectGroup = (groupKey: string, checked: boolean) => {
+    const group = groupedOrders.find(g => g.key === groupKey);
+    if (!group) return;
     setSelectedItems(prev => {
       const newSet = new Set(prev);
-      if (checked) newSet.add(orderId);
-      else newSet.delete(orderId);
+      if (checked) {
+        group.orderIds.forEach(id => newSet.add(id));
+      } else {
+        group.orderIds.forEach(id => newSet.delete(id));
+      }
       return newSet;
     });
+  };
+
+  const isGroupSelected = (group: GroupedOrder) => {
+    return group.orderIds.some(id => selectedItems.has(id));
   };
 
   const handleBulkMarkPurchased = async (quantity: number) => {
@@ -362,29 +478,6 @@ export default function PurchaseLink() {
     return () => { supabase.removeChannel(channel); };
   }, [token, data?.link?.id]);
 
-  const getItemStatus = (order: any, update: any) => {
-    if (update?.metadata?.not_available) return 'not_available';
-    const purchased = update?.purchased_quantity || 0;
-    if (purchased === 0) return 'pending';
-    if (purchased >= order.quantity) return 'purchased';
-    return 'partial';
-  };
-
-  const getConsolidatedQuantity = (order: any) => {
-    if (!data?.poOrders) return null;
-    const relatedOrders = data.poOrders.filter(o => 
-      (order.asin && o.asin === order.asin) || (order.sku_code && o.sku_code === order.sku_code)
-    );
-    if (relatedOrders.length > 1) {
-      return {
-        total: relatedOrders.reduce((sum, o) => sum + o.quantity, 0),
-        count: relatedOrders.length,
-        poNumbers: relatedOrders.map(o => o.po_number)
-      };
-    }
-    return null;
-  };
-
   const getStatusBorderColor = (status: string) => {
     switch (status) {
       case 'purchased': return 'border-l-green-500';
@@ -394,58 +487,57 @@ export default function PurchaseLink() {
     }
   };
 
-  const filteredOrders = (() => {
-    let orders = data?.poOrders.filter(order => {
-      const update = data.updates.find(u => u.po_order_id === order.id);
-      const status = getItemStatus(order, update);
+  // Filter and sort grouped orders
+  const filteredGroups = useMemo(() => {
+    let groups = groupedOrders.filter(group => {
+      const status = getGroupStatus(group);
       const matchesSearch = 
-        order.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.asin?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.sku_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.po_number?.toLowerCase().includes(searchTerm.toLowerCase());
+        group.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        group.asin?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        group.skuCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        group.poNumbers.some(po => po.toLowerCase().includes(searchTerm.toLowerCase()));
       return matchesSearch && status === filterStatus;
-    }) || [];
+    });
 
-    if (sortBy === 'qty-high-low') orders = [...orders].sort((a, b) => b.quantity - a.quantity);
-    else if (sortBy === 'qty-low-high') orders = [...orders].sort((a, b) => a.quantity - b.quantity);
-    return orders;
-  })();
+    if (sortBy === 'qty-high-low') groups = [...groups].sort((a, b) => b.totalRequired - a.totalRequired);
+    else if (sortBy === 'qty-low-high') groups = [...groups].sort((a, b) => a.totalRequired - b.totalRequired);
+    return groups;
+  }, [groupedOrders, searchTerm, filterStatus, sortBy, data?.updates]);
 
-  const stats = {
-    total: data?.poOrders.length || 0,
-    purchased: data?.poOrders.filter(o => {
-      const u = data?.updates.find(up => up.po_order_id === o.id);
-      return !u?.metadata?.not_available && (u?.purchased_quantity || 0) >= o.quantity;
-    }).length || 0,
-    partial: data?.poOrders.filter(o => {
-      const u = data?.updates.find(up => up.po_order_id === o.id);
-      const qty = u?.purchased_quantity || 0;
-      return !u?.metadata?.not_available && qty > 0 && qty < o.quantity;
-    }).length || 0,
-    notAvailable: data?.poOrders.filter(o => {
-      const u = data?.updates.find(up => up.po_order_id === o.id);
-      return u?.metadata?.not_available === true;
-    }).length || 0,
-    pending: 0
-  };
-  stats.pending = stats.total - stats.purchased - stats.partial - stats.notAvailable;
+  // Stats based on grouped orders
+  const stats = useMemo(() => {
+    const result = { total: groupedOrders.length, purchased: 0, partial: 0, notAvailable: 0, pending: 0 };
+    for (const group of groupedOrders) {
+      const status = getGroupStatus(group);
+      if (status === 'purchased') result.purchased++;
+      else if (status === 'partial') result.partial++;
+      else if (status === 'not_available') result.notAvailable++;
+      else result.pending++;
+    }
+    return result;
+  }, [groupedOrders, data?.updates]);
 
   const selectedTotalRequired = Array.from(selectedItems).reduce((sum, id) => {
     const order = data?.poOrders.find(o => o.id === id);
     return sum + (order?.quantity || 0);
   }, 0);
 
-  const exportData = data?.poOrders.map(order => {
-    const update = data.updates.find(u => u.po_order_id === order.id);
-    const status = getItemStatus(order, update);
-    const details = supplierDetails[order.id] || {};
+  const exportData = groupedOrders.map(group => {
+    const status = getGroupStatus(group);
+    const details = supplierDetails[group.key] || {};
     return {
-      poNumber: order.po_number, asin: order.asin, skuCode: order.sku_code,
-      title: order.title, requiredQty: order.quantity, purchasedQty: update?.purchased_quantity || 0,
-      status, supplierName: details.supplierName,
-      supplierOrderNumber: details.supplierOrderNumber, notes: details.notes,
+      poNumber: group.poNumbers.join(', '),
+      asin: group.asin,
+      skuCode: group.skuCode,
+      title: group.title,
+      requiredQty: group.totalRequired,
+      purchasedQty: group.totalPurchased,
+      status,
+      supplierName: details.supplierName,
+      supplierOrderNumber: details.supplierOrderNumber,
+      notes: details.notes,
     };
-  }) || [];
+  });
 
   if (loading) {
     return (
@@ -520,7 +612,7 @@ export default function PurchaseLink() {
                   className="h-9 min-h-[44px] min-w-[44px] flex-shrink-0 text-xs"
                 >
                   <Icon className="h-3.5 w-3.5 mr-1" />
-                  {label} ({count})
+                  {label} ({count.toLocaleString()})
                 </Button>
               ))}
               <div className="w-px h-6 bg-border flex-shrink-0 mx-1" />
@@ -546,19 +638,19 @@ export default function PurchaseLink() {
           </div>
         </div>
 
-        {/* Items List */}
+        {/* Items List - Grouped by ASIN */}
         <div className="space-y-3">
-          {filteredOrders.map((order) => {
-            const update = data.updates.find(u => u.po_order_id === order.id);
-            const localUpdate = localUpdates[order.id];
-            const status = getItemStatus(order, update);
-            const isSelected = selectedItems.has(order.id);
+          {filteredGroups.map((group) => {
+            const localUpdate = localUpdates[group.key];
+            const status = getGroupStatus(group);
+            const isSelected = isGroupSelected(group);
+            const isSaving = savingItems.has(group.key);
             
             return (
               <Card 
-                key={order.id} 
+                key={group.key} 
                 className={`overflow-hidden transition-all border-l-4 ${getStatusBorderColor(status)} ${isSelected ? 'ring-2 ring-primary' : ''}`}
-                ref={(el) => cardRefs.current[order.id] = el}
+                ref={(el) => cardRefs.current[group.key] = el}
               >
                 <div className="p-3 space-y-2">
                   {/* Header row: image + info + checkbox */}
@@ -567,10 +659,10 @@ export default function PurchaseLink() {
                     <Dialog>
                       <DialogTrigger asChild>
                         <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-muted flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity border">
-                          {order.product_image?.image_url ? (
+                          {group.image?.image_url ? (
                             <img 
-                              src={order.product_image.image_url} 
-                              alt={order.title || 'Product'}
+                              src={group.image.image_url} 
+                              alt={group.title || 'Product'}
                               className="w-full h-full object-contain p-1"
                             />
                           ) : (
@@ -578,11 +670,11 @@ export default function PurchaseLink() {
                           )}
                         </div>
                       </DialogTrigger>
-                      {order.product_image?.image_url && (
+                      {group.image?.image_url && (
                         <DialogContent className="max-w-3xl">
                           <img 
-                            src={order.product_image.image_url} 
-                            alt={order.title || 'Product'}
+                            src={group.image.image_url} 
+                            alt={group.title || 'Product'}
                             className="w-full h-auto"
                           />
                         </DialogContent>
@@ -591,17 +683,19 @@ export default function PurchaseLink() {
 
                     {/* Item Info */}
                     <div className="flex-1 min-w-0 space-y-1">
-                      <p className="font-medium text-sm leading-snug line-clamp-2">{order.title}</p>
+                      <p className="font-medium text-sm leading-snug line-clamp-2">{group.title}</p>
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
-                        <Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0">
-                          {order.po_number}
-                        </Badge>
-                        {order.asin && <span className="font-mono">ASIN: {order.asin}</span>}
-                        {order.sku_code && <span className="font-mono">SKU: {order.sku_code}</span>}
+                        {group.poNumbers.map(po => (
+                          <Badge key={po} variant="outline" className="text-[10px] font-mono px-1.5 py-0">
+                            {po}
+                          </Badge>
+                        ))}
+                        {group.asin && <span className="font-mono">ASIN: {group.asin}</span>}
+                        {group.skuCode && <span className="font-mono">SKU: {group.skuCode}</span>}
                         <LinkedBarcodesBadge 
-                          asin={order.asin} 
-                          skuCode={order.sku_code}
-                          poOrderId={order.id}
+                          asin={group.asin} 
+                          skuCode={group.skuCode}
+                          poOrderId={group.orderIds[0]}
                         />
                       </div>
                     </div>
@@ -610,7 +704,7 @@ export default function PurchaseLink() {
                     <div className="flex-shrink-0 flex flex-col items-center gap-1">
                       <Checkbox
                         checked={isSelected}
-                        onCheckedChange={(checked) => handleSelectItem(order.id, !!checked)}
+                        onCheckedChange={(checked) => handleSelectGroup(group.key, !!checked)}
                         disabled={status === 'purchased' || status === 'not_available'}
                         className="h-5 w-5"
                       />
@@ -625,37 +719,40 @@ export default function PurchaseLink() {
                     <div className="flex items-end gap-2 flex-wrap">
                       <div className="bg-muted/50 rounded-md px-2.5 py-1.5 text-sm flex items-center gap-1 flex-shrink-0">
                         <span className="text-muted-foreground text-xs">Req:</span>
-                        <span className="font-bold">{order.quantity}</span>
+                        <span className="font-bold">{group.totalRequired.toLocaleString()}</span>
+                        {group.orders.length > 1 && (
+                          <span className="text-muted-foreground text-[10px]">({group.orders.length} POs)</span>
+                        )}
                       </div>
                       
                       <div className="flex-1 min-w-[80px] max-w-[120px]">
                         <Input
                           type="number"
                           placeholder="Qty"
-                          value={localUpdate?.purchasedQuantity ?? update?.purchased_quantity ?? ''}
-                          onChange={(e) => handleUpdateField(order.id, 'purchasedQuantity', parseInt(e.target.value) || 0)}
-                          onFocus={() => handleInputFocus(order.id)}
+                          value={localUpdate?.purchasedQuantity ?? (group.totalPurchased > 0 ? group.totalPurchased : '')}
+                          onChange={(e) => handleUpdateField(group.key, 'purchasedQuantity', parseInt(e.target.value) || 0)}
+                          onFocus={() => handleInputFocus(group.key)}
                           className="h-10 text-[16px]"
-                          disabled={savingItems.has(order.id)}
+                          disabled={isSaving}
                         />
                       </div>
                       
                       <Button
                         variant="default"
                         size="sm"
-                        onClick={() => handleSaveItem(order.id)}
-                        disabled={(!localUpdate?.purchasedQuantity && !supplierDetails[order.id]) || savingItems.has(order.id)}
+                        onClick={() => handleSaveGroup(group.key)}
+                        disabled={(!localUpdate?.purchasedQuantity && !supplierDetails[group.key]) || isSaving}
                         className="h-10 w-10 p-0"
                         title="Save"
                       >
-                        {savingItems.has(order.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                       </Button>
                       
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleMarkNotAvailable(order.id)}
-                        disabled={savingItems.has(order.id)}
+                        onClick={() => handleMarkNotAvailable(group.key)}
+                        disabled={isSaving}
                         className="h-10 px-2.5"
                         title="Not Available"
                       >
@@ -665,7 +762,7 @@ export default function PurchaseLink() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleOpenBarcodeScanner(order.id)}
+                        onClick={() => handleOpenBarcodeScanner(group.key)}
                         className="h-10 px-2.5"
                         title="Scan Barcode"
                       >
@@ -680,11 +777,11 @@ export default function PurchaseLink() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleUndoNotAvailable(order.id)}
-                        disabled={savingItems.has(order.id)}
+                        onClick={() => handleUndoNotAvailable(group.key)}
+                        disabled={isSaving}
                         className="h-10 px-3"
                       >
-                        {savingItems.has(order.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
                         <span className="ml-1 text-xs">Undo</span>
                       </Button>
                     </div>
@@ -693,9 +790,9 @@ export default function PurchaseLink() {
                   {/* Supplier Details */}
                   {status !== 'not_available' && (
                     <SupplierDetailsForm
-                      details={supplierDetails[order.id] || {}}
-                      onChange={(details) => setSupplierDetails(prev => ({ ...prev, [order.id]: details }))}
-                      disabled={savingItems.has(order.id)}
+                      details={supplierDetails[group.key] || {}}
+                      onChange={(details) => setSupplierDetails(prev => ({ ...prev, [group.key]: details }))}
+                      disabled={isSaving}
                     />
                   )}
                 </div>
@@ -704,7 +801,7 @@ export default function PurchaseLink() {
           })}
         </div>
 
-        {filteredOrders.length === 0 && (
+        {filteredGroups.length === 0 && (
           <Card className="p-12 text-center border-dashed">
             <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground/40" />
             <p className="text-muted-foreground text-sm">No items match your filters</p>
@@ -727,10 +824,10 @@ export default function PurchaseLink() {
         onOpenChange={setScanDialogOpen}
         onBarcodeScanned={handleBarcodeScanned}
         title="Link Barcode to Product"
-        productInfo={scanningOrder ? {
-          title: scanningOrder.title || undefined,
-          asin: scanningOrder.asin || undefined,
-          sku: scanningOrder.sku_code || undefined,
+        productInfo={scanningGroup ? {
+          title: scanningGroup.title || undefined,
+          asin: scanningGroup.asin || undefined,
+          sku: scanningGroup.skuCode || undefined,
         } : undefined}
         isLinking={barcodeLoading}
       />
