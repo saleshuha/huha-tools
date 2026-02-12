@@ -99,49 +99,86 @@ serve(async (req) => {
         })
         .eq('id', link.id);
       
-      // Fetch PO orders
-      const { data: poOrders, error: ordersError } = await supabaseClient
-        .from('po_orders')
-        .select('*')
-        .in('po_number', link.po_numbers)
-        .eq('user_id', link.user_id);
-      
-      if (ordersError) {
-        console.error('Error fetching PO orders:', ordersError);
-      }
-
-      // Fetch product images for the ASINs in the orders
-      let productImages: any[] = [];
-      if (poOrders && poOrders.length > 0) {
-        const asins = poOrders
-          .map(order => order.asin)
-          .filter(asin => asin); // Filter out null/undefined ASINs
+      // Fetch ALL PO orders with pagination (bypasses 1000-row limit)
+      let allPoOrders: any[] = [];
+      const pageSize = 1000;
+      let offset = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data: batch, error: batchError } = await supabaseClient
+          .from('po_orders')
+          .select('*')
+          .in('po_number', link.po_numbers)
+          .eq('user_id', link.user_id)
+          .range(offset, offset + pageSize - 1);
         
+        if (batchError) {
+          console.error('Error fetching PO orders batch:', batchError);
+          break;
+        }
+        if (batch && batch.length > 0) {
+          allPoOrders = allPoOrders.concat(batch);
+          offset += pageSize;
+          hasMore = batch.length === pageSize;
+        } else {
+          hasMore = false;
+        }
+      }
+      const poOrders = allPoOrders;
+
+      // Fetch product images with pagination
+      let productImages: any[] = [];
+      if (poOrders.length > 0) {
+        const asins = [...new Set(poOrders.map(o => o.asin).filter(Boolean))];
         if (asins.length > 0) {
-          const { data: images } = await supabaseClient
-            .from('product_images')
-            .select('asin, image_url')
-            .in('asin', asins);
-          
-          productImages = images || [];
+          let imgOffset = 0;
+          let imgMore = true;
+          while (imgMore) {
+            const { data: imgBatch } = await supabaseClient
+              .from('product_images')
+              .select('asin, image_url')
+              .in('asin', asins)
+              .range(imgOffset, imgOffset + pageSize - 1);
+            if (imgBatch && imgBatch.length > 0) {
+              productImages = productImages.concat(imgBatch);
+              imgOffset += pageSize;
+              imgMore = imgBatch.length === pageSize;
+            } else {
+              imgMore = false;
+            }
+          }
         }
       }
 
       // Attach product images to orders
-      const ordersWithImages = poOrders?.map(order => ({
+      const ordersWithImages = poOrders.map(order => ({
         ...order,
         product_image: productImages.find(img => img.asin === order.asin) || null
-      })) || [];
+      }));
       
-      // Fetch existing purchase updates
-      const { data: updates, error: updatesError } = await supabaseClient
-        .from('purchase_updates')
-        .select('*')
-        .eq('link_id', link.id);
-      
-      if (updatesError) {
-        console.error('Error fetching updates:', updatesError);
+      // Fetch existing purchase updates with pagination
+      let allUpdates: any[] = [];
+      let updOffset = 0;
+      let updMore = true;
+      while (updMore) {
+        const { data: updBatch, error: updError } = await supabaseClient
+          .from('purchase_updates')
+          .select('*')
+          .eq('link_id', link.id)
+          .range(updOffset, updOffset + pageSize - 1);
+        if (updError) {
+          console.error('Error fetching updates:', updError);
+          break;
+        }
+        if (updBatch && updBatch.length > 0) {
+          allUpdates = allUpdates.concat(updBatch);
+          updOffset += pageSize;
+          updMore = updBatch.length === pageSize;
+        } else {
+          updMore = false;
+        }
       }
+      const updates = allUpdates;
       
       return new Response(JSON.stringify({ 
         link, 
