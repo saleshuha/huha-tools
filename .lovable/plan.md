@@ -1,48 +1,69 @@
 
+## Fix Blank Purchase Link Page on Mobile + UI Enhancement
 
-## Add Inventory Quantity to Print Preview + Enhanced Card Design
+### Problem
+The public purchase link page (`/purchase/:token`) shows a blank page when accessed without authentication (e.g., on mobile by a vendor). The error is:
 
-### Overview
+> "useProductBarcodes must be used within a BarcodeProvider"
 
-Show the in-stock inventory quantity for each item in the Print Preview document, and modernize the card design for better readability and visual hierarchy.
+The `BarcodeProvider` only wraps the authenticated layout in `App.tsx` (line 218), but the unauthenticated route for `/purchase/:token` (line 202) has no `BarcodeProvider`.
 
-### Changes
+### Fix
 
-**1. Extend `POPrintItem` interface** (`src/utils/po-print-helpers.ts`)
+**File: `src/App.tsx`** (lines 198-204)
 
-Add a new optional field:
+Wrap the unauthenticated `PurchaseLink` route with `<BarcodeProvider>` so the `useProductBarcodes` hook works:
+
+```text
+<BrowserRouter>
+  <Routes>
+    <Route path="/auth" element={<Auth />} />
+    <Route path="/purchase/:token" element={
+      <BarcodeProvider>
+        <PurchaseLink />
+      </BarcodeProvider>
+    } />
+    <Route path="*" element={<Navigate to="/auth" replace />} />
+  </Routes>
+</BrowserRouter>
 ```
-inventoryQty?: number;  // Current in-stock inventory quantity
-```
 
-**2. Pass inventory data in `POPrintDialog`** (`src/components/po/POPrintDialog.tsx`)
+Add the `BarcodeProvider` import (already imported at the top of the file for the authenticated layout).
 
-In the `enrichedItems` mapping (~line 173), look up the matching order's inventory data. Since the dialog receives raw `POOrder` objects, we need to attach inventory info before passing orders to the dialog.
+### UI Enhancement for PurchaseLinkManagement.tsx
 
-**3. Attach inventory quantity to print orders** (`src/components/POTracker.tsx`)
+Redesign the admin purchase link management cards with a more polished, professional look:
 
-Before setting `setPrintOrders(...)`, enrich each order with an `_inventoryQty` property using `findInventoryMatch`. This applies to all places where `setPrintOrders` is called (approximately 6-7 locations). Then in `POPrintDialog`, extract this property when building `enrichedItems`.
+**File: `src/components/po/PurchaseLinkManagement.tsx`**
 
-**4. Redesign `POPrintDocument` cards** (`src/components/po/POPrintDocument.tsx`)
+1. **Card redesign**: Add a left color accent strip (green for active, gray for inactive), cleaner spacing, and a more structured layout with clear visual sections.
 
-Enhance the existing card layout while keeping the current structure:
+2. **Header section**: Title with status badge inline, description below, and action buttons grouped cleanly on the right.
 
-- **New "Inventory" metric**: Add an inventory quantity display in the quantity section, styled with a blue/indigo color scheme, showing the available stock units (e.g., "IN STOCK" label with the quantity). Only shown when `inventoryQty > 0`.
-- **Improved card header**: Add a subtle gradient top border strip color-coded by status (green = has stock, orange = pending, gray = no stock).
-- **Better visual hierarchy**: 
-  - Item number badge gets a colored accent matching stock status
-  - ASIN displayed in a monospace font for better readability
-  - SKU shown in a subtle pill/tag style
-  - PO numbers section gets a light background panel
-- **Summary footer enhancement**: Add a breakdown showing total items with stock vs without stock
+3. **Stats row**: Display views, updates, POs count, and dates in a horizontal stat bar with subtle background cards and icons.
+
+4. **Progress section**: Keep the segmented progress bar but add percentage labels for each segment and use a cleaner rounded design.
+
+5. **PO badges section**: Use a collapsible section with a "Show all" toggle instead of the "+N more" approach.
+
+6. **Action buttons**: Consolidate into a cleaner layout - primary "Open" button prominently displayed, "Copy" as icon button, and dropdown for secondary actions.
+
+### UI Enhancement for Public PurchaseLink Page
+
+**File: `src/pages/PurchaseLink.tsx`**
+
+1. **Mobile-first card layout**: Restructure item cards so on mobile the image, info, and actions stack vertically with proper spacing.
+
+2. **Sticky filter bar**: Make the filter/search section sticky on scroll for easier mobile navigation.
+
+3. **Improved item cards**: Add subtle left border color coding (green = purchased, yellow = partial, red = N/A, gray = pending), cleaner typography hierarchy.
+
+4. **Better touch targets**: Ensure all buttons and inputs meet 44px minimum touch target size on mobile.
 
 ### Technical Details
 
-**Files to modify:**
-
-1. **`src/utils/po-print-helpers.ts`** -- Add `inventoryQty` to `POPrintItem` interface
-2. **`src/components/POTracker.tsx`** -- At each `setPrintOrders` call, map orders to include `_inventoryQty` from `findInventoryMatch`
-3. **`src/components/po/POPrintDialog.tsx`** -- Extract `_inventoryQty` from matching orders and pass as `inventoryQty` to print items
-4. **`src/components/po/POPrintDocument.tsx`** -- Add inventory quantity display and redesigned CSS styles for the cards
-
-No new dependencies required. All changes use existing CSS-in-JS patterns within the print document.
+Files to modify:
+- `src/App.tsx` -- Wrap unauthenticated purchase link route with BarcodeProvider (critical fix)
+- `src/components/po/PurchaseLinkManagement.tsx` -- Redesign admin link cards with better visual hierarchy
+- `src/pages/PurchaseLink.tsx` -- Improve mobile layout and card design
+- `src/components/purchase-link/PurchaseSummaryHeader.tsx` -- Minor mobile responsiveness improvements
