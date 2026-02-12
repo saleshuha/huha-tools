@@ -126,27 +126,32 @@ serve(async (req) => {
       }
       const poOrders = allPoOrders;
 
-      // Fetch product images with pagination
+      // Fetch product images in batches of 200 ASINs to avoid URL length limits
       let productImages: any[] = [];
       if (poOrders.length > 0) {
         const asins = [...new Set(poOrders.map(o => o.asin).filter(Boolean))];
         if (asins.length > 0) {
-          let imgOffset = 0;
-          let imgMore = true;
-          while (imgMore) {
-            const { data: imgBatch } = await supabaseClient
-              .from('product_images')
-              .select('asin, image_url')
-              .in('asin', asins)
-              .range(imgOffset, imgOffset + pageSize - 1);
-            if (imgBatch && imgBatch.length > 0) {
-              productImages = productImages.concat(imgBatch);
-              imgOffset += pageSize;
-              imgMore = imgBatch.length === pageSize;
-            } else {
-              imgMore = false;
+          const chunkSize = 200;
+          for (let i = 0; i < asins.length; i += chunkSize) {
+            const chunk = asins.slice(i, i + chunkSize);
+            let imgOffset = 0;
+            let imgMore = true;
+            while (imgMore) {
+              const { data: imgBatch } = await supabaseClient
+                .from('product_images')
+                .select('asin, image_url')
+                .in('asin', chunk)
+                .range(imgOffset, imgOffset + pageSize - 1);
+              if (imgBatch && imgBatch.length > 0) {
+                productImages = productImages.concat(imgBatch);
+                imgOffset += pageSize;
+                imgMore = imgBatch.length === pageSize;
+              } else {
+                imgMore = false;
+              }
             }
           }
+          console.log(`Fetched ${productImages.length} product images for ${asins.length} ASINs in ${Math.ceil(asins.length / chunkSize)} chunks`);
         }
       }
 
