@@ -90,10 +90,26 @@ export const PurchaseLinkManagement = () => {
 
       for (const link of links) {
         try {
-          const { data: orders } = await supabase
-            .from('po_orders')
-            .select('id, quantity')
-            .in('po_number', link.po_numbers || []);
+          // Fetch ALL orders by paginating past the 1000-row Supabase limit
+          let allOrders: { id: string; quantity: number }[] = [];
+          const pageSize = 1000;
+          let offset = 0;
+          let hasMore = true;
+          while (hasMore) {
+            const { data: batch } = await supabase
+              .from('po_orders')
+              .select('id, quantity')
+              .in('po_number', link.po_numbers || [])
+              .range(offset, offset + pageSize - 1);
+            if (batch && batch.length > 0) {
+              allOrders = allOrders.concat(batch);
+              offset += pageSize;
+              hasMore = batch.length === pageSize;
+            } else {
+              hasMore = false;
+            }
+          }
+          const orders = allOrders;
 
           const { data: updates } = await supabase
             .from('purchase_updates')
