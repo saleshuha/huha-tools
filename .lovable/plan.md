@@ -1,66 +1,56 @@
 
 
-## Consolidate Duplicate ASINs into Single Cards
+## Simplify Item Actions + Performance Improvements
 
-### Problem
-When the same ASIN appears across multiple PO numbers, each instance shows as a separate card. The vendor sees many duplicate product cards instead of one card with the total required quantity summed up.
+### 1. Replace Quantity Input with Two Simple Actions
 
-### Solution
-Group orders by ASIN on the frontend, display one card per unique ASIN with the summed total required quantity, and distribute the purchased quantity across underlying orders when saving.
+Remove the quantity input box and Save button from each card. Replace with two clear action buttons:
 
-### How It Works
+- **"Scan Barcode (Mark as Done)"** -- Opens the barcode scanner; on successful scan, automatically marks the item as purchased (sets purchased_quantity = totalRequired) and links the barcode
+- **"Not Available"** -- Marks the item as not available (same as current N/A behavior)
 
-**Grouping Logic** (new `useMemo` in `PurchaseLink.tsx`):
-- Group all `poOrders` by ASIN (fall back to SKU, then order ID for items without ASIN/SKU)
-- Each group becomes one displayed card with:
-  - `totalRequired` = sum of all orders' quantities
-  - `totalPurchased` = sum of all related updates' purchased quantities
-  - `orderIds` = array of all underlying po_order IDs
-  - `poNumbers` = list of all PO numbers (shown as badges)
-  - Image and title from the first order in the group
+This simplifies vendor workflow from "type qty, click save" to a single tap.
 
-**Status Calculation** (updated for groups):
-- "purchased" if totalPurchased >= totalRequired
-- "partial" if totalPurchased > 0 but < totalRequired
-- "not_available" if ALL underlying orders are marked N/A
-- "pending" otherwise
+**File: `src/pages/PurchaseLink.tsx`**
+- Remove the `Input` for quantity and the Save `Button` from the actions row (lines 728-749)
+- Replace with a wider "Scan (Done)" button that opens the scanner AND auto-marks as purchased on successful scan
+- Keep the "N/A" button as-is
+- Update `handleBarcodeScanned` to also call `handleSaveGroup` with full required quantity after linking the barcode
+- Keep the `handleSaveGroup` function intact internally for bulk actions and barcode-triggered saves
 
-**Saving** (updated `handleSaveItem`):
-- When vendor enters a purchased quantity for a grouped item, distribute across the underlying orders sequentially (fill each order up to its required qty before moving to next)
-- All underlying `po_order_id`s get their own `purchase_updates` row
+### 2. Collapsible Header/Filter UI (Always Closed)
 
-**Bulk Actions / Selection**:
-- Selecting a grouped card selects all its underlying order IDs
-- Bulk mark purchased distributes across all underlying orders
+Wrap the search bar, filter buttons, and sort controls inside a `Collapsible` component that defaults to closed. Show a compact summary bar with the current filter name and a toggle button.
 
-**Stats** remain accurate since they aggregate from the grouped data.
+**File: `src/pages/PurchaseLink.tsx`**
+- Import `Collapsible`, `CollapsibleTrigger`, `CollapsibleContent` from the existing UI components
+- Add a `filterOpen` state, defaulting to `false`
+- Show a thin bar with current filter label, item count, and a chevron toggle
+- Put the search input, filter buttons, and sort buttons inside `CollapsibleContent`
 
-**Filter/Search** works on the grouped card's title, ASIN, SKU, and all associated PO numbers.
+### 3. Performance Improvements
+
+**Faster search/filtering for large datasets:**
+- Use `Fuse.js` (already installed) for fuzzy search indexing instead of repeated `.includes()` calls on every keystroke
+- Add a 200ms debounce to the search input so filtering doesn't run on every character
+- Pre-build an update lookup `Map<string, Update>` (keyed by `po_order_id`) in `useMemo` to replace repeated `.find()` calls in `getGroupStatus` and grouping logic -- this turns O(n*m) lookups into O(1)
+
+**Faster rendering:**
+- Virtualize the item list using `@tanstack/react-virtual` (already installed) so only visible cards are rendered instead of all 2,500+
+- Memoize `getGroupStatus` results inside the `filteredGroups` useMemo to avoid recalculating per-render
 
 ### Technical Details
 
 **File: `src/pages/PurchaseLink.tsx`**
 
-1. Add a `useMemo` that creates `groupedOrders` from `data.poOrders`:
-   - Key by ASIN (or SKU or ID as fallback)
-   - Each group: `{ key, orders: Order[], totalRequired, totalPurchased, image, title, asin, skuCode, poNumbers, orderIds }`
+1. Add `updatesMap` useMemo that builds `Map<po_order_id, update>` from `data.updates`
+2. Refactor `groupedOrders` and `getGroupStatus` to use `updatesMap.get()` instead of `.find()`
+3. Add Fuse.js index on grouped orders (keys: title, asin, skuCode, poNumbers)
+4. Add debounced search term state (200ms delay)
+5. Replace the items list `div` with a virtualized container using `useVirtualizer`
+6. Wrap filter section in `Collapsible` defaulting to closed
+7. Replace qty input + save button with "Scan (Done)" and "N/A" buttons
+8. Update `handleBarcodeScanned` to auto-save full required quantity after barcode link
 
-2. Update `filteredOrders` to filter/sort `groupedOrders` instead of raw orders
-
-3. Update `getItemStatus` to work with grouped totals
-
-4. Update `handleSaveItem` to accept a group key, distribute qty across underlying orders
-
-5. Update `handleMarkNotAvailable` / `handleUndoNotAvailable` to apply to all orders in the group
-
-6. Update `handleSelectItem` to toggle all order IDs in the group
-
-7. Update the card rendering to show:
-   - Total required qty (summed)
-   - Multiple PO number badges
-   - Single qty input for the whole group
-
-8. Update `stats` calculation to use grouped data
-
-9. Update `exportData` to reflect grouped view
+All existing functions (bulk actions, undo, export, supplier details, realtime sync) remain intact.
 
