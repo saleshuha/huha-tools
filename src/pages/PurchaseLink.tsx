@@ -89,10 +89,8 @@ export default function PurchaseLink() {
 
       await savePurchaseUpdate(token, updatedData);
       
-      // Update local state
       setData(prevData => {
         if (!prevData) return prevData;
-        
         const updatedUpdates = [...prevData.updates];
         const existingIndex = updatedUpdates.findIndex(u => u.po_order_id === orderId);
         
@@ -110,10 +108,7 @@ export default function PurchaseLink() {
           } as any);
         }
         
-        return {
-          ...prevData,
-          updates: updatedUpdates
-        };
+        return { ...prevData, updates: updatedUpdates };
       });
       
       setLocalUpdates(prev => {
@@ -138,10 +133,7 @@ export default function PurchaseLink() {
   const handleUpdateField = (orderId: string, field: string, value: any) => {
     setLocalUpdates(prev => ({
       ...prev,
-      [orderId]: {
-        ...prev[orderId],
-        [field]: value
-      }
+      [orderId]: { ...prev[orderId], [field]: value }
     }));
   };
 
@@ -170,30 +162,18 @@ export default function PurchaseLink() {
 
       await savePurchaseUpdate(token, updatedData);
       
-      // Update local state
       setData(prevData => {
         if (!prevData) return prevData;
-        
         const updatedUpdates = [...prevData.updates];
         const existingIndex = updatedUpdates.findIndex(u => u.po_order_id === orderId);
         
         if (existingIndex >= 0) {
-          updatedUpdates[existingIndex] = {
-            ...updatedUpdates[existingIndex],
-            metadata: { not_available: true }
-          };
+          updatedUpdates[existingIndex] = { ...updatedUpdates[existingIndex], metadata: { not_available: true } };
         } else {
-          updatedUpdates.push({
-            po_order_id: orderId,
-            link_id: prevData.link.id,
-            metadata: { not_available: true }
-          } as any);
+          updatedUpdates.push({ po_order_id: orderId, link_id: prevData.link.id, metadata: { not_available: true } } as any);
         }
         
-        return {
-          ...prevData,
-          updates: updatedUpdates
-        };
+        return { ...prevData, updates: updatedUpdates };
       });
       
       setLocalUpdates(prev => {
@@ -240,10 +220,8 @@ export default function PurchaseLink() {
 
       await savePurchaseUpdate(token, updatedData);
       
-      // Update local state
       setData(prevData => {
         if (!prevData) return prevData;
-        
         const updatedUpdates = [...prevData.updates];
         const existingIndex = updatedUpdates.findIndex(u => u.po_order_id === orderId);
         
@@ -255,10 +233,7 @@ export default function PurchaseLink() {
           };
         }
         
-        return {
-          ...prevData,
-          updates: updatedUpdates
-        };
+        return { ...prevData, updates: updatedUpdates };
       });
       
       toast.success('Status reset to pending');
@@ -277,25 +252,18 @@ export default function PurchaseLink() {
     setTimeout(() => {
       const cardElement = cardRefs.current[orderId];
       if (cardElement) {
-        cardElement.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-          inline: 'nearest'
-        });
+        cardElement.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
       }
     }, 300);
   };
 
-  // Handle opening barcode scanner for a specific order
   const handleOpenBarcodeScanner = useCallback((orderId: string) => {
     setScanningOrderId(orderId);
     setScanDialogOpen(true);
   }, []);
 
-  // Handle barcode scanned
   const handleBarcodeScanned = useCallback(async (barcode: string, format: string) => {
     if (!scanningOrderId || !data) return;
-    
     const order = data.poOrders.find(o => o.id === scanningOrderId);
     if (!order) return;
     
@@ -314,18 +282,13 @@ export default function PurchaseLink() {
     setScanningOrderId(null);
   }, [scanningOrderId, data, linkBarcode]);
 
-  // Get current scanning order info for dialog
   const scanningOrder = scanningOrderId ? data?.poOrders.find(o => o.id === scanningOrderId) : null;
 
-  // Selection handlers
   const handleSelectItem = (orderId: string, checked: boolean) => {
     setSelectedItems(prev => {
       const newSet = new Set(prev);
-      if (checked) {
-        newSet.add(orderId);
-      } else {
-        newSet.delete(orderId);
-      }
+      if (checked) newSet.add(orderId);
+      else newSet.delete(orderId);
       return newSet;
     });
   };
@@ -337,20 +300,11 @@ export default function PurchaseLink() {
     const promises = Array.from(selectedItems).map(async orderId => {
       const order = data.poOrders.find(o => o.id === orderId);
       if (!order) return;
-      
-      const updatedData = {
-        poOrderId: orderId,
-        poNumber: order.po_number,
-        asin: order.asin,
-        skuCode: order.sku_code,
-        modelNumber: order.model_number,
-        title: order.title,
-        purchasedQuantity: quantity,
-        vendorName: vendorInfo?.name,
-        vendorEmail: vendorInfo?.email,
-      };
-      
-      return savePurchaseUpdate(token, updatedData);
+      return savePurchaseUpdate(token, {
+        poOrderId: orderId, poNumber: order.po_number, asin: order.asin,
+        skuCode: order.sku_code, modelNumber: order.model_number, title: order.title,
+        purchasedQuantity: quantity, vendorName: vendorInfo?.name, vendorEmail: vendorInfo?.email,
+      });
     });
     
     await Promise.all(promises);
@@ -366,20 +320,11 @@ export default function PurchaseLink() {
     const promises = Array.from(selectedItems).map(async orderId => {
       const order = data.poOrders.find(o => o.id === orderId);
       if (!order) return;
-      
-      const updatedData = {
-        poOrderId: orderId,
-        poNumber: order.po_number,
-        asin: order.asin,
-        skuCode: order.sku_code,
-        modelNumber: order.model_number,
-        title: order.title,
-        metadata: { not_available: true },
-        vendorName: vendorInfo?.name,
-        vendorEmail: vendorInfo?.email,
-      };
-      
-      return savePurchaseUpdate(token, updatedData);
+      return savePurchaseUpdate(token, {
+        poOrderId: orderId, poNumber: order.po_number, asin: order.asin,
+        skuCode: order.sku_code, modelNumber: order.model_number, title: order.title,
+        metadata: { not_available: true }, vendorName: vendorInfo?.name, vendorEmail: vendorInfo?.email,
+      });
     });
     
     await Promise.all(promises);
@@ -394,103 +339,75 @@ export default function PurchaseLink() {
 
     const channel = supabase
       .channel('purchase-updates-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'purchase_updates',
-          filter: `link_id=eq.${data.link.id}`
-        },
-        (payload) => {
-          console.log('Realtime update received:', payload);
-          
-          if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
-            const newRecord = payload.new as any;
-            
-            setData(prevData => {
-              if (!prevData) return prevData;
-              
-              const updatedUpdates = [...prevData.updates];
-              const existingIndex = updatedUpdates.findIndex(u => u.po_order_id === newRecord.po_order_id);
-              
-              if (existingIndex >= 0) {
-                updatedUpdates[existingIndex] = newRecord;
-              } else {
-                updatedUpdates.push(newRecord);
-              }
-              
-              return {
-                ...prevData,
-                updates: updatedUpdates
-              };
-            });
-            
-            toast.info('Item updated', { duration: 1500 });
-          }
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'purchase_updates',
+        filter: `link_id=eq.${data.link.id}`
+      }, (payload) => {
+        console.log('Realtime update received:', payload);
+        if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+          const newRecord = payload.new as any;
+          setData(prevData => {
+            if (!prevData) return prevData;
+            const updatedUpdates = [...prevData.updates];
+            const existingIndex = updatedUpdates.findIndex(u => u.po_order_id === newRecord.po_order_id);
+            if (existingIndex >= 0) updatedUpdates[existingIndex] = newRecord;
+            else updatedUpdates.push(newRecord);
+            return { ...prevData, updates: updatedUpdates };
+          });
+          toast.info('Item updated', { duration: 1500 });
         }
-      )
+      })
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [token, data?.link?.id]);
 
   const getItemStatus = (order: any, update: any) => {
     if (update?.metadata?.not_available) return 'not_available';
-    
     const purchased = update?.purchased_quantity || 0;
-    const required = order.quantity;
-    
     if (purchased === 0) return 'pending';
-    if (purchased >= required) return 'purchased';
+    if (purchased >= order.quantity) return 'purchased';
     return 'partial';
   };
 
-  // Calculate consolidated quantities for items across multiple POs
   const getConsolidatedQuantity = (order: any) => {
     if (!data?.poOrders) return null;
-    
     const relatedOrders = data.poOrders.filter(o => 
-      (order.asin && o.asin === order.asin) || 
-      (order.sku_code && o.sku_code === order.sku_code)
+      (order.asin && o.asin === order.asin) || (order.sku_code && o.sku_code === order.sku_code)
     );
-    
     if (relatedOrders.length > 1) {
-      const totalQty = relatedOrders.reduce((sum, o) => sum + o.quantity, 0);
       return {
-        total: totalQty,
+        total: relatedOrders.reduce((sum, o) => sum + o.quantity, 0),
         count: relatedOrders.length,
         poNumbers: relatedOrders.map(o => o.po_number)
       };
     }
-    
     return null;
+  };
+
+  const getStatusBorderColor = (status: string) => {
+    switch (status) {
+      case 'purchased': return 'border-l-green-500';
+      case 'partial': return 'border-l-yellow-500';
+      case 'not_available': return 'border-l-red-400';
+      default: return 'border-l-muted-foreground/30';
+    }
   };
 
   const filteredOrders = (() => {
     let orders = data?.poOrders.filter(order => {
       const update = data.updates.find(u => u.po_order_id === order.id);
       const status = getItemStatus(order, update);
-      
       const matchesSearch = 
         order.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         order.asin?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         order.sku_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         order.po_number?.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesFilter = status === filterStatus;
-      
-      return matchesSearch && matchesFilter;
+      return matchesSearch && status === filterStatus;
     }) || [];
 
-    if (sortBy === 'qty-high-low') {
-      orders = [...orders].sort((a, b) => b.quantity - a.quantity);
-    } else if (sortBy === 'qty-low-high') {
-      orders = [...orders].sort((a, b) => a.quantity - b.quantity);
-    }
-
+    if (sortBy === 'qty-high-low') orders = [...orders].sort((a, b) => b.quantity - a.quantity);
+    else if (sortBy === 'qty-low-high') orders = [...orders].sort((a, b) => a.quantity - b.quantity);
     return orders;
   })();
 
@@ -513,47 +430,41 @@ export default function PurchaseLink() {
   };
   stats.pending = stats.total - stats.purchased - stats.partial - stats.notAvailable;
 
-  // Calculate selected items total required qty
   const selectedTotalRequired = Array.from(selectedItems).reduce((sum, id) => {
     const order = data?.poOrders.find(o => o.id === id);
     return sum + (order?.quantity || 0);
   }, 0);
 
-  // Prepare export data
   const exportData = data?.poOrders.map(order => {
     const update = data.updates.find(u => u.po_order_id === order.id);
     const status = getItemStatus(order, update);
     const details = supplierDetails[order.id] || {};
-    
     return {
-      poNumber: order.po_number,
-      asin: order.asin,
-      skuCode: order.sku_code,
-      title: order.title,
-      requiredQty: order.quantity,
-      purchasedQty: update?.purchased_quantity || 0,
-      status,
-      supplierName: details.supplierName,
-      supplierOrderNumber: details.supplierOrderNumber,
-      notes: details.notes,
+      poNumber: order.po_number, asin: order.asin, skuCode: order.sku_code,
+      title: order.title, requiredQty: order.quantity, purchasedQty: update?.purchased_quantity || 0,
+      status, supplierName: details.supplierName,
+      supplierOrderNumber: details.supplierOrderNumber, notes: details.notes,
     };
   }) || [];
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-surface">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading purchase link...</p>
+        </div>
       </div>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-surface p-4">
-        <Card className="p-8 max-w-md text-center">
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="p-8 max-w-md text-center border-destructive/20">
           <Package className="h-12 w-12 mx-auto mb-4 text-destructive" />
           <h2 className="text-xl font-semibold mb-2">Link Not Found</h2>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             {error || 'This purchase link is invalid or has expired.'}
           </p>
         </Card>
@@ -562,9 +473,9 @@ export default function PurchaseLink() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-surface">
-      <div className="container max-w-7xl mx-auto p-4 md:p-6 space-y-4 pb-[300px] md:pb-6">
-        {/* Enhanced Summary Header */}
+    <div className="min-h-screen bg-background">
+      <div className="container max-w-4xl mx-auto px-3 py-4 md:px-6 md:py-6 space-y-4 pb-[300px] md:pb-6">
+        {/* Summary Header */}
         <PurchaseSummaryHeader
           title={data.link.title}
           description={data.link.description}
@@ -573,85 +484,74 @@ export default function PurchaseLink() {
           lastUpdated={data.updates[0]?.updated_at}
         />
 
-        {/* Vendor Info Form */}
+        {/* Vendor Info */}
         {token && <VendorInfoForm linkToken={token} />}
 
-        {/* Filters and Export */}
-        <Card className="p-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by title, ASIN, SKU, or PO..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <ExportButton data={exportData} linkTitle={data.link.title} />
-          </div>
-          
-          <div className="flex gap-2 flex-wrap mt-4">
-            <Button
-              variant={filterStatus === 'pending' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setFilterStatus('pending')}
-            >
-              <Circle className="h-4 w-4 mr-1" />
-              Pending ({stats.pending})
-            </Button>
-            <Button
-              variant={filterStatus === 'partial' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setFilterStatus('partial')}
-            >
-              <AlertCircle className="h-4 w-4 mr-1" />
-              Partial ({stats.partial})
-            </Button>
-            <Button
-              variant={filterStatus === 'purchased' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setFilterStatus('purchased')}
-            >
-              <CheckCircle2 className="h-4 w-4 mr-1" />
-              Complete ({stats.purchased})
-            </Button>
-            <Button
-              variant={filterStatus === 'not_available' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setFilterStatus('not_available')}
-            >
-              <XCircle className="h-4 w-4 mr-1" />
-              Not Available ({stats.notAvailable})
-            </Button>
-          </div>
-          
-          {/* Sort Options */}
-          <div className="flex items-center gap-2 mt-4 pt-4 border-t">
-            <span className="text-sm text-muted-foreground">Sort by Qty:</span>
+        {/* Sticky Filter Bar */}
+        <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b -mx-3 px-3 py-3 md:-mx-6 md:px-6 md:border md:rounded-lg md:mx-0 md:static md:backdrop-blur-none">
+          <div className="flex flex-col gap-3">
+            {/* Search + Export */}
             <div className="flex gap-2">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by title, ASIN, SKU, or PO..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 h-11"
+                />
+              </div>
+              <ExportButton data={exportData} linkTitle={data.link.title} />
+            </div>
+            
+            {/* Filter buttons - scrollable on mobile */}
+            <div className="flex gap-2 overflow-x-auto pb-1 -mb-1 scrollbar-hide">
+              {[
+                { key: 'pending' as const, icon: Circle, label: 'Pending', count: stats.pending },
+                { key: 'partial' as const, icon: AlertCircle, label: 'Partial', count: stats.partial },
+                { key: 'purchased' as const, icon: CheckCircle2, label: 'Complete', count: stats.purchased },
+                { key: 'not_available' as const, icon: XCircle, label: 'N/A', count: stats.notAvailable },
+              ].map(({ key, icon: Icon, label, count }) => (
+                <Button
+                  key={key}
+                  variant={filterStatus === key ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setFilterStatus(key)}
+                  className="h-9 min-h-[44px] min-w-[44px] flex-shrink-0 text-xs"
+                >
+                  <Icon className="h-3.5 w-3.5 mr-1" />
+                  {label} ({count})
+                </Button>
+              ))}
+            </div>
+            
+            {/* Sort */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Sort:</span>
               <Button
                 variant={sortBy === 'qty-high-low' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setSortBy(sortBy === 'qty-high-low' ? null : 'qty-high-low')}
+                className="h-8 min-h-[44px] text-xs"
               >
-                <ArrowDown className="h-4 w-4 mr-1" />
-                High to Low
+                <ArrowDown className="h-3 w-3 mr-1" />
+                High→Low
               </Button>
               <Button
                 variant={sortBy === 'qty-low-high' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setSortBy(sortBy === 'qty-low-high' ? null : 'qty-low-high')}
+                className="h-8 min-h-[44px] text-xs"
               >
-                <ArrowUp className="h-4 w-4 mr-1" />
-                Low to High
+                <ArrowUp className="h-3 w-3 mr-1" />
+                Low→High
               </Button>
             </div>
           </div>
-        </Card>
+        </div>
 
         {/* Items List */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           {filteredOrders.map((order) => {
             const update = data.updates.find(u => u.po_order_id === order.id);
             const localUpdate = localUpdates[order.id];
@@ -661,25 +561,26 @@ export default function PurchaseLink() {
             return (
               <Card 
                 key={order.id} 
-                className={`p-4 transition-all ${isSelected ? 'ring-2 ring-primary' : ''}`}
+                className={`overflow-hidden transition-all border-l-4 ${getStatusBorderColor(status)} ${isSelected ? 'ring-2 ring-primary' : ''}`}
                 ref={(el) => cardRefs.current[order.id] = el}
               >
-                <div className="flex flex-col gap-4">
-                  {/* Top section */}
-                  <div className="flex gap-4 items-start">
-                    {/* Checkbox for bulk selection */}
-                    <div className="flex items-center pt-1">
+                <div className="p-4 space-y-3">
+                  {/* Header row: checkbox + image + info */}
+                  <div className="flex gap-3 items-start">
+                    {/* Checkbox */}
+                    <div className="pt-1 flex-shrink-0">
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={(checked) => handleSelectItem(order.id, !!checked)}
                         disabled={status === 'purchased' || status === 'not_available'}
+                        className="h-5 w-5"
                       />
                     </div>
                     
                     {/* Product Image */}
                     <Dialog>
                       <DialogTrigger asChild>
-                        <div className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden bg-muted flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity">
+                        <div className="flex-shrink-0 w-14 h-14 md:w-16 md:h-16 rounded-lg overflow-hidden bg-muted flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity border">
                           {order.product_image?.image_url ? (
                             <img 
                               src={order.product_image.image_url} 
@@ -687,7 +588,7 @@ export default function PurchaseLink() {
                               className="w-full h-full object-contain p-1"
                             />
                           ) : (
-                            <Image className="h-6 w-6 text-muted-foreground" />
+                            <Image className="h-5 w-5 text-muted-foreground/50" />
                           )}
                         </div>
                       </DialogTrigger>
@@ -703,134 +604,126 @@ export default function PurchaseLink() {
                     </Dialog>
 
                     {/* Item Info */}
-                    <div className="flex-1 space-y-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="outline" className="text-xs">
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0">
                           {order.po_number}
                         </Badge>
-                        {status === 'purchased' && (
-                          <CheckCircle2 className="h-4 w-4 text-green-500" />
-                        )}
-                        {status === 'partial' && (
-                          <AlertCircle className="h-4 w-4 text-yellow-500" />
-                        )}
-                        {status === 'not_available' && (
-                          <XCircle className="h-4 w-4 text-red-500" />
-                        )}
+                        {status === 'purchased' && <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />}
+                        {status === 'partial' && <AlertCircle className="h-4 w-4 text-yellow-500 flex-shrink-0" />}
+                        {status === 'not_available' && <XCircle className="h-4 w-4 text-red-400 flex-shrink-0" />}
                       </div>
-                      <p className="font-medium text-sm truncate">{order.title}</p>
-                      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                        {order.asin && <span>ASIN: {order.asin}</span>}
-                        {order.sku_code && <span>SKU: {order.sku_code}</span>}
+                      <p className="font-medium text-sm leading-snug line-clamp-2">{order.title}</p>
+                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                        {order.asin && <span className="font-mono">ASIN: {order.asin}</span>}
+                        {order.sku_code && <span className="font-mono">SKU: {order.sku_code}</span>}
                         <LinkedBarcodesBadge 
                           asin={order.asin} 
                           skuCode={order.sku_code}
                           poOrderId={order.id}
                         />
                       </div>
-                      {(() => {
-                        const consolidated = getConsolidatedQuantity(order);
-                        if (consolidated) {
-                          return (
-                            <div className="space-y-0.5">
-                              <p className="text-sm">
-                                Required: <span className="font-semibold">{consolidated.total}</span>
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                From POs: {consolidated.poNumbers.join(', ')}
-                              </p>
-                            </div>
-                          );
-                        }
-                        return (
-                          <p className="text-sm">
-                            Required: <span className="font-semibold">{order.quantity}</span>
-                          </p>
-                        );
-                      })()}
                     </div>
+                  </div>
 
-                    {/* Purchase Actions */}
-                    <div className="flex flex-col gap-2 w-full md:w-auto">
-                      {status !== 'not_available' ? (
-                        <>
-                          <div className="flex gap-2 md:items-end">
-                            <div className="space-y-1 flex-1 md:flex-initial md:w-28">
-                              <Label className="text-xs">Purchased Qty</Label>
-                              <Input
-                                type="number"
-                                placeholder="0"
-                                value={localUpdate?.purchasedQuantity ?? update?.purchased_quantity ?? ''}
-                                onChange={(e) => handleUpdateField(order.id, 'purchasedQuantity', parseInt(e.target.value) || 0)}
-                                onFocus={() => handleInputFocus(order.id)}
-                                className="h-9 text-[16px]"
-                                disabled={savingItems.has(order.id)}
-                              />
-                            </div>
-                            
-                            <Button
-                              variant="default"
-                              size="sm"
-                              onClick={() => handleSaveItem(order.id)}
-                              disabled={(!localUpdate?.purchasedQuantity && !supplierDetails[order.id]) || savingItems.has(order.id)}
-                              className="h-9 w-9 p-0 self-end"
-                              title="Save"
-                            >
-                              {savingItems.has(order.id) ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Check className="h-4 w-4" />
-                              )}
-                            </Button>
-                            
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleMarkNotAvailable(order.id)}
-                              disabled={savingItems.has(order.id)}
-                              className="h-9 px-3 self-end"
-                            >
-                              <XCircle className="h-4 w-4 mr-1" />
-                              <span className="hidden sm:inline">N/A</span>
-                            </Button>
+                  {/* Quantity info */}
+                  <div className="ml-8 md:ml-9">
+                    {(() => {
+                      const consolidated = getConsolidatedQuantity(order);
+                      if (consolidated) {
+                        return (
+                          <div className="bg-muted/50 rounded-md px-3 py-1.5 text-sm">
+                            <span className="text-muted-foreground">Total Required:</span>
+                            <span className="font-bold ml-1">{consolidated.total}</span>
+                            <span className="text-[11px] text-muted-foreground ml-2">
+                              ({consolidated.poNumbers.join(', ')})
+                            </span>
                           </div>
+                        );
+                      }
+                      return (
+                        <div className="bg-muted/50 rounded-md px-3 py-1.5 text-sm inline-flex items-center gap-1">
+                          <span className="text-muted-foreground">Required:</span>
+                          <span className="font-bold">{order.quantity}</span>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="ml-8 md:ml-9">
+                    {status !== 'not_available' ? (
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap gap-2 items-end">
+                          <div className="space-y-1 flex-1 min-w-[100px] max-w-[140px]">
+                            <Label className="text-xs text-muted-foreground">Purchased Qty</Label>
+                            <Input
+                              type="number"
+                              placeholder="0"
+                              value={localUpdate?.purchasedQuantity ?? update?.purchased_quantity ?? ''}
+                              onChange={(e) => handleUpdateField(order.id, 'purchasedQuantity', parseInt(e.target.value) || 0)}
+                              onFocus={() => handleInputFocus(order.id)}
+                              className="h-11 text-[16px]"
+                              disabled={savingItems.has(order.id)}
+                            />
+                          </div>
+                          
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => handleSaveItem(order.id)}
+                            disabled={(!localUpdate?.purchasedQuantity && !supplierDetails[order.id]) || savingItems.has(order.id)}
+                            className="h-11 w-11 p-0"
+                            title="Save"
+                          >
+                            {savingItems.has(order.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                          </Button>
+                          
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleMarkNotAvailable(order.id)}
+                            disabled={savingItems.has(order.id)}
+                            className="h-11 px-3"
+                          >
+                            <XCircle className="h-4 w-4 mr-1" />
+                            <span className="hidden sm:inline">N/A</span>
+                          </Button>
                           
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => handleOpenBarcodeScanner(order.id)}
-                            className="h-8 w-full md:w-auto"
+                            className="h-11"
                           >
-                            <ScanLine className="h-4 w-4 mr-2" />
-                            Scan Barcode
+                            <ScanLine className="h-4 w-4 mr-1" />
+                            <span className="hidden sm:inline">Scan</span>
                           </Button>
-                        </>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleUndoNotAvailable(order.id)}
-                          disabled={savingItems.has(order.id)}
-                          className="h-9"
-                        >
-                          {savingItems.has(order.id) ? (
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          ) : (
-                            <RotateCcw className="h-4 w-4 mr-2" />
-                          )}
-                          Undo Not Available
-                        </Button>
-                      )}
-                    </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleUndoNotAvailable(order.id)}
+                        disabled={savingItems.has(order.id)}
+                        className="h-11"
+                      >
+                        {savingItems.has(order.id) ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RotateCcw className="h-4 w-4 mr-2" />}
+                        Undo Not Available
+                      </Button>
+                    )}
                   </div>
 
-                  {/* Supplier Details Form */}
+                  {/* Supplier Details */}
                   {status !== 'not_available' && (
-                    <SupplierDetailsForm
-                      details={supplierDetails[order.id] || {}}
-                      onChange={(details) => setSupplierDetails(prev => ({ ...prev, [order.id]: details }))}
-                      disabled={savingItems.has(order.id)}
-                    />
+                    <div className="ml-8 md:ml-9">
+                      <SupplierDetailsForm
+                        details={supplierDetails[order.id] || {}}
+                        onChange={(details) => setSupplierDetails(prev => ({ ...prev, [order.id]: details }))}
+                        disabled={savingItems.has(order.id)}
+                      />
+                    </div>
                   )}
                 </div>
               </Card>
@@ -839,9 +732,9 @@ export default function PurchaseLink() {
         </div>
 
         {filteredOrders.length === 0 && (
-          <Card className="p-12 text-center">
-            <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <p className="text-muted-foreground">No items match your filters</p>
+          <Card className="p-12 text-center border-dashed">
+            <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground/40" />
+            <p className="text-muted-foreground text-sm">No items match your filters</p>
           </Card>
         )}
       </div>
