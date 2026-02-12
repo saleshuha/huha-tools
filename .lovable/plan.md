@@ -1,69 +1,45 @@
 
-## Fix Blank Purchase Link Page on Mobile + UI Enhancement
 
-### Problem
-The public purchase link page (`/purchase/:token`) shows a blank page when accessed without authentication (e.g., on mobile by a vendor). The error is:
+## Fix Product Images + Cleaner UI Design
 
-> "useProductBarcodes must be used within a BarcodeProvider"
+### Problem: Images Not Showing
 
-The `BarcodeProvider` only wraps the authenticated layout in `App.tsx` (line 218), but the unauthenticated route for `/purchase/:token` (line 202) has no `BarcodeProvider`.
+The `product_images` table has 7,447 images and they exist for the ASINs in the purchase link orders. However, the edge function queries `product_images` with `.in('asin', asins)` where `asins` contains **2,500+ unique values**. PostgREST has a URL length limit, and when passing 2,500+ ASINs via the `.in()` filter, the query silently fails or returns empty results.
 
-### Fix
+### Fix: Batch ASIN Lookups in Edge Function
 
-**File: `src/App.tsx`** (lines 198-204)
+**File: `supabase/functions/purchase-link-handler/index.ts`**
 
-Wrap the unauthenticated `PurchaseLink` route with `<BarcodeProvider>` so the `useProductBarcodes` hook works:
+Split the ASINs array into chunks of 200 and query `product_images` in multiple batches, then merge the results. This avoids exceeding PostgREST URL limits.
 
 ```text
-<BrowserRouter>
-  <Routes>
-    <Route path="/auth" element={<Auth />} />
-    <Route path="/purchase/:token" element={
-      <BarcodeProvider>
-        <PurchaseLink />
-      </BarcodeProvider>
-    } />
-    <Route path="*" element={<Navigate to="/auth" replace />} />
-  </Routes>
-</BrowserRouter>
+// Instead of: .in('asin', allAsins)  // fails with 2500+ ASINs
+// Do: chunk into groups of 200, query each batch, merge results
 ```
 
-Add the `BarcodeProvider` import (already imported at the top of the file for the authenticated layout).
-
-### UI Enhancement for PurchaseLinkManagement.tsx
-
-Redesign the admin purchase link management cards with a more polished, professional look:
-
-**File: `src/components/po/PurchaseLinkManagement.tsx`**
-
-1. **Card redesign**: Add a left color accent strip (green for active, gray for inactive), cleaner spacing, and a more structured layout with clear visual sections.
-
-2. **Header section**: Title with status badge inline, description below, and action buttons grouped cleanly on the right.
-
-3. **Stats row**: Display views, updates, POs count, and dates in a horizontal stat bar with subtle background cards and icons.
-
-4. **Progress section**: Keep the segmented progress bar but add percentage labels for each segment and use a cleaner rounded design.
-
-5. **PO badges section**: Use a collapsible section with a "Show all" toggle instead of the "+N more" approach.
-
-6. **Action buttons**: Consolidate into a cleaner layout - primary "Open" button prominently displayed, "Copy" as icon button, and dropdown for secondary actions.
-
-### UI Enhancement for Public PurchaseLink Page
+### UI Simplification
 
 **File: `src/pages/PurchaseLink.tsx`**
 
-1. **Mobile-first card layout**: Restructure item cards so on mobile the image, info, and actions stack vertically with proper spacing.
+Simplify item cards for a cleaner, more workable layout:
 
-2. **Sticky filter bar**: Make the filter/search section sticky on scroll for easier mobile navigation.
+1. **Remove the left checkbox indentation** -- Move the checkbox into the top-right corner of each card to reclaim horizontal space on mobile
+2. **Compact card layout** -- Title on top, ASIN/SKU/PO in a single line below, quantity + actions in a clean row
+3. **Larger product images** -- Increase from 56px to 64px on mobile for better visibility
+4. **Cleaner action row** -- Qty input, Save button, N/A button, and Scan button all in one row with consistent sizing
+5. **Remove nested indentation** (the `ml-8` sections) -- Use full card width for all content
+6. **Simplified filter bar** -- Remove the sort section from the sticky bar, put it inline with filter buttons
 
-3. **Improved item cards**: Add subtle left border color coding (green = purchased, yellow = partial, red = N/A, gray = pending), cleaner typography hierarchy.
+**File: `src/components/purchase-link/PurchaseSummaryHeader.tsx`**
 
-4. **Better touch targets**: Ensure all buttons and inputs meet 44px minimum touch target size on mobile.
+Minor cleanup:
+- Reduce ring size slightly on mobile
+- Use number formatting (e.g., "3,945" instead of "3945")
 
 ### Technical Details
 
 Files to modify:
-- `src/App.tsx` -- Wrap unauthenticated purchase link route with BarcodeProvider (critical fix)
-- `src/components/po/PurchaseLinkManagement.tsx` -- Redesign admin link cards with better visual hierarchy
-- `src/pages/PurchaseLink.tsx` -- Improve mobile layout and card design
-- `src/components/purchase-link/PurchaseSummaryHeader.tsx` -- Minor mobile responsiveness improvements
+- `supabase/functions/purchase-link-handler/index.ts` -- Batch ASIN lookups in chunks of 200 to fix image loading
+- `src/pages/PurchaseLink.tsx` -- Simplify card layout, remove excess indentation, improve mobile usability
+- `src/components/purchase-link/PurchaseSummaryHeader.tsx` -- Number formatting
+
