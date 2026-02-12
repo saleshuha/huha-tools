@@ -6,7 +6,6 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
@@ -23,6 +22,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
@@ -42,7 +46,11 @@ import {
   CheckCircle2,
   AlertCircle,
   XCircle,
-  Search
+  Search,
+  ChevronDown,
+  ChevronUp,
+  Package,
+  Link2
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import QRCode from 'qrcode';
@@ -67,6 +75,7 @@ export const PurchaseLinkManagement = () => {
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [linkStats, setLinkStats] = useState<Record<string, LinkStats>>({});
   const [loadingStats, setLoadingStats] = useState(true);
+  const [expandedPOs, setExpandedPOs] = useState<Set<string>>(new Set());
 
   // Fetch stats for each link
   useEffect(() => {
@@ -81,13 +90,11 @@ export const PurchaseLinkManagement = () => {
 
       for (const link of links) {
         try {
-          // Fetch PO orders for this link
           const { data: orders } = await supabase
             .from('po_orders')
             .select('id, quantity')
             .in('po_number', link.po_numbers || []);
 
-          // Fetch updates for these orders
           const { data: updates } = await supabase
             .from('purchase_updates')
             .select('po_order_id, purchased_quantity, metadata')
@@ -234,6 +241,15 @@ export const PurchaseLinkManagement = () => {
     toast.success('QR code downloaded');
   };
 
+  const togglePOExpand = (linkId: string) => {
+    setExpandedPOs(prev => {
+      const next = new Set(prev);
+      if (next.has(linkId)) next.delete(linkId);
+      else next.add(linkId);
+      return next;
+    });
+  };
+
   const filteredLinks = links.filter(link => 
     link.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     link.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -244,17 +260,18 @@ export const PurchaseLinkManagement = () => {
     return (
       <div className="space-y-4">
         <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-40 w-full" />
+        <Skeleton className="h-40 w-full" />
       </div>
     );
   }
 
   if (links.length === 0) {
     return (
-      <Card className="p-8 text-center">
-        <p className="text-muted-foreground">No purchase links created yet</p>
-        <p className="text-sm text-muted-foreground mt-2">
+      <Card className="p-12 text-center border-dashed">
+        <Link2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+        <p className="text-muted-foreground font-medium">No purchase links created yet</p>
+        <p className="text-sm text-muted-foreground mt-1">
           Select POs and click "Generate Purchase Link" to create one
         </p>
       </Card>
@@ -275,8 +292,10 @@ export const PurchaseLinkManagement = () => {
           />
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="outline">{links.length} Total</Badge>
-          <Badge variant="secondary">{links.filter(l => l.is_active).length} Active</Badge>
+          <Badge variant="outline" className="font-mono">{links.length} Total</Badge>
+          <Badge className="bg-green-500/15 text-green-600 border-green-500/30 hover:bg-green-500/20">
+            {links.filter(l => l.is_active).length} Active
+          </Badge>
         </div>
       </div>
 
@@ -287,160 +306,226 @@ export const PurchaseLinkManagement = () => {
           const completionPercent = stats?.total > 0 
             ? Math.round(((stats.purchased + stats.partial * 0.5) / stats.total) * 100)
             : 0;
+          const isExpanded = expandedPOs.has(link.id);
 
           return (
-            <Card key={link.id} className={`p-4 ${!link.is_active ? 'opacity-60' : ''}`}>
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 space-y-3">
-                  {/* Title and status */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h4 className="font-medium">{link.title || 'Untitled Link'}</h4>
-                    <Badge variant={link.is_active ? 'default' : 'secondary'}>
-                      {link.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </div>
-                  
-                  {link.description && (
-                    <p className="text-sm text-muted-foreground">{link.description}</p>
-                  )}
-
-                  {/* Progress bar */}
-                  {stats && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Completion</span>
-                        <span className="font-medium">{completionPercent}%</span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden flex">
-                        <div 
-                          className="bg-green-500 transition-all duration-500"
-                          style={{ width: `${(stats.purchased / (stats.total || 1)) * 100}%` }}
-                        />
-                        <div 
-                          className="bg-yellow-500 transition-all duration-500"
-                          style={{ width: `${(stats.partial / (stats.total || 1)) * 100}%` }}
-                        />
-                        <div 
-                          className="bg-red-500 transition-all duration-500"
-                          style={{ width: `${(stats.notAvailable / (stats.total || 1)) * 100}%` }}
-                        />
-                      </div>
-                      <div className="flex gap-4 text-xs">
-                        <span className="flex items-center gap-1">
-                          <CheckCircle2 className="h-3 w-3 text-green-500" />
-                          {stats.purchased} complete
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <AlertCircle className="h-3 w-3 text-yellow-500" />
-                          {stats.partial} partial
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <XCircle className="h-3 w-3 text-red-500" />
-                          {stats.notAvailable} N/A
-                        </span>
-                      </div>
+            <Card 
+              key={link.id} 
+              className={`overflow-hidden transition-all duration-200 ${!link.is_active ? 'opacity-60' : 'hover:shadow-md'}`}
+            >
+              {/* Color accent strip */}
+              <div className={`h-1 ${link.is_active ? 'bg-green-500' : 'bg-muted-foreground/30'}`} />
+              
+              <div className="p-5">
+                {/* Header: Title + Actions */}
+                <div className="flex items-start justify-between gap-4 mb-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <h4 className="font-semibold text-base truncate">{link.title || 'Untitled Link'}</h4>
+                      <Badge 
+                        variant="outline"
+                        className={link.is_active 
+                          ? 'bg-green-500/10 text-green-600 border-green-500/30 text-xs' 
+                          : 'text-xs'
+                        }
+                      >
+                        {link.is_active ? '● Active' : '○ Inactive'}
+                      </Badge>
                     </div>
-                  )}
-                  
-                  {/* Meta info */}
-                  <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Eye className="h-3 w-3" />
-                      {link.access_count || 0} views
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <TrendingUp className="h-3 w-3" />
-                      {link.total_updates_count || 0} updates
-                    </span>
-                    <span>{link.po_numbers?.length || 0} POs</span>
-                    <span>Created {format(new Date(link.created_at), 'MMM d, yyyy')}</span>
-                    {link.last_accessed_at && (
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        Last accessed {formatDistanceToNow(new Date(link.last_accessed_at), { addSuffix: true })}
-                      </span>
-                    )}
-                    {link.expires_at && (
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        Expires {format(new Date(link.expires_at), 'MMM d, yyyy')}
-                      </span>
+                    {link.description && (
+                      <p className="text-sm text-muted-foreground line-clamp-1">{link.description}</p>
                     )}
                   </div>
 
-                  {/* PO badges */}
-                  <div className="flex flex-wrap gap-1">
-                    {link.po_numbers?.slice(0, 5).map((po: string) => (
-                      <Badge key={po} variant="outline" className="text-xs">
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => handleOpenLink(link.link_token)}
+                      disabled={!link.is_active}
+                      className="h-8"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                      Open
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => handleCopyLink(link.link_token)}
+                      disabled={!link.is_active}
+                      title="Copy link"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
+                    
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleEditClick(link)}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleShowQR(link)}>
+                          <QrCode className="h-4 w-4 mr-2" />
+                          Show QR Code
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        {link.is_active ? (
+                          <DropdownMenuItem onClick={() => handleDeactivate(link.id)}>
+                            <Power className="h-4 w-4 mr-2" />
+                            Deactivate
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem onClick={() => handleReactivate(link.id)}>
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            Reactivate
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          onClick={() => handleDelete(link.id)}
+                          className="text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+
+                {/* Stats Row */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+                  <div className="bg-muted/50 rounded-lg px-3 py-2 flex items-center gap-2">
+                    <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                    <div>
+                      <p className="text-sm font-semibold leading-none">{link.access_count || 0}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">Views</p>
+                    </div>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg px-3 py-2 flex items-center gap-2">
+                    <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
+                    <div>
+                      <p className="text-sm font-semibold leading-none">{link.total_updates_count || 0}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">Updates</p>
+                    </div>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg px-3 py-2 flex items-center gap-2">
+                    <Package className="h-3.5 w-3.5 text-muted-foreground" />
+                    <div>
+                      <p className="text-sm font-semibold leading-none">{link.po_numbers?.length || 0}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">POs</p>
+                    </div>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg px-3 py-2 flex items-center gap-2">
+                    <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                    <div>
+                      <p className="text-sm font-semibold leading-none">{format(new Date(link.created_at), 'MMM d')}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">Created</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Progress Section */}
+                {stats && (
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground font-medium text-xs">Progress</span>
+                      <span className="font-semibold text-xs">{completionPercent}%</span>
+                    </div>
+                    <div className="h-2.5 bg-muted rounded-full overflow-hidden flex">
+                      <div 
+                        className="bg-green-500 transition-all duration-500 rounded-l-full"
+                        style={{ width: `${(stats.purchased / (stats.total || 1)) * 100}%` }}
+                      />
+                      <div 
+                        className="bg-yellow-500 transition-all duration-500"
+                        style={{ width: `${(stats.partial / (stats.total || 1)) * 100}%` }}
+                      />
+                      <div 
+                        className="bg-red-400 transition-all duration-500"
+                        style={{ width: `${(stats.notAvailable / (stats.total || 1)) * 100}%` }}
+                      />
+                    </div>
+                    <div className="flex gap-4 text-xs">
+                      <span className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+                        {stats.purchased} done
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-yellow-500 inline-block" />
+                        {stats.partial} partial
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-red-400 inline-block" />
+                        {stats.notAvailable} N/A
+                      </span>
+                      <span className="flex items-center gap-1 text-muted-foreground">
+                        <span className="w-2 h-2 rounded-full bg-muted-foreground/30 inline-block" />
+                        {stats.pending} pending
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Meta timestamps */}
+                <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground mb-3">
+                  {link.last_accessed_at && (
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      Accessed {formatDistanceToNow(new Date(link.last_accessed_at), { addSuffix: true })}
+                    </span>
+                  )}
+                  {link.expires_at && (
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      Expires {format(new Date(link.expires_at), 'MMM d, yyyy')}
+                    </span>
+                  )}
+                </div>
+
+                {/* PO Badges - Collapsible */}
+                <Collapsible open={isExpanded} onOpenChange={() => togglePOExpand(link.id)}>
+                  <div className="flex flex-wrap gap-1 items-center">
+                    {link.po_numbers?.slice(0, 3).map((po: string) => (
+                      <Badge key={po} variant="outline" className="text-[11px] font-mono">
                         {po}
                       </Badge>
                     ))}
-                    {link.po_numbers?.length > 5 && (
-                      <Badge variant="outline" className="text-xs">
-                        +{link.po_numbers.length - 5} more
-                      </Badge>
+                    {link.po_numbers?.length > 3 && (
+                      <CollapsibleTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px] text-muted-foreground">
+                          {isExpanded ? (
+                            <>
+                              <ChevronUp className="h-3 w-3 mr-1" />
+                              Show less
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDown className="h-3 w-3 mr-1" />
+                              +{link.po_numbers.length - 3} more
+                            </>
+                          )}
+                        </Button>
+                      </CollapsibleTrigger>
                     )}
                   </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-start gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleOpenLink(link.link_token)}
-                    disabled={!link.is_active}
-                  >
-                    <ExternalLink className="h-4 w-4 mr-1" />
-                    Open
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleCopyLink(link.link_token)}
-                    disabled={!link.is_active}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                  
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleEditClick(link)}>
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit Details
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleShowQR(link)}>
-                        <QrCode className="h-4 w-4 mr-2" />
-                        Show QR Code
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      {link.is_active ? (
-                        <DropdownMenuItem onClick={() => handleDeactivate(link.id)}>
-                          <Power className="h-4 w-4 mr-2" />
-                          Deactivate
-                        </DropdownMenuItem>
-                      ) : (
-                        <DropdownMenuItem onClick={() => handleReactivate(link.id)}>
-                          <RefreshCw className="h-4 w-4 mr-2" />
-                          Reactivate
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem 
-                        onClick={() => handleDelete(link.id)}
-                        className="text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
+                  <CollapsibleContent>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {link.po_numbers?.slice(3).map((po: string) => (
+                        <Badge key={po} variant="outline" className="text-[11px] font-mono">
+                          {po}
+                        </Badge>
+                      ))}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
               </div>
             </Card>
           );
