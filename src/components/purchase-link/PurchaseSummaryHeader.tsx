@@ -79,10 +79,10 @@ export function PurchaseSummaryHeader({
 
           {/* Stat Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 flex-1">
-            <StatCard icon={<Package className="h-4 w-4" />} label="Total" value={stats.total} color="text-foreground" />
-            <StatCard icon={<CheckCircle2 className="h-4 w-4" />} label="Done" value={stats.purchased} color="text-green-500" />
-            <StatCard icon={<AlertCircle className="h-4 w-4" />} label="Partial" value={stats.partial} color="text-yellow-500" />
-            <StatCard icon={<XCircle className="h-4 w-4" />} label="N/A" value={stats.notAvailable} color="text-red-400" />
+            <StatCard icon={<Package className="h-4 w-4" />} label="Total" value={stats.total.toLocaleString()} color="text-foreground" />
+            <StatCard icon={<CheckCircle2 className="h-4 w-4" />} label="Done" value={stats.purchased.toLocaleString()} color="text-green-500" />
+            <StatCard icon={<AlertCircle className="h-4 w-4" />} label="Partial" value={stats.partial.toLocaleString()} color="text-yellow-500" />
+            <StatCard icon={<XCircle className="h-4 w-4" />} label="N/A" value={stats.notAvailable.toLocaleString()} color="text-red-400" />
           </div>
         </div>
 
@@ -90,7 +90,7 @@ export function PurchaseSummaryHeader({
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs">
             <span className="text-muted-foreground">Progress</span>
-            <span className="font-medium">{stats.purchased + stats.partial} / {stats.total}</span>
+            <span className="font-medium">{(stats.purchased + stats.partial).toLocaleString()} / {stats.total.toLocaleString()}</span>
           </div>
           <div className="h-2 bg-muted rounded-full overflow-hidden flex">
             <div className="bg-green-500 transition-all duration-500" style={{ width: `${(stats.purchased / (stats.total || 1)) * 100}%` }} />
@@ -103,7 +103,7 @@ export function PurchaseSummaryHeader({
   );
 }
 
-function StatCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: number; color: string; }) {
+function StatCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string; }) {
   return (
     <div className="bg-muted/50 rounded-lg p-2.5 text-center">
       <div className={`flex items-center justify-center gap-1 ${color} mb-0.5`}>

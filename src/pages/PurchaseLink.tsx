@@ -489,7 +489,7 @@ export default function PurchaseLink() {
 
         {/* Sticky Filter Bar */}
         <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b -mx-3 px-3 py-3 md:-mx-6 md:px-6 md:border md:rounded-lg md:mx-0 md:static md:backdrop-blur-none">
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
             {/* Search + Export */}
             <div className="flex gap-2">
               <div className="flex-1 relative">
@@ -504,12 +504,12 @@ export default function PurchaseLink() {
               <ExportButton data={exportData} linkTitle={data.link.title} />
             </div>
             
-            {/* Filter buttons - scrollable on mobile */}
-            <div className="flex gap-2 overflow-x-auto pb-1 -mb-1 scrollbar-hide">
+            {/* Filter buttons + Sort inline */}
+            <div className="flex gap-2 overflow-x-auto pb-1 -mb-1 scrollbar-hide items-center">
               {[
                 { key: 'pending' as const, icon: Circle, label: 'Pending', count: stats.pending },
                 { key: 'partial' as const, icon: AlertCircle, label: 'Partial', count: stats.partial },
-                { key: 'purchased' as const, icon: CheckCircle2, label: 'Complete', count: stats.purchased },
+                { key: 'purchased' as const, icon: CheckCircle2, label: 'Done', count: stats.purchased },
                 { key: 'not_available' as const, icon: XCircle, label: 'N/A', count: stats.notAvailable },
               ].map(({ key, icon: Icon, label, count }) => (
                 <Button
@@ -523,28 +523,24 @@ export default function PurchaseLink() {
                   {label} ({count})
                 </Button>
               ))}
-            </div>
-            
-            {/* Sort */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Sort:</span>
+              <div className="w-px h-6 bg-border flex-shrink-0 mx-1" />
               <Button
                 variant={sortBy === 'qty-high-low' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setSortBy(sortBy === 'qty-high-low' ? null : 'qty-high-low')}
-                className="h-8 min-h-[44px] text-xs"
+                className="h-9 min-h-[44px] text-xs flex-shrink-0"
               >
                 <ArrowDown className="h-3 w-3 mr-1" />
-                High→Low
+                Qty↓
               </Button>
               <Button
                 variant={sortBy === 'qty-low-high' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setSortBy(sortBy === 'qty-low-high' ? null : 'qty-low-high')}
-                className="h-8 min-h-[44px] text-xs"
+                className="h-9 min-h-[44px] text-xs flex-shrink-0"
               >
                 <ArrowUp className="h-3 w-3 mr-1" />
-                Low→High
+                Qty↑
               </Button>
             </div>
           </div>
@@ -564,23 +560,13 @@ export default function PurchaseLink() {
                 className={`overflow-hidden transition-all border-l-4 ${getStatusBorderColor(status)} ${isSelected ? 'ring-2 ring-primary' : ''}`}
                 ref={(el) => cardRefs.current[order.id] = el}
               >
-                <div className="p-4 space-y-3">
-                  {/* Header row: checkbox + image + info */}
+                <div className="p-3 space-y-2">
+                  {/* Header row: image + info + checkbox */}
                   <div className="flex gap-3 items-start">
-                    {/* Checkbox */}
-                    <div className="pt-1 flex-shrink-0">
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={(checked) => handleSelectItem(order.id, !!checked)}
-                        disabled={status === 'purchased' || status === 'not_available'}
-                        className="h-5 w-5"
-                      />
-                    </div>
-                    
                     {/* Product Image */}
                     <Dialog>
                       <DialogTrigger asChild>
-                        <div className="flex-shrink-0 w-14 h-14 md:w-16 md:h-16 rounded-lg overflow-hidden bg-muted flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity border">
+                        <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-muted flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity border">
                           {order.product_image?.image_url ? (
                             <img 
                               src={order.product_image.image_url} 
@@ -605,16 +591,11 @@ export default function PurchaseLink() {
 
                     {/* Item Info */}
                     <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="font-medium text-sm leading-snug line-clamp-2">{order.title}</p>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
                         <Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0">
                           {order.po_number}
                         </Badge>
-                        {status === 'purchased' && <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />}
-                        {status === 'partial' && <AlertCircle className="h-4 w-4 text-yellow-500 flex-shrink-0" />}
-                        {status === 'not_available' && <XCircle className="h-4 w-4 text-red-400 flex-shrink-0" />}
-                      </div>
-                      <p className="font-medium text-sm leading-snug line-clamp-2">{order.title}</p>
-                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
                         {order.asin && <span className="font-mono">ASIN: {order.asin}</span>}
                         {order.sku_code && <span className="font-mono">SKU: {order.sku_code}</span>}
                         <LinkedBarcodesBadge 
@@ -624,106 +605,98 @@ export default function PurchaseLink() {
                         />
                       </div>
                     </div>
+
+                    {/* Checkbox top-right */}
+                    <div className="flex-shrink-0 flex flex-col items-center gap-1">
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={(checked) => handleSelectItem(order.id, !!checked)}
+                        disabled={status === 'purchased' || status === 'not_available'}
+                        className="h-5 w-5"
+                      />
+                      {status === 'purchased' && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                      {status === 'partial' && <AlertCircle className="h-4 w-4 text-yellow-500" />}
+                      {status === 'not_available' && <XCircle className="h-4 w-4 text-red-400" />}
+                    </div>
                   </div>
 
-                  {/* Quantity info */}
-                  <div className="ml-8 md:ml-9">
-                    {(() => {
-                      const consolidated = getConsolidatedQuantity(order);
-                      if (consolidated) {
-                        return (
-                          <div className="bg-muted/50 rounded-md px-3 py-1.5 text-sm">
-                            <span className="text-muted-foreground">Total Required:</span>
-                            <span className="font-bold ml-1">{consolidated.total}</span>
-                            <span className="text-[11px] text-muted-foreground ml-2">
-                              ({consolidated.poNumbers.join(', ')})
-                            </span>
-                          </div>
-                        );
-                      }
-                      return (
-                        <div className="bg-muted/50 rounded-md px-3 py-1.5 text-sm inline-flex items-center gap-1">
-                          <span className="text-muted-foreground">Required:</span>
-                          <span className="font-bold">{order.quantity}</span>
-                        </div>
-                      );
-                    })()}
-                  </div>
-
-                  {/* Actions */}
-                  <div className="ml-8 md:ml-9">
-                    {status !== 'not_available' ? (
-                      <div className="space-y-2">
-                        <div className="flex flex-wrap gap-2 items-end">
-                          <div className="space-y-1 flex-1 min-w-[100px] max-w-[140px]">
-                            <Label className="text-xs text-muted-foreground">Purchased Qty</Label>
-                            <Input
-                              type="number"
-                              placeholder="0"
-                              value={localUpdate?.purchasedQuantity ?? update?.purchased_quantity ?? ''}
-                              onChange={(e) => handleUpdateField(order.id, 'purchasedQuantity', parseInt(e.target.value) || 0)}
-                              onFocus={() => handleInputFocus(order.id)}
-                              className="h-11 text-[16px]"
-                              disabled={savingItems.has(order.id)}
-                            />
-                          </div>
-                          
-                          <Button
-                            variant="default"
-                            size="sm"
-                            onClick={() => handleSaveItem(order.id)}
-                            disabled={(!localUpdate?.purchasedQuantity && !supplierDetails[order.id]) || savingItems.has(order.id)}
-                            className="h-11 w-11 p-0"
-                            title="Save"
-                          >
-                            {savingItems.has(order.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                          </Button>
-                          
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleMarkNotAvailable(order.id)}
-                            disabled={savingItems.has(order.id)}
-                            className="h-11 px-3"
-                          >
-                            <XCircle className="h-4 w-4 mr-1" />
-                            <span className="hidden sm:inline">N/A</span>
-                          </Button>
-                          
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleOpenBarcodeScanner(order.id)}
-                            className="h-11"
-                          >
-                            <ScanLine className="h-4 w-4 mr-1" />
-                            <span className="hidden sm:inline">Scan</span>
-                          </Button>
-                        </div>
+                  {/* Quantity + Actions row */}
+                  {status !== 'not_available' ? (
+                    <div className="flex items-end gap-2 flex-wrap">
+                      <div className="bg-muted/50 rounded-md px-2.5 py-1.5 text-sm flex items-center gap-1 flex-shrink-0">
+                        <span className="text-muted-foreground text-xs">Req:</span>
+                        <span className="font-bold">{order.quantity}</span>
                       </div>
-                    ) : (
+                      
+                      <div className="flex-1 min-w-[80px] max-w-[120px]">
+                        <Input
+                          type="number"
+                          placeholder="Qty"
+                          value={localUpdate?.purchasedQuantity ?? update?.purchased_quantity ?? ''}
+                          onChange={(e) => handleUpdateField(order.id, 'purchasedQuantity', parseInt(e.target.value) || 0)}
+                          onFocus={() => handleInputFocus(order.id)}
+                          className="h-10 text-[16px]"
+                          disabled={savingItems.has(order.id)}
+                        />
+                      </div>
+                      
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => handleSaveItem(order.id)}
+                        disabled={(!localUpdate?.purchasedQuantity && !supplierDetails[order.id]) || savingItems.has(order.id)}
+                        className="h-10 w-10 p-0"
+                        title="Save"
+                      >
+                        {savingItems.has(order.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleMarkNotAvailable(order.id)}
+                        disabled={savingItems.has(order.id)}
+                        className="h-10 px-2.5"
+                        title="Not Available"
+                      >
+                        <XCircle className="h-4 w-4" />
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpenBarcodeScanner(order.id)}
+                        className="h-10 px-2.5"
+                        title="Scan Barcode"
+                      >
+                        <ScanLine className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <div className="bg-red-50 dark:bg-red-950/30 rounded-md px-2.5 py-1.5 text-sm text-red-600 dark:text-red-400 flex-1">
+                        Not Available
+                      </div>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleUndoNotAvailable(order.id)}
                         disabled={savingItems.has(order.id)}
-                        className="h-11"
+                        className="h-10 px-3"
                       >
-                        {savingItems.has(order.id) ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RotateCcw className="h-4 w-4 mr-2" />}
-                        Undo Not Available
+                        {savingItems.has(order.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                        <span className="ml-1 text-xs">Undo</span>
                       </Button>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
                   {/* Supplier Details */}
                   {status !== 'not_available' && (
-                    <div className="ml-8 md:ml-9">
-                      <SupplierDetailsForm
-                        details={supplierDetails[order.id] || {}}
-                        onChange={(details) => setSupplierDetails(prev => ({ ...prev, [order.id]: details }))}
-                        disabled={savingItems.has(order.id)}
-                      />
-                    </div>
+                    <SupplierDetailsForm
+                      details={supplierDetails[order.id] || {}}
+                      onChange={(details) => setSupplierDetails(prev => ({ ...prev, [order.id]: details }))}
+                      disabled={savingItems.has(order.id)}
+                    />
                   )}
                 </div>
               </Card>
