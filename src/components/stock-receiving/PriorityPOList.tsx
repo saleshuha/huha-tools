@@ -537,24 +537,10 @@ export function PriorityPOList() {
                               })()}
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                              {/* Priority as segmented buttons */}
-                              <div className="flex rounded-lg border border-border overflow-hidden">
-                                {[1, 2, 3, 4, 5].map((p) => (
-                                  <button
-                                    key={p}
-                                    onClick={() => updateGroupPriority.mutate({ groupId: group.id, priority: p })}
-                                    className={cn(
-                                      "px-2 py-1 text-xs font-medium transition-colors",
-                                      (group.priority || 3) === p
-                                        ? "bg-primary text-primary-foreground"
-                                        : "bg-card hover:bg-accent text-muted-foreground"
-                                    )}
-                                    title={`Priority ${p}`}
-                                  >
-                                    {p}
-                                  </button>
-                                ))}
-                              </div>
+                              {/* Priority display (read-only) */}
+                              <Badge variant="outline" className="text-xs font-medium">
+                                Priority {group.priority || 3}
+                              </Badge>
                               
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
