@@ -51,6 +51,7 @@ export function PriorityPOList() {
   const [newGroupDescription, setNewGroupDescription] = useState('');
   const [newGroupPriority, setNewGroupPriority] = useState<number>(3);
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [editingGroup, setEditingGroup] = useState<any>(null);
   const [editGroupName, setEditGroupName] = useState('');
   const [editGroupDescription, setEditGroupDescription] = useState('');
@@ -381,75 +382,101 @@ export function PriorityPOList() {
                 )}
 
                 {!loading && poGroups && poGroups.length > 0 && (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {poGroups
                       .sort((a: any, b: any) => (a.priority || 3) - (b.priority || 3))
                       .map((group: any) => {
                         const groupPOs = groupedFilteredPOs.filter(po => 
                           group.po_numbers?.includes(po.po_number)
                         );
-                        if (groupPOs.length === 0) return null;
-                        
+                        const uniquePONumbers = [...new Set(group.po_numbers || [])];
+                        const isExpanded = expandedGroups.has(group.id);
                         const priorityColor = PRIORITY_COLORS[group.priority || 3] || 'border-l-border';
                         
                         return (
-                          <div key={group.id} className="space-y-2">
-                            <div className={cn(
-                              "flex items-center gap-2 px-4 py-2.5 rounded-lg border border-l-4 bg-muted/30",
-                              priorityColor
-                            )}>
+                          <div key={group.id} className="rounded-lg border border-border/50 overflow-hidden">
+                            <button
+                              onClick={() => {
+                                setExpandedGroups(prev => {
+                                  const next = new Set(prev);
+                                  if (next.has(group.id)) {
+                                    next.delete(group.id);
+                                  } else {
+                                    next.add(group.id);
+                                  }
+                                  return next;
+                                });
+                              }}
+                              className={cn(
+                                "flex items-center gap-2 w-full px-4 py-3 border-l-4 bg-muted/30 hover:bg-muted/50 transition-colors text-left",
+                                priorityColor
+                              )}
+                            >
+                              {isExpanded ? (
+                                <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
+                              ) : (
+                                <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                              )}
                               <Folder className="w-4 h-4 text-primary shrink-0" />
                               <span className="font-semibold text-sm">{group.group_name}</span>
                               <Badge variant="secondary" className="text-xs">
-                                {groupPOs.length} POs • {group.total_quantity} items
+                                {uniquePONumbers.length} POs • {group.total_quantity} items
                               </Badge>
                               <Badge variant="outline" className="text-xs ml-auto">
                                 P{group.priority || 3}
                               </Badge>
-                            </div>
+                            </button>
                             
-                            <div className="pl-4 space-y-1.5">
-                              {groupPOs.map((po) => (
-                                <div
-                                  key={po.po_number}
-                                  className={cn(
-                                    "flex items-start gap-3 p-3 rounded-lg border transition-all",
-                                    "border-border hover:border-primary/50 hover:bg-accent/30 hover:shadow-sm"
-                                  )}
-                                >
-                                  <div className="flex-1 min-w-0 space-y-1">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="font-semibold text-foreground text-sm">
-                                        {po.po_number}
-                                      </span>
-                                      <Badge variant="outline" className="text-xs">
-                                        {po.status.toUpperCase()}
-                                      </Badge>
-                                      <Badge variant="secondary" className="text-xs">
-                                        {po.quantity} items
-                                      </Badge>
-                                    </div>
-                                    
-                                    {po.title && (
-                                      <p className="text-xs text-muted-foreground line-clamp-1">
-                                        {po.title}
-                                      </p>
+                            {isExpanded && (
+                              <div className="p-3 space-y-1.5 bg-card">
+                                {groupPOs.length > 0 ? groupPOs.map((po) => (
+                                  <div
+                                    key={po.po_number}
+                                    className={cn(
+                                      "flex items-start gap-3 p-3 rounded-lg border transition-all",
+                                      "border-border hover:border-primary/50 hover:bg-accent/30 hover:shadow-sm"
                                     )}
-                                    
-                                    <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-                                      {po.asin && <span>ASIN: {po.asin}</span>}
-                                      {po.sku_code && <span>• SKU: {po.sku_code}</span>}
+                                  >
+                                    <div className="flex-1 min-w-0 space-y-1">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="font-semibold text-foreground text-sm">
+                                          {po.po_number}
+                                        </span>
+                                        <Badge variant="outline" className="text-xs">
+                                          {po.status.toUpperCase()}
+                                        </Badge>
+                                        <Badge variant="secondary" className="text-xs">
+                                          {po.quantity} items
+                                        </Badge>
+                                      </div>
+                                      
+                                      {po.title && (
+                                        <p className="text-xs text-muted-foreground line-clamp-1">
+                                          {po.title}
+                                        </p>
+                                      )}
+                                      
+                                      <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                                        {po.asin && <span>ASIN: {po.asin}</span>}
+                                        {po.sku_code && <span>• SKU: {po.sku_code}</span>}
+                                      </div>
                                     </div>
-                                  </div>
 
-                                  <POPriorityBadge
-                                    priority={po.priority || 3}
-                                    onUpdate={() => {}}
-                                    disabled
-                                  />
-                                </div>
-                              ))}
-                            </div>
+                                    <POPriorityBadge
+                                      priority={po.priority || 3}
+                                      onUpdate={() => {}}
+                                      disabled
+                                    />
+                                  </div>
+                                )) : (
+                                  <div className="text-center py-4 text-muted-foreground text-xs">
+                                    {uniquePONumbers.length} POs in this group ({group.total_quantity} items total)
+                                    <br />
+                                    <span className="text-muted-foreground/70">POs: {uniquePONumbers.slice(0, 5).join(', ')}{uniquePONumbers.length > 5 ? ` +${uniquePONumbers.length - 5} more` : ''}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         );
                       })}
