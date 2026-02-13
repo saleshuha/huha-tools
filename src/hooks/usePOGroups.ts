@@ -96,24 +96,30 @@ export const usePOGroups = () => {
 
       // Add members and update their priority
       if (poIds.length > 0) {
-        const members = poIds.map(po_id => ({
-          group_id: group.id,
-          po_id
-        }));
+        // Batch inserts to avoid URL length limits
+        const BATCH_SIZE = 100;
+        for (let i = 0; i < poIds.length; i += BATCH_SIZE) {
+          const batch = poIds.slice(i, i + BATCH_SIZE);
+          
+          const members = batch.map(po_id => ({
+            group_id: group.id,
+            po_id
+          }));
 
-        const { error: membersError } = await supabase
-          .from('po_group_members')
-          .insert(members);
+          const { error: membersError } = await supabase
+            .from('po_group_members')
+            .insert(members);
 
-        if (membersError) throw membersError;
+          if (membersError) throw membersError;
 
-        // Update all member POs with the group's priority
-        const { error: updateError } = await supabase
-          .from('po_orders')
-          .update({ priority: priority || 3 })
-          .in('id', poIds);
+          // Update batch POs with the group's priority
+          const { error: updateError } = await supabase
+            .from('po_orders')
+            .update({ priority: priority || 3 })
+            .in('id', batch);
 
-        if (updateError) throw updateError;
+          if (updateError) throw updateError;
+        }
       }
 
       return group;
@@ -214,15 +220,19 @@ export const usePOGroups = () => {
 
       const poIds = members?.map(m => m.po_id) || [];
 
-      // Update priority for all POs in the group
+      // Update priority for all POs in the group (batched)
       if (poIds.length > 0) {
-        const { error: updateError } = await supabase
-          .from('po_orders')
-          .update({ priority })
-          .in('id', poIds)
-          .eq('user_id', user.id);
+        const BATCH_SIZE = 100;
+        for (let i = 0; i < poIds.length; i += BATCH_SIZE) {
+          const batch = poIds.slice(i, i + BATCH_SIZE);
+          const { error: updateError } = await supabase
+            .from('po_orders')
+            .update({ priority })
+            .in('id', batch)
+            .eq('user_id', user.id);
 
-        if (updateError) throw updateError;
+          if (updateError) throw updateError;
+        }
       }
 
       // Update group priority field
