@@ -14,8 +14,6 @@ import { Loader2, Package, Search, CheckCircle2, Circle, AlertCircle, Image, XCi
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { BarcodeScannerDialog } from '@/components/barcode/BarcodeScannerDialog';
 import { LinkedBarcodesBadge } from '@/components/barcode/LinkedBarcodesBadge';
-import { VendorInfoForm, getStoredVendorInfo } from '@/components/purchase-link/VendorInfoForm';
-import { SupplierDetailsForm, SupplierDetails } from '@/components/purchase-link/SupplierDetailsForm';
 import { BulkActionsBar } from '@/components/purchase-link/BulkActionsBar';
 import { ExportButton } from '@/components/purchase-link/ExportButton';
 import { PurchaseSummaryHeader } from '@/components/purchase-link/PurchaseSummaryHeader';
@@ -49,10 +47,10 @@ export default function PurchaseLink() {
   const [metricsOpen, setMetricsOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'purchased' | 'partial' | 'pending' | 'not_available'>('pending');
   const [sortBy, setSortBy] = useState<'qty-high-low' | 'qty-low-high' | null>(null);
-  const [supplierDetails, setSupplierDetails] = useState<Record<string, SupplierDetails>>({});
   const [savingItems, setSavingItems] = useState<Set<string>>(new Set());
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [filterOpen, setFilterOpen] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
   const parentRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   
@@ -70,6 +68,13 @@ export default function PurchaseLink() {
     const timer = setTimeout(() => setDebouncedTitleSearch(titleSearchTerm), 200);
     return () => clearTimeout(timer);
   }, [titleSearchTerm]);
+
+  // Auto-scroll to top when search changes while focused
+  useEffect(() => {
+    if (searchFocused && parentRef.current) {
+      parentRef.current.scrollTop = 0;
+    }
+  }, [debouncedSkuSearch, debouncedTitleSearch, searchFocused]);
 
   // Sync hook data with local state
   useEffect(() => {
@@ -138,19 +143,12 @@ export default function PurchaseLink() {
     return result;
   }, [data?.poOrders, updatesMap]);
 
-  const getVendorInfo = () => {
-    if (!token) return null;
-    return getStoredVendorInfo(token);
-  };
-
   // Save: distribute full required qty across underlying orders
   const handleSaveGroup = async (groupKey: string, overrideQty?: number) => {
     const group = groupedOrders.find(g => g.key === groupKey);
     if (!group || !token || !data) return;
 
-    const groupSupplierDetails = supplierDetails[groupKey];
     setSavingItems(prev => new Set(prev).add(groupKey));
-    const vendorInfo = getVendorInfo();
 
     try {
       const totalQty = overrideQty ?? group.totalRequired;
@@ -173,14 +171,6 @@ export default function PurchaseLink() {
           modelNumber: order.model_number,
           title: order.title,
           purchasedQuantity: qtyForThis,
-          vendorName: vendorInfo?.name,
-          vendorEmail: vendorInfo?.email,
-          supplierName: groupSupplierDetails?.supplierName,
-          supplierOrderNumber: groupSupplierDetails?.supplierOrderNumber,
-          estimatedDeliveryDate: groupSupplierDetails?.estimatedDeliveryDate,
-          unitCost: groupSupplierDetails?.unitCost,
-          totalCost: groupSupplierDetails?.totalCost,
-          notes: groupSupplierDetails?.notes,
         });
       }
       
@@ -230,7 +220,6 @@ export default function PurchaseLink() {
     if (!group || !token || !data) return;
 
     setSavingItems(prev => new Set(prev).add(groupKey));
-    const vendorInfo = getVendorInfo();
 
     try {
       for (const order of group.orders) {
@@ -242,8 +231,6 @@ export default function PurchaseLink() {
           modelNumber: order.model_number,
           title: order.title,
           metadata: { not_available: true },
-          vendorName: vendorInfo?.name,
-          vendorEmail: vendorInfo?.email,
         });
       }
       
@@ -278,7 +265,6 @@ export default function PurchaseLink() {
     if (!group || !token || !data) return;
 
     setSavingItems(prev => new Set(prev).add(groupKey));
-    const vendorInfo = getVendorInfo();
 
     try {
       for (const order of group.orders) {
@@ -291,8 +277,6 @@ export default function PurchaseLink() {
           title: order.title,
           metadata: { not_available: false },
           purchasedQuantity: 0,
-          vendorName: vendorInfo?.name,
-          vendorEmail: vendorInfo?.email,
         });
       }
       
@@ -376,7 +360,6 @@ export default function PurchaseLink() {
 
   const handleBulkMarkPurchased = async (quantity: number) => {
     if (!token || !data) return;
-    const vendorInfo = getVendorInfo();
     
     const promises = Array.from(selectedItems).map(async orderId => {
       const order = data.poOrders.find(o => o.id === orderId);
@@ -384,7 +367,7 @@ export default function PurchaseLink() {
       return savePurchaseUpdate(token, {
         poOrderId: orderId, poNumber: order.po_number, asin: order.asin,
         skuCode: order.sku_code, modelNumber: order.model_number, title: order.title,
-        purchasedQuantity: quantity, vendorName: vendorInfo?.name, vendorEmail: vendorInfo?.email,
+        purchasedQuantity: quantity,
       });
     });
     
@@ -396,7 +379,6 @@ export default function PurchaseLink() {
 
   const handleBulkMarkNotAvailable = async () => {
     if (!token || !data) return;
-    const vendorInfo = getVendorInfo();
     
     const promises = Array.from(selectedItems).map(async orderId => {
       const order = data.poOrders.find(o => o.id === orderId);
@@ -404,7 +386,7 @@ export default function PurchaseLink() {
       return savePurchaseUpdate(token, {
         poOrderId: orderId, poNumber: order.po_number, asin: order.asin,
         skuCode: order.sku_code, modelNumber: order.model_number, title: order.title,
-        metadata: { not_available: true }, vendorName: vendorInfo?.name, vendorEmail: vendorInfo?.email,
+        metadata: { not_available: true },
       });
     });
     
@@ -507,21 +489,15 @@ export default function PurchaseLink() {
     return sum + (order?.quantity || 0);
   }, 0);
 
-  const exportData = groupedOrders.map(group => {
-    const details = supplierDetails[group.key] || {};
-    return {
-      poNumber: group.poNumbers.join(', '),
-      asin: group.asin,
-      skuCode: group.skuCode,
-      title: group.title,
-      requiredQty: group.totalRequired,
-      purchasedQty: group.totalPurchased,
-      status: group.status,
-      supplierName: details.supplierName,
-      supplierOrderNumber: details.supplierOrderNumber,
-      notes: details.notes,
-    };
-  });
+  const exportData = groupedOrders.map(group => ({
+    poNumber: group.poNumbers.join(', '),
+    asin: group.asin,
+    skuCode: group.skuCode,
+    title: group.title,
+    requiredQty: group.totalRequired,
+    purchasedQty: group.totalPurchased,
+    status: group.status,
+  }));
 
   // Virtualizer
   const rowVirtualizer = useVirtualizer({
@@ -589,9 +565,6 @@ export default function PurchaseLink() {
           </CollapsibleContent>
         </Collapsible>
 
-        {/* Vendor Info */}
-        {token && <VendorInfoForm linkToken={token} />}
-
         {/* Sticky Search + Filter Bar */}
         <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b -mx-3 px-3 py-2 md:-mx-6 md:px-6 md:border md:rounded-lg md:mx-0 md:static md:backdrop-blur-none space-y-2">
           {/* Dual Search - always visible */}
@@ -602,6 +575,8 @@ export default function PurchaseLink() {
                 placeholder="Search by SKU / ASIN / PO..."
                 value={skuSearchTerm}
                 onChange={(e) => setSkuSearchTerm(e.target.value)}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
                 className="pl-9 h-10"
               />
             </div>
@@ -611,6 +586,8 @@ export default function PurchaseLink() {
                 placeholder="Search by title..."
                 value={titleSearchTerm}
                 onChange={(e) => setTitleSearchTerm(e.target.value)}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
                 className="pl-9 h-10"
               />
             </div>
@@ -678,7 +655,7 @@ export default function PurchaseLink() {
 
         {/* Virtualized Items List */}
         {filteredGroups.length > 0 ? (
-          <div ref={parentRef} className="h-[calc(100vh-280px)] overflow-auto">
+          <div ref={parentRef} className={`h-[calc(100vh-280px)] overflow-auto ${searchFocused ? 'pb-[50vh]' : ''}`}>
             <div
               style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}
             >
@@ -832,15 +809,6 @@ export default function PurchaseLink() {
                               <span className="ml-1 text-xs">Undo</span>
                             </Button>
                           </div>
-                        )}
-
-                        {/* Supplier Details */}
-                        {status !== 'not_available' && (
-                          <SupplierDetailsForm
-                            details={supplierDetails[group.key] || {}}
-                            onChange={(details) => setSupplierDetails(prev => ({ ...prev, [group.key]: details }))}
-                            disabled={isSaving}
-                          />
                         )}
                       </div>
                     </Card>
