@@ -16,7 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { usePOGroups } from '@/hooks/usePOGroups';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Loader2, Search, AlertTriangle, CheckSquare, Square, ChevronDown, ChevronUp, Folder, FolderPlus, Users, Trash2 } from 'lucide-react';
+import { Loader2, Search, AlertTriangle, CheckSquare, Square, ChevronDown, ChevronUp, Folder, FolderPlus, Users, Trash2, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface PO {
@@ -51,8 +51,12 @@ export function PriorityPOList() {
   const [newGroupDescription, setNewGroupDescription] = useState('');
   const [newGroupPriority, setNewGroupPriority] = useState<number>(3);
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
+  const [editingGroup, setEditingGroup] = useState<any>(null);
+  const [editGroupName, setEditGroupName] = useState('');
+  const [editGroupDescription, setEditGroupDescription] = useState('');
+  const [editGroupPriority, setEditGroupPriority] = useState(3);
   const { toast } = useToast();
-  const { poGroups, createGroup, addPOsToGroup, updateGroupPriority, deleteGroup, updateUngroupedPriorities } = usePOGroups();
+  const { poGroups, createGroup, addPOsToGroup, updateGroup, updateGroupPriority, deleteGroup, updateUngroupedPriorities } = usePOGroups();
   const parentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -542,6 +546,19 @@ export function PriorityPOList() {
                                 Priority {group.priority || 3}
                               </Badge>
                               
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0"
+                                onClick={() => {
+                                  setEditingGroup(group);
+                                  setEditGroupName(group.group_name);
+                                  setEditGroupDescription(group.description || '');
+                                  setEditGroupPriority(group.priority || 3);
+                                }}
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Button>
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                   <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0">
@@ -573,6 +590,67 @@ export function PriorityPOList() {
                     </div>
                   )}
                 </div>
+
+                {/* Edit Group Dialog */}
+                <Dialog open={!!editingGroup} onOpenChange={(open) => !open && setEditingGroup(null)}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Edit Group</DialogTitle>
+                      <DialogDescription>Update group name, description, and priority.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label>Group Name *</Label>
+                        <Input
+                          value={editGroupName}
+                          onChange={(e) => setEditGroupName(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label>Description</Label>
+                        <Textarea
+                          value={editGroupDescription}
+                          onChange={(e) => setEditGroupDescription(e.target.value)}
+                          rows={3}
+                        />
+                      </div>
+                      <div>
+                        <Label>Priority</Label>
+                        <Select
+                          value={String(editGroupPriority)}
+                          onValueChange={(v) => setEditGroupPriority(Number(v))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[1, 2, 3, 4, 5].map((p) => (
+                              <SelectItem key={p} value={String(p)}>Priority {p}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setEditingGroup(null)}>Cancel</Button>
+                      <Button
+                        onClick={async () => {
+                          if (!editGroupName.trim() || !editingGroup) return;
+                          await updateGroup.mutateAsync({
+                            groupId: editingGroup.id,
+                            name: editGroupName,
+                            description: editGroupDescription,
+                            priority: editGroupPriority,
+                          });
+                          setEditingGroup(null);
+                        }}
+                        disabled={updateGroup.isPending}
+                      >
+                        {updateGroup.isPending ? 'Saving...' : 'Save Changes'}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
 
                 {/* PO List in Groups tab - shared with priority tab */}
                 {loading && (
