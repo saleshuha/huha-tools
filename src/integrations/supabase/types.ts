@@ -5922,6 +5922,15 @@ export type Database = {
           total_line_items: number
         }[]
       }
+      get_po_group_summaries: {
+        Args: { p_user_id: string }
+        Returns: {
+          group_id: string
+          member_count: number
+          po_numbers: string[]
+          total_quantity: number
+        }[]
+      }
       get_po_reconciliation_summary: {
         Args: { user_id_param: string }
         Returns: {

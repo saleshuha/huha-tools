@@ -129,7 +129,7 @@ export default function ReceiveStock() {
     };
     
     if (!isCheckingAuth) loadMetrics();
-  }, [isCheckingAuth, localActivities]);
+  }, [isCheckingAuth]);
 
   // Check authentication on mount
   useEffect(() => {

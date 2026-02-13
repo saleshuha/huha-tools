@@ -7,61 +7,45 @@ export const usePOGroups = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch all PO groups with member counts
+  // Fetch all PO groups with member counts - optimized with single RPC call
   const { data: poGroups, isLoading } = useQuery({
     queryKey: ['po-groups'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { data: groups, error: groupsError } = await supabase
-        .from('po_groups')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false });
+      // Fetch groups and summaries in parallel
+      const [groupsResult, summariesResult] = await Promise.all([
+        supabase
+          .from('po_groups')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .order('created_at', { ascending: false }),
+        supabase.rpc('get_po_group_summaries', { p_user_id: user.id })
+      ]);
 
-      if (groupsError) throw groupsError;
+      if (groupsResult.error) throw groupsResult.error;
 
-      // For each group, fetch member count and unique PO info separately to avoid 1000 row limit
-      const groupsWithMembers: POGroupWithMembers[] = await Promise.all(
-        (groups || []).map(async (group) => {
-          // Get exact member count
-          const { count: memberCount } = await supabase
-            .from('po_group_members')
-            .select('id', { count: 'exact', head: true })
-            .eq('group_id', group.id);
+      // Build a lookup map from summaries
+      const summaryMap = new Map<string, any>();
+      if (summariesResult.data) {
+        for (const s of summariesResult.data) {
+          summaryMap.set(s.group_id, s);
+        }
+      }
 
-          // Paginate to fetch ALL members (bypass 1000 row limit)
-          let allMembers: any[] = [];
-          const PAGE_SIZE = 1000;
-          let page = 0;
-          let hasMore = true;
-          while (hasMore) {
-            const { data: members } = await supabase
-              .from('po_group_members')
-              .select('po_id, po_orders(po_number, quantity, priority)')
-              .eq('group_id', group.id)
-              .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-            
-            const batch = members || [];
-            allMembers = [...allMembers, ...batch];
-            hasMore = batch.length === PAGE_SIZE;
-            page++;
-          }
-
-          const poNumbers = allMembers.map((m: any) => m.po_orders?.po_number).filter(Boolean);
-          const totalQuantity = allMembers.reduce((sum: number, m: any) => sum + (m.po_orders?.quantity || 0), 0);
-
-          return {
-            ...group,
-            member_count: memberCount || 0,
-            total_quantity: totalQuantity,
-            po_numbers: poNumbers,
-            po_ids: allMembers.map((m: any) => m.po_id)
-          };
-        })
-      );
+      // Merge groups with their summaries
+      const groupsWithMembers: POGroupWithMembers[] = (groupsResult.data || []).map((group) => {
+        const summary = summaryMap.get(group.id);
+        return {
+          ...group,
+          member_count: summary ? Number(summary.member_count) : 0,
+          total_quantity: summary ? Number(summary.total_quantity) : 0,
+          po_numbers: summary?.po_numbers || [],
+          po_ids: [] // Only fetched on demand now
+        };
+      });
 
       return groupsWithMembers;
     },
