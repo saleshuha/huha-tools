@@ -266,6 +266,56 @@ export const usePOGroups = () => {
     },
   });
 
+  // Update group details (name, description, priority)
+  const updateGroup = useMutation({
+    mutationFn: async ({ groupId, name, description, priority }: { groupId: string; name: string; description?: string; priority: number }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('po_groups')
+        .update({ group_name: name, description, priority })
+        .eq('id', groupId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      // Also update priority on all member POs
+      const { data: members } = await supabase
+        .from('po_group_members')
+        .select('po_id')
+        .eq('group_id', groupId);
+
+      const poIds = members?.map(m => m.po_id) || [];
+      if (poIds.length > 0) {
+        const BATCH_SIZE = 100;
+        for (let i = 0; i < poIds.length; i += BATCH_SIZE) {
+          const batch = poIds.slice(i, i + BATCH_SIZE);
+          await supabase
+            .from('po_orders')
+            .update({ priority })
+            .in('id', batch)
+            .eq('user_id', user.id);
+        }
+      }
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['po-groups'] });
+      updateUngroupedPriorities.mutate();
+      toast({
+        title: 'Group updated',
+        description: 'Group details updated successfully',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
   // Get PO IDs for a group
   const getPOsInGroup = async (groupId: string) => {
     const { data, error } = await supabase
@@ -284,6 +334,7 @@ export const usePOGroups = () => {
     addPOsToGroup,
     removePOFromGroup,
     deleteGroup,
+    updateGroup,
     updateGroupPriority,
     updateUngroupedPriorities,
     getPOsInGroup,
