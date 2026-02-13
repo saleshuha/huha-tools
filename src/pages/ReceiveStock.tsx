@@ -9,7 +9,7 @@ import { ItemSearchBar, ItemSearchBarRef } from '@/components/stock-receiving/It
 import { QuantityConfirmDialog } from '@/components/stock-receiving/QuantityConfirmDialog';
 import { RecentActivityFeed } from '@/components/stock-receiving/RecentActivityFeed';
 import { PriorityPOList } from '@/components/stock-receiving/PriorityPOList';
-import { POGroupManager } from '@/components/stock-receiving/POGroupManager';
+
 import { ReceivingDashboard } from '@/components/stock-receiving/ReceivingDashboard';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,26 +11,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { POPriorityBadge } from '@/components/po/POPriorityBadge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { usePOGroups } from '@/hooks/usePOGroups';
-import { useVirtualizer } from '@tanstack/react-virtual';
-import { Loader2, Search, AlertTriangle, CheckSquare, Square, ChevronDown, ChevronUp, Folder, FolderPlus, Users, Trash2, Pencil } from 'lucide-react';
+import { Loader2, Search, AlertTriangle, ChevronDown, ChevronUp, Folder, FolderPlus, Trash2, Pencil, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-interface PO {
-  id: string;
-  po_number: string;
-  status: string;
-  priority: number;
-  quantity: number;
-  asin?: string;
-  sku_code?: string;
-  model_number?: string;
-  title?: string;
-  expected_delivery?: string;
-}
 
 const PRIORITY_COLORS: Record<number, string> = {
   1: 'border-l-destructive',
@@ -40,166 +25,149 @@ const PRIORITY_COLORS: Record<number, string> = {
   5: 'border-l-muted-foreground',
 };
 
+const PRIORITY_LABELS: Record<number, string> = {
+  1: 'Critical',
+  2: 'High',
+  3: 'Medium',
+  4: 'Low',
+  5: 'Minimal',
+};
+
+interface ExpandedGroupData {
+  loading: boolean;
+  pos: Array<{ po_id: string; po_number: string; quantity: number; priority: number; asin?: string; sku_code?: string; title?: string }>;
+}
+
 export function PriorityPOList() {
-  const [pos, setPOs] = useState<PO[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPOs, setSelectedPOs] = useState<Set<string>>(new Set());
   const [isOpen, setIsOpen] = useState(false);
-  const [showGroupDialog, setShowGroupDialog] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [expandedGroupData, setExpandedGroupData] = useState<Record<string, ExpandedGroupData>>({});
+  
+  // Create group state
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupDescription, setNewGroupDescription] = useState('');
   const [newGroupPriority, setNewGroupPriority] = useState<number>(3);
-  const [selectedGroupId, setSelectedGroupId] = useState<string>('');
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [dialogPOs, setDialogPOs] = useState<Array<{ id: string; po_number: string; quantity: number }>>([]);
+  const [dialogPOsLoading, setDialogPOsLoading] = useState(false);
+  const [dialogSelectedPOs, setDialogSelectedPOs] = useState<Set<string>>(new Set());
+  const [dialogSearch, setDialogSearch] = useState('');
+  const [dialogTab, setDialogTab] = useState<'new' | 'existing'>('new');
+  const [selectedGroupId, setSelectedGroupId] = useState('');
+
+  // Edit group state
   const [editingGroup, setEditingGroup] = useState<any>(null);
   const [editGroupName, setEditGroupName] = useState('');
   const [editGroupDescription, setEditGroupDescription] = useState('');
   const [editGroupPriority, setEditGroupPriority] = useState(3);
+
   const { toast } = useToast();
-  const { poGroups, createGroup, addPOsToGroup, updateGroup, updateGroupPriority, deleteGroup, updateUngroupedPriorities } = usePOGroups();
-  const parentRef = useRef<HTMLDivElement>(null);
+  const { poGroups, isLoading, createGroup, addPOsToGroup, updateGroup, deleteGroup, getPOsInGroup } = usePOGroups();
 
-  // Only update ungrouped priorities once on mount, not blocking every load
-  const ungroupedPrioritiesUpdated = useRef(false);
+  // Filter groups by search
+  const filteredGroups = (poGroups || [])
+    .filter(group => {
+      if (!searchQuery) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        group.group_name.toLowerCase().includes(q) ||
+        (group.po_numbers || []).some((pn: string) => pn.toLowerCase().includes(q))
+      );
+    })
+    .sort((a: any, b: any) => (a.priority || 3) - (b.priority || 3));
 
-  useEffect(() => {
-    if (!ungroupedPrioritiesUpdated.current) {
-      ungroupedPrioritiesUpdated.current = true;
-      // Fire and forget - don't block PO loading
-      updateUngroupedPriorities.mutateAsync().catch(() => {});
-    }
-    loadPOs();
-  }, []);
-
-  const loadPOs = async () => {
-    try {
-      setLoading(true);
-      
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Only fetch POs that belong to groups (via po_group_members)
-      // This is much faster than fetching all POs
-      let allMembers: any[] = [];
-      let from = 0;
-      const batchSize = 1000;
-      let hasMore = true;
-
-      while (hasMore) {
-        const { data, error } = await supabase
-          .from('po_group_members')
-          .select('po_id, po_orders(id, po_number, status, priority, quantity, asin, sku_code, model_number, title, expected_delivery)')
-          .range(from, from + batchSize - 1);
-
-        if (error) throw error;
-        
-        if (data && data.length > 0) {
-          allMembers = [...allMembers, ...data];
-          from += batchSize;
-          hasMore = data.length === batchSize;
-        } else {
-          hasMore = false;
+  // Toggle expand and load PO details on-demand
+  const toggleExpand = useCallback(async (groupId: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+        // Load PO details if not cached
+        if (!expandedGroupData[groupId]) {
+          loadGroupPOs(groupId);
         }
       }
+      return next;
+    });
+  }, [expandedGroupData]);
 
-      // Extract unique PO items from members
+  const loadGroupPOs = async (groupId: string) => {
+    setExpandedGroupData(prev => ({ ...prev, [groupId]: { loading: true, pos: [] } }));
+    try {
+      const data = await getPOsInGroup(groupId);
+      // Aggregate by po_number
       const poMap = new Map<string, any>();
-      for (const member of allMembers) {
-        const po = member.po_orders;
+      for (const member of (data || [])) {
+        const po = member.po_orders as any;
         if (!po) continue;
         const key = po.po_number;
         if (!poMap.has(key)) {
-          poMap.set(key, { ...po, quantity: 0 });
+          poMap.set(key, { po_id: member.po_id, po_number: po.po_number, quantity: 0, priority: po.priority || 3, asin: po.asin, sku_code: po.sku_code, title: po.title });
         }
-        const existing = poMap.get(key);
-        existing.quantity += po.quantity;
-        if (!existing.priority || po.priority < existing.priority) {
-          existing.priority = po.priority || 3;
-        }
+        poMap.get(key).quantity += po.quantity || 0;
       }
+      setExpandedGroupData(prev => ({ ...prev, [groupId]: { loading: false, pos: Array.from(poMap.values()) } }));
+    } catch {
+      setExpandedGroupData(prev => ({ ...prev, [groupId]: { loading: false, pos: [] } }));
+    }
+  };
 
-      const groupedArray = Array.from(poMap.values()) as PO[];
-      console.log(`Loaded ${groupedArray.length} grouped POs from ${allMembers.length} members`);
-      setPOs(groupedArray);
+  // Load POs for the create dialog
+  const loadDialogPOs = async () => {
+    setDialogPOsLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      // Fetch ungrouped POs (not in any group)
+      const { data, error } = await supabase
+        .from('po_orders')
+        .select('id, po_number, quantity')
+        .eq('user_id', user.id)
+        .in('status', ['pending', 'placed'])
+        .order('po_number')
+        .limit(500);
+
+      if (error) throw error;
+      
+      // Deduplicate by po_number, sum quantities
+      const poMap = new Map<string, { id: string; po_number: string; quantity: number }>();
+      for (const po of (data || [])) {
+        if (!poMap.has(po.po_number)) {
+          poMap.set(po.po_number, { id: po.id, po_number: po.po_number, quantity: 0 });
+        }
+        poMap.get(po.po_number)!.quantity += po.quantity || 0;
+      }
+      setDialogPOs(Array.from(poMap.values()));
     } catch (error) {
-      console.error('Failed to load POs:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load purchase orders',
-        variant: 'destructive'
-      });
+      console.error('Failed to load POs for dialog:', error);
     } finally {
-      setLoading(false);
+      setDialogPOsLoading(false);
     }
   };
 
-  const togglePOSelection = (poNumber: string) => {
-    setSelectedPOs(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(poNumber)) {
-        newSet.delete(poNumber);
-      } else {
-        newSet.add(poNumber);
-      }
-      return newSet;
-    });
+  const openCreateDialog = () => {
+    setShowCreateDialog(true);
+    setNewGroupName('');
+    setNewGroupDescription('');
+    setNewGroupPriority(3);
+    setDialogSelectedPOs(new Set());
+    setDialogSearch('');
+    setDialogTab('new');
+    setSelectedGroupId('');
+    loadDialogPOs();
   };
-
-  const toggleSelectAll = () => {
-    if (selectedPOs.size === filteredPOs.length) {
-      setSelectedPOs(new Set());
-    } else {
-      setSelectedPOs(new Set(filteredPOs.map(po => po.po_number)));
-    }
-  };
-
-  // Get all grouped PO numbers from groups
-  const groupedPONumbers = new Set<string>();
-  poGroups?.forEach((group: any) => {
-    group.po_numbers?.forEach((pn: string) => groupedPONumbers.add(pn));
-  });
-
-  const filteredPOs = pos.filter(po => {
-    const query = searchQuery?.toLowerCase();
-    const matchesSearch = !query || (
-      po.po_number.toLowerCase().includes(query) ||
-      po.asin?.toLowerCase().includes(query) ||
-      po.sku_code?.toLowerCase().includes(query) ||
-      po.title?.toLowerCase().includes(query)
-    );
-    return matchesSearch;
-  });
-
-  // Priority tab: only grouped POs
-  const groupedFilteredPOs = filteredPOs.filter(po => groupedPONumbers.has(po.po_number));
-
-  const allSelected = selectedPOs.size === filteredPOs.length && filteredPOs.length > 0;
-
-  // Virtualizer for PO list
-  const rowVirtualizer = useVirtualizer({
-    count: groupedFilteredPOs.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 100,
-    overscan: 10,
-  });
 
   const handleCreateGroup = async () => {
     if (!newGroupName.trim()) {
-      toast({
-        title: 'Error',
-        description: 'Please enter a group name',
-        variant: 'destructive'
-      });
+      toast({ title: 'Error', description: 'Please enter a group name', variant: 'destructive' });
       return;
     }
-
-    if (selectedPOs.size === 0) {
-      toast({
-        title: 'Error',
-        description: 'Please select at least one PO',
-        variant: 'destructive'
-      });
+    if (dialogSelectedPOs.size === 0) {
+      toast({ title: 'Error', description: 'Please select at least one PO', variant: 'destructive' });
       return;
     }
 
@@ -211,57 +179,28 @@ export function PriorityPOList() {
         .from('po_orders')
         .select('id')
         .eq('user_id', user.id)
-        .in('po_number', Array.from(selectedPOs));
+        .in('po_number', Array.from(dialogSelectedPOs));
 
       if (error) throw error;
-
-      const poIds = poItems?.map(item => item.id) || [];
 
       await createGroup.mutateAsync({
         name: newGroupName,
         description: newGroupDescription,
-        poIds,
-        priority: newGroupPriority
+        poIds: poItems?.map(i => i.id) || [],
+        priority: newGroupPriority,
       });
 
-      setShowGroupDialog(false);
-      setNewGroupName('');
-      setNewGroupDescription('');
-      setNewGroupPriority(3);
-      setSelectedPOs(new Set());
-      
-      toast({
-        title: 'Success',
-        description: 'Group created successfully'
-      });
+      setShowCreateDialog(false);
+      // Clear cached expanded data
+      setExpandedGroupData({});
     } catch (error) {
       console.error('Failed to create group:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to create group',
-        variant: 'destructive'
-      });
+      toast({ title: 'Error', description: 'Failed to create group', variant: 'destructive' });
     }
   };
 
-  const handleAddToExistingGroup = async () => {
-    if (!selectedGroupId) {
-      toast({
-        title: 'Error',
-        description: 'Please select a group',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    if (selectedPOs.size === 0) {
-      toast({
-        title: 'Error',
-        description: 'Please select at least one PO',
-        variant: 'destructive'
-      });
-      return;
-    }
+  const handleAddToExisting = async () => {
+    if (!selectedGroupId || dialogSelectedPOs.size === 0) return;
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -271,36 +210,39 @@ export function PriorityPOList() {
         .from('po_orders')
         .select('id')
         .eq('user_id', user.id)
-        .in('po_number', Array.from(selectedPOs));
+        .in('po_number', Array.from(dialogSelectedPOs));
 
       if (error) throw error;
 
-      const poIds = poItems?.map(item => item.id) || [];
-
       await addPOsToGroup.mutateAsync({
         groupId: selectedGroupId,
-        poIds
+        poIds: poItems?.map(i => i.id) || [],
       });
 
-      setShowGroupDialog(false);
-      setSelectedGroupId('');
-      setSelectedPOs(new Set());
-      
-      toast({
-        title: 'Success',
-        description: 'POs added to group successfully'
-      });
+      setShowCreateDialog(false);
+      setExpandedGroupData({});
     } catch (error) {
       console.error('Failed to add to group:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to add to group',
-        variant: 'destructive'
-      });
+      toast({ title: 'Error', description: 'Failed to add POs to group', variant: 'destructive' });
     }
   };
 
-  const pendingCount = pos.filter(po => po.status === 'pending' || po.status === 'placed').length;
+  const handleEditSave = async () => {
+    if (!editGroupName.trim() || !editingGroup) return;
+    await updateGroup.mutateAsync({
+      groupId: editingGroup.id,
+      name: editGroupName,
+      description: editGroupDescription,
+      priority: editGroupPriority,
+    });
+    setEditingGroup(null);
+    setExpandedGroupData({});
+  };
+
+  const filteredDialogPOs = dialogPOs.filter(po => {
+    if (!dialogSearch) return true;
+    return po.po_number.toLowerCase().includes(dialogSearch.toLowerCase());
+  });
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -314,548 +256,325 @@ export function PriorityPOList() {
                 </div>
                 <div>
                   <CardTitle>PO Groups & Priority</CardTitle>
-                  <CardDescription>
-                    Organize POs into groups and set priority
-                  </CardDescription>
+                  <CardDescription>Manage groups and set priority</CardDescription>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="text-xs font-medium">
-                  {pos.length} POs
+                  {poGroups?.length || 0} Groups
                 </Badge>
-                {isOpen ? (
-                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                )}
+                {isOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
               </div>
             </div>
           </CardHeader>
         </CollapsibleTrigger>
-        
+
         <CollapsibleContent>
           <CardContent className="space-y-4">
-            {/* Consolidated Search - shared across tabs */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search PO number, ASIN, SKU, title..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 rounded-lg"
-              />
+            {/* Header with search + create */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search groups or PO numbers..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 rounded-lg"
+                />
+              </div>
+              <Button size="sm" onClick={openCreateDialog} className="shrink-0">
+                <Plus className="w-4 h-4 mr-1" />
+                New Group
+              </Button>
             </div>
 
-            <Tabs defaultValue="priority" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 rounded-lg">
-                <TabsTrigger value="priority" className="flex items-center gap-2 rounded-lg">
-                  <AlertTriangle className="w-4 h-4" />
-                  Priority
-                  <Badge variant="secondary" className="text-xs ml-1 h-5 px-1.5">
-                    {groupedFilteredPOs.length}
-                  </Badge>
-                </TabsTrigger>
-                <TabsTrigger value="groups" className="flex items-center gap-2 rounded-lg">
-                  <Folder className="w-4 h-4" />
-                  Groups
-                  <Badge variant="secondary" className="text-xs ml-1 h-5 px-1.5">
-                    {poGroups?.length || 0}
-                  </Badge>
-                </TabsTrigger>
-              </TabsList>
+            {/* Loading */}
+            {isLoading && (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              </div>
+            )}
 
-              {/* Priority Management Tab - Only Grouped POs */}
-              <TabsContent value="priority" className="space-y-3 mt-4">
-                {loading && (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                  </div>
-                )}
+            {/* Empty state */}
+            {!isLoading && filteredGroups.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                {searchQuery ? 'No groups match your search' : 'No groups yet. Create one to organize your POs.'}
+              </div>
+            )}
 
-                {!loading && groupedFilteredPOs.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    {searchQuery ? 'No grouped POs match your search' : 'No grouped POs yet. Go to Groups tab to create groups first.'}
-                  </div>
-                )}
+            {/* Group cards */}
+            {!isLoading && filteredGroups.length > 0 && (
+              <div className="space-y-2">
+                {filteredGroups.map((group: any) => {
+                  const isExpanded = expandedGroups.has(group.id);
+                  const priority = group.priority || 3;
+                  const priorityColor = PRIORITY_COLORS[priority] || 'border-l-border';
+                  const uniquePOs = [...new Set(group.po_numbers || [])];
+                  const groupData = expandedGroupData[group.id];
 
-                {!loading && poGroups && poGroups.length > 0 && (
-                  <div className="space-y-2">
-                    {poGroups
-                      .sort((a: any, b: any) => (a.priority || 3) - (b.priority || 3))
-                      .map((group: any) => {
-                        const groupPOs = groupedFilteredPOs.filter(po => 
-                          group.po_numbers?.includes(po.po_number)
-                        );
-                        const uniquePONumbers = [...new Set(group.po_numbers || [])];
-                        const isExpanded = expandedGroups.has(group.id);
-                        const priorityColor = PRIORITY_COLORS[group.priority || 3] || 'border-l-border';
-                        
-                        return (
-                          <div key={group.id} className="rounded-lg border border-border/50 overflow-hidden">
-                            <button
-                              onClick={() => {
-                                setExpandedGroups(prev => {
-                                  const next = new Set(prev);
-                                  if (next.has(group.id)) {
-                                    next.delete(group.id);
-                                  } else {
-                                    next.add(group.id);
-                                  }
-                                  return next;
-                                });
-                              }}
-                              className={cn(
-                                "flex items-center gap-2 w-full px-4 py-3 border-l-4 bg-muted/30 hover:bg-muted/50 transition-colors text-left",
-                                priorityColor
-                              )}
-                            >
-                              {isExpanded ? (
-                                <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
-                              ) : (
-                                <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
-                              )}
-                              <Folder className="w-4 h-4 text-primary shrink-0" />
-                              <span className="font-semibold text-sm">{group.group_name}</span>
-                              <Badge variant="secondary" className="text-xs">
-                                {uniquePONumbers.length} POs • {group.total_quantity} items
-                              </Badge>
-                              <Badge variant="outline" className="text-xs ml-auto">
-                                P{group.priority || 3}
-                              </Badge>
-                            </button>
-                            
-                            {isExpanded && (
-                              <div className="p-3 space-y-1.5 bg-card">
-                                {groupPOs.length > 0 ? groupPOs.map((po) => (
-                                  <div
-                                    key={po.po_number}
-                                    className={cn(
-                                      "flex items-start gap-3 p-3 rounded-lg border transition-all",
-                                      "border-border hover:border-primary/50 hover:bg-accent/30 hover:shadow-sm"
-                                    )}
-                                  >
-                                    <div className="flex-1 min-w-0 space-y-1">
-                                      <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="font-semibold text-foreground text-sm">
-                                          {po.po_number}
-                                        </span>
-                                        <Badge variant="outline" className="text-xs">
-                                          {po.status.toUpperCase()}
-                                        </Badge>
-                                        <Badge variant="secondary" className="text-xs">
-                                          {po.quantity} items
-                                        </Badge>
-                                      </div>
-                                      
-                                      {po.title && (
-                                        <p className="text-xs text-muted-foreground line-clamp-1">
-                                          {po.title}
-                                        </p>
-                                      )}
-                                      
-                                      <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-                                        {po.asin && <span>ASIN: {po.asin}</span>}
-                                        {po.sku_code && <span>• SKU: {po.sku_code}</span>}
-                                      </div>
-                                    </div>
-
-                                    <POPriorityBadge
-                                      priority={po.priority || 3}
-                                      onUpdate={() => {}}
-                                      disabled
-                                    />
-                                  </div>
-                                )) : (
-                                  <div className="text-center py-4 text-muted-foreground text-xs">
-                                    {uniquePONumbers.length} POs in this group ({group.total_quantity} items total)
-                                    <br />
-                                    <span className="text-muted-foreground/70">POs: {uniquePONumbers.slice(0, 5).join(', ')}{uniquePONumbers.length > 5 ? ` +${uniquePONumbers.length - 5} more` : ''}</span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                  </div>
-                )}
-
-                {!loading && groupedFilteredPOs.length > 0 && (
-                  <div className="p-3 bg-sky/5 border border-sky/20 rounded-lg">
-                    <p className="text-xs text-muted-foreground">
-                      💡 <strong>How it works:</strong> Only grouped POs are shown here. Ungrouped POs automatically receive a priority number. Higher priority groups (P1, P2) will be fulfilled first.
-                    </p>
-                  </div>
-                )}
-              </TabsContent>
-
-              {/* Group Management Tab */}
-              <TabsContent value="groups" className="space-y-4 mt-4">
-                {selectedPOs.size > 0 && (
-                  <div className="flex items-center justify-between p-3 bg-primary/5 border border-primary/20 rounded-lg">
-                    <span className="text-sm font-medium">
-                      {selectedPOs.size} PO{selectedPOs.size > 1 ? 's' : ''} selected
-                    </span>
-                    <Button
-                      size="sm"
-                      onClick={() => setShowGroupDialog(true)}
-                      className="flex items-center gap-2"
-                    >
-                      <FolderPlus className="w-4 h-4" />
-                      Create/Add to Group
-                    </Button>
-                  </div>
-                )}
-
-                {/* Existing Groups List */}
-                <div className="space-y-2">
-                  <h4 className="text-sm font-semibold flex items-center gap-2">
-                    <Users className="w-4 h-4" />
-                    Existing Groups
-                  </h4>
-                    
-                  {!poGroups || poGroups.length === 0 ? (
-                    <div className="text-center py-6 text-muted-foreground text-sm">
-                      No groups created yet. Select POs and create a group to get started.
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {poGroups.map((group: any) => (
-                        <div
-                          key={group.id}
-                          className="p-4 rounded-lg border border-border hover:border-primary/50 transition-all hover:shadow-sm bg-card"
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <Folder className="w-4 h-4 text-primary shrink-0" />
-                                <span className="font-semibold">{group.group_name}</span>
-                                <Badge variant="secondary" className="text-xs">
-                                  {group.member_count} Items
-                                </Badge>
-                              </div>
-                              {group.description && (
-                                <p className="text-xs text-muted-foreground mt-1 ml-6">
-                                  {group.description}
-                                </p>
-                              )}
-                              {group.po_numbers && group.po_numbers.length > 0 && (() => {
-                                const uniquePOs = [...new Set(group.po_numbers)];
-                                return (
-                                  <div className="text-xs text-muted-foreground mt-1 ml-6">
-                                    POs: {uniquePOs.slice(0, 3).join(', ')}
-                                    {uniquePOs.length > 3 && ` +${uniquePOs.length - 3} more`}
-                                  </div>
-                                );
-                              })()}
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              {/* Priority display (read-only) */}
-                              <Badge variant="outline" className="text-xs font-medium">
-                                Priority {group.priority || 3}
-                              </Badge>
-                              
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-8 w-8 p-0"
-                                onClick={() => {
-                                  setEditingGroup(group);
-                                  setEditGroupName(group.group_name);
-                                  setEditGroupDescription(group.description || '');
-                                  setEditGroupPriority(group.priority || 3);
-                                }}
-                              >
-                                <Pencil className="w-4 h-4" />
-                              </Button>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0">
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Delete Group</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Are you sure you want to delete "{group.group_name}"? This will ungroup the POs but won't delete them.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() => deleteGroup.mutate(group.id)}
-                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                    >
-                                      Delete
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Edit Group Dialog */}
-                <Dialog open={!!editingGroup} onOpenChange={(open) => !open && setEditingGroup(null)}>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Edit Group</DialogTitle>
-                      <DialogDescription>Update group name, description, and priority.</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label>Group Name *</Label>
-                        <Input
-                          value={editGroupName}
-                          onChange={(e) => setEditGroupName(e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <Label>Description</Label>
-                        <Textarea
-                          value={editGroupDescription}
-                          onChange={(e) => setEditGroupDescription(e.target.value)}
-                          rows={3}
-                        />
-                      </div>
-                      <div>
-                        <Label>Priority</Label>
-                        <Select
-                          value={String(editGroupPriority)}
-                          onValueChange={(v) => setEditGroupPriority(Number(v))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {[1, 2, 3, 4, 5].map((p) => (
-                              <SelectItem key={p} value={String(p)}>Priority {p}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setEditingGroup(null)}>Cancel</Button>
-                      <Button
-                        onClick={async () => {
-                          if (!editGroupName.trim() || !editingGroup) return;
-                          await updateGroup.mutateAsync({
-                            groupId: editingGroup.id,
-                            name: editGroupName,
-                            description: editGroupDescription,
-                            priority: editGroupPriority,
-                          });
-                          setEditingGroup(null);
-                        }}
-                        disabled={updateGroup.isPending}
-                      >
-                        {updateGroup.isPending ? 'Saving...' : 'Save Changes'}
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-
-                {/* PO List in Groups tab - shared with priority tab */}
-                {loading && (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                  </div>
-                )}
-
-                {!loading && filteredPOs.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    {searchQuery ? 'No POs match your search' : 'No open purchase orders'}
-                  </div>
-                )}
-
-                {!loading && filteredPOs.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 px-4 py-2 bg-muted/30 rounded-lg border border-border/50">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={toggleSelectAll}
-                        className="h-auto p-0"
-                      >
-                        {allSelected ? (
-                          <CheckSquare className="w-4 h-4 text-primary" />
-                        ) : (
-                          <Square className="w-4 h-4" />
+                  return (
+                    <div key={group.id} className="rounded-lg border border-border/50 overflow-hidden">
+                      {/* Group header */}
+                      <div
+                        className={cn(
+                          "flex items-center gap-2 w-full px-4 py-3 border-l-4 bg-muted/30 hover:bg-muted/50 transition-colors",
+                          priorityColor
                         )}
-                      </Button>
-                      <span className="text-sm font-medium">
-                        Select All ({filteredPOs.length})
-                      </span>
-                    </div>
+                      >
+                        <button
+                          onClick={() => toggleExpand(group.id)}
+                          className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                        >
+                          {isExpanded ? (
+                            <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                          )}
+                          <Folder className="w-4 h-4 text-primary shrink-0" />
+                          <span className="font-semibold text-sm truncate">{group.group_name}</span>
+                          <Badge variant="secondary" className="text-xs shrink-0">
+                            {uniquePOs.length} POs • {group.total_quantity} items
+                          </Badge>
+                          <Badge variant="outline" className="text-xs shrink-0 ml-auto">
+                            P{priority} {PRIORITY_LABELS[priority] || ''}
+                          </Badge>
+                        </button>
 
-                    <div className="max-h-[400px] overflow-auto space-y-2 rounded-lg">
-                      {filteredPOs.map((po) => {
-                        const priorityColor = PRIORITY_COLORS[po.priority] || 'border-l-border';
-                        return (
-                          <div
-                            key={po.po_number}
-                            className={cn(
-                              "flex items-start gap-3 p-4 rounded-lg border border-l-4 transition-all",
-                              priorityColor,
-                              selectedPOs.has(po.po_number)
-                                ? "border-primary bg-primary/5 shadow-sm"
-                                : "border-border hover:border-primary/50 hover:bg-accent/30 hover:shadow-sm"
-                            )}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 w-7 p-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingGroup(group);
+                              setEditGroupName(group.group_name);
+                              setEditGroupDescription(group.description || '');
+                              setEditGroupPriority(priority);
+                            }}
                           >
-                            <Checkbox
-                              checked={selectedPOs.has(po.po_number)}
-                              onCheckedChange={() => togglePOSelection(po.po_number)}
-                              className="mt-1"
-                            />
-                            
-                            <div className="flex-1 min-w-0 space-y-1.5">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-semibold text-foreground">
-                                  {po.po_number}
-                                </span>
-                                <Badge variant="outline" className="text-xs">
-                                  {po.status.toUpperCase()}
-                                </Badge>
-                                <Badge variant="secondary" className="text-xs">
-                                  {po.quantity} items
-                                </Badge>
-                              </div>
-                              
-                              {po.title && (
-                                <p className="text-sm text-muted-foreground line-clamp-1">
-                                  {po.title}
-                                </p>
-                              )}
-                              
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-                                {po.asin && <span>ASIN: {po.asin}</span>}
-                                {po.sku_code && <span>• SKU: {po.sku_code}</span>}
-                                {po.expected_delivery && (
-                                  <span>• Expected: {new Date(po.expected_delivery).toLocaleDateString()}</span>
-                                )}
-                              </div>
-                            </div>
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 w-7 p-0" onClick={(e) => e.stopPropagation()}>
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Group</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Delete "{group.group_name}"? POs will be ungrouped but not deleted.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => deleteGroup.mutate(group.id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </div>
 
-                            <div className="flex flex-col items-end gap-1">
-                              {po.priority < 6 ? (
-                                <POPriorityBadge
-                                  priority={po.priority || 3}
-                                  onUpdate={() => {}}
-                                  disabled
-                                />
-                              ) : (
-                                <Badge variant="outline" className="text-xs border-dashed text-muted-foreground">
-                                  📋 Auto-Priority {po.priority}
-                                </Badge>
-                              )}
+                      {/* Expanded PO list */}
+                      {isExpanded && (
+                        <div className="p-3 space-y-1.5 bg-card border-t border-border/30">
+                          {groupData?.loading && (
+                            <div className="flex items-center justify-center py-4">
+                              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
                             </div>
-                          </div>
-                        );
-                      })}
+                          )}
+                          {groupData && !groupData.loading && groupData.pos.length > 0 && (
+                            groupData.pos.map((po) => (
+                              <div
+                                key={po.po_number}
+                                className="flex items-center gap-3 p-2.5 rounded-md border border-border/50 hover:bg-accent/30 transition-colors text-sm"
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-medium">{po.po_number}</span>
+                                    <Badge variant="secondary" className="text-xs">{po.quantity} items</Badge>
+                                  </div>
+                                  {po.title && <p className="text-xs text-muted-foreground truncate mt-0.5">{po.title}</p>}
+                                  <div className="flex gap-2 text-xs text-muted-foreground mt-0.5">
+                                    {po.asin && <span>ASIN: {po.asin}</span>}
+                                    {po.sku_code && <span>SKU: {po.sku_code}</span>}
+                                  </div>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                          {groupData && !groupData.loading && groupData.pos.length === 0 && (
+                            <div className="text-center py-3 text-xs text-muted-foreground">
+                              {uniquePOs.length} POs: {uniquePOs.slice(0, 5).join(', ')}{uniquePOs.length > 5 ? ` +${uniquePOs.length - 5} more` : ''}
+                            </div>
+                          )}
+                          {!groupData && (
+                            <div className="text-center py-3 text-xs text-muted-foreground">
+                              Loading...
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Tip */}
+            {!isLoading && (poGroups?.length || 0) > 0 && (
+              <div className="p-3 bg-sky/5 border border-sky/20 rounded-lg">
+                <p className="text-xs text-muted-foreground">
+                  💡 Higher priority groups (P1, P2) are fulfilled first. Ungrouped POs auto-receive a priority number.
+                </p>
+              </div>
+            )}
           </CardContent>
         </CollapsibleContent>
       </Card>
 
-      {/* Create/Add Group Dialog */}
-      <Dialog open={showGroupDialog} onOpenChange={setShowGroupDialog}>
-        <DialogContent>
+      {/* Create / Add to Group Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Group POs</DialogTitle>
-            <DialogDescription>
-              Create a new group or add selected POs to an existing group
-            </DialogDescription>
+            <DialogTitle>Add POs to Group</DialogTitle>
+            <DialogDescription>Create a new group or add to an existing one</DialogDescription>
           </DialogHeader>
 
-          <Tabs defaultValue="new" className="w-full">
+          <Tabs value={dialogTab} onValueChange={(v) => setDialogTab(v as any)} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="new">Create New Group</TabsTrigger>
-              <TabsTrigger value="existing">Add to Existing</TabsTrigger>
+              <TabsTrigger value="new">New Group</TabsTrigger>
+              <TabsTrigger value="existing">Existing Group</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="new" className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="group-name">Group Name *</Label>
-                <Input
-                  id="group-name"
-                  placeholder="Enter group name..."
-                  value={newGroupName}
-                  onChange={(e) => setNewGroupName(e.target.value)}
-                />
+            <TabsContent value="new" className="space-y-3 mt-3">
+              <div>
+                <Label>Group Name *</Label>
+                <Input value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} placeholder="e.g., Urgent Orders" />
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="group-description">Description (Optional)</Label>
-                <Textarea
-                  id="group-description"
-                  placeholder="Enter group description..."
-                  value={newGroupDescription}
-                  onChange={(e) => setNewGroupDescription(e.target.value)}
-                  rows={3}
-                />
+              <div>
+                <Label>Description</Label>
+                <Textarea value={newGroupDescription} onChange={(e) => setNewGroupDescription(e.target.value)} placeholder="Optional" rows={2} />
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="group-priority">Group Priority</Label>
-                <Select
-                  value={newGroupPriority.toString()}
-                  onValueChange={(value) => setNewGroupPriority(parseInt(value))}
-                >
-                  <SelectTrigger id="group-priority">
-                    <SelectValue />
-                  </SelectTrigger>
+              <div>
+                <Label>Priority</Label>
+                <Select value={String(newGroupPriority)} onValueChange={(v) => setNewGroupPriority(Number(v))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1">🚀 1st Nearest Shipment</SelectItem>
-                    <SelectItem value="2">🔥 2nd Nearest Shipment</SelectItem>
-                    <SelectItem value="3">📦 3rd Nearest Shipment</SelectItem>
-                    <SelectItem value="4">📅 4th Nearest Shipment</SelectItem>
-                    <SelectItem value="5">⏰ 5th Nearest Shipment</SelectItem>
+                    {[1, 2, 3, 4, 5].map(p => (
+                      <SelectItem key={p} value={String(p)}>P{p} - {PRIORITY_LABELS[p]}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
-
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setShowGroupDialog(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleCreateGroup}>Create Group</Button>
-              </DialogFooter>
             </TabsContent>
 
-            <TabsContent value="existing" className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="select-group">Select Group</Label>
+            <TabsContent value="existing" className="space-y-3 mt-3">
+              <div>
+                <Label>Select Group</Label>
                 <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
-                  <SelectTrigger id="select-group">
-                    <SelectValue placeholder="Choose a group..." />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Choose a group..." /></SelectTrigger>
                   <SelectContent>
-                    {poGroups?.map((group: any) => (
-                      <SelectItem key={group.id} value={group.id}>
-                        {group.group_name} ({group.member_count} POs)
-                      </SelectItem>
-                    ))}</SelectContent>
+                    {(poGroups || []).map((g: any) => (
+                      <SelectItem key={g.id} value={g.id}>{g.group_name} (P{g.priority || 3})</SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               </div>
-
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setShowGroupDialog(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleAddToExistingGroup}>Add to Group</Button>
-              </DialogFooter>
             </TabsContent>
           </Tabs>
+
+          {/* PO Selection */}
+          <div className="space-y-2">
+            <Label>Select POs ({dialogSelectedPOs.size} selected)</Label>
+            <Input
+              placeholder="Search PO numbers..."
+              value={dialogSearch}
+              onChange={(e) => setDialogSearch(e.target.value)}
+              className="text-sm"
+            />
+            <div className="max-h-[200px] overflow-auto space-y-1 border rounded-lg p-2">
+              {dialogPOsLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                </div>
+              ) : filteredDialogPOs.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4">No POs found</p>
+              ) : (
+                filteredDialogPOs.map(po => (
+                  <label key={po.po_number} className="flex items-center gap-2 p-1.5 rounded hover:bg-accent/30 cursor-pointer text-sm">
+                    <Checkbox
+                      checked={dialogSelectedPOs.has(po.po_number)}
+                      onCheckedChange={() => {
+                        setDialogSelectedPOs(prev => {
+                          const next = new Set(prev);
+                          if (next.has(po.po_number)) next.delete(po.po_number);
+                          else next.add(po.po_number);
+                          return next;
+                        });
+                      }}
+                    />
+                    <span className="font-medium">{po.po_number}</span>
+                    <span className="text-xs text-muted-foreground ml-auto">{po.quantity} items</span>
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>Cancel</Button>
+            <Button
+              onClick={dialogTab === 'new' ? handleCreateGroup : handleAddToExisting}
+              disabled={createGroup.isPending || addPOsToGroup.isPending}
+            >
+              {(createGroup.isPending || addPOsToGroup.isPending) ? 'Saving...' : dialogTab === 'new' ? 'Create Group' : 'Add to Group'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Group Dialog */}
+      <Dialog open={!!editingGroup} onOpenChange={(open) => !open && setEditingGroup(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Group</DialogTitle>
+            <DialogDescription>Update group details and priority.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Group Name *</Label>
+              <Input value={editGroupName} onChange={(e) => setEditGroupName(e.target.value)} />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea value={editGroupDescription} onChange={(e) => setEditGroupDescription(e.target.value)} rows={3} />
+            </div>
+            <div>
+              <Label>Priority</Label>
+              <Select value={String(editGroupPriority)} onValueChange={(v) => setEditGroupPriority(Number(v))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[1, 2, 3, 4, 5].map(p => (
+                    <SelectItem key={p} value={String(p)}>P{p} - {PRIORITY_LABELS[p]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingGroup(null)}>Cancel</Button>
+            <Button onClick={handleEditSave} disabled={updateGroup.isPending}>
+              {updateGroup.isPending ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </Collapsible>
