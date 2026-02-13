@@ -10,6 +10,7 @@ import { QuantityConfirmDialog } from '@/components/stock-receiving/QuantityConf
 import { RecentActivityFeed } from '@/components/stock-receiving/RecentActivityFeed';
 import { PriorityPOList } from '@/components/stock-receiving/PriorityPOList';
 import { POGroupManager } from '@/components/stock-receiving/POGroupManager';
+import { ReceivingDashboard } from '@/components/stock-receiving/ReceivingDashboard';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,7 +19,8 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { AlertCircle, CheckCircle2, Loader2, Package, ChevronDown, Users } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { AlertCircle, CheckCircle2, Loader2, Package, ChevronDown, Users, Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
@@ -26,6 +28,7 @@ import { PrintService } from '@/services/print-service';
 import { LabelDoc, LabelDataset, PrintSettings } from '@/types/label';
 import { QZConnectionManager } from '@/utils/qz-connection-manager';
 import { cn } from '@/lib/utils';
+
 interface SearchResult {
   type: 'po' | 'inventory' | 'recent';
   asin?: string;
@@ -47,6 +50,7 @@ interface ActivityItem {
   error?: string;
   template_type?: 'po' | 'inventory';
 }
+
 export default function ReceiveStock() {
   const navigate = useNavigate();
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
@@ -68,7 +72,6 @@ export default function ReceiveStock() {
   } = useStockReceiving();
   const [selectedItem, setSelectedItem] = useState<SearchResult | null>(null);
   const [showDialog, setShowDialog] = useState(false);
-  // Local activities state for immediate feedback before DB sync
   const [localActivities, setLocalActivities] = useState<ActivityItem[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking');
   const [isTestingConnection, setIsTestingConnection] = useState(false);
@@ -85,6 +88,47 @@ export default function ReceiveStock() {
   const [loadingPrinters, setLoadingPrinters] = useState(false);
   const [receivingHistoryOpen, setReceivingHistoryOpen] = useState(false);
   const searchBarRef = useRef<ItemSearchBarRef>(null);
+
+  // Dashboard metrics state
+  const [dashboardMetrics, setDashboardMetrics] = useState({
+    totalPOs: 0,
+    receivedToday: 0,
+    pendingCount: 0,
+    groupCount: 0,
+  });
+
+  // Load dashboard metrics
+  useEffect(() => {
+    const loadMetrics = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const [poResult, historyResult, groupResult] = await Promise.all([
+          supabase.from('po_orders').select('id, status', { count: 'exact' }).eq('user_id', user.id),
+          supabase.from('receiving_history').select('id', { count: 'exact' }).eq('user_id', user.id).gte('created_at', today.toISOString()),
+          supabase.from('po_groups').select('id', { count: 'exact' }).eq('user_id', user.id).eq('status', 'active'),
+        ]);
+
+        const totalPOs = poResult.count || 0;
+        const pendingCount = poResult.data?.filter(po => po.status === 'pending' || po.status === 'placed').length || 0;
+
+        setDashboardMetrics({
+          totalPOs,
+          receivedToday: historyResult.count || 0,
+          pendingCount,
+          groupCount: groupResult.count || 0,
+        });
+      } catch (error) {
+        console.error('Failed to load dashboard metrics:', error);
+      }
+    };
+    
+    if (!isCheckingAuth) loadMetrics();
+  }, [isCheckingAuth, localActivities]);
 
   // Check authentication on mount
   useEffect(() => {
@@ -115,7 +159,6 @@ export default function ReceiveStock() {
 
     checkAuth();
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('🔄 Auth State Changed:', event, session?.user?.id || 'No session');
       
@@ -158,39 +201,34 @@ export default function ReceiveStock() {
       localStorage.setItem('stock-receiving-print-darkness', config.darkness.toString());
     }
   };
+
   useEffect(() => {
     checkConnection();
 
-    // Load print preferences
     const config = getAutoPrintConfig();
     setAutoPrintEnabled(config.enabled);
     setDirectPrintEnabled(config.preferDirectPrint);
     setPrintDarkness(config.darkness);
 
-    // Load template preferences
     const savedPoTemplate = localStorage.getItem('stock-receiving-po-template-id');
     const savedInventoryTemplate = localStorage.getItem('stock-receiving-inventory-template-id');
     if (savedPoTemplate) setSelectedPoTemplate(savedPoTemplate);
     if (savedInventoryTemplate) setSelectedInventoryTemplate(savedInventoryTemplate);
 
-    // Load templates
     loadTemplates(savedPoTemplate, savedInventoryTemplate);
 
-    // Auto-load printers if direct print is enabled
     if (config.preferDirectPrint) {
       loadPrinters();
     }
   }, []);
   const loadTemplates = async (savedPoTemplate?: string | null, savedInventoryTemplate?: string | null) => {
     try {
-      // Load PO templates
       const {
         data: poData
       } = await supabase.from('label_templates').select('id, name, description').or('name.ilike.%po%,name.ilike.%purchase%,description.ilike.%po%').order('created_at', {
         ascending: false
       });
 
-      // Load Inventory templates
       const {
         data: invData
       } = await supabase.from('label_templates').select('id, name, description').or('name.ilike.%inventory%,name.ilike.%warehouse%,name.ilike.%stock%').order('created_at', {
@@ -199,7 +237,6 @@ export default function ReceiveStock() {
       setPoTemplates(poData || []);
       setInventoryTemplates(invData || []);
 
-      // Auto-select first template if none selected
       if (poData && poData.length > 0 && !savedPoTemplate) {
         setSelectedPoTemplate(poData[0].id);
         localStorage.setItem('stock-receiving-po-template-id', poData[0].id);
@@ -226,7 +263,6 @@ export default function ReceiveStock() {
       setAvailablePrinters(printers);
       console.log('🖨️ State updated with printers');
 
-      // Auto-select saved printer or first Zebra printer
       const savedPrinter = localStorage.getItem('stock-receiving-default-printer');
       if (savedPrinter && printers.includes(savedPrinter)) {
         console.log('🖨️ Auto-selecting saved printer:', savedPrinter);
@@ -262,10 +298,12 @@ export default function ReceiveStock() {
     await checkConnection();
     setIsTestingConnection(false);
   };
+
   const handleItemSelect = (result: SearchResult) => {
     setSelectedItem(result);
     setShowDialog(true);
   };
+
   const handleConfirm = async (data: {
     quantity: number;
     serial_number?: string;
@@ -276,7 +314,6 @@ export default function ReceiveStock() {
   }) => {
     if (!selectedItem) return;
 
-    // Validate printer selection if auto-print is enabled
     if (data.autoPrint && directPrintEnabled && !selectedPrinter) {
       toast.error('Please select a printer first', {
         description: 'Click the Refresh button to load available printers',
@@ -295,7 +332,6 @@ export default function ReceiveStock() {
       notes: data.notes,
       country: selectedCountry
     };
-    // PHASE 4: Start both operations in parallel for faster UX
     const receivePromise = processSingleItem(
       item, 
       true, 
@@ -304,17 +340,14 @@ export default function ReceiveStock() {
       data.manualPOAllocations
     );
 
-    // PHASE 4: Start print preparation immediately if auto-print enabled
     let printPromise: Promise<boolean> | null = null;
     
     if (data.autoPrint && directPrintEnabled && selectedPrinter) {
-      // Determine template type based on item type property
       const templateType = (selectedItem.type === 'inventory' || selectedItem.type === 'recent') ? 'inventory' : 'po';
       console.log(`[Auto-Print] Item type: ${selectedItem.type}, Using template: ${templateType}`);
       const templateId = templateType === 'po' ? selectedPoTemplate : selectedInventoryTemplate;
       
       if (templateId) {
-        // Start fetching template immediately (in parallel with processing)
         printPromise = (async () => {
           try {
             const { data: template, error: templateError } = await supabase
@@ -342,11 +375,8 @@ export default function ReceiveStock() {
               updatedAt: template.updated_at || new Date().toISOString()
             };
 
-            // Wait for receiving to complete first to get allocations from response
             const receiveResult = await receivePromise;
             
-            // Extract allocations from the edge function response
-            // receiveResult is ProcessingResult[] from the hook
             const resultItem = Array.isArray(receiveResult) && receiveResult.length > 0 
               ? receiveResult[0] 
               : null;
@@ -354,11 +384,9 @@ export default function ReceiveStock() {
 
             console.log('[Auto-Print] Using allocations from response:', manualPOAllocations);
 
-            // Extract PO numbers and priority from allocations
             const poNumbers = manualPOAllocations?.map(a => a.po_number).join(', ') || 'N/A';
             const priority = manualPOAllocations?.[0]?.priority || 3;
 
-            // ✅ Allocation validation logging
             if (manualPOAllocations && manualPOAllocations.length > 0) {
               console.log(`✅ [Stock Receiving] Item allocated to:`, {
                 po_numbers: poNumbers,
@@ -374,7 +402,6 @@ export default function ReceiveStock() {
               console.log(`📦 [Stock Receiving] Item going to inventory (no PO match)`);
             }
 
-            // ⚠️ Serial number validation warning
             if (data.serial_number && manualPOAllocations.length === 0) {
               console.warn('⚠️ [Print] Serial number provided for inventory item. Ensure inventory template has "Serial Number" field mapped!');
               console.log('[Print] Serial Number:', data.serial_number);
@@ -419,7 +446,6 @@ export default function ReceiveStock() {
               darkness: printDarkness
             };
 
-            // 📋 Template instructions
             const templateType = manualPOAllocations.length > 0 ? 'po' : 'inventory';
             if (templateType === 'inventory') {
               console.log('📋 [Print] Using INVENTORY template');
@@ -435,7 +461,6 @@ export default function ReceiveStock() {
 
             const zplCode = PrintService.generateZPL(labelDoc, dataset, printSettings);
             
-            // Use QZ singleton instance print method
             const qzManager = QZConnectionManager.getInstance();
             await qzManager.print(zplCode, selectedPrinter);
             console.log('[Auto-Print] ✅ Label printed successfully');
@@ -449,10 +474,8 @@ export default function ReceiveStock() {
       }
     }
 
-    // Wait for receiving to complete
     const results = await receivePromise;
     
-    // Check if receiving failed
     if (!results || results.length === 0 || !results[0].success) {
       console.error('[Receive] Failed to process item:', results);
       toast.error('Failed to receive item. Please check logs.');
@@ -464,7 +487,6 @@ export default function ReceiveStock() {
     if (results && results.length > 0) {
       const result = results[0];
 
-      // Determine destination and template type
       let destination = 'Inventory';
       let templateType: 'po' | 'inventory' = 'inventory';
       if (result.matched_pos && result.matched_pos.length > 0) {
@@ -473,7 +495,6 @@ export default function ReceiveStock() {
         templateType = 'po';
       }
 
-      // Create activity item with optimistic state
       const activity: ActivityItem = {
         id: `${Date.now()}-${Math.random()}`,
         success: result.success,
@@ -486,13 +507,11 @@ export default function ReceiveStock() {
         error: result.error
       };
 
-      // PHASE 4: Wait for print if it was started
       if (printPromise && result.success) {
         await printPromise;
       }
       setLocalActivities(prev => [activity, ...prev]);
 
-      // Invalidate queries to refresh inventory display
       queryClient.invalidateQueries({
         queryKey: ['asin-inventory']
       });
@@ -501,7 +520,6 @@ export default function ReceiveStock() {
       });
       toast.success(`Received ${data.quantity} unit(s)`);
       
-      // Auto-focus and select search input for next scan
       setTimeout(() => {
         searchBarRef.current?.focusAndSelect();
       }, 100);
@@ -509,6 +527,7 @@ export default function ReceiveStock() {
     setShowDialog(false);
     setSelectedItem(null);
   };
+
   const handleClearActivities = () => {
     setLocalActivities([]);
     toast.success('Local activity cleared');
@@ -530,12 +549,10 @@ export default function ReceiveStock() {
       preferDirectPrint: enabled
     });
 
-    // Load printers when enabling direct print
     if (enabled) {
       console.log('🖨️ Loading printers because direct print was enabled');
       await loadPrinters();
     } else {
-      // Clear printer selection when disabling
       setAvailablePrinters([]);
       setSelectedPrinter('');
     }
@@ -558,7 +575,7 @@ export default function ReceiveStock() {
     });
     console.log('🖨️ Print darkness set to:', darkness);
   };
-  // Show loading state while checking auth
+
   if (isCheckingAuth) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center">
@@ -570,213 +587,201 @@ export default function ReceiveStock() {
     );
   }
 
-  return <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-foreground mb-2">Smart Stock Receiving</h1>
-          <p className="text-muted-foreground">
-            Universal inventory receiving with automatic PO matching
-          </p>
-        </div>
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+      <div className="container mx-auto px-4 py-6 max-w-6xl space-y-6">
+        {/* Dashboard Metrics */}
+        <ReceivingDashboard
+          totalPOs={dashboardMetrics.totalPOs}
+          receivedToday={dashboardMetrics.receivedToday}
+          pendingCount={dashboardMetrics.pendingCount}
+          groupCount={dashboardMetrics.groupCount}
+        />
 
-        {/* Connection Status */}
-        
+        {/* Search Section - Enhanced */}
+        <Card className="rounded-xl shadow-sm hover:shadow-md transition-shadow border-border/50">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-primary/10 p-2">
+                  <Package className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    Receive Items
+                    <span className={cn(
+                      "w-2 h-2 rounded-full",
+                      connectionStatus === 'connected' ? 'bg-emerald' : connectionStatus === 'error' ? 'bg-destructive' : 'bg-warning animate-pulse'
+                    )} />
+                  </CardTitle>
+                  <CardDescription>
+                    Search by ASIN, SKU, or Model Number to receive inventory
+                  </CardDescription>
+                </div>
+              </div>
+              
+              {/* Print Settings Sheet */}
+              <Sheet open={printSettingsOpen} onOpenChange={setPrintSettingsOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="icon" className="rounded-lg h-9 w-9">
+                    <Settings2 className="w-4 h-4" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent className="overflow-y-auto">
+                  <SheetHeader>
+                    <SheetTitle>Print Settings</SheetTitle>
+                  </SheetHeader>
+                  <div className="space-y-6 mt-6">
+                    {/* Auto-print toggle */}
+                    <div className="flex items-center gap-2">
+                      <Switch id="auto-print-sheet" checked={autoPrintEnabled} onCheckedChange={handleAutoPrintChange} />
+                      <Label htmlFor="auto-print-sheet" className="text-sm cursor-pointer">
+                        Auto-print labels after receiving
+                      </Label>
+                    </div>
+                    
+                    {autoPrintEnabled && (
+                      <div className="space-y-4 pl-4 border-l-2 border-primary/20">
+                        <div className="flex items-center gap-2">
+                          <Switch id="direct-print-sheet" checked={directPrintEnabled} onCheckedChange={handleDirectPrintChange} />
+                          <Label htmlFor="direct-print-sheet" className="text-sm cursor-pointer">
+                            Use direct printing (QZ Tray)
+                          </Label>
+                        </div>
 
-        {/* Activity Summary */}
-        {localActivities.length > 0 || history.length > 0}
+                        {directPrintEnabled && (
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <Label htmlFor="default-printer-sheet" className="text-sm font-medium">
+                                Default Printer
+                              </Label>
+                              <Button type="button" variant="ghost" size="sm" onClick={loadPrinters} disabled={loadingPrinters}>
+                                {loadingPrinters ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Loading...</> : 'Refresh'}
+                              </Button>
+                            </div>
+                            
+                            {!selectedPrinter && availablePrinters.length === 0 && !loadingPrinters && (
+                              <Alert className="border-warning/50 bg-warning/10">
+                                <AlertCircle className="w-4 h-4 text-warning" />
+                                <AlertDescription className="text-sm">
+                                  No printers found. Make sure QZ Tray is running and click Refresh.
+                                </AlertDescription>
+                              </Alert>
+                            )}
+                            
+                            {!selectedPrinter && availablePrinters.length > 0 && (
+                              <Alert className="border-warning/50 bg-warning/10">
+                                <AlertCircle className="w-4 h-4 text-warning" />
+                                <AlertDescription className="text-sm">
+                                  ⚠️ No printer selected - labels won't print! Select one below.
+                                </AlertDescription>
+                              </Alert>
+                            )}
+                            
+                            <Select value={selectedPrinter} onValueChange={value => {
+                              setSelectedPrinter(value);
+                              localStorage.setItem('stock-receiving-default-printer', value);
+                              toast.success(`Printer set to: ${value}`);
+                            }} disabled={loadingPrinters}>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder={loadingPrinters ? 'Loading printers...' : availablePrinters.length > 0 ? 'Select printer...' : 'No printers found'} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availablePrinters.length === 0 ? (
+                                  <SelectItem value="none" disabled>
+                                    {loadingPrinters ? 'Loading...' : 'No printers found'}
+                                  </SelectItem>
+                                ) : availablePrinters.map(printer => (
+                                  <SelectItem key={printer} value={printer}>{printer}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {selectedPrinter && (
+                              <p className="text-xs text-emerald">✓ Will print to: {selectedPrinter}</p>
+                            )}
+                          </div>
+                        )}
 
-        {/* Search Section */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="w-5 h-5" />
-              Receive Items
-            </CardTitle>
-            <CardDescription>
-              Search by ASIN, SKU, or Model Number to receive inventory
-            </CardDescription>
+                        {/* Darkness Control */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-sm font-medium">Print Darkness: {printDarkness}</Label>
+                            <span className="text-xs text-muted-foreground">(0–30)</span>
+                          </div>
+                          <Slider min={0} max={30} step={1} value={[printDarkness]} onValueChange={handleDarknessChange} className="w-full" />
+                        </div>
+
+                        {/* Template Selection */}
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">PO Label Template</Label>
+                            <Select value={selectedPoTemplate} onValueChange={handlePoTemplateChange}>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select PO template..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {poTemplates.length === 0 ? (
+                                  <SelectItem value="none" disabled>No PO templates found</SelectItem>
+                                ) : poTemplates.map(template => (
+                                  <SelectItem key={template.id} value={template.id}>{template.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">Inventory Label Template</Label>
+                            <Select value={selectedInventoryTemplate} onValueChange={handleInventoryTemplateChange}>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select inventory template..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {inventoryTemplates.length === 0 ? (
+                                  <SelectItem value="none" disabled>No inventory templates found</SelectItem>
+                                ) : inventoryTemplates.map(template => (
+                                  <SelectItem key={template.id} value={template.id}>{template.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent>
             <ItemSearchBar 
               ref={searchBarRef}
               onItemSelect={handleItemSelect} 
               disabled={isProcessing} 
               country={selectedCountry} 
             />
-
-            {/* Print Settings - Collapsible */}
-            <Collapsible open={printSettingsOpen} onOpenChange={setPrintSettingsOpen} className="space-y-4 pt-4 border-t border-border/50">
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" className="flex items-center justify-between w-full p-2 hover:bg-muted/50">
-                  <span className="text-sm font-medium">Print Settings</span>
-                  <ChevronDown className={cn("w-4 h-4 transition-transform", printSettingsOpen && "rotate-180")} />
-                </Button>
-              </CollapsibleTrigger>
-              
-              <CollapsibleContent className="space-y-4">
-                {/* Auto-print toggle */}
-                <div className="flex items-center gap-2">
-                  <Switch id="auto-print" checked={autoPrintEnabled} onCheckedChange={handleAutoPrintChange} />
-                  <Label htmlFor="auto-print" className="text-sm cursor-pointer">
-                    Auto-print labels after receiving
-                  </Label>
-                </div>
-                
-                {/* Print settings when auto-print is enabled */}
-                {autoPrintEnabled && <div className="space-y-4 pl-6 border-l-2 border-primary/20">
-                    {/* Direct printing toggle */}
-                    <div className="flex items-center gap-2">
-                      <Switch id="direct-print" checked={directPrintEnabled} onCheckedChange={handleDirectPrintChange} />
-                      <Label htmlFor="direct-print" className="text-sm cursor-pointer">
-                        Use direct printing (QZ Tray)
-                      </Label>
-                    </div>
-
-                    {/* Printer Selection */}
-                    {directPrintEnabled && <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="default-printer" className="text-sm font-medium">
-                            Default Printer
-                          </Label>
-                          <Button type="button" variant="ghost" size="sm" onClick={loadPrinters} disabled={loadingPrinters}>
-                            {loadingPrinters ? <>
-                                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                                Loading...
-                              </> : 'Refresh'}
-                          </Button>
-                        </div>
-                        
-                        {/* Warning if no printer selected */}
-                        {!selectedPrinter && availablePrinters.length === 0 && !loadingPrinters && <Alert className="border-amber-500/50 bg-amber-500/10">
-                            <AlertCircle className="w-4 h-4 text-amber-500" />
-                            <AlertDescription className="text-amber-600 text-sm">
-                              No printers found. Make sure QZ Tray is running and click Refresh.
-                            </AlertDescription>
-                          </Alert>}
-                        
-                        {!selectedPrinter && availablePrinters.length > 0 && <Alert className="border-amber-500/50 bg-amber-500/10">
-                            <AlertCircle className="w-4 h-4 text-amber-500" />
-                            <AlertDescription className="text-amber-600 text-sm">
-                              ⚠️ No printer selected - labels won't print! Select one below.
-                            </AlertDescription>
-                          </Alert>}
-                        
-                        <Select value={selectedPrinter} onValueChange={value => {
-                    console.log('🖨️ Printer selected:', value);
-                    setSelectedPrinter(value);
-                    localStorage.setItem('stock-receiving-default-printer', value);
-                    toast.success(`Printer set to: ${value}`);
-                  }} disabled={loadingPrinters}>
-                          <SelectTrigger id="default-printer" className="w-full">
-                            <SelectValue placeholder={loadingPrinters ? 'Loading printers...' : availablePrinters.length > 0 ? 'Select printer...' : 'No printers found'} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availablePrinters.length === 0 ? <SelectItem value="none" disabled>
-                                {loadingPrinters ? 'Loading...' : 'No printers found'}
-                              </SelectItem> : availablePrinters.map(printer => <SelectItem key={printer} value={printer}>
-                                  {printer}
-                                </SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                        {!loadingPrinters && availablePrinters.length === 0 && <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <AlertCircle className="w-3 h-3" />
-                            <span>Make sure QZ Tray is running, then click Refresh</span>
-                          </div>}
-                        {!loadingPrinters && availablePrinters.length > 0 && !selectedPrinter && <p className="text-xs text-amber-600">
-                            ⚠️ Please select a printer
-                          </p>}
-                        {selectedPrinter && <p className="text-xs text-green-600">
-                            ✓ Will print to: {selectedPrinter}
-                          </p>}
-                      </div>}
-
-                    {/* Darkness Control */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="print-darkness" className="text-sm font-medium">
-                          Print Darkness: {printDarkness}
-                        </Label>
-                        <span className="text-xs text-muted-foreground">
-                          (0 = Lightest, 30 = Darkest)
-                        </span>
-                      </div>
-                      <Slider id="print-darkness" min={0} max={30} step={1} value={[printDarkness]} onValueChange={handleDarknessChange} className="w-full" />
-                      <p className="text-xs text-muted-foreground">
-                        Adjust print darkness for Zebra printers. Default is 10.
-                      </p>
-                    </div>
-
-                    {/* Template Selection */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {/* PO Template Selection */}
-                      <div className="space-y-2">
-                        <Label htmlFor="po-template" className="text-sm font-medium">
-                          PO Label Template
-                        </Label>
-                        <Select value={selectedPoTemplate} onValueChange={handlePoTemplateChange}>
-                          <SelectTrigger id="po-template" className="w-full">
-                            <SelectValue placeholder="Select PO template..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {poTemplates.length === 0 ? <SelectItem value="none" disabled>
-                                No PO templates found
-                              </SelectItem> : poTemplates.map(template => <SelectItem key={template.id} value={template.id}>
-                                  {template.name}
-                                </SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                        {poTemplates.length === 0 && <p className="text-xs text-muted-foreground">
-                            Create a template in Label Designer
-                          </p>}
-                      </div>
-
-                      {/* Inventory Template Selection */}
-                      <div className="space-y-2">
-                        <Label htmlFor="inventory-template" className="text-sm font-medium">
-                          Inventory Label Template
-                        </Label>
-                        <Select value={selectedInventoryTemplate} onValueChange={handleInventoryTemplateChange}>
-                          <SelectTrigger id="inventory-template" className="w-full">
-                            <SelectValue placeholder="Select inventory template..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {inventoryTemplates.length === 0 ? <SelectItem value="none" disabled>
-                                No inventory templates found
-                              </SelectItem> : inventoryTemplates.map(template => <SelectItem key={template.id} value={template.id}>
-                                  {template.name}
-                                </SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                        {inventoryTemplates.length === 0 && <p className="text-xs text-muted-foreground">
-                            Create a template in Label Designer
-                          </p>}
-                      </div>
-                    </div>
-                  </div>}
-              </CollapsibleContent>
-            </Collapsible>
           </CardContent>
         </Card>
 
         {/* Priority PO Management */}
-        <div className="mb-6">
-          <PriorityPOList />
-        </div>
+        <PriorityPOList />
 
-        {/* Comprehensive Receiving History */}
+        {/* Receiving History */}
         <Collapsible open={receivingHistoryOpen} onOpenChange={setReceivingHistoryOpen}>
-          <Card className="mb-6">
-            <CardHeader>
+          <Card className="rounded-xl shadow-sm hover:shadow-md transition-shadow border-border/50">
+            <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Receiving History</CardTitle>
-                  <CardDescription>
-                    Complete history of all received items with pagination
-                  </CardDescription>
+                <div className="flex items-center gap-3">
+                  <div className="rounded-lg bg-emerald/10 p-2">
+                    <CheckCircle2 className="w-5 h-5 text-emerald" />
+                  </div>
+                  <div>
+                    <CardTitle>Receiving History</CardTitle>
+                    <CardDescription>
+                      Complete history of all received items
+                    </CardDescription>
+                  </div>
                 </div>
                 <CollapsibleTrigger asChild>
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" className="rounded-lg">
                     <ChevronDown className={cn("h-4 w-4 transition-transform", receivingHistoryOpen && "rotate-180")} />
                   </Button>
                 </CollapsibleTrigger>
@@ -794,17 +799,18 @@ export default function ReceiveStock() {
       </div>
 
       {/* Quantity Confirm Dialog */}
-        <QuantityConfirmDialog
-          open={showDialog}
-          onClose={() => {
-            setShowDialog(false);
-            setSelectedItem(null);
-          }}
-          item={selectedItem}
-          onConfirm={handleConfirm}
-          processing={isProcessing}
-          initialSerialNumber={selectedItem?.serial_number}
-          country={selectedCountry}
-        />
-    </div>;
+      <QuantityConfirmDialog
+        open={showDialog}
+        onClose={() => {
+          setShowDialog(false);
+          setSelectedItem(null);
+        }}
+        item={selectedItem}
+        onConfirm={handleConfirm}
+        processing={isProcessing}
+        initialSerialNumber={selectedItem?.serial_number}
+        country={selectedCountry}
+      />
+    </div>
+  );
 }

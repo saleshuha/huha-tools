@@ -1,10 +1,12 @@
 import { CheckCircle2, XCircle, Printer, Package, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { ImagePreview } from './ImagePreview';
 import { FulfillmentSourceBadge } from '@/components/po/FulfillmentSourceBadge';
+import { cn } from '@/lib/utils';
 
 interface HistoryItemCardProps {
   item: {
@@ -39,22 +41,25 @@ export function HistoryItemCard({ item, type, onReprint }: HistoryItemCardProps)
   
   const identifier = item.asin || item.sku_code || item.model_number || 'Unknown';
   const poNumbers = item.destination_details?.po_numbers || [];
-
   const fulfillmentSource = item.destination_details?.fulfillment_source;
+
+  const borderColor = type === 'po' ? 'border-l-emerald' : 'border-l-sky';
 
   return (
     <div
-      className={`p-4 rounded-lg border transition-all ${
+      className={cn(
+        "p-4 rounded-xl border border-l-4 transition-all hover:shadow-sm",
+        borderColor,
         item.success
-          ? 'bg-success/5 border-success/20'
+          ? 'bg-card'
           : 'bg-destructive/5 border-destructive/20'
-      }`}
+      )}
     >
       <div className="flex items-start gap-3">
         {/* Status Icon */}
         <div className="flex-shrink-0 mt-1">
           {item.success ? (
-            <CheckCircle2 className="w-5 h-5 text-success" />
+            <CheckCircle2 className="w-5 h-5 text-emerald" />
           ) : (
             <XCircle className="w-5 h-5 text-destructive" />
           )}
@@ -70,7 +75,7 @@ export function HistoryItemCard({ item, type, onReprint }: HistoryItemCardProps)
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          {/* PO/Destination Info - MOVED TO TOP and made more prominent */}
+          {/* PO/Destination Info */}
           <div className="flex items-center gap-2 flex-wrap mb-3">
             {type === 'po' ? (
               <>
@@ -147,22 +152,28 @@ export function HistoryItemCard({ item, type, onReprint }: HistoryItemCardProps)
 
           {/* Timestamp & Print Status */}
           <div className="flex items-center gap-3 mt-2">
-            <span 
-              className="flex items-center gap-1 text-xs text-muted-foreground"
-              title={formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
-            >
-              <Clock className="w-3 h-3" />
-              {new Date(item.created_at).toLocaleString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit'
-              })}
-            </span>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground cursor-default">
+                    <Clock className="w-3 h-3" />
+                    {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {new Date(item.created_at).toLocaleString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                  })}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             {item.printed && (
-              <span className="flex items-center gap-1 text-xs text-success">
+              <span className="flex items-center gap-1 text-xs text-emerald">
                 <Printer className="w-3 h-3" />
                 Printed
               </span>
