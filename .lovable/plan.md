@@ -1,72 +1,32 @@
 
 
-## Collapsible Metrics + Dual Search (SKU + Title)
+## Remove Vendor Info & Supplier Details + Mobile Search UX
 
-### 1. Collapsible Metrics Header on Mobile
+### Changes
 
-Wrap the `PurchaseSummaryHeader` component in a `Collapsible` that defaults to **closed** on mobile. Show a compact one-line summary (title + completion %) with a toggle chevron. The full metrics (ring, stat cards, progress bar) expand on tap. On desktop it stays open by default.
+**1. Remove VendorInfoForm and SupplierDetailsForm**
 
-**File: `src/pages/PurchaseLink.tsx`**
-- Add `metricsOpen` state, defaulting to `false`
-- Wrap `<PurchaseSummaryHeader>` in `<Collapsible>` with a compact trigger bar showing title and completion %
-- The trigger bar shows: title (truncated), completion badge (e.g. "6%"), and a chevron
+Remove the "Your Information" section (VendorInfoForm at line 593) and the "Supplier Details" collapsible from each item card (lines 837-844). Also remove related imports, state (`supplierDetails`), and references in `handleSaveGroup` (supplier detail fields). The `getVendorInfo` helper and vendor info references in save/bulk functions will also be removed.
 
-### 2. Separate Search Bar from Filters
+**2. Mobile Search UX: Keep search bar at top, results centered above keyboard**
 
-Move the search bar **outside** the collapsible filter section so it is always visible in the sticky header area. The filters (status buttons, sort) remain inside the collapsible.
-
-**File: `src/pages/PurchaseLink.tsx`**
-- Move the search `Input` out of `<CollapsibleContent>` and place it in the always-visible part of the sticky bar, above the collapsible trigger
-- The collapsible now only contains filter buttons and sort buttons
-
-### 3. Dual Search: SKU Search + Title Search (Cascading Filter)
-
-Replace the single search bar with two compact inputs side by side:
-
-- **First input**: "Search by SKU/ASIN..." -- filters the dataset to only items matching that SKU/ASIN
-- **Second input**: "Search by title..." -- further filters within the SKU-matched results by title keywords
-
-This creates a cascading/narrowing search: type a partial SKU to find all products from that SKU family, then type title keywords to pinpoint the exact item within that set.
-
-**How it works technically:**
-
-- Add `skuSearchTerm` and `titleSearchTerm` states (replacing the single `searchTerm`)
-- Add debounced versions of both (200ms)
-- Create two separate Fuse.js indexes:
-  - `skuFuse`: searches on `asin`, `skuCode`, `poNumbers` keys
-  - `titleFuse`: searches on `title` key only
-- In `filteredGroups` useMemo:
-  1. Start with all groups matching `filterStatus`
-  2. If `debouncedSkuSearch` is non-empty, filter using `skuFuse`
-  3. If `debouncedTitleSearch` is non-empty, further filter the result using a secondary Fuse search on just those items' titles
-- Both inputs are always visible in the sticky bar, stacked vertically on mobile, side by side on desktop
-
-**File: `src/pages/PurchaseLink.tsx`**
+- Add CSS to ensure the search bar stays pinned at the top (already sticky, keep as-is)
+- When a search input is focused on mobile, add bottom padding to the list container so results stay visible above the virtual keyboard
+- Use a `searchFocused` state to detect when either search input is focused, and when active, add extra bottom padding (e.g. `pb-[50vh]`) to push content up so matched results appear in the visible area above the keyboard
+- Scroll the first matching result into view when search results change while focused on mobile
 
 ### Technical Details
 
-**States to add:**
-- `metricsOpen: boolean` (default `false`)
-- `skuSearchTerm: string` and `titleSearchTerm: string` (replace single `searchTerm`)
-- `debouncedSkuSearch` and `debouncedTitleSearch` (200ms debounce each)
+**File: `src/pages/PurchaseLink.tsx`**
 
-**States to remove:**
-- `searchTerm` and `debouncedSearch` (replaced by the two new pairs)
-
-**useMemo changes:**
-- Replace single `fuseIndex` with two: `skuFuse` (keys: `asin`, `skuCode`, `poNumbers`) and `titleFuse` (keys: `title`)
-- Update `filteredGroups` to apply cascading filter: status -> SKU match -> title match
-
-**UI layout in sticky bar:**
-```text
-+--------------------------------------------------+
-| [SKU/ASIN search]    [Title search]              |
-| [Filter: Pending v] [2,355 items] [Export]       |
-|   (collapsible: filter buttons + sort buttons)   |
-+--------------------------------------------------+
-```
-
-**Files to modify:**
-- `src/pages/PurchaseLink.tsx` -- Collapsible metrics, dual search, restructured sticky bar
-- `src/components/purchase-link/PurchaseSummaryHeader.tsx` -- Export `completionPercentage` or add a compact mode prop for the collapsed trigger display
+1. Remove imports: `VendorInfoForm`, `getStoredVendorInfo`, `SupplierDetailsForm`, `SupplierDetails`
+2. Remove state: `supplierDetails` (line 52)
+3. Remove `getVendorInfo` function (lines 141-144)
+4. Remove all `vendorInfo` and `groupSupplierDetails` references in `handleSaveGroup`, `handleMarkNotAvailable`, `handleUndoNotAvailable`, `handleBulkMarkPurchased`, `handleBulkMarkNotAvailable`
+5. Remove `<VendorInfoForm>` render (line 593)
+6. Remove `<SupplierDetailsForm>` render block (lines 837-844)
+7. Remove supplier details from `exportData` mapping (lines 511-523)
+8. Add `searchFocused` state, attach `onFocus`/`onBlur` handlers to both search inputs
+9. When `searchFocused` is true on mobile, add `pb-[50vh]` to the virtualizer container so the visible results sit higher on screen (above the keyboard)
+10. Auto-scroll the list to top when debounced search values change while focused
 
