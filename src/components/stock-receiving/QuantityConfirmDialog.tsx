@@ -6,12 +6,14 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, AlertCircle, Package, Printer, Hash } from 'lucide-react';
+import { Loader2, AlertCircle, Package, Printer, Hash, Plus } from 'lucide-react';
 import { qzConnectionManager } from '@/utils/qz-connection-manager';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
+import { ImagePreview } from './ImagePreview';
+import { cn } from '@/lib/utils';
 
 interface SearchResult {
   type: 'po' | 'inventory' | 'recent' | 'po_group';
@@ -74,12 +76,14 @@ export function QuantityConfirmDialog({
   const [availablePOs, setAvailablePOs] = useState<any[]>([]);
   const [loadingPOs, setLoadingPOs] = useState(false);
   const [maxQuantity, setMaxQuantity] = useState<number>(999);
+  const [productImage, setProductImage] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
       setQuantity(1);
       setSerialNumber(initialSerialNumber || '');
       setAvailablePOs([]);
+      setProductImage(item?.image_url || null);
       
       const savedAutoPrint = localStorage.getItem('stock-receiving-auto-print');
       setAutoPrintEnabled(savedAutoPrint === 'true' || savedAutoPrint === null);
@@ -96,6 +100,20 @@ export function QuantityConfirmDialog({
       
       if (item) {
         loadAvailablePOs();
+        // Fetch product image if not provided
+        if (!item.image_url && item.asin) {
+          supabase
+            .from('product_images')
+            .select('image_url')
+            .eq('asin', item.asin)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .then(({ data }) => {
+              if (data && data.length > 0) {
+                setProductImage(data[0].image_url);
+              }
+            });
+        }
       }
       
       return () => {
@@ -117,7 +135,6 @@ export function QuantityConfirmDialog({
         query = query.in('po_number', item.po_numbers);
       }
 
-      // Filter by specific ASIN/SKU/Model being received
       const conditions = [];
       if (item.asin) conditions.push(`asin.eq.${item.asin}`);
       if (item.sku_code) conditions.push(`sku_code.eq.${item.sku_code}`);
@@ -152,7 +169,6 @@ export function QuantityConfirmDialog({
       const sortedPOs = (data || []).sort((a, b) => (a.priority || 999) - (b.priority || 999));
       setAvailablePOs(sortedPOs);
 
-      // Calculate total pending quantity
       const totalPending = sortedPOs.reduce((sum, po) => {
         const pending = po.quantity - (po.printed_quantity || 0);
         return sum + pending;
@@ -171,7 +187,6 @@ export function QuantityConfirmDialog({
   };
 
   const handleSubmit = async (withPrint: boolean = false) => {
-    // Validate quantity doesn't exceed available
     if (quantity > maxQuantity) {
       toast({
         title: "Quantity Exceeds Available",
@@ -223,6 +238,10 @@ export function QuantityConfirmDialog({
 
   if (!item) return null;
 
+  const totalOrdered = availablePOs.reduce((s, po) => s + po.quantity, 0);
+  const totalPrinted = availablePOs.reduce((s, po) => s + (po.printed_quantity || 0), 0);
+  const totalPending = totalOrdered - totalPrinted;
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-2xl" onKeyDown={handleKeyDown}>
@@ -230,7 +249,6 @@ export function QuantityConfirmDialog({
           <DialogTitle>Confirm Receiving Details</DialogTitle>
         </DialogHeader>
 
-        {/* Scrollable PO details */}
         <div className="space-y-4 py-4 max-h-[50vh] overflow-y-auto">
           {!qzConnected && autoPrintEnabled && (
             <Alert variant="destructive" className="border-destructive/50 bg-destructive/10">
@@ -243,27 +261,37 @@ export function QuantityConfirmDialog({
           )}
           
           {qzConnected && autoPrintEnabled && (
-            <Alert className="border-green-500/50 bg-green-500/10">
-              <AlertDescription className="text-sm text-green-700 dark:text-green-400">
+            <Alert className="border-emerald/50 bg-emerald/10">
+              <AlertDescription className="text-sm text-emerald">
                 ✅ QZ Tray Connected - Ready to print
               </AlertDescription>
             </Alert>
           )}
 
-          <div className="p-3 bg-accent/30 rounded-lg space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-muted-foreground">
-                {item.asin ? 'ASIN' : item.sku_code ? 'SKU' : 'Model'}
-              </span>
-              <span className="text-sm font-bold">
-                {item.asin || item.sku_code || item.model_number}
-              </span>
+          <div className="p-4 bg-accent/30 rounded-xl space-y-3">
+            <div className="flex items-start gap-4">
+              <ImagePreview
+                imageUrl={productImage || undefined}
+                alt={item.title || 'Product'}
+                size="lg"
+                className="shrink-0 rounded-lg"
+              />
+              <div className="flex-1 min-w-0 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    {item.asin ? 'ASIN' : item.sku_code ? 'SKU' : 'Model'}
+                  </span>
+                  <span className="text-sm font-bold font-mono">
+                    {item.asin || item.sku_code || item.model_number}
+                  </span>
+                </div>
+                {item.title && <div className="text-sm text-muted-foreground line-clamp-2">{item.title}</div>}
+              </div>
             </div>
-            {item.title && <div className="text-sm text-muted-foreground truncate">{item.title}</div>}
           </div>
 
           {loadingPOs && (
-            <div className="p-3 bg-accent/30 rounded-lg">
+            <div className="p-4 bg-accent/30 rounded-xl">
               <div className="flex items-center gap-2 text-sm">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 Loading PO details...
@@ -273,7 +301,7 @@ export function QuantityConfirmDialog({
 
           {!loadingPOs && availablePOs.length > 0 && (
             <div className="space-y-3">
-              <div className="p-3 bg-accent/30 rounded-lg border border-primary/30">
+              <div className="p-3 bg-primary/5 rounded-xl border border-primary/20">
                 <div className="flex items-center gap-2">
                   <Package className="w-4 h-4 text-primary" />
                   <span className="text-sm font-medium">
@@ -283,70 +311,64 @@ export function QuantityConfirmDialog({
               </div>
               
               <div className="space-y-3">
-                {availablePOs.map((po) => (
-                  <div key={po.id} className="border rounded-lg p-3 bg-muted/30 space-y-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge
-                        variant="secondary"
-                        className="text-sm font-semibold cursor-pointer hover:bg-primary/20"
-                        onClick={() => navigate(`/po-tracker?search=${po.po_number}`)}
-                      >
-                        📋 PO: {po.po_number}
-                      </Badge>
-                      {po.priority && po.priority < 6 && (
-                        <Badge variant="outline" className="text-sm">Priority {po.priority}</Badge>
-                      )}
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">Total Ordered:</span>{' '}
-                        <span className="font-bold">{po.quantity} units</span>
+                {availablePOs.map((po) => {
+                  const pending = po.quantity - (po.printed_quantity || 0);
+                  const progress = po.printed_quantity > 0 ? (po.printed_quantity / po.quantity) * 100 : 0;
+                  
+                  return (
+                    <div key={po.id} className="border rounded-xl p-4 bg-card space-y-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge
+                          variant="secondary"
+                          className="text-sm font-semibold cursor-pointer hover:bg-primary/20"
+                          onClick={() => navigate(`/po-tracker?search=${po.po_number}`)}
+                        >
+                          📋 PO: {po.po_number}
+                        </Badge>
+                        {po.priority && po.priority < 6 && (
+                          <Badge variant="outline" className="text-xs">Priority {po.priority}</Badge>
+                        )}
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="p-2 bg-green-50 dark:bg-green-950/20 rounded border border-green-200 dark:border-green-800">
-                          <div className="text-xs text-muted-foreground">✅ Already Printed</div>
-                          <div className="font-bold text-green-700 dark:text-green-400">{po.printed_quantity || 0} units</div>
-                          {po.label_printed_at && (
-                            <div className="text-xs text-muted-foreground mt-1">
-                              {new Date(po.label_printed_at).toLocaleDateString()}
-                            </div>
-                          )}
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="p-2 rounded-lg bg-muted/50">
+                          <div className="text-xs text-muted-foreground">Ordered</div>
+                          <div className="font-bold text-foreground">{po.quantity}</div>
                         </div>
-                        
-                        <div className="p-2 bg-orange-50 dark:bg-orange-950/20 rounded border border-orange-200 dark:border-orange-800">
-                          <div className="text-xs text-muted-foreground">⏳ Still Pending</div>
-                          <div className="font-bold text-orange-700 dark:text-orange-400">
-                            {po.quantity - (po.printed_quantity || 0)} units
-                          </div>
+                        <div className="p-2 rounded-lg bg-emerald/10">
+                          <div className="text-xs text-emerald">Printed</div>
+                          <div className="font-bold text-emerald">{po.printed_quantity || 0}</div>
+                        </div>
+                        <div className="p-2 rounded-lg bg-warning/10">
+                          <div className="text-xs text-warning">Pending</div>
+                          <div className="font-bold text-warning">{pending}</div>
                         </div>
                       </div>
                       
                       {po.printed_quantity > 0 && (
                         <div className="flex items-center gap-2">
                           <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                            <div className="h-full bg-green-500" style={{ width: `${(po.printed_quantity / po.quantity) * 100}%` }} />
+                            <div className="h-full bg-emerald rounded-full transition-all" style={{ width: `${progress}%` }} />
                           </div>
-                          <span className="text-xs text-muted-foreground">{Math.round((po.printed_quantity / po.quantity) * 100)}%</span>
+                          <span className="text-xs text-muted-foreground font-medium">{Math.round(progress)}%</span>
                         </div>
                       )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
 
-                <div className="p-3 bg-primary/5 rounded border space-y-2">
+                <div className="p-4 bg-primary/5 rounded-xl border border-primary/10 space-y-1.5">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Total Ordered:</span>
-                    <span className="font-bold text-primary">{availablePOs.reduce((s, po) => s + po.quantity, 0)} units</span>
+                    <span className="font-bold text-primary">{totalOrdered} units</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-green-700 dark:text-green-400">✅ Already Printed:</span>
-                    <span className="font-semibold text-green-700 dark:text-green-400">{availablePOs.reduce((s, po) => s + (po.printed_quantity || 0), 0)} units</span>
+                    <span className="text-emerald">✅ Already Printed:</span>
+                    <span className="font-semibold text-emerald">{totalPrinted} units</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-orange-700 dark:text-orange-400">⏳ Still Pending:</span>
-                    <span className="font-semibold text-orange-700 dark:text-orange-400">{availablePOs.reduce((s, po) => s + (po.quantity - (po.printed_quantity || 0)), 0)} units</span>
+                    <span className="text-warning">⏳ Still Pending:</span>
+                    <span className="font-semibold text-warning">{totalPending} units</span>
                   </div>
                 </div>
               </div>
@@ -354,41 +376,56 @@ export function QuantityConfirmDialog({
           )}
         </div>
 
-        {/* Fixed input section */}
         <div className="space-y-4 py-4 border-t bg-background">
           <div className="space-y-2">
             <Label htmlFor="quantity" className="font-semibold">
               Quantity * 
               <span className="text-xs text-muted-foreground ml-2">
-                (Max: {maxQuantity} units available)
+                (Max: {maxQuantity})
               </span>
             </Label>
-            <Input 
-              id="quantity" 
-              type="number" 
-              min="1" 
-              max={maxQuantity}
-              value={quantity} 
-              onChange={(e) => {
-                const val = parseInt(e.target.value) || 1;
-                setQuantity(Math.min(val, maxQuantity));
-              }}
-              className="text-lg font-semibold" 
-              autoFocus 
-            />
+            <div className="flex items-center gap-2">
+              <Input 
+                id="quantity" 
+                type="number" 
+                min="1" 
+                max={maxQuantity}
+                value={quantity} 
+                onChange={(e) => {
+                  const val = parseInt(e.target.value) || 1;
+                  setQuantity(Math.min(val, maxQuantity));
+                }}
+                className="text-lg font-semibold flex-1 h-12 rounded-lg" 
+                autoFocus 
+              />
+              <div className="flex gap-1">
+                {[1, 5, 10].map((inc) => (
+                  <Button
+                    key={inc}
+                    variant="outline"
+                    size="sm"
+                    className="h-12 px-3 rounded-lg font-semibold"
+                    onClick={() => setQuantity(prev => Math.min(prev + inc, maxQuantity))}
+                    disabled={quantity >= maxQuantity}
+                  >
+                    <Plus className="w-3 h-3 mr-0.5" />{inc}
+                  </Button>
+                ))}
+              </div>
+            </div>
           </div>
 
           {item.type !== 'po' && item.type !== 'po_group' && (
-            <div className="space-y-2 p-3 bg-primary/5 rounded-lg border-2 border-primary/20">
+            <div className="space-y-2 p-3 bg-primary/5 rounded-xl border-2 border-primary/20">
               <div className="flex items-center gap-2">
                 <Hash className="w-4 h-4 text-primary" />
                 <Label htmlFor="serial" className="font-semibold">Serial Number (Optional)</Label>
               </div>
-              <Input id="serial" value={serialNumber} onChange={(e) => setSerialNumber(e.target.value)} placeholder="Enter serial number" className="font-mono" />
+              <Input id="serial" value={serialNumber} onChange={(e) => setSerialNumber(e.target.value)} placeholder="Enter serial number" className="font-mono rounded-lg" />
             </div>
           )}
 
-          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border">
+          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-xl border">
             <div className="flex items-center gap-3">
               <Printer className="w-5 h-5 text-primary" />
               <div>
@@ -402,10 +439,10 @@ export function QuantityConfirmDialog({
 
         <DialogFooter className="flex gap-2">
           <Button variant="ghost" onClick={onClose} disabled={processing}>Cancel</Button>
-          <Button variant="outline" onClick={() => handleSubmit(false)} disabled={processing || quantity < 1 || quantity > maxQuantity}>
+          <Button variant="outline" onClick={() => handleSubmit(false)} disabled={processing || quantity < 1 || quantity > maxQuantity} className="rounded-lg">
             {processing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Processing...</> : 'Receive Only'}
           </Button>
-          <Button onClick={() => handleSubmit(true)} disabled={processing || quantity < 1 || quantity > maxQuantity || (autoPrintEnabled && !qzConnected)}>
+          <Button onClick={() => handleSubmit(true)} disabled={processing || quantity < 1 || quantity > maxQuantity || (autoPrintEnabled && !qzConnected)} className="rounded-lg">
             {processing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Processing...</> : <><Printer className="w-4 h-4 mr-2" />Receive & Print</>}
           </Button>
         </DialogFooter>

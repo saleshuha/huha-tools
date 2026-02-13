@@ -327,7 +327,7 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
       </div>
 
       {showDropdown && results.length > 0 && (
-        <div className="absolute z-50 w-full mt-2 bg-background border border-border rounded-lg shadow-lg max-h-80 overflow-auto">
+        <div className="absolute z-50 w-full mt-2 bg-card border border-border rounded-xl shadow-lg max-h-80 overflow-auto">
           {results.map((result, index) => {
             // Handle "not found" case
             if (result.type === 'not_found') {

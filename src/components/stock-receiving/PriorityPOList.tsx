@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,7 +15,8 @@ import { POPriorityBadge } from '@/components/po/POPriorityBadge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { usePOGroups } from '@/hooks/usePOGroups';
-import { Loader2, Search, AlertTriangle, CheckSquare, Square, ChevronDown, ChevronUp, Folder, FolderPlus, Users } from 'lucide-react';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { Loader2, Search, AlertTriangle, CheckSquare, Square, ChevronDown, ChevronUp, Folder, FolderPlus, Users, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface PO {
@@ -30,6 +32,14 @@ interface PO {
   expected_delivery?: string;
 }
 
+const PRIORITY_COLORS: Record<number, string> = {
+  1: 'border-l-destructive',
+  2: 'border-l-warning',
+  3: 'border-l-sky',
+  4: 'border-l-primary',
+  5: 'border-l-muted-foreground',
+};
+
 export function PriorityPOList() {
   const [pos, setPOs] = useState<PO[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,6 +53,7 @@ export function PriorityPOList() {
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
   const { toast } = useToast();
   const { poGroups, createGroup, addPOsToGroup, updateGroupPriority, deleteGroup, updateUngroupedPriorities } = usePOGroups();
+  const parentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadPOs();
@@ -52,13 +63,11 @@ export function PriorityPOList() {
     try {
       setLoading(true);
       
-      // First, update ungrouped PO priorities
       await updateUngroupedPriorities.mutateAsync();
       
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Fetch all items in batches to overcome Supabase's 1000-item limit
       let allItems: any[] = [];
       let from = 0;
       const batchSize = 1000;
@@ -81,7 +90,7 @@ export function PriorityPOList() {
           allItems = [...allItems, ...data];
           console.log(`Fetched batch: ${data.length} items (total so far: ${allItems.length})`);
           from += batchSize;
-          hasMore = data.length === batchSize; // Continue if we got a full batch
+          hasMore = data.length === batchSize;
         } else {
           hasMore = false;
         }
@@ -89,7 +98,6 @@ export function PriorityPOList() {
 
       console.log(`Fetched ${allItems.length} PO items total`);
 
-      // Group by PO number and sum quantities
       const grouped = allItems.reduce((acc: any, po: any) => {
         const key = po.po_number;
         if (!acc[key]) {
@@ -97,7 +105,6 @@ export function PriorityPOList() {
         }
         acc[key].quantity += po.quantity;
         acc[key].items.push(po);
-        // Use the highest priority (lowest number) among all items in the PO
         if (!acc[key].priority || po.priority < acc[key].priority) {
           acc[key].priority = po.priority || 3;
         }
@@ -118,7 +125,6 @@ export function PriorityPOList() {
       setLoading(false);
     }
   };
-
 
   const togglePOSelection = (poNumber: string) => {
     setSelectedPOs(prev => {
@@ -153,6 +159,14 @@ export function PriorityPOList() {
 
   const allSelected = selectedPOs.size === filteredPOs.length && filteredPOs.length > 0;
 
+  // Virtualizer for PO list
+  const rowVirtualizer = useVirtualizer({
+    count: filteredPOs.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 100,
+    overscan: 10,
+  });
+
   const handleCreateGroup = async () => {
     if (!newGroupName.trim()) {
       toast({
@@ -173,7 +187,6 @@ export function PriorityPOList() {
     }
 
     try {
-      // Get the IDs of all items for selected PO numbers
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -234,7 +247,6 @@ export function PriorityPOList() {
     }
 
     try {
-      // Get the IDs of all items for selected PO numbers
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -271,29 +283,33 @@ export function PriorityPOList() {
     }
   };
 
+  const pendingCount = pos.filter(po => po.status === 'pending' || po.status === 'placed').length;
+
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <Card>
+      <Card className="rounded-xl shadow-sm hover:shadow-md transition-shadow border-border/50">
         <CollapsibleTrigger asChild>
-          <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors">
+          <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <AlertTriangle className="w-5 h-5 text-orange-500" />
+                <div className="rounded-lg bg-warning/10 p-2">
+                  <AlertTriangle className="w-5 h-5 text-warning" />
+                </div>
                 <div>
-                  <CardTitle>PO Groups & Priority Management</CardTitle>
+                  <CardTitle>PO Groups & Priority</CardTitle>
                   <CardDescription>
-                    Organize POs into groups and set priority for each group
+                    Organize POs into groups and set priority
                   </CardDescription>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <Badge variant="outline" className="text-xs">
-                  {filteredPOs.length} POs
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-xs font-medium">
+                  {pos.length} POs
                 </Badge>
                 {isOpen ? (
-                  <ChevronUp className="w-5 h-5 text-muted-foreground" />
+                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
                 ) : (
-                  <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
                 )}
               </div>
             </div>
@@ -301,131 +317,160 @@ export function PriorityPOList() {
         </CollapsibleTrigger>
         
         <CollapsibleContent>
-          <CardContent className="space-y-6">
-            {/* Tabs for Priority and Groups */}
+          <CardContent className="space-y-4">
+            {/* Consolidated Search - shared across tabs */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search PO number, ASIN, SKU, title..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 rounded-lg"
+              />
+            </div>
+
             <Tabs defaultValue="priority" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="priority" className="flex items-center gap-2">
+              <TabsList className="grid w-full grid-cols-2 rounded-lg">
+                <TabsTrigger value="priority" className="flex items-center gap-2 rounded-lg">
                   <AlertTriangle className="w-4 h-4" />
-                  Priority Management
+                  Priority
+                  <Badge variant="secondary" className="text-xs ml-1 h-5 px-1.5">
+                    {filteredPOs.length}
+                  </Badge>
                 </TabsTrigger>
-                <TabsTrigger value="groups" className="flex items-center gap-2">
+                <TabsTrigger value="groups" className="flex items-center gap-2 rounded-lg">
                   <Folder className="w-4 h-4" />
-                  Group Management
+                  Groups
+                  <Badge variant="secondary" className="text-xs ml-1 h-5 px-1.5">
+                    {poGroups?.length || 0}
+                  </Badge>
                 </TabsTrigger>
               </TabsList>
 
               {/* Priority Management Tab */}
-              <TabsContent value="priority" className="space-y-4 mt-4">
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search PO number, ASIN, SKU..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-
-        {/* Loading State */}
-        {loading && (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-6 h-6 animate-spin text-primary" />
-          </div>
-        )}
-
-        {/* Empty State */}
-        {!loading && filteredPOs.length === 0 && (
-          <div className="text-center py-8 text-muted-foreground">
-            {searchQuery ? 'No POs match your search' : 'No open purchase orders'}
-          </div>
-        )}
-
-        {/* PO List */}
-        {!loading && filteredPOs.length > 0 && (
-          <div className="space-y-2">
-            {/* Select All Header */}
-            <div className="flex items-center gap-2 px-4 py-2 bg-muted/30 rounded-lg border border-border/50">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={toggleSelectAll}
-                className="h-auto p-0"
-              >
-                {allSelected ? (
-                  <CheckSquare className="w-4 h-4 text-primary" />
-                ) : (
-                  <Square className="w-4 h-4" />
-                )}
-              </Button>
-              <span className="text-sm font-medium">
-                Select All ({filteredPOs.length})
-              </span>
-            </div>
-
-            {/* PO Items */}
-            {filteredPOs.map((po) => (
-              <div
-                key={po.po_number}
-                className={cn(
-                  "flex items-start gap-3 p-4 rounded-lg border transition-colors",
-                  selectedPOs.has(po.po_number)
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/50 hover:bg-accent/50"
-                )}
-              >
-                <Checkbox
-                  checked={selectedPOs.has(po.po_number)}
-                  onCheckedChange={() => togglePOSelection(po.po_number)}
-                  className="mt-1"
-                />
-                
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-foreground">
-                      {po.po_number}
-                    </span>
-                    <Badge variant="outline" className="text-xs">
-                      {po.status.toUpperCase()}
-                    </Badge>
-                    <Badge variant="secondary" className="text-xs">
-                      {po.quantity} items
-                    </Badge>
+              <TabsContent value="priority" className="space-y-3 mt-4">
+                {loading && (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
                   </div>
-                  
-                  {po.title && (
-                    <p className="text-sm text-muted-foreground line-clamp-1">
-                      {po.title}
-                    </p>
-                  )}
-                  
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    {po.asin && <span>ASIN: {po.asin}</span>}
-                    {po.sku_code && <span>• SKU: {po.sku_code}</span>}
-                    {po.expected_delivery && (
-                      <span>• Expected: {new Date(po.expected_delivery).toLocaleDateString()}</span>
-                    )}
+                )}
+
+                {!loading && filteredPOs.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    {searchQuery ? 'No POs match your search' : 'No open purchase orders'}
                   </div>
-                </div>
+                )}
 
-                <POPriorityBadge
-                  priority={po.priority || 3}
-                  onUpdate={() => {}}
-                  disabled
-                />
-              </div>
-            ))}
-          </div>
-        )}
-
-                {/* Info Message */}
                 {!loading && filteredPOs.length > 0 && (
-                  <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                    <p className="text-xs text-blue-700 dark:text-blue-300">
-                      💡 <strong>How it works:</strong> When receiving items through the search bar above, 
-                      higher priority POs (⚡ Highest, 🔴 High) will be fulfilled first automatically. 
-                      This ensures urgent orders are completed before others.
+                  <div className="space-y-2">
+                    {/* Select All Header */}
+                    <div className="flex items-center gap-2 px-4 py-2 bg-muted/30 rounded-lg border border-border/50">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={toggleSelectAll}
+                        className="h-auto p-0"
+                      >
+                        {allSelected ? (
+                          <CheckSquare className="w-4 h-4 text-primary" />
+                        ) : (
+                          <Square className="w-4 h-4" />
+                        )}
+                      </Button>
+                      <span className="text-sm font-medium">
+                        Select All ({filteredPOs.length})
+                      </span>
+                    </div>
+
+                    {/* Virtualized PO Items */}
+                    <div
+                      ref={parentRef}
+                      className="max-h-[500px] overflow-auto rounded-lg"
+                    >
+                      <div
+                        style={{
+                          height: `${rowVirtualizer.getTotalSize()}px`,
+                          width: '100%',
+                          position: 'relative',
+                        }}
+                      >
+                        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                          const po = filteredPOs[virtualRow.index];
+                          const priorityColor = PRIORITY_COLORS[po.priority] || 'border-l-border';
+                          return (
+                            <div
+                              key={po.po_number}
+                              style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                width: '100%',
+                                height: `${virtualRow.size}px`,
+                                transform: `translateY(${virtualRow.start}px)`,
+                              }}
+                              className="pb-2"
+                            >
+                              <div
+                                className={cn(
+                                  "flex items-start gap-3 p-4 rounded-lg border border-l-4 transition-all h-full",
+                                  priorityColor,
+                                  selectedPOs.has(po.po_number)
+                                    ? "border-primary bg-primary/5 shadow-sm"
+                                    : "border-border hover:border-primary/50 hover:bg-accent/30 hover:shadow-sm"
+                                )}
+                              >
+                                <Checkbox
+                                  checked={selectedPOs.has(po.po_number)}
+                                  onCheckedChange={() => togglePOSelection(po.po_number)}
+                                  className="mt-1"
+                                />
+                                
+                                <div className="flex-1 min-w-0 space-y-1.5">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-semibold text-foreground">
+                                      {po.po_number}
+                                    </span>
+                                    <Badge variant="outline" className="text-xs">
+                                      {po.status.toUpperCase()}
+                                    </Badge>
+                                    <Badge variant="secondary" className="text-xs">
+                                      {po.quantity} items
+                                    </Badge>
+                                  </div>
+                                  
+                                  {po.title && (
+                                    <p className="text-sm text-muted-foreground line-clamp-1">
+                                      {po.title}
+                                    </p>
+                                  )}
+                                  
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                                    {po.asin && <span>ASIN: {po.asin}</span>}
+                                    {po.sku_code && <span>• SKU: {po.sku_code}</span>}
+                                    {po.expected_delivery && (
+                                      <span>• Expected: {new Date(po.expected_delivery).toLocaleDateString()}</span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <POPriorityBadge
+                                  priority={po.priority || 3}
+                                  onUpdate={() => {}}
+                                  disabled
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {!loading && filteredPOs.length > 0 && (
+                  <div className="p-3 bg-sky/5 border border-sky/20 rounded-lg">
+                    <p className="text-xs text-muted-foreground">
+                      💡 <strong>How it works:</strong> Higher priority POs (⚡ Highest, 🔴 High) will be fulfilled first automatically when receiving items.
                     </p>
                   </div>
                 )}
@@ -449,13 +494,13 @@ export function PriorityPOList() {
                   </div>
                 )}
 
-            {/* Existing Groups List */}
-            <div className="space-y-2">
-              <h4 className="text-sm font-semibold flex items-center gap-2">
-                <Users className="w-4 h-4" />
-                Existing Groups
-              </h4>
-                  
+                {/* Existing Groups List */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    Existing Groups
+                  </h4>
+                    
                   {!poGroups || poGroups.length === 0 ? (
                     <div className="text-center py-6 text-muted-foreground text-sm">
                       No groups created yet. Select POs and create a group to get started.
@@ -465,61 +510,74 @@ export function PriorityPOList() {
                       {poGroups.map((group: any) => (
                         <div
                           key={group.id}
-                          className="flex items-center justify-between p-3 rounded-lg border border-border hover:border-primary/50 transition-colors"
+                          className="p-4 rounded-lg border border-border hover:border-primary/50 transition-all hover:shadow-sm bg-card"
                         >
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <Folder className="w-4 h-4 text-muted-foreground" />
-                              <span className="font-medium">{group.group_name}</span>
-                              <Badge variant="secondary" className="text-xs">
-                                {group.member_count} POs
-                              </Badge>
-                            </div>
-                            {group.description && (
-                              <p className="text-xs text-muted-foreground mt-1 ml-6">
-                                {group.description}
-                              </p>
-                            )}
-                            {group.po_numbers && group.po_numbers.length > 0 && (
-                              <div className="text-xs text-muted-foreground mt-1 ml-6">
-                                POs: {group.po_numbers.slice(0, 3).join(', ')}
-                                {group.po_numbers.length > 3 && ` +${group.po_numbers.length - 3} more`}
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Folder className="w-4 h-4 text-primary shrink-0" />
+                                <span className="font-semibold">{group.group_name}</span>
+                                <Badge variant="secondary" className="text-xs">
+                                  {group.member_count} POs
+                                </Badge>
                               </div>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Select
-                              value={group.priority?.toString() || '3'}
-                              onValueChange={(value) => {
-                                const priority = parseInt(value);
-                                updateGroupPriority.mutate({
-                                  groupId: group.id,
-                                  priority
-                                });
-                              }}
-                            >
-                              <SelectTrigger className="w-32">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="1">🚀 1st Nearest Shipment</SelectItem>
-                                <SelectItem value="2">🔥 2nd Nearest Shipment</SelectItem>
-                                <SelectItem value="3">📦 3rd Nearest Shipment</SelectItem>
-                                <SelectItem value="4">📅 4th Nearest Shipment</SelectItem>
-                                <SelectItem value="5">⏰ 5th Nearest Shipment</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                if (confirm('Are you sure you want to delete this group?')) {
-                                  deleteGroup.mutate(group.id);
-                                }
-                              }}
-                            >
-                              Delete
-                            </Button>
+                              {group.description && (
+                                <p className="text-xs text-muted-foreground mt-1 ml-6">
+                                  {group.description}
+                                </p>
+                              )}
+                              {group.po_numbers && group.po_numbers.length > 0 && (
+                                <div className="text-xs text-muted-foreground mt-1 ml-6">
+                                  POs: {group.po_numbers.slice(0, 3).join(', ')}
+                                  {group.po_numbers.length > 3 && ` +${group.po_numbers.length - 3} more`}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {/* Priority as segmented buttons */}
+                              <div className="flex rounded-lg border border-border overflow-hidden">
+                                {[1, 2, 3, 4, 5].map((p) => (
+                                  <button
+                                    key={p}
+                                    onClick={() => updateGroupPriority.mutate({ groupId: group.id, priority: p })}
+                                    className={cn(
+                                      "px-2 py-1 text-xs font-medium transition-colors",
+                                      (group.priority || 3) === p
+                                        ? "bg-primary text-primary-foreground"
+                                        : "bg-card hover:bg-accent text-muted-foreground"
+                                    )}
+                                    title={`Priority ${p}`}
+                                  >
+                                    {p}
+                                  </button>
+                                ))}
+                              </div>
+                              
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0">
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Group</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to delete "{group.group_name}"? This will ungroup the POs but won't delete them.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => deleteGroup.mutate(group.id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -527,35 +585,21 @@ export function PriorityPOList() {
                   )}
                 </div>
 
-                {/* Search (Shared) */}
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search PO number, ASIN, SKU..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-
-                {/* Loading State */}
+                {/* PO List in Groups tab - shared with priority tab */}
                 {loading && (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="w-6 h-6 animate-spin text-primary" />
                   </div>
                 )}
 
-                {/* Empty State */}
                 {!loading && filteredPOs.length === 0 && (
                   <div className="text-center py-8 text-muted-foreground">
                     {searchQuery ? 'No POs match your search' : 'No open purchase orders'}
                   </div>
                 )}
 
-                {/* PO List (Shared) */}
                 {!loading && filteredPOs.length > 0 && (
                   <div className="space-y-2">
-                    {/* Select All Header */}
                     <div className="flex items-center gap-2 px-4 py-2 bg-muted/30 rounded-lg border border-border/50">
                       <Button
                         variant="ghost"
@@ -574,66 +618,71 @@ export function PriorityPOList() {
                       </span>
                     </div>
 
-                    {/* PO Items */}
-                    {filteredPOs.map((po) => (
-                      <div
-                        key={po.po_number}
-                        className={cn(
-                          "flex items-start gap-3 p-4 rounded-lg border transition-colors",
-                          selectedPOs.has(po.po_number)
-                            ? "border-primary bg-primary/5"
-                            : "border-border hover:border-primary/50 hover:bg-accent/50"
-                        )}
-                      >
-                        <Checkbox
-                          checked={selectedPOs.has(po.po_number)}
-                          onCheckedChange={() => togglePOSelection(po.po_number)}
-                          className="mt-1"
-                        />
-                        
-                        <div className="flex-1 space-y-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold text-foreground">
-                              {po.po_number}
-                            </span>
-                            <Badge variant="outline" className="text-xs">
-                              {po.status.toUpperCase()}
-                            </Badge>
-                            <Badge variant="secondary" className="text-xs">
-                              {po.quantity} items
-                            </Badge>
-                          </div>
-                          
-                          {po.title && (
-                            <p className="text-sm text-muted-foreground line-clamp-1">
-                              {po.title}
-                            </p>
-                          )}
-                          
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            {po.asin && <span>ASIN: {po.asin}</span>}
-                            {po.sku_code && <span>• SKU: {po.sku_code}</span>}
-                            {po.expected_delivery && (
-                              <span>• Expected: {new Date(po.expected_delivery).toLocaleDateString()}</span>
+                    <div className="max-h-[400px] overflow-auto space-y-2 rounded-lg">
+                      {filteredPOs.map((po) => {
+                        const priorityColor = PRIORITY_COLORS[po.priority] || 'border-l-border';
+                        return (
+                          <div
+                            key={po.po_number}
+                            className={cn(
+                              "flex items-start gap-3 p-4 rounded-lg border border-l-4 transition-all",
+                              priorityColor,
+                              selectedPOs.has(po.po_number)
+                                ? "border-primary bg-primary/5 shadow-sm"
+                                : "border-border hover:border-primary/50 hover:bg-accent/30 hover:shadow-sm"
                             )}
-                          </div>
-                        </div>
-
-                        <div className="flex flex-col items-end gap-1">
-                          {po.priority < 6 ? (
-                            <POPriorityBadge
-                              priority={po.priority || 3}
-                              onUpdate={() => {}}
-                              disabled
+                          >
+                            <Checkbox
+                              checked={selectedPOs.has(po.po_number)}
+                              onCheckedChange={() => togglePOSelection(po.po_number)}
+                              className="mt-1"
                             />
-                          ) : (
-                            <Badge variant="outline" className="text-xs border-dashed text-muted-foreground">
-                              📋 Auto-Priority {po.priority}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                            
+                            <div className="flex-1 min-w-0 space-y-1.5">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-semibold text-foreground">
+                                  {po.po_number}
+                                </span>
+                                <Badge variant="outline" className="text-xs">
+                                  {po.status.toUpperCase()}
+                                </Badge>
+                                <Badge variant="secondary" className="text-xs">
+                                  {po.quantity} items
+                                </Badge>
+                              </div>
+                              
+                              {po.title && (
+                                <p className="text-sm text-muted-foreground line-clamp-1">
+                                  {po.title}
+                                </p>
+                              )}
+                              
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                                {po.asin && <span>ASIN: {po.asin}</span>}
+                                {po.sku_code && <span>• SKU: {po.sku_code}</span>}
+                                {po.expected_delivery && (
+                                  <span>• Expected: {new Date(po.expected_delivery).toLocaleDateString()}</span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex flex-col items-end gap-1">
+                              {po.priority < 6 ? (
+                                <POPriorityBadge
+                                  priority={po.priority || 3}
+                                  onUpdate={() => {}}
+                                  disabled
+                                />
+                              ) : (
+                                <Badge variant="outline" className="text-xs border-dashed text-muted-foreground">
+                                  📋 Auto-Priority {po.priority}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </TabsContent>
@@ -719,8 +768,7 @@ export function PriorityPOList() {
                       <SelectItem key={group.id} value={group.id}>
                         {group.group_name} ({group.member_count} POs)
                       </SelectItem>
-                    ))}
-                  </SelectContent>
+                    ))}</SelectContent>
                 </Select>
               </div>
 
