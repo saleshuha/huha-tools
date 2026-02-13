@@ -1,56 +1,72 @@
 
 
-## Simplify Item Actions + Performance Improvements
+## Collapsible Metrics + Dual Search (SKU + Title)
 
-### 1. Replace Quantity Input with Two Simple Actions
+### 1. Collapsible Metrics Header on Mobile
 
-Remove the quantity input box and Save button from each card. Replace with two clear action buttons:
-
-- **"Scan Barcode (Mark as Done)"** -- Opens the barcode scanner; on successful scan, automatically marks the item as purchased (sets purchased_quantity = totalRequired) and links the barcode
-- **"Not Available"** -- Marks the item as not available (same as current N/A behavior)
-
-This simplifies vendor workflow from "type qty, click save" to a single tap.
+Wrap the `PurchaseSummaryHeader` component in a `Collapsible` that defaults to **closed** on mobile. Show a compact one-line summary (title + completion %) with a toggle chevron. The full metrics (ring, stat cards, progress bar) expand on tap. On desktop it stays open by default.
 
 **File: `src/pages/PurchaseLink.tsx`**
-- Remove the `Input` for quantity and the Save `Button` from the actions row (lines 728-749)
-- Replace with a wider "Scan (Done)" button that opens the scanner AND auto-marks as purchased on successful scan
-- Keep the "N/A" button as-is
-- Update `handleBarcodeScanned` to also call `handleSaveGroup` with full required quantity after linking the barcode
-- Keep the `handleSaveGroup` function intact internally for bulk actions and barcode-triggered saves
+- Add `metricsOpen` state, defaulting to `false`
+- Wrap `<PurchaseSummaryHeader>` in `<Collapsible>` with a compact trigger bar showing title and completion %
+- The trigger bar shows: title (truncated), completion badge (e.g. "6%"), and a chevron
 
-### 2. Collapsible Header/Filter UI (Always Closed)
+### 2. Separate Search Bar from Filters
 
-Wrap the search bar, filter buttons, and sort controls inside a `Collapsible` component that defaults to closed. Show a compact summary bar with the current filter name and a toggle button.
+Move the search bar **outside** the collapsible filter section so it is always visible in the sticky header area. The filters (status buttons, sort) remain inside the collapsible.
 
 **File: `src/pages/PurchaseLink.tsx`**
-- Import `Collapsible`, `CollapsibleTrigger`, `CollapsibleContent` from the existing UI components
-- Add a `filterOpen` state, defaulting to `false`
-- Show a thin bar with current filter label, item count, and a chevron toggle
-- Put the search input, filter buttons, and sort buttons inside `CollapsibleContent`
+- Move the search `Input` out of `<CollapsibleContent>` and place it in the always-visible part of the sticky bar, above the collapsible trigger
+- The collapsible now only contains filter buttons and sort buttons
 
-### 3. Performance Improvements
+### 3. Dual Search: SKU Search + Title Search (Cascading Filter)
 
-**Faster search/filtering for large datasets:**
-- Use `Fuse.js` (already installed) for fuzzy search indexing instead of repeated `.includes()` calls on every keystroke
-- Add a 200ms debounce to the search input so filtering doesn't run on every character
-- Pre-build an update lookup `Map<string, Update>` (keyed by `po_order_id`) in `useMemo` to replace repeated `.find()` calls in `getGroupStatus` and grouping logic -- this turns O(n*m) lookups into O(1)
+Replace the single search bar with two compact inputs side by side:
 
-**Faster rendering:**
-- Virtualize the item list using `@tanstack/react-virtual` (already installed) so only visible cards are rendered instead of all 2,500+
-- Memoize `getGroupStatus` results inside the `filteredGroups` useMemo to avoid recalculating per-render
+- **First input**: "Search by SKU/ASIN..." -- filters the dataset to only items matching that SKU/ASIN
+- **Second input**: "Search by title..." -- further filters within the SKU-matched results by title keywords
+
+This creates a cascading/narrowing search: type a partial SKU to find all products from that SKU family, then type title keywords to pinpoint the exact item within that set.
+
+**How it works technically:**
+
+- Add `skuSearchTerm` and `titleSearchTerm` states (replacing the single `searchTerm`)
+- Add debounced versions of both (200ms)
+- Create two separate Fuse.js indexes:
+  - `skuFuse`: searches on `asin`, `skuCode`, `poNumbers` keys
+  - `titleFuse`: searches on `title` key only
+- In `filteredGroups` useMemo:
+  1. Start with all groups matching `filterStatus`
+  2. If `debouncedSkuSearch` is non-empty, filter using `skuFuse`
+  3. If `debouncedTitleSearch` is non-empty, further filter the result using a secondary Fuse search on just those items' titles
+- Both inputs are always visible in the sticky bar, stacked vertically on mobile, side by side on desktop
+
+**File: `src/pages/PurchaseLink.tsx`**
 
 ### Technical Details
 
-**File: `src/pages/PurchaseLink.tsx`**
+**States to add:**
+- `metricsOpen: boolean` (default `false`)
+- `skuSearchTerm: string` and `titleSearchTerm: string` (replace single `searchTerm`)
+- `debouncedSkuSearch` and `debouncedTitleSearch` (200ms debounce each)
 
-1. Add `updatesMap` useMemo that builds `Map<po_order_id, update>` from `data.updates`
-2. Refactor `groupedOrders` and `getGroupStatus` to use `updatesMap.get()` instead of `.find()`
-3. Add Fuse.js index on grouped orders (keys: title, asin, skuCode, poNumbers)
-4. Add debounced search term state (200ms delay)
-5. Replace the items list `div` with a virtualized container using `useVirtualizer`
-6. Wrap filter section in `Collapsible` defaulting to closed
-7. Replace qty input + save button with "Scan (Done)" and "N/A" buttons
-8. Update `handleBarcodeScanned` to auto-save full required quantity after barcode link
+**States to remove:**
+- `searchTerm` and `debouncedSearch` (replaced by the two new pairs)
 
-All existing functions (bulk actions, undo, export, supplier details, realtime sync) remain intact.
+**useMemo changes:**
+- Replace single `fuseIndex` with two: `skuFuse` (keys: `asin`, `skuCode`, `poNumbers`) and `titleFuse` (keys: `title`)
+- Update `filteredGroups` to apply cascading filter: status -> SKU match -> title match
+
+**UI layout in sticky bar:**
+```text
++--------------------------------------------------+
+| [SKU/ASIN search]    [Title search]              |
+| [Filter: Pending v] [2,355 items] [Export]       |
+|   (collapsible: filter buttons + sort buttons)   |
++--------------------------------------------------+
+```
+
+**Files to modify:**
+- `src/pages/PurchaseLink.tsx` -- Collapsible metrics, dual search, restructured sticky bar
+- `src/components/purchase-link/PurchaseSummaryHeader.tsx` -- Export `completionPercentage` or add a compact mode prop for the collapsed trigger display
 
