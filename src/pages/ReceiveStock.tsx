@@ -97,9 +97,11 @@ export default function ReceiveStock() {
     groupCount: 0,
   });
 
-  // Load dashboard metrics
+  // Load dashboard metrics - staggered to avoid connection pool exhaustion
   useEffect(() => {
-    const loadMetrics = async () => {
+    if (isCheckingAuth) return;
+
+    const timer = setTimeout(async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
@@ -107,28 +109,33 @@ export default function ReceiveStock() {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const [poResult, pendingResult, historyResult, groupResult] = await Promise.all([
-          supabase.from('po_orders').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
-          supabase.from('po_orders').select('id', { count: 'exact', head: true }).eq('user_id', user.id).in('status', ['pending', 'placed']),
-          supabase.from('receiving_history').select('id', { count: 'exact', head: true }).eq('user_id', user.id).gte('created_at', today.toISOString()),
-          supabase.from('po_groups').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'active'),
-        ]);
+        // Sequential queries to avoid pool exhaustion
+        try {
+          const poResult = await supabase.from('po_orders').select('id', { count: 'exact', head: true }).eq('user_id', user.id);
+          setDashboardMetrics(prev => ({ ...prev, totalPOs: poResult.count || 0 }));
+        } catch (e) { console.error('Failed to load total POs:', e); }
 
-        const totalPOs = poResult.count || 0;
-        const pendingCount = pendingResult.count || 0;
+        try {
+          const pendingResult = await supabase.from('po_orders').select('id', { count: 'exact', head: true }).eq('user_id', user.id).in('status', ['pending', 'placed']);
+          setDashboardMetrics(prev => ({ ...prev, pendingCount: pendingResult.count || 0 }));
+        } catch (e) { console.error('Failed to load pending count:', e); }
 
-        setDashboardMetrics({
-          totalPOs,
-          receivedToday: historyResult.count || 0,
-          pendingCount,
-          groupCount: groupResult.count || 0,
-        });
+        try {
+          const historyResult = await supabase.from('receiving_history').select('id', { count: 'exact', head: true }).eq('user_id', user.id).gte('created_at', today.toISOString());
+          setDashboardMetrics(prev => ({ ...prev, receivedToday: historyResult.count || 0 }));
+        } catch (e) { console.error('Failed to load received today:', e); }
+
+        try {
+          const groupResult = await supabase.from('po_groups').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'active');
+          setDashboardMetrics(prev => ({ ...prev, groupCount: groupResult.count || 0 }));
+        } catch (e) { console.error('Failed to load group count:', e); }
+
       } catch (error) {
         console.error('Failed to load dashboard metrics:', error);
       }
-    };
-    
-    if (!isCheckingAuth) loadMetrics();
+    }, 1000); // 1s delay to let auth and critical queries settle
+
+    return () => clearTimeout(timer);
   }, [isCheckingAuth]);
 
   // Check authentication on mount
@@ -224,25 +231,28 @@ export default function ReceiveStock() {
   }, []);
   const loadTemplates = async (savedPoTemplate?: string | null, savedInventoryTemplate?: string | null) => {
     try {
-      const {
-        data: poData
-      } = await supabase.from('label_templates').select('id, name, description').or('name.ilike.%po%,name.ilike.%purchase%,description.ilike.%po%').order('created_at', {
-        ascending: false
-      });
+      // Single query for all templates instead of 2 separate queries
+      const { data: allTemplates } = await supabase
+        .from('label_templates')
+        .select('id, name, description')
+        .or('name.ilike.%po%,name.ilike.%purchase%,description.ilike.%po%,name.ilike.%inventory%,name.ilike.%warehouse%,name.ilike.%stock%')
+        .order('created_at', { ascending: false });
 
-      const {
-        data: invData
-      } = await supabase.from('label_templates').select('id, name, description').or('name.ilike.%inventory%,name.ilike.%warehouse%,name.ilike.%stock%').order('created_at', {
-        ascending: false
-      });
-      setPoTemplates(poData || []);
-      setInventoryTemplates(invData || []);
+      const poData = (allTemplates || []).filter(t => 
+        /po|purchase/i.test(t.name || '') || /po/i.test(t.description || '')
+      );
+      const invData = (allTemplates || []).filter(t => 
+        /inventory|warehouse|stock/i.test(t.name || '')
+      );
 
-      if (poData && poData.length > 0 && !savedPoTemplate) {
+      setPoTemplates(poData);
+      setInventoryTemplates(invData);
+
+      if (poData.length > 0 && !savedPoTemplate) {
         setSelectedPoTemplate(poData[0].id);
         localStorage.setItem('stock-receiving-po-template-id', poData[0].id);
       }
-      if (invData && invData.length > 0 && !savedInventoryTemplate) {
+      if (invData.length > 0 && !savedInventoryTemplate) {
         setSelectedInventoryTemplate(invData[0].id);
         localStorage.setItem('stock-receiving-inventory-template-id', invData[0].id);
       }

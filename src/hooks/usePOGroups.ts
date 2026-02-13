@@ -14,18 +14,17 @@ export const usePOGroups = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Fetch groups and summaries in parallel
-      const [groupsResult, summariesResult] = await Promise.all([
-        supabase
-          .from('po_groups')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('status', 'active')
-          .order('created_at', { ascending: false }),
-        supabase.rpc('get_po_group_summaries', { p_user_id: user.id })
-      ]);
+      // Sequential queries to avoid connection pool exhaustion
+      const groupsResult = await supabase
+        .from('po_groups')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
 
       if (groupsResult.error) throw groupsResult.error;
+
+      const summariesResult = await supabase.rpc('get_po_group_summaries', { p_user_id: user.id });
 
       // Build a lookup map from summaries
       const summaryMap = new Map<string, any>();
@@ -50,6 +49,8 @@ export const usePOGroups = () => {
       return groupsWithMembers;
     },
     staleTime: 2 * 60 * 1000,
+    retry: 1,
+    retryDelay: 2000,
   });
 
   // Update ungrouped PO priorities - defined first so it can be used in other mutations
@@ -125,8 +126,6 @@ export const usePOGroups = () => {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['po-groups'] });
-      // Trigger auto-update for remaining ungrouped POs
-      updateUngroupedPriorities.mutate();
       toast({
         title: 'Group created',
         description: 'PO group created successfully',
@@ -254,8 +253,6 @@ export const usePOGroups = () => {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['po-groups'] });
-      // Trigger auto-update for remaining ungrouped POs
-      updateUngroupedPriorities.mutate();
       toast({
         title: 'Priority updated',
         description: 'Group priority updated successfully',
@@ -315,7 +312,6 @@ export const usePOGroups = () => {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['po-groups'] });
-      updateUngroupedPriorities.mutate();
       toast({
         title: 'Group updated',
         description: 'Group details updated successfully',
