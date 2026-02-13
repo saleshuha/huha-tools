@@ -107,14 +107,15 @@ export default function ReceiveStock() {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const [poResult, historyResult, groupResult] = await Promise.all([
-          supabase.from('po_orders').select('id, status', { count: 'exact' }).eq('user_id', user.id),
-          supabase.from('receiving_history').select('id', { count: 'exact' }).eq('user_id', user.id).gte('created_at', today.toISOString()),
-          supabase.from('po_groups').select('id', { count: 'exact' }).eq('user_id', user.id).eq('status', 'active'),
+        const [poResult, pendingResult, historyResult, groupResult] = await Promise.all([
+          supabase.from('po_orders').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+          supabase.from('po_orders').select('id', { count: 'exact', head: true }).eq('user_id', user.id).in('status', ['pending', 'placed']),
+          supabase.from('receiving_history').select('id', { count: 'exact', head: true }).eq('user_id', user.id).gte('created_at', today.toISOString()),
+          supabase.from('po_groups').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'active'),
         ]);
 
         const totalPOs = poResult.count || 0;
-        const pendingCount = poResult.data?.filter(po => po.status === 'pending' || po.status === 'placed').length || 0;
+        const pendingCount = pendingResult.count || 0;
 
         setDashboardMetrics({
           totalPOs,
