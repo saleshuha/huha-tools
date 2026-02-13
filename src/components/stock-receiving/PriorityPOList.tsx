@@ -79,27 +79,23 @@ export function PriorityPOList() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      let allItems: any[] = [];
+      // Only fetch POs that belong to groups (via po_group_members)
+      // This is much faster than fetching all POs
+      let allMembers: any[] = [];
       let from = 0;
       const batchSize = 1000;
       let hasMore = true;
 
-      console.log('Fetching PO orders in batches...');
-      
       while (hasMore) {
         const { data, error } = await supabase
-          .from('po_orders')
-          .select('id, po_number, status, priority, quantity, asin, sku_code, model_number, title, expected_delivery')
-          .eq('user_id', user.id)
-          .order('priority', { ascending: true })
-          .order('expected_delivery', { ascending: true })
+          .from('po_group_members')
+          .select('po_id, po_orders(id, po_number, status, priority, quantity, asin, sku_code, model_number, title, expected_delivery)')
           .range(from, from + batchSize - 1);
 
         if (error) throw error;
         
         if (data && data.length > 0) {
-          allItems = [...allItems, ...data];
-          console.log(`Fetched batch: ${data.length} items (total so far: ${allItems.length})`);
+          allMembers = [...allMembers, ...data];
           from += batchSize;
           hasMore = data.length === batchSize;
         } else {
@@ -107,23 +103,24 @@ export function PriorityPOList() {
         }
       }
 
-      console.log(`Fetched ${allItems.length} PO items total`);
-
-      const grouped = allItems.reduce((acc: any, po: any) => {
+      // Extract unique PO items from members
+      const poMap = new Map<string, any>();
+      for (const member of allMembers) {
+        const po = member.po_orders;
+        if (!po) continue;
         const key = po.po_number;
-        if (!acc[key]) {
-          acc[key] = { ...po, quantity: 0, items: [] };
+        if (!poMap.has(key)) {
+          poMap.set(key, { ...po, quantity: 0 });
         }
-        acc[key].quantity += po.quantity;
-        acc[key].items.push(po);
-        if (!acc[key].priority || po.priority < acc[key].priority) {
-          acc[key].priority = po.priority || 3;
+        const existing = poMap.get(key);
+        existing.quantity += po.quantity;
+        if (!existing.priority || po.priority < existing.priority) {
+          existing.priority = po.priority || 3;
         }
-        return acc;
-      }, {});
+      }
 
-      const groupedArray = Object.values(grouped) as PO[];
-      console.log(`Grouped into ${groupedArray.length} unique PO numbers`);
+      const groupedArray = Array.from(poMap.values()) as PO[];
+      console.log(`Loaded ${groupedArray.length} grouped POs from ${allMembers.length} members`);
       setPOs(groupedArray);
     } catch (error) {
       console.error('Failed to load POs:', error);
