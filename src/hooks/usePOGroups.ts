@@ -16,37 +16,41 @@ export const usePOGroups = () => {
 
       const { data: groups, error: groupsError } = await supabase
         .from('po_groups')
-        .select(`
-          *,
-          po_group_members (
-            po_id,
-            po_orders (
-              po_number,
-              quantity,
-              priority
-            )
-          )
-        `)
+        .select('*')
         .eq('user_id', user.id)
         .eq('status', 'active')
         .order('created_at', { ascending: false });
 
       if (groupsError) throw groupsError;
 
-      // Transform to include aggregated data
-      const groupsWithMembers: POGroupWithMembers[] = (groups || []).map(group => {
-        const members = group.po_group_members || [];
-        const poNumbers = members.map((m: any) => m.po_orders?.po_number).filter(Boolean);
-        const totalQuantity = members.reduce((sum: number, m: any) => sum + (m.po_orders?.quantity || 0), 0);
-        
-        return {
-          ...group,
-          member_count: members.length,
-          total_quantity: totalQuantity,
-          po_numbers: poNumbers,
-          po_ids: members.map((m: any) => m.po_id)
-        };
-      });
+      // For each group, fetch member count and unique PO info separately to avoid 1000 row limit
+      const groupsWithMembers: POGroupWithMembers[] = await Promise.all(
+        (groups || []).map(async (group) => {
+          // Get exact member count
+          const { count: memberCount } = await supabase
+            .from('po_group_members')
+            .select('id', { count: 'exact', head: true })
+            .eq('group_id', group.id);
+
+          // Get PO details (limited sample for display + total quantity via sum)
+          const { data: members } = await supabase
+            .from('po_group_members')
+            .select('po_id, po_orders(po_number, quantity, priority)')
+            .eq('group_id', group.id);
+
+          const allMembers = members || [];
+          const poNumbers = allMembers.map((m: any) => m.po_orders?.po_number).filter(Boolean);
+          const totalQuantity = allMembers.reduce((sum: number, m: any) => sum + (m.po_orders?.quantity || 0), 0);
+
+          return {
+            ...group,
+            member_count: memberCount || 0,
+            total_quantity: totalQuantity,
+            po_numbers: poNumbers,
+            po_ids: allMembers.map((m: any) => m.po_id)
+          };
+        })
+      );
 
       return groupsWithMembers;
     },
