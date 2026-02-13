@@ -32,13 +32,24 @@ export const usePOGroups = () => {
             .select('id', { count: 'exact', head: true })
             .eq('group_id', group.id);
 
-          // Get PO details (limited sample for display + total quantity via sum)
-          const { data: members } = await supabase
-            .from('po_group_members')
-            .select('po_id, po_orders(po_number, quantity, priority)')
-            .eq('group_id', group.id);
+          // Paginate to fetch ALL members (bypass 1000 row limit)
+          let allMembers: any[] = [];
+          const PAGE_SIZE = 1000;
+          let page = 0;
+          let hasMore = true;
+          while (hasMore) {
+            const { data: members } = await supabase
+              .from('po_group_members')
+              .select('po_id, po_orders(po_number, quantity, priority)')
+              .eq('group_id', group.id)
+              .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+            
+            const batch = members || [];
+            allMembers = [...allMembers, ...batch];
+            hasMore = batch.length === PAGE_SIZE;
+            page++;
+          }
 
-          const allMembers = members || [];
           const poNumbers = allMembers.map((m: any) => m.po_orders?.po_number).filter(Boolean);
           const totalQuantity = allMembers.reduce((sum: number, m: any) => sum + (m.po_orders?.quantity || 0), 0);
 
@@ -214,15 +225,24 @@ export const usePOGroups = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Get all PO IDs in the group
-      const { data: members, error: membersError } = await supabase
-        .from('po_group_members')
-        .select('po_id')
-        .eq('group_id', groupId);
+      // Paginate to get ALL PO IDs in the group
+      let poIds: string[] = [];
+      const PAGE_SIZE = 1000;
+      let page = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data: members, error: membersError } = await supabase
+          .from('po_group_members')
+          .select('po_id')
+          .eq('group_id', groupId)
+          .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
-      if (membersError) throw membersError;
-
-      const poIds = members?.map(m => m.po_id) || [];
+        if (membersError) throw membersError;
+        const batch = members || [];
+        poIds = [...poIds, ...batch.map(m => m.po_id)];
+        hasMore = batch.length === PAGE_SIZE;
+        page++;
+      }
 
       // Update priority for all POs in the group (batched)
       if (poIds.length > 0) {
@@ -280,13 +300,23 @@ export const usePOGroups = () => {
 
       if (error) throw error;
 
-      // Also update priority on all member POs
-      const { data: members } = await supabase
-        .from('po_group_members')
-        .select('po_id')
-        .eq('group_id', groupId);
-
-      const poIds = members?.map(m => m.po_id) || [];
+      // Paginate to get ALL member PO IDs
+      let poIds: string[] = [];
+      const PAGE_SIZE = 1000;
+      let page = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data: members } = await supabase
+          .from('po_group_members')
+          .select('po_id')
+          .eq('group_id', groupId)
+          .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+        
+        const batch = members || [];
+        poIds = [...poIds, ...batch.map(m => m.po_id)];
+        hasMore = batch.length === PAGE_SIZE;
+        page++;
+      }
       if (poIds.length > 0) {
         const BATCH_SIZE = 100;
         for (let i = 0; i < poIds.length; i += BATCH_SIZE) {
