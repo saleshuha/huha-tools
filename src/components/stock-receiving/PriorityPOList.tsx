@@ -518,7 +518,7 @@ export function PriorityPOList() {
                                 <Folder className="w-4 h-4 text-primary shrink-0" />
                                 <span className="font-semibold">{group.group_name}</span>
                                 <Badge variant="secondary" className="text-xs">
-                                  {group.member_count} POs
+                                  {group.member_count} Items
                                 </Badge>
                               </div>
                               {group.description && (
