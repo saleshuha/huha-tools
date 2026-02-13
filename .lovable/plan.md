@@ -1,69 +1,51 @@
 
 
-# Redesign: Unified PO Groups & Priority
+# Fix: Connection Pool Exhaustion on Stock Receiving Page
 
 ## Problem
-The current implementation splits grouping and priority into two separate tabs with duplicated PO lists, redundant state, and a bloated 863-line component. This causes confusion and slow performance.
+Every request to the database is returning "Timed out acquiring connection from connection pool" (504 errors). The page fires 10+ simultaneous database queries on load, which exhausts the Supabase connection pool.
 
-## Solution: Single Unified View
+## Root Cause
+On mount, these queries all fire at once:
+1. Dashboard metrics: 4 parallel HEAD queries (po_orders, pending, receiving_history, po_groups)
+2. usePOGroups: 2 parallel queries (po_groups SELECT + get_po_group_summaries RPC)
+3. update_ungrouped_po_priorities RPC (fired after groups load)
+4. label_templates: 2 queries (PO templates + inventory templates)
+5. Receiving sessions query
+6. Background tasks query
+7. Profile query
 
-Replace the two-tab layout with a single streamlined view that shows groups as collapsible cards, each with inline priority controls and PO management.
+That is 12+ connections hitting the pool simultaneously, causing all of them to time out.
 
-### Layout (top to bottom)
+## Solution: Stagger and Reduce Queries
 
-```text
-+-----------------------------------------------+
-| PO Groups & Priority           [+ New Group]   |
-| Manage groups and set priority                  |
-+-----------------------------------------------+
-| [Search groups or POs...]                       |
-+-----------------------------------------------+
-| > P1 | Urgent Orders    | 5 POs, 120 items     |
-|   [Edit] [Delete]                               |
-|   (collapsed - click to expand PO list)         |
-+-----------------------------------------------+
-| > P2 | Weekly Batch      | 12 POs, 340 items    |
-|   [Edit] [Delete]                               |
-+-----------------------------------------------+
-| > P3 | Standard Orders   | 8 POs, 200 items     |
-|   [Edit] [Delete]                               |
-+-----------------------------------------------+
-| Tip: Ungrouped POs auto-receive priority.       |
-+-----------------------------------------------+
-```
+### 1. ReceiveStock.tsx -- Stagger dashboard metrics (sequential instead of parallel)
+- Replace `Promise.all` with sequential queries using a single combined approach
+- Delay metrics loading by 500ms to let auth and critical queries complete first
+- Combine the 2 template queries into 1 query with an OR filter
 
-### What Changes
+### 2. usePOGroups.ts -- Sequential instead of parallel
+- Change the `Promise.all([groupsResult, summariesResult])` to sequential calls
+- The RPC already returns all needed data; consider if we even need the separate groups query
+- Remove the automatic `updateUngroupedPriorities.mutate()` call from `onSuccess` of createGroup/updateGroup -- this is a heavy RPC that fires frequently and can be triggered manually or with a debounce
 
-1. **Remove the tabs** -- no more "Priority" vs "Groups" split
-2. **Remove the separate PO list loading** -- no more fetching all group members individually. Groups already have `member_count`, `total_quantity`, and `po_numbers` from the RPC. Only load PO details on-demand when a group is expanded.
-3. **Remove `POGroupManager.tsx`** -- it's unused in the page and duplicates functionality
-4. **Inline group actions** -- Edit, Delete, and "Add POs" all accessible per group card
-5. **Keep "Create Group" dialog** -- triggered from the header button, with PO selection inside the dialog (not in the main list)
+### 3. Remove auto-fire of updateUngroupedPriorities
+- This RPC fires on every group create/update/priority change, adding unnecessary load
+- Make it opt-in or remove it from automatic triggers
 
-### Technical Details
+### 4. Add error resilience
+- Wrap dashboard metric queries with individual try/catch so one failure doesn't block others
+- Add retry delay on connection pool errors
 
-**File: `src/components/stock-receiving/PriorityPOList.tsx`** (rewrite, ~400 lines down from 863)
-- Remove `pos` state and `loadPOs` function entirely -- no bulk PO fetching on mount
-- Remove the `Tabs` component and both `TabsContent` sections
-- Remove `rowVirtualizer` (not needed for group-level list)
-- Groups render from `poGroups` (already fetched via RPC in `usePOGroups`)
-- Each group is a collapsible card sorted by priority
-- Expanding a group calls `getPOsInGroup()` on-demand and caches results in local state
-- Search filters groups by name or `po_numbers` array (no PO fetching needed)
-- "New Group" button opens a dialog where user types group name, description, priority, and selects POs (fetched only inside the dialog)
-
-**File: `src/components/stock-receiving/POGroupManager.tsx`**
-- Delete this file (unused duplicate)
+## Technical Changes
 
 **File: `src/pages/ReceiveStock.tsx`**
-- Remove `POGroupManager` import (already not rendered, just imported)
+- Change dashboard metrics from `Promise.all` (4 simultaneous) to sequential queries with a startup delay
+- Merge the 2 template queries into 1 combined query
+- Add 1-second delay before loading metrics to let auth settle
 
-**File: `src/hooks/usePOGroups.ts`**
-- No changes needed, already optimized
-
-### Performance Gains
-- Page load: no more fetching thousands of `po_group_members` on mount
-- Group data comes from a single RPC call (already cached for 2 minutes)
-- PO details only fetched when user expands a specific group
-- Eliminates the `updateUngroupedPriorities` fire-and-forget call on every mount
+**File: `src/hooks/usePOGroups.ts`**  
+- Change from `Promise.all` to sequential: first fetch groups, then fetch summaries
+- Remove automatic `updateUngroupedPriorities.mutate()` calls from mutation `onSuccess` handlers (this was firing the heavy RPC after every group action)
+- Add `retry: 1` and `retryDelay: 2000` to the query config to handle transient pool issues
 
