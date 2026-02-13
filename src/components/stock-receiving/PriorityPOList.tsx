@@ -526,12 +526,15 @@ export function PriorityPOList() {
                                   {group.description}
                                 </p>
                               )}
-                              {group.po_numbers && group.po_numbers.length > 0 && (
-                                <div className="text-xs text-muted-foreground mt-1 ml-6">
-                                  POs: {group.po_numbers.slice(0, 3).join(', ')}
-                                  {group.po_numbers.length > 3 && ` +${group.po_numbers.length - 3} more`}
-                                </div>
-                              )}
+                              {group.po_numbers && group.po_numbers.length > 0 && (() => {
+                                const uniquePOs = [...new Set(group.po_numbers)];
+                                return (
+                                  <div className="text-xs text-muted-foreground mt-1 ml-6">
+                                    POs: {uniquePOs.slice(0, 3).join(', ')}
+                                    {uniquePOs.length > 3 && ` +${uniquePOs.length - 3} more`}
+                                  </div>
+                                );
+                              })()}
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
                               {/* Priority as segmented buttons */}
