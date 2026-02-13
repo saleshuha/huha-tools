@@ -59,15 +59,21 @@ export function PriorityPOList() {
   const { poGroups, createGroup, addPOsToGroup, updateGroup, updateGroupPriority, deleteGroup, updateUngroupedPriorities } = usePOGroups();
   const parentRef = useRef<HTMLDivElement>(null);
 
+  // Only update ungrouped priorities once on mount, not blocking every load
+  const ungroupedPrioritiesUpdated = useRef(false);
+
   useEffect(() => {
+    if (!ungroupedPrioritiesUpdated.current) {
+      ungroupedPrioritiesUpdated.current = true;
+      // Fire and forget - don't block PO loading
+      updateUngroupedPriorities.mutateAsync().catch(() => {});
+    }
     loadPOs();
   }, []);
 
   const loadPOs = async () => {
     try {
       setLoading(true);
-      
-      await updateUngroupedPriorities.mutateAsync();
       
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
