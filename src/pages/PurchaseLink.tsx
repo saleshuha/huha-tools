@@ -42,8 +42,11 @@ export default function PurchaseLink() {
   const { data: hookData, loading, error, savePurchaseUpdate, fetchLinkData } = usePurchaseLink(token);
   const { linkBarcode, loading: barcodeLoading } = useProductBarcodes();
   const [data, setData] = useState(hookData);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [skuSearchTerm, setSkuSearchTerm] = useState('');
+  const [titleSearchTerm, setTitleSearchTerm] = useState('');
+  const [debouncedSkuSearch, setDebouncedSkuSearch] = useState('');
+  const [debouncedTitleSearch, setDebouncedTitleSearch] = useState('');
+  const [metricsOpen, setMetricsOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'purchased' | 'partial' | 'pending' | 'not_available'>('pending');
   const [sortBy, setSortBy] = useState<'qty-high-low' | 'qty-low-high' | null>(null);
   const [supplierDetails, setSupplierDetails] = useState<Record<string, SupplierDetails>>({});
@@ -57,11 +60,16 @@ export default function PurchaseLink() {
   const [scanDialogOpen, setScanDialogOpen] = useState(false);
   const [scanningGroupKey, setScanningGroupKey] = useState<string | null>(null);
 
-  // Debounce search input
+  // Debounce search inputs
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 200);
+    const timer = setTimeout(() => setDebouncedSkuSearch(skuSearchTerm), 200);
     return () => clearTimeout(timer);
-  }, [searchTerm]);
+  }, [skuSearchTerm]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedTitleSearch(titleSearchTerm), 200);
+    return () => clearTimeout(timer);
+  }, [titleSearchTerm]);
 
   // Sync hook data with local state
   useEffect(() => {
@@ -443,30 +451,44 @@ export default function PurchaseLink() {
     }
   };
 
-  // Fuse.js index for fast fuzzy search
-  const fuseIndex = useMemo(() => {
+  // Fuse.js indexes for cascading dual search
+  const skuFuse = useMemo(() => {
     return new Fuse(groupedOrders, {
-      keys: ['title', 'asin', 'skuCode', 'poNumbers'],
+      keys: ['asin', 'skuCode', 'poNumbers'],
       threshold: 0.3,
       ignoreLocation: true,
     });
   }, [groupedOrders]);
 
-  // Filter and sort grouped orders using Fuse + debounced search
+  // Filter and sort: status -> SKU match -> title match (cascading)
   const filteredGroups = useMemo(() => {
-    let groups: GroupedOrder[];
+    // 1. Status filter first
+    let groups = groupedOrders.filter(g => g.status === filterStatus);
     
-    if (debouncedSearch.trim()) {
-      const results = fuseIndex.search(debouncedSearch);
-      groups = results.map(r => r.item).filter(g => g.status === filterStatus);
-    } else {
-      groups = groupedOrders.filter(g => g.status === filterStatus);
+    // 2. SKU/ASIN search narrows the set
+    if (debouncedSkuSearch.trim()) {
+      const skuResults = new Fuse(groups, {
+        keys: ['asin', 'skuCode', 'poNumbers'],
+        threshold: 0.3,
+        ignoreLocation: true,
+      }).search(debouncedSkuSearch);
+      groups = skuResults.map(r => r.item);
+    }
+    
+    // 3. Title search further narrows within SKU-matched results
+    if (debouncedTitleSearch.trim()) {
+      const titleResults = new Fuse(groups, {
+        keys: ['title'],
+        threshold: 0.3,
+        ignoreLocation: true,
+      }).search(debouncedTitleSearch);
+      groups = titleResults.map(r => r.item);
     }
 
     if (sortBy === 'qty-high-low') groups = [...groups].sort((a, b) => b.totalRequired - a.totalRequired);
     else if (sortBy === 'qty-low-high') groups = [...groups].sort((a, b) => a.totalRequired - b.totalRequired);
     return groups;
-  }, [groupedOrders, debouncedSearch, filterStatus, sortBy, fuseIndex]);
+  }, [groupedOrders, debouncedSkuSearch, debouncedTitleSearch, filterStatus, sortBy]);
 
   // Stats based on pre-computed status
   const stats = useMemo(() => {
@@ -540,22 +562,62 @@ export default function PurchaseLink() {
   return (
     <div className="min-h-screen bg-background">
       <div className="container max-w-4xl mx-auto px-3 py-4 md:px-6 md:py-6 space-y-4 pb-[300px] md:pb-6">
-        {/* Summary Header */}
-        <PurchaseSummaryHeader
-          title={data.link.title}
-          description={data.link.description}
-          expiresAt={data.link.expires_at}
-          stats={stats}
-          lastUpdated={data.updates[0]?.updated_at}
-        />
+        {/* Collapsible Metrics Header */}
+        <Collapsible open={metricsOpen} onOpenChange={setMetricsOpen}>
+          <CollapsibleTrigger asChild>
+            <button className="w-full flex items-center justify-between bg-card border rounded-lg px-4 py-3 hover:bg-accent/50 transition-colors">
+              <div className="flex items-center gap-3 min-w-0">
+                <Package className="h-5 w-5 text-primary flex-shrink-0" />
+                <span className="font-semibold text-sm truncate">{data.link.title || 'Purchase Tracking'}</span>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Badge variant="secondary" className="text-xs">
+                  {stats.total > 0 ? Math.round(((stats.purchased + stats.partial * 0.5) / stats.total) * 100) : 0}%
+                </Badge>
+                <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${metricsOpen ? 'rotate-180' : ''}`} />
+              </div>
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-2">
+            <PurchaseSummaryHeader
+              title={data.link.title}
+              description={data.link.description}
+              expiresAt={data.link.expires_at}
+              stats={stats}
+              lastUpdated={data.updates[0]?.updated_at}
+            />
+          </CollapsibleContent>
+        </Collapsible>
 
         {/* Vendor Info */}
         {token && <VendorInfoForm linkToken={token} />}
 
-        {/* Collapsible Filter Bar */}
-        <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b -mx-3 px-3 py-2 md:-mx-6 md:px-6 md:border md:rounded-lg md:mx-0 md:static md:backdrop-blur-none">
+        {/* Sticky Search + Filter Bar */}
+        <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b -mx-3 px-3 py-2 md:-mx-6 md:px-6 md:border md:rounded-lg md:mx-0 md:static md:backdrop-blur-none space-y-2">
+          {/* Dual Search - always visible */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by SKU / ASIN / PO..."
+                value={skuSearchTerm}
+                onChange={(e) => setSkuSearchTerm(e.target.value)}
+                className="pl-9 h-10"
+              />
+            </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by title..."
+                value={titleSearchTerm}
+                onChange={(e) => setTitleSearchTerm(e.target.value)}
+                className="pl-9 h-10"
+              />
+            </div>
+          </div>
+
+          {/* Collapsible Filters */}
           <Collapsible open={filterOpen} onOpenChange={setFilterOpen}>
-            {/* Compact summary bar - always visible */}
             <div className="flex items-center gap-2">
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-9 gap-1.5 px-2 text-xs">
@@ -571,19 +633,7 @@ export default function PurchaseLink() {
               <ExportButton data={exportData} linkTitle={data.link.title} />
             </div>
 
-            <CollapsibleContent className="pt-2 space-y-2">
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search by title, ASIN, SKU, or PO..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 h-11"
-                />
-              </div>
-              
-              {/* Filter buttons + Sort */}
+            <CollapsibleContent className="pt-2">
               <div className="flex gap-2 overflow-x-auto pb-1 -mb-1 scrollbar-hide items-center">
                 {[
                   { key: 'pending' as const, icon: Circle, label: 'Pending', count: stats.pending },
