@@ -14,7 +14,7 @@ export const usePOGroups = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Sequential queries to avoid connection pool exhaustion
+      // Fetch groups first
       const groupsResult = await supabase
         .from('po_groups')
         .select('*')
@@ -24,14 +24,17 @@ export const usePOGroups = () => {
 
       if (groupsResult.error) throw groupsResult.error;
 
-      const summariesResult = await supabase.rpc('get_po_group_summaries', { p_user_id: user.id });
-
-      // Build a lookup map from summaries
+      // Try to fetch summaries, but don't fail if RPC times out
       const summaryMap = new Map<string, any>();
-      if (summariesResult.data) {
-        for (const s of summariesResult.data) {
-          summaryMap.set(s.group_id, s);
+      try {
+        const summariesResult = await supabase.rpc('get_po_group_summaries', { p_user_id: user.id });
+        if (summariesResult.data) {
+          for (const s of summariesResult.data) {
+            summaryMap.set(s.group_id, s);
+          }
         }
+      } catch (rpcError) {
+        console.warn('⚠️ get_po_group_summaries RPC failed, showing groups with zero counts:', rpcError);
       }
 
       // Merge groups with their summaries

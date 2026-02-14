@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
 
@@ -19,12 +19,17 @@ export function useUserProfile() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
+  const fetchedForRef = useRef<string | null>(null);
 
   useEffect(() => {
     console.log('useUserProfile: Initializing...');
     let mounted = true;
 
     const fetchProfile = async (userId: string) => {
+      // Skip if already fetched/fetching for this user
+      if (fetchedForRef.current === userId) return;
+      fetchedForRef.current = userId;
+      
       console.log('🔍 fetchProfile START for:', userId);
       
       const controller = new AbortController();
@@ -47,6 +52,7 @@ export function useUserProfile() {
 
         if (error) {
           console.error('❌ Profile error:', error);
+          fetchedForRef.current = null; // Allow retry on error
           setLoading(false);
           return;
         }
@@ -61,6 +67,7 @@ export function useUserProfile() {
       } catch (error: any) {
         clearTimeout(timeoutId);
         console.error('❌ Profile exception:', error);
+        fetchedForRef.current = null; // Allow retry on error
         if (error.name === 'AbortError') {
           console.error('Profile query was aborted due to timeout');
         }
@@ -80,6 +87,7 @@ export function useUserProfile() {
         if (currentUser) {
           fetchProfile(currentUser.id);
         } else {
+          fetchedForRef.current = null;
           setProfile(null);
           setLoading(false);
         }
