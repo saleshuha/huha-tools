@@ -329,15 +329,31 @@ export const usePOGroups = () => {
     },
   });
 
-  // Get PO IDs for a group
+  // Get PO IDs for a group (paginated to avoid 1000-row limit)
   const getPOsInGroup = async (groupId: string) => {
-    const { data, error } = await supabase
-      .from('po_group_members')
-      .select('po_id, po_orders(po_number, quantity, priority, asin, sku_code, title)')
-      .eq('group_id', groupId);
+    let allData: any[] = [];
+    let page = 0;
+    const pageSize = 1000;
+    let hasMore = true;
 
-    if (error) throw error;
-    return data;
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from('po_group_members')
+        .select('po_id, po_orders(po_number, quantity, priority, asin, sku_code, title)')
+        .eq('group_id', groupId)
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+
+      if (error) throw error;
+      if (data && data.length > 0) {
+        allData = [...allData, ...data];
+        hasMore = data.length === pageSize;
+        page++;
+      } else {
+        hasMore = false;
+      }
+    }
+
+    return allData;
   };
 
   return {
