@@ -433,35 +433,27 @@ export default function PurchaseLink() {
     }
   };
 
-  // Fuse.js indexes for cascading dual search
-  const skuFuse = useMemo(() => {
-    return new Fuse(groupedOrders, {
-      keys: ['asin', 'skuCode', 'poNumbers'],
-      threshold: 0.3,
-      ignoreLocation: true,
-    });
-  }, [groupedOrders]);
-
   // Filter and sort: status -> SKU match -> title match (cascading)
   const filteredGroups = useMemo(() => {
     // 1. Status filter first
     let groups = groupedOrders.filter(g => g.status === filterStatus);
     
-    // 2. SKU/ASIN search narrows the set
+    // 2. SKU/ASIN search: exact substring match (case-insensitive)
     if (debouncedSkuSearch.trim()) {
-      const skuResults = new Fuse(groups, {
-        keys: ['asin', 'skuCode', 'poNumbers'],
-        threshold: 0.3,
-        ignoreLocation: true,
-      }).search(debouncedSkuSearch);
-      groups = skuResults.map(r => r.item);
+      const term = debouncedSkuSearch.trim().toLowerCase();
+      groups = groups.filter(g => {
+        const asin = (g.asin || '').toLowerCase();
+        const sku = (g.skuCode || '').toLowerCase();
+        const pos = (g.poNumbers || []).join(' ').toLowerCase();
+        return asin.includes(term) || sku.includes(term) || pos.includes(term);
+      });
     }
     
     // 3. Title search further narrows within SKU-matched results
     if (debouncedTitleSearch.trim()) {
       const titleResults = new Fuse(groups, {
         keys: ['title'],
-        threshold: 0.3,
+        threshold: 0.4,
         ignoreLocation: true,
       }).search(debouncedTitleSearch);
       groups = titleResults.map(r => r.item);
