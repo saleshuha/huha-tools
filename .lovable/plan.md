@@ -1,51 +1,49 @@
 
 
-# Fix: Connection Pool Exhaustion on Stock Receiving Page
+# Fix: Stock Receiving Page Loading & PO Groups Not Showing
 
 ## Problem
-Every request to the database is returning "Timed out acquiring connection from connection pool" (504 errors). The page fires 10+ simultaneous database queries on load, which exhausts the Supabase connection pool.
+The page still fails to load PO groups and metrics due to two compounding issues:
 
-## Root Cause
-On mount, these queries all fire at once:
-1. Dashboard metrics: 4 parallel HEAD queries (po_orders, pending, receiving_history, po_groups)
-2. usePOGroups: 2 parallel queries (po_groups SELECT + get_po_group_summaries RPC)
-3. update_ungrouped_po_priorities RPC (fired after groups load)
-4. label_templates: 2 queries (PO templates + inventory templates)
-5. Receiving sessions query
-6. Background tasks query
-7. Profile query
+1. **Duplicate profile queries**: `useUserProfile` fires `fetchProfile` twice on every mount -- once from `onAuthStateChange(INITIAL_SESSION)` and once from `getSession()`. Since 20+ components use this hook, each instance creates 2 profile queries, flooding the connection pool.
 
-That is 12+ connections hitting the pool simultaneously, causing all of them to time out.
+2. **RPC failure kills the entire query**: In `usePOGroups`, if `get_po_group_summaries` RPC times out, the entire `queryFn` throws an error. This means even though the basic `po_groups` SELECT succeeds (confirmed in network logs -- 4 groups returned), the component shows "0 Groups" because the RPC failure discards everything.
 
-## Solution: Stagger and Reduce Queries
+3. **Postgres statement timeouts**: The logs show repeated "canceling statement due to statement timeout" errors, confirming the database is under heavy load from redundant queries.
 
-### 1. ReceiveStock.tsx -- Stagger dashboard metrics (sequential instead of parallel)
-- Replace `Promise.all` with sequential queries using a single combined approach
-- Delay metrics loading by 500ms to let auth and critical queries complete first
-- Combine the 2 template queries into 1 query with an OR filter
+## Solution
 
-### 2. usePOGroups.ts -- Sequential instead of parallel
-- Change the `Promise.all([groupsResult, summariesResult])` to sequential calls
-- The RPC already returns all needed data; consider if we even need the separate groups query
-- Remove the automatic `updateUngroupedPriorities.mutate()` call from `onSuccess` of createGroup/updateGroup -- this is a heavy RPC that fires frequently and can be triggered manually or with a debounce
+### 1. Fix `useUserProfile` duplicate queries (`src/hooks/useUserProfile.ts`)
+- Add a flag (`fetchedRef`) to prevent `fetchProfile` from being called twice for the same user ID
+- When `onAuthStateChange` fires with `INITIAL_SESSION`, it will fetch the profile. The subsequent `getSession` call will see the flag and skip
+- This immediately cuts the profile queries from 2 to 1 per hook instance
 
-### 3. Remove auto-fire of updateUngroupedPriorities
-- This RPC fires on every group create/update/priority change, adding unnecessary load
-- Make it opt-in or remove it from automatic triggers
+### 2. Make RPC failure non-fatal in `usePOGroups` (`src/hooks/usePOGroups.ts`)
+- Wrap the `get_po_group_summaries` RPC call in a try/catch
+- If the RPC fails, still return the groups from the basic SELECT query with zero counts
+- This ensures groups always display even when the database is under load
+- The counts will be approximate (0) but the group names, priority, and structure will be visible
 
-### 4. Add error resilience
-- Wrap dashboard metric queries with individual try/catch so one failure doesn't block others
-- Add retry delay on connection pool errors
+### 3. Add `enabled` guard to `usePOGroups` query
+- The `usePOGroups` query currently fires immediately on mount, even before auth is confirmed
+- Add a check that only runs the query after a valid user session exists
+- This prevents an unnecessary failed query attempt
 
 ## Technical Changes
 
-**File: `src/pages/ReceiveStock.tsx`**
-- Change dashboard metrics from `Promise.all` (4 simultaneous) to sequential queries with a startup delay
-- Merge the 2 template queries into 1 combined query
-- Add 1-second delay before loading metrics to let auth settle
+**File: `src/hooks/useUserProfile.ts`**
+- Add `useRef` for tracking if fetch was already initiated for current user
+- In both `onAuthStateChange` callback and `getSession` result, check the ref before calling `fetchProfile`
+- Reset the ref when user changes (sign out / different user)
 
-**File: `src/hooks/usePOGroups.ts`**  
-- Change from `Promise.all` to sequential: first fetch groups, then fetch summaries
-- Remove automatic `updateUngroupedPriorities.mutate()` calls from mutation `onSuccess` handlers (this was firing the heavy RPC after every group action)
-- Add `retry: 1` and `retryDelay: 2000` to the query config to handle transient pool issues
+**File: `src/hooks/usePOGroups.ts`**
+- Wrap the `get_po_group_summaries` RPC call in try/catch
+- On RPC failure, log a warning and return groups with `member_count: 0`, `total_quantity: 0`, `po_numbers: []`
+- This makes the groups list resilient to RPC timeouts
+
+## Expected Impact
+- Profile queries reduced from 2 to 1 per hook instance (saves 20+ connections on app load)
+- PO groups will always display even under database load
+- Metrics will load more reliably with fewer concurrent connections
+- The "0 Groups" issue will be fixed since groups will render even when the RPC is slow
 
