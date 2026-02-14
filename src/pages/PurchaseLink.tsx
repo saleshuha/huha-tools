@@ -707,14 +707,14 @@ export default function PurchaseLink() {
                           {/* Item Info */}
                           <div className="flex-1 min-w-0 space-y-1">
                             <p className="font-medium text-sm leading-snug line-clamp-2">{group.title}</p>
-                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground max-h-16 overflow-y-auto">
                               {group.poNumbers.map(po => (
-                                <Badge key={po} variant="outline" className="text-[10px] font-mono px-1.5 py-0">
+                                <Badge key={po} variant="outline" className="text-[10px] font-mono px-1.5 py-0 flex-shrink-0">
                                   {po}
                                 </Badge>
                               ))}
-                              {group.asin && <span className="font-mono">ASIN: {group.asin}</span>}
-                              {group.skuCode && <span className="font-mono">SKU: {group.skuCode}</span>}
+                              {group.asin && <span className="font-mono flex-shrink-0">ASIN: {group.asin}</span>}
+                              {group.skuCode && <span className="font-mono flex-shrink-0">SKU: {group.skuCode}</span>}
                               <LinkedBarcodesBadge 
                                 asin={group.asin} 
                                 skuCode={group.skuCode}
