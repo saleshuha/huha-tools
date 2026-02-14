@@ -241,7 +241,8 @@ export function PriorityPOList() {
 
   const filteredDialogPOs = dialogPOs.filter(po => {
     if (!dialogSearch) return true;
-    return po.po_number.toLowerCase().includes(dialogSearch.toLowerCase());
+    const searchTerms = dialogSearch.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    return searchTerms.some(term => po.po_number.toLowerCase().includes(term));
   });
 
   return (
@@ -495,12 +496,34 @@ export function PriorityPOList() {
           <div className="space-y-2">
             <Label>Select POs ({dialogSelectedPOs.size} selected)</Label>
             <Input
-              placeholder="Search PO numbers..."
+              placeholder="Search PO numbers (comma separated)..."
               value={dialogSearch}
               onChange={(e) => setDialogSearch(e.target.value)}
               className="text-sm"
             />
-            <div className="max-h-[200px] overflow-auto space-y-1 border rounded-lg p-2">
+            {filteredDialogPOs.length > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                onClick={() => {
+                  const allSelected = filteredDialogPOs.every(po => dialogSelectedPOs.has(po.po_number));
+                  setDialogSelectedPOs(prev => {
+                    const next = new Set(prev);
+                    if (allSelected) {
+                      filteredDialogPOs.forEach(po => next.delete(po.po_number));
+                    } else {
+                      filteredDialogPOs.forEach(po => next.add(po.po_number));
+                    }
+                    return next;
+                  });
+                }}
+              >
+                {filteredDialogPOs.every(po => dialogSelectedPOs.has(po.po_number)) ? 'Deselect All' : `Select All (${filteredDialogPOs.length})`}
+              </Button>
+            )}
+            <div className="max-h-[300px] overflow-y-auto space-y-1 border rounded-lg p-2">
               {dialogPOsLoading ? (
                 <div className="flex items-center justify-center py-4">
                   <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
