@@ -198,18 +198,33 @@ export function PriorityPOList() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: poItems, error } = await supabase
-        .from('po_orders')
-        .select('id')
-        .eq('user_id', user.id)
-        .in('po_number', Array.from(dialogSelectedPOs));
-
-      if (error) throw error;
+      // Paginate to get ALL po IDs (avoid 1000-row default limit)
+      const selectedArr = Array.from(dialogSelectedPOs);
+      let allPoIds: string[] = [];
+      const pageSize = 1000;
+      let page = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('po_orders')
+          .select('id')
+          .eq('user_id', user.id)
+          .in('po_number', selectedArr)
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+        if (error) throw error;
+        if (data && data.length > 0) {
+          allPoIds = [...allPoIds, ...data.map(i => i.id)];
+          hasMore = data.length === pageSize;
+          page++;
+        } else {
+          hasMore = false;
+        }
+      }
 
       await createGroup.mutateAsync({
         name: newGroupName,
         description: newGroupDescription,
-        poIds: poItems?.map(i => i.id) || [],
+        poIds: allPoIds,
         priority: newGroupPriority,
       });
 
@@ -229,17 +244,32 @@ export function PriorityPOList() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: poItems, error } = await supabase
-        .from('po_orders')
-        .select('id')
-        .eq('user_id', user.id)
-        .in('po_number', Array.from(dialogSelectedPOs));
-
-      if (error) throw error;
+      // Paginate to get ALL po IDs (avoid 1000-row default limit)
+      const selectedArr = Array.from(dialogSelectedPOs);
+      let allPoIds: string[] = [];
+      const pageSize = 1000;
+      let page = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('po_orders')
+          .select('id')
+          .eq('user_id', user.id)
+          .in('po_number', selectedArr)
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+        if (error) throw error;
+        if (data && data.length > 0) {
+          allPoIds = [...allPoIds, ...data.map(i => i.id)];
+          hasMore = data.length === pageSize;
+          page++;
+        } else {
+          hasMore = false;
+        }
+      }
 
       await addPOsToGroup.mutateAsync({
         groupId: selectedGroupId,
-        poIds: poItems?.map(i => i.id) || [],
+        poIds: allPoIds,
       });
 
       setShowCreateDialog(false);
