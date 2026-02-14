@@ -49,7 +49,7 @@ export function PriorityPOList() {
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupDescription, setNewGroupDescription] = useState('');
   const [newGroupPriority, setNewGroupPriority] = useState<number>(3);
-  const [dialogPOs, setDialogPOs] = useState<Array<{ id: string; po_number: string; quantity: number }>>([]);
+  const [dialogPOs, setDialogPOs] = useState<Array<{ id: string; po_number: string; quantity: number; isGrouped?: boolean }>>([]);
   const [dialogPOsLoading, setDialogPOsLoading] = useState(false);
   const [dialogSelectedPOs, setDialogSelectedPOs] = useState<Set<string>>(new Set());
   const [dialogSearch, setDialogSearch] = useState('');
@@ -146,14 +146,23 @@ export function PriorityPOList() {
           hasMore = false;
         }
       }
+
+      // Fetch already-grouped PO IDs
+      const { data: groupedMembers } = await supabase
+        .from('po_group_members')
+        .select('po_id');
+      const groupedPoIds = new Set((groupedMembers || []).map(m => m.po_id));
       
-      // Deduplicate by po_number, sum quantities
-      const poMap = new Map<string, { id: string; po_number: string; quantity: number }>();
+      // Deduplicate by po_number, sum quantities, mark grouped
+      const poMap = new Map<string, { id: string; po_number: string; quantity: number; isGrouped: boolean; poIds: string[] }>();
       for (const po of allData) {
         if (!poMap.has(po.po_number)) {
-          poMap.set(po.po_number, { id: po.id, po_number: po.po_number, quantity: 0 });
+          poMap.set(po.po_number, { id: po.id, po_number: po.po_number, quantity: 0, isGrouped: false, poIds: [] });
         }
-        poMap.get(po.po_number)!.quantity += po.quantity || 0;
+        const entry = poMap.get(po.po_number)!;
+        entry.quantity += po.quantity || 0;
+        entry.poIds.push(po.id);
+        if (groupedPoIds.has(po.id)) entry.isGrouped = true;
       }
       setDialogPOs(Array.from(poMap.values()));
     } catch (error) {
@@ -522,13 +531,14 @@ export function PriorityPOList() {
                 size="sm"
                 className="text-xs"
                 onClick={() => {
-                  const allSelected = filteredDialogPOs.every(po => dialogSelectedPOs.has(po.po_number));
+                  const selectablePOs = filteredDialogPOs.filter(po => !po.isGrouped);
+                  const allSelected = selectablePOs.every(po => dialogSelectedPOs.has(po.po_number));
                   setDialogSelectedPOs(prev => {
                     const next = new Set(prev);
                     if (allSelected) {
-                      filteredDialogPOs.forEach(po => next.delete(po.po_number));
+                      selectablePOs.forEach(po => next.delete(po.po_number));
                     } else {
-                      filteredDialogPOs.forEach(po => next.add(po.po_number));
+                      selectablePOs.forEach(po => next.add(po.po_number));
                     }
                     return next;
                   });
@@ -546,10 +556,15 @@ export function PriorityPOList() {
                 <p className="text-xs text-muted-foreground text-center py-4">No POs found</p>
               ) : (
                 filteredDialogPOs.map(po => (
-                  <label key={po.po_number} className="flex items-center gap-2 p-1.5 rounded hover:bg-accent/30 cursor-pointer text-sm">
+                  <label key={po.po_number} className={cn(
+                    "flex items-center gap-2 p-1.5 rounded text-sm",
+                    po.isGrouped ? "opacity-50 cursor-not-allowed" : "hover:bg-accent/30 cursor-pointer"
+                  )}>
                     <Checkbox
                       checked={dialogSelectedPOs.has(po.po_number)}
+                      disabled={po.isGrouped}
                       onCheckedChange={() => {
+                        if (po.isGrouped) return;
                         setDialogSelectedPOs(prev => {
                           const next = new Set(prev);
                           if (next.has(po.po_number)) next.delete(po.po_number);
@@ -559,6 +574,7 @@ export function PriorityPOList() {
                       }}
                     />
                     <span className="font-medium">{po.po_number}</span>
+                    {po.isGrouped && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Grouped</Badge>}
                     <span className="text-xs text-muted-foreground ml-auto">{po.quantity} items</span>
                   </label>
                 ))
