@@ -115,27 +115,41 @@ export function PriorityPOList() {
     }
   };
 
-  // Load POs for the create dialog
+  // Load POs for the create dialog - paginated to fetch all
   const loadDialogPOs = async () => {
     setDialogPOsLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       
-      // Fetch ungrouped POs (not in any group)
-      const { data, error } = await supabase
-        .from('po_orders')
-        .select('id, po_number, quantity')
-        .eq('user_id', user.id)
-        .in('status', ['pending', 'placed'])
-        .order('po_number')
-        .limit(500);
+      // Fetch all POs with pagination
+      const pageSize = 1000;
+      let allData: any[] = [];
+      let page = 0;
+      let hasMore = true;
 
-      if (error) throw error;
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('po_orders')
+          .select('id, po_number, quantity')
+          .eq('user_id', user.id)
+          .in('status', ['pending', 'placed'])
+          .order('po_number')
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (error) throw error;
+        if (data && data.length > 0) {
+          allData = [...allData, ...data];
+          hasMore = data.length === pageSize;
+          page++;
+        } else {
+          hasMore = false;
+        }
+      }
       
       // Deduplicate by po_number, sum quantities
       const poMap = new Map<string, { id: string; po_number: string; quantity: number }>();
-      for (const po of (data || [])) {
+      for (const po of allData) {
         if (!poMap.has(po.po_number)) {
           poMap.set(po.po_number, { id: po.id, po_number: po.po_number, quantity: 0 });
         }
