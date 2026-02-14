@@ -519,7 +519,7 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
               </div>
             )}
 
-            <ScrollArea className="max-h-96">
+            <div className="max-h-96 overflow-y-auto">
               {results.map((result, index) => {
                 // Recent search item
                 if (result.type === 'recent') {
@@ -670,7 +670,7 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
                   </button>
                 );
               })}
-            </ScrollArea>
+            </div>
 
             {/* Keyboard hint */}
             {selectableResults.length > 0 && !hasRecentOnly && (
