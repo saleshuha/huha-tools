@@ -339,14 +339,20 @@ export function OrderProcessorNew() {
       const itemsToProcess = pendingItems.filter(m => selectedPendingItems.has(m.orderItem.orderId));
       const { data: { user } } = await supabase.auth.getUser();
 
+      // Track running stock per inventory ID to handle duplicate products
+      const runningStock = new Map<string, number>();
+
       for (let i = 0; i < itemsToProcess.length; i++) {
         const match = itemsToProcess[i];
         if (!match.inventoryMatch || !match.inventoryType) continue;
 
         setProcessingProgress(Math.floor(((i + 1) / itemsToProcess.length) * 100));
 
-        const previousQuantity = match.inventoryMatch.quantity;
+        const previousQuantity = runningStock.has(match.inventoryMatch.id)
+          ? runningStock.get(match.inventoryMatch.id)!
+          : match.inventoryMatch.quantity;
         const newQuantity = Math.max(0, previousQuantity - match.orderItem.itemQuantity);
+        runningStock.set(match.inventoryMatch.id, newQuantity);
 
         if (match.inventoryType === 'asin') {
           await updateAsinQuantity(match.inventoryMatch.id, newQuantity, `Order deduction: ${match.orderItem.orderId}`);

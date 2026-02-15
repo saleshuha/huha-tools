@@ -101,13 +101,23 @@ export function DFProcessStep({ orders, onBack, onProcessed, onComplete }: DFPro
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      // Track running stock per inventory ID to handle multiple orders for the same product
+      const runningStock = new Map<string, number>();
 
       for (let i = 0; i < confirmItems.length; i++) {
         const order = confirmItems[i];
         setProgress(Math.floor(((i + 1) / confirmItems.length) * 100));
 
-        const previousQty = order.availableQty || 0;
+        // Use running stock if this inventory was already deducted in this batch
+        const previousQty = order.inventoryId && runningStock.has(order.inventoryId)
+          ? runningStock.get(order.inventoryId)!
+          : (order.availableQty || 0);
         const newQty = Math.max(0, previousQty - order.itemQuantity);
+
+        // Update running stock tracker
+        if (order.inventoryId) {
+          runningStock.set(order.inventoryId, newQty);
+        }
 
         // Deduct stock
         if (order.inventoryType === 'asin' && order.inventoryId) {
