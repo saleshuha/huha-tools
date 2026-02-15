@@ -334,8 +334,10 @@ export const POTracker = () => {
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [printMode, setPrintMode] = useState<'single' | 'bulk'>('single');
   const [printOrders, setPrintOrdersBase] = useState<POOrder[]>([]);
-  const [showReprintAllDialog, setShowReprintAllDialog] = useState(false);
-  const [isReprintingAll, setIsReprintingAll] = useState(false);
+   const [showReprintAllDialog, setShowReprintAllDialog] = useState(false);
+   const [isReprintingAll, setIsReprintingAll] = useState(false);
+   const [reprintConfirmStep, setReprintConfirmStep] = useState<1 | 2>(1);
+   const [reprintConfirmChecked, setReprintConfirmChecked] = useState(false);
 
   // Generate Purchase Link Dialog State
   const [generateLinkDialogOpen, setGenerateLinkDialogOpen] = useState(false);
@@ -3334,7 +3336,8 @@ export const POTracker = () => {
   };
 
   // Frontend-only reprint handler - doesn't update database
-  const handleReprintWithoutTracking = async (order: POOrder, quantity: number = 1) => {
+  // Handles consolidated orders by distributing labels across underlying POs
+  const handleReprintWithoutTracking = async (order: POOrder, quantity: number = 1, isSingleReprint: boolean = false) => {
     if (!qzConnected || !selectedPrinter) {
       toast({
         title: "Printer not ready",
@@ -3345,27 +3348,45 @@ export const POTracker = () => {
     }
     setPrintingItems(prev => new Set(prev).add(order.id));
     try {
+      let allZPLCodes: string[] = [];
+
+      if (order._isConsolidated && order._consolidatedOrders && order._consolidatedOrders.length > 0) {
+        // Consolidated order: distribute labels across underlying POs
+        if (isSingleReprint) {
+          // Single reprint: use first underlying order for correct PO data
+          const firstOrder = order._consolidatedOrders[0];
+          allZPLCodes.push(generateZPLFromTemplate(firstOrder, printSettings));
+        } else {
+          // Full reprint: generate labels per underlying order with their own PO data
+          for (const underlyingOrder of order._consolidatedOrders) {
+            const qty = underlyingOrder.printed_quantity || 0;
+            for (let i = 0; i < qty; i++) {
+              allZPLCodes.push(generateZPLFromTemplate(underlyingOrder, printSettings));
+            }
+          }
+        }
+      } else {
+        // Non-consolidated order
+        for (let i = 0; i < quantity; i++) {
+          allZPLCodes.push(generateZPLFromTemplate(order, printSettings));
+        }
+      }
+
       console.log('🔄 REPRINT (no tracking):', {
         asin: order.asin,
         poNumber: order.po_number,
-        quantity,
+        isConsolidated: !!order._isConsolidated,
+        totalLabels: allZPLCodes.length,
+        isSingleReprint,
         note: 'Frontend-only reprint, no database update'
       });
 
-      // Generate ZPL codes
-      let allZPLCodes: string[] = [];
-      for (let i = 0; i < quantity; i++) {
-        let zplCode = generateZPLFromTemplate(order, printSettings);
-        allZPLCodes.push(zplCode);
-      }
-
-      // Print without updating database
       const darknessCommand = `~SD${printSettings.darkness.toString().padStart(2, '0')}`;
       const finalZPL = darknessCommand + '\n' + allZPLCodes.join('\n');
       await qzConnectionManager.print(finalZPL, selectedPrinter);
       toast({
         title: "Label reprinted",
-        description: `Reprinted ${quantity} label(s) - no tracking update`,
+        description: `Reprinted ${allZPLCodes.length} label(s) - no tracking update`,
         variant: "default"
       });
     } catch (error) {
@@ -7046,15 +7067,25 @@ export const POTracker = () => {
                                          </div>}
                                      </Button>
                                     
+                                     {/* Single Reprint - prints 1 label for quick check */}
+                                     {order.printed_quantity > 0 && <Button variant="outline" size="sm" className="h-8 w-full hover:bg-blue-500/10 hover:border-blue-500/30" onClick={() => {
+                                    handleReprintWithoutTracking(order, 1, true);
+                                  }} disabled={!qzConnected || !selectedPrinter || printingItems.has(order.id)}>
+                                          <div className="flex items-center gap-2">
+                                            <RefreshCw className="h-3 w-3" />
+                                            <span className="text-xs font-medium">Reprint 1</span>
+                                          </div>
+                                        </Button>}
+                                     
                                      {/* Reprint All Printed Labels for this item */}
                                      {order.printed_quantity > 0 && <Button variant="outline" size="sm" className="h-8 w-full hover:bg-amber-500/10 hover:border-amber-500/30" onClick={() => {
-                                   handleReprintWithoutTracking(order, order.printed_quantity);
-                                 }} disabled={!qzConnected || !selectedPrinter || printingItems.has(order.id)}>
-                                         <div className="flex items-center gap-2">
-                                           <RefreshCw className="h-3 w-3" />
-                                           <span className="text-xs font-medium">Reprint ({order.printed_quantity})</span>
-                                         </div>
-                                       </Button>}
+                                    handleReprintWithoutTracking(order, order.printed_quantity, false);
+                                  }} disabled={!qzConnected || !selectedPrinter || printingItems.has(order.id)}>
+                                          <div className="flex items-center gap-2">
+                                            <RefreshCw className="h-3 w-3" />
+                                            <span className="text-xs font-medium">Reprint All ({order.printed_quantity})</span>
+                                          </div>
+                                        </Button>}
                                    
                                    {/* Mark as Printed (without printing) */}
                                    <Button variant="outline" size="sm" onClick={async () => {
@@ -7440,45 +7471,81 @@ export const POTracker = () => {
         preSelectedPOs={selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : selectedPOForLabels ? [selectedPOForLabels] : []}
       />
 
-      {/* Reprint All Printed Labels Confirmation Dialog */}
-      <AlertDialog open={showReprintAllDialog} onOpenChange={setShowReprintAllDialog}>
+      {/* Reprint All Printed Labels - Two-Step Confirmation Dialog */}
+      <AlertDialog open={showReprintAllDialog} onOpenChange={(open) => {
+        setShowReprintAllDialog(open);
+        if (!open) {
+          setReprintConfirmStep(1);
+          setReprintConfirmChecked(false);
+        }
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-500" />
-              Reprint All Printed Labels?
+              {reprintConfirmStep === 1 ? 'Reprint All Printed Labels?' : '⚠️ Final Confirmation'}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3">
-                <p>You are about to reprint <strong>{reprintAllPrintedItems.reduce((sum, o) => sum + (o.printed_quantity || 0), 0)} labels</strong> for <strong>{reprintAllPrintedItems.length} items</strong> across <strong>{Object.keys(reprintAllGroupedByPO).length} PO(s)</strong>.</p>
-                <div className="bg-muted/50 rounded-lg p-3 space-y-1.5 max-h-40 overflow-y-auto">
-                  {Object.entries(reprintAllGroupedByPO).map(([po, group]) => (
-                    <div key={po} className="flex items-center justify-between text-xs">
-                      <span className="font-mono font-medium">{po}</span>
-                      <span className="text-muted-foreground">{group.items.length} items · {group.totalLabels} labels</span>
+                {reprintConfirmStep === 1 ? (
+                  <>
+                    <p>You are about to reprint <strong>{reprintAllPrintedItems.reduce((sum, o) => sum + (o.printed_quantity || 0), 0)} labels</strong> for <strong>{reprintAllPrintedItems.length} items</strong> across <strong>{Object.keys(reprintAllGroupedByPO).length} PO(s)</strong>.</p>
+                    <div className="bg-muted/50 rounded-lg p-3 space-y-1.5 max-h-40 overflow-y-auto">
+                      {Object.entries(reprintAllGroupedByPO).map(([po, group]) => (
+                        <div key={po} className="flex items-center justify-between text-xs">
+                          <span className="font-mono font-medium">{po}</span>
+                          <span className="text-muted-foreground">{group.items.length} items · {group.totalLabels} labels</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-                <p className="text-xs text-muted-foreground">This will NOT update print tracking in the database. Labels will be sent directly to the printer.</p>
+                    <p className="text-xs text-muted-foreground">This will NOT update print tracking in the database. Labels will be sent directly to the printer.</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium text-destructive">This action will send <strong>{reprintAllPrintedItems.reduce((sum, o) => sum + (o.printed_quantity || 0), 0)} labels</strong> to the printer. This cannot be undone.</p>
+                    <div className="flex items-center space-x-2 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+                      <Checkbox
+                        id="confirm-reprint"
+                        checked={reprintConfirmChecked}
+                        onCheckedChange={(checked) => setReprintConfirmChecked(checked === true)}
+                      />
+                      <label htmlFor="confirm-reprint" className="text-sm font-medium cursor-pointer select-none">
+                        I confirm I want to reprint all {reprintAllPrintedItems.reduce((sum, o) => sum + (o.printed_quantity || 0), 0)} labels
+                      </label>
+                    </div>
+                  </>
+                )}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isReprintingAll}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleReprintAllPrinted}
-              disabled={isReprintingAll}
-              className="bg-amber-500 hover:bg-amber-600 text-white"
-            >
-              {isReprintingAll ? (
-                <div className="flex items-center gap-1.5">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Reprinting...
-                </div>
-              ) : (
-                'Yes, Reprint All'
-              )}
-            </AlertDialogAction>
+            <AlertDialogCancel disabled={isReprintingAll} onClick={() => {
+              setReprintConfirmStep(1);
+              setReprintConfirmChecked(false);
+            }}>Cancel</AlertDialogCancel>
+            {reprintConfirmStep === 1 ? (
+              <Button
+                onClick={() => setReprintConfirmStep(2)}
+                className="bg-amber-500 hover:bg-amber-600 text-white"
+              >
+                Continue
+              </Button>
+            ) : (
+              <AlertDialogAction
+                onClick={handleReprintAllPrinted}
+                disabled={isReprintingAll || !reprintConfirmChecked}
+                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              >
+                {isReprintingAll ? (
+                  <div className="flex items-center gap-1.5">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Reprinting...
+                  </div>
+                ) : (
+                  'Yes, Reprint All'
+                )}
+              </AlertDialogAction>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
