@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   History,
   Search,
@@ -16,14 +17,13 @@ import {
   Hash,
   Box,
   TrendingDown,
-  Filter,
   Download,
   RefreshCw,
-  ChevronLeft,
-  ChevronRight,
+  PackageCheck,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { format, isToday, isYesterday, startOfDay, isSameDay } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
 
 interface ProcessedOrderRecord {
   id: string;
@@ -39,6 +39,7 @@ interface ProcessedOrderRecord {
   inventory_id: string | null;
   source_file: string | null;
   serial_number: string | null;
+  picked_from_bin: boolean;
   notes: string | null;
   processed_at: string;
   created_at: string;
@@ -58,6 +59,7 @@ export function DFProcessingHistoryDialog({ open, onOpenChange }: DFProcessingHi
   const [selectedRecord, setSelectedRecord] = useState<ProcessedOrderRecord | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'asin' | 'sku'>('all');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const { toast } = useToast();
 
   useEffect(() => {
     if (open) {
@@ -87,6 +89,30 @@ export function DFProcessingHistoryDialog({ open, onOpenChange }: DFProcessingHi
     }
   };
 
+  const togglePickedFromBin = async (recordId: string, currentValue: boolean) => {
+    const newValue = !currentValue;
+    
+    // Optimistic update
+    setRecords(prev => prev.map(r => r.id === recordId ? { ...r, picked_from_bin: newValue } : r));
+    if (selectedRecord?.id === recordId) {
+      setSelectedRecord(prev => prev ? { ...prev, picked_from_bin: newValue } : prev);
+    }
+
+    const { error } = await supabase
+      .from('processed_orders')
+      .update({ picked_from_bin: newValue } as any)
+      .eq('id', recordId);
+
+    if (error) {
+      // Revert on error
+      setRecords(prev => prev.map(r => r.id === recordId ? { ...r, picked_from_bin: currentValue } : r));
+      if (selectedRecord?.id === recordId) {
+        setSelectedRecord(prev => prev ? { ...prev, picked_from_bin: currentValue } : prev);
+      }
+      toast({ title: 'Error', description: 'Failed to update picked status', variant: 'destructive' });
+    }
+  };
+
   // Get unique dates from records
   const availableDates = useMemo(() => {
     const dateMap = new Map<string, { date: Date; count: number }>();
@@ -110,7 +136,6 @@ export function DFProcessingHistoryDialog({ open, onOpenChange }: DFProcessingHi
 
   const filtered = records
     .filter(r => {
-      // Date filter
       if (!isSameDay(new Date(r.processed_at), selectedDate)) return false;
       if (filterType !== 'all' && r.inventory_type !== filterType) return false;
       if (!search) return true;
@@ -132,6 +157,7 @@ export function DFProcessingHistoryDialog({ open, onOpenChange }: DFProcessingHi
   const totalDeducted = filtered.reduce((sum, r) => sum + r.quantity_processed, 0);
   const uniqueOrders = new Set(filtered.map(r => r.order_number)).size;
   const uniqueProducts = new Set(filtered.map(r => r.asin || r.sku).filter(Boolean)).size;
+  const pickedCount = filtered.filter(r => r.picked_from_bin).length;
 
   const toggleSort = (field: 'processed_at' | 'order_number') => {
     if (sortField === field) {
@@ -148,10 +174,11 @@ export function DFProcessingHistoryDialog({ open, onOpenChange }: DFProcessingHi
   };
 
   const exportCSV = () => {
-    const headers = ['Order Number', 'ASIN', 'SKU', 'Serial Number', 'Title', 'Qty Processed', 'Previous Stock', 'New Stock', 'Inventory Type', 'Match Type', 'Source File', 'Processed At'];
+    const headers = ['Order Number', 'ASIN', 'SKU', 'Serial Number', 'Title', 'Qty Processed', 'Previous Stock', 'New Stock', 'Picked From Bin', 'Inventory Type', 'Match Type', 'Source File', 'Processed At'];
     const rows = filtered.map(r => [
       r.order_number, r.asin || '', r.sku || '', r.serial_number || '',
       r.item_title || '', r.quantity_processed, r.previous_stock ?? '', r.new_stock ?? '',
+      r.picked_from_bin ? 'Yes' : 'No',
       r.inventory_type, r.match_type, r.source_file || '',
       format(new Date(r.processed_at), 'yyyy-MM-dd HH:mm:ss'),
     ]);
@@ -176,7 +203,7 @@ export function DFProcessingHistoryDialog({ open, onOpenChange }: DFProcessingHi
         </DialogHeader>
 
         {/* Compact stats bar */}
-        <div className="px-5 flex items-center gap-3 text-xs">
+        <div className="px-5 flex items-center gap-3 text-xs flex-wrap">
           <Badge variant="secondary" className="gap-1 font-normal">
             <Hash className="w-3 h-3" />
             {uniqueOrders} orders
@@ -188,6 +215,10 @@ export function DFProcessingHistoryDialog({ open, onOpenChange }: DFProcessingHi
           <Badge variant="secondary" className="gap-1 font-normal">
             <TrendingDown className="w-3 h-3" />
             {totalDeducted} deducted
+          </Badge>
+          <Badge variant="secondary" className="gap-1 font-normal">
+            <PackageCheck className="w-3 h-3" />
+            {pickedCount}/{filtered.length} picked
           </Badge>
         </div>
 
@@ -255,6 +286,9 @@ export function DFProcessingHistoryDialog({ open, onOpenChange }: DFProcessingHi
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-card z-10">
                 <tr className="border-b bg-muted/40">
+                  <th className="text-center p-2 font-medium w-10">
+                    <PackageCheck className="w-3.5 h-3.5 mx-auto text-muted-foreground" />
+                  </th>
                   <th
                     className="text-left p-2 font-medium cursor-pointer hover:text-primary"
                     onClick={() => toggleSort('order_number')}
@@ -277,7 +311,7 @@ export function DFProcessingHistoryDialog({ open, onOpenChange }: DFProcessingHi
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-6 text-center text-muted-foreground text-xs">
+                    <td colSpan={8} className="p-6 text-center text-muted-foreground text-xs">
                       {loading ? 'Loading...' : `No records for ${getDateLabel(selectedDate)}.`}
                     </td>
                   </tr>
@@ -294,7 +328,16 @@ export function DFProcessingHistoryDialog({ open, onOpenChange }: DFProcessingHi
                       }`}
                       onClick={() => setSelectedRecord(record)}
                     >
-                      <td className="p-2 font-mono">{record.order_number}</td>
+                      <td className="p-2 text-center" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={record.picked_from_bin}
+                          onCheckedChange={() => togglePickedFromBin(record.id, record.picked_from_bin)}
+                          className="h-4 w-4"
+                        />
+                      </td>
+                      <td className={`p-2 font-mono ${record.picked_from_bin ? 'line-through opacity-50' : ''}`}>
+                        {record.order_number}
+                      </td>
                       <td className="p-2 font-mono">
                         {record.asin || record.sku || '—'}
                       </td>
@@ -342,6 +385,21 @@ export function DFProcessingHistoryDialog({ open, onOpenChange }: DFProcessingHi
                 </div>
 
                 <div className="space-y-2.5">
+                  {/* Picked status */}
+                  <div className="flex items-center gap-2 p-2 rounded-md bg-muted/30 border">
+                    <Checkbox
+                      checked={selectedRecord.picked_from_bin}
+                      onCheckedChange={() => togglePickedFromBin(selectedRecord.id, selectedRecord.picked_from_bin)}
+                      className="h-4 w-4"
+                    />
+                    <div className="flex items-center gap-1.5">
+                      <PackageCheck className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-xs font-medium">
+                        {selectedRecord.picked_from_bin ? 'Picked from bin' : 'Not picked yet'}
+                      </span>
+                    </div>
+                  </div>
+
                   <DetailRow icon={<Hash className="w-3 h-3" />} label="Order" value={selectedRecord.order_number} />
                   {selectedRecord.asin && (
                     <DetailRow icon={<Package className="w-3 h-3" />} label="ASIN" value={selectedRecord.asin} />
@@ -389,7 +447,7 @@ export function DFProcessingHistoryDialog({ open, onOpenChange }: DFProcessingHi
         {/* Footer */}
         <div className="px-5 py-2.5 border-t bg-muted/20 flex items-center justify-between">
           <p className="text-[11px] text-muted-foreground">
-            {filtered.length} records for {getDateLabel(selectedDate)} · {records.length} total
+            {filtered.length} records for {getDateLabel(selectedDate)} · {pickedCount} picked · {records.length} total
           </p>
           <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => onOpenChange(false)}>
             Close
