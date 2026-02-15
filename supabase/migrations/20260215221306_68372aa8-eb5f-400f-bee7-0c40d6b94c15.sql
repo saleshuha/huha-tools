@@ -1,0 +1,1 @@
+ALTER TABLE public.processed_orders ADD COLUMN IF NOT EXISTS serial_number text;

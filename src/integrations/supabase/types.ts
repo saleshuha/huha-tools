@@ -2757,6 +2757,7 @@ export type Database = {
           previous_stock: number | null
           processed_at: string
           quantity_processed: number
+          serial_number: string | null
           sku: string | null
           source_file: string | null
           updated_at: string
@@ -2776,6 +2777,7 @@ export type Database = {
           previous_stock?: number | null
           processed_at?: string
           quantity_processed?: number
+          serial_number?: string | null
           sku?: string | null
           source_file?: string | null
           updated_at?: string
@@ -2795,6 +2797,7 @@ export type Database = {
           previous_stock?: number | null
           processed_at?: string
           quantity_processed?: number
+          serial_number?: string | null
           sku?: string | null
           source_file?: string | null
           updated_at?: string

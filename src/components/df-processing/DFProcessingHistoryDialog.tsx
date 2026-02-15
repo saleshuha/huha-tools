@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,9 +19,11 @@ import {
   Filter,
   Download,
   RefreshCw,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { format } from 'date-fns';
+import { format, isToday, isYesterday, startOfDay, isSameDay } from 'date-fns';
 
 interface ProcessedOrderRecord {
   id: string;
@@ -36,6 +38,7 @@ interface ProcessedOrderRecord {
   new_stock: number | null;
   inventory_id: string | null;
   source_file: string | null;
+  serial_number: string | null;
   notes: string | null;
   processed_at: string;
   created_at: string;
@@ -54,9 +57,11 @@ export function DFProcessingHistoryDialog({ open, onOpenChange }: DFProcessingHi
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [selectedRecord, setSelectedRecord] = useState<ProcessedOrderRecord | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'asin' | 'sku'>('all');
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   useEffect(() => {
     if (open) {
+      setSelectedDate(new Date());
       loadHistory();
     }
   }, [open]);
@@ -82,8 +87,31 @@ export function DFProcessingHistoryDialog({ open, onOpenChange }: DFProcessingHi
     }
   };
 
+  // Get unique dates from records
+  const availableDates = useMemo(() => {
+    const dateMap = new Map<string, { date: Date; count: number }>();
+    records.forEach(r => {
+      const d = startOfDay(new Date(r.processed_at));
+      const key = d.toISOString();
+      if (dateMap.has(key)) {
+        dateMap.get(key)!.count++;
+      } else {
+        dateMap.set(key, { date: d, count: 1 });
+      }
+    });
+    return Array.from(dateMap.values()).sort((a, b) => b.date.getTime() - a.date.getTime());
+  }, [records]);
+
+  const getDateLabel = (date: Date) => {
+    if (isToday(date)) return 'Today';
+    if (isYesterday(date)) return 'Yesterday';
+    return format(date, 'MMM d');
+  };
+
   const filtered = records
     .filter(r => {
+      // Date filter
+      if (!isSameDay(new Date(r.processed_at), selectedDate)) return false;
       if (filterType !== 'all' && r.inventory_type !== filterType) return false;
       if (!search) return true;
       const q = search.toLowerCase();
@@ -91,7 +119,8 @@ export function DFProcessingHistoryDialog({ open, onOpenChange }: DFProcessingHi
         r.order_number.toLowerCase().includes(q) ||
         (r.asin?.toLowerCase().includes(q)) ||
         (r.sku?.toLowerCase().includes(q)) ||
-        (r.item_title?.toLowerCase().includes(q))
+        (r.item_title?.toLowerCase().includes(q)) ||
+        (r.serial_number?.toLowerCase().includes(q))
       );
     })
     .sort((a, b) => {
@@ -119,10 +148,10 @@ export function DFProcessingHistoryDialog({ open, onOpenChange }: DFProcessingHi
   };
 
   const exportCSV = () => {
-    const headers = ['Order Number', 'ASIN', 'SKU', 'Title', 'Qty Processed', 'Previous Stock', 'New Stock', 'Inventory Type', 'Match Type', 'Source File', 'Processed At'];
+    const headers = ['Order Number', 'ASIN', 'SKU', 'Serial Number', 'Title', 'Qty Processed', 'Previous Stock', 'New Stock', 'Inventory Type', 'Match Type', 'Source File', 'Processed At'];
     const rows = filtered.map(r => [
-      r.order_number, r.asin || '', r.sku || '', r.item_title || '',
-      r.quantity_processed, r.previous_stock ?? '', r.new_stock ?? '',
+      r.order_number, r.asin || '', r.sku || '', r.serial_number || '',
+      r.item_title || '', r.quantity_processed, r.previous_stock ?? '', r.new_stock ?? '',
       r.inventory_type, r.match_type, r.source_file || '',
       format(new Date(r.processed_at), 'yyyy-MM-dd HH:mm:ss'),
     ]);
@@ -139,137 +168,160 @@ export function DFProcessingHistoryDialog({ open, onOpenChange }: DFProcessingHi
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col p-0">
-        <DialogHeader className="px-6 pt-6 pb-4">
-          <DialogTitle className="flex items-center gap-2 text-lg">
-            <History className="w-5 h-5 text-primary" />
+        <DialogHeader className="px-5 pt-5 pb-3">
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <History className="w-4 h-4 text-primary" />
             Processing History
           </DialogTitle>
         </DialogHeader>
 
-        {/* Stats bar */}
-        <div className="px-6 grid grid-cols-3 gap-3">
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border">
-            <Hash className="w-4 h-4 text-muted-foreground" />
-            <div>
-              <p className="text-xs text-muted-foreground">Orders</p>
-              <p className="text-sm font-semibold">{uniqueOrders}</p>
+        {/* Compact stats bar */}
+        <div className="px-5 flex items-center gap-3 text-xs">
+          <Badge variant="secondary" className="gap-1 font-normal">
+            <Hash className="w-3 h-3" />
+            {uniqueOrders} orders
+          </Badge>
+          <Badge variant="secondary" className="gap-1 font-normal">
+            <Package className="w-3 h-3" />
+            {uniqueProducts} products
+          </Badge>
+          <Badge variant="secondary" className="gap-1 font-normal">
+            <TrendingDown className="w-3 h-3" />
+            {totalDeducted} deducted
+          </Badge>
+        </div>
+
+        {/* Date chips row */}
+        <div className="px-5 pt-2">
+          <ScrollArea className="w-full">
+            <div className="flex items-center gap-1.5 pb-1">
+              {availableDates.map(({ date, count }) => (
+                <Button
+                  key={date.toISOString()}
+                  variant={isSameDay(date, selectedDate) ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-7 text-xs shrink-0 gap-1"
+                  onClick={() => setSelectedDate(date)}
+                >
+                  {getDateLabel(date)}
+                  <span className="text-[10px] opacity-70">({count})</span>
+                </Button>
+              ))}
+              {availableDates.length === 0 && !loading && (
+                <span className="text-xs text-muted-foreground">No history yet</span>
+              )}
             </div>
-          </div>
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border">
-            <Package className="w-4 h-4 text-muted-foreground" />
-            <div>
-              <p className="text-xs text-muted-foreground">Products</p>
-              <p className="text-sm font-semibold">{uniqueProducts}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border">
-            <TrendingDown className="w-4 h-4 text-muted-foreground" />
-            <div>
-              <p className="text-xs text-muted-foreground">Total Deducted</p>
-              <p className="text-sm font-semibold">{totalDeducted} units</p>
-            </div>
-          </div>
+          </ScrollArea>
         </div>
 
         {/* Toolbar */}
-        <div className="px-6 pt-3 flex items-center gap-2 flex-wrap">
-          <div className="relative flex-1 min-w-[180px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <div className="px-5 pt-2 flex items-center gap-2 flex-wrap">
+          <div className="relative flex-1 min-w-[160px]">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
             <Input
-              placeholder="Search order, ASIN, SKU, title..."
+              placeholder="Search order, ASIN, SKU, serial..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 h-9"
+              className="pl-8 h-8 text-xs"
             />
           </div>
           <div className="flex items-center gap-1">
-            <Filter className="w-4 h-4 text-muted-foreground" />
             {(['all', 'asin', 'sku'] as const).map(type => (
               <Button
                 key={type}
-                variant={filterType === type ? 'default' : 'outline'}
+                variant={filterType === type ? 'default' : 'ghost'}
                 size="sm"
-                className="h-8 text-xs capitalize"
+                className="h-7 text-xs capitalize px-2"
                 onClick={() => setFilterType(type)}
               >
                 {type === 'all' ? 'All' : type.toUpperCase()}
               </Button>
             ))}
           </div>
-          <Button variant="outline" size="sm" className="h-8 gap-1" onClick={exportCSV}>
-            <Download className="w-3.5 h-3.5" /> Export
+          <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={exportCSV}>
+            <Download className="w-3 h-3" /> CSV
           </Button>
-          <Button variant="outline" size="sm" className="h-8 gap-1" onClick={loadHistory} disabled={loading}>
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
+          <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={loadHistory} disabled={loading}>
+            <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
 
-        <Separator className="mt-3" />
+        <Separator className="mt-2" />
 
         {/* Content area */}
         <div className="flex flex-1 overflow-hidden min-h-0">
           {/* Table */}
           <ScrollArea className={`flex-1 ${selectedRecord ? 'border-r' : ''}`}>
-            <table className="w-full text-sm">
+            <table className="w-full text-xs">
               <thead className="sticky top-0 bg-card z-10">
-                <tr className="border-b bg-muted/50">
+                <tr className="border-b bg-muted/40">
                   <th
-                    className="text-left p-2.5 font-medium text-xs cursor-pointer hover:text-primary"
+                    className="text-left p-2 font-medium cursor-pointer hover:text-primary"
                     onClick={() => toggleSort('order_number')}
                   >
                     <span className="flex items-center gap-1">Order <SortIcon field="order_number" /></span>
                   </th>
-                  <th className="text-left p-2.5 font-medium text-xs">ASIN / SKU</th>
-                  <th className="text-left p-2.5 font-medium text-xs hidden lg:table-cell">Title</th>
-                  <th className="text-center p-2.5 font-medium text-xs">Qty</th>
-                  <th className="text-center p-2.5 font-medium text-xs">Stock Change</th>
-                  <th className="text-center p-2.5 font-medium text-xs">Type</th>
+                  <th className="text-left p-2 font-medium">ASIN / SKU</th>
+                  <th className="text-left p-2 font-medium">Serial #</th>
+                  <th className="text-center p-2 font-medium">Qty</th>
+                  <th className="text-center p-2 font-medium">Stock</th>
+                  <th className="text-center p-2 font-medium">Type</th>
                   <th
-                    className="text-left p-2.5 font-medium text-xs cursor-pointer hover:text-primary"
+                    className="text-left p-2 font-medium cursor-pointer hover:text-primary"
                     onClick={() => toggleSort('processed_at')}
                   >
-                    <span className="flex items-center gap-1">Date <SortIcon field="processed_at" /></span>
+                    <span className="flex items-center gap-1">Time <SortIcon field="processed_at" /></span>
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-8 text-center text-muted-foreground">
-                      {loading ? 'Loading...' : 'No processing history found.'}
+                    <td colSpan={7} className="p-6 text-center text-muted-foreground text-xs">
+                      {loading ? 'Loading...' : `No records for ${getDateLabel(selectedDate)}.`}
                     </td>
                   </tr>
                 ) : (
-                  filtered.map(record => (
+                  filtered.map((record, idx) => (
                     <tr
                       key={record.id}
                       className={`border-b last:border-0 cursor-pointer transition-colors ${
-                        selectedRecord?.id === record.id ? 'bg-primary/5' : 'hover:bg-muted/30'
+                        selectedRecord?.id === record.id
+                          ? 'bg-primary/5'
+                          : idx % 2 === 0
+                          ? 'hover:bg-muted/30'
+                          : 'bg-muted/10 hover:bg-muted/30'
                       }`}
                       onClick={() => setSelectedRecord(record)}
                     >
-                      <td className="p-2.5 font-mono text-xs">{record.order_number}</td>
-                      <td className="p-2.5 font-mono text-xs">
+                      <td className="p-2 font-mono">{record.order_number}</td>
+                      <td className="p-2 font-mono">
                         {record.asin || record.sku || '—'}
                       </td>
-                      <td className="p-2.5 text-xs max-w-[150px] truncate hidden lg:table-cell">
-                        {record.item_title || '—'}
+                      <td className="p-2">
+                        {record.serial_number ? (
+                          <Badge variant="outline" className="text-[10px] font-mono px-1.5 py-0">
+                            {record.serial_number}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </td>
-                      <td className="p-2.5 text-center text-xs font-medium">{record.quantity_processed}</td>
-                      <td className="p-2.5 text-center text-xs">
+                      <td className="p-2 text-center font-medium">{record.quantity_processed}</td>
+                      <td className="p-2 text-center">
                         <span className="text-muted-foreground">{record.previous_stock ?? '?'}</span>
-                        <span className="mx-1 text-muted-foreground">→</span>
+                        <span className="mx-0.5 text-muted-foreground">→</span>
                         <span className={record.new_stock === 0 ? 'text-destructive font-medium' : ''}>
                           {record.new_stock ?? '?'}
                         </span>
                       </td>
-                      <td className="p-2.5 text-center">
+                      <td className="p-2 text-center">
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0">
                           {record.inventory_type.toUpperCase()}
                         </Badge>
                       </td>
-                      <td className="p-2.5 text-xs text-muted-foreground whitespace-nowrap">
-                        {format(new Date(record.processed_at), 'MMM d, yyyy')}
+                      <td className="p-2 text-muted-foreground whitespace-nowrap">
+                        {format(new Date(record.processed_at), 'HH:mm')}
                       </td>
                     </tr>
                   ))
@@ -280,30 +332,33 @@ export function DFProcessingHistoryDialog({ open, onOpenChange }: DFProcessingHi
 
           {/* Detail panel */}
           {selectedRecord && (
-            <div className="w-[280px] p-4 overflow-y-auto bg-muted/20">
-              <div className="space-y-4">
+            <div className="w-[260px] p-3 overflow-y-auto bg-muted/10">
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-semibold">Order Details</h4>
-                  <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setSelectedRecord(null)}>
-                    Close
+                  <h4 className="text-xs font-semibold">Details</h4>
+                  <Button variant="ghost" size="sm" className="h-5 text-[10px] px-1.5" onClick={() => setSelectedRecord(null)}>
+                    ✕
                   </Button>
                 </div>
 
-                <div className="space-y-3">
-                  <DetailRow icon={<Hash className="w-3.5 h-3.5" />} label="Order Number" value={selectedRecord.order_number} />
+                <div className="space-y-2.5">
+                  <DetailRow icon={<Hash className="w-3 h-3" />} label="Order" value={selectedRecord.order_number} />
                   {selectedRecord.asin && (
-                    <DetailRow icon={<Package className="w-3.5 h-3.5" />} label="ASIN" value={selectedRecord.asin} />
+                    <DetailRow icon={<Package className="w-3 h-3" />} label="ASIN" value={selectedRecord.asin} />
                   )}
                   {selectedRecord.sku && (
-                    <DetailRow icon={<Box className="w-3.5 h-3.5" />} label="SKU" value={selectedRecord.sku} />
+                    <DetailRow icon={<Box className="w-3 h-3" />} label="SKU" value={selectedRecord.sku} />
+                  )}
+                  {selectedRecord.serial_number && (
+                    <DetailRow icon={<Hash className="w-3 h-3" />} label="Serial #" value={selectedRecord.serial_number} mono />
                   )}
                   {selectedRecord.item_title && (
-                    <DetailRow icon={<FileText className="w-3.5 h-3.5" />} label="Title" value={selectedRecord.item_title} />
+                    <DetailRow icon={<FileText className="w-3 h-3" />} label="Title" value={selectedRecord.item_title} />
                   )}
 
                   <Separator />
 
-                  <DetailRow label="Quantity Processed" value={String(selectedRecord.quantity_processed)} />
+                  <DetailRow label="Qty Processed" value={String(selectedRecord.quantity_processed)} />
                   <DetailRow label="Stock Before" value={String(selectedRecord.previous_stock ?? '—')} />
                   <DetailRow label="Stock After" value={String(selectedRecord.new_stock ?? '—')} highlight={selectedRecord.new_stock === 0} />
 
@@ -315,16 +370,13 @@ export function DFProcessingHistoryDialog({ open, onOpenChange }: DFProcessingHi
                     <DetailRow label="Inventory ID" value={selectedRecord.inventory_id} mono />
                   )}
                   {selectedRecord.source_file && (
-                    <DetailRow icon={<FileText className="w-3.5 h-3.5" />} label="Source File" value={selectedRecord.source_file} />
-                  )}
-                  {selectedRecord.notes && (
-                    <DetailRow label="Notes" value={selectedRecord.notes} />
+                    <DetailRow icon={<FileText className="w-3 h-3" />} label="Source File" value={selectedRecord.source_file} />
                   )}
 
                   <Separator />
 
                   <DetailRow
-                    icon={<Calendar className="w-3.5 h-3.5" />}
+                    icon={<Calendar className="w-3 h-3" />}
                     label="Processed At"
                     value={format(new Date(selectedRecord.processed_at), 'MMM d, yyyy HH:mm:ss')}
                   />
@@ -335,11 +387,11 @@ export function DFProcessingHistoryDialog({ open, onOpenChange }: DFProcessingHi
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 border-t bg-muted/30 flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">
-            Showing {filtered.length} of {records.length} records
+        <div className="px-5 py-2.5 border-t bg-muted/20 flex items-center justify-between">
+          <p className="text-[11px] text-muted-foreground">
+            {filtered.length} records for {getDateLabel(selectedDate)} · {records.length} total
           </p>
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => onOpenChange(false)}>
             Close
           </Button>
         </div>
@@ -363,7 +415,7 @@ function DetailRow({
 }) {
   return (
     <div className="space-y-0.5">
-      <div className="flex items-center gap-1.5 text-muted-foreground">
+      <div className="flex items-center gap-1 text-muted-foreground">
         {icon}
         <span className="text-[10px] uppercase tracking-wider font-medium">{label}</span>
       </div>

@@ -947,6 +947,13 @@ export function OrderProcessor() {
 
         // Save to processed_orders table
         if (user) {
+          let serialNumber = 'N/A';
+          if (match.inventoryType === 'asin') {
+            serialNumber = (match.inventoryMatch as AsinInventoryItem).serialNumber;
+          } else if (match.inventoryType === 'sku') {
+            serialNumber = (match.inventoryMatch as SkuInventoryItem).binSerialNumber;
+          }
+
           await supabase.from('processed_orders').insert({
             user_id: user.id,
             order_number: match.orderItem.orderId,
@@ -960,6 +967,7 @@ export function OrderProcessor() {
             previous_stock: previousQuantity,
             new_stock: newQuantity,
             inventory_id: match.inventoryMatch.id,
+            serial_number: serialNumber,
             processed_at: new Date().toISOString()
           } as any);
         }
