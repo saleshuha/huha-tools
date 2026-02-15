@@ -1,0 +1,1 @@
+ALTER TABLE public.processed_orders ADD COLUMN IF NOT EXISTS picked_from_bin boolean NOT NULL DEFAULT false;

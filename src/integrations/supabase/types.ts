@@ -2754,6 +2754,7 @@ export type Database = {
           new_stock: number | null
           notes: string | null
           order_number: string
+          picked_from_bin: boolean
           previous_stock: number | null
           processed_at: string
           quantity_processed: number
@@ -2774,6 +2775,7 @@ export type Database = {
           new_stock?: number | null
           notes?: string | null
           order_number: string
+          picked_from_bin?: boolean
           previous_stock?: number | null
           processed_at?: string
           quantity_processed?: number
@@ -2794,6 +2796,7 @@ export type Database = {
           new_stock?: number | null
           notes?: string | null
           order_number?: string
+          picked_from_bin?: boolean
           previous_stock?: number | null
           processed_at?: string
           quantity_processed?: number
