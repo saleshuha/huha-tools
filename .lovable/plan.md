@@ -1,55 +1,66 @@
 
 
-## Fix Reprint to Print Per-PO + Add Single Reprint + Double Confirmation
+## Enhance Processing History: Serial Numbers, Date Filtering, and Cleaner UI
 
-### Problems Identified
-1. The per-item "Reprint (74)" button calls `handleReprintWithoutTracking(order, order.printed_quantity)` using the consolidated order object, which only carries one PO number. All 74 labels print under the same PO instead of distributing across the actual underlying POs.
-2. No separate button to reprint just 1 label for quick checks.
-3. The "Reprint All Labels" bulk button needs a stronger double-check confirmation.
+### What Changes
 
-### Changes to `src/components/POTracker.tsx`
+1. **Add serial number tracking** -- Store serial numbers when orders are processed and display them in the history table.
 
-**1. Fix `handleReprintWithoutTracking` to handle consolidated orders (~line 3337)**
+2. **Date-wise filtering with today as default** -- Add date picker/tabs so users can view history by date, always opening to today's processed orders.
 
-Update the function to check if the order is consolidated. If it is, iterate through `_consolidatedOrders` and generate ZPL using each underlying order (with correct PO data) for that order's `printed_quantity`. This ensures labels print with the correct PO number per item.
+3. **Cleaner, more modern UI** -- Simplify the dialog layout with better spacing, a compact table, and a streamlined detail panel.
 
-```
-if (order._isConsolidated && order._consolidatedOrders) {
-  for (const underlyingOrder of order._consolidatedOrders) {
-    const qty = underlyingOrder.printed_quantity || 0;
-    for (let i = 0; i < qty; i++) {
-      allZPLCodes.push(generateZPLFromTemplate(underlyingOrder, printSettings));
-    }
-  }
-} else {
-  for (let i = 0; i < quantity; i++) {
-    allZPLCodes.push(generateZPLFromTemplate(order, printSettings));
-  }
-}
-```
+---
 
-**2. Add a "Reprint 1" single-label button (~line 7049)**
+### Technical Details
 
-Add a separate button before the existing "Reprint (N)" button that reprints exactly 1 label. For consolidated orders, it will use the first underlying order to get the correct PO data.
+#### 1. Database: Add `serial_number` column to `processed_orders`
 
-- Label: "Reprint 1"
-- Icon: `RefreshCw`
-- Only visible when `printed_quantity > 0`
-- Calls `handleReprintWithoutTracking(order, 1)` (the updated function handles consolidated correctly)
+Run a migration to add a nullable `serial_number` text column to the `processed_orders` table.
 
-**3. Update per-item Reprint button label (~line 7050)**
+#### 2. Store serial number on insert (`DFProcessStep.tsx`)
 
-Change from "Reprint (74)" to "Reprint All (74)" to differentiate from the single reprint button.
+Update the insert call (~line 120) to include `serial_number: order.serialNumber || null` so it gets saved alongside the other order data.
 
-**4. Add double-check to "Reprint All Labels" bulk button (~line 7443)**
+#### 3. Update `DFProcessingHistoryDialog.tsx` (main changes)
 
-Add a two-step confirmation:
-- Step 1: Show the existing summary dialog with a "Continue" button
-- Step 2: Show a final confirmation with a typed or checkbox confirmation ("I confirm I want to reprint X labels")
-- This is implemented by adding a `reprintConfirmStep` state (1 or 2) and showing different dialog content based on the step
+**Data model:**
+- Add `serial_number` to the `ProcessedOrderRecord` interface.
 
-### Summary of button layout per item row
-- **Reprint 1** -- prints 1 label (for quick test/check)
-- **Reprint All (N)** -- reprints all N previously printed labels, distributed by PO
-- Both correctly use underlying PO data for consolidated items
+**Date filtering:**
+- Add a `selectedDate` state defaulting to today's date.
+- Group all records by date and show date tabs/chips along the top (e.g., "Today", "Feb 14", "Feb 13").
+- Filter the displayed records to match the selected date.
+- The query remains the same (fetch last 500), but the UI groups and filters client-side by date.
+
+**Table columns update:**
+- Add a "Serial #" column after the "ASIN / SKU" column.
+- Remove the "Title" column from the main table (move to detail panel only) to keep it compact.
+- The serial number displays as a small mono-text badge.
+
+**Detail panel:**
+- Add serial number to the detail panel between SKU and the separator.
+
+**UI improvements:**
+- Stats bar: Make it more compact with inline badges instead of card boxes.
+- Date chips row: Horizontal scrollable row of date buttons (today highlighted by default).
+- Table: Tighter padding, alternating row colors for readability.
+- Footer: Show count for selected date vs total.
+
+**Export CSV:**
+- Add `Serial Number` column to the CSV export.
+
+#### 4. Also update `OrderProcessor.tsx` and `OrderProcessorNew.tsx` insert calls
+
+These files also insert into `processed_orders`. Add `serial_number` field to those insert calls as well to ensure consistency across all processing flows.
+
+### File Changes Summary
+
+| File | Change |
+|------|--------|
+| Migration SQL | Add `serial_number` text column |
+| `src/components/df-processing/DFProcessStep.tsx` | Include `serial_number` in insert |
+| `src/components/OrderProcessor.tsx` | Include `serial_number` in insert |
+| `src/components/OrderProcessorNew.tsx` | Include `serial_number` in insert |
+| `src/components/df-processing/DFProcessingHistoryDialog.tsx` | Add date filtering, serial number column, UI refresh |
 
