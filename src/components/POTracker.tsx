@@ -335,9 +335,12 @@ export const POTracker = () => {
   const [printMode, setPrintMode] = useState<'single' | 'bulk'>('single');
   const [printOrders, setPrintOrdersBase] = useState<POOrder[]>([]);
    const [showReprintAllDialog, setShowReprintAllDialog] = useState(false);
-   const [isReprintingAll, setIsReprintingAll] = useState(false);
-   const [reprintConfirmStep, setReprintConfirmStep] = useState<1 | 2>(1);
-   const [reprintConfirmChecked, setReprintConfirmChecked] = useState(false);
+    const [isReprintingAll, setIsReprintingAll] = useState(false);
+    const [reprintConfirmStep, setReprintConfirmStep] = useState<1 | 2>(1);
+    const [reprintConfirmChecked, setReprintConfirmChecked] = useState(false);
+    const [showItemReprintDialog, setShowItemReprintDialog] = useState(false);
+    const [itemReprintOrder, setItemReprintOrder] = useState<POOrder | null>(null);
+    const [itemReprintQty, setItemReprintQty] = useState<string>('1');
 
   // Generate Purchase Link Dialog State
   const [generateLinkDialogOpen, setGenerateLinkDialogOpen] = useState(false);
@@ -7077,9 +7080,11 @@ export const POTracker = () => {
                                           </div>
                                         </Button>}
                                      
-                                     {/* Reprint All Printed Labels for this item */}
+                                     {/* Reprint Custom Qty - opens dialog to input quantity */}
                                      {order.printed_quantity > 0 && <Button variant="outline" size="sm" className="h-8 w-full hover:bg-amber-500/10 hover:border-amber-500/30" onClick={() => {
-                                    handleReprintWithoutTracking(order, order.printed_quantity, false);
+                                    setItemReprintOrder(order);
+                                    setItemReprintQty(String(order.printed_quantity));
+                                    setShowItemReprintDialog(true);
                                   }} disabled={!qzConnected || !selectedPrinter || printingItems.has(order.id)}>
                                           <div className="flex items-center gap-2">
                                             <RefreshCw className="h-3 w-3" />
@@ -7549,5 +7554,73 @@ export const POTracker = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Item-level Reprint Qty Dialog */}
+      <Dialog open={showItemReprintDialog} onOpenChange={(open) => {
+        setShowItemReprintDialog(open);
+        if (!open) {
+          setItemReprintOrder(null);
+          setItemReprintQty('1');
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 text-amber-500" />
+              Reprint Labels
+            </DialogTitle>
+          </DialogHeader>
+          {itemReprintOrder && (
+            <div className="space-y-4">
+              <div className="text-sm space-y-1">
+                <p><strong>ASIN:</strong> {itemReprintOrder.asin || 'N/A'}</p>
+                <p><strong>SKU:</strong> {itemReprintOrder.sku_code || 'N/A'}</p>
+                {itemReprintOrder._isConsolidated && itemReprintOrder._consolidatedOrders ? (
+                  <p><strong>POs:</strong> {itemReprintOrder._consolidatedOrders.map((o: any) => o.po_number).join(', ')}</p>
+                ) : (
+                  <p><strong>PO:</strong> {itemReprintOrder.po_number}</p>
+                )}
+                <p><strong>Previously Printed:</strong> {itemReprintOrder.printed_quantity}</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="reprint-qty">Quantity to Reprint</Label>
+                <Input
+                  id="reprint-qty"
+                  type="number"
+                  min="1"
+                  max={itemReprintOrder.printed_quantity}
+                  value={itemReprintQty}
+                  onChange={(e) => setItemReprintQty(e.target.value)}
+                  className="text-center text-lg font-semibold"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Max: {itemReprintOrder.printed_quantity} (total printed)
+                </p>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => setShowItemReprintDialog(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  className="bg-amber-500 hover:bg-amber-600 text-white"
+                  disabled={!itemReprintQty || parseInt(itemReprintQty) < 1 || parseInt(itemReprintQty) > (itemReprintOrder.printed_quantity || 0) || printingItems.has(itemReprintOrder.id)}
+                  onClick={() => {
+                    const qty = parseInt(itemReprintQty);
+                    if (itemReprintOrder && qty > 0) {
+                      handleReprintWithoutTracking(itemReprintOrder, qty, false);
+                      setShowItemReprintDialog(false);
+                      setItemReprintOrder(null);
+                      setItemReprintQty('1');
+                    }
+                  }}
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  Reprint {itemReprintQty ? parseInt(itemReprintQty) || 0 : 0} Label(s)
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>;
 };
