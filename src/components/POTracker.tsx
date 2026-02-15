@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
@@ -333,6 +334,8 @@ export const POTracker = () => {
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [printMode, setPrintMode] = useState<'single' | 'bulk'>('single');
   const [printOrders, setPrintOrdersBase] = useState<POOrder[]>([]);
+  const [showReprintAllDialog, setShowReprintAllDialog] = useState(false);
+  const [isReprintingAll, setIsReprintingAll] = useState(false);
 
   // Generate Purchase Link Dialog State
   const [generateLinkDialogOpen, setGenerateLinkDialogOpen] = useState(false);
@@ -3380,6 +3383,72 @@ export const POTracker = () => {
       });
     }
   };
+
+  // Reprint ALL previously printed labels for selected POs
+  const reprintAllPrintedItems = useMemo(() => {
+    if (selectedPOsForLabels.size === 0) return [];
+    const selectedPOsList = Array.from(selectedPOsForLabels);
+    return poOrders.filter(order => 
+      selectedPOsList.includes(order.po_number) && 
+      order.status !== 'cancelled' && 
+      (order.printed_quantity || 0) > 0
+    );
+  }, [poOrders, selectedPOsForLabels]);
+
+  const reprintAllGroupedByPO = useMemo(() => {
+    const grouped: Record<string, { items: POOrder[]; totalLabels: number }> = {};
+    reprintAllPrintedItems.forEach(order => {
+      if (!grouped[order.po_number]) {
+        grouped[order.po_number] = { items: [], totalLabels: 0 };
+      }
+      grouped[order.po_number].items.push(order);
+      grouped[order.po_number].totalLabels += (order.printed_quantity || 0);
+    });
+    return grouped;
+  }, [reprintAllPrintedItems]);
+
+  const handleReprintAllPrinted = async () => {
+    if (!qzConnected || !selectedPrinter) {
+      toast({
+        title: "Printer not ready",
+        description: "Please connect to QZ Tray and select a printer",
+        variant: "destructive"
+      });
+      return;
+    }
+    setIsReprintingAll(true);
+    try {
+      let allZPLCodes: string[] = [];
+      const poEntries = Object.entries(reprintAllGroupedByPO);
+      for (const [poNumber, group] of poEntries) {
+        for (const order of group.items) {
+          const qty = order.printed_quantity || 0;
+          for (let i = 0; i < qty; i++) {
+            allZPLCodes.push(generateZPLFromTemplate(order, printSettings));
+          }
+        }
+      }
+      const darknessCommand = `~SD${printSettings.darkness.toString().padStart(2, '0')}`;
+      const finalZPL = darknessCommand + '\n' + allZPLCodes.join('\n');
+      await qzConnectionManager.print(finalZPL, selectedPrinter);
+      const totalLabels = reprintAllPrintedItems.reduce((sum, o) => sum + (o.printed_quantity || 0), 0);
+      toast({
+        title: "✅ All labels reprinted",
+        description: `Reprinted ${totalLabels} label(s) for ${reprintAllPrintedItems.length} item(s) across ${poEntries.length} PO(s)`,
+      });
+    } catch (error) {
+      console.error('❌ Bulk reprint error:', error);
+      toast({
+        title: "Reprint failed",
+        description: error instanceof Error ? error.message : "Failed to reprint labels",
+        variant: "destructive"
+      });
+    } finally {
+      setIsReprintingAll(false);
+      setShowReprintAllDialog(false);
+    }
+  };
+
   const paginatedDetailedOrders = useMemo(() => {
     return filteredOrders.slice(startIndex, endIndex);
   }, [filteredOrders, startIndex, endIndex]);
@@ -5199,6 +5268,32 @@ export const POTracker = () => {
                             </div>}
                         </Button>;
                 })()}
+
+                {/* Reprint All Printed Labels Button */}
+                {reprintAllPrintedItems.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowReprintAllDialog(true)}
+                    disabled={!qzConnected || !selectedPrinter || isReprintingAll}
+                    className="border border-border/30 hover:bg-amber-500/10 hover:border-amber-500/30 hover:shadow-sm rounded-lg transition-all duration-200 h-8 text-xs"
+                  >
+                    {isReprintingAll ? (
+                      <div className="flex items-center gap-1.5">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <span>Reprinting...</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <RefreshCw className="h-3 w-3" />
+                        <span>Reprint All Labels</span>
+                        <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px] bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                          {reprintAllPrintedItems.reduce((sum, o) => sum + (o.printed_quantity || 0), 0)}
+                        </Badge>
+                      </div>
+                    )}
+                  </Button>
+                )}
                   </div>
 
                   {/* Compact Connection Alert */}
@@ -7344,5 +7439,48 @@ export const POTracker = () => {
         onOpenChange={setShowQuantityMatchingDialog}
         preSelectedPOs={selectedPOsForLabels.size > 0 ? Array.from(selectedPOsForLabels) : selectedPOForLabels ? [selectedPOForLabels] : []}
       />
+
+      {/* Reprint All Printed Labels Confirmation Dialog */}
+      <AlertDialog open={showReprintAllDialog} onOpenChange={setShowReprintAllDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Reprint All Printed Labels?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>You are about to reprint <strong>{reprintAllPrintedItems.reduce((sum, o) => sum + (o.printed_quantity || 0), 0)} labels</strong> for <strong>{reprintAllPrintedItems.length} items</strong> across <strong>{Object.keys(reprintAllGroupedByPO).length} PO(s)</strong>.</p>
+                <div className="bg-muted/50 rounded-lg p-3 space-y-1.5 max-h-40 overflow-y-auto">
+                  {Object.entries(reprintAllGroupedByPO).map(([po, group]) => (
+                    <div key={po} className="flex items-center justify-between text-xs">
+                      <span className="font-mono font-medium">{po}</span>
+                      <span className="text-muted-foreground">{group.items.length} items · {group.totalLabels} labels</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">This will NOT update print tracking in the database. Labels will be sent directly to the printer.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isReprintingAll}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleReprintAllPrinted}
+              disabled={isReprintingAll}
+              className="bg-amber-500 hover:bg-amber-600 text-white"
+            >
+              {isReprintingAll ? (
+                <div className="flex items-center gap-1.5">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Reprinting...
+                </div>
+              ) : (
+                'Yes, Reprint All'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>;
 };
