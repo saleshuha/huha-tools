@@ -7046,15 +7046,15 @@ export const POTracker = () => {
                                          </div>}
                                      </Button>
                                     
-                                    {/* Reprint Already Printed Quantity */}
-                                    {order.printed_quantity > 0 && <Button variant="outline" size="sm" className="h-8 w-full" onClick={() => {
-                                  handleReprintWithoutTracking(order, 1);
-                                }} disabled={!qzConnected || !selectedPrinter || printingItems.has(order.id)}>
-                                        <div className="flex items-center gap-2">
-                                          <RefreshCw className="h-3 w-3" />
-                                          <span className="text-xs font-medium">Reprint (1)</span>
-                                        </div>
-                                      </Button>}
+                                     {/* Reprint All Printed Labels for this item */}
+                                     {order.printed_quantity > 0 && <Button variant="outline" size="sm" className="h-8 w-full hover:bg-amber-500/10 hover:border-amber-500/30" onClick={() => {
+                                   handleReprintWithoutTracking(order, order.printed_quantity);
+                                 }} disabled={!qzConnected || !selectedPrinter || printingItems.has(order.id)}>
+                                         <div className="flex items-center gap-2">
+                                           <RefreshCw className="h-3 w-3" />
+                                           <span className="text-xs font-medium">Reprint ({order.printed_quantity})</span>
+                                         </div>
+                                       </Button>}
                                    
                                    {/* Mark as Printed (without printing) */}
                                    <Button variant="outline" size="sm" onClick={async () => {
