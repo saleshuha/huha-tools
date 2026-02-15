@@ -3354,22 +3354,30 @@ export const POTracker = () => {
       let allZPLCodes: string[] = [];
 
       if (order._isConsolidated && order._consolidatedOrders && order._consolidatedOrders.length > 0) {
-        // Consolidated order: distribute labels across underlying POs
+        // Consolidated order: distribute requested quantity across underlying POs proportionally
         if (isSingleReprint) {
           // Single reprint: use first underlying order for correct PO data
           const firstOrder = order._consolidatedOrders[0];
           allZPLCodes.push(generateZPLFromTemplate(firstOrder, printSettings));
         } else {
-          // Full reprint: generate labels per underlying order with their own PO data
-          for (const underlyingOrder of order._consolidatedOrders) {
-            const qty = underlyingOrder.printed_quantity || 0;
-            for (let i = 0; i < qty; i++) {
+          // Distribute requested quantity proportionally across POs based on their printed_quantity
+          const totalPrinted = order._consolidatedOrders.reduce((sum: number, o: any) => sum + (o.printed_quantity || 0), 0);
+          let remaining = quantity;
+          for (let idx = 0; idx < order._consolidatedOrders.length && remaining > 0; idx++) {
+            const underlyingOrder = order._consolidatedOrders[idx];
+            const orderPrinted = underlyingOrder.printed_quantity || 0;
+            // Proportional share, last PO gets remainder
+            const share = idx === order._consolidatedOrders.length - 1
+              ? remaining
+              : Math.min(Math.round((orderPrinted / totalPrinted) * quantity), remaining);
+            for (let i = 0; i < share; i++) {
               allZPLCodes.push(generateZPLFromTemplate(underlyingOrder, printSettings));
             }
+            remaining -= share;
           }
         }
       } else {
-        // Non-consolidated order
+        // Non-consolidated order: use requested quantity directly
         for (let i = 0; i < quantity; i++) {
           allZPLCodes.push(generateZPLFromTemplate(order, printSettings));
         }
