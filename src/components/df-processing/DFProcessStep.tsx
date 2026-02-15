@@ -130,6 +130,7 @@ export function DFProcessStep({ orders, onBack, onProcessed, onComplete }: DFPro
           new_stock: newQty,
           inventory_id: order.inventoryId,
           source_file: order.sourceFile,
+          serial_number: order.serialNumber || null,
           processed_at: new Date().toISOString(),
         });
         if (insertError) {
