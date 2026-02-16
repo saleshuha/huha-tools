@@ -4543,7 +4543,24 @@ export const POTracker = () => {
                       </Card> : <Table>
                         <TableHeader className="sticky top-0 z-10">
                           <TableRow className="hover:bg-transparent border-b-2 border-border/30 bg-muted/90 backdrop-blur-md">
-                            <TableHead className="w-[44px] text-[11px] uppercase tracking-wider font-semibold text-muted-foreground/80"></TableHead>
+                            <TableHead className="w-[44px] text-[11px] uppercase tracking-wider font-semibold text-muted-foreground/80">
+                              <Checkbox
+                                checked={filteredPOGroups.length > 0 && filteredPOGroups.every(g => selectedPOsForLabels.has(g.poNumber))}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    const newSelected = new Set(selectedPOsForLabels);
+                                    filteredPOGroups.forEach(g => newSelected.add(g.poNumber));
+                                    setSelectedPOsForLabels(newSelected);
+                                  } else {
+                                    const newSelected = new Set(selectedPOsForLabels);
+                                    filteredPOGroups.forEach(g => newSelected.delete(g.poNumber));
+                                    setSelectedPOsForLabels(newSelected);
+                                  }
+                                }}
+                                className="h-3.5 w-3.5"
+                                title={`Select all ${filteredPOGroups.length} POs`}
+                              />
+                            </TableHead>
                             <TableHead className="min-w-[150px] text-[11px] uppercase tracking-wider font-semibold text-muted-foreground/80">PO Number</TableHead>
                             <TableHead className="w-[160px] text-[11px] uppercase tracking-wider font-semibold text-muted-foreground/80">Ship To</TableHead>
                             <TableHead className="w-[160px] text-[11px] uppercase tracking-wider font-semibold text-muted-foreground/80">Size</TableHead>
