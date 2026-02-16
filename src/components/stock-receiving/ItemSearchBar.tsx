@@ -51,6 +51,7 @@ export interface ItemSearchBarRef {
 // --- Utilities ---
 
 const RECENT_SEARCHES_KEY = 'item-search-recent-v2';
+const RECENT_SEARCHES_KEY_OLD = 'item-search-recent';
 const MAX_RECENT = 10;
 
 interface RecentSearchEntry {
@@ -89,8 +90,20 @@ function getSearchTypeLabel(type: SearchType): { label: string; icon: string } {
 
 function getRecentSearches(): RecentSearchEntry[] {
   try {
-    const data = JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || '[]');
-    // Migration: handle old format (string[])
+    let data = JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || '[]');
+    // Migration: check old key if v2 is empty
+    if (data.length === 0) {
+      const oldData = JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY_OLD) || '[]');
+      if (oldData.length > 0) {
+        data = oldData;
+        // Migrate and clean up old key
+        const migrated = oldData.map((term: string) => ({ term, timestamp: Date.now() }));
+        localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(migrated));
+        localStorage.removeItem(RECENT_SEARCHES_KEY_OLD);
+        return migrated;
+      }
+    }
+    // Handle old format (string[]) in v2 key
     if (data.length > 0 && typeof data[0] === 'string') {
       return data.map((term: string) => ({ term, timestamp: Date.now() }));
     }
