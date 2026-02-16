@@ -245,21 +245,18 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
         const keywords = normalized.split(/\s+/).filter(k => k.length > 0);
         let resolvedBarcode: string | undefined;
 
-        // If detected as barcode, look up in product_barcodes first
-        const searchType = detectSearchType(term.trim());
-        if (searchType === 'barcode') {
-          const { data: barcodeMatch } = await supabase
-            .from('product_barcodes')
-            .select('barcode, asin, sku_code, title')
-            .eq('barcode', term.trim())
-            .limit(1)
-            .maybeSingle();
+        // Always check product_barcodes for any search term (supports alphanumeric barcodes like PG43301298304S)
+        const { data: barcodeMatch } = await supabase
+          .from('product_barcodes')
+          .select('barcode, asin, sku_code, title')
+          .eq('barcode', term.trim())
+          .limit(1)
+          .maybeSingle();
 
-          if (barcodeMatch && (barcodeMatch.asin || barcodeMatch.sku_code)) {
-            resolvedBarcode = barcodeMatch.barcode;
-            // Use the linked ASIN/SKU as the effective search term
-            normalized = (barcodeMatch.asin || barcodeMatch.sku_code || '').toUpperCase();
-          }
+        if (barcodeMatch && (barcodeMatch.asin || barcodeMatch.sku_code)) {
+          resolvedBarcode = barcodeMatch.barcode;
+          // Use the linked ASIN/SKU as the effective search term
+          normalized = (barcodeMatch.asin || barcodeMatch.sku_code || '').toUpperCase();
         }
 
         const buildTitleCondition = (kws: string[]) => {
