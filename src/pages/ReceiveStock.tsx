@@ -394,18 +394,18 @@ export default function ReceiveStock() {
 
             console.log('[Auto-Print] Using allocations from response:', manualPOAllocations);
 
-            const poNumbers = manualPOAllocations?.map(a => a.po_number).join(', ') || 'N/A';
+            const allPoNumbers = manualPOAllocations?.map(a => a.po_number).join(', ') || 'N/A';
             const priority = manualPOAllocations?.[0]?.priority || 3;
 
             if (manualPOAllocations && manualPOAllocations.length > 0) {
               console.log(`✅ [Stock Receiving] Item allocated to:`, {
-                po_numbers: poNumbers,
+                po_numbers: allPoNumbers,
                 priority: priority,
                 allocations: manualPOAllocations
               });
               
-              toast.success(`Allocated to PO ${poNumbers} (Priority: ${priority})`, {
-                description: `Printing label with correct PO and priority`,
+              toast.success(`Allocated to PO ${allPoNumbers} (Priority: ${priority})`, {
+                description: `Printing ${manualPOAllocations.length > 1 ? 'separate labels per PO' : 'label'}`,
                 duration: 3000
               });
             } else {
@@ -413,8 +413,43 @@ export default function ReceiveStock() {
             }
 
             if (data.serial_number && manualPOAllocations.length === 0) {
-              console.warn('⚠️ [Print] Serial number provided for inventory item. Ensure inventory template has "Serial Number" field mapped!');
+              console.warn('⚠️ [Print] Serial number provided for inventory item.');
               console.log('[Print] Serial Number:', data.serial_number);
+            }
+
+            const templateType = manualPOAllocations.length > 0 ? 'po' : 'inventory';
+
+            // Build one dataset row per PO allocation so each label shows its own PO number
+            const dataRows: string[][] = [];
+            if (manualPOAllocations.length > 0) {
+              for (const alloc of manualPOAllocations) {
+                const allocQty = alloc.quantity || 1;
+                for (let i = 0; i < allocQty; i++) {
+                  dataRows.push([
+                    alloc.po_number || 'N/A',
+                    String(alloc.priority || priority),
+                    item.asin || '',
+                    item.sku_code || '',
+                    item.model_number || '',
+                    item.title || '',
+                    '1',
+                    data.serial_number || ''
+                  ]);
+                }
+              }
+            } else {
+              for (let i = 0; i < data.quantity; i++) {
+                dataRows.push([
+                  'N/A',
+                  String(priority),
+                  item.asin || '',
+                  item.sku_code || '',
+                  item.model_number || '',
+                  item.title || '',
+                  '1',
+                  data.serial_number || ''
+                ]);
+              }
             }
 
             const dataset: LabelDataset = {
@@ -422,27 +457,16 @@ export default function ReceiveStock() {
               name: 'Stock Receiving',
               description: 'Stock receiving data',
               headers: ['PO Number', 'Priority', 'ASIN', 'SKU', 'Model', 'Title', 'Quantity', 'Serial Number'],
-              data: [[
-                poNumbers,
-                String(priority),
-                item.asin || '',
-                item.sku_code || '',
-                item.model_number || '',
-                item.title || '',
-                String(data.quantity),
-                data.serial_number || ''
-              ]],
-              rowCount: 1,
+              data: dataRows,
+              rowCount: dataRows.length,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString()
             };
 
             console.log('[Print] Dataset created:', {
-              template_type: manualPOAllocations.length > 0 ? 'po' : 'inventory',
-              po_numbers: poNumbers,
-              priority: priority,
-              serial_number: data.serial_number || '(none)',
-              dataset_row: dataset.data[0]
+              template_type: templateType,
+              total_labels: dataRows.length,
+              allocations: manualPOAllocations.map(a => ({ po: a.po_number, qty: a.quantity })),
             });
 
             const printSettings: PrintSettings = {
@@ -450,23 +474,16 @@ export default function ReceiveStock() {
               paperSize: 'custom',
               orientation: 'portrait',
               dpi: 203,
-              copies: data.quantity,
+              copies: 1,
               labelsPerPage: 1,
               margin: 0,
               darkness: printDarkness
             };
 
-            const templateType = manualPOAllocations.length > 0 ? 'po' : 'inventory';
             if (templateType === 'inventory') {
               console.log('📋 [Print] Using INVENTORY template');
-              console.log('⚠️ [Print] If serial number is not showing, check your inventory template:');
-              console.log('   1. Open Label Designer');
-              console.log('   2. Edit your inventory template');
-              console.log('   3. Add a Text element');
-              console.log('   4. In the Data tab, select column: "Serial Number" (index 7)');
-              console.log('   5. Save template');
             } else {
-              console.log('📋 [Print] Using PO template');
+              console.log(`📋 [Print] Using PO template - ${dataRows.length} separate labels`);
             }
 
             const zplCode = PrintService.generateZPL(labelDoc, dataset, printSettings);
