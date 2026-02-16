@@ -314,7 +314,10 @@ export const LabelPropertiesPanel: React.FC = () => {
         <Separator />
 
         {/* Data Mapping */}
-        {dataset && dataset.headers.length > 0 && (
+        {(() => {
+          const defaultPOColumns = ['PO Number', 'Priority', 'ASIN', 'SKU', 'Model', 'Title', 'Quantity', 'Serial Number'];
+          const availableHeaders = dataset && dataset.headers.length > 0 ? dataset.headers : defaultPOColumns;
+          return (
           <div>
             <Label className="text-sm font-medium mb-2 block">Data Mapping</Label>
             <div className="space-y-2">
@@ -329,7 +332,7 @@ export const LabelPropertiesPanel: React.FC = () => {
                   </SelectTrigger>
                   <SelectContent className="bg-background border shadow-md z-50">
                     <SelectItem value="none">None</SelectItem>
-                    {dataset.headers.map((header) => (
+                    {availableHeaders.map((header) => (
                       <SelectItem key={header} value={header}>
                         {header}
                       </SelectItem>
@@ -372,7 +375,8 @@ export const LabelPropertiesPanel: React.FC = () => {
               )}
             </div>
           </div>
-        )}
+        );
+        })()}
 
         <Separator />
 
