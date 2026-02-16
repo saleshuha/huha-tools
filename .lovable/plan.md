@@ -1,40 +1,38 @@
 
+## Fix Scanned Barcode Search + Add Visible Printer/Template Selection
 
-## Add Scanned Barcode Search to Stock Receiving Search Bar
+### Problem 1: Alphanumeric Barcodes Not Found
 
-### What Changes
+Barcodes like `PG43301298304S` contain letters, so the search system classifies them as "SKU" instead of "barcode." The `product_barcodes` lookup only runs when the search type is detected as "barcode" (pure digits only). This means any scanned barcode with letters is never checked against the `product_barcodes` table.
 
-When you search or scan a barcode in the stock receiving search bar, the system will look up that barcode in the `product_barcodes` table (where barcodes scanned via Purchase Link are stored). If a match is found, it will use the linked ASIN/SKU to find the corresponding PO orders and display them with priority information -- exactly like searching by ASIN directly.
+**Fix**: Always check the `product_barcodes` table for ANY search term, regardless of detected type. If a match is found, use the linked ASIN/SKU to search PO orders. This is a simple, reliable approach -- if the barcode exists in the table, use it.
 
-### How It Works
+### Problem 2: Printer & Template Selection Not Easily Accessible
 
-1. When a search term is detected as a "barcode" type (numeric, 8-14 digits), the system will first query the `product_barcodes` table for a match.
-2. If a matching barcode record is found (with a linked ASIN or SKU), it will use that ASIN/SKU to search PO orders and inventory -- producing the same priority-sorted results as a direct ASIN search.
-3. The result cards will show a small "Scanned Barcode" badge so you can see the barcode was resolved from a scan.
-4. If no barcode match is found in `product_barcodes`, it falls back to the existing search behavior.
+Currently, printer selection and label template selection are hidden inside the Print Settings sheet and only appear when "Auto-print" is toggled on. The user wants these options more visible.
 
-### Technical Details
+**Fix**: Move the printer selection dropdown and label template dropdowns out of the settings sheet and display them directly on the search card area as compact selectors, visible at all times (not just when auto-print is on).
+
+---
+
+### Technical Changes
 
 #### File: `src/components/stock-receiving/ItemSearchBar.tsx`
 
-**In the `searchItems` function (~line 233):**
+1. **Remove the `searchType === 'barcode'` gate** on the `product_barcodes` lookup (~line 250). Instead, always query `product_barcodes` for the search term:
+   - Query with `barcode.eq` for exact match first
+   - Also query with `asin.eq` or `sku_code.eq` as fallbacks
+   - If a match is found, resolve the linked ASIN/SKU and set `resolvedBarcode`
+   - This ensures `PG43301298304S` and similar alphanumeric barcodes are found
 
-- After detecting the search type, if the type is `barcode`, query the `product_barcodes` table:
-  ```
-  SELECT * FROM product_barcodes WHERE barcode = <search_term> LIMIT 1
-  ```
-- If a match is found, extract the linked `asin` or `sku_code` from the barcode record and use it as the effective search term for the existing PO orders and inventory queries.
-- Pass the original barcode value through so the UI can display it.
+#### File: `src/pages/ReceiveStock.tsx`
 
-**In the search results display:**
-
-- Add a small badge on matched results showing the resolved barcode value (e.g., "Barcode: 8901234567890") so the user knows the item was found via barcode lookup.
-
-**Also extend barcode detection:**
-
-- Update the `detectSearchType` function to also match longer barcode formats (UPC/EAN patterns) that may not be purely 8-14 digits but are still valid scanned barcodes.
+2. **Add visible printer and template selectors** below the search bar area:
+   - Show a compact row with printer dropdown, PO template dropdown, and inventory template dropdown
+   - These are always visible (not gated behind auto-print toggle)
+   - Keep the detailed settings (darkness, direct printing toggle) in the settings sheet
 
 | File | Change |
 |------|--------|
-| `src/components/stock-receiving/ItemSearchBar.tsx` | Add barcode lookup in `searchItems`, update result display |
-
+| `src/components/stock-receiving/ItemSearchBar.tsx` | Always query `product_barcodes` for any search term, not just numeric ones |
+| `src/pages/ReceiveStock.tsx` | Move printer + template selectors to be visible below the search bar |
