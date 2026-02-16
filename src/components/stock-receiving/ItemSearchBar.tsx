@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from 'react';
-import { Search, Loader2, Users, Folder, X, Clock, Zap, ScanBarcode } from 'lucide-react';
+import { useState, useEffect, useRef, useImperativeHandle, forwardRef, useCallback, useMemo } from 'react';
+import { Search, Loader2, Users, Folder, X, Clock, Zap, ScanBarcode, CheckCircle2, AlertCircle, Package } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -50,8 +50,25 @@ export interface ItemSearchBarRef {
 
 // --- Utilities ---
 
-const RECENT_SEARCHES_KEY = 'item-search-recent';
-const MAX_RECENT = 5;
+const RECENT_SEARCHES_KEY = 'item-search-recent-v2';
+const MAX_RECENT = 10;
+
+interface RecentSearchEntry {
+  term: string;
+  asin?: string;
+  sku_code?: string;
+  title?: string;
+  image_url?: string;
+  timestamp: number;
+}
+
+interface RecentSearchWithLiveData extends RecentSearchEntry {
+  total_pos?: number;
+  pending_qty?: number;
+  total_qty?: number;
+  fully_processed?: boolean;
+  loading?: boolean;
+}
 
 function detectSearchType(term: string): SearchType {
   const t = term.trim();
@@ -70,15 +87,27 @@ function getSearchTypeLabel(type: SearchType): { label: string; icon: string } {
   }
 }
 
-function getRecentSearches(): string[] {
+function getRecentSearches(): RecentSearchEntry[] {
   try {
-    return JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || '[]');
+    const data = JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || '[]');
+    // Migration: handle old format (string[])
+    if (data.length > 0 && typeof data[0] === 'string') {
+      return data.map((term: string) => ({ term, timestamp: Date.now() }));
+    }
+    return data;
   } catch { return []; }
 }
 
-function addRecentSearch(term: string) {
-  const recent = getRecentSearches().filter(s => s !== term);
-  recent.unshift(term);
+function addRecentSearch(term: string, result?: SearchResult) {
+  const recent = getRecentSearches().filter(s => s.term.toLowerCase() !== term.toLowerCase());
+  recent.unshift({
+    term,
+    asin: result?.asin,
+    sku_code: result?.sku_code,
+    title: result?.title,
+    image_url: result?.image_url,
+    timestamp: Date.now(),
+  });
   localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(recent.slice(0, MAX_RECENT)));
 }
 
@@ -106,6 +135,17 @@ function getPriorityColor(priority?: number): string {
   }
 }
 
+function getTimeAgo(timestamp: number): string {
+  const diff = Date.now() - timestamp;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 // --- Component ---
 
 export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
@@ -117,6 +157,8 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
     const [selectedIndex, setSelectedIndex] = useState(-1);
     const [isScanMode, setIsScanMode] = useState(false);
     const [detectedType, setDetectedType] = useState<SearchType>('title');
+    const [recentWithLiveData, setRecentWithLiveData] = useState<RecentSearchWithLiveData[]>([]);
+    const [loadingRecent, setLoadingRecent] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const lastInputTime = useRef(0);
@@ -130,6 +172,78 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
         }
       }
     }));
+
+    // Fetch live PO data for recent searches
+    const fetchRecentLiveData = useCallback(async () => {
+      const recent = getRecentSearches();
+      if (recent.length === 0) return;
+
+      setRecentWithLiveData(recent.map(r => ({ ...r, loading: true })));
+      setLoadingRecent(true);
+
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Collect all ASINs/SKUs from recent searches
+        const identifiers = recent.map(r => r.asin || r.sku_code || r.term).filter(Boolean);
+
+        // Batch query PO data for all recent items
+        const { data: poData } = await supabase
+          .from('po_orders')
+          .select('asin, sku_code, quantity, printed_quantity, status')
+          .or(identifiers.map(id => `asin.eq.${id},sku_code.eq.${id}`).join(','))
+          .in('status', ['pending', 'placed']);
+
+        // Aggregate per identifier
+        const poSummary = new Map<string, { total_pos: number; pending_qty: number; total_qty: number; fully_processed: boolean }>();
+
+        poData?.forEach(po => {
+          const key = po.asin || po.sku_code || '';
+          if (!key) return;
+          const existing = poSummary.get(key) || { total_pos: 0, pending_qty: 0, total_qty: 0, fully_processed: true };
+          existing.total_pos++;
+          const pending = (po.quantity || 0) - (po.printed_quantity || 0);
+          existing.pending_qty += pending;
+          existing.total_qty += po.quantity || 0;
+          if (pending > 0) existing.fully_processed = false;
+          poSummary.set(key, existing);
+        });
+
+        // Also fetch images for items without them
+        const asinsNeedingImages = recent.filter(r => !r.image_url && r.asin).map(r => r.asin!);
+        let imageMap = new Map<string, string>();
+        if (asinsNeedingImages.length > 0) {
+          const { data: images } = await supabase
+            .from('product_images')
+            .select('asin, image_url')
+            .in('asin', asinsNeedingImages)
+            .order('created_at', { ascending: false });
+          images?.forEach(img => {
+            if (!imageMap.has(img.asin)) imageMap.set(img.asin, img.image_url);
+          });
+        }
+
+        setRecentWithLiveData(recent.map(r => {
+          const key = r.asin || r.sku_code || r.term;
+          const summary = poSummary.get(key);
+          return {
+            ...r,
+            image_url: r.image_url || (r.asin ? imageMap.get(r.asin) : undefined),
+            total_pos: summary?.total_pos || 0,
+            pending_qty: summary?.pending_qty || 0,
+            total_qty: summary?.total_qty || 0,
+            fully_processed: summary ? summary.fully_processed : undefined,
+            loading: false,
+          };
+        }));
+      } catch (err) {
+        console.error('Failed to fetch recent live data:', err);
+        setRecentWithLiveData(recent.map(r => ({ ...r, loading: false })));
+      } finally {
+        setLoadingRecent(false);
+      }
+    }, []);
 
     // Detect barcode scanner (very fast sequential input)
     const handleInputChange = useCallback((value: string) => {
@@ -156,17 +270,18 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
       if (!searchTerm.trim()) {
         const recent = getRecentSearches();
         if (recent.length > 0) {
-          setResults(recent.map(term => ({
+          setResults(recent.map(entry => ({
             type: 'recent' as const,
-            searched_term: term,
+            searched_term: entry.term,
             context: 'Recent search'
           })));
           setShowDropdown(true);
+          fetchRecentLiveData();
         }
       } else if (results.length > 0) {
         setShowDropdown(true);
       }
-    }, [searchTerm, results.length]);
+    }, [searchTerm, results.length, fetchRecentLiveData]);
 
     // Keyboard navigation
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -207,12 +322,13 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
           // Show recent searches
           const recent = getRecentSearches();
           if (recent.length > 0 && document.activeElement === inputRef.current) {
-            setResults(recent.map(term => ({
+            setResults(recent.map(entry => ({
               type: 'recent' as const,
-              searched_term: term,
+              searched_term: entry.term,
               context: 'Recent search'
             })));
             setShowDropdown(true);
+            fetchRecentLiveData();
           } else {
             setResults([]);
             setShowDropdown(false);
@@ -439,7 +555,7 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
         return;
       }
 
-      addRecentSearch(searchTerm.trim());
+      addRecentSearch(searchTerm.trim(), result);
       setShowDropdown(false);
       setSearchTerm('');
       setSelectedIndex(-1);
@@ -531,28 +647,114 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
           >
             {/* Recent searches header */}
             {hasRecentOnly && (
-              <div className="px-3 py-2 text-xs text-muted-foreground font-medium border-b border-border/50 flex items-center gap-1.5">
-                <Clock className="w-3 h-3" />
-                Recent Searches
+              <div className="px-3 py-2 text-xs text-muted-foreground font-medium border-b border-border/50 flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Clock className="w-3 h-3" />
+                  Recent Searches
+                </div>
+                {loadingRecent && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
               </div>
             )}
 
-            <div className="max-h-96 overflow-y-auto">
+            <div className="max-h-[480px] overflow-y-auto">
               {results.map((result, index) => {
-                // Recent search item
+                // Recent search item with live data
                 if (result.type === 'recent') {
+                  const liveData = recentWithLiveData.find(r => r.term === result.searched_term);
+                  const hasPOs = liveData && liveData.total_pos !== undefined && liveData.total_pos > 0;
+                  const isFullyProcessed = liveData?.fully_processed === true;
+                  const timeAgo = liveData?.timestamp ? getTimeAgo(liveData.timestamp) : '';
+
                   return (
                     <button
                       key={`recent-${index}`}
                       data-result-item
                       onClick={() => handleSelect(result)}
                       className={cn(
-                        "w-full px-4 py-2.5 text-left flex items-center gap-3 transition-colors border-b border-border/30 last:border-0",
+                        "w-full px-4 py-3 text-left transition-colors border-b border-border/30 last:border-0",
                         selectedIndex === index ? "bg-accent" : "hover:bg-accent/50"
                       )}
                     >
-                      <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
-                      <span className="text-sm text-foreground">{result.searched_term}</span>
+                      <div className="flex items-start gap-3">
+                        {/* Image or icon */}
+                        {liveData?.image_url ? (
+                          <ImagePreview
+                            imageUrl={liveData.image_url}
+                            alt={liveData.title || liveData.term}
+                            size="md"
+                            showFullOnClick={false}
+                          />
+                        ) : (
+                          <div className="w-10 h-10 bg-muted/50 rounded-lg flex items-center justify-center shrink-0">
+                            <Clock className="w-4 h-4 text-muted-foreground" />
+                          </div>
+                        )}
+
+                        <div className="flex-1 min-w-0">
+                          {/* Search term + ASIN */}
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className="font-medium text-sm text-foreground truncate">
+                              {result.searched_term}
+                            </span>
+                            {liveData?.asin && liveData.asin !== result.searched_term && (
+                              <span className="text-[11px] text-muted-foreground">• {liveData.asin}</span>
+                            )}
+                          </div>
+
+                          {/* Title */}
+                          {liveData?.title && (
+                            <div className="text-xs text-muted-foreground truncate mb-1">
+                              {liveData.title}
+                            </div>
+                          )}
+
+                          {/* Status row */}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {liveData?.loading ? (
+                              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                <Loader2 className="w-3 h-3 animate-spin" /> Loading...
+                              </span>
+                            ) : hasPOs ? (
+                              <>
+                                {isFullyProcessed ? (
+                                  <Badge variant="outline" className="text-[10px] h-5 bg-emerald-500/10 text-emerald-700 border-emerald-300">
+                                    <CheckCircle2 className="w-3 h-3 mr-0.5" />
+                                    Fully Processed
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-[10px] h-5 bg-amber-500/10 text-amber-700 border-amber-300">
+                                    <AlertCircle className="w-3 h-3 mr-0.5" />
+                                    Pending
+                                  </Badge>
+                                )}
+                                <span className="text-[10px] text-muted-foreground">
+                                  {liveData!.total_pos} PO{liveData!.total_pos! > 1 ? 's' : ''}
+                                </span>
+                              </>
+                            ) : liveData && !liveData.loading ? (
+                              <Badge variant="outline" className="text-[10px] h-5 text-muted-foreground">
+                                No pending POs
+                              </Badge>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        {/* Right: Qty details */}
+                        <div className="flex flex-col items-end gap-0.5 shrink-0 ml-auto">
+                          {hasPOs && !isFullyProcessed && liveData && (
+                            <>
+                              <div className="text-xs font-bold text-foreground">
+                                {liveData.pending_qty}
+                                <span className="text-muted-foreground font-normal">/{liveData.total_qty}</span>
+                              </div>
+                              <div className="text-[10px] text-muted-foreground">qty pending</div>
+                            </>
+                          )}
+                          {timeAgo && (
+                            <span className="text-[9px] text-muted-foreground mt-0.5">{timeAgo}</span>
+                          )}
+                        </div>
+                      </div>
                     </button>
                   );
                 }
