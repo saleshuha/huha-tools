@@ -270,7 +270,7 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
         const { data: poData, error: poError } = await supabase
           .from('po_orders')
           .select('id, asin, sku_code, model_number, title, po_number, priority, quantity, printed_quantity')
-          .or(`asin.ilike.%${normalized}%,sku_code.ilike.%${normalized}%,model_number.ilike.%${normalized}%,${titleCondition}`)
+          .or(`asin.ilike.%${normalized}%,sku_code.ilike.%${normalized}%,model_number.ilike.%${normalized}%,po_number.ilike.%${normalized}%,${titleCondition}`)
           .in('status', ['pending', 'placed'])
           .limit(50);
 
