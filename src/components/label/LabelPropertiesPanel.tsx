@@ -316,7 +316,9 @@ export const LabelPropertiesPanel: React.FC = () => {
         {/* Data Mapping */}
         {(() => {
           const defaultPOColumns = ['PO Number', 'Priority', 'ASIN', 'SKU', 'Model', 'Title', 'Quantity', 'Serial Number'];
-          const availableHeaders = dataset && dataset.headers.length > 0 ? dataset.headers : defaultPOColumns;
+          const datasetHeaders = dataset && dataset.headers.length > 0 ? dataset.headers : [];
+          const merged = [...new Set([...defaultPOColumns, ...datasetHeaders])];
+          const availableHeaders = merged;
           return (
           <div>
             <Label className="text-sm font-medium mb-2 block">Data Mapping</Label>
