@@ -28,6 +28,7 @@ interface SearchResult {
   searched_term?: string;
   quantity?: number;
   pending_quantity?: number;
+  resolved_barcode?: string;
   po_group?: {
     id: string;
     name: string;
@@ -55,7 +56,7 @@ const MAX_RECENT = 5;
 function detectSearchType(term: string): SearchType {
   const t = term.trim();
   if (/^B0[A-Z0-9]{8,}$/i.test(t)) return 'asin';
-  if (/^\d{8,14}$/.test(t)) return 'barcode';
+  if (/^\d{6,14}$/.test(t)) return 'barcode';
   if (/^[A-Z0-9-]{3,20}$/i.test(t) && !t.includes(' ')) return 'sku';
   return 'title';
 }
@@ -240,15 +241,33 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
           return;
         }
 
-        const normalized = term.trim().toUpperCase();
+        let normalized = term.trim().toUpperCase();
         const keywords = normalized.split(/\s+/).filter(k => k.length > 0);
+        let resolvedBarcode: string | undefined;
+
+        // If detected as barcode, look up in product_barcodes first
+        const searchType = detectSearchType(term.trim());
+        if (searchType === 'barcode') {
+          const { data: barcodeMatch } = await supabase
+            .from('product_barcodes')
+            .select('barcode, asin, sku_code, title')
+            .eq('barcode', term.trim())
+            .limit(1)
+            .maybeSingle();
+
+          if (barcodeMatch && (barcodeMatch.asin || barcodeMatch.sku_code)) {
+            resolvedBarcode = barcodeMatch.barcode;
+            // Use the linked ASIN/SKU as the effective search term
+            normalized = (barcodeMatch.asin || barcodeMatch.sku_code || '').toUpperCase();
+          }
+        }
 
         const buildTitleCondition = (kws: string[]) => {
           if (kws.length === 1) return `title.ilike.%${kws[0]}%`;
           return `and(${kws.map(kw => `title.ilike.%${kw}%`).join(',')})`;
         };
 
-        const titleCondition = buildTitleCondition(keywords);
+        const titleCondition = buildTitleCondition(resolvedBarcode ? [normalized] : keywords);
 
         // Search PO orders with increased limit
         const { data: poData, error: poError } = await supabase
@@ -360,6 +379,7 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
               priority: groupInfo ? groupInfo.priority : item.max_priority,
               quantity: item.total_quantity,
               pending_quantity: item.total_pending,
+              resolved_barcode: resolvedBarcode,
               po_group: groupInfo ? {
                 id: item.group_id,
                 name: groupInfo.group_name,
@@ -382,6 +402,7 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
               sku_code: item.sku,
               title: item.title,
               serial_number: item.serial_number,
+              resolved_barcode: resolvedBarcode,
               context: item.serial_number
                 ? `In inventory (SN: ${item.serial_number})`
                 : `In inventory • ${item.status || 'active'}`,
@@ -617,6 +638,12 @@ export const ItemSearchBar = forwardRef<ItemSearchBarRef, ItemSearchBarProps>(
                           </span>
                           {result.sku_code && result.sku_code !== identifier && (
                             <span className="text-[11px] text-muted-foreground">• {result.sku_code}</span>
+                          )}
+                          {result.resolved_barcode && (
+                            <Badge variant="outline" className="text-[10px] h-5 bg-green-500/10 text-green-700 border-green-300">
+                              <ScanBarcode className="w-3 h-3 mr-0.5" />
+                              {result.resolved_barcode}
+                            </Badge>
                           )}
                         </div>
 
