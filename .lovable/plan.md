@@ -1,66 +1,40 @@
 
 
-## Enhance Processing History: Serial Numbers, Date Filtering, and Cleaner UI
+## Add Scanned Barcode Search to Stock Receiving Search Bar
 
 ### What Changes
 
-1. **Add serial number tracking** -- Store serial numbers when orders are processed and display them in the history table.
+When you search or scan a barcode in the stock receiving search bar, the system will look up that barcode in the `product_barcodes` table (where barcodes scanned via Purchase Link are stored). If a match is found, it will use the linked ASIN/SKU to find the corresponding PO orders and display them with priority information -- exactly like searching by ASIN directly.
 
-2. **Date-wise filtering with today as default** -- Add date picker/tabs so users can view history by date, always opening to today's processed orders.
+### How It Works
 
-3. **Cleaner, more modern UI** -- Simplify the dialog layout with better spacing, a compact table, and a streamlined detail panel.
-
----
+1. When a search term is detected as a "barcode" type (numeric, 8-14 digits), the system will first query the `product_barcodes` table for a match.
+2. If a matching barcode record is found (with a linked ASIN or SKU), it will use that ASIN/SKU to search PO orders and inventory -- producing the same priority-sorted results as a direct ASIN search.
+3. The result cards will show a small "Scanned Barcode" badge so you can see the barcode was resolved from a scan.
+4. If no barcode match is found in `product_barcodes`, it falls back to the existing search behavior.
 
 ### Technical Details
 
-#### 1. Database: Add `serial_number` column to `processed_orders`
+#### File: `src/components/stock-receiving/ItemSearchBar.tsx`
 
-Run a migration to add a nullable `serial_number` text column to the `processed_orders` table.
+**In the `searchItems` function (~line 233):**
 
-#### 2. Store serial number on insert (`DFProcessStep.tsx`)
+- After detecting the search type, if the type is `barcode`, query the `product_barcodes` table:
+  ```
+  SELECT * FROM product_barcodes WHERE barcode = <search_term> LIMIT 1
+  ```
+- If a match is found, extract the linked `asin` or `sku_code` from the barcode record and use it as the effective search term for the existing PO orders and inventory queries.
+- Pass the original barcode value through so the UI can display it.
 
-Update the insert call (~line 120) to include `serial_number: order.serialNumber || null` so it gets saved alongside the other order data.
+**In the search results display:**
 
-#### 3. Update `DFProcessingHistoryDialog.tsx` (main changes)
+- Add a small badge on matched results showing the resolved barcode value (e.g., "Barcode: 8901234567890") so the user knows the item was found via barcode lookup.
 
-**Data model:**
-- Add `serial_number` to the `ProcessedOrderRecord` interface.
+**Also extend barcode detection:**
 
-**Date filtering:**
-- Add a `selectedDate` state defaulting to today's date.
-- Group all records by date and show date tabs/chips along the top (e.g., "Today", "Feb 14", "Feb 13").
-- Filter the displayed records to match the selected date.
-- The query remains the same (fetch last 500), but the UI groups and filters client-side by date.
-
-**Table columns update:**
-- Add a "Serial #" column after the "ASIN / SKU" column.
-- Remove the "Title" column from the main table (move to detail panel only) to keep it compact.
-- The serial number displays as a small mono-text badge.
-
-**Detail panel:**
-- Add serial number to the detail panel between SKU and the separator.
-
-**UI improvements:**
-- Stats bar: Make it more compact with inline badges instead of card boxes.
-- Date chips row: Horizontal scrollable row of date buttons (today highlighted by default).
-- Table: Tighter padding, alternating row colors for readability.
-- Footer: Show count for selected date vs total.
-
-**Export CSV:**
-- Add `Serial Number` column to the CSV export.
-
-#### 4. Also update `OrderProcessor.tsx` and `OrderProcessorNew.tsx` insert calls
-
-These files also insert into `processed_orders`. Add `serial_number` field to those insert calls as well to ensure consistency across all processing flows.
-
-### File Changes Summary
+- Update the `detectSearchType` function to also match longer barcode formats (UPC/EAN patterns) that may not be purely 8-14 digits but are still valid scanned barcodes.
 
 | File | Change |
 |------|--------|
-| Migration SQL | Add `serial_number` text column |
-| `src/components/df-processing/DFProcessStep.tsx` | Include `serial_number` in insert |
-| `src/components/OrderProcessor.tsx` | Include `serial_number` in insert |
-| `src/components/OrderProcessorNew.tsx` | Include `serial_number` in insert |
-| `src/components/df-processing/DFProcessingHistoryDialog.tsx` | Add date filtering, serial number column, UI refresh |
+| `src/components/stock-receiving/ItemSearchBar.tsx` | Add barcode lookup in `searchItems`, update result display |
 
