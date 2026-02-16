@@ -143,18 +143,20 @@ export const POLabelTemplates: React.FC = () => {
         textAlign: 'center',
         dataColumn: 'quantity',
       },
-      // Status
+      // Priority
       {
         type: 'text',
         x: 85,
         y: 105,
-        width: 60,
-        height: 12,
-        text: 'Pending',
-        fontSize: 8,
+        width: 50,
+        height: 14,
+        text: 'P3',
+        fontSize: 10,
+        fontWeight: 'bold',
         fontFamily: 'Arial',
-        color: '#f59e0b',
-        dataColumn: 'status',
+        color: '#dc2626',
+        dataColumn: 'Priority',
+        dataTransform: { prefix: 'P' },
       },
       // ASIN
       {
@@ -281,6 +283,21 @@ export const POLabelTemplates: React.FC = () => {
         color: '#000000',
         dataColumn: 'quantity',
         dataTransform: { prefix: 'Qty: ' },
+      },
+      // Priority
+      {
+        type: 'text',
+        x: 130,
+        y: 50,
+        width: 50,
+        height: 12,
+        text: 'P3',
+        fontSize: 9,
+        fontWeight: 'bold',
+        fontFamily: 'Arial',
+        color: '#dc2626',
+        dataColumn: 'Priority',
+        dataTransform: { prefix: 'P' },
       },
     ];
 
