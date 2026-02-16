@@ -769,6 +769,63 @@ export default function ReceiveStock() {
               disabled={isProcessing} 
               country={selectedCountry} 
             />
+            {/* Printer & Template Quick Selection */}
+            <div className="mt-3 pt-3 border-t border-border/50">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {/* Printer */}
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Printer</Label>
+                  <Select value={selectedPrinter} onValueChange={value => {
+                    setSelectedPrinter(value);
+                    localStorage.setItem('stock-receiving-default-printer', value);
+                    toast.success(`Printer set to: ${value}`);
+                  }}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder={availablePrinters.length > 0 ? 'Select printer...' : 'No printers'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availablePrinters.length === 0 ? (
+                        <SelectItem value="none" disabled>No printers found</SelectItem>
+                      ) : availablePrinters.map(printer => (
+                        <SelectItem key={printer} value={printer}>{printer}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {/* PO Template */}
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">PO Template</Label>
+                  <Select value={selectedPoTemplate} onValueChange={handlePoTemplateChange}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Select PO template..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {poTemplates.length === 0 ? (
+                        <SelectItem value="none" disabled>No PO templates</SelectItem>
+                      ) : poTemplates.map(template => (
+                        <SelectItem key={template.id} value={template.id}>{template.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {/* Inventory Template */}
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Inventory Template</Label>
+                  <Select value={selectedInventoryTemplate} onValueChange={handleInventoryTemplateChange}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Select inventory template..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {inventoryTemplates.length === 0 ? (
+                        <SelectItem value="none" disabled>No inventory templates</SelectItem>
+                      ) : inventoryTemplates.map(template => (
+                        <SelectItem key={template.id} value={template.id}>{template.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
