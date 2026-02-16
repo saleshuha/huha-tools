@@ -1,38 +1,44 @@
 
-## Fix Scanned Barcode Search + Add Visible Printer/Template Selection
 
-### Problem 1: Alphanumeric Barcodes Not Found
+## Fix: Row Position Stability During Filtering and Pagination Scroll Behavior
 
-Barcodes like `PG43301298304S` contain letters, so the search system classifies them as "SKU" instead of "barcode." The `product_barcodes` lookup only runs when the search type is detected as "barcode" (pure digits only). This means any scanned barcode with letters is never checked against the `product_barcodes` table.
+### Problem 1: Rows change position when data changes (e.g., fulfilling from stock)
 
-**Fix**: Always check the `product_barcodes` table for ANY search term, regardless of detected type. If a match is found, use the linked ASIN/SKU to search PO orders. This is a simple, reliable approach -- if the barcode exists in the table, use it.
+**Root Cause**: In the Labels tab, when you perform an action like "Fulfill from Stock," the underlying `poOrders` data changes. This triggers the entire filtering and sorting pipeline to recompute. The sort order may change because the item's properties (like `notes`, `printed_quantity`) have been modified, causing it to land in a different position.
 
-### Problem 2: Printer & Template Selection Not Easily Accessible
+**Solution**: Assign each row a stable sort index based on its original position when first rendered, and use that index as a tiebreaker in sorting. This ensures that when an item's data changes but the same filters are active, it stays in the same visual position.
 
-Currently, printer selection and label template selection are hidden inside the Print Settings sheet and only appear when "Auto-print" is toggled on. The user wants these options more visible.
+- Add an `_originalIndex` property to each order when the `ordersToDisplay` array is first computed
+- Store the previous order of item IDs in a `useRef`
+- When re-sorting, use the stored index as a secondary sort key so items that are "equal" under the current sort retain their relative position
+- Only reset the stored order when filters themselves change (not when data within rows changes)
 
-**Fix**: Move the printer selection dropdown and label template dropdowns out of the settings sheet and display them directly on the search card area as compact selectors, visible at all times (not just when auto-print is on).
+### Problem 2: Pagination scrolls to table start instead of staying in place
 
----
+**Root Cause**: When clicking Next/Previous page buttons, React re-renders the table content. The browser's default behavior scrolls to accommodate the new DOM, and no scroll-position management is in place for the Labels tab pagination.
+
+**Solution**: Remove any automatic scroll-to-top behavior on page change and keep the user's current scroll position. The pagination controls are at the bottom of the table, so the user should stay at the bottom when navigating pages.
+
+- Wrap the page change handlers to save and restore `scrollY` position after the state update
+- Use `requestAnimationFrame` to restore scroll position after React renders the new page
 
 ### Technical Changes
 
-#### File: `src/components/stock-receiving/ItemSearchBar.tsx`
+**File: `src/components/POTracker.tsx`**
 
-1. **Remove the `searchType === 'barcode'` gate** on the `product_barcodes` lookup (~line 250). Instead, always query `product_barcodes` for the search term:
-   - Query with `barcode.eq` for exact match first
-   - Also query with `asin.eq` or `sku_code.eq` as fallbacks
-   - If a match is found, resolve the linked ASIN/SKU and set `resolvedBarcode`
-   - This ensures `PG43301298304S` and similar alphanumeric barcodes are found
+1. **Stable row ordering** (Labels tab):
+   - Add a `useRef` to store the last known order of item IDs (e.g., `stableOrderRef = useRef<Map<string, number>>()`)
+   - After `ordersToDisplay` is built and sorted, assign each item an `_originalIndex` based on its position
+   - On subsequent renders (when only data changes, not filter changes), use the stored index map as the primary sort key
+   - Reset the stored order map whenever filter state variables (`sourceFilter`, `fulfillmentFilter`, `instockFilter`, `printedFilter`, `barcodeFilter`, `searchTags`, `labelSearchQuery`) change
 
-#### File: `src/pages/ReceiveStock.tsx`
+2. **Stable row ordering** (Overview tab):
+   - Apply the same `_originalIndex` tiebreaker logic to the `filteredOrders` useMemo
+   - The `preventTableReorder` flag already exists but needs to be activated properly when data mutations occur (e.g., after fulfill-from-stock operations, set it temporarily)
 
-2. **Add visible printer and template selectors** below the search bar area:
-   - Show a compact row with printer dropdown, PO template dropdown, and inventory template dropdown
-   - These are always visible (not gated behind auto-print toggle)
-   - Keep the detailed settings (darkness, direct printing toggle) in the settings sheet
+3. **Pagination scroll fix** (Labels tab):
+   - Modify the `setLabelCurrentPage` calls in Next/Previous/page number buttons to wrap in a function that preserves scroll position using `window.scrollY` and `requestAnimationFrame(() => window.scrollTo(0, savedY))`
 
-| File | Change |
-|------|--------|
-| `src/components/stock-receiving/ItemSearchBar.tsx` | Always query `product_barcodes` for any search term, not just numeric ones |
-| `src/pages/ReceiveStock.tsx` | Move printer + template selectors to be visible below the search bar |
+4. **Pagination scroll fix** (Overview tab):
+   - Apply the same scroll-preservation logic to the `setCurrentPage` handlers
+
