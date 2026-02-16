@@ -225,9 +225,8 @@ export default function ReceiveStock() {
 
     loadTemplates(savedPoTemplate, savedInventoryTemplate);
 
-    if (config.preferDirectPrint) {
-      loadPrinters();
-    }
+    // Always load printers so the visible dropdown is populated
+    loadPrinters();
   }, []);
   const loadTemplates = async (savedPoTemplate?: string | null, savedInventoryTemplate?: string | null) => {
     try {
@@ -774,7 +773,12 @@ export default function ReceiveStock() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {/* Printer */}
                 <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Printer</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs text-muted-foreground">Printer</Label>
+                    <Button type="button" variant="ghost" size="sm" className="h-5 px-1.5 text-[10px]" onClick={loadPrinters} disabled={loadingPrinters}>
+                      {loadingPrinters ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Refresh'}
+                    </Button>
+                  </div>
                   <Select value={selectedPrinter} onValueChange={value => {
                     setSelectedPrinter(value);
                     localStorage.setItem('stock-receiving-default-printer', value);
