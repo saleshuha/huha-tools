@@ -2593,6 +2593,19 @@ export const POTracker = () => {
   // Ref to store current ordersToDisplay for print operations
   const ordersToDisplayRef = useRef<POOrder[]>([]);
 
+  // Stable row ordering: track the last known order of item IDs to prevent row jumping
+  const stableLabelsOrderRef = useRef<Map<string, number>>(new Map());
+  const prevLabelsFilterKeyRef = useRef<string>('');
+
+  // Helper to preserve scroll position during pagination
+  const preserveScrollAndSetPage = useCallback((setter: React.Dispatch<React.SetStateAction<number>>, newPageOrUpdater: number | ((prev: number) => number)) => {
+    const savedY = window.scrollY;
+    setter(typeof newPageOrUpdater === 'function' ? newPageOrUpdater : () => newPageOrUpdater);
+    requestAnimationFrame(() => {
+      window.scrollTo(0, savedY);
+    });
+  }, []);
+
   // Handle print functionality with advanced settings
   const handleDirectPrint = async () => {
     if (!qzConnected) {
@@ -4203,14 +4216,14 @@ export const POTracker = () => {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <Button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} variant="outline" size="sm">
+                  <Button onClick={() => preserveScrollAndSetPage(setCurrentPage, prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} variant="outline" size="sm">
                     Previous
                   </Button>
                   <span>
                     Page {currentPage} of {Math.ceil((viewMode === 'grouped' ? groupedPOOrders.length : filteredOrders.length) / itemsPerPage)}
                     {' '}(showing {viewMode === 'grouped' ? 'PO groups' : 'line items'})
                   </span>
-                  <Button onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil((viewMode === 'grouped' ? groupedPOOrders.length : filteredOrders.length) / itemsPerPage)))} disabled={currentPage === Math.ceil((viewMode === 'grouped' ? groupedPOOrders.length : filteredOrders.length) / itemsPerPage)} variant="outline" size="sm">
+                  <Button onClick={() => preserveScrollAndSetPage(setCurrentPage, prev => Math.min(prev + 1, Math.ceil((viewMode === 'grouped' ? groupedPOOrders.length : filteredOrders.length) / itemsPerPage)))} disabled={currentPage === Math.ceil((viewMode === 'grouped' ? groupedPOOrders.length : filteredOrders.length) / itemsPerPage)} variant="outline" size="sm">
                     Next
                   </Button>
                 </div>
@@ -6347,6 +6360,18 @@ export const POTracker = () => {
                         ordersToDisplayRef.current = ordersToDisplay;
                       }
 
+                      // Stable row ordering: compute a filter key to detect filter changes vs data-only changes
+                      const currentFilterKey = JSON.stringify({
+                        selectedPOs: selectedPOsList.sort().join(','),
+                        searchTags, labelSearchQuery, printedFilter, sourceFilter,
+                        fulfillmentFilter, instockFilter, barcodeFilter, sortField, sortDirection
+                      });
+                      const filtersChanged = currentFilterKey !== prevLabelsFilterKeyRef.current;
+                      if (filtersChanged) {
+                        prevLabelsFilterKeyRef.current = currentFilterKey;
+                        stableLabelsOrderRef.current = new Map();
+                      }
+
                       // Apply sorting to labels tab (only if not preserving original order)
                       if (!originalOrderPreserved) {
                         ordersToDisplay.sort((a, b) => {
@@ -6356,7 +6381,6 @@ export const POTracker = () => {
                             aValue = `${a.title || ''} ${a.asin || ''}`.toLowerCase();
                             bValue = `${b.title || ''} ${b.asin || ''}`.toLowerCase();
                           } else if (sortField === 'scanned_barcode') {
-                            // Sort by barcode: get first barcode or empty string
                             const aOrderBarcodes = barcodesByOrderId.get(a.id) || [];
                             const aConsolidatedBarcodes = a._consolidatedOrders 
                               ? a._consolidatedOrders.flatMap((o: any) => barcodesByOrderId.get(o.id) || [])
@@ -6372,32 +6396,40 @@ export const POTracker = () => {
                             bValue = b[sortField];
                           }
 
-                          // Handle undefined values
                           if (aValue === undefined && bValue === undefined) return 0;
                           if (aValue === undefined) return sortDirection === 'asc' ? 1 : -1;
                           if (bValue === undefined) return sortDirection === 'asc' ? -1 : 1;
 
-                          // Handle numeric fields
                           if (sortField === 'quantity' || sortField === 'unit_cost' || sortField === 'total_cost') {
                             const aNum = Number(aValue) || 0;
                             const bNum = Number(bValue) || 0;
                             return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
                           }
 
-                          // Handle date fields
                           if (sortField === 'order_date' || sortField === 'expected_delivery' || sortField === 'created_at' || sortField === 'updated_at') {
                             const aDate = new Date(aValue as string).getTime();
                             const bDate = new Date(bValue as string).getTime();
                             return sortDirection === 'asc' ? aDate - bDate : bDate - aDate;
                           }
 
-                          // Handle string fields
                           const aStr = String(aValue).toLowerCase();
                           const bStr = String(bValue).toLowerCase();
                           if (aStr < bStr) return sortDirection === 'asc' ? -1 : 1;
                           if (aStr > bStr) return sortDirection === 'asc' ? 1 : -1;
-                          return 0;
+
+                          // Tiebreaker: use stable order index to prevent row jumping
+                          const stableMap = stableLabelsOrderRef.current;
+                          const aIdx = stableMap.get(a.id) ?? Infinity;
+                          const bIdx = stableMap.get(b.id) ?? Infinity;
+                          return aIdx - bIdx;
                         });
+                      }
+
+                      // Store the current order for future tiebreaking (only when filters changed or first render)
+                      if (filtersChanged || stableLabelsOrderRef.current.size === 0) {
+                        const newMap = new Map<string, number>();
+                        ordersToDisplay.forEach((order, idx) => newMap.set(order.id, idx));
+                        stableLabelsOrderRef.current = newMap;
                       }
                       console.log('🔍 Print Labels After Filtering:', {
                         ordersCount: ordersToDisplay.length,
@@ -7190,7 +7222,7 @@ export const POTracker = () => {
                              </div>
                           </div>
                           <div className="flex items-center space-x-3">
-                            <Button variant="outline" size="sm" onClick={() => setLabelCurrentPage(prev => Math.max(1, prev - 1))} disabled={labelCurrentPage === 1} className="hover:bg-primary/10 hover:border-primary/30 transition-colors">
+                            <Button variant="outline" size="sm" onClick={() => preserveScrollAndSetPage(setLabelCurrentPage, prev => Math.max(1, prev - 1))} disabled={labelCurrentPage === 1} className="hover:bg-primary/10 hover:border-primary/30 transition-colors">
                               <div className="flex items-center gap-2">
                                 <div className="w-3 h-3 rounded bg-gradient-to-r from-primary/20 to-accent/20"></div>
                                 Previous
@@ -7201,12 +7233,12 @@ export const POTracker = () => {
                         length: Math.min(5, totalPages)
                       }, (_, i) => {
                         const pageNum = Math.max(1, Math.min(totalPages - 4, labelCurrentPage - 2)) + i;
-                        return <Button key={pageNum} variant={pageNum === labelCurrentPage ? "default" : "outline"} size="sm" onClick={() => setLabelCurrentPage(pageNum)} className={`w-8 h-8 p-0 ${pageNum === labelCurrentPage ? 'bg-primary text-primary-foreground shadow-glow' : 'hover:bg-accent/10 hover:border-accent/30'} transition-all`}>
+                        return <Button key={pageNum} variant={pageNum === labelCurrentPage ? "default" : "outline"} size="sm" onClick={() => preserveScrollAndSetPage(setLabelCurrentPage, pageNum)} className={`w-8 h-8 p-0 ${pageNum === labelCurrentPage ? 'bg-primary text-primary-foreground shadow-glow' : 'hover:bg-accent/10 hover:border-accent/30'} transition-all`}>
                                     {pageNum}
                                   </Button>;
                       })}
                             </div>
-                            <Button variant="outline" size="sm" onClick={() => setLabelCurrentPage(prev => Math.min(totalPages, prev + 1))} disabled={labelCurrentPage === totalPages} className="hover:bg-primary/10 hover:border-primary/30 transition-colors">
+                            <Button variant="outline" size="sm" onClick={() => preserveScrollAndSetPage(setLabelCurrentPage, prev => Math.min(totalPages, prev + 1))} disabled={labelCurrentPage === totalPages} className="hover:bg-primary/10 hover:border-primary/30 transition-colors">
                               <div className="flex items-center gap-2">
                                 Next
                                 <div className="w-3 h-3 rounded bg-gradient-to-r from-accent/20 to-primary/20"></div>
