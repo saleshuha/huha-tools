@@ -20,7 +20,7 @@ export default {
     	extend: {
     		fontFamily: {
     			sans: [
-    				'Work Sans',
+    				'Source Sans Pro',
     				'ui-sans-serif',
     				'system-ui',
     				'-apple-system',
@@ -33,7 +33,7 @@ export default {
     				'sans-serif'
     			],
     			mono: [
-    				'Inconsolata',
+    				'Source Code Pro',
     				'ui-monospace',
     				'SFMono-Regular',
     				'Menlo',
@@ -50,7 +50,7 @@ export default {
     				'sans-serif'
     			],
     			serif: [
-    				'Lora',
+    				'Source Serif Pro',
     				'ui-serif',
     				'Georgia',
     				'Cambria',
