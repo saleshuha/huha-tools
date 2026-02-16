@@ -782,6 +782,9 @@ export default function ReceiveStock() {
                   <Select value={selectedPrinter} onValueChange={value => {
                     setSelectedPrinter(value);
                     localStorage.setItem('stock-receiving-default-printer', value);
+                    // Auto-enable auto-print and direct print when a printer is selected
+                    if (!autoPrintEnabled) handleAutoPrintChange(true);
+                    if (!directPrintEnabled) handleDirectPrintChange(true);
                     toast.success(`Printer set to: ${value}`);
                   }}>
                     <SelectTrigger className="h-8 text-xs">
