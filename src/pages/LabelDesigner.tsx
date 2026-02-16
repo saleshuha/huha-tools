@@ -26,7 +26,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { LABEL_PRESETS, PrintSettings, LabelDomain } from '@/types/label';
-import { Plus, Database, Eye, Download, Printer, FolderOpen, Archive, Package, ShoppingCart, Truck, Trash2 } from 'lucide-react';
+import { Plus, Database, Eye, Download, Printer, FolderOpen, Archive, Package, ShoppingCart, Truck, Trash2, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { HuhaHeader01 } from '@/components/ui/huha-header-01';
 import { usePageTracking } from '@/hooks/usePageTracking';
@@ -130,12 +130,42 @@ const LabelDesignerContent: React.FC = () => {
   };
 
   const handleDeleteDocument = async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation(); // Prevent triggering the load action
+    e.stopPropagation();
     if (window.confirm('Are you sure you want to delete this label? This action cannot be undone.')) {
       await deleteDocument(id);
-      // Refresh the documents list
       const docs = await loadUserDocuments();
       setUserDocuments(docs);
+    }
+  };
+
+  const handleDuplicateDocument = async (e: React.MouseEvent, doc: any) => {
+    e.stopPropagation();
+    try {
+      const { data: original, error: fetchError } = await (await import('@/integrations/supabase/client')).supabase
+        .from('label_templates')
+        .select('*')
+        .eq('id', doc.id)
+        .single();
+      if (fetchError || !original) throw fetchError;
+      const { data: { user } } = await (await import('@/integrations/supabase/client')).supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+      const { error: insertError } = await (await import('@/integrations/supabase/client')).supabase
+        .from('label_templates')
+        .insert({
+          name: `${(original as any).name} (Copy)`,
+          width: (original as any).width,
+          height: (original as any).height,
+          canvas_data: (original as any).canvas_data,
+          description: (original as any).description,
+          user_id: user.id,
+        } as any);
+      if (insertError) throw insertError;
+      toast.success('Template duplicated successfully');
+      const docs = await loadUserDocuments();
+      setUserDocuments(docs);
+    } catch (error) {
+      console.error('Duplicate error:', error);
+      toast.error('Failed to duplicate template');
     }
   };
   const headerActions = [
@@ -225,14 +255,26 @@ const LabelDesignerContent: React.FC = () => {
                         {doc.width}×{doc.height}mm • {new Date(doc.updated_at).toLocaleDateString()}
                       </p>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => handleDeleteDocument(e, doc.id)}
-                      className="ml-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-1 ml-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => handleDuplicateDocument(e, doc)}
+                        className="text-muted-foreground hover:text-primary hover:bg-primary/10"
+                        title="Duplicate"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => handleDeleteDocument(e, doc.id)}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>)}
               </div>}
           </div>
