@@ -7533,7 +7533,15 @@ export const POTracker = () => {
       />
       
       {/* Generate Purchase Link Dialog */}
-      <GeneratePurchaseLinkDialog open={generateLinkDialogOpen} onOpenChange={setGenerateLinkDialogOpen} poNumbers={Array.from(selectedPOsForLabels)} />
+      <GeneratePurchaseLinkDialog 
+        open={generateLinkDialogOpen} 
+        onOpenChange={setGenerateLinkDialogOpen} 
+        poNumbers={Array.from(selectedPOsForLabels)}
+        filteredOrders={filteredOrders
+          .filter(o => selectedPOsForLabels.has(o.po_number))
+          .map(o => ({ id: o.id, asin: o.asin, title: o.title, sku_code: o.sku_code, po_number: o.po_number, quantity: o.quantity }))}
+        totalOrderCount={poOrders.filter(o => selectedPOsForLabels.has(o.po_number)).length}
+      />
 
       {/* Print History Dialog */}
       {printHistoryOrder && <PrintHistoryDialog open={printHistoryDialogOpen} onOpenChange={setPrintHistoryDialogOpen} order={printHistoryOrder} />}

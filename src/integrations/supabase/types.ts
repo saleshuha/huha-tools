@@ -3152,6 +3152,7 @@ export type Database = {
           metadata: Json | null
           password_hash: string | null
           po_numbers: string[]
+          po_order_ids: string[] | null
           title: string | null
           total_updates_count: number | null
           updated_at: string
@@ -3169,6 +3170,7 @@ export type Database = {
           metadata?: Json | null
           password_hash?: string | null
           po_numbers: string[]
+          po_order_ids?: string[] | null
           title?: string | null
           total_updates_count?: number | null
           updated_at?: string
@@ -3186,6 +3188,7 @@ export type Database = {
           metadata?: Json | null
           password_hash?: string | null
           po_numbers?: string[]
+          po_order_ids?: string[] | null
           title?: string | null
           total_updates_count?: number | null
           updated_at?: string

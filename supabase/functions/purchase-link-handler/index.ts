@@ -23,7 +23,7 @@ serve(async (req) => {
 
     // POST /generate - Generate new purchase link
     if (path.endsWith('/generate') && req.method === 'POST') {
-      const { poNumbers, title, description, expiresInDays, userId } = await req.json();
+      const { poNumbers, poOrderIds, title, description, expiresInDays, userId } = await req.json();
       
       if (!userId || !poNumbers || poNumbers.length === 0) {
         return new Response(
@@ -38,16 +38,23 @@ serve(async (req) => {
         ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000).toISOString()
         : null;
       
+      const insertData: any = {
+        link_token: token,
+        user_id: userId,
+        po_numbers: poNumbers,
+        title,
+        description,
+        expires_at: expiresAt
+      };
+      
+      // Store specific item IDs if provided (selective item-level link)
+      if (poOrderIds && poOrderIds.length > 0) {
+        insertData.po_order_ids = poOrderIds;
+      }
+      
       const { data, error } = await supabaseClient
         .from('purchase_links')
-        .insert({
-          link_token: token,
-          user_id: userId,
-          po_numbers: poNumbers,
-          title,
-          description,
-          expires_at: expiresAt
-        })
+        .insert(insertData)
         .select()
         .single();
       
@@ -99,18 +106,26 @@ serve(async (req) => {
         })
         .eq('id', link.id);
       
-      // Fetch ALL PO orders with pagination (bypasses 1000-row limit)
+      // Fetch PO orders - use po_order_ids if available (selective), otherwise all from po_numbers
       let allPoOrders: any[] = [];
       const pageSize = 1000;
       let offset = 0;
       let hasMore = true;
+      
+      const useSelectiveIds = link.po_order_ids && Array.isArray(link.po_order_ids) && link.po_order_ids.length > 0;
+      
       while (hasMore) {
-        const { data: batch, error: batchError } = await supabaseClient
-          .from('po_orders')
-          .select('*')
-          .in('po_number', link.po_numbers)
-          .eq('user_id', link.user_id)
-          .range(offset, offset + pageSize - 1);
+        let query = supabaseClient.from('po_orders').select('*');
+        
+        if (useSelectiveIds) {
+          // Selective mode: fetch only specific items by their IDs
+          query = query.in('id', link.po_order_ids);
+        } else {
+          // Full PO mode: fetch all items from the PO numbers
+          query = query.in('po_number', link.po_numbers).eq('user_id', link.user_id);
+        }
+        
+        const { data: batch, error: batchError } = await query.range(offset, offset + pageSize - 1);
         
         if (batchError) {
           console.error('Error fetching PO orders batch:', batchError);
