@@ -33,6 +33,7 @@ import UserManagementPage from "./pages/UserManagement";
 import ReplenishmentPage from "./pages/Replenishment";
 import OrderProcessingPage from "./pages/OrderProcessing";
 import POTrackerPage from "./pages/POTracker";
+import AsinCostHistoryPage from "./pages/AsinCostHistoryPage";
 import POPrintWorkspace from "./pages/POPrintWorkspace";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -286,6 +287,7 @@ const App = () => {
                         <Route path="/replenishment" element={<ReplenishmentPage />} />
                         <Route path="/velocity-analytics" element={<VelocityAnalyticsSimple />} />
                         <Route path="/po-tracker" element={<POTrackerPage />} />
+                        <Route path="/asin-cost-history" element={<AsinCostHistoryPage />} />
                         <Route path="/po-details/:poNumber" element={<PODetailsPage />} />
                         <Route path="/po-print-workspace" element={<POPrintWorkspace />} />
                          <Route path="/add-sku" element={<AddSKUPageWrapper />} />
