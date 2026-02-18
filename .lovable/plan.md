@@ -1,44 +1,98 @@
 
 
-## Fix: Row Position Stability During Filtering and Pagination Scroll Behavior
+## Supplier Cost Tracking, Cost History, and Purchase Invoice System
 
-### Problem 1: Rows change position when data changes (e.g., fulfilling from stock)
+This feature adds three interconnected capabilities to the Purchase Links system:
 
-**Root Cause**: In the Labels tab, when you perform an action like "Fulfill from Stock," the underlying `poOrders` data changes. This triggers the entire filtering and sorting pipeline to recompute. The sort order may change because the item's properties (like `notes`, `printed_quantity`) have been modified, causing it to land in a different position.
+### 1. Supplier and Product Cost Input (via Purchase Link Portal)
 
-**Solution**: Assign each row a stable sort index based on its original position when first rendered, and use that index as a tiebreaker in sorting. This ensures that when an item's data changes but the same filters are active, it stays in the same visual position.
+Currently, the vendor portal (public `/purchase/:token` page) only has "Scan (Done)" and "N/A" buttons -- no way to enter supplier name or unit cost. We will add:
 
-- Add an `_originalIndex` property to each order when the `ordersToDisplay` array is first computed
-- Store the previous order of item IDs in a `useRef`
-- When re-sorting, use the stored index as a secondary sort key so items that are "equal" under the current sort retain their relative position
-- Only reset the stored order when filters themselves change (not when data within rows changes)
+- A **supplier info bar** at the top of the purchase link page where the vendor enters their name and supplier order number once per session (stored in state, auto-applied to all items they mark as done)
+- A **unit cost input** on each product card so the vendor can type the per-unit cost when marking items as done
+- The cost data gets saved to the existing `purchase_updates` table columns (`supplier_name`, `supplier_order_number`, `unit_cost`, `total_cost`) which already exist but are unused
 
-### Problem 2: Pagination scrolls to table start instead of staying in place
+### 2. ASIN Cost History Table (New Tab in PO Tracker)
 
-**Root Cause**: When clicking Next/Previous page buttons, React re-renders the table content. The browser's default behavior scrolls to accommodate the new DOM, and no scroll-position management is in place for the Labels tab pagination.
+A new **"Cost History"** tab in the PO Tracker page showing:
 
-**Solution**: Remove any automatic scroll-to-top behavior on page change and keep the user's current scroll position. The pagination controls are at the bottom of the table, so the user should stay at the bottom when navigating pages.
+- A table of all unique ASINs that have been purchased through purchase links
+- Product image column
+- ASIN / SKU column
+- Title column
+- **10 date columns** showing the unit cost recorded on different purchase sessions/dates, allowing you to track cost changes over time
+- Supplier name per entry
+- The data comes from `purchase_updates` grouped by ASIN and ordered by date
 
-- Wrap the page change handlers to save and restore `scrollY` position after the state update
-- Use `requestAnimationFrame` to restore scroll position after React renders the new page
+**Database**: New table `asin_cost_history` to store cost snapshots:
+- `id`, `asin`, `sku_code`, `title`, `unit_cost`, `supplier_name`, `link_id`, `recorded_date`, `created_at`
+- Populated automatically via a trigger on `purchase_updates` when `unit_cost` is set
 
-### Technical Changes
+### 3. Purchase Invoice / Proforma Invoice Generator
 
-**File: `src/components/POTracker.tsx`**
+A new **"Invoices"** section accessible from the Purchase Links management tab:
 
-1. **Stable row ordering** (Labels tab):
-   - Add a `useRef` to store the last known order of item IDs (e.g., `stableOrderRef = useRef<Map<string, number>>()`)
-   - After `ordersToDisplay` is built and sorted, assign each item an `_originalIndex` based on its position
-   - On subsequent renders (when only data changes, not filter changes), use the stored index map as the primary sort key
-   - Reset the stored order map whenever filter state variables (`sourceFilter`, `fulfillmentFilter`, `instockFilter`, `printedFilter`, `barcodeFilter`, `searchTags`, `labelSearchQuery`) change
+- **Generate Invoice** button on each purchase link card
+- Creates a proforma-style invoice document containing:
+  - Supplier name and order number (from purchase updates)
+  - Date of purchase session
+  - Table of all items: ASIN, SKU, Title, Quantity, Unit Cost, Total Cost
+  - Grand total at the bottom
+  - Link reference number
+- **Invoice History**: Each generated invoice is stored in a new `purchase_invoices` table
+- **Export to PDF** using the existing jsPDF dependency
+- **Verification view**: Side-by-side comparison showing "Our Records" vs "Supplier Invoice" to verify costs match
 
-2. **Stable row ordering** (Overview tab):
-   - Apply the same `_originalIndex` tiebreaker logic to the `filteredOrders` useMemo
-   - The `preventTableReorder` flag already exists but needs to be activated properly when data mutations occur (e.g., after fulfill-from-stock operations, set it temporarily)
+### Technical Details
 
-3. **Pagination scroll fix** (Labels tab):
-   - Modify the `setLabelCurrentPage` calls in Next/Previous/page number buttons to wrap in a function that preserves scroll position using `window.scrollY` and `requestAnimationFrame(() => window.scrollTo(0, savedY))`
+**Database Changes (3 migrations):**
 
-4. **Pagination scroll fix** (Overview tab):
-   - Apply the same scroll-preservation logic to the `setCurrentPage` handlers
+1. **`asin_cost_history` table**:
+   ```text
+   id (UUID PK)
+   asin (TEXT)
+   sku_code (TEXT)
+   title (TEXT)
+   unit_cost (DECIMAL)
+   supplier_name (TEXT)
+   link_id (UUID FK -> purchase_links)
+   po_number (TEXT)
+   recorded_date (DATE)
+   user_id (UUID)
+   created_at (TIMESTAMPTZ)
+   ```
+   - RLS: authenticated users can read/write their own records
+   - Trigger on `purchase_updates`: when `unit_cost` is inserted/updated and is not null, upsert into `asin_cost_history`
+
+2. **`purchase_invoices` table**:
+   ```text
+   id (UUID PK)
+   link_id (UUID FK -> purchase_links)
+   invoice_number (TEXT, auto-generated)
+   supplier_name (TEXT)
+   supplier_order_number (TEXT)
+   invoice_date (DATE)
+   items (JSONB - array of line items)
+   subtotal (DECIMAL)
+   total (DECIMAL)
+   notes (TEXT)
+   user_id (UUID)
+   status (TEXT - draft/finalized)
+   created_at, updated_at (TIMESTAMPTZ)
+   ```
+   - RLS: authenticated users can manage their own invoices
+
+**Frontend Changes:**
+
+1. **`src/pages/PurchaseLink.tsx`** - Add supplier info bar and unit cost input per card
+2. **`src/components/po/AsinCostHistory.tsx`** (new) - Cost history table with ASIN images and 10 date columns
+3. **`src/components/po/PurchaseInvoiceGenerator.tsx`** (new) - Invoice generation and PDF export
+4. **`src/components/po/PurchaseInvoiceList.tsx`** (new) - List of generated invoices
+5. **`src/components/POTracker.tsx`** - Add "Cost History" tab and "Invoices" sub-section to the Links tab
+
+**Edge Function Update:**
+
+- **`purchase-link-handler/index.ts`** - Update the `/update/:token` handler to also insert into `asin_cost_history` when `unit_cost` is provided
+
+**File count**: 2 database migrations, 3 new components, 3 modified files, 1 edge function update
 
