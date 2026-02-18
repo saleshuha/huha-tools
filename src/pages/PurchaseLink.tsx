@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
-import { Loader2, Package, Search, CheckCircle2, Circle, AlertCircle, Image, XCircle, Check, ArrowUp, ArrowDown, ScanLine, RotateCcw, ChevronDown, Filter } from 'lucide-react';
+import { Loader2, Package, Search, CheckCircle2, Circle, AlertCircle, Image, XCircle, Check, ArrowUp, ArrowDown, ScanLine, RotateCcw, ChevronDown, Filter, DollarSign, User } from 'lucide-react';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { BarcodeScannerDialog } from '@/components/barcode/BarcodeScannerDialog';
 import { LinkedBarcodesBadge } from '@/components/barcode/LinkedBarcodesBadge';
@@ -53,6 +53,14 @@ export default function PurchaseLink() {
   const [searchFocused, setSearchFocused] = useState(false);
   const parentRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  
+  // Supplier info state (session-level, applied to all items)
+  const [supplierName, setSupplierName] = useState('');
+  const [supplierOrderNumber, setSupplierOrderNumber] = useState('');
+  const [supplierInfoOpen, setSupplierInfoOpen] = useState(true);
+  
+  // Per-item unit cost state
+  const [itemCosts, setItemCosts] = useState<Map<string, string>>(new Map());
   
   // Barcode scanning state
   const [scanDialogOpen, setScanDialogOpen] = useState(false);
@@ -159,6 +167,8 @@ export default function PurchaseLink() {
         return !update?.metadata?.not_available;
       });
 
+      const unitCost = parseFloat(itemCosts.get(groupKey) || '0') || undefined;
+
       for (const order of activeOrders) {
         const qtyForThis = Math.min(remaining, order.quantity);
         remaining = Math.max(0, remaining - order.quantity);
@@ -171,6 +181,10 @@ export default function PurchaseLink() {
           modelNumber: order.model_number,
           title: order.title,
           purchasedQuantity: qtyForThis,
+          supplierName: supplierName || undefined,
+          supplierOrderNumber: supplierOrderNumber || undefined,
+          unitCost: unitCost,
+          totalCost: unitCost ? unitCost * qtyForThis : undefined,
         });
       }
       
@@ -557,6 +571,47 @@ export default function PurchaseLink() {
           </CollapsibleContent>
         </Collapsible>
 
+        {/* Supplier Info Bar */}
+        <Collapsible open={supplierInfoOpen} onOpenChange={setSupplierInfoOpen}>
+          <CollapsibleTrigger asChild>
+            <button className="w-full flex items-center justify-between bg-card border rounded-lg px-4 py-3 hover:bg-accent/50 transition-colors">
+              <div className="flex items-center gap-2">
+                <User className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">
+                  {supplierName ? `Supplier: ${supplierName}` : 'Supplier Info'}
+                </span>
+                {supplierName && <Badge variant="secondary" className="text-[10px]">Set</Badge>}
+              </div>
+              <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${supplierInfoOpen ? 'rotate-180' : ''}`} />
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-2">
+            <Card className="p-4 space-y-3">
+              <p className="text-xs text-muted-foreground">Enter supplier info once — it will be applied to all items you mark as done.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Supplier Name</label>
+                  <Input
+                    value={supplierName}
+                    onChange={e => setSupplierName(e.target.value)}
+                    placeholder="e.g. Sunsky"
+                    className="h-10"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Order Number</label>
+                  <Input
+                    value={supplierOrderNumber}
+                    onChange={e => setSupplierOrderNumber(e.target.value)}
+                    placeholder="e.g. SO-12345"
+                    className="h-10"
+                  />
+                </div>
+              </div>
+            </Card>
+          </CollapsibleContent>
+        </Collapsible>
+
         {/* Sticky Search + Filter Bar */}
         <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b -mx-3 px-3 py-2 md:-mx-6 md:px-6 md:border md:rounded-lg md:mx-0 md:static md:backdrop-blur-none space-y-2">
           {/* Dual Search - always visible */}
@@ -737,9 +792,29 @@ export default function PurchaseLink() {
                           </div>
                         </div>
 
-                        {/* Actions row: Scan Done + N/A (no qty input) */}
+                        {/* Unit Cost Input + Actions row */}
                         {status !== 'not_available' ? (
-                          <div className="flex items-center gap-2">
+                          <div className="space-y-2">
+                            {status !== 'purchased' && (
+                              <div className="flex items-center gap-2">
+                                <DollarSign className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  placeholder="Unit cost"
+                                  value={itemCosts.get(group.key) || ''}
+                                  onChange={e => setItemCosts(prev => new Map(prev).set(group.key, e.target.value))}
+                                  className="h-8 w-28 text-xs"
+                                />
+                                {itemCosts.get(group.key) && parseFloat(itemCosts.get(group.key)!) > 0 && (
+                                  <span className="text-[10px] text-muted-foreground">
+                                    Total: ${(parseFloat(itemCosts.get(group.key)!) * group.totalRequired).toFixed(2)}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            <div className="flex items-center gap-2">
                             <div className="bg-muted/50 rounded-md px-2.5 py-1.5 text-sm flex items-center gap-1 flex-shrink-0">
                               <span className="text-muted-foreground text-xs">Req:</span>
                               <span className="font-bold">{group.totalRequired.toLocaleString()}</span>
@@ -784,6 +859,7 @@ export default function PurchaseLink() {
                                 Done ({group.totalPurchased.toLocaleString()}/{group.totalRequired.toLocaleString()})
                               </div>
                             )}
+                            </div>
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">

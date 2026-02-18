@@ -265,6 +265,32 @@ serve(async (req) => {
             not_available: updateData.metadata?.not_available
           }
         });
+
+      // Insert cost history when unit_cost is provided
+      if (updateData.unitCost && updateData.unitCost > 0 && updateData.asin) {
+        // Get the link's user_id for the cost history record
+        const { data: linkFull } = await supabaseClient
+          .from('purchase_links')
+          .select('user_id')
+          .eq('id', link.id)
+          .single();
+
+        if (linkFull?.user_id) {
+          await supabaseClient
+            .from('asin_cost_history')
+            .insert({
+              asin: updateData.asin,
+              sku_code: updateData.skuCode || null,
+              title: updateData.title || null,
+              unit_cost: updateData.unitCost,
+              supplier_name: updateData.supplierName || null,
+              link_id: link.id,
+              po_number: updateData.poNumber || null,
+              recorded_date: new Date().toISOString().split('T')[0],
+              user_id: linkFull.user_id,
+            });
+        }
+      }
       
       if (error) {
         console.error('Error saving update:', error);

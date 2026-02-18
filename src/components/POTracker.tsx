@@ -31,6 +31,8 @@ import { GeneratePurchaseLinkDialog } from '@/components/po/GeneratePurchaseLink
 import { PurchaseLinkManagement } from '@/components/po/PurchaseLinkManagement';
 import { PurchaseUpdatesPanel } from '@/components/po/PurchaseUpdatesPanel';
 import { SmartMatchingPanel } from '@/components/po/matching/SmartMatchingPanel';
+import { AsinCostHistory } from '@/components/po/AsinCostHistory';
+import { PurchaseInvoiceList } from '@/components/po/PurchaseInvoiceList';
 import { FulfillFromStockDialog } from '@/components/po/FulfillFromStockDialog';
 import { PrintHistoryDialog } from '@/components/po/PrintHistoryDialog';
 import { ProductProfitAnalyzer } from '@/components/po/ProductProfitAnalyzer';
@@ -3610,6 +3612,11 @@ export const POTracker = () => {
             <ExternalLink className="h-4 w-4" />
             <span className="hidden lg:inline">Purchase Links</span>
             <span className="lg:hidden">Links</span>
+          </TabsTrigger>
+          <TabsTrigger value="cost-history" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-muted/50 hover:text-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:backdrop-blur-sm">
+            <DollarSign className="h-4 w-4" />
+            <span className="hidden lg:inline">Cost History</span>
+            <span className="lg:hidden">Costs</span>
           </TabsTrigger>
         </TabsList>
 
@@ -7256,7 +7263,12 @@ export const POTracker = () => {
           <div className="grid gap-6">
             <PurchaseLinkManagement />
             <PurchaseUpdatesPanel />
+            <PurchaseInvoiceList />
           </div>
+        </TabsContent>
+
+        <TabsContent value="cost-history" className="space-y-6">
+          <AsinCostHistory />
         </TabsContent>
 
         <TabsContent value="profit-analyzer" className="space-y-6">

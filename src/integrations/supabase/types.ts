@@ -71,6 +71,56 @@ export type Database = {
         }
         Relationships: []
       }
+      asin_cost_history: {
+        Row: {
+          asin: string
+          created_at: string
+          id: string
+          link_id: string | null
+          po_number: string | null
+          recorded_date: string
+          sku_code: string | null
+          supplier_name: string | null
+          title: string | null
+          unit_cost: number
+          user_id: string
+        }
+        Insert: {
+          asin: string
+          created_at?: string
+          id?: string
+          link_id?: string | null
+          po_number?: string | null
+          recorded_date?: string
+          sku_code?: string | null
+          supplier_name?: string | null
+          title?: string | null
+          unit_cost: number
+          user_id: string
+        }
+        Update: {
+          asin?: string
+          created_at?: string
+          id?: string
+          link_id?: string | null
+          po_number?: string | null
+          recorded_date?: string
+          sku_code?: string | null
+          supplier_name?: string | null
+          title?: string | null
+          unit_cost?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asin_cost_history_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       asin_inventory: {
         Row: {
           additional_serial_numbers: string[] | null
@@ -2982,6 +3032,65 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      purchase_invoices: {
+        Row: {
+          created_at: string
+          id: string
+          invoice_date: string
+          invoice_number: string
+          items: Json
+          link_id: string | null
+          notes: string | null
+          status: string
+          subtotal: number | null
+          supplier_name: string | null
+          supplier_order_number: string | null
+          total: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invoice_date?: string
+          invoice_number: string
+          items?: Json
+          link_id?: string | null
+          notes?: string | null
+          status?: string
+          subtotal?: number | null
+          supplier_name?: string | null
+          supplier_order_number?: string | null
+          total?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invoice_date?: string
+          invoice_number?: string
+          items?: Json
+          link_id?: string | null
+          notes?: string | null
+          status?: string
+          subtotal?: number | null
+          supplier_name?: string | null
+          supplier_order_number?: string | null
+          total?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_invoices_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_links"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       purchase_link_activity: {
         Row: {
