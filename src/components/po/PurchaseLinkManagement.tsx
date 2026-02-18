@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUserPurchaseLinks } from '@/hooks/usePurchaseLink';
+import { PurchaseInvoiceGenerator } from '@/components/po/PurchaseInvoiceGenerator';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -375,6 +376,7 @@ export const PurchaseLinkManagement = () => {
                     >
                       <Copy className="h-3.5 w-3.5" />
                     </Button>
+                    <PurchaseInvoiceGenerator linkId={link.id} linkTitle={link.title} />
                     
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
