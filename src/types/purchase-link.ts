@@ -45,6 +45,7 @@ export interface PurchaseLinkData {
 
 export interface GenerateLinkRequest {
   poNumbers: string[];
+  poOrderIds?: string[];
   title?: string;
   description?: string;
   expiresInDays?: number;
