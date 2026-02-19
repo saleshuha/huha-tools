@@ -7529,10 +7529,9 @@ export const POTracker = () => {
         open={generateLinkDialogOpen} 
         onOpenChange={setGenerateLinkDialogOpen} 
         poNumbers={Array.from(selectedPOsForLabels)}
-        filteredOrders={filteredOrders
+        allOrders={poOrders
           .filter(o => selectedPOsForLabels.has(o.po_number))
-          .map(o => ({ id: o.id, asin: o.asin, title: o.title, sku_code: o.sku_code, po_number: o.po_number, quantity: o.quantity }))}
-        totalOrderCount={poOrders.filter(o => selectedPOsForLabels.has(o.po_number)).length}
+          .map(o => ({ id: o.id, asin: o.asin, title: o.title, sku_code: o.sku_code, model_number: o.model_number, po_number: o.po_number, quantity: o.quantity }))}
       />
 
       {/* Print History Dialog */}
