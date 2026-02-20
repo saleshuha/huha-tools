@@ -960,6 +960,116 @@ export type Database = {
         }
         Relationships: []
       }
+      market_purchase_items: {
+        Row: {
+          asin: string | null
+          bill_reconciliation_id: string | null
+          country: string | null
+          created_at: string
+          id: string
+          platform: string
+          purchase_id: string
+          quantity: number
+          sku: string | null
+          title: string | null
+          total_cost: number | null
+          unit_cost: number
+          user_id: string
+        }
+        Insert: {
+          asin?: string | null
+          bill_reconciliation_id?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          platform?: string
+          purchase_id: string
+          quantity?: number
+          sku?: string | null
+          title?: string | null
+          total_cost?: number | null
+          unit_cost?: number
+          user_id: string
+        }
+        Update: {
+          asin?: string | null
+          bill_reconciliation_id?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          platform?: string
+          purchase_id?: string
+          quantity?: number
+          sku?: string | null
+          title?: string | null
+          total_cost?: number | null
+          unit_cost?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_bill_reconciliation"
+            columns: ["bill_reconciliation_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "market_purchase_items_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "market_purchases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      market_purchases: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          platform: string
+          purchase_date: string
+          status: string
+          supplier_id: string | null
+          total_estimated_cost: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          platform?: string
+          purchase_date?: string
+          status?: string
+          supplier_id?: string | null
+          total_estimated_cost?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          platform?: string
+          purchase_date?: string
+          status?: string
+          supplier_id?: string | null
+          total_estimated_cost?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "market_purchases_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       non_source_items: {
         Row: {
           asin: string | null
@@ -4823,6 +4933,59 @@ export type Database = {
           weight?: number | null
         }
         Relationships: []
+      }
+      supplier_bills: {
+        Row: {
+          bill_date: string
+          bill_reference: string | null
+          created_at: string
+          currency: string
+          id: string
+          notes: string | null
+          reconciled_at: string | null
+          status: string
+          supplier_id: string | null
+          total_amount: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bill_date?: string
+          bill_reference?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          notes?: string | null
+          reconciled_at?: string | null
+          status?: string
+          supplier_id?: string | null
+          total_amount?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bill_date?: string
+          bill_reference?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          notes?: string | null
+          reconciled_at?: string | null
+          status?: string
+          supplier_id?: string | null
+          total_amount?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_bills_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       supplier_contacts: {
         Row: {
