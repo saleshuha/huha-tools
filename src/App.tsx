@@ -74,6 +74,7 @@ import ReceiveStock from "./pages/ReceiveStock";
 import QuranApiDocs from "./pages/QuranApiDocs";
 import ProductFileManager from "./pages/ProductFileManager";
 import NoonFinancialStatements from "./pages/NoonFinancialStatements";
+import MarketPurchases from "./pages/MarketPurchases";
 
 import { useState as useReactState } from "react";
 import { useToast } from "@/components/ui/use-toast";
@@ -335,6 +336,8 @@ const App = () => {
                         
                         <Route path="/auth" element={<Navigate to="/" replace />} />
                         
+                         <Route path="/market-purchases" element={<MarketPurchases />} />
+
                         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                         <Route path="*" element={<NotFound />} />
                         </Routes>
