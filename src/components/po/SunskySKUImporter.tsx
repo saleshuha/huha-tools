@@ -32,6 +32,7 @@ import { usePOOrders } from "@/hooks/usePOOrders";
 import { useParallelPOProcessor } from "./ParallelPOProcessor";
 import { ReAuthDialog } from "@/components/amazon/ReAuthDialog";
 import { generateExcelFile } from "@/utils/excelExport";
+import { exportToCSV } from "@/utils/csv";
 import { useBackgroundTasks } from "@/contexts/BackgroundTasksContext";
 import { useConcurrentSunskyExport } from "@/hooks/useConcurrentSunskyExport";
 import { usePersistentBackgroundTasks } from "@/hooks/usePersistentBackgroundTasks";
@@ -712,6 +713,30 @@ export const SunskySKUImporter: React.FC = () => {
       });
     }
   };
+
+  // Export all imported SKUs as CSV
+  const handleExportSKUs = useCallback(async () => {
+    try {
+      toast({ title: "Exporting...", description: "Fetching all SKUs for export" });
+      const { data, error } = await supabase
+        .from('sunsky_skus')
+        .select('*')
+        .eq('user_id', profile?.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        toast({ title: "No data", description: "No SKUs found to export", variant: "destructive" });
+        return;
+      }
+      const headers = Object.keys(data[0]);
+      const timestamp = new Date().toISOString().split('T')[0];
+      exportToCSV(data as Record<string, any>[], headers, `sunsky_skus_${timestamp}.csv`);
+      toast({ title: "Export successful", description: `${data.length} SKUs exported to CSV` });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({ title: "Export failed", description: "Failed to export SKUs", variant: "destructive" });
+    }
+  }, [profile?.id, toast]);
 
   // Handle foreground export click
   const handleExportClick = useCallback(() => {
@@ -4037,6 +4062,11 @@ export const SunskySKUImporter: React.FC = () => {
                       </Tooltip>
                     </TooltipProvider>
                     
+                    <Button onClick={handleExportSKUs} variant="outline" size="sm">
+                      <Download className="h-4 w-4 mr-2" />
+                      Export CSV
+                    </Button>
+
                     <Button onClick={() => fetchSKUs(1, false)} variant="outline" size="sm">
                       <RefreshCw className="h-4 w-4 mr-2" />
                       Refresh
