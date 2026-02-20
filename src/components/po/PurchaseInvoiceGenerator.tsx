@@ -20,6 +20,7 @@ interface InvoiceItem {
   unit_cost: number;
   total_cost: number;
   po_number: string;
+  barcode?: string;
 }
 
 interface PurchaseInvoiceGeneratorProps {
@@ -119,23 +120,43 @@ export const buildInvoicePDF = (
 
   // ── Table ──────────────────────────────────────────────
   const tableY = infoY + 34;
-  const cols = { num: 14, asin: 22, sku: 50, title: 78, po: 128, qty: 152, unit: 163, total: 178 };
+  // Cols: #, ASIN, SKU, Title(truncated), Barcode, PO#, Qty, Unit, Total
+  const cols = { num: 14, asin: 22, sku: 47, title: 72, barcode: 108, po: 138, qty: 158, unit: 168, total: 183 };
 
   // Table header row
   doc.setFillColor(37, 99, 235); // #2563eb
   doc.rect(margin, tableY, pageW - margin * 2, 7, 'F');
 
-  doc.setFontSize(7);
+  doc.setFontSize(6.5);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(255, 255, 255);
   doc.text('#', cols.num, tableY + 5);
   doc.text('ASIN', cols.asin, tableY + 5);
   doc.text('SKU', cols.sku, tableY + 5);
-  doc.text('PRODUCT TITLE', cols.title, tableY + 5);
+  doc.text('TITLE', cols.title, tableY + 5);
+  doc.text('BARCODE', cols.barcode, tableY + 5);
   doc.text('PO#', cols.po, tableY + 5);
   doc.text('QTY', cols.qty, tableY + 5, { align: 'right' });
   doc.text('UNIT', cols.unit, tableY + 5, { align: 'right' });
   doc.text('TOTAL', cols.total, tableY + 5, { align: 'right' });
+
+  // Helper to repeat header on new pages
+  const drawTableHeader = (hy: number) => {
+    doc.setFillColor(37, 99, 235);
+    doc.rect(margin, hy, pageW - margin * 2, 7, 'F');
+    doc.setFontSize(6.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(255, 255, 255);
+    doc.text('#', cols.num, hy + 5);
+    doc.text('ASIN', cols.asin, hy + 5);
+    doc.text('SKU', cols.sku, hy + 5);
+    doc.text('TITLE', cols.title, hy + 5);
+    doc.text('BARCODE', cols.barcode, hy + 5);
+    doc.text('PO#', cols.po, hy + 5);
+    doc.text('QTY', cols.qty, hy + 5, { align: 'right' });
+    doc.text('UNIT', cols.unit, hy + 5, { align: 'right' });
+    doc.text('TOTAL', cols.total, hy + 5, { align: 'right' });
+  };
 
   // Rows
   let y = tableY + 7;
@@ -145,20 +166,7 @@ export const buildInvoicePDF = (
   items.forEach((item, idx) => {
     if (y > pageH - 40) {
       doc.addPage();
-      // Repeat header
-      doc.setFillColor(37, 99, 235);
-      doc.rect(margin, 14, pageW - margin * 2, 7, 'F');
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(255, 255, 255);
-      doc.text('#', cols.num, 19);
-      doc.text('ASIN', cols.asin, 19);
-      doc.text('SKU', cols.sku, 19);
-      doc.text('PRODUCT TITLE', cols.title, 19);
-      doc.text('PO#', cols.po, 19);
-      doc.text('QTY', cols.qty, 19, { align: 'right' });
-      doc.text('UNIT', cols.unit, 19, { align: 'right' });
-      doc.text('TOTAL', cols.total, 19, { align: 'right' });
+      drawTableHeader(14);
       y = 21;
     }
 
@@ -167,13 +175,16 @@ export const buildInvoicePDF = (
     doc.rect(margin, y, pageW - margin * 2, 5.5, 'F');
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7);
+    doc.setFontSize(6.5);
     doc.setTextColor(100, 116, 139);
     doc.text(String(idx + 1), cols.num, y + 4);
     doc.setTextColor(15, 23, 42);
-    doc.text(item.asin.substring(0, 12), cols.asin, y + 4);
-    doc.text((item.sku_code || '').substring(0, 12), cols.sku, y + 4);
-    doc.text((item.title || '').substring(0, 26), cols.title, y + 4);
+    doc.text(item.asin.substring(0, 10), cols.asin, y + 4);
+    doc.text((item.sku_code || '').substring(0, 10), cols.sku, y + 4);
+    doc.text((item.title || '').substring(0, 19), cols.title, y + 4);
+    // Barcode in blue
+    doc.setTextColor(37, 99, 235);
+    doc.text((item.barcode || '—').substring(0, 14), cols.barcode, y + 4);
     doc.setTextColor(100, 116, 139);
     doc.text(item.po_number.substring(0, 10), cols.po, y + 4);
     doc.setTextColor(15, 23, 42);
@@ -275,6 +286,21 @@ export const PurchaseInvoiceGenerator = ({ linkId, linkTitle, onGenerated }: Pur
 
       if (error) throw error;
 
+      const asins = [...new Set((updates || []).map(u => u.asin).filter(Boolean))];
+      let barcodeMap: Record<string, string> = {};
+
+      if (asins.length > 0) {
+        const { data: barcodes } = await supabase
+          .from('product_barcodes')
+          .select('asin, barcode')
+          .in('asin', asins);
+        if (barcodes) {
+          barcodes.forEach(b => {
+            if (b.asin && !barcodeMap[b.asin]) barcodeMap[b.asin] = b.barcode;
+          });
+        }
+      }
+
       const invoiceItems: InvoiceItem[] = (updates || []).map(u => ({
         asin: u.asin || '',
         sku_code: u.sku_code || '',
@@ -283,6 +309,7 @@ export const PurchaseInvoiceGenerator = ({ linkId, linkTitle, onGenerated }: Pur
         unit_cost: parseFloat(u.unit_cost as any) || 0,
         total_cost: parseFloat(u.total_cost as any) || (u.purchased_quantity || 0) * (parseFloat(u.unit_cost as any) || 0),
         po_number: u.po_number || '',
+        barcode: barcodeMap[u.asin || ''] || '',
       }));
 
       setItems(invoiceItems);
@@ -455,33 +482,34 @@ export const PurchaseInvoiceGenerator = ({ linkId, linkTitle, onGenerated }: Pur
                   </div>
                 </div>
 
-                {/* ── Items Table ── */}
-                <div className="rounded-lg border overflow-hidden">
-                  {/* Table header */}
-                  <div className="bg-primary grid grid-cols-[28px_90px_80px_1fr_70px_48px_70px_70px] gap-x-2 px-3 py-2">
-                    {['#', 'ASIN', 'SKU', 'Title', 'PO#', 'Qty', 'Unit', 'Total'].map((h, i) => (
-                      <span key={h} className={`text-[10px] font-bold text-white tracking-wider uppercase ${i >= 5 ? 'text-right' : ''}`}>{h}</span>
-                    ))}
-                  </div>
-                  <ScrollArea className="max-h-[260px]">
-                    {items.map((item, idx) => (
-                      <div
-                        key={idx}
-                        className={`grid grid-cols-[28px_90px_80px_1fr_70px_48px_70px_70px] gap-x-2 px-3 py-2 text-xs border-b border-border/50 ${idx % 2 === 0 ? 'bg-background' : 'bg-muted/30'}`}
-                      >
-                        <span className="text-muted-foreground">{idx + 1}</span>
-                        <span className="font-mono truncate text-[11px]">{item.asin}</span>
-                        <span className="font-mono truncate text-[11px] text-muted-foreground">{item.sku_code || '-'}</span>
-                        <span className="truncate">{item.title}</span>
-                        <span className="font-mono truncate text-muted-foreground text-[10px]">{item.po_number}</span>
-                        <span className="text-right">
-                          <Badge variant="secondary" className="text-[10px] h-4 px-1">{item.quantity}</Badge>
-                        </span>
-                        <span className="text-right font-mono text-muted-foreground">${item.unit_cost.toFixed(2)}</span>
-                        <span className="text-right font-mono font-semibold">${item.total_cost.toFixed(2)}</span>
-                      </div>
-                    ))}
-                  </ScrollArea>
+                 {/* ── Items Table ── */}
+                 <div className="rounded-lg border overflow-hidden">
+                   {/* Table header */}
+                   <div className="bg-primary grid grid-cols-[28px_90px_80px_1fr_80px_70px_48px_70px_70px] gap-x-2 px-3 py-2">
+                     {['#', 'ASIN', 'SKU', 'Title', 'Barcode', 'PO#', 'Qty', 'Unit', 'Total'].map((h, i) => (
+                       <span key={h} className={`text-[10px] font-bold text-white tracking-wider uppercase ${i >= 6 ? 'text-right' : ''}`}>{h}</span>
+                     ))}
+                   </div>
+                   <ScrollArea className="max-h-[260px]">
+                     {items.map((item, idx) => (
+                       <div
+                         key={idx}
+                         className={`grid grid-cols-[28px_90px_80px_1fr_80px_70px_48px_70px_70px] gap-x-2 px-3 py-2 text-xs border-b border-border/50 ${idx % 2 === 0 ? 'bg-background' : 'bg-muted/30'}`}
+                       >
+                         <span className="text-muted-foreground">{idx + 1}</span>
+                         <span className="font-mono truncate text-[11px]">{item.asin}</span>
+                         <span className="font-mono truncate text-[11px] text-muted-foreground">{item.sku_code || '-'}</span>
+                         <span className="truncate">{item.title}</span>
+                         <span className="font-mono truncate text-[11px] text-blue-600 dark:text-blue-400">{item.barcode || <span className="text-muted-foreground/50">—</span>}</span>
+                         <span className="font-mono truncate text-muted-foreground text-[10px]">{item.po_number}</span>
+                         <span className="text-right">
+                           <Badge variant="secondary" className="text-[10px] h-4 px-1">{item.quantity}</Badge>
+                         </span>
+                         <span className="text-right font-mono text-muted-foreground">${item.unit_cost.toFixed(2)}</span>
+                         <span className="text-right font-mono font-semibold">${item.total_cost.toFixed(2)}</span>
+                       </div>
+                     ))}
+                   </ScrollArea>
                   {/* Totals footer */}
                   <div className="bg-muted/50 border-t px-3 py-2.5 flex justify-between items-center">
                     <span className="text-xs text-muted-foreground">{items.length} line items · {totalQty} total units</span>
