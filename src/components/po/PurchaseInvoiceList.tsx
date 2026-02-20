@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, FileText, Download, Trash2 } from 'lucide-react';
+import { Loader2, FileText, Download, Trash2, Receipt, Calendar, Building2, Package } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import jsPDF from 'jspdf';
+import { buildInvoicePDF } from './PurchaseInvoiceGenerator';
 
 interface Invoice {
   id: string;
@@ -64,49 +63,22 @@ export const PurchaseInvoiceList = () => {
   };
 
   const handleExportPDF = (invoice: Invoice) => {
-    const doc = new jsPDF();
     const items = Array.isArray(invoice.items) ? invoice.items : [];
-
-    doc.setFontSize(20);
-    doc.text('Purchase Invoice', 14, 22);
-    doc.setFontSize(10);
-    doc.text(`Invoice #: ${invoice.invoice_number}`, 14, 32);
-    doc.text(`Date: ${format(new Date(invoice.invoice_date), 'dd MMM yyyy')}`, 14, 38);
-    if (invoice.supplier_name) doc.text(`Supplier: ${invoice.supplier_name}`, 14, 44);
-    if (invoice.supplier_order_number) doc.text(`Order #: ${invoice.supplier_order_number}`, 14, 50);
-
-    let y = 62;
-    doc.setFontSize(8);
-    doc.setFont(undefined as any, 'bold');
-    ['#', 'ASIN', 'SKU', 'Title', 'Qty', 'Unit Cost', 'Total'].forEach((h, i) => {
-      doc.text(h, [14, 22, 48, 72, 140, 158, 178][i], y);
+    const doc = buildInvoicePDF(items, {
+      invoiceNumber: invoice.invoice_number,
+      supplierName: invoice.supplier_name || '',
+      supplierOrderNumber: invoice.supplier_order_number || '',
+      notes: invoice.notes || '',
+      date: format(new Date(invoice.invoice_date), 'dd MMM yyyy'),
     });
-    doc.setFont(undefined as any, 'normal');
-    y += 6;
-
-    items.forEach((item: any, idx: number) => {
-      if (y > 270) { doc.addPage(); y = 20; }
-      doc.text(String(idx + 1), 14, y);
-      doc.text((item.asin || '').substring(0, 12), 22, y);
-      doc.text((item.sku_code || '').substring(0, 12), 48, y);
-      doc.text((item.title || '').substring(0, 30), 72, y);
-      doc.text(String(item.quantity || 0), 140, y);
-      doc.text(`$${(item.unit_cost || 0).toFixed(2)}`, 158, y);
-      doc.text(`$${(item.total_cost || 0).toFixed(2)}`, 178, y);
-      y += 5;
-    });
-
-    y += 4;
-    doc.setFont(undefined as any, 'bold');
-    doc.text(`Total: $${(invoice.total || 0).toFixed(2)}`, 178, y, { align: 'right' });
-
     doc.save(`${invoice.invoice_number}.pdf`);
+    toast.success('PDF exported');
   };
 
   if (loading) {
     return (
       <Card>
-        <CardContent className="flex items-center justify-center py-8">
+        <CardContent className="flex items-center justify-center py-10">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
@@ -117,56 +89,94 @@ export const PurchaseInvoiceList = () => {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <FileText className="h-5 w-5 text-primary" />
+          <Receipt className="h-5 w-5 text-primary" />
           Purchase Invoices
           <Badge variant="secondary">{invoices.length}</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent>
         {invoices.length === 0 ? (
-          <p className="text-center text-muted-foreground text-sm py-8">
-            No invoices generated yet. Use the "Invoice" button on a purchase link to create one.
-          </p>
+          <div className="flex flex-col items-center justify-center py-14 text-muted-foreground">
+            <div className="rounded-full bg-muted p-4 mb-4">
+              <FileText className="h-8 w-8 opacity-40" />
+            </div>
+            <p className="font-medium text-sm">No invoices yet</p>
+            <p className="text-xs text-muted-foreground/70 mt-1.5 text-center max-w-xs">
+              Use the "Invoice" button on a purchase link to generate your first invoice.
+            </p>
+          </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Invoice #</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Supplier</TableHead>
-                <TableHead className="text-right">Items</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {invoices.map(inv => (
-                <TableRow key={inv.id}>
-                  <TableCell className="font-mono text-xs">{inv.invoice_number}</TableCell>
-                  <TableCell className="text-xs">{format(new Date(inv.invoice_date), 'dd MMM yyyy')}</TableCell>
-                  <TableCell className="text-xs">{inv.supplier_name || '-'}</TableCell>
-                  <TableCell className="text-right text-xs">{Array.isArray(inv.items) ? inv.items.length : 0}</TableCell>
-                  <TableCell className="text-right text-xs font-medium">${(inv.total || 0).toFixed(2)}</TableCell>
-                  <TableCell>
-                    <Badge variant={inv.status === 'finalized' ? 'default' : 'secondary'} className="text-[10px]">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {invoices.map(inv => {
+              const itemCount = Array.isArray(inv.items) ? inv.items.length : 0;
+              const totalQty = Array.isArray(inv.items) ? inv.items.reduce((s: number, i: any) => s + (i.quantity || 0), 0) : 0;
+              return (
+                <div
+                  key={inv.id}
+                  className="relative rounded-lg border bg-card overflow-hidden hover:shadow-md transition-shadow group"
+                >
+                  {/* Card header stripe */}
+                  <div className="bg-slate-800 dark:bg-slate-900 px-4 py-3 flex items-start justify-between">
+                    <div>
+                      <p className="text-white font-mono text-xs font-semibold leading-tight">{inv.invoice_number}</p>
+                      <div className="flex items-center gap-1 mt-1">
+                        <Calendar className="h-3 w-3 text-slate-400" />
+                        <span className="text-slate-400 text-[10px]">{format(new Date(inv.invoice_date), 'dd MMM yyyy')}</span>
+                      </div>
+                    </div>
+                    <Badge
+                      className={`text-[10px] shrink-0 ${inv.status === 'finalized' ? 'bg-green-600/20 text-green-400 border-green-500/20' : 'bg-slate-600/20 text-slate-400 border-slate-500/20'}`}
+                      variant="outline"
+                    >
                       {inv.status}
                     </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex gap-1 justify-end">
-                      <Button variant="ghost" size="sm" onClick={() => handleExportPDF(inv)} className="h-7 w-7 p-0">
-                        <Download className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDelete(inv.id)} className="h-7 w-7 p-0 text-destructive hover:text-destructive">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                  </div>
+
+                  {/* Card body */}
+                  <div className="px-4 py-3 space-y-2.5">
+                    <div className="flex items-center gap-1.5">
+                      <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="text-sm font-medium truncate">{inv.supplier_name || <span className="text-muted-foreground italic text-xs">No supplier</span>}</span>
                     </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                    {inv.supplier_order_number && (
+                      <p className="text-xs text-muted-foreground font-mono">Order: {inv.supplier_order_number}</p>
+                    )}
+
+                    <div className="flex items-center gap-3 pt-1">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Package className="h-3.5 w-3.5" />
+                        <span>{itemCount} items · {totalQty} units</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                      <span className="text-lg font-bold">${(inv.total || 0).toFixed(2)}</span>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleExportPDF(inv)}
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                          title="Export PDF"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(inv.id)}
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                          title="Delete invoice"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </CardContent>
     </Card>

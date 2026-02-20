@@ -1,13 +1,12 @@
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { FileText, Download, Loader2, DollarSign } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { FileText, Download, Loader2, DollarSign, Building2, Calendar, Hash, Package } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -29,6 +28,226 @@ interface PurchaseInvoiceGeneratorProps {
   onGenerated?: () => void;
 }
 
+export const buildInvoicePDF = (
+  items: InvoiceItem[],
+  meta: {
+    invoiceNumber: string;
+    supplierName: string;
+    supplierOrderNumber: string;
+    notes: string;
+    linkTitle?: string;
+    date: string;
+  }
+) => {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageW = 210;
+  const pageH = 297;
+  const margin = 14;
+
+  // ── Header band ──────────────────────────────────────────
+  doc.setFillColor(30, 41, 59); // #1e293b
+  doc.rect(0, 0, pageW, 38, 'F');
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('PURCHASE INVOICE', margin, 16);
+
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(148, 163, 184); // slate-400
+  doc.text('HUHA TOOLS', margin, 23);
+
+  doc.setFontSize(9);
+  doc.setTextColor(255, 255, 255);
+  doc.text(meta.invoiceNumber, pageW - margin, 14, { align: 'right' });
+  doc.setFontSize(8);
+  doc.setTextColor(148, 163, 184);
+  doc.text(meta.date, pageW - margin, 21, { align: 'right' });
+  if (meta.linkTitle) {
+    doc.text(meta.linkTitle, pageW - margin, 28, { align: 'right' });
+  }
+
+  // ── Bill To / Meta info cards ──────────────────────────
+  const infoY = 44;
+  const halfW = (pageW - margin * 2 - 6) / 2;
+
+  // Bill To box
+  doc.setFillColor(248, 250, 252); // #f8fafc
+  doc.setDrawColor(226, 232, 240); // slate-200
+  doc.roundedRect(margin, infoY, halfW, 28, 2, 2, 'FD');
+
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(100, 116, 139); // slate-500
+  doc.text('BILL TO', margin + 4, infoY + 6);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(15, 23, 42); // #0f172a
+  doc.text(meta.supplierName || 'N/A', margin + 4, infoY + 13);
+
+  if (meta.supplierOrderNumber) {
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Order #: ${meta.supplierOrderNumber}`, margin + 4, infoY + 20);
+  }
+
+  // Invoice details box
+  const col2X = margin + halfW + 6;
+  doc.setFillColor(239, 246, 255); // #eff6ff
+  doc.setDrawColor(191, 219, 254); // blue-200
+  doc.roundedRect(col2X, infoY, halfW, 28, 2, 2, 'FD');
+
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(37, 99, 235); // blue-600
+  doc.text('INVOICE DETAILS', col2X + 4, infoY + 6);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(15, 23, 42);
+  doc.text(`Invoice #:`, col2X + 4, infoY + 13);
+  doc.setFont('helvetica', 'bold');
+  doc.text(meta.invoiceNumber, col2X + 24, infoY + 13);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Date:`, col2X + 4, infoY + 19);
+  doc.text(meta.date, col2X + 24, infoY + 19);
+  doc.text(`Status:`, col2X + 4, infoY + 25);
+  doc.setTextColor(21, 128, 61); // green-700
+  doc.text('Finalized', col2X + 24, infoY + 25);
+
+  // ── Table ──────────────────────────────────────────────
+  const tableY = infoY + 34;
+  const cols = { num: 14, asin: 22, sku: 50, title: 78, po: 128, qty: 152, unit: 163, total: 178 };
+
+  // Table header row
+  doc.setFillColor(37, 99, 235); // #2563eb
+  doc.rect(margin, tableY, pageW - margin * 2, 7, 'F');
+
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(255, 255, 255);
+  doc.text('#', cols.num, tableY + 5);
+  doc.text('ASIN', cols.asin, tableY + 5);
+  doc.text('SKU', cols.sku, tableY + 5);
+  doc.text('PRODUCT TITLE', cols.title, tableY + 5);
+  doc.text('PO#', cols.po, tableY + 5);
+  doc.text('QTY', cols.qty, tableY + 5, { align: 'right' });
+  doc.text('UNIT', cols.unit, tableY + 5, { align: 'right' });
+  doc.text('TOTAL', cols.total, tableY + 5, { align: 'right' });
+
+  // Rows
+  let y = tableY + 7;
+  const subtotal = items.reduce((s, i) => s + i.total_cost, 0);
+  const totalQty = items.reduce((s, i) => s + i.quantity, 0);
+
+  items.forEach((item, idx) => {
+    if (y > pageH - 40) {
+      doc.addPage();
+      // Repeat header
+      doc.setFillColor(37, 99, 235);
+      doc.rect(margin, 14, pageW - margin * 2, 7, 'F');
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(255, 255, 255);
+      doc.text('#', cols.num, 19);
+      doc.text('ASIN', cols.asin, 19);
+      doc.text('SKU', cols.sku, 19);
+      doc.text('PRODUCT TITLE', cols.title, 19);
+      doc.text('PO#', cols.po, 19);
+      doc.text('QTY', cols.qty, 19, { align: 'right' });
+      doc.text('UNIT', cols.unit, 19, { align: 'right' });
+      doc.text('TOTAL', cols.total, 19, { align: 'right' });
+      y = 21;
+    }
+
+    const isEven = idx % 2 === 0;
+    doc.setFillColor(isEven ? 255 : 248, isEven ? 255 : 250, isEven ? 255 : 252);
+    doc.rect(margin, y, pageW - margin * 2, 5.5, 'F');
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(100, 116, 139);
+    doc.text(String(idx + 1), cols.num, y + 4);
+    doc.setTextColor(15, 23, 42);
+    doc.text(item.asin.substring(0, 12), cols.asin, y + 4);
+    doc.text((item.sku_code || '').substring(0, 12), cols.sku, y + 4);
+    doc.text((item.title || '').substring(0, 26), cols.title, y + 4);
+    doc.setTextColor(100, 116, 139);
+    doc.text(item.po_number.substring(0, 10), cols.po, y + 4);
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
+    doc.text(String(item.quantity), cols.qty, y + 4, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.text(`$${item.unit_cost.toFixed(2)}`, cols.unit, y + 4, { align: 'right' });
+    doc.setFont('helvetica', 'bold');
+    doc.text(`$${item.total_cost.toFixed(2)}`, cols.total, y + 4, { align: 'right' });
+
+    y += 5.5;
+  });
+
+  // ── Totals section ──────────────────────────────────────
+  y += 3;
+  doc.setDrawColor(226, 232, 240);
+  doc.line(margin, y, pageW - margin, y);
+  y += 4;
+
+  const totalsX = pageW - margin - 60;
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(totalsX - 4, y - 3, 64, 24, 2, 2, 'F');
+
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100, 116, 139);
+  doc.text('Subtotal:', totalsX, y + 4);
+  doc.setTextColor(15, 23, 42);
+  doc.text(`$${subtotal.toFixed(2)}`, pageW - margin, y + 4, { align: 'right' });
+
+  doc.setTextColor(100, 116, 139);
+  doc.text(`${items.length} items  |  ${totalQty} units`, totalsX, y + 10);
+
+  // Total divider
+  doc.setDrawColor(37, 99, 235);
+  doc.setLineWidth(0.4);
+  doc.line(totalsX - 4, y + 13, pageW - margin, y + 13);
+  doc.setLineWidth(0.2);
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(15, 23, 42);
+  doc.text('TOTAL:', totalsX, y + 20);
+  doc.setTextColor(37, 99, 235);
+  doc.text(`$${subtotal.toFixed(2)}`, pageW - margin, y + 20, { align: 'right' });
+
+  // ── Notes ───────────────────────────────────────────────
+  if (meta.notes) {
+    y += 28;
+    doc.setFillColor(255, 251, 235); // amber-50
+    doc.setDrawColor(253, 230, 138); // amber-200
+    doc.roundedRect(margin, y, pageW - margin * 2, 16, 2, 2, 'FD');
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(146, 64, 14); // amber-800
+    doc.text('NOTES', margin + 4, y + 6);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(120, 53, 15);
+    const noteLines = doc.splitTextToSize(meta.notes, pageW - margin * 2 - 8);
+    doc.text(noteLines[0] || '', margin + 4, y + 12);
+  }
+
+  // ── Footer band ──────────────────────────────────────────
+  doc.setFillColor(30, 41, 59);
+  doc.rect(0, pageH - 14, pageW, 14, 'F');
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(148, 163, 184);
+  doc.text(meta.invoiceNumber, margin, pageH - 6);
+  doc.text('Thank you for your business!', pageW - margin, pageH - 6, { align: 'right' });
+
+  return doc;
+};
+
 export const PurchaseInvoiceGenerator = ({ linkId, linkTitle, onGenerated }: PurchaseInvoiceGeneratorProps) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -37,6 +256,12 @@ export const PurchaseInvoiceGenerator = ({ linkId, linkTitle, onGenerated }: Pur
   const [supplierName, setSupplierName] = useState('');
   const [supplierOrderNumber, setSupplierOrderNumber] = useState('');
   const [notes, setNotes] = useState('');
+
+  const invoiceNumber = (() => {
+    const date = format(new Date(), 'yyyyMMdd');
+    const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `PI-${date}-${rand}`;
+  })();
 
   const fetchItems = async () => {
     setLoading(true);
@@ -61,8 +286,6 @@ export const PurchaseInvoiceGenerator = ({ linkId, linkTitle, onGenerated }: Pur
       }));
 
       setItems(invoiceItems);
-
-      // Auto-fill supplier from first update
       if (updates && updates.length > 0) {
         if (updates[0].supplier_name) setSupplierName(updates[0].supplier_name);
         if (updates[0].supplier_order_number) setSupplierOrderNumber(updates[0].supplier_order_number);
@@ -82,13 +305,16 @@ export const PurchaseInvoiceGenerator = ({ linkId, linkTitle, onGenerated }: Pur
 
   const subtotal = items.reduce((sum, item) => sum + item.total_cost, 0);
   const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
+  const dateStr = format(new Date(), 'dd MMM yyyy');
 
-  const generateInvoiceNumber = () => {
-    const prefix = 'PI';
-    const date = format(new Date(), 'yyyyMMdd');
-    const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
-    return `${prefix}-${date}-${rand}`;
-  };
+  const getMeta = () => ({
+    invoiceNumber,
+    supplierName,
+    supplierOrderNumber,
+    notes,
+    linkTitle,
+    date: dateStr,
+  });
 
   const handleSaveInvoice = async () => {
     setGenerating(true);
@@ -96,7 +322,6 @@ export const PurchaseInvoiceGenerator = ({ linkId, linkTitle, onGenerated }: Pur
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const invoiceNumber = generateInvoiceNumber();
       const { error } = await supabase
         .from('purchase_invoices')
         .insert({
@@ -114,8 +339,7 @@ export const PurchaseInvoiceGenerator = ({ linkId, linkTitle, onGenerated }: Pur
         });
 
       if (error) throw error;
-
-      toast.success(`Invoice ${invoiceNumber} created`);
+      toast.success(`Invoice ${invoiceNumber} saved`);
       onGenerated?.();
       setOpen(false);
     } catch (err: any) {
@@ -127,62 +351,7 @@ export const PurchaseInvoiceGenerator = ({ linkId, linkTitle, onGenerated }: Pur
   };
 
   const handleExportPDF = () => {
-    const doc = new jsPDF();
-    const invoiceNumber = generateInvoiceNumber();
-
-    // Header
-    doc.setFontSize(20);
-    doc.text('Purchase Invoice', 14, 22);
-    doc.setFontSize(10);
-    doc.text(`Invoice #: ${invoiceNumber}`, 14, 32);
-    doc.text(`Date: ${format(new Date(), 'dd MMM yyyy')}`, 14, 38);
-    if (supplierName) doc.text(`Supplier: ${supplierName}`, 14, 44);
-    if (supplierOrderNumber) doc.text(`Supplier Order #: ${supplierOrderNumber}`, 14, 50);
-    if (linkTitle) doc.text(`Link: ${linkTitle}`, 14, 56);
-
-    // Table header
-    let y = 68;
-    doc.setFontSize(8);
-    doc.setFont(undefined as any, 'bold');
-    const headers = ['#', 'ASIN', 'SKU', 'Title', 'PO#', 'Qty', 'Unit Cost', 'Total'];
-    const colX = [14, 22, 48, 72, 120, 145, 158, 178];
-    headers.forEach((h, i) => doc.text(h, colX[i], y));
-    
-    doc.setFont(undefined as any, 'normal');
-    y += 6;
-    doc.line(14, y - 2, 196, y - 2);
-
-    // Table rows
-    items.forEach((item, idx) => {
-      if (y > 270) {
-        doc.addPage();
-        y = 20;
-      }
-      doc.text(String(idx + 1), 14, y);
-      doc.text(item.asin.substring(0, 12), 22, y);
-      doc.text((item.sku_code || '').substring(0, 12), 48, y);
-      doc.text((item.title || '').substring(0, 24), 72, y);
-      doc.text(item.po_number.substring(0, 12), 120, y);
-      doc.text(String(item.quantity), 145, y);
-      doc.text(`$${item.unit_cost.toFixed(2)}`, 158, y);
-      doc.text(`$${item.total_cost.toFixed(2)}`, 178, y);
-      y += 5;
-    });
-
-    // Totals
-    y += 4;
-    doc.line(14, y - 2, 196, y - 2);
-    doc.setFont(undefined as any, 'bold');
-    doc.text(`Total: ${totalQty} items`, 145, y + 2);
-    doc.text(`$${subtotal.toFixed(2)}`, 178, y + 2);
-
-    if (notes) {
-      y += 12;
-      doc.setFont(undefined as any, 'normal');
-      doc.setFontSize(9);
-      doc.text(`Notes: ${notes}`, 14, y);
-    }
-
+    const doc = buildInvoicePDF(items, getMeta());
     doc.save(`${invoiceNumber}.pdf`);
     toast.success('PDF exported');
   };
@@ -195,96 +364,160 @@ export const PurchaseInvoiceGenerator = ({ linkId, linkTitle, onGenerated }: Pur
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
-              Generate Purchase Invoice
-              {linkTitle && <Badge variant="secondary" className="text-xs">{linkTitle}</Badge>}
-            </DialogTitle>
-          </DialogHeader>
-
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin" />
-            </div>
-          ) : items.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-30" />
-              <p className="text-sm">No items with cost data found.</p>
-              <p className="text-xs mt-1">Suppliers need to enter unit costs via the purchase link first.</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {/* Supplier Info */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-xs">Supplier Name</Label>
-                  <Input value={supplierName} onChange={e => setSupplierName(e.target.value)} placeholder="Supplier name" />
-                </div>
-                <div>
-                  <Label className="text-xs">Supplier Order #</Label>
-                  <Input value={supplierOrderNumber} onChange={e => setSupplierOrderNumber(e.target.value)} placeholder="Order number" />
-                </div>
-              </div>
-
-              {/* Items Table */}
-              <div className="border rounded-lg overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-8">#</TableHead>
-                      <TableHead>ASIN</TableHead>
-                      <TableHead>SKU</TableHead>
-                      <TableHead>Title</TableHead>
-                      <TableHead>PO#</TableHead>
-                      <TableHead className="text-right">Qty</TableHead>
-                      <TableHead className="text-right">Unit Cost</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {items.map((item, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
-                        <TableCell className="font-mono text-xs">{item.asin}</TableCell>
-                        <TableCell className="font-mono text-xs">{item.sku_code || '-'}</TableCell>
-                        <TableCell className="text-xs max-w-[200px] truncate">{item.title}</TableCell>
-                        <TableCell className="font-mono text-xs">{item.po_number}</TableCell>
-                        <TableCell className="text-right text-xs">{item.quantity}</TableCell>
-                        <TableCell className="text-right text-xs">${item.unit_cost.toFixed(2)}</TableCell>
-                        <TableCell className="text-right text-xs font-medium">${item.total_cost.toFixed(2)}</TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow className="bg-muted/50 font-medium">
-                      <TableCell colSpan={5} className="text-right text-xs">Totals:</TableCell>
-                      <TableCell className="text-right text-xs">{totalQty}</TableCell>
-                      <TableCell></TableCell>
-                      <TableCell className="text-right text-sm font-bold">${subtotal.toFixed(2)}</TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </div>
-
-              {/* Notes */}
+        <DialogContent className="max-w-4xl p-0 overflow-hidden gap-0">
+          {/* ── Header band ── */}
+          <div className="bg-slate-800 dark:bg-slate-900 px-6 py-4">
+            <div className="flex items-start justify-between">
               <div>
-                <Label className="text-xs">Notes</Label>
-                <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional notes..." rows={2} />
+                <div className="flex items-center gap-2 mb-0.5">
+                  <FileText className="h-5 w-5 text-blue-400" />
+                  <span className="text-white font-bold text-lg tracking-tight">PURCHASE INVOICE</span>
+                </div>
+                <p className="text-slate-400 text-xs">HUHA TOOLS</p>
               </div>
-
-              {/* Actions */}
-              <div className="flex gap-2 justify-end">
-                <Button variant="outline" onClick={handleExportPDF} className="gap-1.5">
-                  <Download className="h-4 w-4" />
-                  Export PDF
-                </Button>
-                <Button onClick={handleSaveInvoice} disabled={generating} className="gap-1.5">
-                  {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-                  Save Invoice
-                </Button>
+              <div className="text-right">
+                <p className="text-white font-mono text-sm font-semibold">{invoiceNumber}</p>
+                <p className="text-slate-400 text-xs mt-0.5">{dateStr}</p>
+                {linkTitle && (
+                  <Badge className="mt-1 bg-blue-600/30 text-blue-300 border-blue-500/30 text-[10px]">
+                    {linkTitle}
+                  </Badge>
+                )}
               </div>
             </div>
-          )}
+          </div>
+
+          <div className="p-6 space-y-5 overflow-y-auto max-h-[calc(85vh-120px)]">
+            {loading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="h-7 w-7 animate-spin text-muted-foreground" />
+              </div>
+            ) : items.length === 0 ? (
+              <div className="text-center py-16 text-muted-foreground">
+                <DollarSign className="h-14 w-14 mx-auto mb-4 opacity-20" />
+                <p className="font-medium">No cost data found</p>
+                <p className="text-xs mt-1.5 text-muted-foreground/70">Suppliers need to enter unit costs via the purchase link first.</p>
+              </div>
+            ) : (
+              <>
+                {/* ── Bill To / Meta two-col ── */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+                    <div className="flex items-center gap-1.5">
+                      <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase">Bill To</span>
+                    </div>
+                    <div className="space-y-2">
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">Supplier Name</Label>
+                        <Input
+                          value={supplierName}
+                          onChange={e => setSupplierName(e.target.value)}
+                          placeholder="Enter supplier name"
+                          className="h-8 text-sm mt-0.5"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">Order Reference #</Label>
+                        <Input
+                          value={supplierOrderNumber}
+                          onChange={e => setSupplierOrderNumber(e.target.value)}
+                          placeholder="Enter order reference"
+                          className="h-8 text-sm mt-0.5"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-blue-200/50 bg-blue-50/30 dark:bg-blue-950/20 dark:border-blue-800/30 p-4 space-y-2.5">
+                    <div className="flex items-center gap-1.5">
+                      <Hash className="h-3.5 w-3.5 text-blue-500" />
+                      <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 tracking-wider uppercase">Invoice Details</span>
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-muted-foreground flex items-center gap-1"><Hash className="h-3 w-3" /> Number</span>
+                        <span className="text-xs font-mono font-semibold">{invoiceNumber}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" /> Date</span>
+                        <span className="text-xs">{dateStr}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-muted-foreground flex items-center gap-1"><Package className="h-3 w-3" /> Items</span>
+                        <span className="text-xs">{items.length} lines / {totalQty} units</span>
+                      </div>
+                      <div className="flex justify-between items-center pt-1 border-t border-blue-200/50 dark:border-blue-800/30">
+                        <span className="text-xs font-semibold">Total</span>
+                        <span className="text-sm font-bold text-blue-600 dark:text-blue-400">${subtotal.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Items Table ── */}
+                <div className="rounded-lg border overflow-hidden">
+                  {/* Table header */}
+                  <div className="bg-primary grid grid-cols-[28px_90px_80px_1fr_70px_48px_70px_70px] gap-x-2 px-3 py-2">
+                    {['#', 'ASIN', 'SKU', 'Title', 'PO#', 'Qty', 'Unit', 'Total'].map((h, i) => (
+                      <span key={h} className={`text-[10px] font-bold text-white tracking-wider uppercase ${i >= 5 ? 'text-right' : ''}`}>{h}</span>
+                    ))}
+                  </div>
+                  <ScrollArea className="max-h-[260px]">
+                    {items.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className={`grid grid-cols-[28px_90px_80px_1fr_70px_48px_70px_70px] gap-x-2 px-3 py-2 text-xs border-b border-border/50 ${idx % 2 === 0 ? 'bg-background' : 'bg-muted/30'}`}
+                      >
+                        <span className="text-muted-foreground">{idx + 1}</span>
+                        <span className="font-mono truncate text-[11px]">{item.asin}</span>
+                        <span className="font-mono truncate text-[11px] text-muted-foreground">{item.sku_code || '-'}</span>
+                        <span className="truncate">{item.title}</span>
+                        <span className="font-mono truncate text-muted-foreground text-[10px]">{item.po_number}</span>
+                        <span className="text-right">
+                          <Badge variant="secondary" className="text-[10px] h-4 px-1">{item.quantity}</Badge>
+                        </span>
+                        <span className="text-right font-mono text-muted-foreground">${item.unit_cost.toFixed(2)}</span>
+                        <span className="text-right font-mono font-semibold">${item.total_cost.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </ScrollArea>
+                  {/* Totals footer */}
+                  <div className="bg-muted/50 border-t px-3 py-2.5 flex justify-between items-center">
+                    <span className="text-xs text-muted-foreground">{items.length} line items · {totalQty} total units</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-muted-foreground">Subtotal</span>
+                      <span className="text-base font-bold">${subtotal.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Notes ── */}
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-1.5 block">Notes <span className="text-muted-foreground/50">(optional)</span></Label>
+                  <Textarea
+                    value={notes}
+                    onChange={e => setNotes(e.target.value)}
+                    placeholder="Add any notes, terms, or special instructions..."
+                    rows={2}
+                    className="text-sm resize-none"
+                  />
+                </div>
+
+                {/* ── Actions ── */}
+                <div className="flex gap-2 justify-end pt-1">
+                  <Button variant="outline" onClick={handleExportPDF} className="gap-1.5">
+                    <Download className="h-4 w-4" />
+                    Export PDF
+                  </Button>
+                  <Button onClick={handleSaveInvoice} disabled={generating} className="gap-1.5">
+                    {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                    Save Invoice
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </>
