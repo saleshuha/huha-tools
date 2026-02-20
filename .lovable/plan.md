@@ -1,143 +1,185 @@
 
-## Advanced Invoice Template — Professional PDF & Dialog Redesign
+## Market Credit Purchase Tracker — New Feature
 
-The current invoice has two weak areas:
-1. **The dialog UI** — plain table with no visual hierarchy, minimal branding, and no preview feel.
-2. **The PDF output** — raw `jsPDF` with plain black text, no colors, no lines/shapes, no logo area, and cramped layout.
+### The Problem
 
-Both will be completely redesigned into a polished, professional invoice experience.
+You buy stock daily from market suppliers on credit. You get no invoice at time of purchase — only a lump-sum bill later. Currently there is no way to:
+- Record what was bought, how many units, and for which platform (Amazon / Noon)
+- Track the running credit balance owed to each supplier
+- Reconcile the supplier's eventual bill against your own purchase records
+- Know whether a bill matches your tracked units and prices
 
 ---
 
-### What Will Change
+### The Solution: "Market Purchases" Module
 
-**1. `PurchaseInvoiceGenerator.tsx` — Complete Redesign**
+A dedicated module with 3 interconnected sections:
 
-The dialog will be transformed into a proper invoice preview + editor:
+**Section 1 — Purchase Log (Daily Entries)**
+Record each purchase the moment stock arrives from the market.
 
-**Header section (inside dialog)**
-- Gradient banner with invoice icon and auto-generated invoice number prominently shown
-- Company info section (left) + Invoice metadata (right) in a two-column layout
-- Invoice number, date, due date, and status badge displayed like a real invoice
+**Section 2 — Credit Balance Dashboard**
+A live view of how much you owe each supplier across all unreconciled purchases.
 
-**Supplier info section**
-- Card-style "Bill To" box with editable supplier name and order number
-- Clean label + value layout instead of plain inputs
+**Section 3 — Bill Reconciliation**
+When the supplier sends a bill, match it against your logged purchases and mark it settled.
 
-**Items table**
-- Alternating row shading, colored header row (primary color)
-- Quantity badge pill, cost in bold monospace
-- Row subtotals right-aligned
-- Summary totals section: Items count, Total Qty, and Grand Total in a highlighted footer card
+---
 
-**Notes & Actions**
-- Notes textarea with a proper label and placeholder
-- Two action buttons: "Export PDF" (outline) and "Save Invoice" (filled), with loading state
+### How It Works (User Flow)
 
-**2. `PurchaseInvoiceList.tsx` — List Redesign**
+```text
+[Buy stock from market]
+        ↓
+[Open Market Purchases → Log Purchase]
+  - Select supplier
+  - Select platform: Amazon / Noon / Both
+  - Add items: ASIN/SKU + qty + unit cost (your estimate)
+  - Save → entry appears in log
+        ↓
+[Days/weeks later: supplier sends bill]
+        ↓
+[Open Bill Reconciliation → Create Bill]
+  - Link bill to supplier
+  - Enter bill reference number + total amount
+  - System shows all unreconciled purchases from that supplier
+  - Match bill lines to your logged items
+  - Confirm or flag discrepancies
+        ↓
+[Bill reconciled → balance cleared for matched items]
+```
 
-The list of saved invoices will become a card-based layout:
-- Each invoice rendered as a mini card with invoice number, date, supplier name, item count, total amount, and status badge
-- "Re-export PDF" icon button and delete button per card
-- Empty state with a proper illustration-style icon and helper text
+---
 
-**3. PDF Export — Full Professional Redesign**
+### Database Design
 
-The jsPDF output will be transformed from plain black text into a designed document:
+**3 new tables:**
 
-**Page structure (A4 portrait)**
-- **Header band**: Dark navy/slate background (`#1e293b`) spanning full width, ~35mm tall, with "PURCHASE INVOICE" in white and invoice number in smaller white text on the right side
-- **Company block (top-left under header)**: Placeholder company name "HUHA TOOLS" with tagline
-- **"Bill To" block (top-right)**: Supplier name, order number, date, and due date in a light gray box
-- **Divider line** before the items table
-- **Table header row**: Colored background (`#3b82f6` blue), white text, columns: `#`, `ASIN`, `SKU`, `Product Title`, `PO#`, `Qty`, `Unit Cost`, `Total`
-- **Table rows**: Alternating white / light gray (`#f8fafc`) rows, small font size for compact display
-- **Totals section**: Right-aligned summary box with "Subtotal", "Tax (0%)", and "**Total**" in bold, with a colored accent line
-- **Footer band**: Full-width dark footer with invoice number repeated and "Thank you for your business" message
-- **Notes**: If present, printed just above the footer in a subtle box
+**`market_purchases`** — One row per purchase session (a trip to market or a single supplier transaction):
+```
+id, user_id, supplier_id, purchase_date, platform (amazon/noon/both/po),
+status (draft/confirmed/reconciled), notes, total_estimated_cost, created_at
+```
 
-**Color palette for PDF:**
-- Header/footer: `#1e293b` (dark slate)
-- Table header: `#2563eb` (blue)
-- Accent/highlight: `#eff6ff` (light blue for alternating rows)
-- Text: `#0f172a` (near black)
-- Muted: `#64748b` (slate gray)
+**`market_purchase_items`** — Line items within a purchase:
+```
+id, purchase_id, user_id, asin, sku, title, quantity, unit_cost, total_cost,
+platform, country, bill_reconciliation_id (null until reconciled), created_at
+```
+
+**`supplier_bills`** — The supplier's invoice when it arrives:
+```
+id, user_id, supplier_id, bill_reference, bill_date, total_amount, currency,
+status (pending/partial/reconciled), notes, reconciled_at, created_at
+```
+
+These link to the existing `suppliers` table so supplier data is not duplicated.
+
+---
+
+### UI Structure
+
+**New page: `/market-purchases`** with 3 tabs:
+
+**Tab 1 — Purchase Log**
+- Date-filtered table of all market purchase sessions
+- Filter by: supplier, platform (Amazon/Noon), status, date range
+- Each row shows: date, supplier, platform badge, items count, estimated total, status
+- "New Purchase" button → opens a dialog to log items
+- Expandable rows to see line items per purchase
+
+**Tab 2 — Credit Balances**
+- Card per supplier showing: total unreconciled amount, number of open purchases, oldest purchase date
+- Color-coded: green (recent), amber (>15 days), red (>30 days)
+- Click card → see all open purchases for that supplier
+
+**Tab 3 — Bill Reconciliation**
+- "New Bill" button → enter supplier, bill reference, bill amount, bill date
+- System auto-loads all unreconciled purchases for that supplier
+- Side-by-side view: Your logged items (left) vs Bill total (right)
+- Variance indicator: +/- difference between your records and the bill
+- "Reconcile" button marks matched items as settled, clears the credit
+
+---
+
+### Key Features
+
+**Smart Item Entry (in the log dialog)**
+- Type ASIN or SKU — auto-fills title from existing inventory/product listings
+- Unit cost field (what you expect/agreed to pay)
+- Quick platform selector: Amazon / Noon / Both
+- Running total shown as you add items
+
+**Credit Balance Tracking**
+- Per-supplier running total of unreconciled purchases
+- Age of credit (days since oldest purchase)
+- Alert when credit exceeds a configurable threshold
+
+**Bill Reconciliation Matching**
+- When bill arrives, you enter the bill amount
+- System compares against your logged total for that supplier
+- If bill amount ≠ logged total → shows red variance warning
+- You can adjust unit costs at reconciliation time if supplier charged differently
+- Reconcile partially (some items confirmed, some disputed)
+
+**Platform Attribution**
+- Every purchase line is tagged Amazon or Noon
+- Reports show how much credit is Amazon-related vs Noon-related
+- Useful when separate teams manage each platform
 
 ---
 
 ### Technical Details
 
-**Files to modify: 2**
+**Files to create:**
 
-**`src/components/po/PurchaseInvoiceGenerator.tsx`**
-- Restructure dialog layout with header band, two-column supplier/meta area, redesigned table, and totals card
-- Replace `handleExportPDF` with the full professional jsPDF renderer using `setFillColor`, `setTextColor`, `rect`, and `line` calls
-- Use a shared `buildPDFDoc(items, meta)` function called from both Generator and List
+1. **`src/pages/MarketPurchases.tsx`** — Page wrapper with 3-tab layout
+2. **`src/components/market-purchases/PurchaseLogTab.tsx`** — Log + table
+3. **`src/components/market-purchases/NewPurchaseDialog.tsx`** — Item entry form
+4. **`src/components/market-purchases/CreditBalanceTab.tsx`** — Per-supplier balance cards
+5. **`src/components/market-purchases/BillReconciliationTab.tsx`** — Bill matching UI
+6. **`src/components/market-purchases/NewBillDialog.tsx`** — Bill entry + reconciliation matching
+7. **`src/hooks/useMarketPurchases.ts`** — Data fetching + mutations
+8. **`src/hooks/useSupplierBills.ts`** — Bill data + reconciliation logic
 
-**`src/components/po/PurchaseInvoiceList.tsx`**
-- Replace the plain Table with a card-grid layout for saved invoices
-- Reuse the same `buildPDFDoc` logic (extracted to a shared helper or duplicated cleanly)
+**Files to modify:**
 
-**Shared PDF builder logic** (inline in both files initially):
-```
-buildPDFDoc(items, { invoiceNumber, supplierName, supplierOrderNumber, notes, linkTitle, date })
-  → returns jsPDF doc ready to save
+9. **`src/App.tsx`** (or router config) — Add route `/market-purchases`
+10. **`src/components/AppSidebar.tsx`** — Add nav link
+
+**Database migrations (3 new tables):**
+- `market_purchases` with RLS (user_id scoped)
+- `market_purchase_items` with RLS
+- `supplier_bills` with RLS
+
+---
+
+### Reconciliation Logic
+
+When reconciling a bill:
+
+```text
+Supplier Bill Amount:          AED 5,200
+Your Logged Items Total:       AED 4,980
+─────────────────────────────────────────
+Variance:                      +AED 220  ← supplier charged more
+
+→ System flags this
+→ You can: Accept bill amount (adjust your records) 
+        OR Dispute and mark as "Under Review"
+        OR Reconcile partially (some lines confirmed)
 ```
 
 ---
 
-### Dialog UI Preview (ASCII)
+### Summary of What Gets Built
 
-```text
-+============================================================+
-|  [FileText]  PURCHASE INVOICE          PI-20260220-XR4K   |
-|  HUHA TOOLS                            Status: [Finalized] |
-+============================================================+
-|  BILL TO                    |   Invoice #: PI-2026-XR4K   |
-|  [Supplier Name input     ] |   Date: 20 Feb 2026         |
-|  [Order # input           ] |   Link: My PO Link          |
-+-----------------------------+-----------------------------+
-|  [Search items...]                    12 items | $4,280.00 |
-+============================================================+
-| #  | ASIN       | SKU      | Title          | Qty | Total  |
-|----|------------|----------|----------------|-----|--------|
-|  1 | B0XXXXXXX  | SKU-123  | Widget Deluxe  |  5  | $75.00 |
-|  2 | B0YYYYYYY  | SKU-456  | Gadget Pro     |  3  | $90.00 |
-|  ...                                                       |
-+------------------------------------------------------------+
-|                              SUBTOTAL:        $4,280.00    |
-|                              TOTAL:           $4,280.00    |
-+------------------------------------------------------------+
-|  Notes: [Optional notes textarea                        ]  |
-|                                                            |
-|           [Export PDF (outline)]  [Save Invoice (filled)]  |
-+============================================================+
-```
+| Component | Purpose |
+|---|---|
+| Purchase Log | Daily record of market buys with ASIN/SKU + qty + cost |
+| Credit Balance Dashboard | Live view of what you owe each supplier |
+| Bill Reconciliation | Match supplier invoices to your records |
+| Platform Attribution | Tag each purchase Amazon / Noon / Both |
+| Variance Detection | Alert when supplier bill ≠ your records |
+| Supplier Integration | Reuses existing suppliers table — no duplicate data |
 
----
-
-### PDF Preview (described)
-
-```text
-┌──────────────────────────────────────────┐
-│ [DARK NAVY BAND]                         │
-│  PURCHASE INVOICE        PI-20260220-XR4K│
-│  HUHA TOOLS                              │
-├────────────────────────┬─────────────────┤
-│ Bill To:               │ Invoice #: ...  │
-│ Supplier Name          │ Date: 20 Feb    │
-│ Order #: ORD-123       │ Link: My Link   │
-├────────────────────────┴─────────────────┤
-│ [BLUE HEADER ROW] # | ASIN | SKU | ...  │
-│ [WHITE ROW      ]  1 | B0X  | S1  | ... │
-│ [LIGHT BLUE ROW ]  2 | B0Y  | S2  | ... │
-│ ...                                      │
-├──────────────────────────────────────────┤
-│                    Subtotal:   $4,280.00 │
-│                    Total:      $4,280.00 │
-├──────────────────────────────────────────┤
-│ Notes: [notes text here]                 │
-├──────────────────────────────────────────┤
-│ [DARK FOOTER] PI-... | Thank you!        │
-└──────────────────────────────────────────┘
-```
