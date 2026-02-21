@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { differenceInDays, format } from "date-fns";
-import { AlertTriangle, Clock, TrendingUp } from "lucide-react";
+import { Clock, TrendingUp, CreditCard, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -39,72 +39,87 @@ export function CreditBalanceTab() {
     enabled: !!selectedSupplier && !!profile?.id,
   });
 
-  const getAgingClass = (oldestDate: string) => {
+  const getAgingInfo = (oldestDate: string) => {
     const days = differenceInDays(new Date(), new Date(oldestDate));
-    if (days > 30) return { bg: "bg-red-50 border-red-200", badge: "bg-red-100 text-red-800 border-red-200", label: `${days}d — Urgent`, icon: "text-red-500" };
-    if (days > 15) return { bg: "bg-amber-50 border-amber-200", badge: "bg-amber-100 text-amber-800 border-amber-200", label: `${days}d — Aging`, icon: "text-amber-500" };
-    return { bg: "bg-green-50 border-green-200", badge: "bg-green-100 text-green-800 border-green-200", label: `${days}d — Recent`, icon: "text-green-500" };
+    if (days > 30) return { barColor: "bg-destructive", badge: "bg-destructive/10 text-destructive border-destructive/20", label: `${days}d — Urgent`, textColor: "text-destructive" };
+    if (days > 15) return { barColor: "bg-orange-500", badge: "bg-orange-500/10 text-orange-700 border-orange-200", label: `${days}d — Aging`, textColor: "text-orange-600" };
+    return { barColor: "bg-emerald-500", badge: "bg-emerald-500/10 text-emerald-700 border-emerald-200", label: `${days}d — Recent`, textColor: "text-emerald-600" };
   };
 
   const totalCredit = creditBalances.reduce((sum, b) => sum + b.total_amount, 0);
 
   if (creditBalancesLoading) {
     return (
-      <div className="text-center py-16 text-muted-foreground">Loading credit balances...</div>
+      <div className="flex items-center justify-center py-16">
+        <div className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
     );
   }
 
   if (creditBalances.length === 0) {
     return (
-      <div className="text-center py-16 text-muted-foreground">
-        <TrendingUp className="h-12 w-12 mx-auto mb-3 opacity-30" />
-        <p className="font-medium">No outstanding credit balances</p>
-        <p className="text-sm">All purchases have been reconciled or no purchases have been logged yet.</p>
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
+          <TrendingUp className="h-8 w-8 text-muted-foreground/40" />
+        </div>
+        <p className="font-medium text-foreground">No outstanding credit balances</p>
+        <p className="text-sm text-muted-foreground mt-1">All purchases have been reconciled or no purchases have been logged yet.</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Summary banner */}
-      <div className="rounded-xl border bg-primary/5 border-primary/20 p-5 flex items-center justify-between">
-        <div>
-          <p className="text-sm text-muted-foreground">Total Outstanding Credit</p>
-          <p className="text-3xl font-bold text-primary">AED {totalCredit.toLocaleString("en", { minimumFractionDigits: 2 })}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-sm text-muted-foreground">{creditBalances.length} suppliers with open credit</p>
+      {/* Summary Banner */}
+      <div className="relative overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-primary/5 p-6">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl" />
+        <div className="relative flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="h-12 w-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+              <CreditCard className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground font-medium">Total Outstanding Credit</p>
+              <p className="text-3xl font-bold text-primary">AED {totalCredit.toLocaleString("en", { minimumFractionDigits: 2 })}</p>
+            </div>
+          </div>
+          <div className="text-right flex items-center gap-2 text-muted-foreground">
+            <Users className="h-4 w-4" />
+            <span className="text-sm font-medium">{creditBalances.length} suppliers</span>
+          </div>
         </div>
       </div>
 
-      {/* Cards grid */}
+      {/* Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {creditBalances.map((balance) => {
-          const aging = getAgingClass(balance.oldest_date);
+          const aging = getAgingInfo(balance.oldest_date);
           return (
             <Card
               key={balance.supplier_id}
-              className={`cursor-pointer transition-all hover:shadow-md border ${aging.bg}`}
+              className="cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 border border-border bg-card overflow-hidden group"
               onClick={() => {
                 setSelectedSupplier(balance.supplier_id);
                 setSupplierName(balance.supplier_name);
               }}
             >
-              <CardHeader className="pb-2">
+              {/* Top aging color bar */}
+              <div className={`h-1 w-full ${aging.barColor}`} />
+              <CardHeader className="pb-2 pt-4">
                 <CardTitle className="text-sm flex items-center justify-between">
-                  <span className="truncate">{balance.supplier_name}</span>
+                  <span className="truncate font-semibold">{balance.supplier_name}</span>
                   <Badge variant="outline" className={`text-[10px] shrink-0 ${aging.badge}`}>
                     {aging.label}
                   </Badge>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
-                <p className="text-2xl font-bold">
+              <CardContent className="space-y-3 pb-4">
+                <p className="text-2xl font-bold text-foreground">
                   AED {balance.total_amount.toLocaleString("en", { minimumFractionDigits: 2 })}
                 </p>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">
-                    <Clock className={`h-3 w-3 ${aging.icon}`} />
+                    <Clock className={`h-3 w-3 ${aging.textColor}`} />
                     Oldest: {format(new Date(balance.oldest_date), "dd MMM yyyy")}
                   </span>
                   <span>{balance.purchase_count} purchase{balance.purchase_count !== 1 ? "s" : ""}</span>
@@ -115,51 +130,51 @@ export function CreditBalanceTab() {
         })}
       </div>
 
-      {/* Detail dialog */}
+      {/* Detail Dialog */}
       <Dialog open={!!selectedSupplier} onOpenChange={() => setSelectedSupplier(null)}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Open Purchases — {supplierName}</DialogTitle>
           </DialogHeader>
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/30">
-                <TableHead>Date</TableHead>
-                <TableHead>Platform</TableHead>
-                <TableHead>Items</TableHead>
-                <TableHead>Est. Total</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Age</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {openPurchasesQuery.isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Loading...</TableCell>
+          <div className="border border-border rounded-xl overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/40">
+                  <TableHead className="text-xs uppercase tracking-wider font-semibold">Date</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider font-semibold">Platform</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider font-semibold">Items</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider font-semibold">Est. Total</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider font-semibold">Status</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider font-semibold">Age</TableHead>
                 </TableRow>
-              ) : (openPurchasesQuery.data || []).map((p: any) => {
-                const days = differenceInDays(new Date(), new Date(p.purchase_date));
-                return (
-                  <TableRow key={p.id}>
-                    <TableCell>{format(new Date(p.purchase_date), "dd MMM yyyy")}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-xs">{p.platform.toUpperCase()}</Badge>
-                    </TableCell>
-                    <TableCell>{(p.items || []).length}</TableCell>
-                    <TableCell className="font-semibold">AED {Number(p.total_estimated_cost || 0).toFixed(2)}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{p.status}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <span className={days > 30 ? "text-red-600 font-semibold" : days > 15 ? "text-amber-600" : "text-green-600"}>
-                        {days}d ago
-                      </span>
-                    </TableCell>
+              </TableHeader>
+              <TableBody>
+                {openPurchasesQuery.isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Loading...</TableCell>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                ) : (openPurchasesQuery.data || []).map((p: any) => {
+                  const days = differenceInDays(new Date(), new Date(p.purchase_date));
+                  return (
+                    <TableRow key={p.id}>
+                      <TableCell className="text-sm">{format(new Date(p.purchase_date), "dd MMM yyyy")}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs">{p.platform.toUpperCase()}</Badge>
+                      </TableCell>
+                      <TableCell className="text-sm">{(p.items || []).length}</TableCell>
+                      <TableCell className="font-semibold text-sm">AED {Number(p.total_estimated_cost || 0).toFixed(2)}</TableCell>
+                      <TableCell><Badge variant="outline" className="text-xs">{p.status}</Badge></TableCell>
+                      <TableCell>
+                        <span className={days > 30 ? "text-destructive font-semibold" : days > 15 ? "text-orange-600" : "text-emerald-600"}>
+                          {days}d ago
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
