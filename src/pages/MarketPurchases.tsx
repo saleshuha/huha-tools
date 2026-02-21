@@ -1,8 +1,10 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingCart, CreditCard, FileText } from "lucide-react";
+import { ShoppingCart, CreditCard, FileText, CalendarDays, DollarSign } from "lucide-react";
 import { PurchaseLogTab } from "@/components/market-purchases/PurchaseLogTab";
 import { CreditBalanceTab } from "@/components/market-purchases/CreditBalanceTab";
 import { BillReconciliationTab } from "@/components/market-purchases/BillReconciliationTab";
+import { DailyOrdersTab } from "@/components/market-purchases/DailyOrdersTab";
+import { ItemCostsTab } from "@/components/market-purchases/ItemCostsTab";
 
 export default function MarketPurchases() {
   return (
@@ -14,11 +16,19 @@ export default function MarketPurchases() {
         </p>
       </div>
 
-      <Tabs defaultValue="log">
-        <TabsList className="grid w-full grid-cols-3 max-w-md">
+      <Tabs defaultValue="daily">
+        <TabsList className="grid w-full grid-cols-5 max-w-2xl">
+          <TabsTrigger value="daily" className="flex items-center gap-1.5">
+            <CalendarDays className="h-4 w-4" />
+            Daily Orders
+          </TabsTrigger>
           <TabsTrigger value="log" className="flex items-center gap-1.5">
             <ShoppingCart className="h-4 w-4" />
             Purchase Log
+          </TabsTrigger>
+          <TabsTrigger value="costs" className="flex items-center gap-1.5">
+            <DollarSign className="h-4 w-4" />
+            Item Costs
           </TabsTrigger>
           <TabsTrigger value="credit" className="flex items-center gap-1.5">
             <CreditCard className="h-4 w-4" />
@@ -30,8 +40,16 @@ export default function MarketPurchases() {
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="daily" className="mt-6">
+          <DailyOrdersTab />
+        </TabsContent>
+
         <TabsContent value="log" className="mt-6">
           <PurchaseLogTab />
+        </TabsContent>
+
+        <TabsContent value="costs" className="mt-6">
+          <ItemCostsTab />
         </TabsContent>
 
         <TabsContent value="credit" className="mt-6">

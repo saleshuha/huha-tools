@@ -960,6 +960,45 @@ export type Database = {
         }
         Relationships: []
       }
+      market_item_costs: {
+        Row: {
+          asin: string
+          created_at: string
+          id: string
+          sku: string | null
+          source: string
+          supplier_name: string | null
+          title: string | null
+          unit_cost: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          asin: string
+          created_at?: string
+          id?: string
+          sku?: string | null
+          source?: string
+          supplier_name?: string | null
+          title?: string | null
+          unit_cost?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          asin?: string
+          created_at?: string
+          id?: string
+          sku?: string | null
+          source?: string
+          supplier_name?: string | null
+          title?: string | null
+          unit_cost?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       market_purchase_items: {
         Row: {
           asin: string | null
@@ -1019,6 +1058,66 @@ export type Database = {
             columns: ["purchase_id"]
             isOneToOne: false
             referencedRelation: "market_purchases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      market_purchase_links: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          items: Json
+          link_token: string
+          platform: string | null
+          purchase_id: string | null
+          supplier_id: string | null
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          items?: Json
+          link_token?: string
+          platform?: string | null
+          purchase_id?: string | null
+          supplier_id?: string | null
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          items?: Json
+          link_token?: string
+          platform?: string | null
+          purchase_id?: string | null
+          supplier_id?: string | null
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "market_purchase_links_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "market_purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "market_purchase_links_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
