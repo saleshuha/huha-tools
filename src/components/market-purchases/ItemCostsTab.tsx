@@ -1,11 +1,18 @@
-import { useState } from "react";
-import { Plus, Upload, Search, Trash2, Pencil } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Plus, Upload, Search, Trash2, Pencil, Link, ShoppingCart, Check, X, Package, DollarSign, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { useMarketItemCosts } from "@/hooks/useMarketItemCosts";
 import { AddCostDialog } from "./AddCostDialog";
 import { BulkCostUploadDialog } from "./BulkCostUploadDialog";
+
+const sourceConfig: Record<string, { icon: React.ReactNode; label: string; className: string }> = {
+  manual: { icon: <Pencil className="h-3 w-3" />, label: "Manual", className: "bg-sky-500/10 text-sky-700 border-sky-200" },
+  link: { icon: <Link className="h-3 w-3" />, label: "Link", className: "bg-purple-500/10 text-purple-700 border-purple-200" },
+  purchase: { icon: <ShoppingCart className="h-3 w-3" />, label: "Purchase", className: "bg-emerald-500/10 text-emerald-700 border-emerald-200" },
+};
 
 export function ItemCostsTab() {
   const [search, setSearch] = useState("");
@@ -14,6 +21,16 @@ export function ItemCostsTab() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editCost, setEditCost] = useState<number>(0);
+
+  const avgCost = useMemo(() => {
+    if (costs.length === 0) return 0;
+    return costs.reduce((s, c) => s + c.unit_cost, 0) / costs.length;
+  }, [costs]);
+
+  const lastUpdated = useMemo(() => {
+    if (costs.length === 0) return null;
+    return costs.reduce((latest, c) => (new Date(c.updated_at) > new Date(latest.updated_at) ? c : latest)).updated_at;
+  }, [costs]);
 
   const handleInlineEdit = (id: string, currentCost: number) => {
     setEditingId(id);
@@ -25,31 +42,59 @@ export function ItemCostsTab() {
     setEditingId(null);
   };
 
-  const sourceColor = (source: string) => {
-    switch (source) {
-      case "manual": return "bg-blue-100 text-blue-700";
-      case "link": return "bg-purple-100 text-purple-700";
-      case "purchase": return "bg-green-100 text-green-700";
-      default: return "bg-muted text-muted-foreground";
-    }
-  };
-
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      {/* Stats Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="bg-card border border-border">
+          <CardContent className="py-3 px-4 flex items-center gap-3">
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Package className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Items Tracked</p>
+              <p className="text-lg font-bold text-foreground">{costs.length}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card border border-border">
+          <CardContent className="py-3 px-4 flex items-center gap-3">
+            <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+              <DollarSign className="h-4 w-4 text-emerald-600" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Avg Cost</p>
+              <p className="text-lg font-bold text-foreground">AED {avgCost.toFixed(2)}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card border border-border">
+          <CardContent className="py-3 px-4 flex items-center gap-3">
+            <div className="h-8 w-8 rounded-lg bg-sky-500/10 flex items-center justify-center">
+              <Clock className="h-4 w-4 text-sky-600" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Last Updated</p>
+              <p className="text-sm font-medium text-foreground">{lastUpdated ? new Date(lastUpdated).toLocaleDateString() : "—"}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" onClick={() => setAddOpen(true)}>
-          <Plus className="h-4 w-4 mr-1" /> Add Cost
+      <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl bg-card border border-border">
+        <Button size="sm" onClick={() => setAddOpen(true)} className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm">
+          <Plus className="h-4 w-4 mr-1.5" /> Add Cost
         </Button>
         <Button size="sm" variant="outline" onClick={() => setBulkOpen(true)}>
-          <Upload className="h-4 w-4 mr-1" /> Upload CSV
+          <Upload className="h-4 w-4 mr-1.5" /> Upload CSV
         </Button>
         <div className="flex-1" />
         <div className="relative w-64">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search ASIN, SKU, title..."
-            className="pl-8 h-8"
+            className="pl-9 h-8"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -58,68 +103,95 @@ export function ItemCostsTab() {
 
       {/* Table */}
       {isLoading ? (
-        <div className="text-center py-8 text-muted-foreground">Loading costs...</div>
+        <div className="flex items-center justify-center py-16">
+          <div className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
       ) : costs.length === 0 ? (
-        <div className="text-center py-8 text-muted-foreground">No saved costs yet. Add costs manually or upload a CSV.</div>
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
+            <DollarSign className="h-8 w-8 text-muted-foreground/40" />
+          </div>
+          <p className="font-medium text-foreground mb-1">No saved costs yet</p>
+          <p className="text-sm text-muted-foreground mb-4 max-w-sm">Start tracking item costs by adding them manually or uploading a CSV file.</p>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={() => setAddOpen(true)}>
+              <Plus className="h-4 w-4 mr-1" /> Add Cost
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setBulkOpen(true)}>
+              <Upload className="h-4 w-4 mr-1" /> Upload CSV
+            </Button>
+          </div>
+        </div>
       ) : (
-        <div className="border rounded-lg overflow-auto">
+        <div className="border border-border rounded-xl overflow-auto bg-card">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-muted/50 border-b">
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground">ASIN</th>
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground">SKU</th>
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground">Title</th>
-                <th className="text-right px-3 py-2 font-medium text-muted-foreground">Unit Cost</th>
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground">Supplier</th>
-                <th className="text-center px-3 py-2 font-medium text-muted-foreground">Source</th>
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground">Updated</th>
-                <th className="px-2 py-2 w-16" />
+              <tr className="bg-muted/40 border-b border-border">
+                <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">ASIN</th>
+                <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">SKU</th>
+                <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Title</th>
+                <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Unit Cost</th>
+                <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Supplier</th>
+                <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Source</th>
+                <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Updated</th>
+                <th className="px-2 py-3 w-20" />
               </tr>
             </thead>
-            <tbody className="divide-y">
-              {costs.map((c) => (
-                <tr key={c.id} className="hover:bg-muted/20">
-                  <td className="px-3 py-2 font-mono text-xs">{c.asin}</td>
-                  <td className="px-3 py-2 text-xs">{c.sku || "—"}</td>
-                  <td className="px-3 py-2 text-xs max-w-[200px] truncate">{c.title || "—"}</td>
-                  <td className="px-3 py-2 text-right">
-                    {editingId === c.id ? (
-                      <div className="flex items-center gap-1 justify-end">
-                        <Input
-                          type="number"
-                          min={0}
-                          step={0.01}
-                          className="h-7 w-20 text-xs"
-                          value={editCost}
-                          onChange={(e) => setEditCost(Number(e.target.value))}
-                          onKeyDown={(e) => e.key === "Enter" && handleSaveEdit(c)}
-                          autoFocus
-                        />
-                        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => handleSaveEdit(c)}>✓</Button>
+            <tbody>
+              {costs.map((c, idx) => {
+                const src = sourceConfig[c.source] || sourceConfig.manual;
+                return (
+                  <tr key={c.id} className={`group border-b border-border/50 hover:bg-muted/20 transition-colors ${idx % 2 === 0 ? "" : "bg-muted/10"}`}>
+                    <td className="px-4 py-2.5 font-mono text-xs">{c.asin}</td>
+                    <td className="px-4 py-2.5 text-xs text-muted-foreground">{c.sku || "—"}</td>
+                    <td className="px-4 py-2.5 text-xs max-w-[200px] truncate">{c.title || "—"}</td>
+                    <td className="px-4 py-2.5 text-right">
+                      {editingId === c.id ? (
+                        <div className="flex items-center gap-1 justify-end">
+                          <Input
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            className="h-7 w-20 text-xs"
+                            value={editCost}
+                            onChange={(e) => setEditCost(Number(e.target.value))}
+                            onKeyDown={(e) => e.key === "Enter" && handleSaveEdit(c)}
+                            autoFocus
+                          />
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-600" onClick={() => handleSaveEdit(c)}>
+                            <Check className="h-3 w-3" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingId(null)}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="cursor-pointer hover:text-primary transition-colors font-medium" onClick={() => handleInlineEdit(c.id, c.unit_cost)}>
+                          AED {c.unit_cost.toFixed(2)}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-xs text-muted-foreground">{c.supplier_name || "—"}</td>
+                    <td className="px-4 py-2.5 text-center">
+                      <Badge variant="outline" className={`text-[10px] gap-1 ${src.className}`}>
+                        {src.icon}
+                        {src.label}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-2.5 text-xs text-muted-foreground">{new Date(c.updated_at).toLocaleDateString()}</td>
+                    <td className="px-2 py-2.5">
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleInlineEdit(c.id, c.unit_cost)}>
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => deleteCost.mutate(c.id)}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       </div>
-                    ) : (
-                      <span className="cursor-pointer hover:underline" onClick={() => handleInlineEdit(c.id, c.unit_cost)}>
-                        AED {c.unit_cost.toFixed(2)}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-xs">{c.supplier_name || "—"}</td>
-                  <td className="px-3 py-2 text-center">
-                    <Badge className={`text-[10px] ${sourceColor(c.source)}`} variant="secondary">{c.source}</Badge>
-                  </td>
-                  <td className="px-3 py-2 text-xs text-muted-foreground">{new Date(c.updated_at).toLocaleDateString()}</td>
-                  <td className="px-2 py-2">
-                    <div className="flex gap-1">
-                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleInlineEdit(c.id, c.unit_cost)}>
-                        <Pencil className="h-3 w-3" />
-                      </Button>
-                      <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => deleteCost.mutate(c.id)}>
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
