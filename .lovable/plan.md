@@ -1,137 +1,104 @@
 
 
-## Market Purchases — Order File Integration, Market Purchase Links, and Cost Management
+## Market Purchases UI Redesign — Clean, Organized, and Advanced
 
-This plan adds three major capabilities to the Market Purchases module:
+### Overview
+Redesign the entire Market Purchases page with a polished, professional layout that matches the app's existing design language (gradient accents, card-based layouts, clean typography). The current UI is functional but plain — this redesign makes it visually organized, scannable, and modern.
 
-### 1. Daily Orders Tab — Auto-Import from DF and Noon Files
+---
 
-A new **"Daily Orders"** tab that pulls items directly from your already-uploaded Amazon DF files (`order_imports` table) and Noon B2B files (`noon_processing_orders` table), consolidated by ASIN with quantities aggregated. This eliminates manual entry for daily orders.
+### Page Header Redesign
+- Replace the plain text header with a gradient-accented hero section (matching the app's gold-to-blue gradient style)
+- Add a decorative icon with subtle glow effect
+- Include a quick-stats bar showing: Total Items Today, Outstanding Credit, Pending Bills — as inline metric pills
 
-**How it works:**
-- Select a date (defaults to today)
-- System queries `order_imports` (Amazon DF) and `noon_processing_orders` (Noon B2B) for that date
-- Groups items by ASIN/SKU, sums quantities, tags platform automatically
-- Shows a consolidated list: ASIN, SKU, Title, Amazon Qty, Noon Qty, Total Qty, Unit Cost (from saved costs)
-- One-click "Log as Purchase" converts the daily list into a market purchase entry (with supplier selection)
-- Or "Generate Purchase Link" to share with supplier (simpler version — no scanning needed)
+### Tab Bar Improvements
+- Styled tab triggers with icon + label, hover/active states with subtle underline animation
+- Active tab gets a filled background with primary color accent
+- Responsive: on smaller screens, tabs scroll horizontally
 
-### 2. Market Purchase Links — Simplified Supplier Sharing
+---
 
-A lighter version of PO purchase links, tailored for market purchases:
+### Tab-by-Tab Redesign
 
-**New table: `market_purchase_links`**
-```
-id, link_token, user_id, purchase_id (nullable), title, 
-supplier_id, platform, items (jsonb — array of {asin, sku, title, qty, unit_cost}),
-is_active, expires_at, created_at
-```
+#### 1. Daily Orders Tab
+**Current**: Basic date picker + flat cards + plain table
+**Redesigned**:
+- Date picker in a compact toolbar strip with "Today" quick-select button and date navigation arrows (prev/next day)
+- Platform summary as two compact metric cards with colored left borders (orange for Amazon, yellow for Noon) showing item count and estimated cost
+- Grand total as a highlighted banner below the cards
+- Table with zebra striping, sticky header, and platform badges using colored dots instead of text-only badges
+- "Generate Purchase Link" button promoted to a more visible position with an accent style
+- Empty state with illustration and helpful text
 
-**New public page: `/market-purchase/:token`**
-- Shows the item list (ASIN, SKU, Title, Qty needed)
-- Supplier can enter/update: supplier name, unit cost per item
-- No barcode scanning — just a simple list with cost input fields
-- "Submit" saves costs back to the system
-- Costs auto-saved to `market_item_costs` table
+#### 2. Purchase Log Tab
+**Current**: Toolbar with many inline filters + basic table
+**Redesigned**:
+- Compact filter bar: group filters into a collapsible "Filters" section that expands on click (keeps the toolbar clean by default)
+- "New Purchase" button as a prominent primary action button
+- Purchase count + total value summary shown in a subtle info bar
+- Table rows with:
+  - Color-coded left border by platform (orange=Amazon, yellow=Noon, blue=Both, purple=PO)
+  - Improved expanded row styling with indented item cards instead of a nested table
+  - Status badges with filled backgrounds and subtle icons
+- Delete confirmation before removing purchases
 
-### 3. Item Cost Management — New "Costs" Tab
+#### 3. Item Costs Tab
+**Current**: Basic toolbar + plain table
+**Redesigned**:
+- Summary stats row: "X items tracked", "Avg cost: AED X.XX", "Last updated: date"
+- Search bar with icon, properly sized
+- Table with:
+  - Alternating row colors
+  - Source badges with distinct icons (manual = pencil, link = chain, purchase = cart)
+  - Inline edit with a cleaner input that auto-focuses and has save/cancel buttons
+  - Hover-reveal action buttons instead of always-visible
+- Empty state with a call-to-action card showing both "Add Cost" and "Upload CSV" as prominent options
 
-A new **"Item Costs"** tab under Market Purchases for managing saved costs:
+#### 4. Credit Balances Tab
+**Current**: Already decent with cards — needs minor polish
+**Redesigned**:
+- Summary banner with gradient background and larger typography
+- Supplier cards with:
+  - Subtle shadow and rounded corners
+  - Progress-like indicator showing aging visually (thin colored bar at top of card)
+  - Cleaner internal layout with aligned metrics
+  - Hover lift effect with shadow increase
+- Grid responsive: 1 col mobile, 2 col tablet, 3 col desktop (already done, just polish)
 
-**New table: `market_item_costs`**
-```
-id, user_id, asin, sku, title, unit_cost, supplier_name, 
-source (manual/purchase_link/purchase_log), updated_at, created_at
-```
-
-**Features:**
-- **View all saved costs** — searchable table of ASIN/SKU with their latest unit cost
-- **Manual cost upload** — "Add Cost" button to manually enter ASIN + unit cost
-- **Bulk CSV upload** — Upload a CSV with columns: ASIN, SKU, Unit Cost to bulk-set prices
-- **Auto-population** — When logging a purchase or using a purchase link, costs are saved/updated here automatically
-- **Cost lookup** — The Daily Orders tab and New Purchase dialog auto-fill unit cost from this table
-
-### Data Flow
-
-```text
-[Upload DF File (Amazon)]  →  order_imports table
-[Upload Noon B2B File]     →  noon_processing_orders table
-              ↓
-[Daily Orders Tab]  →  Consolidated by ASIN + date
-              ↓
-[Log Purchase]  OR  [Generate Market Link]
-      ↓                       ↓
-market_purchases        market_purchase_links
-market_purchase_items         ↓
-      ↓              [Supplier enters costs]
-      ↓                       ↓
-      └──────→ market_item_costs ←──────┘
-              (central cost store)
-```
+#### 5. Bill Reconciliation Tab
+**Current**: Basic table + reconcile dialog
+**Redesigned**:
+- Summary bar: "X pending bills", "X reconciled", "Total outstanding: AED X"
+- Table with status icons more prominent (colored dot + text)
+- Reconcile button with a distinctive accent color
+- Reconcile dialog:
+  - Three metric cards at top with larger, bolder numbers
+  - Variance card with animated color transitions
+  - Cleaner purchase selection with card-style rows instead of table rows
+  - Action buttons with clearer hierarchy (primary = Reconcile, secondary = Partial, destructive = Disputed)
 
 ---
 
 ### Technical Details
 
-**Database changes (2 new tables):**
-
-1. **`market_item_costs`** — Central cost store
-   - `id` uuid PK, `user_id` uuid, `asin` text, `sku` text, `title` text
-   - `unit_cost` numeric, `supplier_name` text
-   - `source` text (manual/link/purchase), `updated_at`, `created_at`
-   - Unique constraint on (user_id, asin) — upsert on conflict
-   - RLS: user_id = auth.uid()
-
-2. **`market_purchase_links`** — Shareable purchase lists
-   - `id` uuid PK, `link_token` text unique, `user_id` uuid
-   - `purchase_id` uuid nullable FK, `title` text, `supplier_id` uuid nullable
-   - `platform` text, `items` jsonb, `is_active` boolean default true
-   - `expires_at` timestamptz, `created_at`, `updated_at`
-   - RLS: user_id = auth.uid() for admin, public SELECT by link_token
-
-**New files to create:**
-
-1. `src/components/market-purchases/DailyOrdersTab.tsx` — Consolidated daily orders from DF + Noon
-2. `src/components/market-purchases/ItemCostsTab.tsx` — Cost management with manual entry + CSV upload
-3. `src/components/market-purchases/AddCostDialog.tsx` — Manual single-item cost entry
-4. `src/components/market-purchases/BulkCostUploadDialog.tsx` — CSV upload for bulk costs
-5. `src/components/market-purchases/GenerateMarketLinkDialog.tsx` — Generate shareable link from daily orders
-6. `src/pages/MarketPurchasePublic.tsx` — Public page for supplier to view items + enter costs
-7. `src/hooks/useMarketItemCosts.ts` — CRUD for market_item_costs
-8. `src/hooks/useMarketPurchaseLinks.ts` — CRUD for market_purchase_links
-9. `supabase/functions/market-link-handler/index.ts` — Edge function for public link data
-
 **Files to modify:**
 
-10. `src/pages/MarketPurchases.tsx` — Add 2 new tabs: "Daily Orders" and "Item Costs"
-11. `src/components/market-purchases/NewPurchaseDialog.tsx` — Auto-fill unit_cost from market_item_costs
-12. `src/App.tsx` — Add public route `/market-purchase/:token`
+1. **`src/pages/MarketPurchases.tsx`** — New header with gradient accent, quick-stats bar, improved tab styling
+2. **`src/components/market-purchases/DailyOrdersTab.tsx`** — Date navigation, metric cards with borders, table zebra striping, better empty state
+3. **`src/components/market-purchases/PurchaseLogTab.tsx`** — Collapsible filters, platform-colored borders, improved expanded rows, summary bar
+4. **`src/components/market-purchases/ItemCostsTab.tsx`** — Stats row, hover-reveal actions, improved empty state, source icons
+5. **`src/components/market-purchases/CreditBalanceTab.tsx`** — Card polish with top color bars, better summary banner
+6. **`src/components/market-purchases/BillReconciliationTab.tsx`** — Summary stats bar, improved reconcile dialog layout
 
----
+**No database changes needed** — this is purely a UI/visual redesign.
 
-### UI Changes to Market Purchases Page
-
-The tab bar expands from 3 to 5 tabs:
-
-| Tab | Purpose |
-|-----|---------|
-| Daily Orders (NEW) | See today's Amazon DF + Noon orders consolidated, generate links |
-| Purchase Log | Existing — manual purchase logging |
-| Item Costs (NEW) | Manage saved costs, manual entry, CSV upload |
-| Credit Balances | Existing — supplier debt tracking |
-| Bill Reconciliation | Existing — match supplier bills |
-
-### Daily Orders Tab Layout
-
-- Date picker at top (default: today)
-- Two summary cards: "Amazon Orders: X items" and "Noon Orders: X items"
-- Consolidated table: ASIN, SKU, Title, AMZ Qty, Noon Qty, Total, Unit Cost (auto-filled or editable), Line Total
-- Action buttons: "Log as Market Purchase" (saves to purchase log with supplier selection) and "Generate Purchase Link" (creates a sharable link)
-
-### Item Costs Tab Layout
-
-- Toolbar: "Add Cost" button + "Upload CSV" button + search bar
-- Table: ASIN, SKU, Title, Unit Cost, Supplier, Source (manual/link/purchase), Last Updated
-- Inline edit for unit cost
-- CSV upload accepts: ASIN, SKU (optional), Unit Cost columns
+**Design principles applied:**
+- Consistent spacing (using Tailwind's spacing scale)
+- Color-coded platform identification throughout (orange=Amazon, yellow=Noon, blue=Both, purple=PO)
+- Card-based layouts where data density is moderate
+- Tables with zebra striping and sticky headers for data-heavy views
+- Action buttons with clear visual hierarchy
+- Empty states with helpful guidance
+- Responsive at all breakpoints
 
