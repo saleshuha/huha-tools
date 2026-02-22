@@ -25,6 +25,7 @@ export default function MarketPurchasePublic() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [imageMap, setImageMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!token) return;
@@ -45,7 +46,25 @@ export default function MarketPurchasePublic() {
     }
 
     setLinkData(data);
-    setItems((data.items as any as LinkItem[]) || []);
+    const linkItems = (data.items as any as LinkItem[]) || [];
+    setItems(linkItems);
+
+    // Fetch product images via RPC (bypasses RLS)
+    const asins = linkItems.map(i => i.asin).filter(Boolean);
+    if (asins.length > 0) {
+      const { data: images } = await supabase.rpc("get_product_images_for_asins" as any, {
+        p_user_id: data.user_id,
+        p_asins: asins,
+      });
+      if (images && Array.isArray(images)) {
+        const map: Record<string, string> = {};
+        for (const img of images) {
+          map[img.asin] = img.image_url;
+        }
+        setImageMap(map);
+      }
+    }
+
     setLoading(false);
   };
 
@@ -167,10 +186,18 @@ export default function MarketPurchasePublic() {
                 <tr key={item.asin} className="hover:bg-muted/20">
                   <td className="px-3 py-2">
                     <img
-                      src={`https://m.media-amazon.com/images/P/${item.asin}.01._SCLZZZZZZZ_SX44_.jpg`}
+                      src={imageMap[item.asin] || `https://m.media-amazon.com/images/P/${item.asin}.01._SCLZZZZZZZ_SX44_.jpg`}
                       alt={item.title}
                       className="w-10 h-10 object-contain rounded border bg-white"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      onError={(e) => {
+                        const el = e.target as HTMLImageElement;
+                        const fallback = `https://m.media-amazon.com/images/P/${item.asin}.01._SCLZZZZZZZ_SX44_.jpg`;
+                        if (el.src !== fallback && imageMap[item.asin]) {
+                          el.src = fallback;
+                        } else {
+                          el.style.display = 'none';
+                        }
+                      }}
                     />
                   </td>
                   <td className="px-3 py-2 font-mono text-xs">{item.asin}</td>
