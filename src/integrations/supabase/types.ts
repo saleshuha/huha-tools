@@ -960,6 +960,45 @@ export type Database = {
         }
         Relationships: []
       }
+      market_credit_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          link_ids: string[] | null
+          notes: string | null
+          payment_date: string
+          payment_method: string
+          reference_number: string | null
+          supplier_name: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          link_ids?: string[] | null
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string
+          reference_number?: string | null
+          supplier_name: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          link_ids?: string[] | null
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string
+          reference_number?: string | null
+          supplier_name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       market_item_costs: {
         Row: {
           asin: string
