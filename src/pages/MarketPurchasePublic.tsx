@@ -153,6 +153,7 @@ export default function MarketPurchasePublic() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-muted/50 border-b">
+                <th className="text-left px-3 py-2 font-medium text-muted-foreground w-12">Image</th>
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground">ASIN</th>
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground">SKU</th>
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground">Title</th>
@@ -164,6 +165,14 @@ export default function MarketPurchasePublic() {
             <tbody className="divide-y">
               {items.map((item) => (
                 <tr key={item.asin} className="hover:bg-muted/20">
+                  <td className="px-3 py-2">
+                    <img
+                      src={`https://m.media-amazon.com/images/P/${item.asin}.01._SCLZZZZZZZ_SX44_.jpg`}
+                      alt={item.title}
+                      className="w-10 h-10 object-contain rounded border bg-white"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  </td>
                   <td className="px-3 py-2 font-mono text-xs">{item.asin}</td>
                   <td className="px-3 py-2 text-xs">{item.sku}</td>
                   <td className="px-3 py-2 text-xs max-w-[200px] truncate">{item.title}</td>
@@ -188,7 +197,7 @@ export default function MarketPurchasePublic() {
             </tbody>
             <tfoot>
               <tr className="bg-muted/30 border-t font-semibold">
-                <td colSpan={3} />
+                <td colSpan={4} />
                 <td className="px-3 py-2 text-center">{items.reduce((s, i) => s + i.qty, 0)}</td>
                 <td />
                 <td className="px-3 py-2 text-right text-primary">AED {total.toFixed(2)}</td>
