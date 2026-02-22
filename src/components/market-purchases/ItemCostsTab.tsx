@@ -25,7 +25,7 @@ interface CostHistoryEntry {
   supplier_name: string | null;
 }
 
-function getImgUrl(asin: string) {
+function getAmazonImgUrl(asin: string) {
   return `https://m.media-amazon.com/images/P/${asin}.01._SCLZZZZZZZ_SX44_.jpg`;
 }
 
@@ -37,6 +37,25 @@ export function ItemCostsTab() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editCost, setEditCost] = useState<number>(0);
+
+  // Fetch product images from product_images table
+  const asins = useMemo(() => costs.map(c => c.asin), [costs]);
+  const { data: productImages = {} } = useQuery({
+    queryKey: ["product_images_for_costs", asins],
+    queryFn: async () => {
+      if (!asins.length) return {};
+      const { data } = await supabase
+        .from("product_images")
+        .select("asin, image_url")
+        .in("asin", asins);
+      const map: Record<string, string> = {};
+      data?.forEach(row => { if (!map[row.asin]) map[row.asin] = row.image_url; });
+      return map;
+    },
+    enabled: asins.length > 0,
+  });
+
+  const getImgUrl = (asin: string) => productImages[asin] || getAmazonImgUrl(asin);
 
   // Fetch cost history for all tracked ASINs
   const { data: costHistory = [] } = useQuery({
