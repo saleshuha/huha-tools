@@ -1,36 +1,68 @@
 
-## Fix: Supplier Dropdown Causing Layout Shift on Mobile
 
-### Problem
-When tapping the supplier dropdown on mobile, the Radix Select component locks scrolling and repositions content via a portal, which causes:
-1. The table/cards to visually shrink
-2. The selected item to scroll out of view
-3. Scrolling to see the item dismisses the dropdown
+## Fix: Supplier Dropdown Layout Shift + Noon SKU Text Overflow
 
-### Root Cause
-Radix Select uses `modal={true}` by default, which locks body scroll when the dropdown opens. On mobile, this scroll-lock causes the viewport to resize/reflow, pushing the triggering card out of view.
+### Problems
 
-### Solution
-Two changes in `src/pages/MarketPurchasePublic.tsx`:
+1. **Dropdown still shrinks layout on mobile** -- The previous fix added `position="popper"` but did not add `modal={false}` to the `<Select>` component. Radix Select's default `modal={true}` still locks body scroll and causes viewport reflow when the dropdown opens.
 
-1. **Disable modal behavior on mobile Select**: Add `modal={false}` to all `<Select>` components in the mobile card view. This prevents scroll-locking so the page stays stable when the dropdown opens.
+2. **Noon SKUs overflow on mobile cards** -- In `MarketPurchasePublic.tsx`, the ASIN and SKU text in mobile cards has no truncation or max-width constraints. Long Noon SKUs push the card layout out of bounds.
 
-2. **Use `position="popper"` on SelectContent**: Ensures the dropdown renders anchored to the trigger rather than repositioning to the center of the viewport. This keeps the dropdown near the item being edited.
+3. **Same SKU overflow in DailyOrdersTab mobile cards** -- The truncation fix applied earlier uses `max-w-[120px]` and `max-w-[100px]`, but the parent container at line 272 may still allow overflow for very long Noon SKU strings.
 
-3. **Add `side="bottom"` and `align="start"`** on mobile SelectContent to force consistent positioning below the trigger.
+---
 
-### Technical Changes
+### Changes
+
+#### A) Add `modal={false}` to all Select components in MarketPurchasePublic.tsx
 
 **File: `src/pages/MarketPurchasePublic.tsx`**
 
-- In `renderMobileCards`, change the supplier `<Select>` to include `modal={false}`:
-  ```
-  <Select modal={false} value={...} onValueChange={...}>
-  ```
-- Update mobile `<SelectContent>` to use explicit positioning:
-  ```
-  <SelectContent className="bg-popover z-[100]" position="popper" side="bottom" align="start">
-  ```
-- Apply same fix to the desktop table Select for consistency
+Both Select components (desktop at line 310 and mobile at line 384) need `modal={false}`:
 
-This is a minimal, targeted fix -- no layout restructuring needed.
+```tsx
+<Select modal={false} value={item.supplier_name || ""} onValueChange={...}>
+```
+
+This prevents scroll-locking so the page stays stable when the dropdown opens on mobile.
+
+#### B) Add text truncation for ASIN/SKU in MarketPurchasePublic mobile cards
+
+**File: `src/pages/MarketPurchasePublic.tsx`**
+
+Lines 372-375: The ASIN and SKU spans have no truncation. Fix:
+
+```tsx
+<div className="flex items-center gap-2 mt-1.5 min-w-0 overflow-hidden">
+  <span className="font-mono text-xs text-muted-foreground truncate max-w-[120px]">{item.asin}</span>
+  {item.sku && <span className="text-xs text-muted-foreground truncate max-w-[100px]">· {item.sku}</span>}
+</div>
+```
+
+Also add `overflow-hidden` to the parent `div.flex-1` at line 370 to ensure truncation works.
+
+#### C) Strengthen truncation in DailyOrdersTab mobile cards
+
+**File: `src/components/market-purchases/DailyOrdersTab.tsx`**
+
+Line 276: Increase SKU max-width constraint and ensure the flex container at line 274 doesn't allow overflow. The ASIN at line 275 already has `max-w-[120px]` but the SKU at line 276 needs `max-w-[80px]` (shorter since it shares the row with ASIN):
+
+```tsx
+<div className="flex items-center gap-1 mt-1 min-w-0 overflow-hidden flex-wrap">
+  <span className="font-mono text-[10px] text-muted-foreground truncate max-w-[120px]">{item.asin}</span>
+  {item.sku && <span className="text-[10px] text-muted-foreground truncate max-w-[80px]">· {item.sku}</span>}
+</div>
+```
+
+Also ensure the desktop table Product column at line 366-371 has proper truncation for SKU text.
+
+### Technical Summary
+
+| File | What | Lines |
+|------|------|-------|
+| MarketPurchasePublic.tsx | Add `modal={false}` to desktop Select | ~310 |
+| MarketPurchasePublic.tsx | Add `modal={false}` to mobile Select | ~384 |
+| MarketPurchasePublic.tsx | Add truncation to mobile ASIN/SKU | ~372-375 |
+| DailyOrdersTab.tsx | Tighten SKU truncation in mobile cards | ~274-276 |
+| DailyOrdersTab.tsx | Add truncation to desktop table SKU | ~368-370 |
+
