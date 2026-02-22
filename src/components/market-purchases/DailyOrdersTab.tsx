@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { CalendarDays, Package, Link2, ChevronLeft, ChevronRight, RotateCcw, ShoppingBag, TrendingUp, ExternalLink, Copy, XCircle, ImageOff } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +35,7 @@ export function DailyOrdersTab() {
   const [loading, setLoading] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
 
   const fetchDailyOrders = async () => {
     if (!profile?.id) return;
@@ -243,7 +245,10 @@ export function DailyOrdersTab() {
               {items.map((item, idx) => (
                 <tr key={item.asin} className={`border-b border-border/50 hover:bg-muted/20 transition-colors ${idx % 2 === 0 ? "" : "bg-muted/10"}`}>
                    <td className="px-3 py-2">
-                    <div className="h-14 w-14 rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden">
+                    <div
+                      className="h-14 w-14 rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                      onClick={() => item.asin && !failedImages.has(item.asin) && setPreviewImage({ url: getProductImageUrl(item.asin), title: item.title })}
+                    >
                       {item.asin && !failedImages.has(item.asin) ? (
                         <img
                           src={getProductImageUrl(item.asin)}
@@ -326,13 +331,13 @@ export function DailyOrdersTab() {
                       <div className="flex -space-x-3 flex-shrink-0 pt-0.5">
                         {linkItems.slice(0, 4).map((item: any, i: number) => (
                           <div key={i} className="h-12 w-12 rounded-lg border-2 border-card bg-muted/30 overflow-hidden flex items-center justify-center shadow-sm" style={{ zIndex: 4 - i }}>
-                            {item.asin && !failedImages.has(`link-${item.asin}`) ? (
+                            {item.asin && !failedImages.has(item.asin) ? (
                               <img
                                 src={getProductImageUrl(item.asin)}
                                 alt={item.title || item.asin}
                                 className="h-full w-full object-contain p-0.5"
                                 loading="lazy"
-                                onError={() => setFailedImages(prev => new Set(prev).add(`link-${item.asin}`))}
+                                onError={() => setFailedImages(prev => new Set(prev).add(item.asin))}
                               />
                             ) : (
                               <Package className="h-4 w-4 text-muted-foreground/40" />
@@ -391,6 +396,18 @@ export function DailyOrdersTab() {
         onOpenChange={setLinkDialogOpen}
         items={items.map((i) => ({ asin: i.asin, sku: i.sku, title: i.title, qty: i.totalQty, unit_cost: i.unitCost }))}
       />
+
+      {/* Image Preview Dialog */}
+      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
+        <DialogContent className="max-w-sm p-4">
+          {previewImage && (
+            <div className="space-y-3">
+              <img src={previewImage.url} alt={previewImage.title} className="w-full h-auto rounded-lg" />
+              <p className="text-sm text-muted-foreground text-center line-clamp-2">{previewImage.title}</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
