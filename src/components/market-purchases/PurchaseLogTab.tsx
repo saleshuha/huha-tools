@@ -15,19 +15,16 @@ import { toast } from "sonner";
 interface LogEntry {
   id: string;
   asin: string | null;
-  sku_code: string | null;
+  sku: string | null;
   title: string | null;
-  purchased_quantity: number;
-  unit_cost: number | null;
-  total_cost: number | null;
+  qty: number;
+  unit_cost: number;
   supplier_name: string | null;
-  supplier_order_number: string | null;
-  po_number: string;
-  notes: string | null;
-  created_at: string;
+  link_id: string;
   link_title: string;
   link_token: string;
   link_created_at: string;
+  platform: string | null;
 }
 
 function getImgUrl(asin: string, size: "sm" | "lg" = "sm") {
@@ -44,33 +41,39 @@ export function PurchaseLogTab() {
   const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
 
   const { data: logEntries = [], isLoading, refetch } = useQuery({
-    queryKey: ["purchase_log_entries", profile?.id],
+    queryKey: ["market_purchase_log", profile?.id],
     queryFn: async () => {
       if (!profile?.id) return [];
       const { data, error } = await supabase
-        .from("purchase_updates")
-        .select("*, purchase_links!inner(title, link_token, created_at, user_id)")
-        .eq("purchase_links.user_id", profile.id)
-        .gt("purchased_quantity", 0)
+        .from("market_purchase_links")
+        .select("id, title, link_token, items, platform, created_at")
+        .eq("user_id", profile.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data || []).map((row: any) => ({
-        id: row.id,
-        asin: row.asin,
-        sku_code: row.sku_code,
-        title: row.title,
-        purchased_quantity: row.purchased_quantity,
-        unit_cost: row.unit_cost,
-        total_cost: row.total_cost,
-        supplier_name: row.supplier_name,
-        supplier_order_number: row.supplier_order_number,
-        po_number: row.po_number,
-        notes: row.notes,
-        created_at: row.created_at,
-        link_title: row.purchase_links?.title || "Untitled",
-        link_token: row.purchase_links?.link_token || "",
-        link_created_at: row.purchase_links?.created_at || row.created_at,
-      })) as LogEntry[];
+
+      const entries: LogEntry[] = [];
+      (data || []).forEach((link: any) => {
+        const items = Array.isArray(link.items) ? link.items : [];
+        items.forEach((item: any) => {
+          if (item.supplier_name) {
+            entries.push({
+              id: `${link.id}-${item.asin || item.sku}`,
+              asin: item.asin || null,
+              sku: item.sku || null,
+              title: item.title || null,
+              qty: item.qty || 0,
+              unit_cost: item.unit_cost || 0,
+              supplier_name: item.supplier_name || null,
+              link_id: link.id,
+              link_title: link.title || "Untitled",
+              link_token: link.link_token,
+              link_created_at: link.created_at,
+              platform: link.platform,
+            });
+          }
+        });
+      });
+      return entries;
     },
     enabled: !!profile?.id,
   });
@@ -82,8 +85,8 @@ export function PurchaseLogTab() {
 
     logEntries.forEach((e) => {
       if (e.supplier_name) supplierSet.add(e.supplier_name);
-      totalQty += e.purchased_quantity || 0;
-      totalCost += e.total_cost || (e.unit_cost || 0) * (e.purchased_quantity || 0);
+      totalQty += e.qty || 0;
+      totalCost += e.unit_cost * (e.qty || 0);
     });
 
     return {
@@ -98,18 +101,17 @@ export function PurchaseLogTab() {
     const q = search.toLowerCase();
     return (
       entry.asin?.toLowerCase().includes(q) ||
-      entry.sku_code?.toLowerCase().includes(q) ||
+      entry.sku?.toLowerCase().includes(q) ||
       entry.title?.toLowerCase().includes(q) ||
       entry.supplier_name?.toLowerCase().includes(q) ||
-      entry.link_title?.toLowerCase().includes(q) ||
-      entry.po_number?.toLowerCase().includes(q)
+      entry.link_title?.toLowerCase().includes(q)
     );
   });
 
   const hasActiveFilters = search || filterSupplier !== "all";
 
   const copyLink = (token: string) => {
-    const url = `${window.location.origin}/purchase/${token}`;
+    const url = `${window.location.origin}/market-purchase/${token}`;
     navigator.clipboard.writeText(url);
     toast.success("Link copied");
   };
@@ -137,7 +139,7 @@ export function PurchaseLogTab() {
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             className="h-8 pl-8 text-xs"
-            placeholder="Search ASIN, SKU, title, PO..."
+            placeholder="Search ASIN, SKU, title..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -196,7 +198,7 @@ export function PurchaseLogTab() {
               <Package className="h-7 w-7 text-muted-foreground/40" />
             </div>
             <p className="font-medium text-foreground">No assigned items yet</p>
-            <p className="text-sm text-muted-foreground mt-1">Items will appear here once quantities are assigned via purchase links.</p>
+            <p className="text-sm text-muted-foreground mt-1">Items will appear here once suppliers are assigned via daily orders purchase links.</p>
           </div>
         ) : (
           filtered.map((entry) => (
@@ -228,14 +230,11 @@ export function PurchaseLogTab() {
                   {entry.asin && (
                     <span className="font-mono text-[10px] text-muted-foreground truncate max-w-[110px]">{entry.asin}</span>
                   )}
-                  {entry.sku_code && (
-                    <span className="text-[10px] text-muted-foreground truncate max-w-[90px]">· {entry.sku_code}</span>
+                  {entry.sku && (
+                    <span className="text-[10px] text-muted-foreground truncate max-w-[90px]">· {entry.sku}</span>
                   )}
                 </div>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <Badge variant="secondary" className="text-[9px] h-4 px-1.5 font-mono">
-                    {entry.po_number}
-                  </Badge>
                   {entry.supplier_name && (
                     <Badge variant="outline" className="text-[9px] h-4 px-1.5 font-medium">
                       {entry.supplier_name}
@@ -245,21 +244,21 @@ export function PurchaseLogTab() {
                     {entry.link_title}
                   </span>
                   <span className="text-[10px] text-muted-foreground">
-                    {format(new Date(entry.created_at), "dd MMM")}
+                    {format(new Date(entry.link_created_at), "dd MMM")}
                   </span>
                 </div>
               </div>
 
               {/* Qty & Cost */}
               <div className="text-right flex-shrink-0">
-                <p className="text-xs font-semibold">Qty: {entry.purchased_quantity}</p>
-                {entry.unit_cost != null && entry.unit_cost > 0 && (
-                  <p className="text-[10px] text-muted-foreground">× AED {entry.unit_cost.toFixed(2)}</p>
-                )}
-                {(entry.total_cost || (entry.unit_cost && entry.unit_cost > 0)) && (
-                  <p className="text-[10px] text-primary font-bold">
-                    AED {(entry.total_cost || entry.unit_cost! * entry.purchased_quantity).toFixed(2)}
-                  </p>
+                <p className="text-xs font-semibold">Qty: {entry.qty}</p>
+                {entry.unit_cost > 0 && (
+                  <>
+                    <p className="text-[10px] text-muted-foreground">× AED {entry.unit_cost.toFixed(2)}</p>
+                    <p className="text-[10px] text-primary font-bold">
+                      AED {(entry.unit_cost * entry.qty).toFixed(2)}
+                    </p>
+                  </>
                 )}
               </div>
 
@@ -268,7 +267,7 @@ export function PurchaseLogTab() {
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyLink(entry.link_token)}>
                   <Copy className="h-3 w-3" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => window.open(`/purchase/${entry.link_token}`, "_blank")}>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => window.open(`/market-purchase/${entry.link_token}`, "_blank")}>
                   <ExternalLink className="h-3 w-3" />
                 </Button>
               </div>
