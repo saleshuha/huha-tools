@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { CalendarDays, Package, Link2, ChevronLeft, ChevronRight, RotateCcw, ShoppingBag, TrendingUp } from "lucide-react";
+import { CalendarDays, Package, Link2, ChevronLeft, ChevronRight, RotateCcw, ShoppingBag, TrendingUp, ExternalLink, Copy, XCircle, ImageOff } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useMarketItemCosts } from "@/hooks/useMarketItemCosts";
+import { useMarketPurchaseLinks } from "@/hooks/useMarketPurchaseLinks";
 import { GenerateMarketLinkDialog } from "./GenerateMarketLinkDialog";
 import { toast } from "sonner";
 import { format, addDays, subDays } from "date-fns";
@@ -21,13 +22,18 @@ interface ConsolidatedItem {
   unitCost: number;
 }
 
+const getProductImageUrl = (asin: string) =>
+  `https://ws-na.amazon-adsystem.com/widgets/q?_encoding=UTF8&ASIN=${asin}&Format=_SL80_&ID=AsinImage&ServiceVersion=20070822&WS=1`;
+
 export function DailyOrdersTab() {
   const { profile } = useUserProfile();
   const { getCostByAsin } = useMarketItemCosts();
+  const { links, deactivateLink } = useMarketPurchaseLinks();
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [items, setItems] = useState<ConsolidatedItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
   const fetchDailyOrders = async () => {
     if (!profile?.id) return;
@@ -55,7 +61,6 @@ export function DailyOrdersTab() {
       const findOrCreateKey = (asin: string, sku: string): string => {
         const normAsin = normalize(asin);
         const normSku = normalize(sku);
-        // Try matching by normalized ASIN first, then SKU
         for (const [key] of Object.entries(consolidated)) {
           if (normAsin && normalize(consolidated[key].asin) === normAsin) return key;
           if (normSku && normalize(consolidated[key].sku) === normSku) return key;
@@ -107,6 +112,8 @@ export function DailyOrdersTab() {
   const grandTotal = useMemo(() => items.reduce((s, i) => s + i.totalQty * i.unitCost, 0), [items]);
   const isToday = selectedDate === new Date().toISOString().split("T")[0];
 
+  const recentLinks = useMemo(() => links.slice(0, 5), [links]);
+
   const handleCostChange = (asin: string, cost: number) => {
     setItems((prev) => prev.map((i) => (i.asin === asin ? { ...i, unitCost: cost } : i)));
   };
@@ -117,6 +124,12 @@ export function DailyOrdersTab() {
       const d = dir === "prev" ? subDays(new Date(selectedDate), 1) : addDays(new Date(selectedDate), 1);
       setSelectedDate(d.toISOString().split("T")[0]);
     }
+  };
+
+  const copyLinkToClipboard = (token: string) => {
+    const url = `${window.location.origin}/market-purchase/${token}`;
+    navigator.clipboard.writeText(url);
+    toast.success("Link copied to clipboard");
   };
 
   return (
@@ -215,23 +228,39 @@ export function DailyOrdersTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-muted/40 border-b border-border">
-                <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">ASIN</th>
-                <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">SKU</th>
-                <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Title</th>
-                <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">AMZ</th>
-                <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Noon</th>
-                <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Total</th>
-                <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Unit Cost</th>
-                <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Line Total</th>
+                <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground w-[52px]"></th>
+                <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">ASIN</th>
+                <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">SKU</th>
+                <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Title</th>
+                <th className="text-center px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">AMZ</th>
+                <th className="text-center px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Noon</th>
+                <th className="text-center px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Total</th>
+                <th className="text-right px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Unit Cost</th>
+                <th className="text-right px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Line Total</th>
               </tr>
             </thead>
             <tbody>
               {items.map((item, idx) => (
                 <tr key={item.asin} className={`border-b border-border/50 hover:bg-muted/20 transition-colors ${idx % 2 === 0 ? "" : "bg-muted/10"}`}>
-                  <td className="px-4 py-2.5 font-mono text-xs text-foreground">{item.asin}</td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">{item.sku}</td>
-                  <td className="px-4 py-2.5 text-xs max-w-[200px] truncate text-foreground">{item.title}</td>
-                  <td className="px-4 py-2.5 text-center">
+                  <td className="px-3 py-2">
+                    <div className="h-10 w-10 rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden">
+                      {item.asin && !failedImages.has(item.asin) ? (
+                        <img
+                          src={getProductImageUrl(item.asin)}
+                          alt={item.title}
+                          className="h-full w-full object-contain"
+                          loading="lazy"
+                          onError={() => setFailedImages(prev => new Set(prev).add(item.asin))}
+                        />
+                      ) : (
+                        <ImageOff className="h-4 w-4 text-muted-foreground/40" />
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2.5 font-mono text-xs text-foreground">{item.asin}</td>
+                  <td className="px-3 py-2.5 text-xs text-muted-foreground">{item.sku}</td>
+                  <td className="px-3 py-2.5 text-xs max-w-[200px] truncate text-foreground">{item.title}</td>
+                  <td className="px-3 py-2.5 text-center">
                     {item.amazonQty > 0 && (
                       <span className="inline-flex items-center gap-1 text-xs font-medium">
                         <span className="h-2 w-2 rounded-full bg-orange-500" />
@@ -239,7 +268,7 @@ export function DailyOrdersTab() {
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-2.5 text-center">
+                  <td className="px-3 py-2.5 text-center">
                     {item.noonQty > 0 && (
                       <span className="inline-flex items-center gap-1 text-xs font-medium">
                         <span className="h-2 w-2 rounded-full bg-yellow-500" />
@@ -247,8 +276,8 @@ export function DailyOrdersTab() {
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-2.5 text-center font-bold text-foreground">{item.totalQty}</td>
-                  <td className="px-4 py-2.5">
+                  <td className="px-3 py-2.5 text-center font-bold text-foreground">{item.totalQty}</td>
+                  <td className="px-3 py-2.5">
                     <Input
                       type="number"
                       min={0}
@@ -258,19 +287,102 @@ export function DailyOrdersTab() {
                       onChange={(e) => handleCostChange(item.asin, Number(e.target.value))}
                     />
                   </td>
-                  <td className="px-4 py-2.5 text-right font-semibold text-foreground">{(item.totalQty * item.unitCost).toFixed(2)}</td>
+                  <td className="px-3 py-2.5 text-right font-semibold text-foreground">{(item.totalQty * item.unitCost).toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
               <tr className="bg-primary/5 border-t-2 border-primary/20">
-                <td colSpan={5} className="px-4 py-3 text-right font-semibold text-sm text-muted-foreground">Grand Total:</td>
-                <td className="px-4 py-3 text-center font-bold text-foreground">{items.reduce((s, i) => s + i.totalQty, 0)}</td>
+                <td colSpan={6} className="px-3 py-3 text-right font-semibold text-sm text-muted-foreground">Grand Total:</td>
+                <td className="px-3 py-3 text-center font-bold text-foreground">{items.reduce((s, i) => s + i.totalQty, 0)}</td>
                 <td />
-                <td className="px-4 py-3 text-right font-bold text-lg text-primary">AED {grandTotal.toFixed(2)}</td>
+                <td className="px-3 py-3 text-right font-bold text-lg text-primary">AED {grandTotal.toFixed(2)}</td>
               </tr>
             </tfoot>
           </table>
+        </div>
+      )}
+
+      {/* Generated Purchase Links Section */}
+      {recentLinks.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <Link2 className="h-4 w-4 text-primary" />
+              Generated Purchase Links
+            </h3>
+            <span className="text-xs text-muted-foreground">{links.length} total</span>
+          </div>
+          <div className="grid gap-3">
+            {recentLinks.map((link) => {
+              const linkItems = (link.items || []) as any[];
+              const itemCount = linkItems.length;
+              const totalQty = linkItems.reduce((s: number, i: any) => s + (i.qty || 0), 0);
+              return (
+                <Card key={link.id} className={`border bg-card hover:shadow-md transition-shadow ${link.is_active ? "border-border" : "border-border/50 opacity-60"}`}>
+                  <CardContent className="py-3 px-4">
+                    <div className="flex items-start gap-3">
+                      {/* Preview thumbnails */}
+                      <div className="flex -space-x-2 flex-shrink-0 pt-0.5">
+                        {linkItems.slice(0, 3).map((item: any, i: number) => (
+                          <div key={i} className="h-9 w-9 rounded-lg border-2 border-card bg-muted/30 overflow-hidden flex items-center justify-center" style={{ zIndex: 3 - i }}>
+                            {item.asin && !failedImages.has(`link-${item.asin}`) ? (
+                              <img
+                                src={getProductImageUrl(item.asin)}
+                                alt={item.title || item.asin}
+                                className="h-full w-full object-contain"
+                                loading="lazy"
+                                onError={() => setFailedImages(prev => new Set(prev).add(`link-${item.asin}`))}
+                              />
+                            ) : (
+                              <Package className="h-3.5 w-3.5 text-muted-foreground/40" />
+                            )}
+                          </div>
+                        ))}
+                        {itemCount > 3 && (
+                          <div className="h-9 w-9 rounded-lg border-2 border-card bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground">
+                            +{itemCount - 3}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Link info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-foreground truncate">{link.title || "Untitled Link"}</p>
+                          <Badge variant={link.is_active ? "default" : "secondary"} className="text-[10px] h-5">
+                            {link.is_active ? "Active" : "Inactive"}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                          <span>{itemCount} items</span>
+                          <span>•</span>
+                          <span>{totalQty} qty</span>
+                          <span>•</span>
+                          <span>{format(new Date(link.created_at), "MMM d, yyyy h:mm a")}</span>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => copyLinkToClipboard(link.link_token)} title="Copy link">
+                          <Copy className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => window.open(`/market-purchase/${link.link_token}`, "_blank")} title="Open link">
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </Button>
+                        {link.is_active && (
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => deactivateLink.mutate(link.id)} title="Deactivate link">
+                            <XCircle className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         </div>
       )}
 

@@ -99,7 +99,7 @@ export function useMarketItemCosts(search?: string) {
       .eq("user_id", profile.id)
       .eq("asin", asin)
       .limit(1)
-      .single();
+      .maybeSingle();
     return data?.unit_cost ?? null;
   };
 
