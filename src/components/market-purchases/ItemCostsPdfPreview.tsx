@@ -150,22 +150,23 @@ export function ItemCostsPdfPreview({ open, onOpenChange, costs, dateFrom, dateT
         x += colWidths[1];
 
         // Title
+        doc.setFont("helvetica", "normal");
         doc.text((c.title || "—").substring(0, 45), x, y + 5);
-        x += colWidths[3];
+        x += colWidths[2];
 
         // Supplier
         doc.text((c.supplier_name || "—").substring(0, 22), x, y + 5);
-        x += colWidths[4];
+        x += colWidths[3];
 
         // Cost
         doc.setFont("helvetica", "bold");
         doc.text(c.unit_cost.toFixed(2), x, y + 5);
-        x += colWidths[5];
+        x += colWidths[4];
 
         // Updated
         doc.setFont("helvetica", "normal");
         doc.text(format(new Date(c.updated_at), "dd MMM yy"), x, y + 5);
-        x += colWidths[6];
+        x += colWidths[5];
 
         // Source badge
         const src = getSourceConfig(c.source);
