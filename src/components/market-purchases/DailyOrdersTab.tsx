@@ -432,7 +432,7 @@ export function DailyOrdersTab() {
       <GenerateMarketLinkDialog
         open={linkDialogOpen}
         onOpenChange={setLinkDialogOpen}
-        items={items.map((i) => ({ asin: i.asin, sku: i.sku, title: i.title, qty: i.totalQty, unit_cost: i.unitCost }))}
+        items={items.map((i) => ({ asin: i.asin, sku: i.sku, title: i.title, qty: i.totalQty, unit_cost: i.unitCost, noon_image_key: i.noonImageKey }))}
       />
 
       {/* Image Preview Dialog */}
