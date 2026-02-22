@@ -167,28 +167,86 @@ export default function MarketPurchasePublic() {
           </CardContent>
         </Card>
 
-        {/* Items table */}
-        <div className="border rounded-lg overflow-auto bg-card">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-muted/50 border-b">
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground w-12">Image</th>
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground">ASIN</th>
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground">SKU</th>
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground">Title</th>
-                <th className="text-center px-3 py-2 font-medium text-muted-foreground">Qty</th>
-                <th className="text-right px-3 py-2 font-medium text-muted-foreground">Unit Cost</th>
-                <th className="text-right px-3 py-2 font-medium text-muted-foreground">Total</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {items.map((item) => (
-                <tr key={item.asin} className="hover:bg-muted/20">
-                  <td className="px-3 py-2">
+        {/* Items */}
+        <div className="space-y-3 md:space-y-0">
+          {/* Desktop table */}
+          <div className="hidden md:block border rounded-lg overflow-auto bg-card">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/50 border-b">
+                  <th className="text-left px-3 py-2 font-medium text-muted-foreground w-12"></th>
+                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">Product</th>
+                  <th className="text-center px-3 py-2 font-medium text-muted-foreground">Qty</th>
+                  <th className="text-right px-3 py-2 font-medium text-muted-foreground">Unit Cost</th>
+                  <th className="text-right px-3 py-2 font-medium text-muted-foreground">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {items.map((item) => (
+                  <tr key={item.asin} className="hover:bg-muted/20">
+                    <td className="px-3 py-2">
+                      <img
+                        src={imageMap[item.asin] || `https://m.media-amazon.com/images/P/${item.asin}.01._SCLZZZZZZZ_SX44_.jpg`}
+                        alt={item.title}
+                        className="w-10 h-10 object-contain rounded border bg-white"
+                        onError={(e) => {
+                          const el = e.target as HTMLImageElement;
+                          const fallback = `https://m.media-amazon.com/images/P/${item.asin}.01._SCLZZZZZZZ_SX44_.jpg`;
+                          if (el.src !== fallback && imageMap[item.asin]) {
+                            el.src = fallback;
+                          } else {
+                            el.style.display = 'none';
+                          }
+                        }}
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="text-xs text-foreground leading-snug">{item.title}</div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="font-mono text-[10px] text-muted-foreground">{item.asin}</span>
+                        {item.sku && <span className="text-[10px] text-muted-foreground">· {item.sku}</span>}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-center font-medium">{item.qty}</td>
+                    <td className="px-3 py-2">
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        className="h-7 w-24 text-xs ml-auto"
+                        value={item.unit_cost || ""}
+                        onChange={(e) => handleCostChange(item.asin, Number(e.target.value))}
+                        disabled={submitted}
+                        placeholder="0.00"
+                      />
+                    </td>
+                    <td className="px-3 py-2 text-right font-medium text-xs">
+                      {(item.qty * item.unit_cost).toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-muted/30 border-t font-semibold">
+                  <td colSpan={2} />
+                  <td className="px-3 py-2 text-center">{items.reduce((s, i) => s + i.qty, 0)}</td>
+                  <td />
+                  <td className="px-3 py-2 text-right text-primary">AED {total.toFixed(2)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          {/* Mobile cards */}
+          <div className="md:hidden space-y-2">
+            {items.map((item) => (
+              <Card key={item.asin} className="border">
+                <CardContent className="p-3">
+                  <div className="flex gap-3">
                     <img
                       src={imageMap[item.asin] || `https://m.media-amazon.com/images/P/${item.asin}.01._SCLZZZZZZZ_SX44_.jpg`}
                       alt={item.title}
-                      className="w-10 h-10 object-contain rounded border bg-white"
+                      className="w-12 h-12 object-contain rounded border bg-white flex-shrink-0"
                       onError={(e) => {
                         const el = e.target as HTMLImageElement;
                         const fallback = `https://m.media-amazon.com/images/P/${item.asin}.01._SCLZZZZZZZ_SX44_.jpg`;
@@ -199,38 +257,40 @@ export default function MarketPurchasePublic() {
                         }
                       }}
                     />
-                  </td>
-                  <td className="px-3 py-2 font-mono text-xs">{item.asin}</td>
-                  <td className="px-3 py-2 text-xs">{item.sku}</td>
-                  <td className="px-3 py-2 text-xs max-w-[200px] truncate">{item.title}</td>
-                  <td className="px-3 py-2 text-center font-medium">{item.qty}</td>
-                  <td className="px-3 py-2">
-                    <Input
-                      type="number"
-                      min={0}
-                      step={0.01}
-                      className="h-7 w-24 text-xs ml-auto"
-                      value={item.unit_cost || ""}
-                      onChange={(e) => handleCostChange(item.asin, Number(e.target.value))}
-                      disabled={submitted}
-                      placeholder="0.00"
-                    />
-                  </td>
-                  <td className="px-3 py-2 text-right font-medium text-xs">
-                    {(item.qty * item.unit_cost).toFixed(2)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="bg-muted/30 border-t font-semibold">
-                <td colSpan={4} />
-                <td className="px-3 py-2 text-center">{items.reduce((s, i) => s + i.qty, 0)}</td>
-                <td />
-                <td className="px-3 py-2 text-right text-primary">AED {total.toFixed(2)}</td>
-              </tr>
-            </tfoot>
-          </table>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-foreground leading-snug line-clamp-2">{item.title}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="font-mono text-[10px] text-muted-foreground">{item.asin}</span>
+                        {item.sku && <span className="text-[10px] text-muted-foreground">· {item.sku}</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between mt-3 gap-2">
+                    <Badge variant="secondary" className="text-[10px]">Qty: {item.qty}</Badge>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        className="h-7 w-20 text-xs"
+                        value={item.unit_cost || ""}
+                        onChange={(e) => handleCostChange(item.asin, Number(e.target.value))}
+                        disabled={submitted}
+                        placeholder="Cost"
+                      />
+                      <span className="text-xs font-semibold text-foreground w-16 text-right">
+                        {(item.qty * item.unit_cost).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            <div className="flex items-center justify-between px-3 py-2 bg-muted/30 rounded-lg border font-semibold text-sm">
+              <span className="text-muted-foreground">Total ({items.reduce((s, i) => s + i.qty, 0)} items)</span>
+              <span className="text-primary">AED {total.toFixed(2)}</span>
+            </div>
+          </div>
         </div>
 
         {/* Submit */}
