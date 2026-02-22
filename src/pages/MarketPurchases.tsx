@@ -1,10 +1,11 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingCart, CreditCard, FileText, CalendarDays, DollarSign, TrendingUp, Package, Receipt } from "lucide-react";
+import { ShoppingCart, CreditCard, FileText, CalendarDays, DollarSign, Building2 } from "lucide-react";
 import { PurchaseLogTab } from "@/components/market-purchases/PurchaseLogTab";
 import { CreditBalanceTab } from "@/components/market-purchases/CreditBalanceTab";
 import { BillReconciliationTab } from "@/components/market-purchases/BillReconciliationTab";
 import { DailyOrdersTab } from "@/components/market-purchases/DailyOrdersTab";
 import { ItemCostsTab } from "@/components/market-purchases/ItemCostsTab";
+import { SupplierManagement } from "@/components/supplier/SupplierManagement";
 
 export default function MarketPurchases() {
   return (
@@ -27,7 +28,7 @@ export default function MarketPurchases() {
       </div>
 
       <Tabs defaultValue="daily">
-        <TabsList className="grid w-full grid-cols-5 max-w-3xl h-auto p-1 bg-muted/50 rounded-xl">
+        <TabsList className="grid w-full grid-cols-6 max-w-4xl h-auto p-1 bg-muted/50 rounded-xl">
           <TabsTrigger value="daily" className="flex items-center gap-2 py-2.5 px-3 rounded-lg text-xs font-medium data-[state=active]:bg-card data-[state=active]:shadow-sm data-[state=active]:text-primary transition-all">
             <CalendarDays className="h-4 w-4" />
             <span className="hidden sm:inline">Daily Orders</span>
@@ -47,6 +48,10 @@ export default function MarketPurchases() {
           <TabsTrigger value="bills" className="flex items-center gap-2 py-2.5 px-3 rounded-lg text-xs font-medium data-[state=active]:bg-card data-[state=active]:shadow-sm data-[state=active]:text-primary transition-all">
             <FileText className="h-4 w-4" />
             <span className="hidden sm:inline">Bill Reconciliation</span>
+          </TabsTrigger>
+          <TabsTrigger value="suppliers" className="flex items-center gap-2 py-2.5 px-3 rounded-lg text-xs font-medium data-[state=active]:bg-card data-[state=active]:shadow-sm data-[state=active]:text-primary transition-all">
+            <Building2 className="h-4 w-4" />
+            <span className="hidden sm:inline">Suppliers</span>
           </TabsTrigger>
         </TabsList>
 
@@ -68,6 +73,10 @@ export default function MarketPurchases() {
 
         <TabsContent value="bills" className="mt-6">
           <BillReconciliationTab />
+        </TabsContent>
+
+        <TabsContent value="suppliers" className="mt-6">
+          <SupplierManagement />
         </TabsContent>
       </Tabs>
     </div>
