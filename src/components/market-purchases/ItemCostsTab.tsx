@@ -12,9 +12,10 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import { supabase } from "@/integrations/supabase/client";
 import { AddCostDialog } from "./AddCostDialog";
 import { BulkCostUploadDialog } from "./BulkCostUploadDialog";
+import { ItemCostsPdfPreview } from "./ItemCostsPdfPreview";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import jsPDF from "jspdf";
+
 
 const sourceConfig: Record<string, { icon: React.ReactNode; label: string; className: string }> = {
   manual: { icon: <Pencil className="h-3 w-3" />, label: "Manual", className: "bg-sky-500/10 text-sky-700 border-sky-200" },
@@ -43,6 +44,7 @@ export function ItemCostsTab() {
   const [editCost, setEditCost] = useState<number>(0);
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
 
   // Filter costs by date range
   const filteredCosts = useMemo(() => {
@@ -123,35 +125,6 @@ export function ItemCostsTab() {
     setEditingId(null);
   };
 
-  const exportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape" });
-    doc.setFontSize(14);
-    doc.text("Item Costs Report", 14, 15);
-    if (dateFrom || dateTo) {
-      doc.setFontSize(9);
-      doc.text(`Date range: ${dateFrom ? format(dateFrom, "dd MMM yyyy") : "—"} to ${dateTo ? format(dateTo, "dd MMM yyyy") : "—"}`, 14, 22);
-    }
-    doc.setFontSize(8);
-    const startY = dateFrom || dateTo ? 28 : 22;
-    const headers = ["ASIN", "SKU", "Title", "Cost (AED)", "Last Updated", "Source"];
-    const colWidths = [30, 30, 90, 25, 28, 20];
-    let x = 14;
-    headers.forEach((h, i) => { doc.setFont("helvetica", "bold"); doc.text(h, x, startY); x += colWidths[i]; });
-    let y = startY + 5;
-    filteredCosts.forEach(c => {
-      if (y > 190) { doc.addPage(); y = 15; }
-      x = 14;
-      doc.setFont("helvetica", "normal");
-      doc.text(c.asin, x, y); x += colWidths[0];
-      doc.text(c.sku || "—", x, y); x += colWidths[1];
-      doc.text((c.title || "—").substring(0, 50), x, y); x += colWidths[2];
-      doc.text(c.unit_cost.toFixed(2), x, y); x += colWidths[3];
-      doc.text(format(new Date(c.updated_at), "dd MMM yy"), x, y); x += colWidths[4];
-      doc.text(c.source, x, y);
-      y += 5;
-    });
-    doc.save(`item-costs-${format(new Date(), "yyyy-MM-dd")}.pdf`);
-  };
 
   return (
     <div className="space-y-5">
@@ -200,7 +173,7 @@ export function ItemCostsTab() {
         <Button size="sm" variant="outline" onClick={() => setBulkOpen(true)}>
           <Upload className="h-4 w-4 mr-1.5" /> Upload CSV
         </Button>
-        <Button size="sm" variant="outline" onClick={exportPdf} disabled={filteredCosts.length === 0}>
+        <Button size="sm" variant="outline" onClick={() => setPdfPreviewOpen(true)} disabled={filteredCosts.length === 0}>
           <FileDown className="h-4 w-4 mr-1.5" /> Export PDF
         </Button>
 
@@ -363,6 +336,13 @@ export function ItemCostsTab() {
 
       <AddCostDialog open={addOpen} onOpenChange={setAddOpen} />
       <BulkCostUploadDialog open={bulkOpen} onOpenChange={setBulkOpen} />
+      <ItemCostsPdfPreview
+        open={pdfPreviewOpen}
+        onOpenChange={setPdfPreviewOpen}
+        costs={filteredCosts}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+      />
     </div>
   );
 }
