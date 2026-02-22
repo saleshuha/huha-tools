@@ -1,88 +1,127 @@
 import { useState } from "react";
-import { Plus, ChevronDown, ChevronRight, Trash2, RefreshCw, Filter, Package, X } from "lucide-react";
+import { ChevronDown, ChevronRight, RefreshCw, Filter, Package, X, Copy, Link2, ExternalLink, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { format } from "date-fns";
-import { NewPurchaseDialog } from "./NewPurchaseDialog";
-import { useMarketPurchases, type MarketPurchase } from "@/hooks/useMarketPurchases";
-
-const platformBorderColors: Record<string, string> = {
-  amazon: "border-l-orange-500",
-  noon: "border-l-yellow-500",
-  both: "border-l-sky-500",
-  po: "border-l-purple-500",
-};
+import { useMarketPurchaseLinks, type MarketPurchaseLink, type MarketLinkItem } from "@/hooks/useMarketPurchaseLinks";
+import { toast } from "sonner";
 
 const platformDotColors: Record<string, string> = {
   amazon: "bg-orange-500",
   noon: "bg-yellow-500",
   both: "bg-sky-500",
-  po: "bg-purple-500",
 };
 
-const statusStyles: Record<string, string> = {
-  draft: "bg-muted text-muted-foreground",
-  confirmed: "bg-emerald-500/10 text-emerald-700 border-emerald-200",
-  reconciled: "bg-sky-500/10 text-sky-700 border-sky-200",
-};
+interface LinkItem extends MarketLinkItem {
+  supplier_name?: string;
+}
+
+function groupBySupplier(items: LinkItem[]) {
+  const groups: Record<string, LinkItem[]> = {};
+  items.forEach((item) => {
+    const key = item.supplier_name || "Unassigned";
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(item);
+  });
+  return groups;
+}
+
+function getImgUrl(asin: string, size: "sm" | "lg" = "sm") {
+  return size === "sm"
+    ? `https://m.media-amazon.com/images/P/${asin}.01._SCLZZZZZZZ_SX44_.jpg`
+    : `https://m.media-amazon.com/images/P/${asin}.01._SCLZZZZZZZ_SX300_.jpg`;
+}
 
 export function PurchaseLogTab() {
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const { links, isLoading, refetch } = useMarketPurchaseLinks();
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-  const [filterSupplier, setFilterSupplier] = useState("");
-  const [filterPlatform, setFilterPlatform] = useState("all");
+  const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [filterDateFrom, setFilterDateFrom] = useState("");
-  const [filterDateTo, setFilterDateTo] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
 
-  const { purchases, isLoading, createPurchase, deletePurchase, refetch } = useMarketPurchases({
-    platform: filterPlatform !== "all" ? filterPlatform : undefined,
-    status: filterStatus !== "all" ? filterStatus : undefined,
-    date_from: filterDateFrom || undefined,
-    date_to: filterDateTo || undefined,
+  const filtered = links.filter((link) => {
+    if (filterStatus === "active" && !link.is_active) return false;
+    if (filterStatus === "inactive" && link.is_active) return false;
+    if (!search) return true;
+    const q = search.toLowerCase();
+    if (link.title?.toLowerCase().includes(q)) return true;
+    const items = (link.items || []) as LinkItem[];
+    return items.some(
+      (i) =>
+        i.asin?.toLowerCase().includes(q) ||
+        i.sku?.toLowerCase().includes(q) ||
+        i.title?.toLowerCase().includes(q) ||
+        i.supplier_name?.toLowerCase().includes(q)
+    );
   });
 
-  const filtered = purchases.filter((p) => {
-    if (!filterSupplier) return true;
-    const name = p.supplier?.supplier_name || "";
-    return name.toLowerCase().includes(filterSupplier.toLowerCase());
-  });
+  // Summary stats
+  const totalItems = filtered.reduce((s, l) => s + ((l.items as LinkItem[]) || []).length, 0);
+  const assignedItems = filtered.reduce(
+    (s, l) => s + ((l.items as LinkItem[]) || []).filter((i) => i.supplier_name).length,
+    0
+  );
+  const totalCost = filtered.reduce(
+    (s, l) =>
+      s +
+      ((l.items as LinkItem[]) || []).reduce((a, i) => a + (i.unit_cost || 0) * (i.qty || 0), 0),
+    0
+  );
 
-  const totalValue = filtered.reduce((s, p) => s + Number(p.total_estimated_cost || 0), 0);
-  const hasActiveFilters = filterSupplier || filterPlatform !== "all" || filterStatus !== "all" || filterDateFrom || filterDateTo;
+  const hasActiveFilters = search || filterStatus !== "all";
 
   const toggleRow = (id: string) => {
     setExpandedRows((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
   };
 
+  const copyLink = (token: string) => {
+    const url = `${window.location.origin}/market-purchase/${token}`;
+    navigator.clipboard.writeText(url);
+    toast.success("Link copied to clipboard");
+  };
+
   const clearFilters = () => {
-    setFilterSupplier("");
-    setFilterPlatform("all");
+    setSearch("");
     setFilterStatus("all");
-    setFilterDateFrom("");
-    setFilterDateTo("");
   };
 
   return (
     <div className="space-y-4">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { label: "Total Links", value: filtered.length, icon: Link2 },
+          { label: "Total Items", value: totalItems, icon: Package },
+          { label: "Assigned", value: `${assignedItems}/${totalItems}`, icon: Package },
+          { label: "Est. Cost", value: `AED ${totalCost.toFixed(0)}`, icon: Package },
+        ].map((card) => (
+          <div key={card.label} className="p-3 rounded-xl bg-card border border-border">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">{card.label}</p>
+            <p className="text-lg font-bold text-foreground mt-0.5">{card.value}</p>
+          </div>
+        ))}
+      </div>
+
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3 p-3 rounded-xl bg-card border border-border">
-        <Button onClick={() => setDialogOpen(true)} size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm">
-          <Plus className="h-4 w-4 mr-1.5" /> New Purchase
-        </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => refetch()}>
-          <RefreshCw className="h-3.5 w-3.5" />
-        </Button>
+        <div className="relative flex-1 min-w-[140px] max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            className="h-8 pl-8 text-xs"
+            placeholder="Search title, ASIN, SKU, supplier..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
 
         <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
           <CollapsibleTrigger asChild>
@@ -94,48 +133,23 @@ export function PurchaseLogTab() {
           </CollapsibleTrigger>
         </Collapsible>
 
-        <div className="flex-1" />
-
-        {filtered.length > 0 && (
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="font-medium">{filtered.length} purchases</span>
-            <span>•</span>
-            <span className="font-semibold text-primary">AED {totalValue.toFixed(2)}</span>
-          </div>
-        )}
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => refetch()}>
+          <RefreshCw className="h-3.5 w-3.5" />
+        </Button>
       </div>
 
       {/* Collapsible Filters */}
       <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
         <CollapsibleContent>
           <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border/50">
-            <Input
-              className="h-8 w-44"
-              placeholder="Filter supplier..."
-              value={filterSupplier}
-              onChange={(e) => setFilterSupplier(e.target.value)}
-            />
-            <Select value={filterPlatform} onValueChange={setFilterPlatform}>
-              <SelectTrigger className="h-8 w-36"><SelectValue placeholder="Platform" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Platforms</SelectItem>
-                <SelectItem value="amazon">Amazon</SelectItem>
-                <SelectItem value="noon">Noon</SelectItem>
-                <SelectItem value="both">Both</SelectItem>
-                <SelectItem value="po">PO</SelectItem>
-              </SelectContent>
-            </Select>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
               <SelectTrigger className="h-8 w-36"><SelectValue placeholder="Status" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="confirmed">Confirmed</SelectItem>
-                <SelectItem value="reconciled">Reconciled</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
               </SelectContent>
             </Select>
-            <Input type="date" className="h-8 w-36" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} />
-            <Input type="date" className="h-8 w-36" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} />
             {hasActiveFilters && (
               <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={clearFilters}>
                 <X className="h-3 w-3 mr-1" /> Clear
@@ -145,134 +159,181 @@ export function PurchaseLogTab() {
         </CollapsibleContent>
       </Collapsible>
 
-      {/* Table */}
-      <div className="border border-border rounded-xl overflow-hidden bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/40 border-b border-border">
-              <TableHead className="w-8" />
-              <TableHead className="text-xs uppercase tracking-wider font-semibold">Date</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider font-semibold">Supplier</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider font-semibold">Platform</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider font-semibold">Items</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider font-semibold">Est. Total</TableHead>
-              <TableHead className="text-xs uppercase tracking-wider font-semibold">Status</TableHead>
-              <TableHead className="w-10" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-16 text-muted-foreground">
-                  <div className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                  Loading...
-                </TableCell>
-              </TableRow>
-            ) : filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-16">
-                  <div className="h-14 w-14 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-3">
-                    <Package className="h-7 w-7 text-muted-foreground/40" />
-                  </div>
-                  <p className="font-medium text-foreground">No purchases found</p>
-                  <p className="text-sm text-muted-foreground mt-1">Click "New Purchase" to log your first market buy.</p>
-                </TableCell>
-              </TableRow>
-            ) : (
-              filtered.map((purchase, idx) => (
-                <>
-                  <TableRow
-                    key={purchase.id}
-                    className={`cursor-pointer hover:bg-muted/20 transition-colors border-l-4 ${platformBorderColors[purchase.platform] || "border-l-transparent"} ${idx % 2 === 0 ? "" : "bg-muted/5"}`}
-                    onClick={() => toggleRow(purchase.id)}
-                  >
-                    <TableCell className="px-2">
-                      {expandedRows.has(purchase.id) ? (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </TableCell>
-                    <TableCell className="font-medium text-sm">
-                      {format(new Date(purchase.purchase_date), "dd MMM yyyy")}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {purchase.supplier?.supplier_name || (
-                        <span className="text-muted-foreground italic text-xs">No supplier</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <span className="inline-flex items-center gap-1.5 text-xs font-medium">
-                        <span className={`h-2 w-2 rounded-full ${platformDotColors[purchase.platform] || ""}`} />
-                        {purchase.platform.toUpperCase()}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-sm">{purchase.items?.length || 0} items</TableCell>
-                    <TableCell className="font-semibold text-sm">
-                      AED {Number(purchase.total_estimated_cost || 0).toFixed(2)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={`text-[10px] ${statusStyles[purchase.status] || ""}`}>
-                        {purchase.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="px-2" onClick={(e) => e.stopPropagation()}>
-                      {purchase.status !== "reconciled" && (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7 text-destructive hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => {
-                            if (window.confirm("Delete this purchase?")) {
-                              deletePurchase.mutate(purchase.id);
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
+      {/* Link Cards */}
+      <div className="space-y-3">
+        {isLoading ? (
+          <div className="flex flex-col items-center py-16 text-muted-foreground">
+            <div className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin mb-2" />
+            Loading...
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center py-16">
+            <div className="h-14 w-14 rounded-2xl bg-muted/50 flex items-center justify-center mb-3">
+              <Link2 className="h-7 w-7 text-muted-foreground/40" />
+            </div>
+            <p className="font-medium text-foreground">No purchase links found</p>
+            <p className="text-sm text-muted-foreground mt-1">Create a purchase link from the Daily Orders tab.</p>
+          </div>
+        ) : (
+          filtered.map((link) => {
+            const items = (link.items || []) as LinkItem[];
+            const isExpanded = expandedRows.has(link.id);
+            const assigned = items.filter((i) => i.supplier_name).length;
+            const linkCost = items.reduce((a, i) => a + (i.unit_cost || 0) * (i.qty || 0), 0);
 
-                  {expandedRows.has(purchase.id) && (
-                    <TableRow key={`${purchase.id}-expanded`} className="bg-muted/5">
-                      <TableCell colSpan={8} className="px-6 py-4">
-                        {!purchase.items || purchase.items.length === 0 ? (
-                          <p className="text-xs text-muted-foreground italic">No items in this purchase.</p>
-                        ) : (
+            return (
+              <div key={link.id} className="rounded-xl border border-border bg-card overflow-hidden">
+                {/* Card Header */}
+                <div
+                  className="flex items-center gap-3 p-3 cursor-pointer hover:bg-muted/20 transition-colors"
+                  onClick={() => toggleRow(link.id)}
+                >
+                  {isExpanded ? (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  )}
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-semibold text-foreground truncate">{link.title || "Untitled Link"}</p>
+                      <Badge variant={link.is_active ? "default" : "secondary"} className="text-[10px] h-5">
+                        {link.is_active ? "Active" : "Inactive"}
+                      </Badge>
+                      {link.platform && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
+                          <span className={`h-1.5 w-1.5 rounded-full ${platformDotColors[link.platform] || "bg-muted-foreground"}`} />
+                          {link.platform.toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
+                      <span>{format(new Date(link.created_at), "dd MMM yyyy")}</span>
+                      <span>•</span>
+                      <span>{items.length} items</span>
+                      <span>•</span>
+                      <span>{assigned} assigned</span>
+                      {linkCost > 0 && (
+                        <>
+                          <span>•</span>
+                          <span className="font-semibold text-primary">AED {linkCost.toFixed(2)}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => copyLink(link.link_token)}>
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => window.open(`/market-purchase/${link.link_token}`, "_blank")}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Expanded Content */}
+                {isExpanded && (
+                  <div className="border-t border-border px-3 py-3 space-y-4 bg-muted/5">
+                    {(() => {
+                      const groups = groupBySupplier(items);
+                      const sortedKeys = Object.keys(groups).sort((a, b) =>
+                        a === "Unassigned" ? 1 : b === "Unassigned" ? -1 : a.localeCompare(b)
+                      );
+                      return sortedKeys.map((supplier) => (
+                        <div key={supplier}>
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                            {supplier}
+                            <span className="ml-2 text-[10px] font-normal">({groups[supplier].length})</span>
+                          </p>
                           <div className="grid gap-2">
-                            {purchase.items.map((item) => (
-                              <div key={item.id} className={`flex items-center gap-4 p-3 rounded-lg border border-border/50 bg-card border-l-4 ${platformBorderColors[item.platform] || "border-l-transparent"}`}>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-medium text-foreground truncate">{item.title || "Untitled"}</p>
-                                  <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{item.asin || "—"} · {item.sku || "—"}</p>
+                            {groups[supplier].map((item, idx) => (
+                              <div
+                                key={`${item.asin}-${idx}`}
+                                className="flex items-center gap-3 p-2.5 rounded-lg border border-border/50 bg-card"
+                              >
+                                {/* Image */}
+                                <div
+                                  className="h-10 w-10 rounded-lg border overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all flex-shrink-0 bg-muted/30"
+                                  onClick={() =>
+                                    setPreviewImage({
+                                      url: getImgUrl(item.asin, "lg"),
+                                      title: item.title || item.asin,
+                                    })
+                                  }
+                                >
+                                  <img
+                                    src={getImgUrl(item.asin, "sm")}
+                                    alt=""
+                                    className="h-full w-full object-contain"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).style.display = "none";
+                                    }}
+                                  />
                                 </div>
-                                <div className="text-right shrink-0">
-                                  <p className="text-xs font-semibold">{item.quantity} × AED {Number(item.unit_cost).toFixed(2)}</p>
-                                  <p className="text-xs text-primary font-bold">AED {(item.quantity * item.unit_cost).toFixed(2)}</p>
+
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-medium text-foreground truncate">
+                                    {item.title || "Untitled"}
+                                  </p>
+                                  <div className="flex items-center gap-2 mt-0.5 min-w-0 overflow-hidden">
+                                    <span className="font-mono text-[10px] text-muted-foreground truncate max-w-[120px]">
+                                      {item.asin}
+                                    </span>
+                                    {item.sku && (
+                                      <span className="text-[10px] text-muted-foreground truncate max-w-[100px]">
+                                        · {item.sku}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="text-right flex-shrink-0">
+                                  <p className="text-xs font-semibold">
+                                    {item.qty} × AED {(item.unit_cost || 0).toFixed(2)}
+                                  </p>
+                                  {item.unit_cost > 0 && (
+                                    <p className="text-[10px] text-primary font-bold">
+                                      AED {(item.qty * item.unit_cost).toFixed(2)}
+                                    </p>
+                                  )}
                                 </div>
                               </div>
                             ))}
                           </div>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </>
-              ))
-            )}
-          </TableBody>
-        </Table>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
       </div>
 
-      <NewPurchaseDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        onSubmit={(data) => {
-          createPurchase.mutate(data, { onSuccess: () => setDialogOpen(false) });
-        }}
-        isLoading={createPurchase.isPending}
-      />
+      {/* Image Preview Dialog */}
+      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
+        <DialogContent className="max-w-md p-2">
+          {previewImage && (
+            <div className="flex flex-col items-center gap-2">
+              <img
+                src={previewImage.url}
+                alt={previewImage.title}
+                className="max-h-[60vh] object-contain rounded-lg"
+              />
+              <p className="text-xs text-muted-foreground text-center truncate max-w-full px-2">
+                {previewImage.title}
+              </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
