@@ -23,7 +23,7 @@ interface ConsolidatedItem {
 }
 
 const getProductImageUrl = (asin: string) =>
-  `https://ws-na.amazon-adsystem.com/widgets/q?_encoding=UTF8&ASIN=${asin}&Format=_SL80_&ID=AsinImage&ServiceVersion=20070822&WS=1`;
+  `https://m.media-amazon.com/images/P/${asin}.01._SCLZZZZZZZ_SX100_.jpg`;
 
 export function DailyOrdersTab() {
   const { profile } = useUserProfile();
