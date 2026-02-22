@@ -360,8 +360,62 @@ export function DailyOrdersTab() {
               return (
                 <Card key={link.id} className={`border bg-card hover:shadow-md transition-shadow ${link.is_active ? "border-border" : "border-border/50 opacity-60"}`}>
                   <CardContent className="py-3 px-4">
-                    <div className="flex items-start gap-3">
-                      {/* Preview thumbnails */}
+                    {/* Mobile layout */}
+                    <div className="flex flex-col gap-3 sm:hidden">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{link.title || "Untitled Link"}</p>
+                          <Badge variant={link.is_active ? "default" : "secondary"} className="text-[10px] h-5 flex-shrink-0">
+                            {link.is_active ? "Active" : "Inactive"}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="flex -space-x-2 overflow-x-auto pb-1">
+                        {linkItems.slice(0, 6).map((item: any, i: number) => {
+                          const imgUrl = item.asin ? getProductImageUrl(item.asin) : null;
+                          const hasFailed = failedImages.has(item.asin);
+                          return (
+                            <div key={i} className="h-14 w-14 rounded-lg border-2 border-card bg-muted/30 overflow-hidden flex items-center justify-center shadow-sm flex-shrink-0" style={{ zIndex: 6 - i }}>
+                              {imgUrl && !hasFailed ? (
+                                <img src={imgUrl} alt={item.title || item.asin} className="h-full w-full object-contain p-0.5" loading="lazy" onError={() => setFailedImages(prev => new Set(prev).add(item.asin))} />
+                              ) : (
+                                <Package className="h-4 w-4 text-muted-foreground/40" />
+                              )}
+                            </div>
+                          );
+                        })}
+                        {itemCount > 6 && (
+                          <div className="h-14 w-14 rounded-lg border-2 border-card bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground shadow-sm flex-shrink-0">
+                            +{itemCount - 6}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>{itemCount} items</span>
+                          <span>•</span>
+                          <span>{totalQty} qty</span>
+                          <span>•</span>
+                          <span>{format(new Date(link.created_at), "MMM d, h:mm a")}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => copyLinkToClipboard(link.link_token)}>
+                            <Copy className="h-3.5 w-3.5 mr-1" /> Copy
+                          </Button>
+                          <Button variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => window.open(`/market-purchase/${link.link_token}`, "_blank")}>
+                            <ExternalLink className="h-3.5 w-3.5 mr-1" /> Open
+                          </Button>
+                          {link.is_active && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => deactivateLink.mutate(link.id)}>
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Desktop layout */}
+                    <div className="hidden sm:flex items-start gap-3">
                       <div className="flex -space-x-3 flex-shrink-0 pt-0.5">
                         {linkItems.slice(0, 4).map((item: any, i: number) => {
                           const imgUrl = item.asin ? getProductImageUrl(item.asin) : null;
@@ -369,13 +423,7 @@ export function DailyOrdersTab() {
                           return (
                             <div key={i} className="h-12 w-12 rounded-lg border-2 border-card bg-muted/30 overflow-hidden flex items-center justify-center shadow-sm" style={{ zIndex: 4 - i }}>
                               {imgUrl && !hasFailed ? (
-                                <img
-                                  src={imgUrl}
-                                  alt={item.title || item.asin}
-                                  className="h-full w-full object-contain p-0.5"
-                                  loading="lazy"
-                                  onError={() => setFailedImages(prev => new Set(prev).add(item.asin))}
-                                />
+                                <img src={imgUrl} alt={item.title || item.asin} className="h-full w-full object-contain p-0.5" loading="lazy" onError={() => setFailedImages(prev => new Set(prev).add(item.asin))} />
                               ) : (
                                 <Package className="h-4 w-4 text-muted-foreground/40" />
                               )}
@@ -388,8 +436,6 @@ export function DailyOrdersTab() {
                           </div>
                         )}
                       </div>
-
-                      {/* Link info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-medium text-foreground truncate">{link.title || "Untitled Link"}</p>
@@ -405,8 +451,6 @@ export function DailyOrdersTab() {
                           <span>{format(new Date(link.created_at), "MMM d, yyyy h:mm a")}</span>
                         </div>
                       </div>
-
-                      {/* Actions */}
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => copyLinkToClipboard(link.link_token)} title="Copy link">
                           <Copy className="h-3.5 w-3.5" />
