@@ -248,9 +248,10 @@ export function ItemCostsTab() {
                           </Button>
                         </div>
                       ) : (
-                        <span className="cursor-pointer hover:text-primary transition-colors font-semibold text-xs" onClick={() => handleInlineEdit(c.id, c.unit_cost)}>
-                          AED {c.unit_cost.toFixed(2)}
-                        </span>
+                        <div className="cursor-pointer hover:text-primary transition-colors" onClick={() => handleInlineEdit(c.id, c.unit_cost)}>
+                          <span className="font-semibold text-xs">AED {c.unit_cost.toFixed(2)}</span>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">{format(new Date(c.updated_at), "dd MMM yyyy")}</p>
+                        </div>
                       )}
                     </td>
 
