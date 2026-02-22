@@ -1,65 +1,96 @@
 
 
-## Fix Credit Balances and Redesign Core Tabs
+## Advanced Credit Balance System
 
-### The Problem
+### Current State
+- Credit balances are derived from `market_purchase_links` JSONB items where `supplier_name` is set
+- Currently only 1 supplier ("Falestine Market") has assigned items with AED 11.00 total
+- There is **no payment tracking** -- once items are assigned, there's no way to record payments, partial settlements, or reconciliation
+- The current view is read-only cards with a detail dialog
 
-The **Credit Balances** tab shows "No outstanding credit balances" because it queries the `market_purchases` table, which has **0 rows**. Your actual purchase data lives in `market_purchase_links` (items stored as JSONB with supplier assignments). The credit balance logic needs to be rewired to this real data source.
+### What Will Change
 
-### What is Credit Balance?
+#### 1. New Database Table: `market_credit_payments`
+A payment ledger to track all payments made against supplier credit:
 
-Credit balance tracks how much you owe each supplier for items they've been assigned (via purchase links) but haven't been paid/reconciled yet. It groups assigned items by supplier name, sums up `qty x unit_cost`, and shows aging information based on when the link was created.
+| Column | Type | Purpose |
+|--------|------|---------|
+| id | uuid | Primary key |
+| user_id | uuid | Owner |
+| supplier_name | text | Matches the supplier name from JSONB items |
+| amount | numeric | Payment amount |
+| payment_date | date | When the payment was made |
+| payment_method | text | Cash, bank transfer, cheque, etc. |
+| reference_number | text | Receipt/transaction reference |
+| notes | text | Optional notes |
+| link_ids | uuid[] | Which purchase links this payment covers (optional) |
+| created_at | timestamptz | Record timestamp |
 
----
+RLS policy: users can only see/manage their own payments.
 
-### Changes Overview
+#### 2. Redesigned Credit Balance Tab
 
-#### 1. Fix Credit Balances (rewire data source)
+**Summary Header** (enhanced):
+- Total outstanding, total paid, net balance
+- Number of suppliers with balances
 
-- **Rewrite `CreditBalanceTab.tsx`** to derive balances from `market_purchase_links` JSONB items where `supplier_name` is present
-- Group by `supplier_name` (not `supplier_id`) since that's what the portal stores
-- Calculate: total cost (qty x unit_cost), item count, oldest link date per supplier
-- The detail dialog will show individual items for a supplier across all links
-- Add a reconcile/mark-paid action button per supplier card
+**Filter Toolbar**:
+- Filter by supplier (dropdown of all suppliers with balances)
+- Filter by date range (show only items/links from a specific period)
+- Sort by: amount, aging, supplier name
 
-#### 2. Redesign Daily Orders Tab
+**Supplier Cards** (upgraded):
+- Outstanding amount (items total minus payments)
+- Total paid amount shown alongside
+- Payment progress bar (paid vs outstanding)
+- Aging indicator stays (green/orange/red)
+- Quick "Record Payment" button directly on the card
 
-- Clean up the summary cards with a more compact, unified stat bar instead of 3 separate cards
-- Add item count badge to the toolbar area
-- Tighten table row spacing and improve the mobile card layout consistency
+**Detail Dialog** (when clicking a supplier card):
+- **Two tabs inside**: "Items" and "Payments"
+- **Items tab**: existing item detail table grouped by link/order date
+- **Payments tab**: history of all payments recorded for this supplier with date, amount, method, reference
+- **Record Payment button** at the top of the dialog
 
-#### 3. Redesign Purchase Log Tab
+#### 3. Record Payment Dialog
+A form dialog triggered from the supplier card or detail view:
+- Pre-filled supplier name
+- Amount field (with "Pay Full" quick-fill button)
+- Payment date picker
+- Payment method dropdown (Cash, Bank Transfer, Cheque, Credit Card, Other)
+- Reference number (optional)
+- Notes (optional)
+- Save button creates a row in `market_credit_payments`
 
-- Replace the flat list layout with a proper table on desktop (image, product, supplier, qty, cost, date, actions)
-- Improve the summary cards to match the design language of other tabs
-- Add a total cost footer row
-
-#### 4. Redesign Item Costs Tab
-
-- Add supplier name column to the table (it's stored but not displayed)
-- Improve the history columns — show supplier name below the cost in history entries
-- Better empty state with illustration
+#### 4. Payment History Section
+Below the supplier cards grid, a collapsible "Recent Payments" section showing the last 10 payments across all suppliers in a compact table.
 
 ---
 
 ### Technical Details
 
+**Database migration:**
+- Create `market_credit_payments` table with RLS policies for user-owned data
+
+**New hook:** `src/hooks/useMarketCreditPayments.ts`
+- Query payments by user
+- Create payment mutation
+- Delete payment mutation
+
 **Files to modify:**
 
 | File | Change |
 |------|--------|
-| `src/components/market-purchases/CreditBalanceTab.tsx` | Rewrite to query `market_purchase_links` JSONB, group by `supplier_name`, show real credit data |
-| `src/hooks/useMarketPurchases.ts` | Remove old `creditBalancesQuery` (no longer needed) |
-| `src/components/market-purchases/DailyOrdersTab.tsx` | Compact stat bar, tighter spacing |
-| `src/components/market-purchases/PurchaseLogTab.tsx` | Desktop table layout, cost footer |
-| `src/components/market-purchases/ItemCostsTab.tsx` | Add supplier name column |
+| `src/components/market-purchases/CreditBalanceTab.tsx` | Full rewrite: add filters, payment-aware balance calculation (outstanding = items total - payments), supplier cards with progress bars, detail dialog with Items/Payments tabs, record payment dialog, recent payments section |
+| `src/hooks/useMarketCreditPayments.ts` | New hook for CRUD on `market_credit_payments` |
 
-**Data flow for Credit Balances:**
-- Query `market_purchase_links` for the user
-- Extract items from JSONB where `supplier_name IS NOT NULL`
-- Group by `supplier_name`: sum `qty * unit_cost`, count items, track oldest link date
-- Display as supplier cards with aging indicators (same color logic: green/orange/red)
-- Detail dialog shows all items assigned to that supplier with link references
+**Balance calculation logic:**
+```
+For each supplier:
+  items_total = SUM(qty * unit_cost) from all links
+  paid_total = SUM(amount) from market_credit_payments
+  outstanding = items_total - paid_total
+```
 
-**No database changes required** — all data already exists in `market_purchase_links.items` JSONB.
+Suppliers with outstanding = 0 can be hidden or shown in a "Settled" section.
 
