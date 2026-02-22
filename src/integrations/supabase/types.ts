@@ -6190,6 +6190,13 @@ export type Database = {
         Args: { p_count: number; p_user_id: string }
         Returns: string[]
       }
+      get_noon_images_for_skus: {
+        Args: { p_skus: string[]; p_user_id: string }
+        Returns: {
+          image_url: string
+          sku: string
+        }[]
+      }
       get_noon_sales_upload_summary: {
         Args: { country_filter?: string }
         Returns: {
