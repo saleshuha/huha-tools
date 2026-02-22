@@ -1,16 +1,20 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, Upload, Search, Trash2, Pencil, Link, ShoppingCart, Check, X, Package, DollarSign, Clock } from "lucide-react";
+import { Plus, Upload, Search, Trash2, Pencil, Link, ShoppingCart, Check, X, Package, DollarSign, Clock, FileDown, CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useMarketItemCosts } from "@/hooks/useMarketItemCosts";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { supabase } from "@/integrations/supabase/client";
 import { AddCostDialog } from "./AddCostDialog";
 import { BulkCostUploadDialog } from "./BulkCostUploadDialog";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import jsPDF from "jspdf";
 
 const sourceConfig: Record<string, { icon: React.ReactNode; label: string; className: string }> = {
   manual: { icon: <Pencil className="h-3 w-3" />, label: "Manual", className: "bg-sky-500/10 text-sky-700 border-sky-200" },
@@ -37,9 +41,25 @@ export function ItemCostsTab() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editCost, setEditCost] = useState<number>(0);
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+
+  // Filter costs by date range
+  const filteredCosts = useMemo(() => {
+    return costs.filter(c => {
+      const d = new Date(c.updated_at);
+      if (dateFrom && d < dateFrom) return false;
+      if (dateTo) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        if (d > end) return false;
+      }
+      return true;
+    });
+  }, [costs, dateFrom, dateTo]);
 
   // Fetch product images from product_images table
-  const asins = useMemo(() => costs.map(c => c.asin), [costs]);
+  const asins = useMemo(() => filteredCosts.map(c => c.asin), [filteredCosts]);
   const { data: productImages = {} } = useQuery({
     queryKey: ["product_images_for_costs", asins],
     queryFn: async () => {
@@ -103,6 +123,36 @@ export function ItemCostsTab() {
     setEditingId(null);
   };
 
+  const exportPdf = () => {
+    const doc = new jsPDF({ orientation: "landscape" });
+    doc.setFontSize(14);
+    doc.text("Item Costs Report", 14, 15);
+    if (dateFrom || dateTo) {
+      doc.setFontSize(9);
+      doc.text(`Date range: ${dateFrom ? format(dateFrom, "dd MMM yyyy") : "—"} to ${dateTo ? format(dateTo, "dd MMM yyyy") : "—"}`, 14, 22);
+    }
+    doc.setFontSize(8);
+    const startY = dateFrom || dateTo ? 28 : 22;
+    const headers = ["ASIN", "SKU", "Title", "Cost (AED)", "Last Updated", "Source"];
+    const colWidths = [30, 30, 90, 25, 28, 20];
+    let x = 14;
+    headers.forEach((h, i) => { doc.setFont("helvetica", "bold"); doc.text(h, x, startY); x += colWidths[i]; });
+    let y = startY + 5;
+    filteredCosts.forEach(c => {
+      if (y > 190) { doc.addPage(); y = 15; }
+      x = 14;
+      doc.setFont("helvetica", "normal");
+      doc.text(c.asin, x, y); x += colWidths[0];
+      doc.text(c.sku || "—", x, y); x += colWidths[1];
+      doc.text((c.title || "—").substring(0, 50), x, y); x += colWidths[2];
+      doc.text(c.unit_cost.toFixed(2), x, y); x += colWidths[3];
+      doc.text(format(new Date(c.updated_at), "dd MMM yy"), x, y); x += colWidths[4];
+      doc.text(c.source, x, y);
+      y += 5;
+    });
+    doc.save(`item-costs-${format(new Date(), "yyyy-MM-dd")}.pdf`);
+  };
+
   return (
     <div className="space-y-5">
       {/* Stats Row */}
@@ -150,6 +200,42 @@ export function ItemCostsTab() {
         <Button size="sm" variant="outline" onClick={() => setBulkOpen(true)}>
           <Upload className="h-4 w-4 mr-1.5" /> Upload CSV
         </Button>
+        <Button size="sm" variant="outline" onClick={exportPdf} disabled={filteredCosts.length === 0}>
+          <FileDown className="h-4 w-4 mr-1.5" /> Export PDF
+        </Button>
+
+        {/* Date From */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button size="sm" variant="outline" className={cn("h-8 text-xs gap-1.5", !dateFrom && "text-muted-foreground")}>
+              <CalendarIcon className="h-3.5 w-3.5" />
+              {dateFrom ? format(dateFrom, "dd MMM yyyy") : "From"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar mode="single" selected={dateFrom} onSelect={setDateFrom} initialFocus className={cn("p-3 pointer-events-auto")} />
+          </PopoverContent>
+        </Popover>
+
+        {/* Date To */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button size="sm" variant="outline" className={cn("h-8 text-xs gap-1.5", !dateTo && "text-muted-foreground")}>
+              <CalendarIcon className="h-3.5 w-3.5" />
+              {dateTo ? format(dateTo, "dd MMM yyyy") : "To"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar mode="single" selected={dateTo} onSelect={setDateTo} initialFocus className={cn("p-3 pointer-events-auto")} />
+          </PopoverContent>
+        </Popover>
+
+        {(dateFrom || dateTo) && (
+          <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setDateFrom(undefined); setDateTo(undefined); }}>
+            Clear
+          </Button>
+        )}
+
         <div className="flex-1" />
         <div className="relative w-64">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -167,7 +253,7 @@ export function ItemCostsTab() {
         <div className="flex items-center justify-center py-16">
           <div className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
-      ) : costs.length === 0 ? (
+      ) : filteredCosts.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
             <DollarSign className="h-8 w-8 text-muted-foreground/40" />
@@ -198,7 +284,7 @@ export function ItemCostsTab() {
               </tr>
             </thead>
             <tbody>
-              {costs.map((c, idx) => {
+              {filteredCosts.map((c, idx) => {
                 const src = sourceConfig[c.source] || sourceConfig.manual;
                 const history = historyByAsin[c.asin] || [];
                 return (
