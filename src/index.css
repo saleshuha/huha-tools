@@ -830,3 +830,9 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Prevent Radix Select from locking body scroll on mobile */
+body[data-scroll-locked] {
+  overflow: auto !important;
+  margin-right: 0 !important;
+}

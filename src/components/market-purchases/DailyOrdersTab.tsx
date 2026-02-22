@@ -273,7 +273,7 @@ export function DailyOrdersTab() {
                         <p className="text-sm text-foreground leading-snug font-medium line-clamp-2">{item.title}</p>
                         <div className="flex items-center gap-1 mt-1 min-w-0 overflow-hidden">
                           <span className="font-mono text-[10px] text-muted-foreground truncate max-w-[120px]">{item.asin}</span>
-                          {item.sku && <span className="text-[10px] text-muted-foreground truncate max-w-[100px]">· {item.sku}</span>}
+                          {item.sku && <span className="text-[10px] text-muted-foreground truncate max-w-[80px]">· {item.sku}</span>}
                         </div>
                       </div>
                     </div>
@@ -365,8 +365,8 @@ export function DailyOrdersTab() {
                     </td>
                     <td className="px-3 py-2.5 max-w-[200px]">
                       <div className="text-xs text-foreground leading-snug line-clamp-2">{item.title}</div>
-                      <div className="flex items-center gap-2 mt-1 min-w-0">
-                        <span className="font-mono text-[10px] text-muted-foreground truncate">{item.asin}</span>
+                      <div className="flex items-center gap-2 mt-1 min-w-0 overflow-hidden">
+                        <span className="font-mono text-[10px] text-muted-foreground truncate max-w-[120px]">{item.asin}</span>
                         {item.sku && <span className="text-[10px] text-muted-foreground truncate max-w-[100px]">· {item.sku}</span>}
                       </div>
                     </td>

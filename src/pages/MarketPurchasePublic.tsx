@@ -308,6 +308,7 @@ export default function MarketPurchasePublic() {
               </td>
               <td className="px-3 py-2">
                 <Select
+                   
                    value={item.supplier_name || ""}
                    onValueChange={(v) => handleSupplierChange(item.asin, v)}
                  >
@@ -369,9 +370,9 @@ export default function MarketPurchasePublic() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-foreground leading-snug font-medium">{item.title}</p>
-                <div className="flex items-center gap-2 mt-1.5">
-                  <span className="font-mono text-xs text-muted-foreground">{item.asin}</span>
-                  {item.sku && <span className="text-xs text-muted-foreground">· {item.sku}</span>}
+                <div className="flex items-center gap-2 mt-1.5 min-w-0 overflow-hidden">
+                  <span className="font-mono text-xs text-muted-foreground truncate max-w-[120px]">{item.asin}</span>
+                  {item.sku && <span className="text-xs text-muted-foreground truncate max-w-[100px]">· {item.sku}</span>}
                 </div>
                 <Badge variant="secondary" className="text-xs mt-1.5">Qty: {item.qty}</Badge>
               </div>
@@ -382,6 +383,7 @@ export default function MarketPurchasePublic() {
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Supplier</label>
                 <Select
+                   
                    value={item.supplier_name || ""}
                    onValueChange={(v) => handleSupplierChange(item.asin, v)}
                  >
