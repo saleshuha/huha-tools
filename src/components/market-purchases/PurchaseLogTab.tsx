@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { RefreshCw, Filter, Package, X, Copy, ExternalLink, Search, Link2, Users } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { RefreshCw, Filter, Package, X, Copy, ExternalLink, Search, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -7,25 +8,26 @@ import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { format } from "date-fns";
-import { useMarketPurchaseLinks, type MarketLinkItem } from "@/hooks/useMarketPurchaseLinks";
+import { supabase } from "@/integrations/supabase/client";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import { toast } from "sonner";
 
-interface LinkItem extends MarketLinkItem {
-  supplier_name?: string;
-}
-
 interface LogEntry {
-  asin: string;
-  sku: string;
-  title: string;
-  qty: number;
-  unit_cost: number;
-  supplier_name: string;
+  id: string;
+  asin: string | null;
+  sku_code: string | null;
+  title: string | null;
+  purchased_quantity: number;
+  unit_cost: number | null;
+  total_cost: number | null;
+  supplier_name: string | null;
+  supplier_order_number: string | null;
+  po_number: string;
+  notes: string | null;
+  created_at: string;
   link_title: string;
   link_token: string;
   link_created_at: string;
-  platform: string;
-  noon_image_key?: string;
 }
 
 function getImgUrl(asin: string, size: "sm" | "lg" = "sm") {
@@ -35,69 +37,79 @@ function getImgUrl(asin: string, size: "sm" | "lg" = "sm") {
 }
 
 export function PurchaseLogTab() {
-  const { links, isLoading, refetch } = useMarketPurchaseLinks();
+  const { profile } = useUserProfile();
   const [search, setSearch] = useState("");
   const [filterSupplier, setFilterSupplier] = useState("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
 
-  // Flatten all assigned items into a chronological log
-  const { logEntries, suppliers, stats } = useMemo(() => {
-    const entries: LogEntry[] = [];
-    const supplierSet = new Set<string>();
+  const { data: logEntries = [], isLoading, refetch } = useQuery({
+    queryKey: ["purchase_log_entries", profile?.id],
+    queryFn: async () => {
+      if (!profile?.id) return [];
+      const { data, error } = await supabase
+        .from("purchase_updates")
+        .select("*, purchase_links!inner(title, link_token, created_at, user_id)")
+        .eq("purchase_links.user_id", profile.id)
+        .gt("purchased_quantity", 0)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data || []).map((row: any) => ({
+        id: row.id,
+        asin: row.asin,
+        sku_code: row.sku_code,
+        title: row.title,
+        purchased_quantity: row.purchased_quantity,
+        unit_cost: row.unit_cost,
+        total_cost: row.total_cost,
+        supplier_name: row.supplier_name,
+        supplier_order_number: row.supplier_order_number,
+        po_number: row.po_number,
+        notes: row.notes,
+        created_at: row.created_at,
+        link_title: row.purchase_links?.title || "Untitled",
+        link_token: row.purchase_links?.link_token || "",
+        link_created_at: row.purchase_links?.created_at || row.created_at,
+      })) as LogEntry[];
+    },
+    enabled: !!profile?.id,
+  });
 
-    links.forEach((link) => {
-      const items = (link.items || []) as LinkItem[];
-      items.forEach((item) => {
-        if (!item.supplier_name) return;
-        supplierSet.add(item.supplier_name);
-        entries.push({
-          asin: item.asin,
-          sku: item.sku,
-          title: item.title,
-          qty: item.qty,
-          unit_cost: item.unit_cost,
-          supplier_name: item.supplier_name,
-          link_title: link.title || "Untitled",
-          link_token: link.link_token,
-          link_created_at: link.created_at,
-          platform: link.platform,
-          noon_image_key: item.noon_image_key,
-        });
-      });
+  const { suppliers, stats } = useMemo(() => {
+    const supplierSet = new Set<string>();
+    let totalQty = 0;
+    let totalCost = 0;
+
+    logEntries.forEach((e) => {
+      if (e.supplier_name) supplierSet.add(e.supplier_name);
+      totalQty += e.purchased_quantity || 0;
+      totalCost += e.total_cost || (e.unit_cost || 0) * (e.purchased_quantity || 0);
     });
 
-    // Sort newest first
-    entries.sort((a, b) => new Date(b.link_created_at).getTime() - new Date(a.link_created_at).getTime());
-
-    const totalCost = entries.reduce((s, e) => s + (e.unit_cost || 0) * (e.qty || 0), 0);
-    const totalQty = entries.reduce((s, e) => s + e.qty, 0);
-
     return {
-      logEntries: entries,
       suppliers: Array.from(supplierSet).sort(),
-      stats: { count: entries.length, totalCost, totalQty, suppliers: supplierSet.size },
+      stats: { count: logEntries.length, totalQty, totalCost, suppliers: supplierSet.size },
     };
-  }, [links]);
+  }, [logEntries]);
 
-  // Filter
   const filtered = logEntries.filter((entry) => {
     if (filterSupplier !== "all" && entry.supplier_name !== filterSupplier) return false;
     if (!search) return true;
     const q = search.toLowerCase();
     return (
       entry.asin?.toLowerCase().includes(q) ||
-      entry.sku?.toLowerCase().includes(q) ||
+      entry.sku_code?.toLowerCase().includes(q) ||
       entry.title?.toLowerCase().includes(q) ||
       entry.supplier_name?.toLowerCase().includes(q) ||
-      entry.link_title?.toLowerCase().includes(q)
+      entry.link_title?.toLowerCase().includes(q) ||
+      entry.po_number?.toLowerCase().includes(q)
     );
   });
 
   const hasActiveFilters = search || filterSupplier !== "all";
 
   const copyLink = (token: string) => {
-    const url = `${window.location.origin}/market-purchase/${token}`;
+    const url = `${window.location.origin}/purchase/${token}`;
     navigator.clipboard.writeText(url);
     toast.success("Link copied");
   };
@@ -109,8 +121,8 @@ export function PurchaseLogTab() {
         {[
           { label: "Assigned Items", value: stats.count, icon: Package },
           { label: "Total Qty", value: stats.totalQty, icon: Package },
-          { label: "Suppliers", value: stats.suppliers, icon: Users },
-          { label: "Total Cost", value: `AED ${stats.totalCost.toFixed(0)}`, icon: Package },
+          { label: "Suppliers", value: stats.suppliers || "—", icon: Users },
+          { label: "Total Cost", value: stats.totalCost > 0 ? `AED ${stats.totalCost.toFixed(0)}` : "—", icon: Package },
         ].map((card) => (
           <div key={card.label} className="p-3 rounded-xl bg-card border border-border">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">{card.label}</p>
@@ -125,7 +137,7 @@ export function PurchaseLogTab() {
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             className="h-8 pl-8 text-xs"
-            placeholder="Search ASIN, SKU, title, supplier..."
+            placeholder="Search ASIN, SKU, title, PO..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -184,56 +196,70 @@ export function PurchaseLogTab() {
               <Package className="h-7 w-7 text-muted-foreground/40" />
             </div>
             <p className="font-medium text-foreground">No assigned items yet</p>
-            <p className="text-sm text-muted-foreground mt-1">Items will appear here once suppliers are assigned via purchase links.</p>
+            <p className="text-sm text-muted-foreground mt-1">Items will appear here once quantities are assigned via purchase links.</p>
           </div>
         ) : (
-          filtered.map((entry, idx) => (
+          filtered.map((entry) => (
             <div
-              key={`${entry.asin}-${entry.link_token}-${idx}`}
+              key={entry.id}
               className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card hover:bg-muted/20 transition-colors"
             >
               {/* Image */}
-              <div
-                className="h-11 w-11 rounded-lg border overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all flex-shrink-0 bg-muted/30"
-                onClick={() =>
-                  setPreviewImage({ url: getImgUrl(entry.asin, "lg"), title: entry.title || entry.asin })
-                }
-              >
-                <img
-                  src={getImgUrl(entry.asin, "sm")}
-                  alt=""
-                  className="h-full w-full object-contain"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                />
-              </div>
+              {entry.asin && (
+                <div
+                  className="h-11 w-11 rounded-lg border overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all flex-shrink-0 bg-muted/30"
+                  onClick={() =>
+                    setPreviewImage({ url: getImgUrl(entry.asin!, "lg"), title: entry.title || entry.asin! })
+                  }
+                >
+                  <img
+                    src={getImgUrl(entry.asin, "sm")}
+                    alt=""
+                    className="h-full w-full object-contain"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  />
+                </div>
+              )}
 
               {/* Info */}
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-foreground truncate">{entry.title || "Untitled"}</p>
                 <div className="flex items-center gap-2 mt-0.5 min-w-0 overflow-hidden">
-                  <span className="font-mono text-[10px] text-muted-foreground truncate max-w-[110px]">{entry.asin}</span>
-                  {entry.sku && (
-                    <span className="text-[10px] text-muted-foreground truncate max-w-[90px]">· {entry.sku}</span>
+                  {entry.asin && (
+                    <span className="font-mono text-[10px] text-muted-foreground truncate max-w-[110px]">{entry.asin}</span>
+                  )}
+                  {entry.sku_code && (
+                    <span className="text-[10px] text-muted-foreground truncate max-w-[90px]">· {entry.sku_code}</span>
                   )}
                 </div>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <Badge variant="outline" className="text-[9px] h-4 px-1.5 font-medium">
-                    {entry.supplier_name}
+                  <Badge variant="secondary" className="text-[9px] h-4 px-1.5 font-mono">
+                    {entry.po_number}
                   </Badge>
+                  {entry.supplier_name && (
+                    <Badge variant="outline" className="text-[9px] h-4 px-1.5 font-medium">
+                      {entry.supplier_name}
+                    </Badge>
+                  )}
                   <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">
                     {entry.link_title}
                   </span>
                   <span className="text-[10px] text-muted-foreground">
-                    {format(new Date(entry.link_created_at), "dd MMM")}
+                    {format(new Date(entry.created_at), "dd MMM")}
                   </span>
                 </div>
               </div>
 
-              {/* Cost */}
+              {/* Qty & Cost */}
               <div className="text-right flex-shrink-0">
-                <p className="text-xs font-semibold">{entry.qty} × AED {(entry.unit_cost || 0).toFixed(2)}</p>
-                {entry.unit_cost > 0 && (
-                  <p className="text-[10px] text-primary font-bold">AED {(entry.qty * entry.unit_cost).toFixed(2)}</p>
+                <p className="text-xs font-semibold">Qty: {entry.purchased_quantity}</p>
+                {entry.unit_cost != null && entry.unit_cost > 0 && (
+                  <p className="text-[10px] text-muted-foreground">× AED {entry.unit_cost.toFixed(2)}</p>
+                )}
+                {(entry.total_cost || (entry.unit_cost && entry.unit_cost > 0)) && (
+                  <p className="text-[10px] text-primary font-bold">
+                    AED {(entry.total_cost || entry.unit_cost! * entry.purchased_quantity).toFixed(2)}
+                  </p>
                 )}
               </div>
 
@@ -242,7 +268,7 @@ export function PurchaseLogTab() {
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyLink(entry.link_token)}>
                   <Copy className="h-3 w-3" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => window.open(`/market-purchase/${entry.link_token}`, "_blank")}>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => window.open(`/purchase/${entry.link_token}`, "_blank")}>
                   <ExternalLink className="h-3 w-3" />
                 </Button>
               </div>
