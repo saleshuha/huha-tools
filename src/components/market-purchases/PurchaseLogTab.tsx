@@ -55,22 +55,20 @@ export function PurchaseLogTab() {
       (data || []).forEach((link: any) => {
         const items = Array.isArray(link.items) ? link.items : [];
         items.forEach((item: any) => {
-          if (item.supplier_name) {
-            entries.push({
-              id: `${link.id}-${item.asin || item.sku}`,
-              asin: item.asin || null,
-              sku: item.sku || null,
-              title: item.title || null,
-              qty: item.qty || 0,
-              unit_cost: item.unit_cost || 0,
-              supplier_name: item.supplier_name || null,
-              link_id: link.id,
-              link_title: link.title || "Untitled",
-              link_token: link.link_token,
-              link_created_at: link.created_at,
-              platform: link.platform,
-            });
-          }
+          entries.push({
+            id: `${link.id}-${item.asin || item.sku}`,
+            asin: item.asin || null,
+            sku: item.sku || null,
+            title: item.title || null,
+            qty: item.qty || 0,
+            unit_cost: item.unit_cost || 0,
+            supplier_name: item.supplier_name || null,
+            link_id: link.id,
+            link_title: link.title || "Untitled",
+            link_token: link.link_token,
+            link_created_at: link.created_at,
+            platform: link.platform,
+          });
         });
       });
       return entries;
