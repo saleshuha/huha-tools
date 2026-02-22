@@ -22,6 +22,7 @@ interface ConsolidatedItem {
   noonQty: number;
   totalQty: number;
   unitCost: number;
+  noonImageKey?: string;
 }
 
 const getAmazonFallbackUrl = (asin: string) =>
@@ -33,9 +34,13 @@ export function DailyOrdersTab() {
   const { links, deactivateLink } = useMarketPurchaseLinks();
   const { getImageByAsin } = useProductImages();
 
-  const getProductImageUrl = (asin: string): string | null => {
+  const getNoonImageUrl = (imageKey: string) =>
+    `https://z.nooncdn.com/tr:n-t_400/${imageKey}.jpg`;
+
+  const getProductImageUrl = (asin: string, noonImageKey?: string): string | null => {
     const img = getImageByAsin(asin);
     if (img) return img.image_url;
+    if (noonImageKey) return getNoonImageUrl(noonImageKey);
     return getAmazonFallbackUrl(asin);
   };
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
@@ -59,7 +64,7 @@ export function DailyOrdersTab() {
 
       const { data: noonOrders } = await supabase
         .from("noon_processing_orders")
-        .select("sku, title, quantity, partner_sku")
+        .select("sku, title, quantity, partner_sku, image_key")
         .eq("user_id", profile.id)
         .gte("created_at", `${selectedDate}T00:00:00`)
         .lt("created_at", `${selectedDate}T23:59:59.999`);
@@ -91,11 +96,12 @@ export function DailyOrdersTab() {
       (noonOrders || []).forEach((o: any) => {
         const key = findOrCreateKey(o.partner_sku, o.sku);
         if (!consolidated[key]) {
-          consolidated[key] = { asin: o.partner_sku || "", sku: o.sku || "", title: o.title || "", amazonQty: 0, noonQty: 0, totalQty: 0, unitCost: 0 };
+          consolidated[key] = { asin: o.partner_sku || "", sku: o.sku || "", title: o.title || "", amazonQty: 0, noonQty: 0, totalQty: 0, unitCost: 0, noonImageKey: o.image_key || undefined };
         }
         consolidated[key].noonQty += Number(o.quantity || 1);
         if (!consolidated[key].title && o.title) consolidated[key].title = o.title;
         if (!consolidated[key].asin && o.partner_sku) consolidated[key].asin = o.partner_sku;
+        if (!consolidated[key].noonImageKey && o.image_key) consolidated[key].noonImageKey = o.image_key;
       });
 
       const result = Object.values(consolidated);
@@ -254,7 +260,7 @@ export function DailyOrdersTab() {
                 <tr key={item.asin} className={`border-b border-border/50 hover:bg-muted/20 transition-colors ${idx % 2 === 0 ? "" : "bg-muted/10"}`}>
                    <td className="px-3 py-2">
                     {(() => {
-                      const imgUrl = item.asin ? getProductImageUrl(item.asin) : null;
+                      const imgUrl = item.asin ? getProductImageUrl(item.asin, item.noonImageKey) : (item.noonImageKey ? getNoonImageUrl(item.noonImageKey) : null);
                       const hasFailed = failedImages.has(item.asin);
                       return (
                         <div
