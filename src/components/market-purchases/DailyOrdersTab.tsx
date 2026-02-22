@@ -245,9 +245,7 @@ export function DailyOrdersTab() {
             <thead>
               <tr className="bg-muted/40 border-b border-border">
                 <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground w-[68px]"></th>
-                <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">ASIN</th>
-                <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">SKU</th>
-                <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Title</th>
+                <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Product</th>
                 <th className="text-center px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Source</th>
                 <th className="text-center px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Qty</th>
                 <th className="text-right px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Unit Cost</th>
@@ -281,9 +279,13 @@ export function DailyOrdersTab() {
                       );
                     })()}
                   </td>
-                  <td className="px-3 py-2.5 font-mono text-xs text-foreground">{item.asin}</td>
-                  <td className="px-3 py-2.5 text-xs text-muted-foreground">{item.sku}</td>
-                  <td className="px-3 py-2.5 text-xs max-w-[200px] truncate text-foreground">{item.title}</td>
+                  <td className="px-3 py-2.5">
+                    <div className="text-xs text-foreground leading-snug">{item.title}</div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="font-mono text-[10px] text-muted-foreground">{item.asin}</span>
+                      {item.sku && <span className="text-[10px] text-muted-foreground">· {item.sku}</span>}
+                    </div>
+                  </td>
                   <td className="px-3 py-2.5 text-center">
                     <div className="flex items-center justify-center gap-1">
                       {item.amazonQty > 0 && (
