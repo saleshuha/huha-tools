@@ -6482,6 +6482,13 @@ export type Database = {
           title: string
         }[]
       }
+      get_suppliers_for_user: {
+        Args: { p_user_id: string }
+        Returns: {
+          id: string
+          supplier_name: string
+        }[]
+      }
       get_unified_velocity_analysis: {
         Args: { country_filter?: string; lookback_days?: number }
         Returns: {
