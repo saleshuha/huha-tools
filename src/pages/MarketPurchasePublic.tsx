@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ShoppingCart, Package, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster as Sonner } from "@/components/ui/sonner";
+import { format } from "date-fns";
 
 interface LinkItem {
   asin: string;
@@ -18,6 +19,8 @@ interface LinkItem {
   unit_cost: number;
   noon_image_key?: string;
   supplier_name?: string;
+  last_cost_value?: number;
+  last_cost_date?: string;
 }
 
 interface SupplierOption {
@@ -63,7 +66,6 @@ export default function MarketPurchasePublic() {
 
     setLinkData(data);
     const linkItems = (data.items as any as LinkItem[]) || [];
-    setItems(linkItems);
 
     // Fetch suppliers for this user
     const { data: supplierData } = await supabase.rpc("get_suppliers_for_user" as any, {
@@ -73,8 +75,31 @@ export default function MarketPurchasePublic() {
       setSuppliers(supplierData as SupplierOption[]);
     }
 
-    // Fetch product images via RPC (bypasses RLS)
+    // Fetch last cost dates for all ASINs
     const asins = linkItems.map(i => i.asin).filter(Boolean);
+    if (asins.length > 0) {
+      const { data: costData } = await supabase.rpc("get_cost_dates_for_asins" as any, {
+        p_user_id: data.user_id,
+        p_asins: asins,
+      });
+      if (costData && Array.isArray(costData)) {
+        const costMap: Record<string, { unit_cost: number; updated_at: string }> = {};
+        for (const c of costData) {
+          costMap[c.asin] = { unit_cost: c.unit_cost, updated_at: c.updated_at };
+        }
+        for (const item of linkItems) {
+          const cost = costMap[item.asin];
+          if (cost) {
+            item.last_cost_value = cost.unit_cost;
+            item.last_cost_date = cost.updated_at;
+          }
+        }
+      }
+    }
+
+    setItems(linkItems);
+
+    // Fetch product images via RPC (bypasses RLS)
     const map: Record<string, string> = {};
 
     if (asins.length > 0) {
@@ -156,6 +181,13 @@ export default function MarketPurchasePublic() {
           );
       }
 
+      // Update local last cost info
+      setItems(prev => prev.map(i =>
+        i.asin === asin
+          ? { ...i, last_cost_value: i.unit_cost || 0, last_cost_date: new Date().toISOString() }
+          : i
+      ));
+
       setSavedRows(prev => ({ ...prev, [asin]: true }));
       setTimeout(() => setSavedRows(prev => ({ ...prev, [asin]: false })), 2000);
     } catch {
@@ -230,9 +262,26 @@ export default function MarketPurchasePublic() {
     />
   );
 
+  const LastCostInfo = ({ item }: { item: LinkItem }) => {
+    if (!item.last_cost_value && !item.last_cost_date) return null;
+    return (
+      <div className="text-[10px] text-muted-foreground mt-0.5">
+        {item.last_cost_value != null && item.last_cost_value > 0 && (
+          <span>Last: {item.last_cost_value.toFixed(2)}</span>
+        )}
+        {item.last_cost_date && (
+          <span>
+            {item.last_cost_value != null && item.last_cost_value > 0 ? " · " : ""}
+            {format(new Date(item.last_cost_date), "dd MMM yyyy")}
+          </span>
+        )}
+      </div>
+    );
+  };
+
   const renderDesktopTable = (tableItems: LinkItem[], tableTotal: number) => (
-    <div className="hidden md:block border rounded-lg overflow-auto bg-card">
-      <table className="w-full text-sm">
+    <div className="hidden lg:block border rounded-lg overflow-auto bg-card">
+      <table className="w-full text-sm" style={{ minWidth: 700 }}>
         <thead>
           <tr className="bg-muted/50 border-b">
             <th className="text-left px-3 py-2 font-medium text-muted-foreground w-12"></th>
@@ -262,7 +311,7 @@ export default function MarketPurchasePublic() {
                   value={item.supplier_name || ""}
                   onValueChange={(v) => handleSupplierChange(item.asin, v)}
                 >
-                  <SelectTrigger className="h-7 w-36 text-xs">
+                  <SelectTrigger className="h-7 w-full min-w-[120px] text-xs">
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
                   <SelectContent className="bg-popover z-50">
@@ -276,15 +325,18 @@ export default function MarketPurchasePublic() {
               </td>
               <td className="px-3 py-2 text-center font-medium">{item.qty}</td>
               <td className="px-3 py-2">
-                <Input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  className="h-7 w-24 text-xs ml-auto"
-                  value={item.unit_cost || ""}
-                  onChange={(e) => handleCostChange(item.asin, Number(e.target.value))}
-                  placeholder="0.00"
-                />
+                <div className="ml-auto w-full max-w-[100px]">
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    className="h-7 text-xs w-full"
+                    value={item.unit_cost || ""}
+                    onChange={(e) => handleCostChange(item.asin, Number(e.target.value))}
+                    placeholder="0.00"
+                  />
+                  <LastCostInfo item={item} />
+                </div>
               </td>
               <td className="px-3 py-2 text-right font-medium text-xs">
                 {(item.qty * item.unit_cost).toFixed(2)}
@@ -307,7 +359,7 @@ export default function MarketPurchasePublic() {
   );
 
   const renderMobileCards = (cardItems: LinkItem[], cardTotal: number) => (
-    <div className="md:hidden space-y-3">
+    <div className="lg:hidden space-y-3">
       {cardItems.map((item) => (
         <Card key={item.asin} className="border">
           <CardContent className="p-4">
@@ -358,6 +410,7 @@ export default function MarketPurchasePublic() {
                     onChange={(e) => handleCostChange(item.asin, Number(e.target.value))}
                     placeholder="0.00"
                   />
+                  <LastCostInfo item={item} />
                 </div>
                 <div className="text-right pb-2">
                   <span className="text-sm font-semibold text-foreground">

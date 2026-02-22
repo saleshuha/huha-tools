@@ -6092,6 +6092,14 @@ export type Database = {
           turnover_ratio: number
         }[]
       }
+      get_cost_dates_for_asins: {
+        Args: { p_asins: string[]; p_user_id: string }
+        Returns: {
+          asin: string
+          unit_cost: number
+          updated_at: string
+        }[]
+      }
       get_daily_sold_items_needing_orders: {
         Args: { country_filter?: string; target_date?: string }
         Returns: {

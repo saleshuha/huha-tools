@@ -249,97 +249,172 @@ export function DailyOrdersTab() {
           </p>
         </div>
       ) : (
-        <div className="border border-border rounded-xl overflow-hidden bg-card">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-muted/40 border-b border-border">
-                <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground w-[68px]"></th>
-                <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Product</th>
-                <th className="text-center px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Source</th>
-                <th className="text-center px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Qty</th>
-                <th className="text-right px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Unit Cost</th>
-                <th className="text-right px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Line Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item, idx) => (
-                <tr key={item.asin} className={`border-b border-border/50 hover:bg-muted/20 transition-colors ${idx % 2 === 0 ? "" : "bg-muted/10"}`}>
-                   <td className="px-3 py-2">
-                    {(() => {
-                      const imgUrl = item.asin ? getProductImageUrl(item.asin, item.noonImageKey) : (item.noonImageKey ? getNoonImageUrl(item.noonImageKey) : null);
-                      const hasFailed = failedImages.has(item.asin);
-                      return (
-                        <div
-                          className="h-14 w-14 rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all"
-                          onClick={() => imgUrl && !hasFailed && setPreviewImage({ url: imgUrl, title: item.title })}
-                        >
-                          {imgUrl && !hasFailed ? (
-                            <img
-                              src={imgUrl}
-                              alt={item.title}
-                              className="h-full w-full object-contain p-0.5"
-                              loading="lazy"
-                              onError={() => setFailedImages(prev => new Set(prev).add(item.asin))}
-                            />
-                          ) : (
-                            <ImageOff className="h-5 w-5 text-muted-foreground/40" />
-                          )}
+        <>
+          {/* Mobile Cards */}
+          <div className="md:hidden space-y-3">
+            {items.map((item, idx) => {
+              const imgUrl = item.asin ? getProductImageUrl(item.asin, item.noonImageKey) : (item.noonImageKey ? getNoonImageUrl(item.noonImageKey) : null);
+              const hasFailed = failedImages.has(item.asin);
+              return (
+                <Card key={item.asin || idx} className="border bg-card">
+                  <CardContent className="p-4">
+                    <div className="flex gap-3">
+                      <div
+                        className="h-16 w-16 rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all flex-shrink-0"
+                        onClick={() => imgUrl && !hasFailed && setPreviewImage({ url: imgUrl, title: item.title })}
+                      >
+                        {imgUrl && !hasFailed ? (
+                          <img src={imgUrl} alt={item.title} className="h-full w-full object-contain p-0.5" loading="lazy" onError={() => setFailedImages(prev => new Set(prev).add(item.asin))} />
+                        ) : (
+                          <ImageOff className="h-5 w-5 text-muted-foreground/40" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-foreground leading-snug font-medium">{item.title}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="font-mono text-xs text-muted-foreground">{item.asin}</span>
+                          {item.sku && <span className="text-xs text-muted-foreground">· {item.sku}</span>}
                         </div>
-                      );
-                    })()}
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <div className="text-xs text-foreground leading-snug">{item.title}</div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="font-mono text-[10px] text-muted-foreground">{item.asin}</span>
-                      {item.sku && <span className="text-[10px] text-muted-foreground">· {item.sku}</span>}
+                      </div>
                     </div>
-                  </td>
-                  <td className="px-3 py-2.5 text-center">
-                    <div className="flex items-center justify-center gap-1">
+
+                    <div className="mt-3 flex items-center gap-2 flex-wrap">
                       {item.amazonQty > 0 && (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded bg-muted">
-                          <span className="h-2 w-2 rounded-full bg-orange-500" />
-                          AMZ
+                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded bg-muted">
+                          <span className="h-2 w-2 rounded-full bg-orange-500" /> AMZ: {item.amazonQty}
                         </span>
                       )}
                       {item.noonQty > 0 && (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded bg-muted">
-                          <span className="h-2 w-2 rounded-full bg-yellow-500" />
-                          Noon
+                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded bg-muted">
+                          <span className="h-2 w-2 rounded-full bg-yellow-500" /> Noon: {item.noonQty}
                         </span>
                       )}
+                      <Badge variant="secondary" className="text-xs">Total: {item.totalQty}</Badge>
                     </div>
-                  </td>
-                  <td className="px-3 py-2.5 text-center font-bold text-foreground">{item.totalQty}</td>
-                  <td className="px-3 py-2.5 text-right">
-                    {item.unitCost > 0 ? (
+
+                    <div className="mt-3 flex items-center justify-between border-t border-border/50 pt-3">
                       <div>
-                        <span className="font-semibold text-foreground">{item.unitCost.toFixed(2)}</span>
-                        {item.costDate && (
-                          <div className="text-[10px] text-muted-foreground mt-0.5">
-                            {format(new Date(item.costDate), 'dd MMM yyyy')}
+                        <p className="text-xs text-muted-foreground">Unit Cost</p>
+                        {item.unitCost > 0 ? (
+                          <div>
+                            <span className="text-sm font-semibold text-foreground">{item.unitCost.toFixed(2)}</span>
+                            {item.costDate && (
+                              <span className="text-[10px] text-muted-foreground ml-1.5">
+                                {format(new Date(item.costDate), 'dd MMM yyyy')}
+                              </span>
+                            )}
                           </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
                         )}
                       </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2.5 text-right font-semibold text-foreground">{(item.totalQty * item.unitCost).toFixed(2)}</td>
+                      <div className="text-right">
+                        <p className="text-xs text-muted-foreground">Line Total</p>
+                        <span className="text-sm font-bold text-primary">{(item.totalQty * item.unitCost).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+            <div className="flex items-center justify-between px-4 py-3 bg-primary/5 rounded-lg border-2 border-primary/20 font-semibold text-sm">
+              <span className="text-muted-foreground">Grand Total ({items.reduce((s, i) => s + i.totalQty, 0)} items)</span>
+              <span className="text-primary text-lg">AED {grandTotal.toFixed(2)}</span>
+            </div>
+          </div>
+
+          {/* Desktop Table */}
+          <div className="hidden md:block border border-border rounded-xl overflow-hidden bg-card">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/40 border-b border-border">
+                  <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground w-[68px]"></th>
+                  <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Product</th>
+                  <th className="text-center px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Source</th>
+                  <th className="text-center px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Qty</th>
+                  <th className="text-right px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Unit Cost</th>
+                  <th className="text-right px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Line Total</th>
                 </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="bg-primary/5 border-t-2 border-primary/20">
-                <td colSpan={4} className="px-3 py-3 text-right font-semibold text-sm text-muted-foreground">Grand Total:</td>
-                <td className="px-3 py-3 text-center font-bold text-foreground">{items.reduce((s, i) => s + i.totalQty, 0)}</td>
-                <td />
-                <td className="px-3 py-3 text-right font-bold text-lg text-primary">AED {grandTotal.toFixed(2)}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {items.map((item, idx) => (
+                  <tr key={item.asin} className={`border-b border-border/50 hover:bg-muted/20 transition-colors ${idx % 2 === 0 ? "" : "bg-muted/10"}`}>
+                     <td className="px-3 py-2">
+                      {(() => {
+                        const imgUrl = item.asin ? getProductImageUrl(item.asin, item.noonImageKey) : (item.noonImageKey ? getNoonImageUrl(item.noonImageKey) : null);
+                        const hasFailed = failedImages.has(item.asin);
+                        return (
+                          <div
+                            className="h-14 w-14 rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                            onClick={() => imgUrl && !hasFailed && setPreviewImage({ url: imgUrl, title: item.title })}
+                          >
+                            {imgUrl && !hasFailed ? (
+                              <img
+                                src={imgUrl}
+                                alt={item.title}
+                                className="h-full w-full object-contain p-0.5"
+                                loading="lazy"
+                                onError={() => setFailedImages(prev => new Set(prev).add(item.asin))}
+                              />
+                            ) : (
+                              <ImageOff className="h-5 w-5 text-muted-foreground/40" />
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <div className="text-xs text-foreground leading-snug">{item.title}</div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="font-mono text-[10px] text-muted-foreground">{item.asin}</span>
+                        {item.sku && <span className="text-[10px] text-muted-foreground">· {item.sku}</span>}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        {item.amazonQty > 0 && (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded bg-muted">
+                            <span className="h-2 w-2 rounded-full bg-orange-500" />
+                            AMZ
+                          </span>
+                        )}
+                        {item.noonQty > 0 && (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded bg-muted">
+                            <span className="h-2 w-2 rounded-full bg-yellow-500" />
+                            Noon
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5 text-center font-bold text-foreground">{item.totalQty}</td>
+                    <td className="px-3 py-2.5 text-right">
+                      {item.unitCost > 0 ? (
+                        <div>
+                          <span className="font-semibold text-foreground">{item.unitCost.toFixed(2)}</span>
+                          {item.costDate && (
+                            <div className="text-[10px] text-muted-foreground mt-0.5">
+                              {format(new Date(item.costDate), 'dd MMM yyyy')}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-right font-semibold text-foreground">{(item.totalQty * item.unitCost).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-primary/5 border-t-2 border-primary/20">
+                  <td colSpan={4} className="px-3 py-3 text-right font-semibold text-sm text-muted-foreground">Grand Total:</td>
+                  <td className="px-3 py-3 text-center font-bold text-foreground">{items.reduce((s, i) => s + i.totalQty, 0)}</td>
+                  <td className="px-3 py-3 text-right font-bold text-lg text-primary">AED {grandTotal.toFixed(2)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </>
       )}
 
       {/* Generated Purchase Links Section */}
