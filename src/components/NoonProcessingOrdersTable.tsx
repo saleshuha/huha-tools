@@ -23,9 +23,11 @@ interface ProcessingOrder {
   file_upload_date?: string;
   order_received_at?: string;
   created_at: string;
+  image_key?: string;
 }
 
 const ALL_COLUMNS = [
+  { key: 'image', label: 'Image', default: true },
   { key: 'order_nr', label: 'Order Nr', default: true },
   { key: 'purchase_item_nr', label: 'Item Nr', default: true },
   { key: 'sku', label: 'SKU', default: true },
@@ -54,7 +56,7 @@ export function NoonProcessingOrdersTable({ selectedStoreId }: { selectedStoreId
       setLoading(true);
       let query = supabase
         .from('noon_processing_orders')
-        .select('id, order_nr, order_status, quantity, purchase_item_nr, sku, partner_sku, title, order_country_code, file_name, file_upload_date, order_received_at, created_at')
+        .select('id, order_nr, order_status, quantity, purchase_item_nr, sku, partner_sku, title, order_country_code, file_name, file_upload_date, order_received_at, created_at, image_key')
         .order('created_at', { ascending: false });
       
       // Filter by store if selectedStoreId is provided
@@ -280,7 +282,20 @@ export function NoonProcessingOrdersTable({ selectedStoreId }: { selectedStoreId
                       {visibleColumns.map((columnKey) => (
                         <td key={columnKey} className="p-4 text-sm">
                           {(() => {
-                            switch (columnKey) {
+                        switch (columnKey) {
+                              case 'image':
+                                return order.image_key ? (
+                                  <img
+                                    src={`https://z.nooncdn.com/tr:n-t_400/${order.image_key}.jpg`}
+                                    alt={order.title || 'Product'}
+                                    className="w-10 h-10 object-contain rounded border bg-white"
+                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 rounded border bg-muted flex items-center justify-center">
+                                    <Package className="w-5 h-5 text-muted-foreground" />
+                                  </div>
+                                );
                               case 'order_nr':
                                 return <span className="font-mono font-medium text-foreground">{order.order_nr}</span>;
                               case 'purchase_item_nr':
