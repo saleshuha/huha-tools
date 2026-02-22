@@ -228,7 +228,7 @@ export function DailyOrdersTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-muted/40 border-b border-border">
-                <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground w-[52px]"></th>
+                <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground w-[68px]"></th>
                 <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">ASIN</th>
                 <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">SKU</th>
                 <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Title</th>
@@ -242,18 +242,18 @@ export function DailyOrdersTab() {
             <tbody>
               {items.map((item, idx) => (
                 <tr key={item.asin} className={`border-b border-border/50 hover:bg-muted/20 transition-colors ${idx % 2 === 0 ? "" : "bg-muted/10"}`}>
-                  <td className="px-3 py-2">
-                    <div className="h-10 w-10 rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden">
+                   <td className="px-3 py-2">
+                    <div className="h-14 w-14 rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden">
                       {item.asin && !failedImages.has(item.asin) ? (
                         <img
                           src={getProductImageUrl(item.asin)}
                           alt={item.title}
-                          className="h-full w-full object-contain"
+                          className="h-full w-full object-contain p-0.5"
                           loading="lazy"
                           onError={() => setFailedImages(prev => new Set(prev).add(item.asin))}
                         />
                       ) : (
-                        <ImageOff className="h-4 w-4 text-muted-foreground/40" />
+                        <ImageOff className="h-5 w-5 text-muted-foreground/40" />
                       )}
                     </div>
                   </td>
@@ -323,25 +323,25 @@ export function DailyOrdersTab() {
                   <CardContent className="py-3 px-4">
                     <div className="flex items-start gap-3">
                       {/* Preview thumbnails */}
-                      <div className="flex -space-x-2 flex-shrink-0 pt-0.5">
-                        {linkItems.slice(0, 3).map((item: any, i: number) => (
-                          <div key={i} className="h-9 w-9 rounded-lg border-2 border-card bg-muted/30 overflow-hidden flex items-center justify-center" style={{ zIndex: 3 - i }}>
+                      <div className="flex -space-x-3 flex-shrink-0 pt-0.5">
+                        {linkItems.slice(0, 4).map((item: any, i: number) => (
+                          <div key={i} className="h-12 w-12 rounded-lg border-2 border-card bg-muted/30 overflow-hidden flex items-center justify-center shadow-sm" style={{ zIndex: 4 - i }}>
                             {item.asin && !failedImages.has(`link-${item.asin}`) ? (
                               <img
                                 src={getProductImageUrl(item.asin)}
                                 alt={item.title || item.asin}
-                                className="h-full w-full object-contain"
+                                className="h-full w-full object-contain p-0.5"
                                 loading="lazy"
                                 onError={() => setFailedImages(prev => new Set(prev).add(`link-${item.asin}`))}
                               />
                             ) : (
-                              <Package className="h-3.5 w-3.5 text-muted-foreground/40" />
+                              <Package className="h-4 w-4 text-muted-foreground/40" />
                             )}
                           </div>
                         ))}
-                        {itemCount > 3 && (
-                          <div className="h-9 w-9 rounded-lg border-2 border-card bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground">
-                            +{itemCount - 3}
+                        {itemCount > 4 && (
+                          <div className="h-12 w-12 rounded-lg border-2 border-card bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground shadow-sm">
+                            +{itemCount - 4}
                           </div>
                         )}
                       </div>
