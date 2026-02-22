@@ -51,19 +51,46 @@ export default function MarketPurchasePublic() {
 
     // Fetch product images via RPC (bypasses RLS)
     const asins = linkItems.map(i => i.asin).filter(Boolean);
+    const skus = linkItems.map(i => i.sku).filter(Boolean);
+    const map: Record<string, string> = {};
+
     if (asins.length > 0) {
       const { data: images } = await supabase.rpc("get_product_images_for_asins" as any, {
         p_user_id: data.user_id,
         p_asins: asins,
       });
       if (images && Array.isArray(images)) {
-        const map: Record<string, string> = {};
         for (const img of images) {
           map[img.asin] = img.image_url;
         }
-        setImageMap(map);
       }
     }
+
+    // Fetch noon images for items missing from product_images
+    const missingSkus = linkItems
+      .filter(i => !map[i.asin] && i.sku)
+      .map(i => i.sku);
+    if (missingSkus.length > 0) {
+      const { data: noonImages } = await supabase.rpc("get_noon_images_for_skus" as any, {
+        p_user_id: data.user_id,
+        p_skus: missingSkus,
+      });
+      if (noonImages && Array.isArray(noonImages)) {
+        // Map SKU back to ASIN
+        const skuToAsin: Record<string, string> = {};
+        for (const item of linkItems) {
+          if (item.sku) skuToAsin[item.sku] = item.asin;
+        }
+        for (const img of noonImages) {
+          const asin = skuToAsin[img.sku];
+          if (asin && !map[asin]) {
+            map[asin] = img.image_url;
+          }
+        }
+      }
+    }
+
+    setImageMap(map);
 
     setLoading(false);
   };
