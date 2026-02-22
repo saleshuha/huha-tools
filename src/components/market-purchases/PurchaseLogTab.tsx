@@ -117,19 +117,27 @@ export function PurchaseLogTab() {
 
   return (
     <div className="space-y-4">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { label: "Assigned Items", value: stats.count, icon: Package },
-          { label: "Total Qty", value: stats.totalQty, icon: Package },
-          { label: "Suppliers", value: stats.suppliers || "—", icon: Users },
-          { label: "Total Cost", value: stats.totalCost > 0 ? `AED ${stats.totalCost.toFixed(0)}` : "—", icon: Package },
-        ].map((card) => (
-          <div key={card.label} className="p-3 rounded-xl bg-card border border-border">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">{card.label}</p>
-            <p className="text-lg font-bold text-foreground mt-0.5">{card.value}</p>
-          </div>
-        ))}
+      {/* Compact Stat Bar */}
+      <div className="flex items-center gap-3 p-2.5 rounded-xl bg-card border border-border overflow-x-auto">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 flex-shrink-0">
+          <Package className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Items</span>
+          <span className="text-sm font-bold text-foreground">{stats.count}</span>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 flex-shrink-0">
+          <span className="text-xs text-muted-foreground">Qty</span>
+          <span className="text-sm font-bold text-foreground">{stats.totalQty}</span>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 flex-shrink-0">
+          <Users className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Suppliers</span>
+          <span className="text-sm font-bold text-foreground">{stats.suppliers || "—"}</span>
+        </div>
+        <div className="flex-1" />
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 flex-shrink-0">
+          <span className="text-xs text-muted-foreground">Total</span>
+          <span className="text-sm font-bold text-primary">{stats.totalCost > 0 ? `AED ${stats.totalCost.toFixed(2)}` : "—"}</span>
+        </div>
       </div>
 
       {/* Toolbar */}
@@ -200,110 +208,136 @@ export function PurchaseLogTab() {
             <p className="text-sm text-muted-foreground mt-1">Items will appear here once suppliers are assigned via daily orders purchase links.</p>
           </div>
         ) : (
-          filtered.map((entry) => (
-            <div
-              key={entry.id}
-              className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card hover:bg-muted/20 transition-colors"
-            >
-              {/* Image */}
-              {entry.asin && (
-                <div
-                  className="h-11 w-11 rounded-lg border overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all flex-shrink-0 bg-muted/30"
-                  onClick={() =>
-                    setPreviewImage({ url: getImgUrl(entry.asin!, "lg"), title: entry.title || entry.asin! })
-                  }
-                >
-                  <img
-                    src={getImgUrl(entry.asin, "sm")}
-                    alt=""
-                    className="h-full w-full object-contain"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                  />
-                </div>
-              )}
-
-              {/* Info */}
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-foreground truncate">{entry.title || "Untitled"}</p>
-                <div className="flex items-center gap-2 mt-0.5 min-w-0 overflow-hidden">
-                  {entry.asin && (
-                    <span className="font-mono text-[10px] text-muted-foreground truncate max-w-[110px]">{entry.asin}</span>
-                  )}
-                  {entry.sku && (
-                    <span className="text-[10px] text-muted-foreground truncate max-w-[90px]">· {entry.sku}</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  {entry.supplier_name && (
-                    <Badge variant="outline" className="text-[9px] h-4 px-1.5 font-medium">
-                      {entry.supplier_name}
-                    </Badge>
-                  )}
-                  <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">
-                    {entry.link_title}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    {format(new Date(entry.link_created_at), "dd MMM yyyy, hh:mm a")}
-                  </span>
-                </div>
-              </div>
-
-              {/* Qty & Cost */}
-              <div className="text-right flex-shrink-0">
-                <p className="text-xs font-semibold">Qty: {entry.qty}</p>
-                {entry.unit_cost > 0 && (
-                  <>
-                    <p className="text-[10px] text-muted-foreground">× AED {entry.unit_cost.toFixed(2)}</p>
-                    <p className="text-[10px] text-primary font-bold">
-                      AED {(entry.unit_cost * entry.qty).toFixed(2)}
-                    </p>
-                  </>
+          <>
+            {/* Desktop Table */}
+            <div className="hidden md:block border border-border rounded-xl overflow-hidden bg-card">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-muted/40 border-b border-border">
+                    <th className="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground w-[52px]"></th>
+                    <th className="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Product</th>
+                    <th className="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Supplier</th>
+                    <th className="text-center px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Qty</th>
+                    <th className="text-right px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Cost</th>
+                    <th className="text-right px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Total</th>
+                    <th className="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Date</th>
+                    <th className="px-2 py-2.5 w-20" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((entry, idx) => (
+                    <tr key={entry.id} className={`border-b border-border/50 hover:bg-muted/20 transition-colors ${idx % 2 !== 0 ? "bg-muted/10" : ""}`}>
+                      <td className="px-3 py-2">
+                        {entry.asin && (
+                          <div
+                            className="h-10 w-10 rounded-md border overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all bg-muted/30"
+                            onClick={() => setPreviewImage({ url: getImgUrl(entry.asin!, "lg"), title: entry.title || entry.asin! })}
+                          >
+                            <img src={getImgUrl(entry.asin, "sm")} alt="" className="h-full w-full object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        <p className="text-xs font-medium text-foreground truncate max-w-[200px]">{entry.title || "Untitled"}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {entry.asin && <span className="font-mono text-[10px] text-muted-foreground">{entry.asin}</span>}
+                          {entry.sku && <span className="text-[10px] text-muted-foreground">· {entry.sku}</span>}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <Badge variant="outline" className="text-[10px] font-medium">{entry.supplier_name || "—"}</Badge>
+                      </td>
+                      <td className="px-3 py-2 text-center font-semibold">{entry.qty}</td>
+                      <td className="px-3 py-2 text-right text-xs">{entry.unit_cost > 0 ? `AED ${entry.unit_cost.toFixed(2)}` : "—"}</td>
+                      <td className="px-3 py-2 text-right text-xs font-semibold text-primary">
+                        {entry.unit_cost > 0 ? `AED ${(entry.unit_cost * entry.qty).toFixed(2)}` : "—"}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
+                        {format(new Date(entry.link_created_at), "dd MMM yyyy")}
+                      </td>
+                      <td className="px-2 py-2">
+                        <div className="flex gap-0.5" onClick={(e) => e.stopPropagation()}>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyLink(entry.link_token)}>
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => window.open(`/market-purchase/${entry.link_token}`, "_blank")}>
+                            <ExternalLink className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-destructive hover:text-destructive"
+                            onClick={async () => {
+                              try {
+                                const { data: link } = await supabase
+                                  .from("market_purchase_links")
+                                  .select("items")
+                                  .eq("id", entry.link_id)
+                                  .single();
+                                if (link) {
+                                  const updatedItems = (link.items as any[]).map((item: any) =>
+                                    (item.asin === entry.asin && item.sku === entry.sku)
+                                      ? { ...item, supplier_name: undefined }
+                                      : item
+                                  );
+                                  await supabase
+                                    .from("market_purchase_links")
+                                    .update({ items: updatedItems as any })
+                                    .eq("id", entry.link_id);
+                                }
+                                refetch();
+                                toast.success("Entry removed");
+                              } catch {
+                                toast.error("Failed to remove");
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                {stats.totalCost > 0 && (
+                  <tfoot>
+                    <tr className="bg-primary/5 border-t-2 border-primary/20">
+                      <td colSpan={5} className="px-3 py-2.5 text-right font-semibold text-xs text-muted-foreground">Grand Total:</td>
+                      <td className="px-3 py-2.5 text-right font-bold text-primary">AED {stats.totalCost.toFixed(2)}</td>
+                      <td colSpan={2} />
+                    </tr>
+                  </tfoot>
                 )}
-              </div>
-
-              {/* Actions */}
-              <div className="flex flex-col gap-0.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyLink(entry.link_token)}>
-                  <Copy className="h-3 w-3" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => window.open(`/market-purchase/${entry.link_token}`, "_blank")}>
-                  <ExternalLink className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 text-destructive hover:text-destructive"
-                  onClick={async () => {
-                    try {
-                      // Remove supplier_name from the item in the link's JSONB
-                      const { data: link } = await supabase
-                        .from("market_purchase_links")
-                        .select("items")
-                        .eq("id", entry.link_id)
-                        .single();
-                      if (link) {
-                        const updatedItems = (link.items as any[]).map((item: any) =>
-                          (item.asin === entry.asin && item.sku === entry.sku)
-                            ? { ...item, supplier_name: undefined }
-                            : item
-                        );
-                        await supabase
-                          .from("market_purchase_links")
-                          .update({ items: updatedItems as any })
-                          .eq("id", entry.link_id);
-                      }
-                      refetch();
-                      toast.success("Entry removed");
-                    } catch {
-                      toast.error("Failed to remove");
-                    }
-                  }}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
+              </table>
             </div>
-          ))
+
+            {/* Mobile Cards */}
+            <div className="md:hidden space-y-2">
+              {filtered.map((entry) => (
+                <div key={entry.id} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card hover:bg-muted/20 transition-colors">
+                  {entry.asin && (
+                    <div
+                      className="h-11 w-11 rounded-lg border overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all flex-shrink-0 bg-muted/30"
+                      onClick={() => setPreviewImage({ url: getImgUrl(entry.asin!, "lg"), title: entry.title || entry.asin! })}
+                    >
+                      <img src={getImgUrl(entry.asin, "sm")} alt="" className="h-full w-full object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-foreground truncate">{entry.title || "Untitled"}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {entry.supplier_name && <Badge variant="outline" className="text-[9px] h-4 px-1.5">{entry.supplier_name}</Badge>}
+                      <span className="text-[10px] text-muted-foreground">{format(new Date(entry.link_created_at), "dd MMM yyyy")}</span>
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-xs font-semibold">Qty: {entry.qty}</p>
+                    {entry.unit_cost > 0 && <p className="text-[10px] text-primary font-bold">AED {(entry.unit_cost * entry.qty).toFixed(2)}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 

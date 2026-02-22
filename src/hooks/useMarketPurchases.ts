@@ -147,66 +147,9 @@ export function useMarketPurchases(filters?: {
     },
   });
 
-  // Credit balance data: sum unreconciled purchases per supplier
-  const creditBalancesQuery = useQuery({
-    queryKey: ["market_credit_balances", profile?.id],
-    queryFn: async () => {
-      if (!profile?.id) return [];
-
-      const { data, error } = await supabase
-        .from("market_purchases")
-        .select(`
-          supplier_id,
-          purchase_date,
-          total_estimated_cost,
-          supplier:suppliers(supplier_name, company_name)
-        `)
-        .eq("user_id", profile.id)
-        .in("status", ["confirmed", "draft"]);
-
-      if (error) throw error;
-
-      // Group by supplier
-      const grouped: Record<
-        string,
-        {
-          supplier_id: string;
-          supplier_name: string;
-          total_amount: number;
-          purchase_count: number;
-          oldest_date: string;
-        }
-      > = {};
-
-      (data || []).forEach((row: any) => {
-        const sid = row.supplier_id || "__no_supplier__";
-        const name = row.supplier?.supplier_name || "Unknown Supplier";
-        if (!grouped[sid]) {
-          grouped[sid] = {
-            supplier_id: sid,
-            supplier_name: name,
-            total_amount: 0,
-            purchase_count: 0,
-            oldest_date: row.purchase_date,
-          };
-        }
-        grouped[sid].total_amount += Number(row.total_estimated_cost || 0);
-        grouped[sid].purchase_count += 1;
-        if (row.purchase_date < grouped[sid].oldest_date) {
-          grouped[sid].oldest_date = row.purchase_date;
-        }
-      });
-
-      return Object.values(grouped);
-    },
-    enabled: !!profile?.id,
-  });
-
   return {
     purchases: purchasesQuery.data || [],
     isLoading: purchasesQuery.isLoading,
-    creditBalances: creditBalancesQuery.data || [],
-    creditBalancesLoading: creditBalancesQuery.isLoading,
     createPurchase,
     updatePurchaseStatus,
     deletePurchase,

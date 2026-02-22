@@ -248,6 +248,7 @@ export function ItemCostsTab() {
             <thead>
               <tr className="bg-muted/40 border-b border-border">
                 <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Product</th>
+                <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Supplier</th>
                 <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Current Cost</th>
                 <th className="text-right px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground whitespace-nowrap">History 1</th>
                 <th className="text-right px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground whitespace-nowrap">History 2</th>
@@ -285,6 +286,15 @@ export function ItemCostsTab() {
                       </div>
                     </td>
 
+                    {/* Supplier */}
+                    <td className="px-3 py-2.5">
+                      {c.supplier_name ? (
+                        <Badge variant="outline" className="text-[10px] font-medium">{c.supplier_name}</Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground/50">—</span>
+                      )}
+                    </td>
+
                     {/* Current Cost */}
                     <td className="px-4 py-2.5 text-right">
                       <div>
@@ -300,6 +310,9 @@ export function ItemCostsTab() {
                           <div>
                             <p className="text-xs font-medium text-foreground">AED {history[i].unit_cost.toFixed(2)}</p>
                             <p className="text-[10px] text-muted-foreground">{format(new Date(history[i].recorded_date), "dd MMM")}</p>
+                            {history[i].supplier_name && (
+                              <p className="text-[9px] text-muted-foreground/70 truncate max-w-[80px]">{history[i].supplier_name}</p>
+                            )}
                           </div>
                         ) : (
                           <span className="text-xs text-muted-foreground/50">—</span>
