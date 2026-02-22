@@ -55,6 +55,7 @@ export function PurchaseLogTab() {
       (data || []).forEach((link: any) => {
         const items = Array.isArray(link.items) ? link.items : [];
         items.forEach((item: any) => {
+          if (!item.supplier_name) return;
           entries.push({
             id: `${link.id}-${item.asin || item.sku}`,
             asin: item.asin || null,
