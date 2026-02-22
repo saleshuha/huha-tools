@@ -248,9 +248,8 @@ export function DailyOrdersTab() {
                 <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">ASIN</th>
                 <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">SKU</th>
                 <th className="text-left px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Title</th>
-                <th className="text-center px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">AMZ</th>
-                <th className="text-center px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Noon</th>
-                <th className="text-center px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Total</th>
+                <th className="text-center px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Source</th>
+                <th className="text-center px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Qty</th>
                 <th className="text-right px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Unit Cost</th>
                 <th className="text-right px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Line Total</th>
               </tr>
@@ -286,20 +285,20 @@ export function DailyOrdersTab() {
                   <td className="px-3 py-2.5 text-xs text-muted-foreground">{item.sku}</td>
                   <td className="px-3 py-2.5 text-xs max-w-[200px] truncate text-foreground">{item.title}</td>
                   <td className="px-3 py-2.5 text-center">
-                    {item.amazonQty > 0 && (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium">
-                        <span className="h-2 w-2 rounded-full bg-orange-500" />
-                        {item.amazonQty}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2.5 text-center">
-                    {item.noonQty > 0 && (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium">
-                        <span className="h-2 w-2 rounded-full bg-yellow-500" />
-                        {item.noonQty}
-                      </span>
-                    )}
+                    <div className="flex items-center justify-center gap-1">
+                      {item.amazonQty > 0 && (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded bg-muted">
+                          <span className="h-2 w-2 rounded-full bg-orange-500" />
+                          AMZ
+                        </span>
+                      )}
+                      {item.noonQty > 0 && (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded bg-muted">
+                          <span className="h-2 w-2 rounded-full bg-yellow-500" />
+                          Noon
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-3 py-2.5 text-center font-bold text-foreground">{item.totalQty}</td>
                   <td className="px-3 py-2.5">
