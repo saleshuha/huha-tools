@@ -1,12 +1,16 @@
 import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Plus, Upload, Search, Trash2, Pencil, Link, ShoppingCart, Check, X, Package, DollarSign, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { useMarketItemCosts } from "@/hooks/useMarketItemCosts";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { supabase } from "@/integrations/supabase/client";
 import { AddCostDialog } from "./AddCostDialog";
 import { BulkCostUploadDialog } from "./BulkCostUploadDialog";
+import { format } from "date-fns";
 
 const sourceConfig: Record<string, { icon: React.ReactNode; label: string; className: string }> = {
   manual: { icon: <Pencil className="h-3 w-3" />, label: "Manual", className: "bg-sky-500/10 text-sky-700 border-sky-200" },
@@ -14,13 +18,51 @@ const sourceConfig: Record<string, { icon: React.ReactNode; label: string; class
   purchase: { icon: <ShoppingCart className="h-3 w-3" />, label: "Purchase", className: "bg-emerald-500/10 text-emerald-700 border-emerald-200" },
 };
 
+interface CostHistoryEntry {
+  asin: string;
+  unit_cost: number;
+  recorded_date: string;
+  supplier_name: string | null;
+}
+
+function getImgUrl(asin: string) {
+  return `https://m.media-amazon.com/images/P/${asin}.01._SCLZZZZZZZ_SX44_.jpg`;
+}
+
 export function ItemCostsTab() {
   const [search, setSearch] = useState("");
   const { costs, isLoading, deleteCost, upsertCost } = useMarketItemCosts(search);
+  const { profile } = useUserProfile();
   const [addOpen, setAddOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editCost, setEditCost] = useState<number>(0);
+
+  // Fetch cost history for all tracked ASINs
+  const { data: costHistory = [] } = useQuery({
+    queryKey: ["asin_cost_history_all", profile?.id],
+    queryFn: async () => {
+      if (!profile?.id) return [];
+      const { data, error } = await supabase
+        .from("asin_cost_history")
+        .select("asin, unit_cost, recorded_date, supplier_name")
+        .eq("user_id", profile.id)
+        .order("recorded_date", { ascending: false });
+      if (error) throw error;
+      return (data || []) as CostHistoryEntry[];
+    },
+    enabled: !!profile?.id,
+  });
+
+  // Group history by ASIN (most recent 3 per ASIN)
+  const historyByAsin = useMemo(() => {
+    const map: Record<string, CostHistoryEntry[]> = {};
+    costHistory.forEach((h) => {
+      if (!map[h.asin]) map[h.asin] = [];
+      if (map[h.asin].length < 3) map[h.asin].push(h);
+    });
+    return map;
+  }, [costHistory]);
 
   const avgCost = useMemo(() => {
     if (costs.length === 0) return 0;
@@ -127,24 +169,45 @@ export function ItemCostsTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-muted/40 border-b border-border">
-                <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">ASIN</th>
-                <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">SKU</th>
-                <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Title</th>
-                <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Unit Cost</th>
-                <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Supplier</th>
-                <th className="text-center px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Source</th>
-                <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Updated</th>
-                <th className="px-2 py-3 w-20" />
+                <th className="text-left px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Product</th>
+                <th className="text-right px-4 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Current Cost</th>
+                <th className="text-right px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground whitespace-nowrap">History 1</th>
+                <th className="text-right px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground whitespace-nowrap">History 2</th>
+                <th className="text-right px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground whitespace-nowrap">History 3</th>
+                <th className="text-center px-3 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Source</th>
+                <th className="px-2 py-3 w-16" />
               </tr>
             </thead>
             <tbody>
               {costs.map((c, idx) => {
                 const src = sourceConfig[c.source] || sourceConfig.manual;
+                const history = historyByAsin[c.asin] || [];
                 return (
                   <tr key={c.id} className={`group border-b border-border/50 hover:bg-muted/20 transition-colors ${idx % 2 === 0 ? "" : "bg-muted/10"}`}>
-                    <td className="px-4 py-2.5 font-mono text-xs">{c.asin}</td>
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground">{c.sku || "—"}</td>
-                    <td className="px-4 py-2.5 text-xs max-w-[200px] truncate">{c.title || "—"}</td>
+                    {/* Product Column */}
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="h-9 w-9 rounded-md border overflow-hidden flex-shrink-0 bg-muted/30">
+                          <img
+                            src={getImgUrl(c.asin)}
+                            alt=""
+                            className="h-full w-full object-contain"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-foreground truncate max-w-[260px]">{c.title || "—"}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="font-mono text-[10px] text-muted-foreground">{c.asin}</span>
+                            {c.sku && (
+                              <span className="text-[10px] text-muted-foreground">· {c.sku}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Current Cost */}
                     <td className="px-4 py-2.5 text-right">
                       {editingId === c.id ? (
                         <div className="flex items-center gap-1 justify-end">
@@ -166,19 +229,35 @@ export function ItemCostsTab() {
                           </Button>
                         </div>
                       ) : (
-                        <span className="cursor-pointer hover:text-primary transition-colors font-medium" onClick={() => handleInlineEdit(c.id, c.unit_cost)}>
+                        <span className="cursor-pointer hover:text-primary transition-colors font-semibold text-xs" onClick={() => handleInlineEdit(c.id, c.unit_cost)}>
                           AED {c.unit_cost.toFixed(2)}
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground">{c.supplier_name || "—"}</td>
-                    <td className="px-4 py-2.5 text-center">
+
+                    {/* History Columns */}
+                    {[0, 1, 2].map((i) => (
+                      <td key={i} className="px-3 py-2.5 text-right">
+                        {history[i] ? (
+                          <div>
+                            <p className="text-xs font-medium text-foreground">AED {history[i].unit_cost.toFixed(2)}</p>
+                            <p className="text-[10px] text-muted-foreground">{format(new Date(history[i].recorded_date), "dd MMM")}</p>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground/50">—</span>
+                        )}
+                      </td>
+                    ))}
+
+                    {/* Source */}
+                    <td className="px-3 py-2.5 text-center">
                       <Badge variant="outline" className={`text-[10px] gap-1 ${src.className}`}>
                         {src.icon}
                         {src.label}
                       </Badge>
                     </td>
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground">{new Date(c.updated_at).toLocaleDateString()}</td>
+
+                    {/* Actions */}
                     <td className="px-2 py-2.5">
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleInlineEdit(c.id, c.unit_cost)}>
