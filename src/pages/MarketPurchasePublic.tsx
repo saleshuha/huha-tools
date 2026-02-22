@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ShoppingCart, Package, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -34,6 +35,13 @@ export default function MarketPurchasePublic() {
   const [savingRows, setSavingRows] = useState<Record<string, boolean>>({});
   const [savedRows, setSavedRows] = useState<Record<string, boolean>>({});
   const saveTimers = useRef<Record<string, NodeJS.Timeout>>({});
+
+  const pendingItems = useMemo(() => items.filter(i => !i.supplier_name), [items]);
+  const assignedItems = useMemo(() => items.filter(i => !!i.supplier_name), [items]);
+
+  const pendingTotal = useMemo(() => pendingItems.reduce((s, i) => s + i.qty * i.unit_cost, 0), [pendingItems]);
+  const assignedTotal = useMemo(() => assignedItems.reduce((s, i) => s + i.qty * i.unit_cost, 0), [assignedItems]);
+  const total = pendingTotal + assignedTotal;
 
   useEffect(() => {
     if (!token) return;
@@ -129,9 +137,9 @@ export default function MarketPurchasePublic() {
 
       if (error) throw error;
 
-      // Upsert cost into market_item_costs for the item
+      // Upsert cost into market_item_costs if cost > 0 OR supplier assigned
       const item = updatedItems.find(i => i.asin === asin);
-      if (item && item.unit_cost > 0) {
+      if (item && (item.unit_cost > 0 || item.supplier_name)) {
         await supabase
           .from("market_item_costs")
           .upsert(
@@ -140,7 +148,7 @@ export default function MarketPurchasePublic() {
               asin: item.asin,
               sku: item.sku,
               title: item.title,
-              unit_cost: item.unit_cost,
+              unit_cost: item.unit_cost || 0,
               supplier_name: item.supplier_name || null,
               source: "link",
             },
@@ -178,8 +186,6 @@ export default function MarketPurchasePublic() {
     });
   };
 
-  const total = items.reduce((s, i) => s + i.qty * i.unit_cost, 0);
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -203,8 +209,176 @@ export default function MarketPurchasePublic() {
   }
 
   const RowStatus = ({ asin }: { asin: string }) => (
-    savingRows[asin] ? <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" /> :
-    savedRows[asin] ? <Check className="h-3 w-3 text-green-500" /> : null
+    savingRows[asin] ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /> :
+    savedRows[asin] ? <Check className="h-3.5 w-3.5 text-primary" /> : null
+  );
+
+  const ItemImage = ({ item }: { item: LinkItem; className?: string }) => (
+    <img
+      src={imageMap[item.asin] || `https://m.media-amazon.com/images/P/${item.asin}.01._SCLZZZZZZZ_SX44_.jpg`}
+      alt={item.title}
+      className="object-contain rounded border bg-white"
+      onError={(e) => {
+        const el = e.target as HTMLImageElement;
+        const fallback = `https://m.media-amazon.com/images/P/${item.asin}.01._SCLZZZZZZZ_SX44_.jpg`;
+        if (el.src !== fallback && imageMap[item.asin]) {
+          el.src = fallback;
+        } else {
+          el.style.display = 'none';
+        }
+      }}
+    />
+  );
+
+  const renderDesktopTable = (tableItems: LinkItem[], tableTotal: number) => (
+    <div className="hidden md:block border rounded-lg overflow-auto bg-card">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="bg-muted/50 border-b">
+            <th className="text-left px-3 py-2 font-medium text-muted-foreground w-12"></th>
+            <th className="text-left px-3 py-2 font-medium text-muted-foreground">Product</th>
+            <th className="text-left px-3 py-2 font-medium text-muted-foreground">Supplier</th>
+            <th className="text-center px-3 py-2 font-medium text-muted-foreground">Qty</th>
+            <th className="text-right px-3 py-2 font-medium text-muted-foreground">Unit Cost</th>
+            <th className="text-right px-3 py-2 font-medium text-muted-foreground">Total</th>
+            <th className="w-8"></th>
+          </tr>
+        </thead>
+        <tbody className="divide-y">
+          {tableItems.map((item) => (
+            <tr key={item.asin} className="hover:bg-muted/20">
+              <td className="px-3 py-2">
+                <div className="w-10 h-10"><ItemImage item={item} /></div>
+              </td>
+              <td className="px-3 py-2">
+                <div className="text-xs text-foreground leading-snug">{item.title}</div>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="font-mono text-[10px] text-muted-foreground">{item.asin}</span>
+                  {item.sku && <span className="text-[10px] text-muted-foreground">· {item.sku}</span>}
+                </div>
+              </td>
+              <td className="px-3 py-2">
+                <Select
+                  value={item.supplier_name || ""}
+                  onValueChange={(v) => handleSupplierChange(item.asin, v)}
+                >
+                  <SelectTrigger className="h-7 w-36 text-xs">
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover z-50">
+                    {suppliers.map((s) => (
+                      <SelectItem key={s.id} value={s.supplier_name} className="text-xs">
+                        {s.supplier_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </td>
+              <td className="px-3 py-2 text-center font-medium">{item.qty}</td>
+              <td className="px-3 py-2">
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  className="h-7 w-24 text-xs ml-auto"
+                  value={item.unit_cost || ""}
+                  onChange={(e) => handleCostChange(item.asin, Number(e.target.value))}
+                  placeholder="0.00"
+                />
+              </td>
+              <td className="px-3 py-2 text-right font-medium text-xs">
+                {(item.qty * item.unit_cost).toFixed(2)}
+              </td>
+              <td className="px-2 py-2"><RowStatus asin={item.asin} /></td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="bg-muted/30 border-t font-semibold">
+            <td colSpan={3} />
+            <td className="px-3 py-2 text-center">{tableItems.reduce((s, i) => s + i.qty, 0)}</td>
+            <td />
+            <td className="px-3 py-2 text-right text-primary">AED {tableTotal.toFixed(2)}</td>
+            <td />
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+
+  const renderMobileCards = (cardItems: LinkItem[], cardTotal: number) => (
+    <div className="md:hidden space-y-3">
+      {cardItems.map((item) => (
+        <Card key={item.asin} className="border">
+          <CardContent className="p-4">
+            <div className="flex gap-4">
+              <div className="w-20 h-20 flex-shrink-0">
+                <ItemImage item={item} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-foreground leading-snug font-medium">{item.title}</p>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <span className="font-mono text-xs text-muted-foreground">{item.asin}</span>
+                  {item.sku && <span className="text-xs text-muted-foreground">· {item.sku}</span>}
+                </div>
+                <Badge variant="secondary" className="text-xs mt-1.5">Qty: {item.qty}</Badge>
+              </div>
+              <RowStatus asin={item.asin} />
+            </div>
+
+            <div className="mt-3 space-y-2.5">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Supplier</label>
+                <Select
+                  value={item.supplier_name || ""}
+                  onValueChange={(v) => handleSupplierChange(item.asin, v)}
+                >
+                  <SelectTrigger className="h-9 text-sm w-full">
+                    <SelectValue placeholder="Select supplier" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover z-50">
+                    {suppliers.map((s) => (
+                      <SelectItem key={s.id} value={s.supplier_name} className="text-sm">
+                        {s.supplier_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-end gap-3">
+                <div className="flex-1">
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Unit Cost (AED)</label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    className="h-9 text-sm w-full"
+                    value={item.unit_cost || ""}
+                    onChange={(e) => handleCostChange(item.asin, Number(e.target.value))}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="text-right pb-2">
+                  <span className="text-sm font-semibold text-foreground">
+                    = {(item.qty * item.unit_cost).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+      {cardItems.length > 0 && (
+        <div className="flex items-center justify-between px-4 py-3 bg-muted/30 rounded-lg border font-semibold text-sm">
+          <span className="text-muted-foreground">Total ({cardItems.reduce((s, i) => s + i.qty, 0)} items)</span>
+          <span className="text-primary">AED {cardTotal.toFixed(2)}</span>
+        </div>
+      )}
+      {cardItems.length === 0 && (
+        <div className="text-center py-8 text-muted-foreground text-sm">No items in this tab</div>
+      )}
+    </div>
   );
 
   return (
@@ -220,173 +394,50 @@ export default function MarketPurchasePublic() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-2">
               <Badge variant="outline"><Package className="h-3 w-3 mr-1" /> {items.length} items</Badge>
               <Badge variant="outline">{linkData.platform}</Badge>
               <Badge variant="outline" className="text-primary">AED {total.toFixed(2)}</Badge>
+              {assignedItems.length > 0 && (
+                <Badge variant="secondary">{assignedItems.length} assigned</Badge>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Desktop table */}
-        <div className="hidden md:block border rounded-lg overflow-auto bg-card">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-muted/50 border-b">
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground w-12"></th>
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground">Product</th>
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground">Supplier</th>
-                <th className="text-center px-3 py-2 font-medium text-muted-foreground">Qty</th>
-                <th className="text-right px-3 py-2 font-medium text-muted-foreground">Unit Cost</th>
-                <th className="text-right px-3 py-2 font-medium text-muted-foreground">Total</th>
-                <th className="w-8"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {items.map((item) => (
-                <tr key={item.asin} className="hover:bg-muted/20">
-                  <td className="px-3 py-2">
-                    <img
-                      src={imageMap[item.asin] || `https://m.media-amazon.com/images/P/${item.asin}.01._SCLZZZZZZZ_SX44_.jpg`}
-                      alt={item.title}
-                      className="w-10 h-10 object-contain rounded border bg-white"
-                      onError={(e) => {
-                        const el = e.target as HTMLImageElement;
-                        const fallback = `https://m.media-amazon.com/images/P/${item.asin}.01._SCLZZZZZZZ_SX44_.jpg`;
-                        if (el.src !== fallback && imageMap[item.asin]) {
-                          el.src = fallback;
-                        } else {
-                          el.style.display = 'none';
-                        }
-                      }}
-                    />
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="text-xs text-foreground leading-snug">{item.title}</div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="font-mono text-[10px] text-muted-foreground">{item.asin}</span>
-                      {item.sku && <span className="text-[10px] text-muted-foreground">· {item.sku}</span>}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2">
-                    <Select
-                      value={item.supplier_name || ""}
-                      onValueChange={(v) => handleSupplierChange(item.asin, v)}
-                    >
-                      <SelectTrigger className="h-7 w-36 text-xs">
-                        <SelectValue placeholder="Select" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-popover z-50">
-                        {suppliers.map((s) => (
-                          <SelectItem key={s.id} value={s.supplier_name} className="text-xs">
-                            {s.supplier_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </td>
-                  <td className="px-3 py-2 text-center font-medium">{item.qty}</td>
-                  <td className="px-3 py-2">
-                    <Input
-                      type="number"
-                      min={0}
-                      step={0.01}
-                      className="h-7 w-24 text-xs ml-auto"
-                      value={item.unit_cost || ""}
-                      onChange={(e) => handleCostChange(item.asin, Number(e.target.value))}
-                      placeholder="0.00"
-                    />
-                  </td>
-                  <td className="px-3 py-2 text-right font-medium text-xs">
-                    {(item.qty * item.unit_cost).toFixed(2)}
-                  </td>
-                  <td className="px-2 py-2"><RowStatus asin={item.asin} /></td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="bg-muted/30 border-t font-semibold">
-                <td colSpan={3} />
-                <td className="px-3 py-2 text-center">{items.reduce((s, i) => s + i.qty, 0)}</td>
-                <td />
-                <td className="px-3 py-2 text-right text-primary">AED {total.toFixed(2)}</td>
-                <td />
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+        {/* Tabbed content */}
+        <Tabs defaultValue="pending" className="w-full">
+          <TabsList className="w-full">
+            <TabsTrigger value="pending" className="flex-1 gap-1.5">
+              Pending <Badge variant="secondary" className="ml-1 text-xs px-1.5 py-0">{pendingItems.length}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="assigned" className="flex-1 gap-1.5">
+              Assigned <Badge variant="secondary" className="ml-1 text-xs px-1.5 py-0">{assignedItems.length}</Badge>
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Mobile cards */}
-        <div className="md:hidden space-y-2">
-          {items.map((item) => (
-            <Card key={item.asin} className="border">
-              <CardContent className="p-3">
-                <div className="flex gap-3">
-                  <img
-                    src={imageMap[item.asin] || `https://m.media-amazon.com/images/P/${item.asin}.01._SCLZZZZZZZ_SX44_.jpg`}
-                    alt={item.title}
-                    className="w-12 h-12 object-contain rounded border bg-white flex-shrink-0"
-                    onError={(e) => {
-                      const el = e.target as HTMLImageElement;
-                      const fallback = `https://m.media-amazon.com/images/P/${item.asin}.01._SCLZZZZZZZ_SX44_.jpg`;
-                      if (el.src !== fallback && imageMap[item.asin]) {
-                        el.src = fallback;
-                      } else {
-                        el.style.display = 'none';
-                      }
-                    }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-foreground leading-snug line-clamp-2">{item.title}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="font-mono text-[10px] text-muted-foreground">{item.asin}</span>
-                      {item.sku && <span className="text-[10px] text-muted-foreground">· {item.sku}</span>}
-                    </div>
-                  </div>
-                  <RowStatus asin={item.asin} />
-                </div>
-                <div className="mt-2">
-                  <Select
-                    value={item.supplier_name || ""}
-                    onValueChange={(v) => handleSupplierChange(item.asin, v)}
-                  >
-                    <SelectTrigger className="h-7 text-xs w-full">
-                      <SelectValue placeholder="Select supplier" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-popover z-50">
-                      {suppliers.map((s) => (
-                        <SelectItem key={s.id} value={s.supplier_name} className="text-xs">
-                          {s.supplier_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center justify-between mt-2 gap-2">
-                  <Badge variant="secondary" className="text-[10px]">Qty: {item.qty}</Badge>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      min={0}
-                      step={0.01}
-                      className="h-7 w-20 text-xs"
-                      value={item.unit_cost || ""}
-                      onChange={(e) => handleCostChange(item.asin, Number(e.target.value))}
-                      placeholder="Cost"
-                    />
-                    <span className="text-xs font-semibold text-foreground w-16 text-right">
-                      {(item.qty * item.unit_cost).toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-          <div className="flex items-center justify-between px-3 py-2 bg-muted/30 rounded-lg border font-semibold text-sm">
-            <span className="text-muted-foreground">Total ({items.reduce((s, i) => s + i.qty, 0)} items)</span>
-            <span className="text-primary">AED {total.toFixed(2)}</span>
-          </div>
-        </div>
+          <TabsContent value="pending" className="mt-3">
+            {pendingItems.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground text-sm">All items have been assigned to a supplier</div>
+            ) : (
+              <>
+                {renderDesktopTable(pendingItems, pendingTotal)}
+                {renderMobileCards(pendingItems, pendingTotal)}
+              </>
+            )}
+          </TabsContent>
+
+          <TabsContent value="assigned" className="mt-3">
+            {assignedItems.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground text-sm">No items assigned yet</div>
+            ) : (
+              <>
+                {renderDesktopTable(assignedItems, assignedTotal)}
+                {renderMobileCards(assignedItems, assignedTotal)}
+              </>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
