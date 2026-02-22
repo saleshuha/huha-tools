@@ -6375,6 +6375,13 @@ export type Database = {
           tracking_number: string
         }[]
       }
+      get_product_images_for_asins: {
+        Args: { p_asins: string[]; p_user_id: string }
+        Returns: {
+          asin: string
+          image_url: string
+        }[]
+      }
       get_quarterly_velocity_analysis: {
         Args: { country_filter?: string; lookback_years?: number }
         Returns: {
