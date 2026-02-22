@@ -191,43 +191,29 @@ export function DailyOrdersTab() {
         </Button>
       </div>
 
-      {/* Platform Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card className="border-l-4 border-l-orange-500 bg-card hover:shadow-md transition-shadow">
-          <CardContent className="py-4 px-5 flex items-center gap-3">
-            <div className="flex items-center justify-center h-9 w-9 rounded-lg bg-orange-500/10">
-              <Package className="h-4 w-4 text-orange-500" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground font-medium">Amazon Orders</p>
-              <p className="text-xl font-bold text-foreground">{amazonTotal} <span className="text-sm font-normal text-muted-foreground">items</span></p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-yellow-500 bg-card hover:shadow-md transition-shadow">
-          <CardContent className="py-4 px-5 flex items-center gap-3">
-            <div className="flex items-center justify-center h-9 w-9 rounded-lg bg-yellow-500/10">
-              <ShoppingBag className="h-4 w-4 text-yellow-500" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground font-medium">Noon Orders</p>
-              <p className="text-xl font-bold text-foreground">{noonTotal} <span className="text-sm font-normal text-muted-foreground">items</span></p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-primary bg-card hover:shadow-md transition-shadow sm:col-span-2 lg:col-span-1">
-          <CardContent className="py-4 px-5 flex items-center gap-3">
-            <div className="flex items-center justify-center h-9 w-9 rounded-lg bg-primary/10">
-              <TrendingUp className="h-4 w-4 text-primary" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground font-medium">Estimated Total</p>
-              <p className="text-xl font-bold text-primary">AED {grandTotal.toFixed(2)}</p>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Compact Stat Bar */}
+      <div className="flex items-center gap-3 p-2.5 rounded-xl bg-card border border-border overflow-x-auto">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 flex-shrink-0">
+          <span className="h-2 w-2 rounded-full bg-orange-500" />
+          <span className="text-xs text-muted-foreground">AMZ</span>
+          <span className="text-sm font-bold text-foreground">{amazonTotal}</span>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 flex-shrink-0">
+          <span className="h-2 w-2 rounded-full bg-yellow-500" />
+          <span className="text-xs text-muted-foreground">Noon</span>
+          <span className="text-sm font-bold text-foreground">{noonTotal}</span>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50 flex-shrink-0">
+          <Package className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Products</span>
+          <span className="text-sm font-bold text-foreground">{items.length}</span>
+        </div>
+        <div className="flex-1" />
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 flex-shrink-0">
+          <TrendingUp className="h-3.5 w-3.5 text-primary" />
+          <span className="text-xs text-muted-foreground">Total</span>
+          <span className="text-sm font-bold text-primary">AED {grandTotal.toFixed(2)}</span>
+        </div>
       </div>
 
       {/* Consolidated Table */}

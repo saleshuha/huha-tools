@@ -1,43 +1,85 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { differenceInDays, format } from "date-fns";
-import { Clock, TrendingUp, CreditCard, Users } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Clock, CreditCard, Users, CheckCircle, ChevronRight } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useMarketPurchases } from "@/hooks/useMarketPurchases";
-import { supabase } from "@/integrations/supabase/client";
-import { useUserProfile } from "@/hooks/useUserProfile";
-import { useQuery } from "@tanstack/react-query";
+import { useMarketPurchaseLinks } from "@/hooks/useMarketPurchaseLinks";
+import { toast } from "sonner";
+
+interface SupplierBalance {
+  supplier_name: string;
+  total_amount: number;
+  item_count: number;
+  total_qty: number;
+  oldest_date: string;
+  items: {
+    asin: string | null;
+    sku: string | null;
+    title: string | null;
+    qty: number;
+    unit_cost: number;
+    link_title: string;
+    link_date: string;
+    link_id: string;
+  }[];
+}
 
 export function CreditBalanceTab() {
-  const { creditBalances, creditBalancesLoading } = useMarketPurchases();
-  const { profile } = useUserProfile();
+  const { links, isLoading } = useMarketPurchaseLinks();
   const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null);
-  const [supplierName, setSupplierName] = useState("");
 
-  const openPurchasesQuery = useQuery({
-    queryKey: ["open_purchases_for_supplier", selectedSupplier, profile?.id],
-    queryFn: async () => {
-      if (!selectedSupplier || !profile?.id) return [];
-      let query = supabase
-        .from("market_purchases")
-        .select("*, items:market_purchase_items(*)")
-        .eq("user_id", profile.id)
-        .in("status", ["confirmed", "draft"])
-        .order("purchase_date", { ascending: false });
+  const { balances, totalCredit } = useMemo(() => {
+    const grouped: Record<string, SupplierBalance> = {};
 
-      if (selectedSupplier === "__no_supplier__") {
-        query = query.is("supplier_id", null);
-      } else {
-        query = query.eq("supplier_id", selectedSupplier);
-      }
+    (links || []).forEach((link) => {
+      const items = Array.isArray(link.items) ? link.items : [];
+      items.forEach((item: any) => {
+        const name = item.supplier_name;
+        if (!name) return;
 
-      const { data } = await query;
-      return data || [];
-    },
-    enabled: !!selectedSupplier && !!profile?.id,
-  });
+        if (!grouped[name]) {
+          grouped[name] = {
+            supplier_name: name,
+            total_amount: 0,
+            item_count: 0,
+            total_qty: 0,
+            oldest_date: link.created_at,
+            items: [],
+          };
+        }
+
+        const qty = item.qty || 0;
+        const cost = item.unit_cost || 0;
+        grouped[name].total_amount += qty * cost;
+        grouped[name].item_count += 1;
+        grouped[name].total_qty += qty;
+        if (link.created_at < grouped[name].oldest_date) {
+          grouped[name].oldest_date = link.created_at;
+        }
+        grouped[name].items.push({
+          asin: item.asin || null,
+          sku: item.sku || null,
+          title: item.title || null,
+          qty,
+          unit_cost: cost,
+          link_title: link.title || "Untitled",
+          link_date: link.created_at,
+          link_id: link.id,
+        });
+      });
+    });
+
+    const sorted = Object.values(grouped).sort((a, b) => b.total_amount - a.total_amount);
+    return {
+      balances: sorted,
+      totalCredit: sorted.reduce((s, b) => s + b.total_amount, 0),
+    };
+  }, [links]);
+
+  const selectedData = selectedSupplier ? balances.find((b) => b.supplier_name === selectedSupplier) : null;
 
   const getAgingInfo = (oldestDate: string) => {
     const days = differenceInDays(new Date(), new Date(oldestDate));
@@ -46,9 +88,7 @@ export function CreditBalanceTab() {
     return { barColor: "bg-emerald-500", badge: "bg-emerald-500/10 text-emerald-700 border-emerald-200", label: `${days}d — Recent`, textColor: "text-emerald-600" };
   };
 
-  const totalCredit = creditBalances.reduce((sum, b) => sum + b.total_amount, 0);
-
-  if (creditBalancesLoading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center py-16">
         <div className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -56,14 +96,14 @@ export function CreditBalanceTab() {
     );
   }
 
-  if (creditBalances.length === 0) {
+  if (balances.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
         <div className="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
-          <TrendingUp className="h-8 w-8 text-muted-foreground/40" />
+          <CreditCard className="h-8 w-8 text-muted-foreground/40" />
         </div>
         <p className="font-medium text-foreground">No outstanding credit balances</p>
-        <p className="text-sm text-muted-foreground mt-1">All purchases have been reconciled or no purchases have been logged yet.</p>
+        <p className="text-sm text-muted-foreground mt-1">Balances will appear here once suppliers are assigned to items via purchase links.</p>
       </div>
     );
   }
@@ -85,35 +125,29 @@ export function CreditBalanceTab() {
           </div>
           <div className="text-right flex items-center gap-2 text-muted-foreground">
             <Users className="h-4 w-4" />
-            <span className="text-sm font-medium">{creditBalances.length} suppliers</span>
+            <span className="text-sm font-medium">{balances.length} suppliers</span>
           </div>
         </div>
       </div>
 
       {/* Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {creditBalances.map((balance) => {
+        {balances.map((balance) => {
           const aging = getAgingInfo(balance.oldest_date);
           return (
             <Card
-              key={balance.supplier_id}
+              key={balance.supplier_name}
               className="cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 border border-border bg-card overflow-hidden group"
-              onClick={() => {
-                setSelectedSupplier(balance.supplier_id);
-                setSupplierName(balance.supplier_name);
-              }}
+              onClick={() => setSelectedSupplier(balance.supplier_name)}
             >
-              {/* Top aging color bar */}
               <div className={`h-1 w-full ${aging.barColor}`} />
-              <CardHeader className="pb-2 pt-4">
-                <CardTitle className="text-sm flex items-center justify-between">
-                  <span className="truncate font-semibold">{balance.supplier_name}</span>
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="truncate font-semibold text-sm text-foreground">{balance.supplier_name}</span>
                   <Badge variant="outline" className={`text-[10px] shrink-0 ${aging.badge}`}>
                     {aging.label}
                   </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 pb-4">
+                </div>
                 <p className="text-2xl font-bold text-foreground">
                   AED {balance.total_amount.toLocaleString("en", { minimumFractionDigits: 2 })}
                 </p>
@@ -122,7 +156,10 @@ export function CreditBalanceTab() {
                     <Clock className={`h-3 w-3 ${aging.textColor}`} />
                     Oldest: {format(new Date(balance.oldest_date), "dd MMM yyyy")}
                   </span>
-                  <span>{balance.purchase_count} purchase{balance.purchase_count !== 1 ? "s" : ""}</span>
+                  <span>{balance.item_count} items · {balance.total_qty} qty</span>
+                </div>
+                <div className="flex items-center justify-end text-xs text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                  View details <ChevronRight className="h-3 w-3 ml-0.5" />
                 </div>
               </CardContent>
             </Card>
@@ -134,44 +171,48 @@ export function CreditBalanceTab() {
       <Dialog open={!!selectedSupplier} onOpenChange={() => setSelectedSupplier(null)}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Open Purchases — {supplierName}</DialogTitle>
+            <DialogTitle className="flex items-center justify-between">
+              <span>Credit Details — {selectedData?.supplier_name}</span>
+              {selectedData && (
+                <span className="text-primary font-bold text-lg">
+                  AED {selectedData.total_amount.toLocaleString("en", { minimumFractionDigits: 2 })}
+                </span>
+              )}
+            </DialogTitle>
           </DialogHeader>
           <div className="border border-border rounded-xl overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40">
+                  <TableHead className="text-xs uppercase tracking-wider font-semibold">Product</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider font-semibold text-center">Qty</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider font-semibold text-right">Unit Cost</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider font-semibold text-right">Total</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider font-semibold">Link</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-semibold">Date</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wider font-semibold">Platform</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wider font-semibold">Items</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wider font-semibold">Est. Total</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wider font-semibold">Status</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wider font-semibold">Age</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {openPurchasesQuery.isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Loading...</TableCell>
+                {(selectedData?.items || []).map((item, idx) => (
+                  <TableRow key={idx} className={idx % 2 === 0 ? "" : "bg-muted/10"}>
+                    <TableCell>
+                      <div>
+                        <p className="text-xs font-medium text-foreground truncate max-w-[200px]">{item.title || "—"}</p>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          {item.asin && <span className="font-mono text-[10px] text-muted-foreground">{item.asin}</span>}
+                          {item.sku && <span className="text-[10px] text-muted-foreground">· {item.sku}</span>}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center text-sm font-medium">{item.qty}</TableCell>
+                    <TableCell className="text-right text-sm">AED {item.unit_cost.toFixed(2)}</TableCell>
+                    <TableCell className="text-right text-sm font-semibold text-primary">
+                      AED {(item.qty * item.unit_cost).toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground truncate max-w-[120px]">{item.link_title}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{format(new Date(item.link_date), "dd MMM")}</TableCell>
                   </TableRow>
-                ) : (openPurchasesQuery.data || []).map((p: any) => {
-                  const days = differenceInDays(new Date(), new Date(p.purchase_date));
-                  return (
-                    <TableRow key={p.id}>
-                      <TableCell className="text-sm">{format(new Date(p.purchase_date), "dd MMM yyyy")}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-xs">{p.platform.toUpperCase()}</Badge>
-                      </TableCell>
-                      <TableCell className="text-sm">{(p.items || []).length}</TableCell>
-                      <TableCell className="font-semibold text-sm">AED {Number(p.total_estimated_cost || 0).toFixed(2)}</TableCell>
-                      <TableCell><Badge variant="outline" className="text-xs">{p.status}</Badge></TableCell>
-                      <TableCell>
-                        <span className={days > 30 ? "text-destructive font-semibold" : days > 15 ? "text-orange-600" : "text-emerald-600"}>
-                          {days}d ago
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                ))}
               </TableBody>
             </Table>
           </div>
