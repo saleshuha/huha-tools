@@ -228,31 +228,10 @@ export function ItemCostsTab() {
 
                     {/* Current Cost */}
                     <td className="px-4 py-2.5 text-right">
-                      {editingId === c.id ? (
-                        <div className="flex items-center gap-1 justify-end">
-                          <Input
-                            type="number"
-                            min={0}
-                            step={0.01}
-                            className="h-7 w-20 text-xs"
-                            value={editCost}
-                            onChange={(e) => setEditCost(Number(e.target.value))}
-                            onKeyDown={(e) => e.key === "Enter" && handleSaveEdit(c)}
-                            autoFocus
-                          />
-                          <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-600" onClick={() => handleSaveEdit(c)}>
-                            <Check className="h-3 w-3" />
-                          </Button>
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingId(null)}>
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="cursor-pointer hover:text-primary transition-colors" onClick={() => handleInlineEdit(c.id, c.unit_cost)}>
-                          <span className="font-semibold text-xs">AED {c.unit_cost.toFixed(2)}</span>
-                          <p className="text-[10px] text-muted-foreground mt-0.5">{format(new Date(c.updated_at), "dd MMM yyyy")}</p>
-                        </div>
-                      )}
+                      <div>
+                        <span className="font-semibold text-xs">AED {c.unit_cost.toFixed(2)}</span>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{format(new Date(c.updated_at), "dd MMM yyyy")}</p>
+                      </div>
                     </td>
 
                     {/* History Columns */}
