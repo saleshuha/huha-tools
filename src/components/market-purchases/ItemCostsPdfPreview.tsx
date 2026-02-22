@@ -79,8 +79,8 @@ export function ItemCostsPdfPreview({ open, onOpenChange, costs, dateFrom, dateT
       }
 
       // --- Table ---
-      const headers = ["#", "ASIN", "SKU", "Title", "Supplier", "Cost (AED)", "Updated", "Source"];
-      const colWidths = [10, 28, 25, 80, 40, 22, 24, 20];
+      const headers = ["#", "ASIN / SKU", "Title", "Supplier", "Cost (AED)", "Updated", "Source"];
+      const colWidths = [10, 45, 85, 45, 22, 24, 20];
       const tableStartY = summaryY + 18;
 
       const drawHeaders = (y: number) => {
@@ -108,7 +108,7 @@ export function ItemCostsPdfPreview({ open, onOpenChange, costs, dateFrom, dateT
       };
 
       let y = drawHeaders(tableStartY);
-      const rowHeight = 7;
+      const rowHeight = 9;
 
       costs.forEach((c, idx) => {
         if (y + rowHeight > pageH - 18) {
@@ -136,15 +136,18 @@ export function ItemCostsPdfPreview({ open, onOpenChange, costs, dateFrom, dateT
         doc.text(String(idx + 1), x, y + 5);
         x += colWidths[0];
 
-        // ASIN
+        // ASIN / SKU
         doc.setFont("helvetica", "bold");
-        doc.text(c.asin, x, y + 5);
+        doc.text(c.asin, x, y + 4);
+        if (c.sku) {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(6);
+          doc.setTextColor(100, 116, 139);
+          doc.text(c.sku, x, y + 7.5);
+          doc.setFontSize(7);
+          doc.setTextColor(30, 41, 59);
+        }
         x += colWidths[1];
-
-        // SKU
-        doc.setFont("helvetica", "normal");
-        doc.text(c.sku || "—", x, y + 5);
-        x += colWidths[2];
 
         // Title
         doc.text((c.title || "—").substring(0, 45), x, y + 5);
@@ -245,9 +248,9 @@ export function ItemCostsPdfPreview({ open, onOpenChange, costs, dateFrom, dateT
               <table className="w-full text-xs">
                 <thead>
                   <tr className="bg-slate-800 text-white">
-                    <th className="text-left px-3 py-2.5 font-semibold">#</th>
-                    <th className="text-left px-3 py-2.5 font-semibold">ASIN</th>
-                    <th className="text-left px-3 py-2.5 font-semibold">SKU</th>
+                     <th className="text-left px-3 py-2.5 font-semibold">#</th>
+                     <th className="text-left px-3 py-2.5 font-semibold">ASIN / SKU</th>
+                     <th className="text-left px-3 py-2.5 font-semibold">Title</th>
                     <th className="text-left px-3 py-2.5 font-semibold">Title</th>
                     <th className="text-left px-3 py-2.5 font-semibold">Supplier</th>
                     <th className="text-right px-3 py-2.5 font-semibold">Cost (AED)</th>
@@ -263,9 +266,12 @@ export function ItemCostsPdfPreview({ open, onOpenChange, costs, dateFrom, dateT
                         key={c.id}
                         className={`border-b border-border/50 ${idx % 2 === 0 ? "bg-slate-50 dark:bg-slate-900/30" : "bg-white dark:bg-background"}`}
                       >
-                        <td className="px-3 py-2 text-muted-foreground">{idx + 1}</td>
-                        <td className="px-3 py-2 font-mono font-bold text-foreground">{c.asin}</td>
-                        <td className="px-3 py-2 text-muted-foreground">{c.sku || "—"}</td>
+                         <td className="px-3 py-2 text-muted-foreground">{idx + 1}</td>
+                         <td className="px-3 py-2">
+                           <div className="font-mono font-bold text-foreground">{c.asin}</div>
+                           {c.sku && <div className="text-[10px] text-muted-foreground mt-0.5">{c.sku}</div>}
+                         </td>
+                         <td className="px-3 py-2 text-foreground max-w-[240px] truncate">{c.title || "—"}</td>
                         <td className="px-3 py-2 text-foreground max-w-[240px] truncate">{c.title || "—"}</td>
                         <td className="px-3 py-2 text-foreground">{c.supplier_name || "—"}</td>
                         <td className="px-3 py-2 text-right font-bold text-foreground">{c.unit_cost.toFixed(2)}</td>
