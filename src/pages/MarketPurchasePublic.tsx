@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ShoppingCart, Package, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -37,6 +38,7 @@ export default function MarketPurchasePublic() {
   const [imageMap, setImageMap] = useState<Record<string, string>>({});
   const [savingRows, setSavingRows] = useState<Record<string, boolean>>({});
   const [savedRows, setSavedRows] = useState<Record<string, boolean>>({});
+  const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
   const saveTimers = useRef<Record<string, NodeJS.Timeout>>({});
 
   const pendingItems = useMemo(() => items.filter(i => !i.supplier_name), [items]);
@@ -245,22 +247,34 @@ export default function MarketPurchasePublic() {
     savedRows[asin] ? <Check className="h-3.5 w-3.5 text-primary" /> : null
   );
 
-  const ItemImage = ({ item }: { item: LinkItem; className?: string }) => (
-    <img
-      src={imageMap[item.asin] || `https://m.media-amazon.com/images/P/${item.asin}.01._SCLZZZZZZZ_SX44_.jpg`}
-      alt={item.title}
-      className="object-contain rounded border bg-white"
-      onError={(e) => {
-        const el = e.target as HTMLImageElement;
-        const fallback = `https://m.media-amazon.com/images/P/${item.asin}.01._SCLZZZZZZZ_SX44_.jpg`;
-        if (el.src !== fallback && imageMap[item.asin]) {
-          el.src = fallback;
-        } else {
-          el.style.display = 'none';
-        }
-      }}
-    />
-  );
+  const getImageUrl = (item: LinkItem) =>
+    imageMap[item.asin] || `https://m.media-amazon.com/images/P/${item.asin}.01._SCLZZZZZZZ_SX44_.jpg`;
+
+  const ItemImage = ({ item, size = "md" }: { item: LinkItem; className?: string; size?: "sm" | "md" }) => {
+    const dim = size === "sm" ? "h-10 w-10" : "h-20 w-20";
+    const url = getImageUrl(item);
+    return (
+      <div
+        className={`${dim} rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all flex-shrink-0`}
+        onClick={() => setPreviewImage({ url, title: item.title })}
+      >
+        <img
+          src={url}
+          alt={item.title}
+          className="h-full w-full object-contain p-0.5"
+          onError={(e) => {
+            const el = e.target as HTMLImageElement;
+            const fallback = `https://m.media-amazon.com/images/P/${item.asin}.01._SCLZZZZZZZ_SX44_.jpg`;
+            if (el.src !== fallback && imageMap[item.asin]) {
+              el.src = fallback;
+            } else {
+              el.style.display = 'none';
+            }
+          }}
+        />
+      </div>
+    );
+  };
 
   const LastCostInfo = ({ item }: { item: LinkItem }) => {
     if (!item.last_cost_value && !item.last_cost_date) return null;
@@ -297,7 +311,7 @@ export default function MarketPurchasePublic() {
           {tableItems.map((item) => (
             <tr key={item.asin} className="hover:bg-muted/20">
               <td className="px-3 py-2">
-                <div className="w-10 h-10"><ItemImage item={item} /></div>
+                <ItemImage item={item} size="sm" />
               </td>
               <td className="px-3 py-2">
                 <div className="text-xs text-foreground leading-snug">{item.title}</div>
@@ -365,9 +379,7 @@ export default function MarketPurchasePublic() {
         <Card key={item.asin} className="border">
           <CardContent className="p-4">
             <div className="flex gap-4">
-              <div className="w-20 h-20 flex-shrink-0">
-                <ItemImage item={item} />
-              </div>
+              <ItemImage item={item} size="md" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-foreground leading-snug font-medium">{item.title}</p>
                 <div className="flex items-center gap-2 mt-1.5 min-w-0 overflow-hidden">
@@ -494,6 +506,18 @@ export default function MarketPurchasePublic() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Image Preview Dialog */}
+      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
+        <DialogContent className="max-w-sm p-4">
+          {previewImage && (
+            <div className="space-y-3">
+              <img src={previewImage.url} alt={previewImage.title} className="w-full h-auto rounded-lg" />
+              <p className="text-sm text-muted-foreground text-center line-clamp-2">{previewImage.title}</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
