@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { RefreshCw, Filter, Package, X, Copy, ExternalLink, Search, Users } from "lucide-react";
+import { RefreshCw, Filter, Package, X, Copy, ExternalLink, Search, Users, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -243,7 +243,7 @@ export function PurchaseLogTab() {
                     {entry.link_title}
                   </span>
                   <span className="text-[10px] text-muted-foreground">
-                    {format(new Date(entry.link_created_at), "dd MMM")}
+                    {format(new Date(entry.link_created_at), "dd MMM yyyy, hh:mm a")}
                   </span>
                 </div>
               </div>
@@ -268,6 +268,38 @@ export function PurchaseLogTab() {
                 </Button>
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => window.open(`/market-purchase/${entry.link_token}`, "_blank")}>
                   <ExternalLink className="h-3 w-3" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-destructive hover:text-destructive"
+                  onClick={async () => {
+                    try {
+                      // Remove supplier_name from the item in the link's JSONB
+                      const { data: link } = await supabase
+                        .from("market_purchase_links")
+                        .select("items")
+                        .eq("id", entry.link_id)
+                        .single();
+                      if (link) {
+                        const updatedItems = (link.items as any[]).map((item: any) =>
+                          (item.asin === entry.asin && item.sku === entry.sku)
+                            ? { ...item, supplier_name: undefined }
+                            : item
+                        );
+                        await supabase
+                          .from("market_purchase_links")
+                          .update({ items: updatedItems as any })
+                          .eq("id", entry.link_id);
+                      }
+                      refetch();
+                      toast.success("Entry removed");
+                    } catch {
+                      toast.error("Failed to remove");
+                    }
+                  }}
+                >
+                  <Trash2 className="h-3 w-3" />
                 </Button>
               </div>
             </div>
