@@ -1,44 +1,70 @@
 
 
-## Plan: Enhanced Mobile Purchase Link with Supplier Separation
+## Fix Purchase Link Layout Bugs and Add Last Cost Date
 
-### What This Does
+### Problems Identified
 
-Three improvements to the public purchase link page (`/market-purchase/:token`):
+1. **DailyOrdersTab consolidated table has no mobile layout** -- The orders table is a plain `<table>` with no responsive breakpoint. On mobile screens it gets compressed and overlaps.
 
-1. **Bigger, better mobile cards** -- Larger images (20x20), bigger text, more spacing, full-width cost input, and clearer visual hierarchy for warehouse use.
+2. **Public purchase link desktop table (`MarketPurchasePublic.tsx`)** -- The Supplier column uses a fixed `w-36` select and cost uses `w-24` input, which squeezes on medium screens (768-1024px). The `hidden md:block` breakpoint means iPads still see the cramped table.
 
-2. **Two-tab layout: "Pending" and "Assigned"** -- Items with a supplier selected move to the "Assigned" tab automatically. The "Pending" tab shows items still needing a supplier. This keeps the working list clean and focused.
-
-3. **Cost not required for supplier assignment** -- Currently the `saveRow` function only upserts to `market_item_costs` when `unit_cost > 0`. This will be changed so that selecting a supplier triggers a save regardless of whether a cost has been entered.
+3. **No "last cost" info on the public purchase link** -- The DailyOrdersTab already fetches `costDate` from `market_item_costs`, but the public purchase page does not show when a cost was last recorded.
 
 ---
 
-### Technical Details
+### Changes
+
+#### A) DailyOrdersTab -- Add mobile card layout for the consolidated orders table
+
+**File: `src/components/market-purchases/DailyOrdersTab.tsx`**
+
+- Add a mobile card view (`md:hidden`) mirroring the existing table data (image, title, ASIN/SKU, source badges, qty, unit cost with date, line total).
+- Hide the existing `<table>` on mobile (`hidden md:block`).
+- Cards will use the same image/cost rendering logic already in the table rows.
+
+#### B) MarketPurchasePublic -- Fix table column sizing
 
 **File: `src/pages/MarketPurchasePublic.tsx`**
 
-**A) Mobile card redesign:**
-- Increase image from `w-12 h-12` to `w-20 h-20`
-- Remove `line-clamp-2` on title, show full text
-- Increase title font from `text-xs` to `text-sm`
-- Make cost input full-width with a label
-- Add more padding (`p-4` instead of `p-3`)
-- Increase supplier dropdown height from `h-7` to `h-9`
+- Change desktop table breakpoint from `md:block` to `lg:block` so tablets get the card layout instead of a cramped table.
+- Change mobile cards from `md:hidden` to `lg:hidden`.
+- Remove fixed `w-36` on supplier select trigger -- use `w-full min-w-[120px]` instead.
+- Remove fixed `w-24` on cost input -- use `w-full max-w-[100px]` instead.
+- Add `table-layout: auto` and `min-w-[700px]` on the table with a scrollable wrapper to prevent column overlap on mid-size screens.
 
-**B) Tab-based item separation:**
-- Add `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent` from the existing UI library
-- Split `items` into two derived lists:
-  - `pendingItems` = items where `!item.supplier_name`
-  - `assignedItems` = items where `item.supplier_name` exists
-- Render both desktop table and mobile cards inside their respective tab panels
-- Show item counts in each tab trigger badge
+#### C) MarketPurchasePublic -- Show last cost date
 
-**C) Save logic update:**
-- In the `saveRow` function, change the condition from `if (item && item.unit_cost > 0)` to `if (item && (item.unit_cost > 0 || item.supplier_name))` so that supplier-only saves are persisted to `market_item_costs`
-- When upserting with no cost, use `unit_cost: item.unit_cost || 0`
+**File: `src/pages/MarketPurchasePublic.tsx`**
 
-**D) Summary totals:**
-- Update the header badges and footer totals to reflect the currently visible tab
-- Show total across both tabs in the header card
+- After fetching the link data, query `market_item_costs` via a new lightweight approach: use the existing data in the link's `items` JSON (unit_cost is already stored there from previous saves).
+- Add a `last_cost_date` field to the local item state. During `fetchLink`, after loading items, batch-fetch cost records from `market_item_costs` for the link owner using a new RPC `get_cost_dates_for_asins(p_user_id, p_asins)` that returns `asin, unit_cost, updated_at`.
+- Display the last cost date as a small muted line under the unit cost input (e.g., "Last: 12.50 on 20 Feb 2026") in both desktop and mobile views.
+- On save, update the local `last_cost_date` to "just now".
+
+**Database migration:**
+
+- Create RPC `get_cost_dates_for_asins(p_user_id uuid, p_asins text[])` with `SECURITY DEFINER` that returns `(asin text, unit_cost numeric, updated_at timestamptz)` from `market_item_costs` filtered by user and ASINs.
+
+### Technical Details
+
+**New RPC:**
+```sql
+CREATE OR REPLACE FUNCTION public.get_cost_dates_for_asins(p_user_id uuid, p_asins text[])
+RETURNS TABLE(asin text, unit_cost numeric, updated_at timestamptz)
+LANGUAGE sql SECURITY DEFINER STABLE
+AS $$
+  SELECT c.asin, c.unit_cost, c.updated_at
+  FROM public.market_item_costs c
+  WHERE c.user_id = p_user_id AND c.asin = ANY(p_asins);
+$$;
+```
+
+**LinkItem interface update:**
+```typescript
+interface LinkItem {
+  // ...existing fields
+  last_cost_date?: string;
+  last_cost_value?: number;
+}
+```
 
