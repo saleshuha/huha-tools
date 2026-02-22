@@ -9,6 +9,7 @@ export interface MarketLinkItem {
   title: string;
   qty: number;
   unit_cost: number;
+  noon_image_key?: string;
 }
 
 export interface MarketPurchaseLink {

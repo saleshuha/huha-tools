@@ -15,6 +15,7 @@ interface LinkItem {
   title: string;
   qty: number;
   unit_cost: number;
+  noon_image_key?: string;
 }
 
 export default function MarketPurchasePublic() {
@@ -66,7 +67,14 @@ export default function MarketPurchasePublic() {
       }
     }
 
-    // Fetch noon images for items missing from product_images
+    // Use noon_image_key from link items for items missing from product_images
+    for (const item of linkItems) {
+      if (!map[item.asin] && item.noon_image_key) {
+        map[item.asin] = `https://z.nooncdn.com/tr:n-t_400/${item.noon_image_key}.jpg`;
+      }
+    }
+
+    // Fetch noon images from noon_orders for remaining missing items
     const missingSkus = linkItems
       .filter(i => !map[i.asin] && i.sku)
       .map(i => i.sku);
@@ -76,7 +84,6 @@ export default function MarketPurchasePublic() {
         p_skus: missingSkus,
       });
       if (noonImages && Array.isArray(noonImages)) {
-        // Map SKU back to ASIN
         const skuToAsin: Record<string, string> = {};
         for (const item of linkItems) {
           if (item.sku) skuToAsin[item.sku] = item.asin;
