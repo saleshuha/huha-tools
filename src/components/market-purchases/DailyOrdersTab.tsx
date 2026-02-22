@@ -22,6 +22,7 @@ interface ConsolidatedItem {
   noonQty: number;
   totalQty: number;
   unitCost: number;
+  costDate?: string;
   noonImageKey?: string;
 }
 
@@ -30,7 +31,7 @@ const getAmazonFallbackUrl = (asin: string) =>
 
 export function DailyOrdersTab() {
   const { profile } = useUserProfile();
-  const { getCostByAsin } = useMarketItemCosts();
+  const { } = useMarketItemCosts();
   const { links, deactivateLink } = useMarketPurchaseLinks();
   const { getImageByAsin } = useProductImages();
 
@@ -107,8 +108,18 @@ export function DailyOrdersTab() {
       const result = Object.values(consolidated);
       for (const item of result) {
         item.totalQty = item.amazonQty + item.noonQty;
-        const savedCost = await getCostByAsin(item.asin);
-        if (savedCost !== null) item.unitCost = savedCost;
+        if (!profile?.id) continue;
+        const { data } = await supabase
+          .from("market_item_costs")
+          .select("unit_cost, updated_at")
+          .eq("user_id", profile.id)
+          .eq("asin", item.asin)
+          .limit(1)
+          .maybeSingle();
+        if (data) {
+          item.unitCost = data.unit_cost;
+          item.costDate = data.updated_at;
+        }
       }
 
       setItems(result);
@@ -130,9 +141,7 @@ export function DailyOrdersTab() {
 
   const recentLinks = useMemo(() => links.slice(0, 5), [links]);
 
-  const handleCostChange = (asin: string, cost: number) => {
-    setItems((prev) => prev.map((i) => (i.asin === asin ? { ...i, unitCost: cost } : i)));
-  };
+  // Cost is read-only here — managed via Purchase Links only
 
   const goToDate = (dir: "prev" | "next" | "today") => {
     if (dir === "today") setSelectedDate(new Date().toISOString().split("T")[0]);
@@ -303,15 +312,19 @@ export function DailyOrdersTab() {
                     </div>
                   </td>
                   <td className="px-3 py-2.5 text-center font-bold text-foreground">{item.totalQty}</td>
-                  <td className="px-3 py-2.5">
-                    <Input
-                      type="number"
-                      min={0}
-                      step={0.01}
-                      className="h-7 w-20 text-xs ml-auto block"
-                      value={item.unitCost}
-                      onChange={(e) => handleCostChange(item.asin, Number(e.target.value))}
-                    />
+                  <td className="px-3 py-2.5 text-right">
+                    {item.unitCost > 0 ? (
+                      <div>
+                        <span className="font-semibold text-foreground">{item.unitCost.toFixed(2)}</span>
+                        {item.costDate && (
+                          <div className="text-[10px] text-muted-foreground mt-0.5">
+                            {format(new Date(item.costDate), 'dd MMM yyyy')}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
                   </td>
                   <td className="px-3 py-2.5 text-right font-semibold text-foreground">{(item.totalQty * item.unitCost).toFixed(2)}</td>
                 </tr>
@@ -319,7 +332,7 @@ export function DailyOrdersTab() {
             </tbody>
             <tfoot>
               <tr className="bg-primary/5 border-t-2 border-primary/20">
-                <td colSpan={6} className="px-3 py-3 text-right font-semibold text-sm text-muted-foreground">Grand Total:</td>
+                <td colSpan={4} className="px-3 py-3 text-right font-semibold text-sm text-muted-foreground">Grand Total:</td>
                 <td className="px-3 py-3 text-center font-bold text-foreground">{items.reduce((s, i) => s + i.totalQty, 0)}</td>
                 <td />
                 <td className="px-3 py-3 text-right font-bold text-lg text-primary">AED {grandTotal.toFixed(2)}</td>
