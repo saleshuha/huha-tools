@@ -308,13 +308,13 @@ export default function MarketPurchasePublic() {
               </td>
               <td className="px-3 py-2">
                 <Select
-                  value={item.supplier_name || ""}
-                  onValueChange={(v) => handleSupplierChange(item.asin, v)}
-                >
-                  <SelectTrigger className="h-7 w-full min-w-[120px] text-xs">
-                    <SelectValue placeholder="Select" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover z-50">
+                   value={item.supplier_name || ""}
+                   onValueChange={(v) => handleSupplierChange(item.asin, v)}
+                 >
+                   <SelectTrigger className="h-7 w-full min-w-[120px] text-xs">
+                     <SelectValue placeholder="Select" />
+                   </SelectTrigger>
+                   <SelectContent className="bg-popover z-[100]" position="popper" side="bottom" align="start">
                     {suppliers.map((s) => (
                       <SelectItem key={s.id} value={s.supplier_name} className="text-xs">
                         {s.supplier_name}
@@ -382,13 +382,13 @@ export default function MarketPurchasePublic() {
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Supplier</label>
                 <Select
-                  value={item.supplier_name || ""}
-                  onValueChange={(v) => handleSupplierChange(item.asin, v)}
-                >
-                  <SelectTrigger className="h-9 text-sm w-full">
-                    <SelectValue placeholder="Select supplier" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover z-50">
+                   value={item.supplier_name || ""}
+                   onValueChange={(v) => handleSupplierChange(item.asin, v)}
+                 >
+                   <SelectTrigger className="h-9 text-sm w-full">
+                     <SelectValue placeholder="Select supplier" />
+                   </SelectTrigger>
+                   <SelectContent className="bg-popover z-[100]" position="popper" side="bottom" align="start">
                     {suppliers.map((s) => (
                       <SelectItem key={s.id} value={s.supplier_name} className="text-sm">
                         {s.supplier_name}
