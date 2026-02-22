@@ -108,9 +108,18 @@ export function ItemCostsPdfPreview({ open, onOpenChange, costs, dateFrom, dateT
       };
 
       let y = drawHeaders(tableStartY);
-      const rowHeight = 9;
+      const baseRowHeight = 9;
+      const lineHeight = 3.2;
 
       costs.forEach((c, idx) => {
+        // Calculate title lines to determine row height
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "normal");
+        const titleText = c.title || "—";
+        const titleLines = doc.splitTextToSize(titleText, colWidths[2] - 2);
+        const titleH = titleLines.length * lineHeight;
+        const rowHeight = Math.max(baseRowHeight, titleH + 4);
+
         if (y + rowHeight > pageH - 18) {
           doc.addPage();
           y = 14;
@@ -130,10 +139,11 @@ export function ItemCostsPdfPreview({ open, onOpenChange, costs, dateFrom, dateT
         doc.setFontSize(7);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(30, 41, 59);
+        const midY = y + rowHeight / 2 + 1.5;
         let x = margin + 2;
 
         // #
-        doc.text(String(idx + 1), x, y + 5);
+        doc.text(String(idx + 1), x, midY);
         x += colWidths[0];
 
         // ASIN / SKU
@@ -149,33 +159,33 @@ export function ItemCostsPdfPreview({ open, onOpenChange, costs, dateFrom, dateT
         }
         x += colWidths[1];
 
-        // Title
+        // Title (multi-line)
         doc.setFont("helvetica", "normal");
-        doc.text((c.title || "—").substring(0, 45), x, y + 5);
+        doc.text(titleLines, x, y + 3.5);
         x += colWidths[2];
 
         // Supplier
-        doc.text((c.supplier_name || "—").substring(0, 22), x, y + 5);
+        doc.text((c.supplier_name || "—").substring(0, 22), x, midY);
         x += colWidths[3];
 
         // Cost
         doc.setFont("helvetica", "bold");
-        doc.text(c.unit_cost.toFixed(2), x, y + 5);
+        doc.text(c.unit_cost.toFixed(2), x, midY);
         x += colWidths[4];
 
         // Updated
         doc.setFont("helvetica", "normal");
-        doc.text(format(new Date(c.updated_at), "dd MMM yy"), x, y + 5);
+        doc.text(format(new Date(c.updated_at), "dd MMM yy"), x, midY);
         x += colWidths[5];
 
         // Source badge
         const src = getSourceConfig(c.source);
         const badgeW = doc.getTextWidth(src.label) + 4;
         doc.setFillColor(...src.pdfBg);
-        doc.roundedRect(x - 1, y + 1.2, badgeW, 4.5, 1, 1, "F");
+        doc.roundedRect(x - 1, midY - 3.3, badgeW, 4.5, 1, 1, "F");
         doc.setTextColor(...src.pdfText);
         doc.setFontSize(6);
-        doc.text(src.label, x + 1, y + 4.5);
+        doc.text(src.label, x + 1, midY - 0.5);
 
         y += rowHeight;
       });
