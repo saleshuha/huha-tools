@@ -50,21 +50,37 @@ export function DailyOrdersTab() {
 
       const consolidated: Record<string, ConsolidatedItem> = {};
 
+      const normalize = (val: string | null | undefined) => (val || "").trim().toUpperCase();
+
+      const findOrCreateKey = (asin: string, sku: string): string => {
+        const normAsin = normalize(asin);
+        const normSku = normalize(sku);
+        // Try matching by normalized ASIN first, then SKU
+        for (const [key] of Object.entries(consolidated)) {
+          if (normAsin && normalize(consolidated[key].asin) === normAsin) return key;
+          if (normSku && normalize(consolidated[key].sku) === normSku) return key;
+        }
+        return normAsin || normSku || "unknown";
+      };
+
       (amazonOrders || []).forEach((o: any) => {
-        const key = o.asin || o.sku || "unknown";
+        const key = findOrCreateKey(o.asin, o.sku);
         if (!consolidated[key]) {
           consolidated[key] = { asin: o.asin || "", sku: o.sku || "", title: o.item_title || "", amazonQty: 0, noonQty: 0, totalQty: 0, unitCost: 0 };
         }
         consolidated[key].amazonQty += Number(o.item_quantity || 1);
+        if (!consolidated[key].sku && o.sku) consolidated[key].sku = o.sku;
+        if (!consolidated[key].title && o.item_title) consolidated[key].title = o.item_title;
       });
 
       (noonOrders || []).forEach((o: any) => {
-        const key = o.partner_sku || o.sku || "unknown";
+        const key = findOrCreateKey(o.partner_sku, o.sku);
         if (!consolidated[key]) {
           consolidated[key] = { asin: o.partner_sku || "", sku: o.sku || "", title: o.title || "", amazonQty: 0, noonQty: 0, totalQty: 0, unitCost: 0 };
         }
         consolidated[key].noonQty += Number(o.quantity || 1);
         if (!consolidated[key].title && o.title) consolidated[key].title = o.title;
+        if (!consolidated[key].asin && o.partner_sku) consolidated[key].asin = o.partner_sku;
       });
 
       const result = Object.values(consolidated);
